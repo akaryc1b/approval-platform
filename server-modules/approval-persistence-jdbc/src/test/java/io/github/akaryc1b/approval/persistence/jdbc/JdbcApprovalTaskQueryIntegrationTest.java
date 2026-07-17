@@ -9,6 +9,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.Publ
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskCriteria;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskIdentity;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,7 +72,7 @@ class JdbcApprovalTaskQueryIntegrationTest {
             """);
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         projectionStore = new JdbcApprovalProjectionStore(dataSource, objectMapper);
-        taskQuery = new JdbcApprovalTaskQuery(dataSource);
+        taskQuery = new JdbcApprovalTaskQuery(dataSource, objectMapper);
         saveDefinition("tenant-a");
         saveDefinition("tenant-b");
     }
@@ -136,6 +137,31 @@ class JdbcApprovalTaskQueryIntegrationTest {
             0
         ));
         assertEquals(1, supplierSearch.total());
+
+        var details = taskQuery.findPendingTask(new PendingTaskIdentity(
+            "tenant-a",
+            "manager-a",
+            identifier(1001)
+        ));
+        assertTrue(details.isPresent());
+        assertEquals("PO-SEARCH-001", details.orElseThrow().businessKey());
+        assertEquals(List.of("attachment-1"), details.orElseThrow().attachmentIds());
+
+        assertTrue(taskQuery.findPendingTask(new PendingTaskIdentity(
+            "tenant-a",
+            "manager-b",
+            identifier(1001)
+        )).isEmpty());
+        assertTrue(taskQuery.findPendingTask(new PendingTaskIdentity(
+            "tenant-b",
+            "manager-a",
+            identifier(1001)
+        )).isEmpty());
+        assertTrue(taskQuery.findPendingTask(new PendingTaskIdentity(
+            "tenant-a",
+            "manager-a",
+            identifier(1004)
+        )).isEmpty());
     }
 
     @Test
