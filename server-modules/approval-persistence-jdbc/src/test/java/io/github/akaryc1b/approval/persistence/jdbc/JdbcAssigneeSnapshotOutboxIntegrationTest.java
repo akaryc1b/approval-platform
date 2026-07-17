@@ -157,14 +157,17 @@ class JdbcAssigneeSnapshotOutboxIntegrationTest {
             "select count(*) from ap_outbox",
             Integer.class
         ));
-        String eventJson = jdbc.queryForObject(
-            "select event_json::text from ap_outbox",
+        assertEquals(
+            JdbcApprovalBusinessEventOutbox.COMPLETED_EVENT_TYPE,
+            jdbc.queryForObject("select event_type from ap_outbox", String.class)
+        );
+        String payloadJson = jdbc.queryForObject(
+            "select payload_json::text from ap_outbox",
             String.class
         );
-        assertTrue(eventJson.contains("purchase-payment.completed.v1"));
-        assertTrue(eventJson.contains(instance.contentHash()));
-        assertTrue(eventJson.contains("PO-SNAPSHOT-3"));
-        assertTrue(eventJson.contains("Finance A"));
+        assertTrue(payloadJson.contains(instance.contentHash()));
+        assertTrue(payloadJson.contains("PO-SNAPSHOT-3"));
+        assertTrue(payloadJson.contains("Finance A"));
     }
 
     private static PublishedDefinition definition() {
