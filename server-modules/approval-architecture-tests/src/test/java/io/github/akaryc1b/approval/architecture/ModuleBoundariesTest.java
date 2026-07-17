@@ -45,6 +45,16 @@ class ModuleBoundariesTest {
         );
 
     @ArchTest
+    static final ArchRule HOST_SDK_IS_FRAMEWORK_INDEPENDENT = noClasses()
+        .that().resideInAPackage("io.github.akaryc1b.approval.host..")
+        .should().dependOnClassesThat().resideInAnyPackage(
+            "org.springframework..",
+            "org.flowable..",
+            "cn.dev33..",
+            "org.dromara.."
+        );
+
+    @ArchTest
     static final ArchRule INTEGRATION_CORE_IS_FRAMEWORK_INDEPENDENT = noClasses()
         .that().resideInAPackage("io.github.akaryc1b.approval.integration..")
         .and().resideOutsideOfPackage("io.github.akaryc1b.approval.integration.jdbc..")
