@@ -13,6 +13,26 @@ flowable:
   async-executor-activate: true
   history-level: audit
 
+approval:
+  connector:
+    generic:
+      enabled: ${APPROVAL_GENERIC_CONNECTOR_ENABLED:false}
+      connector-key: ${APPROVAL_GENERIC_CONNECTOR_KEY:generic-rest}
+      host-base-uri: ${APPROVAL_GENERIC_HOST_BASE_URI:http://127.0.0.1:19090}
+      callback-uri: ${APPROVAL_GENERIC_CALLBACK_URI:http://127.0.0.1:19090/api/approval-callback/v1/events}
+      key-id: ${APPROVAL_GENERIC_KEY_ID:}
+      secret: ${APPROVAL_GENERIC_SECRET:}
+      timeout: ${APPROVAL_GENERIC_TIMEOUT:10s}
+      dispatch:
+        enabled: ${APPROVAL_GENERIC_DISPATCH_ENABLED:true}
+        fixed-delay: ${APPROVAL_GENERIC_DISPATCH_FIXED_DELAY:5s}
+        batch-size: ${APPROVAL_GENERIC_DISPATCH_BATCH_SIZE:50}
+        lease-duration: ${APPROVAL_GENERIC_DISPATCH_LEASE:30s}
+        initial-delay: ${APPROVAL_GENERIC_RETRY_INITIAL_DELAY:1s}
+        maximum-delay: ${APPROVAL_GENERIC_RETRY_MAXIMUM_DELAY:5m}
+        maximum-attempts: ${APPROVAL_GENERIC_RETRY_MAXIMUM_ATTEMPTS:10}
+        jitter-ratio: ${APPROVAL_GENERIC_RETRY_JITTER_RATIO:0.2}
+
 management:
   endpoints:
     web:
