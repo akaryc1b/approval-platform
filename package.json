@@ -30,7 +30,10 @@
     "mobile:dev:h5": "pnpm mobile:bootstrap && pnpm -C .upstream/unibest init-baseFiles && pnpm -C .upstream/unibest dev:h5",
     "mobile:typecheck": "pnpm mobile:bootstrap && pnpm -C .upstream/unibest init-baseFiles && pnpm -C .upstream/unibest type-check",
     "mobile:build:h5": "pnpm mobile:bootstrap && pnpm -C .upstream/unibest init-baseFiles && pnpm -C .upstream/unibest build:h5",
-    "mobile:build:weixin": "pnpm mobile:bootstrap && pnpm -C .upstream/unibest init-baseFiles && pnpm -C .upstream/unibest build:mp-weixin"
+    "mobile:build:weixin": "pnpm mobile:bootstrap && pnpm -C .upstream/unibest init-baseFiles && pnpm -C .upstream/unibest build:mp-weixin",
+    "ruoyi5:bootstrap": "node scripts/upstream/bootstrap-ruoyi5.mjs",
+    "ruoyi5:clean": "node scripts/upstream/bootstrap-ruoyi5.mjs --clean",
+    "ruoyi5:build": "pnpm ruoyi5:bootstrap && mvn -B -ntp -f .upstream/ruoyi5/pom.xml -pl ruoyi-extend/ruoyi-approval-host-starter -am -DskipTests package"
   },
   "devDependencies": {
     "typescript": "5.9.3"

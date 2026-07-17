@@ -1,0 +1,81 @@
+name: RuoYi 5.X Host Starter CI
+
+on:
+  push:
+    paths:
+      - 'pom.xml'
+      - 'integrations/host-sdk/**'
+      - 'integrations/ruoyi5-host-starter/**'
+      - 'scripts/upstream/bootstrap-ruoyi5.mjs'
+      - '.github/workflows/ruoyi5-host-ci.yml'
+  pull_request:
+    paths:
+      - 'pom.xml'
+      - 'integrations/host-sdk/**'
+      - 'integrations/ruoyi5-host-starter/**'
+      - 'scripts/upstream/bootstrap-ruoyi5.mjs'
+      - '.github/workflows/ruoyi5-host-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21 for Host SDK publication
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install Java 17-compatible Host SDK
+        run: mvn -B -ntp -pl integrations/host-sdk -am -DskipTests install
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+
+      - name: Prepare pinned RuoYi 5.X workspace
+        run: node scripts/upstream/bootstrap-ruoyi5.mjs
+
+      - name: Verify pinned upstream revision and application wiring
+        run: |
+          test "$(git -C .upstream/ruoyi5 rev-parse HEAD)" = "e49f02f89e17ee5a4cc14048af99cc83d72872a7"
+          grep -q '<artifactId>ruoyi-approval-host-starter</artifactId>' .upstream/ruoyi5/ruoyi-admin/pom.xml
+
+      - name: Set up Java 17 for RuoYi 5.X
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Compile RuoYi 5.X application with Starter
+        run: |
+          set -o pipefail
+          mvn -B -ntp -f .upstream/ruoyi5/pom.xml \
+            -pl ruoyi-admin \
+            -am -DskipTests package 2>&1 | tee ruoyi5-host-ci.log
+
+      - name: Test RuoYi 5.X organization mappings
+        run: |
+          set -o pipefail
+          mvn -B -ntp -f .upstream/ruoyi5/pom.xml \
+            -pl ruoyi-extend/ruoyi-approval-host-starter \
+            -am -DskipTests=false \
+            -Dtest=Ruoyi5ApprovalHostServiceTest \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            test 2>&1 | tee -a ruoyi5-host-ci.log
+
+      - name: Upload RuoYi 5.X failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruoyi5-host-ci-log
+          path: ruoyi5-host-ci.log
+          if-no-files-found: ignore
