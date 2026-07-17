@@ -16,11 +16,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -44,11 +42,8 @@ class Ruoyi6ApprovalHostServiceTest {
         userPostMapper = mock(SysUserPostMapper.class);
         ApprovalHostProperties properties = new ApprovalHostProperties();
         properties.setSource("ruoyi6");
-        properties.setTenantId("tenant-a");
-        properties.setTenantName("Tenant A");
         service = new Ruoyi6ApprovalHostService(
             properties,
-            new SingleTenantBridge(properties),
             userService,
             deptService,
             roleService,
@@ -77,7 +72,7 @@ class Ruoyi6ApprovalHostServiceTest {
         );
 
         assertEquals("ruoyi6:user:1", canonical(result.id()));
-        assertEquals("ruoyi6:department:10", canonical(result.departmentIds().get(0)));
+        assertEquals("ruoyi6:department:10", canonical(result.departmentIds().getFirst()));
         assertEquals("ruoyi6:user:2", canonical(result.managerId()));
         assertEquals("tenant-a", result.attributes().get("tenantId"));
         assertEquals(List.of("finance-manager"), result.roleCodes().stream().sorted().toList());
@@ -104,7 +99,7 @@ class Ruoyi6ApprovalHostServiceTest {
         );
 
         assertEquals(1, result.size());
-        assertEquals("bob", result.get(0).username());
+        assertEquals("bob", result.getFirst().username());
     }
 
     @Test
@@ -130,20 +125,8 @@ class Ruoyi6ApprovalHostServiceTest {
         var result = service.positionMembers("tenant-a", "engineer");
 
         assertEquals(1, result.size());
-        assertEquals("alice", result.get(0).username());
-        assertNull(result.get(0).managerId());
-    }
-
-    @Test
-    void defaultTenantBridgeRejectsOtherTenants() {
-        Ruoyi6HostException exception = assertThrows(
-            Ruoyi6HostException.class,
-            () -> service.findUser(
-                "tenant-b",
-                new ExternalIdRequest("ruoyi6", "user", "1")
-            )
-        );
-        assertEquals("TENANT_MISMATCH", exception.code());
+        assertEquals("alice", result.getFirst().username());
+        assertNull(result.getFirst().managerId());
     }
 
     private static SysUserVo user(
