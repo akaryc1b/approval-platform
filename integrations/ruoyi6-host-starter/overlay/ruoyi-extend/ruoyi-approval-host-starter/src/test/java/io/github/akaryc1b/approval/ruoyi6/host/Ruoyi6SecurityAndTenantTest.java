@@ -4,8 +4,10 @@ import org.dromara.common.security.config.properties.SecurityProperties;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -63,8 +65,31 @@ class Ruoyi6SecurityAndTenantTest {
     }
 
     @Test
+    void secretResolverAcceptsOnlyConfiguredTenant() {
+        ApprovalHostProperties properties = new ApprovalHostProperties();
+        properties.setTenantId("approval-tenant-a");
+        ApprovalHostProperties.TenantKey tenantA = tenantKey("key-a");
+        ApprovalHostProperties.TenantKey tenantB = tenantKey("key-b");
+        properties.setTenants(Map.of(
+            "approval-tenant-a", tenantA,
+            "approval-tenant-b", tenantB
+        ));
+        Ruoyi6TenantSecretResolver resolver = new Ruoyi6TenantSecretResolver(properties);
+
+        assertTrue(resolver.resolve("approval-tenant-a", "key-a").isPresent());
+        assertFalse(resolver.resolve("approval-tenant-b", "key-b").isPresent());
+    }
+
+    @Test
     void ignoresUnrelatedBeans() {
         Object bean = new Object();
         assertEquals(bean, processor.postProcessBeforeInitialization(bean, "other"));
+    }
+
+    private static ApprovalHostProperties.TenantKey tenantKey(String keyId) {
+        ApprovalHostProperties.TenantKey key = new ApprovalHostProperties.TenantKey();
+        key.setKeyId(keyId);
+        key.setSecret("0123456789abcdef0123456789abcdef");
+        return key;
     }
 }
