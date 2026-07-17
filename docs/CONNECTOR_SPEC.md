@@ -149,28 +149,106 @@ CANCELED
 
 同一个 `externalTaskKey` 的重复同步必须幂等。
 
-## HTTP 与 Webhook 边界
+## Generic REST 回调协议
 
-Java SPI 不规定传输方式。跨进程部署时使用 REST/Webhook，并至少携带：
+Generic REST 连接器发送 UTF-8 JSON 请求，事件对象使用稳定键顺序生成签名正文。默认请求头：
 
 ```text
-Authorization
+Content-Type: application/json
+X-Approval-Key-Id
+X-Approval-Timestamp
+X-Approval-Nonce
+X-Approval-Signature
+X-Approval-Event-Id
 X-Tenant-Id
 X-Request-Id
+X-Trace-Id                 可选
 Idempotency-Key
-X-Signature
-X-Timestamp
 ```
 
-Webhook 必须：
+租户配置的附加请求头不能覆盖以上保留头。
 
-- 使用租户级密钥签名；
-- 校验时间窗口，防止重放；
-- 使用 Inbox 去重；
-- 使用 Outbox 异步投递；
-- 指数退避重试；
-- 记录每次投递结果；
-- 不因业务回调失败回滚已完成的审批操作。
+### 签名规范
+
+当前签名版本为 `v1`：
+
+```text
+canonical = timestamp + "\n" + nonce + "\n" + body
+signature = "v1=" + hex(HMAC-SHA256(tenantSecret, canonical))
+```
+
+约束：
+
+- `timestamp` 是 UTC Unix 秒；
+- `nonce` 每次投递随机生成；
+- 租户密钥至少 32 字节；
+- 接收方使用常量时间比较签名；
+- 接收方在业务处理前校验时间窗口；
+- 默认建议时间偏差不超过 5 分钟；
+- 验签成功后仍需通过 Inbox 使用消息 ID 和载荷哈希去重。
+
+### HTTP 结果分类
+
+```text
+2xx                 DELIVERED
+408 / 425 / 429     RETRYABLE_FAILURE
+5xx                 RETRYABLE_FAILURE
+其他非 2xx          PERMANENT_FAILURE
+网络异常和超时       RETRYABLE_FAILURE
+```
+
+连接器禁止自动跟随重定向，避免签名请求被转发至未配置地址。
+
+## Transactional Outbox
+
+审批业务事务只追加 `ap_outbox`，不在事务内执行远程 HTTP 调用。投递器在事务提交后异步领取并投递消息。
+
+状态：
+
+```text
+PENDING
+IN_FLIGHT
+DELIVERED
+DEAD
+```
+
+生产约束：
+
+- `(tenant_id, connector_key, idempotency_key)` 唯一；
+- PostgreSQL 领取使用 `FOR UPDATE SKIP LOCKED`；
+- 领取后记录 `locked_by` 和 `locked_until`；
+- 完成、重试和死信更新必须匹配当前工作线程；
+- 租约过期后允许其他工作线程重新领取；
+- 旧工作线程不能覆盖新工作线程的结果；
+- 可重试失败使用带抖动的指数退避；
+- 达到最大次数或永久失败进入 `DEAD`；
+- 回调失败不能回滚已完成的审批任务。
+
+## Inbox 去重
+
+外部 webhook 在验签后进入 `ap_inbox`。主键为：
+
+```text
+tenant_id + consumer_key + message_id
+```
+
+状态：
+
+```text
+PROCESSING
+COMPLETED
+FAILED
+```
+
+处理规则：
+
+- 首次收到消息时获得处理租约；
+- 已完成消息返回重复结果，不再次执行；
+- 正在处理且租约有效时返回处理中；
+- 同一消息 ID 使用不同载荷哈希时拒绝处理；
+- 失败消息和过期租约允许重新领取；
+- 完成和失败更新必须匹配当前工作线程；
+- Inbox 只能减少重复执行风险，跨数据库业务命令仍必须自身幂等。
 
 ## 业务事件
 
