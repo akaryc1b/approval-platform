@@ -26,6 +26,11 @@
         </dependency>
         <dependency>
             <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-connector-spi</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
             <artifactId>approval-engine-flowable</artifactId>
             <version>${revision}</version>
         </dependency>
