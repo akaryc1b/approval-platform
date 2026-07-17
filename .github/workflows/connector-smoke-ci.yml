@@ -20,6 +20,18 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,10 +51,86 @@ jobs:
       - name: Verify CLI help without secrets
         run: node examples/connector-smoke/cli.mjs help | grep -q 'Approval Platform Connector Smoke CLI'
 
-      - name: Verify version-specific menu semantics
+      - name: Execute version-specific menu SQL twice
         run: |
           set -euo pipefail
-          grep -q "is_frame" examples/connector-smoke/ruoyi-menu/ruoyi5-mysql.sql
-          grep -q "^[[:space:]]*0,[[:space:]]*$" examples/connector-smoke/ruoyi-menu/ruoyi5-mysql.sql
-          grep -q "'Y'" examples/connector-smoke/ruoyi-menu/ruoyi6-mysql.sql
-          grep -q "active_menu" examples/connector-smoke/ruoyi-menu/ruoyi6-mysql.sql
+          cat >/tmp/ruoyi-menu-schema.sql <<'SQL'
+          CREATE DATABASE ruoyi5;
+          CREATE TABLE ruoyi5.sys_menu (
+            menu_id BIGINT NOT NULL PRIMARY KEY,
+            menu_name VARCHAR(50) NOT NULL,
+            parent_id BIGINT DEFAULT 0,
+            order_num INT DEFAULT 0,
+            path VARCHAR(200) DEFAULT '',
+            component VARCHAR(255),
+            query_param VARCHAR(255),
+            is_frame INT DEFAULT 1,
+            is_cache INT DEFAULT 0,
+            menu_type CHAR(1),
+            visible CHAR(1) DEFAULT '0',
+            status CHAR(1) DEFAULT '0',
+            perms VARCHAR(100),
+            icon VARCHAR(100),
+            create_dept BIGINT,
+            create_by BIGINT,
+            create_time DATETIME,
+            update_by BIGINT,
+            update_time DATETIME,
+            remark VARCHAR(500)
+          );
+          CREATE TABLE ruoyi5.sys_role_menu (
+            role_id BIGINT NOT NULL,
+            menu_id BIGINT NOT NULL,
+            PRIMARY KEY (role_id, menu_id)
+          );
+
+          CREATE DATABASE ruoyi6;
+          CREATE TABLE ruoyi6.sys_menu (
+            menu_id BIGINT NOT NULL PRIMARY KEY,
+            menu_name VARCHAR(50) NOT NULL,
+            parent_id BIGINT DEFAULT 0,
+            order_num INT DEFAULT 0,
+            path VARCHAR(200) DEFAULT '',
+            component VARCHAR(255),
+            query_param VARCHAR(255),
+            is_frame CHAR(1) DEFAULT 'N',
+            is_cache CHAR(1) DEFAULT 'Y',
+            menu_type CHAR(1),
+            visible CHAR(1) DEFAULT '0',
+            status CHAR(1) DEFAULT '0',
+            perms VARCHAR(100),
+            icon VARCHAR(100),
+            active_menu VARCHAR(200),
+            ext VARCHAR(500),
+            create_dept BIGINT,
+            create_by BIGINT,
+            create_time DATETIME,
+            update_by BIGINT,
+            update_time DATETIME,
+            remark VARCHAR(500)
+          );
+          CREATE TABLE ruoyi6.sys_role_menu (
+            role_id BIGINT NOT NULL,
+            menu_id BIGINT NOT NULL,
+            PRIMARY KEY (role_id, menu_id)
+          );
+          SQL
+
+          mysql() {
+            docker run --rm --network host -e MYSQL_PWD=root -i mysql:8.4 \
+              mysql --protocol=tcp -h127.0.0.1 -uroot "$@"
+          }
+
+          mysql </tmp/ruoyi-menu-schema.sql
+          mysql ruoyi5 <examples/connector-smoke/ruoyi-menu/ruoyi5-mysql.sql
+          mysql ruoyi5 <examples/connector-smoke/ruoyi-menu/ruoyi5-mysql.sql
+          mysql ruoyi6 <examples/connector-smoke/ruoyi-menu/ruoyi6-mysql.sql
+          mysql ruoyi6 <examples/connector-smoke/ruoyi-menu/ruoyi6-mysql.sql
+
+          mysql -N -s -e "SELECT IF(
+            (SELECT COUNT(*) FROM ruoyi5.sys_menu) = 1 AND
+            (SELECT COUNT(*) FROM ruoyi5.sys_role_menu) = 1 AND
+            (SELECT COUNT(*) FROM ruoyi6.sys_menu) = 1 AND
+            (SELECT COUNT(*) FROM ruoyi6.sys_role_menu) = 1,
+            'ok', 'invalid'
+          );" | grep -qx ok
