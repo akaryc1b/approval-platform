@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,10 +29,11 @@ class PurchasePaymentFlowableIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        String databaseName = "purchase-payment-" + UUID.randomUUID();
         processEngine = ProcessEngineConfiguration
             .createStandaloneInMemProcessEngineConfiguration()
             .setDatabaseSchemaUpdate(ProcessEngineConfiguration.DB_SCHEMA_UPDATE_TRUE)
-            .setJdbcUrl("jdbc:h2:mem:purchase-payment;DB_CLOSE_DELAY=-1")
+            .setJdbcUrl("jdbc:h2:mem:" + databaseName)
             .buildProcessEngine();
         engine = new FlowableApprovalEngine(
             processEngine.getRepositoryService(),
