@@ -6,9 +6,22 @@ import java.util.function.Supplier;
 
 /**
  * Executes a write command at most once for a tenant, operation and idempotency key.
- * Implementations must return the previously completed result for a replayed command.
+ * Implementations must durably return the original completed result for a replayed command.
  */
 public interface IdempotencyGuard {
 
-    <T> T execute(RequestContext context, String operation, Supplier<T> action);
+    <T> T execute(
+        RequestContext context,
+        String operation,
+        String requestHash,
+        Class<T> resultType,
+        Supplier<T> action
+    );
+
+    final class IdempotencyConflictException extends RuntimeException {
+
+        public IdempotencyConflictException(String message) {
+            super(message);
+        }
+    }
 }

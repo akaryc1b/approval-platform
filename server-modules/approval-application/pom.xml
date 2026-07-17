@@ -17,5 +17,15 @@
             <artifactId>approval-engine-spi</artifactId>
             <version>${revision}</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-definition-compiler</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
