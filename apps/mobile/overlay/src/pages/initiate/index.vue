@@ -58,7 +58,7 @@ function startTemplate(name: string) {
         <view class="template-card__icon">{{ template.icon }}</view>
         <view class="template-card__name">{{ template.name }}</view>
         <view class="template-card__description">{{ template.description }}</view>
-        <wd-tag plain type="info">{{ template.category }}</wd-tag>
+        <wd-tag plain type="primary">{{ template.category }}</wd-tag>
       </view>
     </view>
 
