@@ -33,4 +33,14 @@ class ModuleBoundariesTest {
     static final ArchRule ENGINE_SPI_DOES_NOT_DEPEND_ON_FLOWABLE = noClasses()
         .that().resideInAPackage("io.github.akaryc1b.approval.engine")
         .should().dependOnClassesThat().resideInAnyPackage("org.flowable..");
+
+    @ArchTest
+    static final ArchRule CONNECTOR_SPI_IS_FRAMEWORK_INDEPENDENT = noClasses()
+        .that().resideInAPackage("io.github.akaryc1b.approval.connector..")
+        .should().dependOnClassesThat().resideInAnyPackage(
+            "org.springframework..",
+            "org.flowable..",
+            "cn.dev33..",
+            "org.dromara.."
+        );
 }
