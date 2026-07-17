@@ -127,11 +127,14 @@ await writeFile(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8'
 
 const tsconfigPath = resolve(upstreamDirectory, 'tsconfig.json');
 const tsconfig = JSON.parse(await readFile(tsconfigPath, 'utf8'));
-const types = new Set(tsconfig.compilerOptions?.types ?? []);
-types.add('wot-design-uni/global');
+const types = (tsconfig.compilerOptions?.types ?? []).filter(
+  typeName => typeName !== 'wot-design-uni/global',
+);
 tsconfig.compilerOptions = {
   ...tsconfig.compilerOptions,
-  types: [...types],
+  target: 'ES2020',
+  downlevelIteration: true,
+  types,
 };
 await writeFile(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`, 'utf8');
 
