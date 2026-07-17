@@ -135,6 +135,14 @@ tsconfig.compilerOptions = {
 };
 await writeFile(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`, 'utf8');
 
+// The generated project lives below the approval Monorepo. Without a local
+// workspace manifest pnpm walks upward and installs the parent workspace instead.
+await writeFile(
+  resolve(upstreamDirectory, 'pnpm-workspace.yaml'),
+  "packages:\n  - '.'\n",
+  'utf8',
+);
+
 await writeFile(
   markerPath,
   `${JSON.stringify(
