@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/dromara/RuoYi-Vue-Plus.git",
+  "branch": "6.X",
+  "commit": "da5f30cae2deb174a1ba37a2ad41ff1ba42c9f38",
+  "version": "6.0.0-BETA",
+  "javaVersion": 21,
+  "springBootLine": "4.1",
+  "sourceKey": "ruoyi6"
+}
