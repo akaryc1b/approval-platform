@@ -1,4 +1,5 @@
 const PREFIX = '/api/approval-connector/v1';
+const SENSITIVE_OPTION = /(authorization|credential|password|secret|signature|token)/iu;
 
 export async function executeCommand(client, command, options, environment = process.env) {
   switch (command) {
@@ -116,6 +117,9 @@ export function parseArguments(arguments_) {
     const key = token.slice(2);
     if (key.length === 0) {
       throw new TypeError('Option name must not be empty.');
+    }
+    if (SENSITIVE_OPTION.test(key)) {
+      throw new TypeError(`Sensitive option --${key} must be supplied through the environment.`);
     }
     const value = tokens[index + 1];
     if (value === undefined || value.startsWith('--')) {
