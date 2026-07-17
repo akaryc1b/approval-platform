@@ -1,0 +1,39 @@
+# OS and editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.iml
+
+# Java
+**/target/
+.mvn/timing.properties
+*.log
+hs_err_pid*
+
+# Node
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# UniApp / mobile
+unpackage/
+.hbuilderx/
+
+# Build and local runtime
+.tmp/
+tmp/
+data/
+logs/
