@@ -24,9 +24,6 @@ public record OutboxMessage(
         event = Objects.requireNonNull(event, "event must not be null");
         availableAt = Objects.requireNonNull(availableAt, "availableAt must not be null");
         createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
-        if (!context.tenantId().equals(event.payload().getOrDefault("tenantId", context.tenantId()))) {
-            throw new IllegalArgumentException("event tenantId must match connector context when present");
-        }
     }
 
     public static OutboxMessage create(
