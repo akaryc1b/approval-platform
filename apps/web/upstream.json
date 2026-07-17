@@ -1,0 +1,8 @@
+{
+  "name": "Vben Admin web-ele",
+  "repository": "https://github.com/vbenjs/vue-vben-admin.git",
+  "tag": "v5.7.0",
+  "commit": "63a38dce49ba109f61607994e21ba921d8e970e9",
+  "license": "MIT",
+  "applicationPath": "apps/web-ele"
+}

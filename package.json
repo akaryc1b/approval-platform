@@ -17,7 +17,13 @@
   "scripts": {
     "build:packages": "pnpm --filter './packages/**' build",
     "check": "pnpm -r --if-present check",
-    "clean": "pnpm -r --if-present clean"
+    "clean": "pnpm -r --if-present clean",
+    "web:bootstrap": "node scripts/upstream/bootstrap-vben.mjs",
+    "web:clean": "node scripts/upstream/bootstrap-vben.mjs --clean",
+    "web:install": "pnpm web:bootstrap && pnpm --dir .upstream/vben install --frozen-lockfile",
+    "web:dev": "pnpm web:bootstrap && pnpm --dir .upstream/vben dev:ele",
+    "web:typecheck": "pnpm web:bootstrap && pnpm --dir .upstream/vben --filter @vben/web-ele typecheck",
+    "web:build": "pnpm web:bootstrap && pnpm --dir .upstream/vben build:ele"
   },
   "devDependencies": {
     "typescript": "5.9.3"
