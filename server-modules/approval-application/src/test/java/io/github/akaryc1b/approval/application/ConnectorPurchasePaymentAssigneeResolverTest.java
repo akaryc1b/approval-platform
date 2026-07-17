@@ -23,7 +23,6 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConnectorPurchasePaymentAssigneeResolverTest {
 
@@ -61,6 +60,26 @@ class ConnectorPurchasePaymentAssigneeResolverTest {
             Set.of("finance"),
             snapshot.identities().get("fixture:user:400").positionCodes()
         );
+    }
+
+    @Test
+    void rejectsInitiatorThatDoesNotMatchAuthenticatedOperator() {
+        StubOrganizationConnector connector = configuredConnector();
+        var resolver = new ConnectorPurchasePaymentAssigneeResolver(connector, CLOCK);
+        RequestContext otherOperator = new RequestContext(
+            "tenant-a",
+            "999",
+            "request-1",
+            "idempotency-1",
+            "trace-1"
+        );
+
+        var failure = assertThrows(
+            PurchasePaymentAssigneeResolver.AssigneeResolutionException.class,
+            () -> resolver.resolve(otherOperator, rules(10))
+        );
+
+        assertEquals("INITIATOR_OPERATOR_MISMATCH", failure.code());
     }
 
     @Test
