@@ -41,10 +41,10 @@ public final class CanonicalJson {
             appendIterable(builder, collection);
         } else if (value instanceof Iterable<?> iterable) {
             appendIterable(builder, iterable);
-        } else if (value.getClass().isArray()) {
-            appendArray(builder, value);
         } else if (value instanceof byte[] bytes) {
             appendString(builder, Base64.getEncoder().encodeToString(bytes));
+        } else if (value.getClass().isArray()) {
+            appendArray(builder, value);
         } else if (value instanceof UUID || value instanceof TemporalAccessor || value instanceof Enum<?>) {
             appendString(builder, value.toString());
         } else {
