@@ -1,8 +1,6 @@
 package io.github.akaryc1b.approval.ruoyi6.host;
 
 import cn.dev33.satoken.annotation.SaIgnore;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.host.security.HostRequestVerifier;
 import io.github.akaryc1b.approval.ruoyi6.host.HostContractModels.AuthenticationRequest;
 import io.github.akaryc1b.approval.ruoyi6.host.HostContractModels.AuthenticationResponse;
@@ -17,6 +15,7 @@ import io.github.akaryc1b.approval.ruoyi6.host.HostContractModels.UserItems;
 import io.github.akaryc1b.approval.ruoyi6.host.HostContractModels.UserPage;
 import io.github.akaryc1b.approval.ruoyi6.host.HostContractModels.UserResponse;
 import io.github.akaryc1b.approval.ruoyi6.host.HostContractModels.UserSearchRequest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,8 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
+import tools.jackson.databind.json.JsonMapper;
 
 @SaIgnore
 @RestController
@@ -44,224 +42,164 @@ public final class Ruoyi6ApprovalHostController {
     private static final String REQUEST_ID = "X-Request-Id";
 
     private final HostRequestVerifier requestVerifier;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final Ruoyi6TenantBridge tenantBridge;
     private final Ruoyi6ApprovalHostService service;
 
     Ruoyi6ApprovalHostController(
         HostRequestVerifier requestVerifier,
-        ObjectMapper objectMapper,
+        JsonMapper jsonMapper,
         Ruoyi6TenantBridge tenantBridge,
         Ruoyi6ApprovalHostService service
     ) {
         this.requestVerifier = requestVerifier;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
         this.tenantBridge = tenantBridge;
         this.service = service;
     }
 
     @PostMapping(value = "/authenticate", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Envelope<AuthenticationResponse> authenticate(
-        @RequestHeader(TENANT_ID) String tenantId,
-        @RequestHeader(KEY_ID) String keyId,
-        @RequestHeader(TIMESTAMP) String timestamp,
-        @RequestHeader(NONCE) String nonce,
-        @RequestHeader(SIGNATURE) String signature,
-        @RequestHeader(OPERATION) String operation,
-        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader HttpHeaders headers,
         @RequestBody String body
     ) {
-        verify("authentication.authenticate.v1", tenantId, keyId, timestamp, nonce, signature,
-            operation, requestId, body);
-        AuthenticationRequest request = read(body, AuthenticationRequest.class);
+        SignedRequest request = verify("authentication.authenticate.v1", headers, body);
+        AuthenticationRequest payload = read(body, AuthenticationRequest.class);
         return tenantBridge.execute(
-            tenantId,
-            tenant -> new Envelope<>(service.authenticate(tenant, request))
+            request.tenantId(),
+            tenant -> new Envelope<>(service.authenticate(tenant, payload))
         );
     }
 
     @PostMapping(value = "/organization/users/find", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Envelope<UserResponse>> findUser(
-        @RequestHeader(TENANT_ID) String tenantId,
-        @RequestHeader(KEY_ID) String keyId,
-        @RequestHeader(TIMESTAMP) String timestamp,
-        @RequestHeader(NONCE) String nonce,
-        @RequestHeader(SIGNATURE) String signature,
-        @RequestHeader(OPERATION) String operation,
-        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader HttpHeaders headers,
         @RequestBody String body
     ) {
-        verify("organization.users.find.v1", tenantId, keyId, timestamp, nonce, signature,
-            operation, requestId, body);
-        IdRequest request = read(body, IdRequest.class);
+        SignedRequest request = verify("organization.users.find.v1", headers, body);
+        IdRequest payload = read(body, IdRequest.class);
         return tenantBridge.execute(
-            tenantId,
-            tenant -> nullable(service.findUser(tenant.id(), request.id()))
+            request.tenantId(),
+            tenant -> nullable(service.findUser(tenant.id(), payload.id()))
         );
     }
 
     @PostMapping(value = "/organization/users/search", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Envelope<UserPage> searchUsers(
-        @RequestHeader(TENANT_ID) String tenantId,
-        @RequestHeader(KEY_ID) String keyId,
-        @RequestHeader(TIMESTAMP) String timestamp,
-        @RequestHeader(NONCE) String nonce,
-        @RequestHeader(SIGNATURE) String signature,
-        @RequestHeader(OPERATION) String operation,
-        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader HttpHeaders headers,
         @RequestBody String body
     ) {
-        verify("organization.users.search.v1", tenantId, keyId, timestamp, nonce, signature,
-            operation, requestId, body);
-        UserSearchRequest request = read(body, UserSearchRequest.class);
+        SignedRequest request = verify("organization.users.search.v1", headers, body);
+        UserSearchRequest payload = read(body, UserSearchRequest.class);
         return tenantBridge.execute(
-            tenantId,
+            request.tenantId(),
             tenant -> new Envelope<>(service.searchUsers(
                 tenant.id(),
-                request.query(),
-                request.page()
+                payload.query(),
+                payload.page()
             ))
         );
     }
 
     @PostMapping(value = "/organization/departments/find", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Envelope<DepartmentResponse>> findDepartment(
-        @RequestHeader(TENANT_ID) String tenantId,
-        @RequestHeader(KEY_ID) String keyId,
-        @RequestHeader(TIMESTAMP) String timestamp,
-        @RequestHeader(NONCE) String nonce,
-        @RequestHeader(SIGNATURE) String signature,
-        @RequestHeader(OPERATION) String operation,
-        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader HttpHeaders headers,
         @RequestBody String body
     ) {
-        verify("organization.departments.find.v1", tenantId, keyId, timestamp, nonce, signature,
-            operation, requestId, body);
-        IdRequest request = read(body, IdRequest.class);
+        SignedRequest request = verify("organization.departments.find.v1", headers, body);
+        IdRequest payload = read(body, IdRequest.class);
         return tenantBridge.execute(
-            tenantId,
-            tenant -> nullable(service.findDepartment(request.id()))
+            request.tenantId(),
+            tenant -> nullable(service.findDepartment(payload.id()))
         );
     }
 
     @PostMapping(value = "/organization/roles/find", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Envelope<RoleResponse>> findRole(
-        @RequestHeader(TENANT_ID) String tenantId,
-        @RequestHeader(KEY_ID) String keyId,
-        @RequestHeader(TIMESTAMP) String timestamp,
-        @RequestHeader(NONCE) String nonce,
-        @RequestHeader(SIGNATURE) String signature,
-        @RequestHeader(OPERATION) String operation,
-        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader HttpHeaders headers,
         @RequestBody String body
     ) {
-        verify("organization.roles.find.v1", tenantId, keyId, timestamp, nonce, signature,
-            operation, requestId, body);
-        CodeRequest request = read(body, CodeRequest.class);
+        SignedRequest request = verify("organization.roles.find.v1", headers, body);
+        CodeRequest payload = read(body, CodeRequest.class);
         return tenantBridge.execute(
-            tenantId,
-            tenant -> nullable(service.findRole(request.code()))
+            request.tenantId(),
+            tenant -> nullable(service.findRole(payload.code()))
         );
     }
 
     @PostMapping(value = "/organization/positions/find", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Envelope<PositionResponse>> findPosition(
-        @RequestHeader(TENANT_ID) String tenantId,
-        @RequestHeader(KEY_ID) String keyId,
-        @RequestHeader(TIMESTAMP) String timestamp,
-        @RequestHeader(NONCE) String nonce,
-        @RequestHeader(SIGNATURE) String signature,
-        @RequestHeader(OPERATION) String operation,
-        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader HttpHeaders headers,
         @RequestBody String body
     ) {
-        verify("organization.positions.find.v1", tenantId, keyId, timestamp, nonce, signature,
-            operation, requestId, body);
-        CodeRequest request = read(body, CodeRequest.class);
+        SignedRequest request = verify("organization.positions.find.v1", headers, body);
+        CodeRequest payload = read(body, CodeRequest.class);
         return tenantBridge.execute(
-            tenantId,
-            tenant -> nullable(service.findPosition(request.code()))
+            request.tenantId(),
+            tenant -> nullable(service.findPosition(payload.code()))
         );
     }
 
     @PostMapping(value = "/organization/roles/members", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Envelope<UserItems> roleMembers(
-        @RequestHeader(TENANT_ID) String tenantId,
-        @RequestHeader(KEY_ID) String keyId,
-        @RequestHeader(TIMESTAMP) String timestamp,
-        @RequestHeader(NONCE) String nonce,
-        @RequestHeader(SIGNATURE) String signature,
-        @RequestHeader(OPERATION) String operation,
-        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader HttpHeaders headers,
         @RequestBody String body
     ) {
-        verify("organization.roles.members.v1", tenantId, keyId, timestamp, nonce, signature,
-            operation, requestId, body);
-        CodeRequest request = read(body, CodeRequest.class);
+        SignedRequest request = verify("organization.roles.members.v1", headers, body);
+        CodeRequest payload = read(body, CodeRequest.class);
         return tenantBridge.execute(
-            tenantId,
+            request.tenantId(),
             tenant -> new Envelope<>(new UserItems(
-                service.roleMembers(tenant.id(), request.code())
+                service.roleMembers(tenant.id(), payload.code())
             ))
         );
     }
 
     @PostMapping(value = "/organization/positions/members", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Envelope<UserItems> positionMembers(
-        @RequestHeader(TENANT_ID) String tenantId,
-        @RequestHeader(KEY_ID) String keyId,
-        @RequestHeader(TIMESTAMP) String timestamp,
-        @RequestHeader(NONCE) String nonce,
-        @RequestHeader(SIGNATURE) String signature,
-        @RequestHeader(OPERATION) String operation,
-        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader HttpHeaders headers,
         @RequestBody String body
     ) {
-        verify("organization.positions.members.v1", tenantId, keyId, timestamp, nonce, signature,
-            operation, requestId, body);
-        CodeRequest request = read(body, CodeRequest.class);
+        SignedRequest request = verify("organization.positions.members.v1", headers, body);
+        CodeRequest payload = read(body, CodeRequest.class);
         return tenantBridge.execute(
-            tenantId,
+            request.tenantId(),
             tenant -> new Envelope<>(new UserItems(
-                service.positionMembers(tenant.id(), request.code())
+                service.positionMembers(tenant.id(), payload.code())
             ))
         );
     }
 
     @PostMapping(value = "/organization/users/manager-chain", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Envelope<UserItems> managerChain(
-        @RequestHeader(TENANT_ID) String tenantId,
-        @RequestHeader(KEY_ID) String keyId,
-        @RequestHeader(TIMESTAMP) String timestamp,
-        @RequestHeader(NONCE) String nonce,
-        @RequestHeader(SIGNATURE) String signature,
-        @RequestHeader(OPERATION) String operation,
-        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader HttpHeaders headers,
         @RequestBody String body
     ) {
-        verify("organization.users.manager-chain.v1", tenantId, keyId, timestamp, nonce, signature,
-            operation, requestId, body);
-        ManagerChainRequest request = read(body, ManagerChainRequest.class);
+        SignedRequest request = verify("organization.users.manager-chain.v1", headers, body);
+        ManagerChainRequest payload = read(body, ManagerChainRequest.class);
         return tenantBridge.execute(
-            tenantId,
+            request.tenantId(),
             tenant -> new Envelope<>(new UserItems(
-                service.managerChain(tenant.id(), request)
+                service.managerChain(tenant.id(), payload)
             ))
         );
     }
 
-    private void verify(
+    private SignedRequest verify(
         String expectedOperation,
-        String tenantId,
-        String keyId,
-        String timestamp,
-        String nonce,
-        String signature,
-        String operation,
-        String requestId,
+        HttpHeaders headers,
         String body
     ) {
-        if (!expectedOperation.equals(operation)) {
+        SignedRequest request = new SignedRequest(
+            required(headers, TENANT_ID),
+            required(headers, KEY_ID),
+            required(headers, REQUEST_ID),
+            required(headers, TIMESTAMP),
+            required(headers, NONCE),
+            required(headers, SIGNATURE),
+            required(headers, OPERATION)
+        );
+        if (!expectedOperation.equals(request.operation())) {
             throw new Ruoyi6HostException(
                 400,
                 "INVALID_OPERATION",
@@ -270,20 +208,21 @@ public final class Ruoyi6ApprovalHostController {
             );
         }
         requestVerifier.verify(new HostRequestVerifier.Request(
-            tenantId,
-            keyId,
-            requestId,
-            timestamp,
-            nonce,
+            request.tenantId(),
+            request.keyId(),
+            request.requestId(),
+            request.timestamp(),
+            request.nonce(),
             body,
-            signature
+            request.signature()
         ));
+        return request;
     }
 
     private <T> T read(String body, Class<T> type) {
         try {
-            return objectMapper.readValue(body, type);
-        } catch (JsonProcessingException exception) {
+            return jsonMapper.readValue(body, type);
+        } catch (RuntimeException exception) {
             throw new Ruoyi6HostException(
                 400,
                 "INVALID_JSON",
@@ -293,9 +232,33 @@ public final class Ruoyi6ApprovalHostController {
         }
     }
 
+    private static String required(HttpHeaders headers, String name) {
+        String value = headers.getFirst(name);
+        if (value == null || value.isBlank()) {
+            throw new Ruoyi6HostException(
+                400,
+                "MISSING_HEADER",
+                "required connector header is missing",
+                false
+            );
+        }
+        return value;
+    }
+
     private static <T> ResponseEntity<Envelope<T>> nullable(T value) {
         return value == null
             ? ResponseEntity.notFound().build()
             : ResponseEntity.ok(new Envelope<>(value));
+    }
+
+    private record SignedRequest(
+        String tenantId,
+        String keyId,
+        String requestId,
+        String timestamp,
+        String nonce,
+        String signature,
+        String operation
+    ) {
     }
 }
