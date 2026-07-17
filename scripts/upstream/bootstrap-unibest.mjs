@@ -135,6 +135,18 @@ tsconfig.compilerOptions = {
 };
 await writeFile(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`, 'utf8');
 
+// Unibest references these generated declarations in tsconfig but its base
+// generator does not create them. Empty stubs keep type checking deterministic
+// until an optional async component plugin writes richer declarations.
+const generatedTypesDirectory = resolve(upstreamDirectory, 'src/types');
+await mkdir(generatedTypesDirectory, { recursive: true });
+for (const fileName of ['async-component.d.ts', 'async-import.d.ts']) {
+  const filePath = resolve(generatedTypesDirectory, fileName);
+  if (!existsSync(filePath)) {
+    await writeFile(filePath, 'export {};\n', 'utf8');
+  }
+}
+
 // The generated project lives below the approval Monorepo. Without a local
 // workspace manifest pnpm walks upward and installs the parent workspace instead.
 await writeFile(
