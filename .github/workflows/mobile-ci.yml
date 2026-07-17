@@ -1,0 +1,43 @@
+name: Approval Mobile CI
+
+on:
+  push:
+    paths:
+      - 'package.json'
+      - 'apps/mobile/**'
+      - 'scripts/upstream/bootstrap-unibest.mjs'
+      - '.github/workflows/mobile-ci.yml'
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'apps/mobile/**'
+      - 'scripts/upstream/bootstrap-unibest.mjs'
+      - '.github/workflows/mobile-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.4 --activate
+      - name: Prepare pinned Unibest workspace
+        run: pnpm mobile:bootstrap
+      - name: Install mobile dependencies
+        run: pnpm --dir .upstream/unibest install --no-frozen-lockfile
+      - name: Type check approval mobile
+        run: pnpm --dir .upstream/unibest type-check
+      - name: Build H5
+        run: pnpm --dir .upstream/unibest build:h5
+      - name: Build WeChat Mini Program
+        run: pnpm --dir .upstream/unibest build:mp-weixin
