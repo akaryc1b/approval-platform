@@ -30,7 +30,15 @@ A runnable Spring Boot 4 reference host with:
 - executable JAR and non-root Dockerfile;
 - end-to-end verification through the Connector Smoke CLI.
 
+### Purchase Payment Approval
+
+```text
+examples/purchase-payment
+```
+
+Versioned Approval DSL and Form Schema fixtures for the first end-to-end business workflow. The process includes manager approval, an amount-based finance review branch and parallel finance countersign.
+
 ## Planned
 
 - non-Java REST/Webhook host example;
-- purchase-payment approval end-to-end sample.
+- purchase-payment application APIs, PostgreSQL projections and PC/mobile completion flow.

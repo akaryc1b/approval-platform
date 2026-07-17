@@ -20,6 +20,16 @@ class ModuleBoundariesTest {
         );
 
     @ArchTest
+    static final ArchRule COMPILER_IS_FRAMEWORK_INDEPENDENT = noClasses()
+        .that().resideInAPackage("..compiler..")
+        .should().dependOnClassesThat().resideInAnyPackage(
+            "org.springframework..",
+            "org.flowable..",
+            "cn.dev33..",
+            "org.dromara.."
+        );
+
+    @ArchTest
     static final ArchRule APPLICATION_IS_ENGINE_AND_HOST_INDEPENDENT = noClasses()
         .that().resideInAPackage("..application..")
         .should().dependOnClassesThat().resideInAnyPackage(

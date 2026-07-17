@@ -15,6 +15,7 @@
 
     <modules>
         <module>approval-domain</module>
+        <module>approval-definition-compiler</module>
         <module>approval-engine-spi</module>
         <module>approval-connector-spi</module>
         <module>approval-integration-core</module>

@@ -9,28 +9,15 @@
         <version>${revision}</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
-    <artifactId>approval-engine-flowable</artifactId>
-    <description>Flowable 8 implementation of the approval engine SPI</description>
+
+    <artifactId>approval-definition-compiler</artifactId>
+    <description>Framework-neutral Approval DSL validation and BPMN compilation</description>
+
     <dependencies>
         <dependency>
             <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-engine-spi</artifactId>
+            <artifactId>approval-domain</artifactId>
             <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.flowable</groupId>
-            <artifactId>flowable-spring-boot-starter-process</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-definition-compiler</artifactId>
-            <version>${revision}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

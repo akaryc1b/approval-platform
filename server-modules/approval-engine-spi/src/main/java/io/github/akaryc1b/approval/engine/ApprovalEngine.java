@@ -1,5 +1,7 @@
 package io.github.akaryc1b.approval.engine;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -9,9 +11,49 @@ import java.util.Objects;
  */
 public interface ApprovalEngine {
 
+    DeploymentResult deploy(DeployCommand command);
+
     StartResult start(StartCommand command);
 
+    List<TaskSnapshot> findActiveTasks(TaskQuery query);
+
     TaskResult complete(CompleteTaskCommand command);
+
+    record DeployCommand(
+        String tenantId,
+        String definitionKey,
+        int definitionVersion,
+        String resourceName,
+        String bpmnXml,
+        String contentHash
+    ) {
+        public DeployCommand {
+            tenantId = requireText(tenantId, "tenantId");
+            definitionKey = requireText(definitionKey, "definitionKey");
+            if (definitionVersion < 1) {
+                throw new IllegalArgumentException("definitionVersion must be positive");
+            }
+            resourceName = requireText(resourceName, "resourceName");
+            bpmnXml = requireText(bpmnXml, "bpmnXml");
+            contentHash = requireText(contentHash, "contentHash");
+        }
+    }
+
+    record DeploymentResult(
+        String deploymentId,
+        String engineDefinitionId,
+        String definitionKey,
+        int engineVersion
+    ) {
+        public DeploymentResult {
+            deploymentId = requireText(deploymentId, "deploymentId");
+            engineDefinitionId = requireText(engineDefinitionId, "engineDefinitionId");
+            definitionKey = requireText(definitionKey, "definitionKey");
+            if (engineVersion < 1) {
+                throw new IllegalArgumentException("engineVersion must be positive");
+            }
+        }
+    }
 
     record StartCommand(
         String tenantId,
@@ -26,6 +68,36 @@ public interface ApprovalEngine {
             businessKey = requireText(businessKey, "businessKey");
             initiatorId = requireText(initiatorId, "initiatorId");
             variables = variables == null ? Map.of() : Map.copyOf(variables);
+        }
+    }
+
+    record TaskQuery(
+        String tenantId,
+        String processInstanceId,
+        String assigneeId
+    ) {
+        public TaskQuery {
+            tenantId = requireText(tenantId, "tenantId");
+            processInstanceId = requireText(processInstanceId, "processInstanceId");
+            assigneeId = normalizeOptional(assigneeId);
+        }
+    }
+
+    record TaskSnapshot(
+        String taskId,
+        String processInstanceId,
+        String taskDefinitionKey,
+        String name,
+        String assigneeId,
+        Instant createdAt
+    ) {
+        public TaskSnapshot {
+            taskId = requireText(taskId, "taskId");
+            processInstanceId = requireText(processInstanceId, "processInstanceId");
+            taskDefinitionKey = requireText(taskDefinitionKey, "taskDefinitionKey");
+            name = requireText(name, "name");
+            assigneeId = normalizeOptional(assigneeId);
+            createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         }
     }
 
@@ -56,11 +128,29 @@ public interface ApprovalEngine {
         }
     }
 
+    final class EngineOperationException extends RuntimeException {
+
+        private final String code;
+
+        public EngineOperationException(String code, String message) {
+            super(requireText(message, "message"));
+            this.code = requireText(code, "code");
+        }
+
+        public String code() {
+            return code;
+        }
+    }
+
     private static String requireText(String value, String name) {
         Objects.requireNonNull(value, name + " must not be null");
         if (value.isBlank()) {
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value;
+    }
+
+    private static String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }
