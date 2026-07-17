@@ -36,7 +36,16 @@ jobs:
       - name: Install mobile dependencies
         run: pnpm --dir .upstream/unibest install --no-frozen-lockfile
       - name: Type check approval mobile
-        run: pnpm --dir .upstream/unibest type-check
+        run: |
+          set -o pipefail
+          pnpm --dir .upstream/unibest type-check 2>&1 | tee mobile-typecheck.log
+      - name: Upload type-check failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-typecheck-log
+          path: mobile-typecheck.log
+          if-no-files-found: error
       - name: Build H5
         run: pnpm --dir .upstream/unibest build:h5
       - name: Build WeChat Mini Program
