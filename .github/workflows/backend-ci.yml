@@ -28,4 +28,13 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Verify backend
-        run: mvn -B -ntp verify
+        run: |
+          set -o pipefail
+          mvn -B -ntp verify 2>&1 | tee backend-ci.log
+      - name: Upload backend failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-ci-log
+          path: backend-ci.log
+          if-no-files-found: error

@@ -43,4 +43,24 @@ class ModuleBoundariesTest {
             "cn.dev33..",
             "org.dromara.."
         );
+
+    @ArchTest
+    static final ArchRule INTEGRATION_CORE_IS_FRAMEWORK_INDEPENDENT = noClasses()
+        .that().resideInAPackage("io.github.akaryc1b.approval.integration..")
+        .and().resideOutsideOfPackage("io.github.akaryc1b.approval.integration.jdbc..")
+        .should().dependOnClassesThat().resideInAnyPackage(
+            "org.springframework..",
+            "org.flowable..",
+            "cn.dev33..",
+            "org.dromara.."
+        );
+
+    @ArchTest
+    static final ArchRule JDBC_INTEGRATION_DOES_NOT_DEPEND_ON_ENGINE_OR_HOST = noClasses()
+        .that().resideInAPackage("io.github.akaryc1b.approval.integration.jdbc..")
+        .should().dependOnClassesThat().resideInAnyPackage(
+            "org.flowable..",
+            "cn.dev33..",
+            "org.dromara.."
+        );
 }
