@@ -20,6 +20,9 @@ dist/
 coverage/
 *.tsbuildinfo
 
+# Generated upstream workspaces
+.upstream/
+
 # Environment and secrets
 .env
 .env.*
