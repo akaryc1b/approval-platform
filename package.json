@@ -1,0 +1,19 @@
+{
+  "name": "approval-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": "^22.18.0 || ^24.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build:packages": "pnpm --filter './packages/**' build",
+    "check": "pnpm -r --if-present check",
+    "clean": "pnpm -r --if-present clean"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

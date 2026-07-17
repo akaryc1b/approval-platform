@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: approval-platform
+  profiles:
+    default: local
+  datasource:
+    url: ${APPROVAL_DB_URL:jdbc:postgresql://localhost:5432/approval}
+    username: ${APPROVAL_DB_USERNAME:approval}
+    password: ${APPROVAL_DB_PASSWORD:approval}
+
+flowable:
+  database-schema-update: false
+  async-executor-activate: true
+  history-level: audit
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+server:
+  shutdown: graceful

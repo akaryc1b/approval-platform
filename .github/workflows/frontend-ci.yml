@@ -1,0 +1,43 @@
+name: Frontend Packages CI
+
+on:
+  push:
+    paths:
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.base.json'
+      - 'packages/**'
+      - 'apps/web/**'
+      - 'apps/mobile/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.base.json'
+      - 'packages/**'
+      - 'apps/web/**'
+      - 'apps/mobile/**'
+      - '.github/workflows/frontend-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.4 --activate
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Type check
+        run: pnpm check
+      - name: Build shared packages
+        run: pnpm build:packages

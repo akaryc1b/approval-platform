@@ -1,0 +1,6 @@
+flowable:
+  database-schema-update: true
+
+logging:
+  level:
+    io.github.akaryc1b.approval: DEBUG
