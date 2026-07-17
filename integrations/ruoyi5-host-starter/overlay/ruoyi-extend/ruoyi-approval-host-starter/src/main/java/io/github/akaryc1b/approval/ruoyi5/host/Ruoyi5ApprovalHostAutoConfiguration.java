@@ -9,13 +9,16 @@ import io.github.akaryc1b.approval.host.security.HostSignatureVerifier;
 import io.github.akaryc1b.approval.host.security.ReplayGuard;
 import io.github.akaryc1b.approval.host.security.TenantSecretResolver;
 import org.dromara.common.satoken.utils.LoginHelper;
+import org.dromara.common.security.config.SecurityConfig;
 import org.dromara.system.mapper.SysUserPostMapper;
 import org.dromara.system.service.ISysDeptService;
 import org.dromara.system.service.ISysPostService;
 import org.dromara.system.service.ISysRoleService;
 import org.dromara.system.service.ISysTenantService;
 import org.dromara.system.service.ISysUserService;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -25,10 +28,16 @@ import org.springframework.context.annotation.Bean;
 import java.time.Clock;
 
 @AutoConfiguration
+@AutoConfigureBefore(SecurityConfig.class)
 @ConditionalOnClass(LoginHelper.class)
 @ConditionalOnProperty(prefix = "approval.host", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(ApprovalHostProperties.class)
 public class Ruoyi5ApprovalHostAutoConfiguration {
+
+    @Bean
+    static BeanPostProcessor approvalHostSecurityExclusionPostProcessor() {
+        return new Ruoyi5SecurityExclusionPostProcessor();
+    }
 
     @Bean
     @ConditionalOnMissingBean
