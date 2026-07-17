@@ -3,9 +3,9 @@ package io.github.akaryc1b.approval.host.security;
 import io.github.akaryc1b.approval.host.model.ConnectorError;
 
 import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -41,8 +41,8 @@ public final class DefaultHostRequestVerifier implements HostRequestVerifier {
     public VerifiedRequest verify(Request request) {
         Objects.requireNonNull(request, "request must not be null");
         Instant now = clock.instant();
-        long timestamp = parseTimestamp(request.timestamp());
-        Instant requestedAt = Instant.ofEpochSecond(timestamp);
+        Instant requestedAt = parseTimestamp(request.timestamp());
+        long timestamp = requestedAt.getEpochSecond();
 
         Duration skew = Duration.between(requestedAt, now).abs();
         if (skew.compareTo(properties.allowedClockSkew()) > 0) {
@@ -83,17 +83,23 @@ public final class DefaultHostRequestVerifier implements HostRequestVerifier {
         );
     }
 
-    private static long parseTimestamp(String value) {
+    private static Instant parseTimestamp(String value) {
         try {
-            return Long.parseLong(value);
+            return Instant.ofEpochSecond(Long.parseLong(value));
         } catch (NumberFormatException exception) {
             try {
-                return Instant.parse(value).getEpochSecond();
-            } catch (DateTimeParseException parseException) {
-                throw new HostVerificationException(
-                    ConnectorError.invalidRequest("timestamp must be epoch seconds or ISO-8601")
-                );
+                return Instant.parse(value);
+            } catch (DateTimeException parseException) {
+                throw invalidTimestamp();
             }
+        } catch (DateTimeException exception) {
+            throw invalidTimestamp();
         }
+    }
+
+    private static HostVerificationException invalidTimestamp() {
+        return new HostVerificationException(
+            ConnectorError.invalidRequest("timestamp must be epoch seconds or ISO-8601")
+        );
     }
 }
