@@ -5,22 +5,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-final class HostContractModels {
+public final class HostContractModels {
 
     private HostContractModels() {
     }
 
-    record Envelope<T>(T data) {
+    public record Envelope<T>(T data) {
     }
 
-    record AuthenticationRequest(
+    public record AuthenticationRequest(
         String credentialType,
         String credential,
         Map<String, String> attributes
     ) {
     }
 
-    record AuthenticationResponse(
+    public record AuthenticationResponse(
         UserResponse principal,
         TenantResponse tenant,
         Set<String> permissions,
@@ -29,10 +29,10 @@ final class HostContractModels {
     ) {
     }
 
-    record ExternalIdResponse(String source, String objectType, String value) {
+    public record ExternalIdResponse(String source, String objectType, String value) {
     }
 
-    record UserResponse(
+    public record UserResponse(
         ExternalIdResponse id,
         String username,
         String displayName,
@@ -47,7 +47,7 @@ final class HostContractModels {
     ) {
     }
 
-    record TenantResponse(
+    public record TenantResponse(
         ExternalIdResponse id,
         String name,
         boolean active,
@@ -55,7 +55,7 @@ final class HostContractModels {
     ) {
     }
 
-    record DepartmentResponse(
+    public record DepartmentResponse(
         ExternalIdResponse id,
         String name,
         ExternalIdResponse parentId,
@@ -65,7 +65,7 @@ final class HostContractModels {
     ) {
     }
 
-    record RoleResponse(
+    public record RoleResponse(
         ExternalIdResponse id,
         String code,
         String name,
@@ -74,7 +74,7 @@ final class HostContractModels {
     ) {
     }
 
-    record PositionResponse(
+    public record PositionResponse(
         ExternalIdResponse id,
         String code,
         String name,
@@ -83,19 +83,19 @@ final class HostContractModels {
     ) {
     }
 
-    record IdRequest(ExternalIdRequest id) {
+    public record IdRequest(ExternalIdRequest id) {
     }
 
-    record ExternalIdRequest(String source, String objectType, String value) {
+    public record ExternalIdRequest(String source, String objectType, String value) {
     }
 
-    record CodeRequest(String code) {
+    public record CodeRequest(String code) {
     }
 
-    record UserSearchRequest(UserQuery query, PageRequest page) {
+    public record UserSearchRequest(UserQuery query, PageRequest page) {
     }
 
-    record UserQuery(
+    public record UserQuery(
         String keyword,
         ExternalIdRequest departmentId,
         String roleCode,
@@ -104,15 +104,15 @@ final class HostContractModels {
     ) {
     }
 
-    record PageRequest(int page, int size, String cursor) {
+    public record PageRequest(int page, int size, String cursor) {
     }
 
-    record UserPage(List<UserResponse> items, String nextCursor, long total) {
+    public record UserPage(List<UserResponse> items, String nextCursor, long total) {
     }
 
-    record UserItems(List<UserResponse> items) {
+    public record UserItems(List<UserResponse> items) {
     }
 
-    record ManagerChainRequest(ExternalIdRequest userId, int maximumLevels) {
+    public record ManagerChainRequest(ExternalIdRequest userId, int maximumLevels) {
     }
 }
