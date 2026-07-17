@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "formKey": "purchase-payment",
+  "version": 1,
+  "name": "Purchase payment request",
+  "fields": [
+    {
+      "key": "amount",
+      "type": "MONEY",
+      "label": "Payment amount",
+      "required": true,
+      "constraints": {
+        "precision": 2,
+        "minimum": 0.01
+      }
+    },
+    {
+      "key": "supplier",
+      "type": "TEXT",
+      "label": "Supplier",
+      "required": true,
+      "constraints": {
+        "maxLength": 200
+      }
+    },
+    {
+      "key": "purchaseOrderReference",
+      "type": "TEXT",
+      "label": "Purchase order reference",
+      "required": true,
+      "constraints": {
+        "maxLength": 100
+      }
+    },
+    {
+      "key": "attachments",
+      "type": "ATTACHMENT",
+      "label": "Payment documents",
+      "required": true,
+      "constraints": {
+        "multiple": true,
+        "minItems": 1
+      }
+    }
+  ]
+}
