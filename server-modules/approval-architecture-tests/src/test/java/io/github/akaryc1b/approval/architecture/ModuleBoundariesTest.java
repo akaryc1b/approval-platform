@@ -83,4 +83,13 @@ class ModuleBoundariesTest {
             "cn.dev33..",
             "org.dromara.."
         );
+
+    @ArchTest
+    static final ArchRule JDBC_PERSISTENCE_DOES_NOT_DEPEND_ON_ENGINE_OR_HOST = noClasses()
+        .that().resideInAPackage("io.github.akaryc1b.approval.persistence.jdbc..")
+        .should().dependOnClassesThat().resideInAnyPackage(
+            "org.flowable..",
+            "cn.dev33..",
+            "org.dromara.."
+        );
 }
