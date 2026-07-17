@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.api;
 import io.github.akaryc1b.approval.application.ApprovalTaskQueryService;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskDetails;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskPage;
 import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver.AssigneeRules;
 import io.github.akaryc1b.approval.connector.model.ExternalId;
@@ -118,6 +119,17 @@ public class PurchasePaymentController {
             limit,
             offset
         );
+    }
+
+    @GetMapping("/tasks/pending/{taskId}")
+    public ResponseEntity<PendingTaskDetails> findPendingTask(
+        @RequestHeader(TENANT_ID) String tenantId,
+        @RequestHeader(OPERATOR_ID) String operatorId,
+        @PathVariable UUID taskId
+    ) {
+        return taskQueryService.findPendingTask(tenantId, operatorId, taskId)
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/tasks")
