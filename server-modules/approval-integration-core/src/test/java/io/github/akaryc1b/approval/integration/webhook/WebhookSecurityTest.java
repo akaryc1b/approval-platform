@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,11 +21,15 @@ class WebhookSecurityTest {
 
     @Test
     void canonicalJsonSortsObjectKeysAndPreservesArrayOrder() {
-        String json = CanonicalJson.write(Map.of(
-            "z", 1,
-            "a", List.of("first", "second"),
-            "nested", Map.of("b", true, "a", null)
-        ));
+        var nested = new LinkedHashMap<String, Object>();
+        nested.put("b", true);
+        nested.put("a", null);
+        var value = new LinkedHashMap<String, Object>();
+        value.put("z", 1);
+        value.put("a", List.of("first", "second"));
+        value.put("nested", nested);
+
+        String json = CanonicalJson.write(value);
 
         assertEquals(
             "{\"a\":[\"first\",\"second\"],\"nested\":{\"a\":null,\"b\":true},\"z\":1}",
