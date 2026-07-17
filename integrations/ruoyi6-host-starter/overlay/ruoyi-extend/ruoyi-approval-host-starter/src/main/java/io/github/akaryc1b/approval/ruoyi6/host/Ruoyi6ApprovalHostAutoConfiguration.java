@@ -1,6 +1,5 @@
 package io.github.akaryc1b.approval.ruoyi6.host;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.host.security.DefaultHostRequestVerifier;
 import io.github.akaryc1b.approval.host.security.HmacSha256HostSignatureVerifier;
 import io.github.akaryc1b.approval.host.security.HostConnectorProperties;
@@ -23,6 +22,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 
@@ -118,13 +118,13 @@ public class Ruoyi6ApprovalHostAutoConfiguration {
     @Bean
     Ruoyi6ApprovalHostController ruoyi6ApprovalHostController(
         HostRequestVerifier requestVerifier,
-        ObjectMapper objectMapper,
+        JsonMapper jsonMapper,
         Ruoyi6TenantBridge tenantBridge,
         Ruoyi6ApprovalHostService service
     ) {
         return new Ruoyi6ApprovalHostController(
             requestVerifier,
-            objectMapper,
+            jsonMapper,
             tenantBridge,
             service
         );
