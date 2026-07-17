@@ -14,6 +14,9 @@ final class Ruoyi6TenantSecretResolver implements TenantSecretResolver {
 
     @Override
     public Optional<SecretMaterial> resolve(String tenantKey, String keyId) {
+        if (!properties.getTenantId().equals(tenantKey)) {
+            return Optional.empty();
+        }
         ApprovalHostProperties.TenantKey tenant = properties.tenant(tenantKey);
         if (tenant == null || tenant.getKeyId() == null || !tenant.getKeyId().equals(keyId)) {
             return Optional.empty();
