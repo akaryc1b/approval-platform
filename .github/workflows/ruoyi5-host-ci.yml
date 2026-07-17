@@ -43,9 +43,10 @@ jobs:
       - name: Prepare pinned RuoYi 5.X workspace
         run: node scripts/upstream/bootstrap-ruoyi5.mjs
 
-      - name: Verify pinned upstream revision
+      - name: Verify pinned upstream revision and application wiring
         run: |
           test "$(git -C .upstream/ruoyi5 rev-parse HEAD)" = "e49f02f89e17ee5a4cc14048af99cc83d72872a7"
+          grep -q '<artifactId>ruoyi-approval-host-starter</artifactId>' .upstream/ruoyi5/ruoyi-admin/pom.xml
 
       - name: Set up Java 17 for RuoYi 5.X
         uses: actions/setup-java@v4
@@ -54,11 +55,11 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Compile Starter in RuoYi 5.X reactor
+      - name: Compile RuoYi 5.X application with Starter
         run: |
           set -o pipefail
           mvn -B -ntp -f .upstream/ruoyi5/pom.xml \
-            -pl ruoyi-extend/ruoyi-approval-host-starter \
+            -pl ruoyi-admin \
             -am -DskipTests package 2>&1 | tee ruoyi5-host-ci.log
 
       - name: Upload RuoYi 5.X failure log
