@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -12,6 +13,8 @@ import java.util.UUID;
 public interface ApprovalTaskQuery {
 
     PendingTaskPage findPendingTasks(PendingTaskCriteria criteria);
+
+    Optional<PendingTaskDetails> findPendingTask(PendingTaskIdentity identity);
 
     record PendingTaskCriteria(
         String tenantId,
@@ -33,6 +36,18 @@ public interface ApprovalTaskQuery {
         }
     }
 
+    record PendingTaskIdentity(
+        String tenantId,
+        String assigneeId,
+        UUID taskId
+    ) {
+        public PendingTaskIdentity {
+            tenantId = requireText(tenantId, "tenantId");
+            assigneeId = requireText(assigneeId, "assigneeId");
+            taskId = Objects.requireNonNull(taskId, "taskId must not be null");
+        }
+    }
+
     record PendingTaskItem(
         UUID taskId,
         UUID instanceId,
@@ -47,6 +62,33 @@ public interface ApprovalTaskQuery {
         Instant taskCreatedAt,
         Instant taskUpdatedAt
     ) {
+    }
+
+    record PendingTaskDetails(
+        UUID taskId,
+        UUID instanceId,
+        String definitionKey,
+        int definitionVersion,
+        String formKey,
+        int formVersion,
+        String compilerVersion,
+        String contentHash,
+        String taskDefinitionKey,
+        String taskName,
+        String businessKey,
+        String initiatorId,
+        BigDecimal amount,
+        String supplier,
+        String purchaseOrderReference,
+        List<String> attachmentIds,
+        Instant instanceCreatedAt,
+        Instant instanceUpdatedAt,
+        Instant taskCreatedAt,
+        Instant taskUpdatedAt
+    ) {
+        public PendingTaskDetails {
+            attachmentIds = attachmentIds == null ? List.of() : List.copyOf(attachmentIds);
+        }
     }
 
     record PendingTaskPage(
