@@ -1,7 +1,9 @@
 package io.github.akaryc1b.approval.api;
 
+import io.github.akaryc1b.approval.application.ApprovalTaskQueryService;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskPage;
 import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver.AssigneeRules;
 import io.github.akaryc1b.approval.connector.model.ExternalId;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
@@ -38,9 +40,14 @@ public class PurchasePaymentController {
     private static final String TRACE_ID = "X-Trace-Id";
 
     private final PurchasePaymentApplicationService service;
+    private final ApprovalTaskQueryService taskQueryService;
 
-    public PurchasePaymentController(PurchasePaymentApplicationService service) {
+    public PurchasePaymentController(
+        PurchasePaymentApplicationService service,
+        ApprovalTaskQueryService taskQueryService
+    ) {
         this.service = service;
+        this.taskQueryService = taskQueryService;
     }
 
     @PostMapping("/definitions/purchase-payment/publish")
@@ -94,6 +101,23 @@ public class PurchasePaymentController {
         return service.findInstance(tenantId, instanceId)
             .map(ResponseEntity::ok)
             .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/tasks/pending")
+    public PendingTaskPage findPendingTasks(
+        @RequestHeader(TENANT_ID) String tenantId,
+        @RequestHeader(OPERATOR_ID) String operatorId,
+        @RequestParam(required = false) String keyword,
+        @RequestParam(defaultValue = "20") int limit,
+        @RequestParam(defaultValue = "0") int offset
+    ) {
+        return taskQueryService.findPendingTasks(
+            tenantId,
+            operatorId,
+            keyword,
+            limit,
+            offset
+        );
     }
 
     @GetMapping("/tasks")
