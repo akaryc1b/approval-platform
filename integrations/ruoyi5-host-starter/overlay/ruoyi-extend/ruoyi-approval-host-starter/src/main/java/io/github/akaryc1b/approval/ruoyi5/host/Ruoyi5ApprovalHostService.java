@@ -136,22 +136,24 @@ final class Ruoyi5ApprovalHostService {
     }
 
     UserPage searchUsers(String tenantId, UserQuery query, PageRequest page) {
-        query = query == null ? new UserQuery(null, null, null, null, null) : query;
+        UserQuery effectiveQuery = query == null
+            ? new UserQuery(null, null, null, null, null)
+            : query;
         validatePage(page);
-        Set<Long> positionUserIds = resolvePositionUserIds(query.positionCode());
+        Set<Long> positionUserIds = resolvePositionUserIds(effectiveQuery.positionCode());
 
-        if (query.roleCode() != null && query.positionCode() != null) {
-            List<SysUserVo> roleUsers = allRoleMembers(query.roleCode());
+        if (effectiveQuery.roleCode() != null && effectiveQuery.positionCode() != null) {
+            List<SysUserVo> roleUsers = allRoleMembers(effectiveQuery.roleCode());
             List<SysUserVo> filtered = roleUsers.stream()
                 .filter(user -> positionUserIds.contains(user.getUserId()))
-                .filter(user -> matchesUserQuery(user, query))
+                .filter(user -> matchesUserQuery(user, effectiveQuery))
                 .filter(user -> tenantId.equals(user.getTenantId()))
                 .toList();
             return manualPage(filtered, page);
         }
 
-        SysUserBo userBo = buildUserQuery(query);
-        if (query.positionCode() != null) {
+        SysUserBo userBo = buildUserQuery(effectiveQuery);
+        if (effectiveQuery.positionCode() != null) {
             if (positionUserIds.isEmpty()) {
                 return new UserPage(List.of(), null, 0);
             }
@@ -160,8 +162,8 @@ final class Ruoyi5ApprovalHostService {
 
         TableDataInfo<SysUserVo> result;
         PageQuery pageQuery = new PageQuery(page.size(), page.page() + 1);
-        if (query.roleCode() != null) {
-            SysRoleVo role = findRoleEntity(query.roleCode());
+        if (effectiveQuery.roleCode() != null) {
+            SysRoleVo role = findRoleEntity(effectiveQuery.roleCode());
             if (role == null) {
                 return new UserPage(List.of(), null, 0);
             }
