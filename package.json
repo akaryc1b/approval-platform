@@ -39,6 +39,6 @@
     "ruoyi6:build": "pnpm ruoyi6:bootstrap && mvn -B -ntp -f .upstream/ruoyi6/pom.xml -pl ruoyi-admin -am -DskipTests package"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   }
 }
