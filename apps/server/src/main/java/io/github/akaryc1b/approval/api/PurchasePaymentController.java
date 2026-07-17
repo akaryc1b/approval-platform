@@ -1,11 +1,14 @@
 package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
-import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
+import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver.AssigneeRules;
+import io.github.akaryc1b.approval.connector.model.ExternalId;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -22,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -70,11 +72,16 @@ public class PurchasePaymentController {
             request.supplier(),
             request.purchaseOrderReference(),
             request.attachmentIds(),
-            new AssigneeSnapshot(
-                request.assignees().managerAssignee(),
-                request.assignees().financeReviewer(),
-                request.assignees().financeApprovers(),
-                request.assignees().attributes()
+            new AssigneeRules(
+                request.assigneeRules().connectorKey(),
+                new ExternalId(
+                    request.assigneeRules().initiatorUserId().source(),
+                    request.assigneeRules().initiatorUserId().objectType(),
+                    request.assigneeRules().initiatorUserId().value()
+                ),
+                request.assigneeRules().financeReviewerRoleCode(),
+                request.assigneeRules().financeApproverPositionCode(),
+                request.assigneeRules().maximumFinanceApprovers()
             )
         ));
     }
@@ -136,23 +143,27 @@ public class PurchasePaymentController {
         @NotBlank @Size(max = 200) String supplier,
         @NotBlank @Size(max = 100) String purchaseOrderReference,
         @NotEmpty List<@NotBlank String> attachmentIds,
-        @NotNull @Valid AssigneeSnapshotRequest assignees
+        @NotNull @Valid AssigneeRulesRequest assigneeRules
     ) {
         public StartPurchasePaymentRequest {
             attachmentIds = attachmentIds == null ? List.of() : List.copyOf(attachmentIds);
         }
     }
 
-    public record AssigneeSnapshotRequest(
-        @NotBlank String managerAssignee,
-        @NotBlank String financeReviewer,
-        @NotEmpty List<@NotBlank String> financeApprovers,
-        Map<String, String> attributes
+    public record AssigneeRulesRequest(
+        @NotBlank String connectorKey,
+        @NotNull @Valid ExternalIdRequest initiatorUserId,
+        @NotBlank String financeReviewerRoleCode,
+        @NotBlank String financeApproverPositionCode,
+        @Min(1) @Max(100) int maximumFinanceApprovers
     ) {
-        public AssigneeSnapshotRequest {
-            financeApprovers = financeApprovers == null ? List.of() : List.copyOf(financeApprovers);
-            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
-        }
+    }
+
+    public record ExternalIdRequest(
+        @NotBlank String source,
+        @NotBlank String objectType,
+        @NotBlank String value
+    ) {
     }
 
     public record ApproveTaskRequest(@Size(max = 2000) String comment) {
