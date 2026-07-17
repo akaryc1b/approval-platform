@@ -16,6 +16,7 @@
     <modules>
         <module>approval-domain</module>
         <module>approval-engine-spi</module>
+        <module>approval-connector-spi</module>
         <module>approval-engine-flowable</module>
         <module>approval-application</module>
         <module>approval-architecture-tests</module>
