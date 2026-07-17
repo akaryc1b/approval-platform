@@ -41,6 +41,12 @@ public final class ConnectorPurchasePaymentAssigneeResolver
     public AssigneeSnapshot resolve(RequestContext context, AssigneeRules rules) {
         Objects.requireNonNull(context, "context must not be null");
         Objects.requireNonNull(rules, "rules must not be null");
+        if (!context.operatorId().equals(rules.initiatorUserId().value())) {
+            throw failure(
+                "INITIATOR_OPERATOR_MISMATCH",
+                "initiator external ID does not match the authenticated operator"
+            );
+        }
         ConnectorContext connectorContext = new ConnectorContext(
             rules.connectorKey(),
             context.tenantId(),
@@ -56,6 +62,12 @@ public final class ConnectorPurchasePaymentAssigneeResolver
             "INITIATOR_NOT_FOUND",
             "initiator is missing or inactive"
         ));
+        if (!rules.initiatorUserId().equals(initiator.id())) {
+            throw failure(
+                "INITIATOR_ID_MISMATCH",
+                "organization connector returned a different initiator identity"
+            );
+        }
         List<UserSnapshot> managerChain = organizationConnector.resolveManagerChain(
             connectorContext,
             initiator.id(),
