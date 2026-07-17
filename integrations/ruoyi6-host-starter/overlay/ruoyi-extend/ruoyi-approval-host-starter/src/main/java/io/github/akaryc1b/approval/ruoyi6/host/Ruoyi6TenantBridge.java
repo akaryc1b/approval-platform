@@ -1,7 +1,7 @@
 package io.github.akaryc1b.approval.ruoyi6.host;
 
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 /**
  * Bridges Approval Platform tenant identity to the host application's tenancy model.
@@ -14,9 +14,11 @@ public interface Ruoyi6TenantBridge {
 
     TenantDescriptor resolve(String requestedTenantId);
 
-    default <T> T execute(String requestedTenantId, Supplier<T> action) {
-        resolve(requestedTenantId);
-        return action.get();
+    default <T> T execute(
+        String requestedTenantId,
+        Function<TenantDescriptor, T> action
+    ) {
+        return action.apply(resolve(requestedTenantId));
     }
 
     record TenantDescriptor(
