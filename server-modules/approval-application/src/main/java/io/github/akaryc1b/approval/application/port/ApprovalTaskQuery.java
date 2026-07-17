@@ -53,8 +53,24 @@ public interface ApprovalTaskQuery {
         List<PendingTaskItem> items,
         long total,
         int limit,
-        int offset
+        int offset,
+        boolean hasMore
     ) {
+        public PendingTaskPage(
+            List<PendingTaskItem> items,
+            long total,
+            int limit,
+            int offset
+        ) {
+            this(
+                items,
+                total,
+                limit,
+                offset,
+                offset + (items == null ? 0 : items.size()) < total
+            );
+        }
+
         public PendingTaskPage {
             items = items == null ? List.of() : List.copyOf(items);
             if (total < 0) {
@@ -66,10 +82,6 @@ public interface ApprovalTaskQuery {
             if (offset < 0) {
                 throw new IllegalArgumentException("offset must not be negative");
             }
-        }
-
-        public boolean hasMore() {
-            return offset + items.size() < total;
         }
     }
 
