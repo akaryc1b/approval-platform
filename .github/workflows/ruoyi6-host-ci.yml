@@ -1,0 +1,76 @@
+name: RuoYi 6.X Host Starter CI
+
+on:
+  push:
+    paths:
+      - 'pom.xml'
+      - 'package.json'
+      - 'integrations/host-sdk/**'
+      - 'integrations/ruoyi6-host-starter/**'
+      - 'scripts/upstream/bootstrap-ruoyi6.mjs'
+      - '.github/workflows/ruoyi6-host-ci.yml'
+  pull_request:
+    paths:
+      - 'pom.xml'
+      - 'package.json'
+      - 'integrations/host-sdk/**'
+      - 'integrations/ruoyi6-host-starter/**'
+      - 'scripts/upstream/bootstrap-ruoyi6.mjs'
+      - '.github/workflows/ruoyi6-host-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install Host SDK
+        run: mvn -B -ntp -pl integrations/host-sdk -am -DskipTests install
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+
+      - name: Prepare pinned RuoYi 6.X workspace
+        run: node scripts/upstream/bootstrap-ruoyi6.mjs
+
+      - name: Verify pinned upstream revision and application wiring
+        run: |
+          test "$(git -C .upstream/ruoyi6 rev-parse HEAD)" = "da5f30cae2deb174a1ba37a2ad41ff1ba42c9f38"
+          grep -q '<artifactId>ruoyi-approval-host-starter</artifactId>' .upstream/ruoyi6/ruoyi-admin/pom.xml
+
+      - name: Compile RuoYi 6.X application with Starter
+        run: |
+          set -o pipefail
+          mvn -B -ntp -f .upstream/ruoyi6/pom.xml \
+            -pl ruoyi-admin \
+            -am -DskipTests package 2>&1 | tee ruoyi6-host-ci.log
+
+      - name: Test all RuoYi 6.X Starter contracts
+        run: |
+          set -o pipefail
+          mvn -B -ntp -f .upstream/ruoyi6/pom.xml \
+            -pl ruoyi-extend/ruoyi-approval-host-starter \
+            -am -Dmaven.test.skip=false -DskipTests=false \
+            -Dtest=Ruoyi6*Test \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            test 2>&1 | tee -a ruoyi6-host-ci.log
+
+      - name: Upload RuoYi 6.X failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruoyi6-host-ci-log
+          path: ruoyi6-host-ci.log
+          if-no-files-found: ignore
