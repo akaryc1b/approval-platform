@@ -84,6 +84,7 @@ const dependency = `
         <dependency>
             <groupId>org.dromara</groupId>
             <artifactId>ruoyi-approval-host-starter</artifactId>
+            <version>\${revision}</version>
         </dependency>
 `;
 if (!adminPom.includes('<artifactId>ruoyi-approval-host-starter</artifactId>')) {
