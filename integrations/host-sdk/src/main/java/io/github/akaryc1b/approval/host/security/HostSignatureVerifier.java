@@ -1,19 +1,17 @@
 package io.github.akaryc1b.approval.host.security;
 
 /**
- * Verifies requests sent from approval-platform to host systems.
- *
- * Implementations must validate timestamp freshness and replay protection.
+ * Signs and verifies the canonical host request payload.
  */
 public interface HostSignatureVerifier {
 
-    VerificationResult verify(String tenantKey, String timestamp, String nonce, String body,
-                              String signature);
+    String sign(byte[] secret, long timestamp, String nonce, String body);
 
-    enum VerificationResult {
-        VALID,
-        INVALID_SIGNATURE,
-        EXPIRED,
-        REPLAYED
-    }
+    boolean verify(
+        byte[] secret,
+        long timestamp,
+        String nonce,
+        String body,
+        String signature
+    );
 }
