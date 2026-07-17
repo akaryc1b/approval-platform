@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - '.github/workflows/resolve-ruoyi-refs.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/resolve-ruoyi-refs.yml'
 
 permissions:
   contents: read
