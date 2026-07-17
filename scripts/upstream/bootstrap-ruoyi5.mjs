@@ -107,6 +107,26 @@ if (!extendPom.includes(moduleLine.trim())) {
   await writeFile(extendPomPath, extendPom, 'utf8');
 }
 
+const adminPomPath = resolve(upstreamDirectory, 'ruoyi-admin/pom.xml');
+let adminPom = await readFile(adminPomPath, 'utf8');
+const starterArtifact = '<artifactId>ruoyi-approval-host-starter</artifactId>';
+if (!adminPom.includes(starterArtifact)) {
+  const dependency = `
+        <!-- Approval Platform signed host connector -->
+        <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>ruoyi-approval-host-starter</artifactId>
+            <version>\${revision}</version>
+        </dependency>
+`;
+  const anchor = '    </dependencies>';
+  if (!adminPom.includes(anchor)) {
+    throw new Error('Unable to locate RuoYi 5.X admin dependency anchor.');
+  }
+  adminPom = adminPom.replace(anchor, `${dependency}\n${anchor}`);
+  await writeFile(adminPomPath, adminPom, 'utf8');
+}
+
 await writeFile(
   markerPath,
   `${JSON.stringify(
