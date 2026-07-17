@@ -79,8 +79,11 @@ public class ApprovalPlatformConfiguration {
     }
 
     @Bean
-    ApprovalTaskQuery approvalTaskQuery(DataSource dataSource) {
-        return new JdbcApprovalTaskQuery(dataSource);
+    ApprovalTaskQuery approvalTaskQuery(
+        DataSource dataSource,
+        ObjectMapper approvalPersistenceObjectMapper
+    ) {
+        return new JdbcApprovalTaskQuery(dataSource, approvalPersistenceObjectMapper);
     }
 
     @Bean
