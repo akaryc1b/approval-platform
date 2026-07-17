@@ -34,11 +34,13 @@ jobs:
       - name: Prepare pinned Unibest workspace
         run: pnpm mobile:bootstrap
       - name: Install mobile dependencies
-        run: pnpm --dir .upstream/unibest install --no-frozen-lockfile
+        working-directory: .upstream/unibest
+        run: pnpm install --no-frozen-lockfile
       - name: Type check approval mobile
+        working-directory: .upstream/unibest
         run: |
           set -o pipefail
-          pnpm --dir .upstream/unibest type-check 2>&1 | tee mobile-typecheck.log
+          pnpm type-check 2>&1 | tee ../../mobile-typecheck.log
       - name: Upload type-check failure log
         if: failure()
         uses: actions/upload-artifact@v4
@@ -47,6 +49,8 @@ jobs:
           path: mobile-typecheck.log
           if-no-files-found: error
       - name: Build H5
-        run: pnpm --dir .upstream/unibest build:h5
+        working-directory: .upstream/unibest
+        run: pnpm build:h5
       - name: Build WeChat Mini Program
-        run: pnpm --dir .upstream/unibest build:mp-weixin
+        working-directory: .upstream/unibest
+        run: pnpm build:mp-weixin
