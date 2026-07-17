@@ -50,6 +50,7 @@
         <module>server-modules</module>
         <module>integrations/host-sdk</module>
         <module>apps/server</module>
+        <module>examples/generic-spring-host</module>
     </modules>
 
     <dependencyManagement>
