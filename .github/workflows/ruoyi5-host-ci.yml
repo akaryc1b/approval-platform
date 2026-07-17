@@ -62,13 +62,13 @@ jobs:
             -pl ruoyi-admin \
             -am -DskipTests package 2>&1 | tee ruoyi5-host-ci.log
 
-      - name: Test RuoYi 5.X organization mappings
+      - name: Test all RuoYi 5.X Starter contracts
         run: |
           set -o pipefail
           mvn -B -ntp -f .upstream/ruoyi5/pom.xml \
             -pl ruoyi-extend/ruoyi-approval-host-starter \
             -am -DskipTests=false \
-            -Dtest=Ruoyi5ApprovalHostServiceTest \
+            -Dtest=Ruoyi5*Test \
             -Dsurefire.failIfNoSpecifiedTests=false \
             test 2>&1 | tee -a ruoyi5-host-ci.log
 
