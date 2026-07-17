@@ -1,0 +1,44 @@
+name: Inventory RuoYi 6.X APIs
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/inventory-ruoyi6.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect pinned upstream source
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/dromara/RuoYi-Vue-Plus.git .inventory/ruoyi6
+          git -C .inventory/ruoyi6 fetch --depth 1 origin da5f30cae2deb174a1ba37a2ad41ff1ba42c9f38
+          git -C .inventory/ruoyi6 checkout --detach da5f30cae2deb174a1ba37a2ad41ff1ba42c9f38
+          {
+            echo '=== RELEVANT FILES ==='
+            find .inventory/ruoyi6 -type f \( -name '*.java' -o -name 'pom.xml' \) \
+              | grep -Ei 'tenant|loginhelper|loginuser|securityproperties|sysuser|sysdept|sysrole|syspost' \
+              | sort
+            echo '=== TENANT SYMBOLS ==='
+            rg -n 'TenantContext|TenantHelper|TenantId|getTenantId\(|setDynamic\(|dynamic\(' \
+              .inventory/ruoyi6 --glob '*.java' | head -800 || true
+            echo '=== LOGIN SYMBOLS ==='
+            rg -n 'class LoginHelper|class LoginUser|getLoginUser\(|getTokenTimeout' \
+              .inventory/ruoyi6 --glob '*.java' | head -500 || true
+            echo '=== SECURITY SYMBOLS ==='
+            rg -n 'class SecurityConfig|class SecurityProperties|excludePathPatterns|security\.excludes' \
+              .inventory/ruoyi6 --glob '*.java' | head -300 || true
+            echo '=== ORGANIZATION SERVICE METHODS ==='
+            rg -n 'interface ISys(User|Dept|Role|Post|Tenant)Service|selectUserById|selectPageUserList|selectAllocatedList|selectDeptById|selectRolesByUserId|selectPostsByUserId|queryByTenantId' \
+              .inventory/ruoyi6 --glob '*.java' | head -1000 || true
+          } > ruoyi6-inventory.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ruoyi6-api-inventory
+          path: ruoyi6-inventory.txt
+          if-no-files-found: error
