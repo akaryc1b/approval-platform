@@ -11,4 +11,12 @@
     </parent>
     <artifactId>approval-domain</artifactId>
     <description>Framework-independent approval domain model</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>

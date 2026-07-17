@@ -18,5 +18,6 @@
         <module>approval-engine-spi</module>
         <module>approval-engine-flowable</module>
         <module>approval-application</module>
+        <module>approval-architecture-tests</module>
     </modules>
 </project>
