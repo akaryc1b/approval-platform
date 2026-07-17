@@ -99,7 +99,6 @@ public class Ruoyi6ApprovalHostAutoConfiguration {
     @Bean
     Ruoyi6ApprovalHostService ruoyi6ApprovalHostService(
         ApprovalHostProperties properties,
-        Ruoyi6TenantBridge tenantBridge,
         ISysUserService userService,
         ISysDeptService deptService,
         ISysRoleService roleService,
@@ -108,7 +107,6 @@ public class Ruoyi6ApprovalHostAutoConfiguration {
     ) {
         return new Ruoyi6ApprovalHostService(
             properties,
-            tenantBridge,
             userService,
             deptService,
             roleService,
@@ -121,9 +119,15 @@ public class Ruoyi6ApprovalHostAutoConfiguration {
     Ruoyi6ApprovalHostController ruoyi6ApprovalHostController(
         HostRequestVerifier requestVerifier,
         ObjectMapper objectMapper,
+        Ruoyi6TenantBridge tenantBridge,
         Ruoyi6ApprovalHostService service
     ) {
-        return new Ruoyi6ApprovalHostController(requestVerifier, objectMapper, service);
+        return new Ruoyi6ApprovalHostController(
+            requestVerifier,
+            objectMapper,
+            tenantBridge,
+            service
+        );
     }
 
     @Bean
