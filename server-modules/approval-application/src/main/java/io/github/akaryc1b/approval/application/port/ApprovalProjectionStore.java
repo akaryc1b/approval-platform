@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -97,10 +98,40 @@ public interface ApprovalProjectionStore {
         String managerAssignee,
         String financeReviewer,
         List<String> financeApprovers,
-        Map<String, String> attributes
+        Map<String, String> attributes,
+        Map<String, UserIdentitySnapshot> identities
     ) {
         public AssigneeSnapshot {
             financeApprovers = financeApprovers == null ? List.of() : List.copyOf(financeApprovers);
+            attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+            identities = identities == null ? Map.of() : Map.copyOf(identities);
+        }
+
+        public AssigneeSnapshot(
+            String managerAssignee,
+            String financeReviewer,
+            List<String> financeApprovers,
+            Map<String, String> attributes
+        ) {
+            this(managerAssignee, financeReviewer, financeApprovers, attributes, Map.of());
+        }
+    }
+
+    record UserIdentitySnapshot(
+        String externalId,
+        String username,
+        String displayName,
+        String email,
+        String mobile,
+        List<String> departmentIds,
+        Set<String> roleCodes,
+        Set<String> positionCodes,
+        Map<String, String> attributes
+    ) {
+        public UserIdentitySnapshot {
+            departmentIds = departmentIds == null ? List.of() : List.copyOf(departmentIds);
+            roleCodes = roleCodes == null ? Set.of() : Set.copyOf(roleCodes);
+            positionCodes = positionCodes == null ? Set.of() : Set.copyOf(positionCodes);
             attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
         }
     }

@@ -1,0 +1,21 @@
+{
+  "businessKey": "PO-2026-0001",
+  "amount": 25000.00,
+  "supplier": "Example Electrical Equipment Co., Ltd.",
+  "purchaseOrderReference": "PURCHASE-ORDER-2026-0001",
+  "attachmentIds": [
+    "file:purchase-order-2026-0001",
+    "file:supplier-invoice-2026-0001"
+  ],
+  "assigneeRules": {
+    "connectorKey": "generic-rest",
+    "initiatorUserId": {
+      "source": "ruoyi5",
+      "objectType": "user",
+      "value": "100"
+    },
+    "financeReviewerRoleCode": "finance-reviewer",
+    "financeApproverPositionCode": "finance-countersigner",
+    "maximumFinanceApprovers": 20
+  }
+}

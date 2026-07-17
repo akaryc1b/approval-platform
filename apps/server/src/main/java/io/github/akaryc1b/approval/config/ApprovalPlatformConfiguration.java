@@ -3,9 +3,11 @@ package io.github.akaryc1b.approval.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalApplicationService;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
+import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
+import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver;
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
 import io.github.akaryc1b.approval.engine.flowable.FlowableApprovalEngine;
@@ -93,6 +95,8 @@ public class ApprovalPlatformConfiguration {
         IdempotencyGuard idempotencyGuard,
         ApprovalProjectionStore approvalProjectionStore,
         AuditEventSink auditEventSink,
+        PurchasePaymentAssigneeResolver assigneeResolver,
+        ApprovalBusinessEventOutbox businessEventOutbox,
         Clock approvalClock
     ) {
         return new PurchasePaymentApplicationService(
@@ -101,6 +105,8 @@ public class ApprovalPlatformConfiguration {
             idempotencyGuard,
             approvalProjectionStore,
             auditEventSink,
+            assigneeResolver,
+            businessEventOutbox,
             approvalClock,
             UUID::randomUUID
         );

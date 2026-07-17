@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.application;
 
+import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
@@ -9,6 +10,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.Task
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
+import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver;
+import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver.AssigneeRules;
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.domain.audit.AuditEvent;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
@@ -47,6 +50,8 @@ public final class PurchasePaymentApplicationService {
     private final IdempotencyGuard idempotencyGuard;
     private final ApprovalProjectionStore projections;
     private final AuditEventSink auditEvents;
+    private final PurchasePaymentAssigneeResolver assigneeResolver;
+    private final ApprovalBusinessEventOutbox businessEventOutbox;
     private final Clock clock;
     private final Supplier<UUID> identifierGenerator;
 
@@ -59,6 +64,35 @@ public final class PurchasePaymentApplicationService {
         Clock clock,
         Supplier<UUID> identifierGenerator
     ) {
+        this(
+            engine,
+            compiler,
+            idempotencyGuard,
+            projections,
+            auditEvents,
+            (context, rules) -> {
+                throw new PurchasePaymentAssigneeResolver.AssigneeResolutionException(
+                    "ASSIGNEE_RESOLVER_UNAVAILABLE",
+                    "connector-backed assignee resolver is not configured"
+                );
+            },
+            ApprovalBusinessEventOutbox.noOp(),
+            clock,
+            identifierGenerator
+        );
+    }
+
+    public PurchasePaymentApplicationService(
+        ApprovalEngine engine,
+        ApprovalDslCompiler compiler,
+        IdempotencyGuard idempotencyGuard,
+        ApprovalProjectionStore projections,
+        AuditEventSink auditEvents,
+        PurchasePaymentAssigneeResolver assigneeResolver,
+        ApprovalBusinessEventOutbox businessEventOutbox,
+        Clock clock,
+        Supplier<UUID> identifierGenerator
+    ) {
         this.engine = Objects.requireNonNull(engine, "engine must not be null");
         this.compiler = Objects.requireNonNull(compiler, "compiler must not be null");
         this.idempotencyGuard = Objects.requireNonNull(
@@ -67,6 +101,14 @@ public final class PurchasePaymentApplicationService {
         );
         this.projections = Objects.requireNonNull(projections, "projections must not be null");
         this.auditEvents = Objects.requireNonNull(auditEvents, "auditEvents must not be null");
+        this.assigneeResolver = Objects.requireNonNull(
+            assigneeResolver,
+            "assigneeResolver must not be null"
+        );
+        this.businessEventOutbox = Objects.requireNonNull(
+            businessEventOutbox,
+            "businessEventOutbox must not be null"
+        );
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.identifierGenerator = Objects.requireNonNull(
             identifierGenerator,
@@ -183,6 +225,10 @@ public final class PurchasePaymentApplicationService {
                     ));
                 }
 
+                AssigneeSnapshot assignees = command.assignees() == null
+                    ? assigneeResolver.resolve(command.context(), command.assigneeRules())
+                    : command.assignees();
+                validateResolvedAssignees(assignees);
                 PublishedDefinition definition = projections.findDefinition(
                     command.context().tenantId(),
                     PurchasePaymentTemplate.DEFINITION_KEY,
@@ -199,15 +245,15 @@ public final class PurchasePaymentApplicationService {
                 variables.put("attachmentIds", command.attachmentIds());
                 variables.put(
                     PurchasePaymentTemplate.MANAGER_ASSIGNEE_VARIABLE,
-                    command.assignees().managerAssignee()
+                    assignees.managerAssignee()
                 );
                 variables.put(
                     PurchasePaymentTemplate.FINANCE_REVIEWER_VARIABLE,
-                    command.assignees().financeReviewer()
+                    assignees.financeReviewer()
                 );
                 variables.put(
                     PurchasePaymentTemplate.FINANCE_APPROVERS_VARIABLE,
-                    command.assignees().financeApprovers()
+                    assignees.financeApprovers()
                 );
                 variables.put("approvalInstanceId", instanceId.toString());
                 variables.put("definitionVersion", definition.definitionVersion());
@@ -249,7 +295,7 @@ public final class PurchasePaymentApplicationService {
                     command.supplier(),
                     command.purchaseOrderReference(),
                     command.attachmentIds(),
-                    command.assignees(),
+                    assignees,
                     requestHash,
                     tasks.isEmpty() ? InstanceStatus.COMPLETED : InstanceStatus.RUNNING,
                     1,
@@ -265,6 +311,9 @@ public final class PurchasePaymentApplicationService {
                     versionAttributes(instance),
                     now
                 );
+                if (tasks.isEmpty()) {
+                    enqueueCompletion(command.context(), instance, now);
+                }
                 return startResult(instance, tasks);
             }
         );
@@ -350,6 +399,9 @@ public final class PurchasePaymentApplicationService {
                     Map.copyOf(attributes),
                     now
                 );
+                if (status == InstanceStatus.COMPLETED) {
+                    enqueueCompletion(command.context(), instance, now);
+                }
                 return new ApproveResult(
                     claimed.taskId(),
                     instance.instanceId(),
@@ -423,6 +475,17 @@ public final class PurchasePaymentApplicationService {
         ));
     }
 
+    private void enqueueCompletion(
+        RequestContext context,
+        InstanceProjection instance,
+        Instant occurredAt
+    ) {
+        String connectorKey = instance.assigneeSnapshot().attributes().get("connectorKey");
+        if (connectorKey != null && !connectorKey.isBlank()) {
+            businessEventOutbox.enqueueCompleted(context, connectorKey, instance, occurredAt);
+        }
+    }
+
     private static PublishResult publishResult(PublishedDefinition definition) {
         return new PublishResult(
             definition.definitionKey(),
@@ -463,30 +526,49 @@ public final class PurchasePaymentApplicationService {
             throw new IllegalArgumentException("at least one attachment is required");
         }
         command.attachmentIds().forEach(value -> requireText(value, "attachmentId"));
-        Objects.requireNonNull(command.assignees(), "assignees must not be null");
-        requireText(command.assignees().managerAssignee(), "managerAssignee");
-        requireText(command.assignees().financeReviewer(), "financeReviewer");
-        if (command.assignees().financeApprovers().isEmpty()) {
+        if ((command.assignees() == null) == (command.assigneeRules() == null)) {
+            throw new IllegalArgumentException(
+                "exactly one of assignees or assigneeRules must be supplied"
+            );
+        }
+        if (command.assignees() != null) {
+            validateResolvedAssignees(command.assignees());
+        }
+    }
+
+    private static void validateResolvedAssignees(AssigneeSnapshot assignees) {
+        Objects.requireNonNull(assignees, "assignees must not be null");
+        requireText(assignees.managerAssignee(), "managerAssignee");
+        requireText(assignees.financeReviewer(), "financeReviewer");
+        if (assignees.financeApprovers().isEmpty()) {
             throw new IllegalArgumentException("financeApprovers must not be empty");
         }
-        command.assignees().financeApprovers()
-            .forEach(value -> requireText(value, "financeApprover"));
+        assignees.financeApprovers().forEach(value -> requireText(value, "financeApprover"));
     }
 
     private static String startRequestHash(StartCommand command) {
         List<String> attachments = command.attachmentIds().stream().sorted().toList();
-        List<String> financeApprovers = command.assignees().financeApprovers().stream()
-            .sorted(Comparator.naturalOrder())
-            .toList();
         List<String> values = new ArrayList<>();
         values.add(command.businessKey());
         values.add(command.amount().stripTrailingZeros().toPlainString());
         values.add(command.supplier());
         values.add(command.purchaseOrderReference());
         values.addAll(attachments);
-        values.add(command.assignees().managerAssignee());
-        values.add(command.assignees().financeReviewer());
-        values.addAll(financeApprovers);
+        if (command.assigneeRules() != null) {
+            values.add("RULES");
+            values.add(command.assigneeRules().connectorKey());
+            values.add(command.assigneeRules().initiatorUserId().canonicalValue());
+            values.add(command.assigneeRules().financeReviewerRoleCode());
+            values.add(command.assigneeRules().financeApproverPositionCode());
+            values.add(Integer.toString(command.assigneeRules().maximumFinanceApprovers()));
+        } else {
+            values.add("SNAPSHOT");
+            values.add(command.assignees().managerAssignee());
+            values.add(command.assignees().financeReviewer());
+            values.addAll(command.assignees().financeApprovers().stream()
+                .sorted(Comparator.naturalOrder())
+                .toList());
+        }
         return hashValues(values.toArray(String[]::new));
     }
 
@@ -542,11 +624,54 @@ public final class PurchasePaymentApplicationService {
         String supplier,
         String purchaseOrderReference,
         List<String> attachmentIds,
-        AssigneeSnapshot assignees
+        AssigneeSnapshot assignees,
+        AssigneeRules assigneeRules
     ) {
         public StartCommand {
             context = Objects.requireNonNull(context, "context must not be null");
             attachmentIds = attachmentIds == null ? List.of() : List.copyOf(attachmentIds);
+        }
+
+        public StartCommand(
+            RequestContext context,
+            String businessKey,
+            BigDecimal amount,
+            String supplier,
+            String purchaseOrderReference,
+            List<String> attachmentIds,
+            AssigneeSnapshot assignees
+        ) {
+            this(
+                context,
+                businessKey,
+                amount,
+                supplier,
+                purchaseOrderReference,
+                attachmentIds,
+                assignees,
+                null
+            );
+        }
+
+        public StartCommand(
+            RequestContext context,
+            String businessKey,
+            BigDecimal amount,
+            String supplier,
+            String purchaseOrderReference,
+            List<String> attachmentIds,
+            AssigneeRules assigneeRules
+        ) {
+            this(
+                context,
+                businessKey,
+                amount,
+                supplier,
+                purchaseOrderReference,
+                attachmentIds,
+                null,
+                assigneeRules
+            );
         }
     }
 

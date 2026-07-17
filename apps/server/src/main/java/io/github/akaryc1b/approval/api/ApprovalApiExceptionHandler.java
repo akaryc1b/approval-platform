@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
+import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,14 @@ public class ApprovalApiExceptionHandler {
     })
     ResponseEntity<ApiError> invalidRequest(Exception exception, HttpServletRequest request) {
         return response(400, "INVALID_REQUEST", safeMessage(exception), false, request);
+    }
+
+    @ExceptionHandler(PurchasePaymentAssigneeResolver.AssigneeResolutionException.class)
+    ResponseEntity<ApiError> assigneeResolution(
+        PurchasePaymentAssigneeResolver.AssigneeResolutionException exception,
+        HttpServletRequest request
+    ) {
+        return response(422, exception.code(), exception.getMessage(), false, request);
     }
 
     @ExceptionHandler(IdempotencyGuard.IdempotencyConflictException.class)

@@ -24,8 +24,6 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
 
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {
     };
-    private static final TypeReference<Map<String, String>> STRING_MAP = new TypeReference<>() {
-    };
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
@@ -471,24 +469,7 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
 
     private AssigneeSnapshot decodeAssignees(String json) throws SQLException {
         try {
-            Map<String, Object> values = objectMapper.readValue(
-                json,
-                new TypeReference<Map<String, Object>>() {
-                }
-            );
-            List<String> approvers = objectMapper.convertValue(
-                values.get("financeApprovers"),
-                STRING_LIST
-            );
-            Map<String, String> attributes = values.get("attributes") == null
-                ? Map.of()
-                : objectMapper.convertValue(values.get("attributes"), STRING_MAP);
-            return new AssigneeSnapshot(
-                Objects.toString(values.get("managerAssignee")),
-                Objects.toString(values.get("financeReviewer")),
-                approvers,
-                attributes
-            );
+            return objectMapper.readValue(json, AssigneeSnapshot.class);
         } catch (JsonProcessingException exception) {
             throw new SQLException("unable to decode assignee snapshot", exception);
         }
