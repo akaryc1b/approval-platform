@@ -31,6 +31,21 @@
         </dependency>
         <dependency>
             <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-integration-core</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-connector-generic</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-integration-jdbc</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
             <artifactId>approval-engine-flowable</artifactId>
             <version>${revision}</version>
         </dependency>
