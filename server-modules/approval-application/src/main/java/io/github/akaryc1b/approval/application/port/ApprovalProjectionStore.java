@@ -33,6 +33,14 @@ public interface ApprovalProjectionStore {
 
     List<TaskProjection> findTasks(String tenantId, UUID instanceId);
 
+    PendingTaskPage findPendingTasks(
+        String tenantId,
+        String assigneeId,
+        String keyword,
+        int limit,
+        int offset
+    );
+
     TaskProjection claimPendingTask(
         String tenantId,
         UUID taskId,
@@ -150,6 +158,33 @@ public interface ApprovalProjectionStore {
         Instant updatedAt,
         Instant completedAt
     ) {
+    }
+
+    record PendingTaskItem(
+        UUID taskId,
+        UUID instanceId,
+        String definitionKey,
+        String taskDefinitionKey,
+        String taskName,
+        String businessKey,
+        String initiatorId,
+        BigDecimal amount,
+        String supplier,
+        String purchaseOrderReference,
+        Instant taskCreatedAt,
+        Instant taskUpdatedAt
+    ) {
+    }
+
+    record PendingTaskPage(
+        List<PendingTaskItem> items,
+        long total,
+        int limit,
+        int offset
+    ) {
+        public PendingTaskPage {
+            items = items == null ? List.of() : List.copyOf(items);
+        }
     }
 
     enum InstanceStatus {
