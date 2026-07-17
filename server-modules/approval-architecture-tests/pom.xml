@@ -21,6 +21,11 @@
         </dependency>
         <dependency>
             <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-definition-compiler</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
             <artifactId>approval-engine-spi</artifactId>
             <version>${revision}</version>
         </dependency>
