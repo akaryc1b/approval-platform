@@ -16,8 +16,21 @@ A zero-dependency Node.js 22 client for authentication, user lookup, user search
 
 The example also includes version-specific RuoYi MySQL menu SQL.
 
+### Generic Spring Host
+
+```text
+examples/generic-spring-host
+```
+
+A runnable Spring Boot 4 reference host with:
+
+- all signed authentication and organization endpoints;
+- Java Host SDK verification;
+- fixture users, departments, roles, positions and manager chains;
+- executable JAR and non-root Dockerfile;
+- end-to-end verification through the Connector Smoke CLI.
+
 ## Planned
 
-- standalone Spring Boot host example;
 - non-Java REST/Webhook host example;
 - purchase-payment approval end-to-end sample.
