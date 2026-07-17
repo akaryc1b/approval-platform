@@ -36,6 +36,9 @@ jobs:
       - name: Install mobile dependencies
         working-directory: .upstream/unibest
         run: pnpm install --no-frozen-lockfile
+      - name: Generate Unibest base files
+        working-directory: .upstream/unibest
+        run: pnpm init-baseFiles
       - name: Type check approval mobile
         working-directory: .upstream/unibest
         run: |
