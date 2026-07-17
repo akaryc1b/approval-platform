@@ -11,8 +11,10 @@ export class ConnectorHttpError extends Error {
     this.name = 'ConnectorHttpError';
     this.status = options.status ?? 0;
     this.code = options.code ?? 'CONNECTOR_REQUEST_FAILED';
-    this.retryable = options.retryable ?? this.status === 0 || this.status === 408
-      || this.status === 425 || this.status === 429 || this.status >= 500;
+    this.retryable = options.retryable ?? (
+      this.status === 0 || this.status === 408 || this.status === 425
+      || this.status === 429 || this.status >= 500
+    );
     this.requestId = options.requestId ?? null;
     this.details = options.details == null ? null : redact(options.details);
   }
@@ -31,9 +33,10 @@ export function loadConfiguration(environment = process.env) {
   );
 
   const url = new URL(baseUrl);
-  if (url.search || url.hash || (url.protocol !== 'https:' && !isLoopback(url.hostname))) {
+  if (url.username || url.password || url.search || url.hash
+    || (url.protocol !== 'https:' && !isLoopback(url.hostname))) {
     throw new TypeError(
-      'APPROVAL_HOST_URL must use HTTPS without query/fragment, except loopback HTTP for local development.',
+      'APPROVAL_HOST_URL must use HTTPS without credentials/query/fragment, except loopback HTTP for local development.',
     );
   }
   url.pathname = url.pathname.replace(/\/+$/u, '');
@@ -91,7 +94,9 @@ export class ConnectorClient {
       nonce,
       body: jsonBody,
     });
-    const url = new URL(path.replace(/^\/+?/u, ''), `${this.#baseUrl.toString().replace(/\/+$/u, '')}/`);
+    const normalizedPath = required(path, 'path').replace(/^\/+/u, '');
+    const base = `${this.#baseUrl.toString().replace(/\/+$/u, '')}/`;
+    const url = new URL(normalizedPath, base);
 
     let response;
     try {
