@@ -20,6 +20,16 @@
             <version>${revision}</version>
         </dependency>
         <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-integration-core</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-integration-jdbc</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-jdbc</artifactId>
         </dependency>
