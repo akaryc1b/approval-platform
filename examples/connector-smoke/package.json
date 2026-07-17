@@ -1,0 +1,17 @@
+{
+  "name": "@approval/connector-smoke",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zero-dependency signed Generic REST connector smoke client",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "bin": {
+    "approval-connector-smoke": "./cli.mjs"
+  },
+  "scripts": {
+    "smoke": "node ./cli.mjs",
+    "test": "node --test ./test/*.test.mjs"
+  }
+}

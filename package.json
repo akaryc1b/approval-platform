@@ -18,6 +18,8 @@
     "build:packages": "pnpm --filter './packages/**' build",
     "check": "pnpm -r --if-present check",
     "clean": "pnpm -r --if-present clean",
+    "connector-smoke": "node examples/connector-smoke/cli.mjs",
+    "connector-smoke:test": "node --test examples/connector-smoke/test/*.test.mjs",
     "web:bootstrap": "node scripts/upstream/bootstrap-vben.mjs",
     "web:clean": "node scripts/upstream/bootstrap-vben.mjs --clean",
     "web:install": "pnpm web:bootstrap && pnpm --dir .upstream/vben install --frozen-lockfile",
