@@ -1,5 +1,8 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -13,6 +16,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -20,12 +24,17 @@ import java.util.UUID;
  */
 public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
 
-    private final NamedParameterJdbcTemplate jdbc;
+    private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {
+    };
 
-    public JdbcApprovalTaskQuery(DataSource dataSource) {
+    private final NamedParameterJdbcTemplate jdbc;
+    private final ObjectMapper objectMapper;
+
+    public JdbcApprovalTaskQuery(DataSource dataSource, ObjectMapper objectMapper) {
         this.jdbc = new NamedParameterJdbcTemplate(
             Objects.requireNonNull(dataSource, "dataSource must not be null")
         );
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
     }
 
     @Override
@@ -98,6 +107,51 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
         return new PendingTaskPage(items, matched, criteria.limit(), criteria.offset());
     }
 
+    @Override
+    public Optional<PendingTaskDetails> findPendingTask(PendingTaskIdentity identity) {
+        Objects.requireNonNull(identity, "identity must not be null");
+        List<PendingTaskDetails> rows = jdbc.query(
+            """
+            select
+                task.task_id,
+                task.instance_id,
+                instance.definition_key,
+                instance.definition_version,
+                instance.form_key,
+                instance.form_version,
+                instance.compiler_version,
+                instance.content_hash,
+                task.task_definition_key,
+                task.task_name,
+                instance.business_key,
+                instance.initiator_id,
+                instance.amount,
+                instance.supplier,
+                instance.purchase_order_reference,
+                instance.attachment_ids_json,
+                instance.created_at as instance_created_at,
+                instance.updated_at as instance_updated_at,
+                task.created_at as task_created_at,
+                task.updated_at as task_updated_at
+            from ap_approval_task task
+            join ap_approval_instance instance
+              on instance.tenant_id = task.tenant_id
+             and instance.instance_id = task.instance_id
+            where task.tenant_id = :tenantId
+              and task.assignee_id = :assigneeId
+              and task.task_id = :taskId
+              and task.status = 'PENDING'
+              and instance.status = 'RUNNING'
+            """,
+            new MapSqlParameterSource()
+                .addValue("tenantId", identity.tenantId())
+                .addValue("assigneeId", identity.assigneeId())
+                .addValue("taskId", identity.taskId()),
+            pendingTaskDetailsMapper()
+        );
+        return rows.stream().findFirst();
+    }
+
     private static MapSqlParameterSource parameters(PendingTaskCriteria criteria) {
         boolean hasKeyword = criteria.keyword() != null;
         return new MapSqlParameterSource()
@@ -127,6 +181,39 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
             instant(resultSet, "task_created_at"),
             instant(resultSet, "task_updated_at")
         );
+    }
+
+    private RowMapper<PendingTaskDetails> pendingTaskDetailsMapper() {
+        return (resultSet, rowNumber) -> new PendingTaskDetails(
+            resultSet.getObject("task_id", UUID.class),
+            resultSet.getObject("instance_id", UUID.class),
+            resultSet.getString("definition_key"),
+            resultSet.getInt("definition_version"),
+            resultSet.getString("form_key"),
+            resultSet.getInt("form_version"),
+            resultSet.getString("compiler_version"),
+            resultSet.getString("content_hash"),
+            resultSet.getString("task_definition_key"),
+            resultSet.getString("task_name"),
+            resultSet.getString("business_key"),
+            resultSet.getString("initiator_id"),
+            resultSet.getBigDecimal("amount"),
+            resultSet.getString("supplier"),
+            resultSet.getString("purchase_order_reference"),
+            decodeStringList(resultSet.getString("attachment_ids_json")),
+            instant(resultSet, "instance_created_at"),
+            instant(resultSet, "instance_updated_at"),
+            instant(resultSet, "task_created_at"),
+            instant(resultSet, "task_updated_at")
+        );
+    }
+
+    private List<String> decodeStringList(String json) throws SQLException {
+        try {
+            return objectMapper.readValue(json, STRING_LIST);
+        } catch (JsonProcessingException exception) {
+            throw new SQLException("unable to decode task detail attachments", exception);
+        }
     }
 
     private static Instant instant(ResultSet resultSet, String column) throws SQLException {
