@@ -1,0 +1,8 @@
+{
+  "name": "Unibest approval mobile",
+  "repository": "https://github.com/feige996/unibest.git",
+  "commit": "f05992eb9897158cb9c8031efd1ff8ca8db50403",
+  "version": "4.4.1",
+  "license": "MIT",
+  "wotDesignUniVersion": "1.14.0"
+}
