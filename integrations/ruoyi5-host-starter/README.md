@@ -12,7 +12,7 @@ Java: 17
 Spring Boot: 3.5.15
 ```
 
-The committed source is an overlay. `scripts/upstream/bootstrap-ruoyi5.mjs` generates a clean workspace under `.upstream/ruoyi5`, verifies the exact commit, and injects the Starter into `ruoyi-extend`.
+The committed source is an overlay. `scripts/upstream/bootstrap-ruoyi5.mjs` generates a clean workspace under `.upstream/ruoyi5`, verifies the exact commit, and injects the Starter into `ruoyi-extend` and `ruoyi-admin`.
 
 ## Enable the Starter
 
@@ -44,7 +44,8 @@ A secret may be plain UTF-8 or prefixed with `base64:`. Production secrets must 
 
 ## Security model
 
-- All endpoints are exempt from the normal interactive Sa-Token interceptor with `@SaIgnore`.
+- The AutoConfiguration runs before RuoYi `SecurityConfig` and appends `/api/approval-connector/v1/**` to `security.excludes` without replacing existing exclusions.
+- Controllers are also marked with `@SaIgnore` as defense in depth.
 - Requests are authenticated by tenant-scoped HMAC before JSON parsing or RuoYi service invocation.
 - Nonces are reserved through Redis atomic `setIfAbsent` after successful signature validation.
 - Token credentials are supplied inside the signed authentication request and are never logged.
@@ -78,8 +79,11 @@ Then use Java 17:
 ```bash
 node scripts/upstream/bootstrap-ruoyi5.mjs
 mvn -B -ntp -f .upstream/ruoyi5/pom.xml \
-  -pl ruoyi-extend/ruoyi-approval-host-starter \
+  -pl ruoyi-admin \
   -am -DskipTests package
+mvn -B -ntp -f .upstream/ruoyi5/pom.xml \
+  -pl ruoyi-extend/ruoyi-approval-host-starter \
+  -DskipTests=false test
 ```
 
 The CI workflow performs these steps against the pinned upstream source.
