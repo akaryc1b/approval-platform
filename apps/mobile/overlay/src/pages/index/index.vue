@@ -14,7 +14,7 @@ const metrics = [
   { label: '待我审批', value: 12, tone: 'primary' },
   { label: '抄送未读', value: 2, tone: 'warning' },
   { label: '即将超时', value: 3, tone: 'danger' },
-]
+] as const
 
 const tasks = [
   {
@@ -48,6 +48,10 @@ function openTask(id: string) {
 
 function openTaskList() {
   uni.navigateTo({ url: '/pages/task/list' })
+}
+
+function openInitiate() {
+  uni.switchTab({ url: '/pages/initiate/index' })
 }
 </script>
 
@@ -101,7 +105,7 @@ function openTaskList() {
       <text>快捷操作</text>
     </view>
     <view class="actions">
-      <wd-button block type="primary" @click="uni.switchTab({ url: '/pages/initiate/index' })">
+      <wd-button block type="primary" @click="openInitiate">
         发起审批
       </wd-button>
       <wd-button block plain @click="openTaskList">
