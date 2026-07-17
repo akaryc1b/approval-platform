@@ -1,34 +1,56 @@
 package io.github.akaryc1b.approval.host.security;
 
+import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Framework neutral inbound request verification contract.
+ * Framework-neutral inbound request verification boundary.
  */
 public interface HostRequestVerifier {
 
-    Verification verify(Request request);
+    VerifiedRequest verify(Request request);
 
-    record Request(String tenantKey, String timestamp, String nonce, String body, String signature) {
+    record Request(
+        String tenantKey,
+        String keyId,
+        String requestId,
+        String timestamp,
+        String nonce,
+        String body,
+        String signature
+    ) {
         public Request {
-            tenantKey = require(tenantKey, "tenantKey");
-            timestamp = require(timestamp, "timestamp");
-            nonce = require(nonce, "nonce");
-            body = Objects.requireNonNull(body, "body");
-            signature = require(signature, "signature");
+            tenantKey = requireText(tenantKey, "tenantKey");
+            keyId = requireText(keyId, "keyId");
+            requestId = requireText(requestId, "requestId");
+            timestamp = requireText(timestamp, "timestamp");
+            nonce = requireText(nonce, "nonce");
+            body = Objects.requireNonNull(body, "body must not be null");
+            signature = requireText(signature, "signature");
         }
     }
 
-    enum Verification {
-        PASS,
-        INVALID_SIGNATURE,
-        EXPIRED,
-        REPLAYED
+    record VerifiedRequest(
+        String tenantKey,
+        String keyId,
+        String requestId,
+        Instant requestedAt,
+        Instant verifiedAt,
+        String nonce
+    ) {
+        public VerifiedRequest {
+            tenantKey = requireText(tenantKey, "tenantKey");
+            keyId = requireText(keyId, "keyId");
+            requestId = requireText(requestId, "requestId");
+            requestedAt = Objects.requireNonNull(requestedAt, "requestedAt must not be null");
+            verifiedAt = Objects.requireNonNull(verifiedAt, "verifiedAt must not be null");
+            nonce = requireText(nonce, "nonce");
+        }
     }
 
-    private static String require(String value, String name) {
+    private static String requireText(String value, String name) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + " must not be blank");
         }
         return value;
     }
