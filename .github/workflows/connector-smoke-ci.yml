@@ -1,0 +1,48 @@
+name: Connector Smoke CI
+
+on:
+  push:
+    paths:
+      - 'examples/connector-smoke/**'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/connector-smoke-ci.yml'
+  pull_request:
+    paths:
+      - 'examples/connector-smoke/**'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/connector-smoke-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+
+      - name: Check JavaScript syntax
+        run: |
+          set -euo pipefail
+          find examples/connector-smoke -type f -name '*.mjs' -print0 \
+            | sort -z \
+            | xargs -0 -n1 node --check
+
+      - name: Run connector smoke tests
+        run: node --test examples/connector-smoke/test/*.test.mjs
+
+      - name: Verify CLI help without secrets
+        run: node examples/connector-smoke/cli.mjs help | grep -q 'Approval Platform Connector Smoke CLI'
+
+      - name: Verify version-specific menu semantics
+        run: |
+          set -euo pipefail
+          grep -q "is_frame" examples/connector-smoke/ruoyi-menu/ruoyi5-mysql.sql
+          grep -q "^[[:space:]]*0,[[:space:]]*$" examples/connector-smoke/ruoyi-menu/ruoyi5-mysql.sql
+          grep -q "'Y'" examples/connector-smoke/ruoyi-menu/ruoyi6-mysql.sql
+          grep -q "active_menu" examples/connector-smoke/ruoyi-menu/ruoyi6-mysql.sql
