@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.domain.form.FormDefinition;
 import io.github.akaryc1b.approval.domain.form.FormDefinition.DefaultValue;
+import io.github.akaryc1b.approval.domain.form.FormDefinition.DefaultValueType;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.FieldAccess;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.RequiredOverride;
@@ -25,14 +26,8 @@ class FormDesignProtocolTest {
     @Test
     void defaultsAndRequiredOverridesChangeHashesOnlyWhenConfigured() {
         FormDefinition legacy = form(DefaultValue.none());
-        FormDefinition explicitNone = form(new DefaultValue(
-            FormDefinition.DefaultValueType.NONE,
-            null
-        ));
-        FormDefinition currentUser = form(new DefaultValue(
-            FormDefinition.DefaultValueType.CURRENT_USER,
-            null
-        ));
+        FormDefinition explicitNone = form(new DefaultValue(DefaultValueType.NONE, null));
+        FormDefinition currentUser = form(new DefaultValue(DefaultValueType.CURRENT_USER, null));
         FormSchemaHasher formHasher = new FormSchemaHasher();
         assertEquals(formHasher.hash(legacy), formHasher.hash(explicitNone));
         assertNotEquals(formHasher.hash(legacy), formHasher.hash(currentUser));
@@ -47,21 +42,24 @@ class FormDesignProtocolTest {
 
     @Test
     void rejectsHiddenExplicitRequiredAndUnsafeStartRequirement() {
-        FormDefinition form = form(DefaultValue.none());
+        FormDefinition definition = form(DefaultValue.none());
         UiSchemaDefinitionValidator validator = new UiSchemaDefinitionValidator();
         assertThrows(
             IllegalArgumentException.class,
-            () -> validator.validate(form, ui(RequiredOverride.REQUIRED, FieldAccess.HIDDEN))
+            () -> validator.validate(
+                definition,
+                ui(RequiredOverride.REQUIRED, FieldAccess.HIDDEN)
+            )
         );
         assertThrows(
             IllegalArgumentException.class,
-            () -> validator.validate(form, ui(RequiredOverride.REQUIRED, FieldAccess.READONLY))
+            () -> validator.validate(
+                definition,
+                ui(RequiredOverride.REQUIRED, FieldAccess.READONLY)
+            )
         );
 
-        FormDefinition defaulted = form(new DefaultValue(
-            FormDefinition.DefaultValueType.CURRENT_USER,
-            null
-        ));
+        FormDefinition defaulted = form(new DefaultValue(DefaultValueType.CURRENT_USER, null));
         validator.validate(defaulted, ui(RequiredOverride.REQUIRED, FieldAccess.READONLY));
     }
 
@@ -152,11 +150,5 @@ class FormDesignProtocolTest {
                 ))
             ))
         );
-    }
-
-    private enum DefaultValueType {
-        CURRENT_USER,
-        CURRENT_DATE,
-        CURRENT_DATETIME
     }
 }
