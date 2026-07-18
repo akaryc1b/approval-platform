@@ -330,7 +330,7 @@ public final class ApprovalFormRuntimeService {
         return new UiSelection(definition, null, true);
     }
 
-    private record UiSelection(
+    public record UiSelection(
         UiSchemaDefinition definition,
         String contentHash,
         boolean defaulted
