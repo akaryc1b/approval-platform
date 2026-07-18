@@ -15,6 +15,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -23,6 +24,8 @@ import java.util.UUID;
 public final class JdbcApprovalCommentStore implements ApprovalCommentStore {
 
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {
+    };
+    private static final TypeReference<List<UUID>> UUID_LIST = new TypeReference<>() {
     };
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -40,17 +43,19 @@ public final class JdbcApprovalCommentStore implements ApprovalCommentStore {
         int inserted = jdbc.update(
             """
             insert into ap_approval_comment (
-                comment_id, tenant_id, instance_id, author_id, body,
-                mention_ids_json, attachment_ids_json, created_at
+                comment_id, tenant_id, instance_id, parent_comment_id,
+                author_id, body, mention_ids_json, attachment_ids_json, created_at
             ) values (
-                :commentId, :tenantId, :instanceId, :authorId, :body,
-                cast(:mentionIdsJson as jsonb), cast(:attachmentIdsJson as jsonb), :createdAt
+                :commentId, :tenantId, :instanceId, :parentCommentId,
+                :authorId, :body, cast(:mentionIdsJson as jsonb),
+                cast(:attachmentIdsJson as jsonb), :createdAt
             )
             """,
             new MapSqlParameterSource()
                 .addValue("commentId", comment.commentId())
                 .addValue("tenantId", comment.tenantId())
                 .addValue("instanceId", comment.instanceId())
+                .addValue("parentCommentId", comment.parentCommentId())
                 .addValue("authorId", comment.authorId())
                 .addValue("body", comment.body())
                 .addValue("mentionIdsJson", encode(comment.mentionIds()))
@@ -60,6 +65,30 @@ public final class JdbcApprovalCommentStore implements ApprovalCommentStore {
         if (inserted != 1) {
             throw new IllegalStateException("approval comment was not inserted");
         }
+    }
+
+    @Override
+    public Optional<StoredCommentItem> findComment(
+        String tenantId,
+        UUID instanceId,
+        UUID commentId
+    ) {
+        return jdbc.query(
+            """
+            select
+                comment_id, instance_id, parent_comment_id, author_id, body,
+                mention_ids_json, attachment_ids_json, created_at
+            from ap_approval_comment
+            where tenant_id = :tenantId
+              and instance_id = :instanceId
+              and comment_id = :commentId
+            """,
+            new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("instanceId", instanceId)
+                .addValue("commentId", commentId),
+            (resultSet, rowNumber) -> item(resultSet)
+        ).stream().findFirst();
     }
 
     @Override
@@ -86,7 +115,7 @@ public final class JdbcApprovalCommentStore implements ApprovalCommentStore {
         List<StoredCommentItem> items = jdbc.query(
             """
             select
-                comment_id, instance_id, author_id, body,
+                comment_id, instance_id, parent_comment_id, author_id, body,
                 mention_ids_json, attachment_ids_json, created_at
             from ap_approval_comment
             where tenant_id = :tenantId and instance_id = :instanceId
@@ -103,15 +132,16 @@ public final class JdbcApprovalCommentStore implements ApprovalCommentStore {
         return new StoredCommentItem(
             resultSet.getObject("comment_id", UUID.class),
             resultSet.getObject("instance_id", UUID.class),
+            resultSet.getObject("parent_comment_id", UUID.class),
             resultSet.getString("author_id"),
             resultSet.getString("body"),
-            decode(resultSet.getString("mention_ids_json")),
-            decode(resultSet.getString("attachment_ids_json")),
+            decodeStrings(resultSet.getString("mention_ids_json")),
+            decodeUuids(resultSet.getString("attachment_ids_json")),
             instant(resultSet, "created_at")
         );
     }
 
-    private String encode(List<String> values) {
+    private String encode(List<?> values) {
         try {
             return objectMapper.writeValueAsString(values);
         } catch (JsonProcessingException exception) {
@@ -119,11 +149,19 @@ public final class JdbcApprovalCommentStore implements ApprovalCommentStore {
         }
     }
 
-    private List<String> decode(String json) throws SQLException {
+    private List<String> decodeStrings(String json) throws SQLException {
         try {
             return objectMapper.readValue(json, STRING_LIST);
         } catch (JsonProcessingException exception) {
-            throw new SQLException("unable to decode approval comment references", exception);
+            throw new SQLException("unable to decode approval comment mentions", exception);
+        }
+    }
+
+    private List<UUID> decodeUuids(String json) throws SQLException {
+        try {
+            return objectMapper.readValue(json, UUID_LIST);
+        } catch (JsonProcessingException exception) {
+            throw new SQLException("unable to decode approval comment attachments", exception);
         }
     }
 

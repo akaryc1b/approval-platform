@@ -5,8 +5,21 @@ export interface CommentUserOption {
   userId: string
 }
 
+export interface ApprovalAttachment {
+  attachmentId: string
+  bound: boolean
+  boundAt?: string
+  contentType: string
+  createdAt: string
+  fileName: string
+  instanceId?: string
+  sha256: string
+  sizeBytes: number
+  uploaderId: string
+}
+
 export interface ApprovalCommentItem {
-  attachmentIds: string[]
+  attachments: ApprovalAttachment[]
   authorDisplayName: string
   authorId: string
   body: string
@@ -14,6 +27,10 @@ export interface ApprovalCommentItem {
   createdAt: string
   instanceId: string
   mentionedUsers: CommentUserOption[]
+  parentCommentId?: string
+  reply: boolean
+  replyToAuthorDisplayName?: string
+  replyToAuthorId?: string
 }
 
 export interface ApprovalCommentPage {
@@ -78,22 +95,28 @@ function joinUrl(baseUrl: string, path: string) {
   return `${normalized}${path.startsWith('/') ? path : `/${path}`}`
 }
 
+function runtimeHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const runtime = getApprovalRuntimeConfig()
+  return {
+    Accept: 'application/json',
+    'X-Operator-Id': runtime.operatorId,
+    'X-Tenant-Id': runtime.tenantId,
+    ...extra,
+  }
+}
+
 function errorMessage(payload: unknown, statusCode: number) {
   if (payload && typeof payload === 'object') {
     const error = payload as ErrorPayload
     return error.message || error.error || error.code || `请求失败（${statusCode}）`
   }
+  if (typeof payload === 'string' && payload.trim()) return payload
   return `请求失败（${statusCode}）`
 }
 
 function request<T>(path: string, options: RequestOptions = {}) {
   const runtime = getApprovalRuntimeConfig()
-  const header: Record<string, string> = {
-    Accept: 'application/json',
-    'X-Operator-Id': runtime.operatorId,
-    'X-Tenant-Id': runtime.tenantId,
-    ...options.header,
-  }
+  const header: Record<string, string> = runtimeHeaders(options.header)
   if (options.data !== undefined) header['Content-Type'] = 'application/json'
   return new Promise<T>((resolve, reject) => {
     uni.request({
@@ -141,8 +164,67 @@ export function findApprovalComments(instanceId: string, limit = 100, offset = 0
   )
 }
 
+export function uploadApprovalAttachment(filePath: string) {
+  const runtime = getApprovalRuntimeConfig()
+  const requestId = operationId('mobile-attachment-request')
+  return new Promise<ApprovalAttachment>((resolve, reject) => {
+    uni.uploadFile({
+      url: joinUrl(runtime.apiBaseUrl, '/approval/attachments'),
+      filePath,
+      name: 'file',
+      header: runtimeHeaders({
+        'Idempotency-Key': operationId('mobile-attachment'),
+        'X-Request-Id': requestId,
+        'X-Trace-Id': requestId,
+      }),
+      success: (response) => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          try {
+            resolve(JSON.parse(response.data) as ApprovalAttachment)
+          }
+          catch {
+            reject(new Error('附件响应解析失败'))
+          }
+          return
+        }
+        let payload: unknown = response.data
+        try {
+          payload = JSON.parse(response.data)
+        }
+        catch {
+          payload = response.data
+        }
+        reject(new Error(errorMessage(payload, response.statusCode)))
+      },
+      fail: error => reject(new Error(error.errMsg || '附件上传失败')),
+    })
+  })
+}
+
+export function downloadApprovalAttachment(attachment: ApprovalAttachment) {
+  const runtime = getApprovalRuntimeConfig()
+  return new Promise<string>((resolve, reject) => {
+    uni.downloadFile({
+      url: joinUrl(
+        runtime.apiBaseUrl,
+        `/approval/attachments/${encodeURIComponent(attachment.attachmentId)}/content`,
+      ),
+      header: runtimeHeaders(),
+      success: (response) => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          resolve(response.tempFilePath)
+          return
+        }
+        reject(new Error(`附件下载失败（${response.statusCode}）`))
+      },
+      fail: error => reject(new Error(error.errMsg || '附件下载失败')),
+    })
+  })
+}
+
 export function createApprovalComment(
   instanceId: string,
+  parentCommentId: string | undefined,
   body: string,
   mentionIds: string[],
   attachmentIds: string[],
@@ -153,6 +235,7 @@ export function createApprovalComment(
     {
       method: 'POST',
       data: {
+        parentCommentId: parentCommentId || null,
         body: body.trim(),
         mentionIds,
         attachmentIds,

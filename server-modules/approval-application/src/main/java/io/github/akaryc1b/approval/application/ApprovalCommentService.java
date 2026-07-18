@@ -1,5 +1,7 @@
 package io.github.akaryc1b.approval.application;
 
+import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore;
+import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore.AttachmentSummary;
 import io.github.akaryc1b.approval.application.port.ApprovalCommentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalCommentStore.ApprovalComment;
 import io.github.akaryc1b.approval.application.port.ApprovalCommentStore.CommentCriteria;
@@ -36,20 +38,20 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * Immutable approval comments with participant authorization and @mention messages.
+ * Immutable approval comments, one-level replies, attachment binding and @mention messages.
  */
 public final class ApprovalCommentService {
 
-    private static final String COMMENT_OPERATION = "purchase-payment.comment.v1";
+    private static final String COMMENT_OPERATION = "purchase-payment.comment.v2";
     private static final int MAX_BODY_LENGTH = 4000;
     private static final int MAX_MENTIONS = 50;
     private static final int MAX_ATTACHMENTS = 20;
-    private static final int MAX_REFERENCE_LENGTH = 512;
 
     private final IdempotencyGuard idempotencyGuard;
     private final ApprovalProjectionStore projections;
     private final ApprovalMessageStore messages;
     private final ApprovalCommentStore comments;
+    private final ApprovalAttachmentStore attachments;
     private final AuditEventSink auditEvents;
     private final Clock clock;
     private final Supplier<UUID> identifierGenerator;
@@ -59,6 +61,7 @@ public final class ApprovalCommentService {
         ApprovalProjectionStore projections,
         ApprovalMessageStore messages,
         ApprovalCommentStore comments,
+        ApprovalAttachmentStore attachments,
         AuditEventSink auditEvents,
         Clock clock,
         Supplier<UUID> identifierGenerator
@@ -70,6 +73,7 @@ public final class ApprovalCommentService {
         this.projections = Objects.requireNonNull(projections, "projections must not be null");
         this.messages = Objects.requireNonNull(messages, "messages must not be null");
         this.comments = Objects.requireNonNull(comments, "comments must not be null");
+        this.attachments = Objects.requireNonNull(attachments, "attachments must not be null");
         this.auditEvents = Objects.requireNonNull(auditEvents, "auditEvents must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.identifierGenerator = Objects.requireNonNull(
@@ -107,20 +111,21 @@ public final class ApprovalCommentService {
         Objects.requireNonNull(command, "command must not be null");
         String body = requireBody(command.body());
         List<String> mentions = normalizeMentions(command.mentionIds());
-        List<String> attachments = normalizeAttachments(command.attachmentIds());
+        List<UUID> attachmentIds = normalizeAttachments(command.attachmentIds());
         List<String> hashInputs = new ArrayList<>();
         hashInputs.add(command.instanceId().toString());
+        hashInputs.add(command.parentCommentId() == null ? "" : command.parentCommentId().toString());
         hashInputs.add(body);
         hashInputs.addAll(mentions);
         hashInputs.add("--attachments--");
-        hashInputs.addAll(attachments);
+        attachmentIds.stream().map(UUID::toString).forEach(hashInputs::add);
         String requestHash = hashValues(hashInputs.toArray(String[]::new));
         return idempotencyGuard.execute(
             command.context(),
             COMMENT_OPERATION,
             requestHash,
             CommentItem.class,
-            () -> executeComment(command, body, mentions, attachments)
+            () -> executeComment(command, body, mentions, attachmentIds)
         );
     }
 
@@ -128,7 +133,7 @@ public final class ApprovalCommentService {
         CommentCommand command,
         String body,
         List<String> mentionIds,
-        List<String> attachmentIds
+        List<UUID> attachmentIds
     ) {
         RequestContext context = command.context();
         InstanceProjection instance = findParticipantInstance(
@@ -136,25 +141,27 @@ public final class ApprovalCommentService {
             context.operatorId(),
             command.instanceId()
         );
-        Set<String> allowedMentions = userOptions(instance, context.operatorId()).stream()
-            .map(CommentUserOption::userId)
-            .collect(Collectors.toSet());
-        List<String> invalidMentions = mentionIds.stream()
-            .filter(mention -> !allowedMentions.contains(mention))
-            .toList();
-        if (!invalidMentions.isEmpty()) {
-            throw new ApprovalProjectionStore.ProjectionConflictException(
-                "mentioned users are not present in the immutable approval identity snapshot: "
-                    + String.join(",", invalidMentions)
-            );
-        }
+        validateMentions(instance, context.operatorId(), mentionIds);
+        StoredCommentItem parent = validateParent(
+            context.tenantId(),
+            instance.instanceId(),
+            command.parentCommentId()
+        );
 
         Instant now = clock.instant();
+        attachments.bindToInstance(
+            context.tenantId(),
+            context.operatorId(),
+            instance.instanceId(),
+            attachmentIds,
+            now
+        );
         UUID commentId = identifierGenerator.get();
         ApprovalComment comment = new ApprovalComment(
             commentId,
             context.tenantId(),
             instance.instanceId(),
+            parent == null ? null : parent.commentId(),
             context.operatorId(),
             body,
             mentionIds,
@@ -173,15 +180,46 @@ public final class ApprovalCommentService {
             );
         }
         appendAudit(context, instance, comment, now);
-        return publicItem(instance, new StoredCommentItem(
-            comment.commentId(),
-            comment.instanceId(),
-            comment.authorId(),
-            comment.body(),
-            comment.mentionIds(),
-            comment.attachmentIds(),
-            comment.createdAt()
-        ));
+        return publicItem(instance, stored(comment));
+    }
+
+    private void validateMentions(
+        InstanceProjection instance,
+        String operatorId,
+        List<String> mentionIds
+    ) {
+        Set<String> allowedMentions = userOptions(instance, operatorId).stream()
+            .map(CommentUserOption::userId)
+            .collect(Collectors.toSet());
+        List<String> invalidMentions = mentionIds.stream()
+            .filter(mention -> !allowedMentions.contains(mention))
+            .toList();
+        if (!invalidMentions.isEmpty()) {
+            throw new ApprovalProjectionStore.ProjectionConflictException(
+                "mentioned users are not present in the immutable approval identity snapshot: "
+                    + String.join(",", invalidMentions)
+            );
+        }
+    }
+
+    private StoredCommentItem validateParent(
+        String tenantId,
+        UUID instanceId,
+        UUID parentCommentId
+    ) {
+        if (parentCommentId == null) {
+            return null;
+        }
+        StoredCommentItem parent = comments.findComment(tenantId, instanceId, parentCommentId)
+            .orElseThrow(() -> new ApprovalProjectionStore.ProjectionConflictException(
+                "parent comment was not found in the approval instance"
+            ));
+        if (parent.parentCommentId() != null) {
+            throw new ApprovalProjectionStore.ProjectionConflictException(
+                "comment replies are limited to one level"
+            );
+        }
+        return parent;
     }
 
     private ApprovalMessage mentionMessage(
@@ -193,6 +231,9 @@ public final class ApprovalCommentService {
         Map<String, String> metadata = new LinkedHashMap<>();
         metadata.put("businessKey", instance.businessKey());
         metadata.put("commentId", comment.commentId().toString());
+        if (comment.parentCommentId() != null) {
+            metadata.put("parentCommentId", comment.parentCommentId().toString());
+        }
         metadata.put("attachmentCount", Integer.toString(comment.attachmentIds().size()));
         return new ApprovalMessage(
             identifierGenerator.get(),
@@ -226,8 +267,14 @@ public final class ApprovalCommentService {
         attributes.put("commentId", comment.commentId().toString());
         attributes.put("commentBody", comment.body());
         attributes.put("mentions", String.join(",", comment.mentionIds()));
-        attributes.put("attachmentIds", String.join(",", comment.attachmentIds()));
+        attributes.put(
+            "attachmentIds",
+            comment.attachmentIds().stream().map(UUID::toString).collect(Collectors.joining(","))
+        );
         attributes.put("attachmentCount", Integer.toString(comment.attachmentIds().size()));
+        if (comment.parentCommentId() != null) {
+            attributes.put("parentCommentId", comment.parentCommentId().toString());
+        }
         auditEvents.append(new AuditEvent(
             identifierGenerator.get(),
             context.tenantId(),
@@ -266,14 +313,25 @@ public final class ApprovalCommentService {
         List<CommentUserOption> mentionedUsers = item.mentionIds().stream()
             .map(userId -> option(instance, userId))
             .toList();
+        StoredCommentItem parent = item.parentCommentId() == null
+            ? null
+            : comments.findComment(instance.tenantId(), instance.instanceId(), item.parentCommentId())
+                .orElse(null);
+        List<AttachmentSummary> attachmentItems = attachments.findSummaries(
+            instance.tenantId(),
+            item.attachmentIds()
+        );
         return new CommentItem(
             item.commentId(),
             item.instanceId(),
+            item.parentCommentId(),
+            parent == null ? null : parent.authorId(),
+            parent == null ? null : option(instance, parent.authorId()).displayName(),
             item.authorId(),
             option(instance, item.authorId()).displayName(),
             item.body(),
             mentionedUsers,
-            item.attachmentIds(),
+            attachmentItems,
             item.createdAt()
         );
     }
@@ -305,6 +363,19 @@ public final class ApprovalCommentService {
         return new CommentUserOption(userId, displayName == null ? userId : displayName);
     }
 
+    private static StoredCommentItem stored(ApprovalComment comment) {
+        return new StoredCommentItem(
+            comment.commentId(),
+            comment.instanceId(),
+            comment.parentCommentId(),
+            comment.authorId(),
+            comment.body(),
+            comment.mentionIds(),
+            comment.attachmentIds(),
+            comment.createdAt()
+        );
+    }
+
     private static String requireBody(String value) {
         String body = requireText(value, "comment body");
         if (body.length() > MAX_BODY_LENGTH) {
@@ -318,7 +389,7 @@ public final class ApprovalCommentService {
             return List.of();
         }
         List<String> mentions = values.stream()
-            .map(value -> requireReference(value, "mentionId"))
+            .map(value -> requireText(value, "mentionId"))
             .distinct()
             .sorted()
             .toList();
@@ -328,25 +399,15 @@ public final class ApprovalCommentService {
         return mentions;
     }
 
-    private static List<String> normalizeAttachments(List<String> values) {
+    private static List<UUID> normalizeAttachments(List<UUID> values) {
         if (values == null || values.isEmpty()) {
             return List.of();
         }
-        List<String> attachments = new ArrayList<>(new LinkedHashSet<>(values.stream()
-            .map(value -> requireReference(value, "attachmentId"))
-            .toList()));
-        if (attachments.size() > MAX_ATTACHMENTS) {
-            throw new IllegalArgumentException("comment attachments must not exceed 20 references");
+        List<UUID> attachmentIds = new ArrayList<>(new LinkedHashSet<>(values));
+        if (attachmentIds.size() > MAX_ATTACHMENTS) {
+            throw new IllegalArgumentException("comment attachments must not exceed 20 files");
         }
-        return List.copyOf(attachments);
-    }
-
-    private static String requireReference(String value, String name) {
-        String reference = requireText(value, name);
-        if (reference.length() > MAX_REFERENCE_LENGTH) {
-            throw new IllegalArgumentException(name + " must not exceed 512 characters");
-        }
-        return reference;
+        return List.copyOf(attachmentIds);
     }
 
     private static String hashValues(String... values) {
@@ -389,16 +450,23 @@ public final class ApprovalCommentService {
     public record CommentItem(
         UUID commentId,
         UUID instanceId,
+        UUID parentCommentId,
+        String replyToAuthorId,
+        String replyToAuthorDisplayName,
         String authorId,
         String authorDisplayName,
         String body,
         List<CommentUserOption> mentionedUsers,
-        List<String> attachmentIds,
+        List<AttachmentSummary> attachments,
         Instant createdAt
     ) {
         public CommentItem {
             mentionedUsers = mentionedUsers == null ? List.of() : List.copyOf(mentionedUsers);
-            attachmentIds = attachmentIds == null ? List.of() : List.copyOf(attachmentIds);
+            attachments = attachments == null ? List.of() : List.copyOf(attachments);
+        }
+
+        public boolean reply() {
+            return parentCommentId != null;
         }
     }
 
@@ -417,9 +485,10 @@ public final class ApprovalCommentService {
     public record CommentCommand(
         RequestContext context,
         UUID instanceId,
+        UUID parentCommentId,
         String body,
         List<String> mentionIds,
-        List<String> attachmentIds
+        List<UUID> attachmentIds
     ) {
         public CommentCommand {
             context = Objects.requireNonNull(context, "context must not be null");

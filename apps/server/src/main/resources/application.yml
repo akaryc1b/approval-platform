@@ -7,6 +7,10 @@ spring:
     url: ${APPROVAL_DB_URL:jdbc:postgresql://localhost:5432/approval}
     username: ${APPROVAL_DB_USERNAME:approval}
     password: ${APPROVAL_DB_PASSWORD:approval}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
 
 flowable:
   database-schema-update: false

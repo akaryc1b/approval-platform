@@ -4,6 +4,8 @@ import type {
   ApprovalTimelineItem,
 } from '@/api/approval'
 import type {
+  ApprovalAttachment,
+  ApprovalCommentItem,
   ApprovalCommentPage,
   CommentOptions,
   CommentUserOption,
@@ -15,8 +17,10 @@ import {
 } from '@/api/approval'
 import {
   createApprovalComment,
+  downloadApprovalAttachment,
   findApprovalComments,
   findCommentOptions,
+  uploadApprovalAttachment,
 } from '@/api/approval/comments'
 
 defineOptions({ name: 'ApprovalDiscussionDetail' })
@@ -28,21 +32,24 @@ definePage({
 })
 
 const instanceId = ref('')
+const focusCommentId = ref('')
 const supplier = ref('')
 const businessKey = ref('')
 const purchaseOrderReference = ref('')
 const amount = ref(0)
 const status = ref('')
-const copyMessageId = ref('')
+const messageId = ref('')
 const loading = ref(false)
 const submitting = ref(false)
+const uploading = ref(false)
 const loadError = ref('')
 const timeline = ref<ApprovalTimeline>()
 const comments = ref<ApprovalCommentPage>(emptyComments())
 const options = ref<CommentOptions>()
 const commentBody = ref('')
 const selectedMentionIds = ref<string[]>([])
-const attachmentText = ref('')
+const attachments = ref<ApprovalAttachment[]>([])
+const replyingTo = ref<ApprovalCommentItem>()
 
 function emptyComments(): ApprovalCommentPage {
   return { hasMore: false, items: [], limit: 100, offset: 0, total: 0 }
@@ -54,6 +61,12 @@ function errorMessage(error: unknown) {
 
 function formatMoney(value: number) {
   return `¥${Number(value).toFixed(2)}`
+}
+
+function formatSize(value: number) {
+  if (value < 1024) return `${value} B`
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`
+  return `${(value / 1024 / 1024).toFixed(1)} MiB`
 }
 
 function formatDate(value: string) {
@@ -90,13 +103,26 @@ function toggleMention(user: CommentUserOption) {
   }
 }
 
-function attachmentIds() {
-  return Array.from(new Set(
-    attachmentText.value
-      .split(/[\n,;，；]/)
-      .map(item => item.trim())
-      .filter(Boolean),
-  )).slice(0, 20)
+function startReply(item: ApprovalCommentItem) {
+  if (item.reply) return
+  replyingTo.value = item
+  const candidate = options.value?.mentionCandidates.find(user => user.userId === item.authorId)
+  if (candidate && !selectedMentionIds.value.includes(candidate.userId)) {
+    selectedMentionIds.value = [...selectedMentionIds.value, candidate.userId]
+  }
+}
+
+function cancelReply() {
+  replyingTo.value = undefined
+}
+
+async function focusComment() {
+  if (!focusCommentId.value) return
+  await nextTick()
+  uni.pageScrollTo({
+    selector: `#comment-${focusCommentId.value}`,
+    duration: 300,
+  })
 }
 
 async function loadDiscussion() {
@@ -107,9 +133,9 @@ async function loadDiscussion() {
   loading.value = true
   loadError.value = ''
   try {
-    if (copyMessageId.value) {
-      await markMessageRead(copyMessageId.value)
-      copyMessageId.value = ''
+    if (messageId.value) {
+      await markMessageRead(messageId.value)
+      messageId.value = ''
     }
     const [timelineResult, commentResult, optionResult] = await Promise.all([
       findApprovalTimeline(instanceId.value),
@@ -119,12 +145,64 @@ async function loadDiscussion() {
     timeline.value = timelineResult
     comments.value = commentResult
     options.value = optionResult
+    await focusComment()
   }
   catch (error) {
     loadError.value = errorMessage(error)
   }
   finally {
     loading.value = false
+  }
+}
+
+function chooseAttachments() {
+  const remaining = 20 - attachments.value.length
+  if (remaining <= 0) {
+    uni.showToast({ title: '单条评论最多 20 个附件', icon: 'none' })
+    return
+  }
+  uni.chooseMessageFile({
+    count: remaining,
+    type: 'file',
+    success: async (result) => {
+      uploading.value = true
+      try {
+        for (const file of result.tempFiles) {
+          if (file.size > 10 * 1024 * 1024) {
+            throw new Error(`${file.name} 超过 10 MiB`)
+          }
+          const uploaded = await uploadApprovalAttachment(file.path)
+          attachments.value = [...attachments.value, uploaded]
+        }
+        uni.showToast({ title: `已上传 ${result.tempFiles.length} 个附件`, icon: 'success' })
+      }
+      catch (error) {
+        uni.showToast({ title: errorMessage(error), icon: 'none' })
+      }
+      finally {
+        uploading.value = false
+      }
+    },
+  })
+}
+
+function removeAttachment(attachmentId: string) {
+  attachments.value = attachments.value.filter(item => item.attachmentId !== attachmentId)
+}
+
+async function openAttachment(attachment: ApprovalAttachment) {
+  try {
+    const filePath = await downloadApprovalAttachment(attachment)
+    await new Promise<void>((resolve, reject) => {
+      uni.openDocument({
+        filePath,
+        success: () => resolve(),
+        fail: error => reject(new Error(error.errMsg || '无法打开附件')),
+      })
+    })
+  }
+  catch (error) {
+    uni.showToast({ title: errorMessage(error), icon: 'none' })
   }
 }
 
@@ -138,13 +216,15 @@ async function submitComment() {
   try {
     await createApprovalComment(
       instanceId.value,
+      replyingTo.value?.commentId,
       body,
       selectedMentionIds.value,
-      attachmentIds(),
+      attachments.value.map(item => item.attachmentId),
     )
     commentBody.value = ''
     selectedMentionIds.value = []
-    attachmentText.value = ''
+    attachments.value = []
+    replyingTo.value = undefined
     uni.showToast({ title: '评论已发布', icon: 'success' })
     comments.value = await findApprovalComments(instanceId.value)
     timeline.value = await findApprovalTimeline(instanceId.value)
@@ -163,12 +243,13 @@ function goBack() {
 
 onLoad((query) => {
   instanceId.value = String(query?.instanceId || '')
+  focusCommentId.value = String(query?.commentId || '')
   supplier.value = decodeURIComponent(String(query?.supplier || ''))
   businessKey.value = decodeURIComponent(String(query?.businessKey || ''))
   purchaseOrderReference.value = decodeURIComponent(String(query?.purchaseOrderReference || ''))
   amount.value = Number(query?.amount || 0)
   status.value = decodeURIComponent(String(query?.status || ''))
-  copyMessageId.value = String(query?.copyMessageId || '')
+  messageId.value = String(query?.messageId || query?.copyMessageId || '')
   loadDiscussion()
 })
 </script>
@@ -225,9 +306,23 @@ onLoad((query) => {
       <view class="comment-card">
         <view class="section-title">审批评论（{{ comments.total }}）</view>
         <view v-if="comments.items.length" class="comment-list">
-          <view v-for="item in comments.items" :key="item.commentId" class="comment-item">
+          <view
+            v-for="item in comments.items"
+            :id="`comment-${item.commentId}`"
+            :key="item.commentId"
+            class="comment-item"
+            :class="{
+              'comment-item--focus': item.commentId === focusCommentId,
+              'comment-item--reply': item.reply,
+            }"
+          >
             <view class="comment-header">
-              <strong>{{ item.authorDisplayName }}</strong>
+              <view>
+                <strong>{{ item.authorDisplayName }}</strong>
+                <text v-if="item.replyToAuthorDisplayName">
+                  回复 {{ item.replyToAuthorDisplayName }}
+                </text>
+              </view>
               <text>{{ formatDate(item.createdAt) }}</text>
             </view>
             <text class="comment-body">{{ item.body }}</text>
@@ -241,15 +336,22 @@ onLoad((query) => {
                 @{{ user.displayName }}
               </wd-tag>
             </view>
-            <view v-if="item.attachmentIds.length" class="tag-row">
-              <wd-tag
-                v-for="attachment in item.attachmentIds"
-                :key="attachment"
-                plain
-                type="default"
+            <view v-if="item.attachments.length" class="attachment-list">
+              <view
+                v-for="attachment in item.attachments"
+                :key="attachment.attachmentId"
+                class="attachment-row"
+                @click="openAttachment(attachment)"
               >
-                {{ attachment }}
-              </wd-tag>
+                <view>
+                  <strong>{{ attachment.fileName }}</strong>
+                  <text>{{ formatSize(attachment.sizeBytes) }} · {{ attachment.contentType }}</text>
+                </view>
+                <text class="attachment-open">打开</text>
+              </view>
+            </view>
+            <view v-if="!item.reply" class="reply-row">
+              <wd-button size="small" plain @click="startReply(item)">回复</wd-button>
             </view>
           </view>
         </view>
@@ -257,7 +359,13 @@ onLoad((query) => {
       </view>
 
       <view class="composer-card">
-        <view class="section-title">发表评论</view>
+        <view class="section-title">
+          {{ replyingTo ? `回复 ${replyingTo.authorDisplayName}` : '发表评论' }}
+        </view>
+        <view v-if="replyingTo" class="reply-notice">
+          <text>仅支持一层回复</text>
+          <wd-button size="small" plain @click="cancelReply">取消回复</wd-button>
+        </view>
         <text class="composer-label">@ 提及流程参与人（可选）</text>
         <view class="mention-list">
           <view
@@ -274,16 +382,35 @@ onLoad((query) => {
           v-model="commentBody"
           :maxlength="4000"
           clearable
-          placeholder="填写审批评论"
+          :placeholder="replyingTo ? `回复 ${replyingTo.authorDisplayName}` : '填写审批评论'"
           show-word-limit
         />
-        <wd-textarea
-          v-model="attachmentText"
-          :maxlength="4000"
-          clearable
-          placeholder="附件引用 ID（可选，逗号或换行分隔，最多 20 个）"
-        />
-        <text class="muted">附件上传接入后将替换为文件选择器。</text>
+        <view class="upload-bar">
+          <wd-button size="small" plain :loading="uploading" @click="chooseAttachments">
+            选择附件
+          </wd-button>
+          <text>单文件不超过 10 MiB，最多 20 个</text>
+        </view>
+        <view v-if="attachments.length" class="pending-list">
+          <view
+            v-for="attachment in attachments"
+            :key="attachment.attachmentId"
+            class="pending-row"
+          >
+            <view>
+              <strong>{{ attachment.fileName }}</strong>
+              <text>{{ formatSize(attachment.sizeBytes) }}</text>
+            </view>
+            <wd-button
+              size="small"
+              type="error"
+              plain
+              @click="removeAttachment(attachment.attachmentId)"
+            >
+              移除
+            </wd-button>
+          </view>
+        </view>
       </view>
     </template>
 
@@ -291,11 +418,11 @@ onLoad((query) => {
       <wd-button plain @click="goBack">返回</wd-button>
       <wd-button
         type="primary"
-        :disabled="!instanceId || loading"
+        :disabled="!instanceId || loading || uploading"
         :loading="submitting"
         @click="submitComment"
       >
-        发布评论
+        {{ replyingTo ? '发布回复' : '发布评论' }}
       </wd-button>
     </view>
   </view>
@@ -322,11 +449,22 @@ onLoad((query) => {
 
 .summary-header,
 .comment-header,
-.action-bar {
+.action-bar,
+.reply-notice,
+.upload-bar,
+.attachment-row,
+.pending-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20rpx;
+}
+
+.comment-header > view,
+.attachment-row > view,
+.pending-row > view {
+  display: grid;
+  gap: 6rpx;
 }
 
 .eyebrow,
@@ -335,7 +473,11 @@ onLoad((query) => {
 .comment-header text,
 .composer-label,
 .muted,
-.state-card {
+.state-card,
+.upload-bar text,
+.attachment-row text,
+.pending-row text,
+.reply-notice text {
   color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
   font-size: 24rpx;
 }
@@ -372,7 +514,9 @@ onLoad((query) => {
 }
 
 .timeline-list,
-.comment-list {
+.comment-list,
+.attachment-list,
+.pending-list {
   display: grid;
   gap: 18rpx;
 }
@@ -399,11 +543,23 @@ onLoad((query) => {
   gap: 14rpx;
   padding: 22rpx;
   border: 1rpx solid var(--wot-color-border-light, var(--uni-border-color));
-  border-radius: var(--wot-radius-large, 18rpx);
+  border-radius: var(--wot-radius-base, 16rpx);
+  scroll-margin-top: 24rpx;
+}
+
+.comment-item--reply {
+  margin-left: 36rpx;
+  border-left: 6rpx solid var(--wot-color-theme, var(--uni-color-primary));
+}
+
+.comment-item--focus {
+  border-color: var(--wot-color-theme, var(--uni-color-primary));
+  background: var(--wot-color-theme-light, var(--uni-bg-color));
 }
 
 .comment-body {
   color: var(--wot-color-content, var(--uni-text-color));
+  font-size: 26rpx;
   line-height: 1.7;
   white-space: pre-wrap;
 }
@@ -415,12 +571,28 @@ onLoad((query) => {
   gap: 12rpx;
 }
 
-.mention-list {
-  margin-bottom: 20rpx;
+.reply-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.attachment-row,
+.pending-row {
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--wot-color-border-light, var(--uni-border-color));
+}
+
+.attachment-open {
+  color: var(--wot-color-theme, var(--uni-color-primary));
+}
+
+.reply-notice,
+.upload-bar {
+  margin-bottom: 18rpx;
 }
 
 .mention-chip {
-  padding: 12rpx 18rpx;
+  padding: 10rpx 18rpx;
   color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
   border: 1rpx solid var(--wot-color-border-light, var(--uni-border-color));
   border-radius: 999rpx;
@@ -430,12 +602,17 @@ onLoad((query) => {
 .mention-chip--active {
   color: var(--wot-color-theme, var(--uni-color-primary));
   border-color: var(--wot-color-theme, var(--uni-color-primary));
-  background: var(--wot-color-primary-light, var(--uni-bg-color-grey));
+  background: var(--wot-color-theme-light, var(--uni-bg-color));
 }
 
-.composer-card {
-  display: grid;
-  gap: 16rpx;
+.action-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--wot-color-white, var(--uni-bg-color));
+  box-shadow: 0 -8rpx 24rpx rgb(15 23 42 / 8%);
 }
 
 .state-card {
@@ -447,16 +624,5 @@ onLoad((query) => {
 
 .state-card--error {
   color: var(--wot-color-danger, var(--uni-color-error));
-}
-
-.action-bar {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  justify-content: flex-end;
-  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
-  background: var(--wot-color-white, var(--uni-bg-color));
-  box-shadow: 0 -8rpx 24rpx rgb(15 23 42 / 8%);
 }
 </style>

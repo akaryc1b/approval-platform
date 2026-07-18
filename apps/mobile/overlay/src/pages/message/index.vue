@@ -11,7 +11,6 @@ import {
   findStartedInstances,
   findUnreadMessageCount,
   markAllMessagesRead,
-  markMessageRead,
 } from '@/api/approval'
 
 defineOptions({
@@ -25,7 +24,6 @@ definePage({
 })
 
 type ActiveTab = 'collaboration' | 'messages'
-
 type TagType = 'danger' | 'primary' | 'success' | 'warning'
 
 const activeTab = ref<ActiveTab>('messages')
@@ -70,9 +68,7 @@ function formatMoney(value: number) {
 }
 
 function formatDate(value?: string) {
-  if (!value) {
-    return '未读'
-  }
+  if (!value) return '未读'
   const date = new Date(value)
   return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
@@ -147,12 +143,8 @@ async function loadStarted() {
 
 async function selectTab(tab: ActiveTab) {
   activeTab.value = tab
-  if (tab === 'messages') {
-    await loadMessages()
-  }
-  else {
-    await loadStarted()
-  }
+  if (tab === 'messages') await loadMessages()
+  else await loadStarted()
 }
 
 async function toggleUnreadOnly() {
@@ -161,22 +153,10 @@ async function toggleUnreadOnly() {
   await loadMessages()
 }
 
-async function readMessage(item: ApprovalMessageItem) {
-  if (item.read) {
-    return
-  }
-  try {
-    await markMessageRead(item.messageId)
-    item.read = true
-    item.readAt = new Date().toISOString()
-    unreadCount.value = Math.max(0, unreadCount.value - 1)
-    if (unreadOnly.value) {
-      await loadMessages()
-    }
-  }
-  catch (error) {
-    uni.showToast({ title: errorMessage(error), icon: 'none' })
-  }
+function openMessage(item: ApprovalMessageItem) {
+  uni.navigateTo({
+    url: `/pages/discussion/detail?instanceId=${encodeURIComponent(item.instanceId)}&commentId=${encodeURIComponent(item.metadata.commentId || '')}&messageId=${encodeURIComponent(item.read ? '' : item.messageId)}&supplier=${encodeURIComponent(item.supplier)}&businessKey=${encodeURIComponent(item.businessKey)}&purchaseOrderReference=${encodeURIComponent(item.purchaseOrderReference)}&amount=${encodeURIComponent(String(item.amount))}&status=${encodeURIComponent(item.instanceStatus)}`,
+  })
 }
 
 async function readAll() {
@@ -191,33 +171,25 @@ async function readAll() {
 }
 
 async function previousMessages() {
-  if (currentPage.value <= 1) {
-    return
-  }
+  if (currentPage.value <= 1) return
   currentPage.value -= 1
   await loadMessages()
 }
 
 async function nextMessages() {
-  if (!messagePage.value.hasMore) {
-    return
-  }
+  if (!messagePage.value.hasMore) return
   currentPage.value += 1
   await loadMessages()
 }
 
 async function previousStarted() {
-  if (startedCurrentPage.value <= 1) {
-    return
-  }
+  if (startedCurrentPage.value <= 1) return
   startedCurrentPage.value -= 1
   await loadStarted()
 }
 
 async function nextStarted() {
-  if (!startedPage.value.hasMore) {
-    return
-  }
+  if (!startedPage.value.hasMore) return
   startedCurrentPage.value += 1
   await loadStarted()
 }
@@ -285,7 +257,7 @@ onShow(async () => {
           :key="item.messageId"
           class="message-card"
           :class="{ 'message-card--unread': !item.read }"
-          @click="readMessage(item)"
+          @click="openMessage(item)"
         >
           <view class="card-header">
             <text class="card-title">{{ item.title }}</text>
@@ -297,7 +269,7 @@ onShow(async () => {
           <text class="card-meta">{{ item.businessKey }} · 发送人 {{ item.senderId }}</text>
           <view class="card-footer">
             <text>{{ formatMoney(item.amount) }}</text>
-            <text>{{ item.read ? `已读 ${formatDate(item.readAt)}` : '点击标记已读' }}</text>
+            <text>{{ item.read ? `已读 ${formatDate(item.readAt)}` : '打开并标记已读' }}</text>
           </view>
         </view>
       </view>
