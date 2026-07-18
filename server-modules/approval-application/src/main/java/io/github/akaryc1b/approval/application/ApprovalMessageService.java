@@ -77,7 +77,7 @@ public final class ApprovalMessageService {
     }
 
     public CollaborationOptions findOptions(String tenantId, String operatorId, UUID instanceId) {
-        InstanceProjection instance = findParticipantInstance(tenantId, operatorId, instanceId);
+        InstanceProjection instance = findCollaborationInstance(tenantId, operatorId, instanceId);
         List<TaskProjection> tasks = projections.findTasks(tenantId, instanceId);
         List<UserOption> candidates = userOptions(instance, operatorId);
         List<UserOption> activeAssignees = tasks.stream()
@@ -109,11 +109,11 @@ public final class ApprovalMessageService {
         Objects.requireNonNull(command, "command must not be null");
         List<String> recipients = normalizeRecipients(command.recipientIds());
         String comment = normalizeOptional(command.comment());
-        List<String> hashValues = new ArrayList<>();
-        hashValues.add(command.instanceId().toString());
-        hashValues.add(comment);
-        hashValues.addAll(recipients);
-        String requestHash = hashValues(hashValues.toArray(String[]::new));
+        List<String> hashInputs = new ArrayList<>();
+        hashInputs.add(command.instanceId().toString());
+        hashInputs.add(comment);
+        hashInputs.addAll(recipients);
+        String requestHash = hashValues(hashInputs.toArray(String[]::new));
         return idempotencyGuard.execute(
             command.context(),
             COPY_OPERATION,
@@ -195,13 +195,21 @@ public final class ApprovalMessageService {
     }
 
     public List<MessageReceipt> findReceipts(String tenantId, String operatorId, UUID instanceId) {
-        findParticipantInstance(tenantId, operatorId, instanceId);
+        InstanceProjection instance = projections.findInstance(tenantId, instanceId)
+            .orElseThrow(() -> new ApprovalProjectionStore.ProjectionConflictException(
+                "approval instance was not found"
+            ));
+        if (!instance.initiatorId().equals(operatorId)) {
+            throw new ApprovalProjectionStore.ProjectionConflictException(
+                "only the process initiator can view message receipts"
+            );
+        }
         return messages.findReceipts(tenantId, instanceId);
     }
 
     private MessageActionResult executeUrge(UrgeCommand command, String comment) {
         RequestContext context = command.context();
-        InstanceProjection instance = findParticipantInstance(
+        InstanceProjection instance = findCollaborationInstance(
             context.tenantId(),
             context.operatorId(),
             command.instanceId()
@@ -271,7 +279,7 @@ public final class ApprovalMessageService {
         String comment
     ) {
         RequestContext context = command.context();
-        InstanceProjection instance = findParticipantInstance(
+        InstanceProjection instance = findCollaborationInstance(
             context.tenantId(),
             context.operatorId(),
             command.instanceId()
@@ -311,7 +319,7 @@ public final class ApprovalMessageService {
         return new MessageActionResult(instance.instanceId(), created, recipients, now);
     }
 
-    private InstanceProjection findParticipantInstance(
+    private InstanceProjection findCollaborationInstance(
         String tenantId,
         String operatorId,
         UUID instanceId
@@ -322,10 +330,9 @@ public final class ApprovalMessageService {
             ));
         boolean taskParticipant = projections.findTasks(tenantId, instanceId).stream()
             .anyMatch(task -> task.assigneeId().equals(operatorId));
-        boolean recipient = messages.isRecipient(tenantId, operatorId, instanceId);
-        if (!instance.initiatorId().equals(operatorId) && !taskParticipant && !recipient) {
+        if (!instance.initiatorId().equals(operatorId) && !taskParticipant) {
             throw new ApprovalProjectionStore.ProjectionConflictException(
-                "operator is not a participant in the approval instance"
+                "operator is not allowed to collaborate on the approval instance"
             );
         }
         return instance;
