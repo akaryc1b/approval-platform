@@ -9,6 +9,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalFormSubmissionStore.
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.PublishedDefinition;
 import io.github.akaryc1b.approval.application.port.ApprovalUiSchemaStore.PublishedUiSchema;
 import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 import org.flywaydb.core.Flyway;
@@ -37,8 +38,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JdbcApprovalUiSchemaIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-07-18T10:00:00Z");
-    private static final UUID INSTANCE_ID = UUID.fromString("00000000-0000-0000-0000-000000000981");
-    private static final UUID SUBMISSION_ID = UUID.fromString("00000000-0000-0000-0000-000000000982");
+    private static final UUID INSTANCE_ID = UUID.fromString(
+        "00000000-0000-0000-0000-000000000981"
+    );
+    private static final UUID SUBMISSION_ID = UUID.fromString(
+        "00000000-0000-0000-0000-000000000982"
+    );
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
@@ -95,6 +100,20 @@ class JdbcApprovalUiSchemaIntegrationTest {
             "publisher",
             NOW
         ));
+        projections.saveDefinition(new PublishedDefinition(
+            "tenant-a",
+            PurchasePaymentTemplate.DEFINITION_KEY,
+            PurchasePaymentTemplate.PROCESS_VERSION,
+            PurchasePaymentTemplate.DEFINITION_KEY,
+            PurchasePaymentTemplate.FORM_VERSION,
+            "compiler-v1",
+            "a".repeat(64),
+            "deployment-ui",
+            "engine-definition-ui",
+            1,
+            "publisher",
+            NOW
+        ));
         projections.createInstance(instance(), List.of());
     }
 
@@ -128,11 +147,11 @@ class JdbcApprovalUiSchemaIntegrationTest {
         assertThrows(DataAccessException.class, () -> submissions.saveRevision(
             revision(2, "duplicate")
         ));
-        assertTrue(jdbc.queryForObject(
+        assertTrue(Boolean.TRUE.equals(jdbc.queryForObject(
             "select ui_schema_hash is not null from ap_form_submission where submission_id = ?",
             Boolean.class,
             SUBMISSION_ID
-        ));
+        )));
     }
 
     private InstanceProjection instance() {
