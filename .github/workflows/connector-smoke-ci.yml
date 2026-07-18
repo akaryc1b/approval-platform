@@ -1,18 +1,7 @@
 name: Connector Smoke CI
 
 on:
-  push:
-    paths:
-      - 'examples/connector-smoke/**'
-      - 'package.json'
-      - 'pnpm-workspace.yaml'
-      - '.github/workflows/connector-smoke-ci.yml'
-  pull_request:
-    paths:
-      - 'examples/connector-smoke/**'
-      - 'package.json'
-      - 'pnpm-workspace.yaml'
-      - '.github/workflows/connector-smoke-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
