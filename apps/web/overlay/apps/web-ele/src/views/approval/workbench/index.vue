@@ -312,6 +312,11 @@ async function submitRetrieve(item: ProcessedTaskItem) {
   } catch (error) { ElMessage.error(errorMessage(error)); } finally { listActionId.value = ''; }
 }
 
+async function changePage(page: number) {
+  currentPage.value = page;
+  await loadActivePage();
+}
+
 watch(activeTab, async () => { keyword.value = ''; currentPage.value = 1; await loadActivePage(); });
 onMounted(refreshWorkbench);
 </script>
@@ -333,8 +338,8 @@ onMounted(refreshWorkbench);
         <ElEmpty v-else-if="activeItemCount === 0" description="当前没有相关审批记录"/>
         <div v-else class="task-list">
           <article v-for="task in pendingPage.items" v-show="activeTab === 'pending'" :key="task.taskId" class="task-item">
-            <div><strong>{{ task.supplier }}采购付款</strong><span>{{ task.businessKey }} · {{ taskStage(task) }}</span></div>
-            <div class="task-actions"><strong>{{ formatMoney(task.amount) }}</strong><ElButton type="primary" @click="openTask(task)">{{ task.taskDefinitionKey === 'initiatorRevision' ? '修改' : '处理' }}</ElButton></div>
+            <div><strong>{{ task.supplier }}采购付款</strong><span>{{ task.businessKey }}</span></div>
+            <div class="task-actions"><ElTag :type="taskTagType(task)">{{ taskStage(task) }}</ElTag><strong>{{ formatMoney(task.amount) }}</strong><ElButton type="primary" @click="openTask(task)">{{ task.taskDefinitionKey === 'initiatorRevision' ? '修改' : '处理' }}</ElButton></div>
           </article>
           <article v-for="task in processedPage.items" v-show="activeTab === 'processed'" :key="task.taskId" class="task-item">
             <div><strong>{{ task.supplier }}采购付款</strong><span>{{ task.businessKey }} · {{ formatDate(task.completedAt) }}</span></div>
@@ -345,7 +350,7 @@ onMounted(refreshWorkbench);
             <div class="task-actions"><ElTag :type="instanceStatusType(item.status)">{{ instanceStatusLabel(item.status) }}</ElTag><ElButton v-if="item.withdrawable" :loading="listActionId === item.instanceId" type="danger" plain @click="submitWithdrawal(item)">撤回</ElButton></div>
           </article>
         </div>
-        <ElPagination v-if="activeTotal > pageSize" :current-page="currentPage" :page-size="pageSize" :total="activeTotal" background layout="prev, pager, next, total" @current-change="(page:number) => { currentPage = page; loadActivePage(); }"/>
+        <ElPagination v-if="activeTotal > pageSize" :current-page="currentPage" :page-size="pageSize" :total="activeTotal" background layout="prev, pager, next, total" @current-change="changePage"/>
       </ElCard>
     </div>
 
