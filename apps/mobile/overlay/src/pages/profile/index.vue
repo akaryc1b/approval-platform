@@ -13,46 +13,34 @@ definePage({
 
 const runtime = getApprovalRuntimeConfig()
 
-const entries = [
-  { title: '我发起的', value: '9' },
-  { title: '我已审批', value: '48' },
-  { title: '抄送我的', value: '7' },
-  { title: '草稿箱', value: '2' },
-  { title: '审批代理', value: '未启用' },
-  { title: '关注的审批', value: '3' },
-]
+function openTaskList() {
+  uni.navigateTo({ url: '/pages/task/list' })
+}
 
-function showPending(title: string) {
-  uni.showToast({
-    title: `${title}将在审批工作台链路中接入`,
-    icon: 'none',
-  })
+function openInitiate() {
+  uni.switchTab({ url: '/pages/initiate/index' })
 }
 </script>
 
 <template>
   <view class="page">
     <view class="profile-card">
-      <view class="avatar">A</view>
+      <view class="avatar">{{ runtime.operatorId.slice(0, 1).toUpperCase() }}</view>
       <view class="profile-card__main">
-        <text class="profile-card__name">审批平台用户</text>
-        <text class="profile-card__meta">连接器：{{ runtime.connector }}</text>
+        <text class="profile-card__name">{{ runtime.operatorId }}</text>
+        <text class="profile-card__meta">租户：{{ runtime.tenantId }}</text>
       </view>
-      <wd-tag plain type="success">在线</wd-tag>
+      <wd-tag plain type="success">{{ runtime.connector }}</wd-tag>
     </view>
 
     <view class="entry-card">
-      <view
-        v-for="entry in entries"
-        :key="entry.title"
-        class="entry-row"
-        @click="showPending(entry.title)"
-      >
-        <text>{{ entry.title }}</text>
-        <view class="entry-row__value">
-          <text>{{ entry.value }}</text>
-          <text>›</text>
-        </view>
+      <view class="entry-row" @click="openTaskList">
+        <text>待我审批</text>
+        <text class="entry-row__value">›</text>
+      </view>
+      <view class="entry-row" @click="openInitiate">
+        <text>发起审批</text>
+        <text class="entry-row__value">›</text>
       </view>
     </view>
 
@@ -64,10 +52,15 @@ function showPending(title: string) {
       </view>
       <view class="runtime-row">
         <text>租户</text>
-        <text>{{ runtime.tenantId || '由登录上下文提供' }}</text>
+        <text>{{ runtime.tenantId }}</text>
       </view>
-      <view class="runtime-hint">
-        页面不直接依赖 RuoYi、钉钉或飞书 SDK，平台差异由启动适配器处理。
+      <view class="runtime-row">
+        <text>操作人</text>
+        <text>{{ runtime.operatorId }}</text>
+      </view>
+      <view class="runtime-row">
+        <text>连接器</text>
+        <text>{{ runtime.connector }}</text>
       </view>
     </view>
   </view>
@@ -77,14 +70,14 @@ function showPending(title: string) {
 .page {
   min-height: 100vh;
   padding: 24rpx 24rpx 160rpx;
-  background: #f5f7fa;
+  background: var(--wot-color-bg, var(--uni-bg-color-grey));
 }
 
 .profile-card,
 .entry-card,
 .runtime-card {
-  border-radius: 24rpx;
-  background: #ffffff;
+  border-radius: var(--wot-radius-large, 24rpx);
+  background: var(--wot-color-white, var(--uni-bg-color));
   box-shadow: 0 8rpx 24rpx rgb(15 23 42 / 5%);
 }
 
@@ -101,9 +94,9 @@ function showPending(title: string) {
   justify-content: center;
   width: 88rpx;
   height: 88rpx;
-  color: #ffffff;
-  border-radius: 26rpx;
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: var(--wot-color-white, var(--uni-text-color-inverse));
+  border-radius: var(--wot-radius-large, 26rpx);
+  background: var(--wot-color-theme, var(--uni-color-primary));
   font-size: 34rpx;
   font-weight: 700;
 }
@@ -116,16 +109,15 @@ function showPending(title: string) {
 
 .profile-card__name,
 .runtime-card__title {
-  color: #111827;
+  color: var(--wot-color-content, var(--uni-text-color));
   font-size: 30rpx;
   font-weight: 700;
 }
 
 .profile-card__meta,
-.runtime-hint,
 .runtime-row text:first-child,
 .entry-row__value {
-  color: #8a8f99;
+  color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
   font-size: 24rpx;
 }
 
@@ -141,17 +133,13 @@ function showPending(title: string) {
   align-items: center;
   justify-content: space-between;
   min-height: 92rpx;
-  border-bottom: 1rpx solid #eef1f5;
+  color: var(--wot-color-content, var(--uni-text-color));
+  border-bottom: 1rpx solid var(--wot-color-border-light, var(--uni-border-color));
 }
 
 .entry-row:last-child,
-.runtime-row:last-of-type {
+.runtime-row:last-child {
   border-bottom: 0;
-}
-
-.entry-row__value {
-  display: flex;
-  gap: 16rpx;
 }
 
 .runtime-card {
@@ -159,8 +147,13 @@ function showPending(title: string) {
   padding-bottom: 26rpx;
 }
 
-.runtime-hint {
-  margin-top: 20rpx;
-  line-height: 1.7;
+.runtime-card__title {
+  margin-bottom: 12rpx;
+}
+
+.runtime-row text:last-child {
+  max-width: 470rpx;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 </style>
