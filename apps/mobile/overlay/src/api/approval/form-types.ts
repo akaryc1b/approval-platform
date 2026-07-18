@@ -1,4 +1,13 @@
-export type FormFieldType = 'ATTACHMENT' | 'MONEY' | 'TEXT'
+export type FormFieldType
+  = | 'ATTACHMENT'
+    | 'BOOLEAN'
+    | 'DATE'
+    | 'DATETIME'
+    | 'MONEY'
+    | 'NUMBER'
+    | 'SELECT'
+    | 'TEXT'
+    | 'TEXTAREA'
 export type FieldAccess = 'EDITABLE' | 'HIDDEN' | 'READONLY'
 export type RequiredOverride = 'INHERIT' | 'OPTIONAL' | 'REQUIRED'
 export type DefaultValueType
@@ -21,11 +30,18 @@ export interface FormDefaultValue {
   type: DefaultValueType
 }
 
+export interface SelectOption {
+  disabled: boolean
+  label: string
+  value: string
+}
+
 export interface FormField {
   constraints: FormFieldConstraints
   defaultValue?: FormDefaultValue
   key: string
   label: string
+  options?: SelectOption[]
   required: boolean
   type: FormFieldType
 }

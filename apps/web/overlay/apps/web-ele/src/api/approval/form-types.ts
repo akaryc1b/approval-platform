@@ -1,4 +1,13 @@
-export type FormFieldType = 'ATTACHMENT' | 'MONEY' | 'TEXT';
+export type FormFieldType =
+  | 'ATTACHMENT'
+  | 'BOOLEAN'
+  | 'DATE'
+  | 'DATETIME'
+  | 'MONEY'
+  | 'NUMBER'
+  | 'SELECT'
+  | 'TEXT'
+  | 'TEXTAREA';
 export type FieldAccess = 'EDITABLE' | 'HIDDEN' | 'READONLY';
 export type RequiredOverride = 'INHERIT' | 'OPTIONAL' | 'REQUIRED';
 export type DefaultValueType =
@@ -21,11 +30,18 @@ export interface FormDefaultValue {
   type: DefaultValueType;
 }
 
+export interface SelectOption {
+  disabled: boolean;
+  label: string;
+  value: string;
+}
+
 export interface FormField {
   constraints: FormFieldConstraints;
   defaultValue?: FormDefaultValue;
   key: string;
   label: string;
+  options?: SelectOption[];
   required: boolean;
   type: FormFieldType;
 }
@@ -106,6 +122,27 @@ export interface FormDesignDraft {
   updatedBy: string;
 }
 
+export interface FormDesignDraftSummary {
+  draftId: string;
+  formKey: string;
+  formVersion: number;
+  name: string;
+  publishedPackageVersion?: number;
+  revision: number;
+  status: FormDesignDraftStatus;
+  uiSchemaVersion: number;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface FormDesignDraftPage {
+  hasMore: boolean;
+  items: FormDesignDraftSummary[];
+  limit: number;
+  offset: number;
+  total: number;
+}
+
 export interface FormDesignValidationReport {
   draftId: string;
   errors: string[];
@@ -120,6 +157,19 @@ export interface FormDesignValidationReport {
   uiSchemaVersion: number;
   valid: boolean;
   warnings: string[];
+}
+
+export interface FormDesignPreviewResult {
+  contextKey: string;
+  definition: FormDefinition;
+  draftId: string;
+  fieldPermissions: Record<string, FieldAccess>;
+  formHash: string;
+  requiredFields: Record<string, boolean>;
+  revision: number;
+  uiSchema: UiSchemaDefinition;
+  uiSchemaHash: string;
+  values: Record<string, unknown>;
 }
 
 export interface FormPackagePublishResult {

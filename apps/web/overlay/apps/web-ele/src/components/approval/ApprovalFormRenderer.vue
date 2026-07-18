@@ -16,11 +16,15 @@ import {
   ElCol,
   ElCollapse,
   ElCollapseItem,
+  ElDatePicker,
   ElForm,
   ElFormItem,
   ElInput,
   ElInputNumber,
+  ElOption,
   ElRow,
+  ElSelect,
+  ElSwitch,
   ElTag,
   ElUpload,
 } from 'element-plus';
@@ -106,6 +110,16 @@ function numberValue(item: FormField) {
   const current = value(item);
   return current == null || current === '' ? undefined : Number(current);
 }
+
+function selectValue(item: FormField) {
+  const current = value(item);
+  if (item.constraints.multiple) return Array.isArray(current) ? current.map(String) : [];
+  return current == null ? undefined : String(current);
+}
+
+function booleanValue(item: FormField) {
+  return value(item) === true;
+}
 </script>
 
 <template>
@@ -137,16 +151,73 @@ function numberValue(item: FormField) {
                     show-word-limit
                     @update:model-value="setValue(field(layout)!, $event)"
                   />
+                  <ElInput
+                    v-else-if="field(layout)?.type === 'TEXTAREA'"
+                    :disabled="disabled(field(layout)!)"
+                    :maxlength="field(layout)?.constraints.maxLength"
+                    :model-value="String(value(field(layout)!) || '')"
+                    :placeholder="layout.placeholder || '请输入多行内容'"
+                    :rows="4"
+                    resize="vertical"
+                    show-word-limit
+                    type="textarea"
+                    @update:model-value="setValue(field(layout)!, $event)"
+                  />
                   <ElInputNumber
-                    v-else-if="field(layout)?.type === 'MONEY'"
+                    v-else-if="['MONEY', 'NUMBER'].includes(field(layout)?.type || '')"
                     :disabled="disabled(field(layout)!)"
                     :min="field(layout)?.constraints.minimum"
                     :model-value="numberValue(field(layout)!)"
-                    :placeholder="layout.placeholder || '请输入金额'"
+                    :placeholder="layout.placeholder || (field(layout)?.type === 'MONEY' ? '请输入金额' : '请输入数值')"
                     :precision="field(layout)?.constraints.precision"
                     controls-position="right"
                     @update:model-value="setValue(field(layout)!, $event)"
                   />
+                  <ElDatePicker
+                    v-else-if="field(layout)?.type === 'DATE'"
+                    :disabled="disabled(field(layout)!)"
+                    :model-value="String(value(field(layout)!) || '')"
+                    :placeholder="layout.placeholder || '请选择日期'"
+                    type="date"
+                    value-format="YYYY-MM-DD"
+                    @update:model-value="setValue(field(layout)!, $event)"
+                  />
+                  <ElDatePicker
+                    v-else-if="field(layout)?.type === 'DATETIME'"
+                    :disabled="disabled(field(layout)!)"
+                    :model-value="String(value(field(layout)!) || '')"
+                    :placeholder="layout.placeholder || '请选择日期时间'"
+                    type="datetime"
+                    value-format="YYYY-MM-DDTHH:mm:ss"
+                    @update:model-value="setValue(field(layout)!, $event)"
+                  />
+                  <ElSwitch
+                    v-else-if="field(layout)?.type === 'BOOLEAN'"
+                    :disabled="disabled(field(layout)!)"
+                    :model-value="booleanValue(field(layout)!)"
+                    inline-prompt
+                    active-text="是"
+                    inactive-text="否"
+                    @update:model-value="setValue(field(layout)!, $event)"
+                  />
+                  <ElSelect
+                    v-else-if="field(layout)?.type === 'SELECT'"
+                    :disabled="disabled(field(layout)!)"
+                    :model-value="selectValue(field(layout)!)"
+                    :multiple="field(layout)?.constraints.multiple"
+                    :placeholder="layout.placeholder || '请选择'"
+                    clearable
+                    filterable
+                    @update:model-value="setValue(field(layout)!, $event)"
+                  >
+                    <ElOption
+                      v-for="option in field(layout)?.options || []"
+                      :key="option.value"
+                      :disabled="option.disabled"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </ElSelect>
                   <div v-else-if="field(layout)?.type === 'ATTACHMENT'" class="attachment-field">
                     <ElUpload
                       v-if="!disabled(field(layout)!)"
@@ -180,7 +251,9 @@ function numberValue(item: FormField) {
 </template>
 
 <style scoped>
-.renderer :deep(.el-input-number) {
+.renderer :deep(.el-input-number),
+.renderer :deep(.el-date-editor),
+.renderer :deep(.el-select) {
   width: 100%;
 }
 

@@ -51,17 +51,20 @@
 - `NONE`、`LITERAL`、`CURRENT_USER`、`CURRENT_DATE`、`CURRENT_DATETIME` 安全类型化默认值；
 - 默认值后端解析、Runtime 预填和不可变提交快照持久化；
 - 不可变 Form Package、精确 Form/UI 版本与哈希绑定和事务联合发布；
-- Flyway V9 草稿、Form Package、租户约束、精确外键和查询索引。
+- Flyway V9 草稿、Form Package、租户约束、精确外键和查询索引；
+- PC 三栏可视化表单设计器、草稿搜索/创建、分组与字段拖拽、属性编辑、复制/删除和撤销；
+- revision CAS 自动保存、服务端冲突提示与重新加载恢复；
+- TEXTAREA、NUMBER、DATE、DATETIME、BOOLEAN、SELECT 静态选项字段协议、校验、哈希和 PostgreSQL JSON 往返；
+- Element Plus 与移动端 H5/微信共用 Renderer 对新增字段类型的真实渲染；
+- 节点字段访问/必填覆盖矩阵、服务端多节点预览和不可变 Form Package 发布确认摘要。
 
 ### 下一优先级
 
-- PC 三栏可视化表单设计器 MVP；
-- TEXTAREA、NUMBER、DATE、DATETIME、BOOLEAN、SELECT 字段类型；
-- 节点权限矩阵、跨端多节点预览和发布校验摘要；
 - 树状审批设计器、条件/并行分支和静态检查；
 - 流程模拟器和 DSL 发布联动；
-- 复合区块和可插拔自定义组件；
-- Approval DSL、Form Schema、UI Schema 和编译制品 Release Package。
+- Approval DSL 草稿生命周期和确定性版本发布；
+- Approval DSL、Form Schema、UI Schema、BPMN 编译制品和部署元数据 Release Package；
+- 复合区块和可插拔自定义组件。
 
 ## M3 Collaboration
 
