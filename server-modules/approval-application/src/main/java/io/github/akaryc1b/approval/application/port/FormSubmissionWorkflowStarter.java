@@ -13,11 +13,21 @@ public interface FormSubmissionWorkflowStarter {
     WorkflowStartResult start(
         RequestContext context,
         String formKey,
-        int formVersion,
         String businessKey,
         Map<String, Object> values,
         Map<String, Object> startParameters
     );
+
+    default WorkflowStartResult start(
+        RequestContext context,
+        String formKey,
+        int formVersion,
+        String businessKey,
+        Map<String, Object> values,
+        Map<String, Object> startParameters
+    ) {
+        return start(context, formKey, businessKey, values, startParameters);
+    }
 
     record WorkflowStartResult(UUID instanceId, String status, Instant startedAt) {
         public WorkflowStartResult {
