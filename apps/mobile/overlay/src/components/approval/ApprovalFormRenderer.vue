@@ -4,6 +4,7 @@ import type {
   FieldAccess,
   FormDefinition,
   FormField,
+  SelectOption,
   UiFieldLayout,
   UiSchemaDefinition,
   UiSection,
@@ -67,8 +68,64 @@ function textValue(item: FormField) {
   const current = value(item)
   return current == null ? '' : String(current)
 }
+function booleanValue(item: FormField) {
+  return value(item) === true
+}
 function setValue(item: FormField, nextValue: unknown) {
   if (!disabled(item)) emit('update:modelValue', { ...props.modelValue, [item.key]: nextValue })
+}
+function detailValue(event: unknown) {
+  return (event as { detail?: { value?: unknown } })?.detail?.value
+}
+function setTextFromEvent(item: FormField, event: unknown) {
+  setValue(item, detailValue(event) ?? '')
+}
+function setBooleanFromEvent(item: FormField, event: unknown) {
+  setValue(item, detailValue(event) === true)
+}
+function enabledOptions(item: FormField): SelectOption[] {
+  return (item.options || []).filter(option => !option.disabled)
+}
+function selectedOptionIndex(item: FormField) {
+  const current = textValue(item)
+  const index = enabledOptions(item).findIndex(option => option.value === current)
+  return index < 0 ? 0 : index
+}
+function selectOption(item: FormField, event: unknown) {
+  const index = Number(detailValue(event))
+  const option = enabledOptions(item)[index]
+  if (option) setValue(item, option.value)
+}
+function selectedOptionLabel(item: FormField) {
+  const option = (item.options || []).find(candidate => candidate.value === textValue(item))
+  return option?.label || textValue(item) || '请选择'
+}
+function multipleValues(item: FormField) {
+  const current = value(item)
+  return Array.isArray(current) ? current.map(String) : []
+}
+function toggleOption(item: FormField, option: SelectOption) {
+  if (disabled(item) || option.disabled) return
+  const selected = multipleValues(item)
+  setValue(item, selected.includes(option.value)
+    ? selected.filter(value => value !== option.value)
+    : [...selected, option.value])
+}
+function datePart(item: FormField) {
+  return textValue(item).slice(0, 10)
+}
+function timePart(item: FormField) {
+  return textValue(item).slice(11, 16) || '00:00'
+}
+function setDate(item: FormField, event: unknown) {
+  const date = String(detailValue(event) || '')
+  if (item.type === 'DATE') setValue(item, date)
+  else setValue(item, `${date}T${timePart(item)}:00`)
+}
+function setTime(item: FormField, event: unknown) {
+  const time = String(detailValue(event) || '00:00')
+  const date = datePart(item) || new Date().toISOString().slice(0, 10)
+  setValue(item, `${date}T${time}:00`)
 }
 function attachmentIds(item: FormField) {
   const current = value(item)
@@ -133,12 +190,16 @@ function validate() {
     const empty = current == null || current === ''
       || (Array.isArray(current) && current.length === 0)
     if (required(item) && empty) return `${item.label}不能为空`
-    if (item.type === 'MONEY' && !empty) {
+    if (['MONEY', 'NUMBER'].includes(item.type) && !empty) {
       const amount = Number(current)
       if (!Number.isFinite(amount)) return `${item.label}格式不正确`
       if (item.constraints.minimum != null && amount < item.constraints.minimum) {
         return `${item.label}不能小于${item.constraints.minimum}`
       }
+    }
+    if (['TEXT', 'TEXTAREA'].includes(item.type) && item.constraints.maxLength
+      && textValue(item).length > item.constraints.maxLength) {
+      return `${item.label}不能超过${item.constraints.maxLength}个字符`
     }
     if (item.type === 'ATTACHMENT') {
       const count = Array.isArray(current) ? current.length : 0
@@ -187,14 +248,86 @@ defineExpose({ editableValues, uploading, validate })
               :placeholder="layout.placeholder || '请输入'"
               @update:model-value="setValue(field(layout)!, $event)"
             />
+            <textarea
+              v-else-if="field(layout)?.type === 'TEXTAREA'"
+              class="native-textarea"
+              :disabled="disabled(field(layout)!)"
+              :maxlength="field(layout)?.constraints.maxLength"
+              :placeholder="layout.placeholder || '请输入多行内容'"
+              :value="textValue(field(layout)!)"
+              @input="setTextFromEvent(field(layout)!, $event)"
+            />
             <wd-input
-              v-else-if="field(layout)?.type === 'MONEY'"
+              v-else-if="['MONEY', 'NUMBER'].includes(field(layout)?.type || '')"
               :disabled="disabled(field(layout)!)"
               :model-value="textValue(field(layout)!)"
               clearable no-border type="digit"
-              :placeholder="layout.placeholder || '请输入金额'"
+              :placeholder="layout.placeholder || (field(layout)?.type === 'MONEY' ? '请输入金额' : '请输入数值')"
               @update:model-value="setValue(field(layout)!, $event)"
             />
+            <picker
+              v-else-if="field(layout)?.type === 'DATE'"
+              :disabled="disabled(field(layout)!)"
+              mode="date"
+              :value="datePart(field(layout)!)"
+              @change="setDate(field(layout)!, $event)"
+            >
+              <view class="picker-value" :class="{ placeholder: !datePart(field(layout)!) }">
+                {{ datePart(field(layout)!) || layout.placeholder || '请选择日期' }}
+              </view>
+            </picker>
+            <view v-else-if="field(layout)?.type === 'DATETIME'" class="datetime-row">
+              <picker
+                :disabled="disabled(field(layout)!)"
+                mode="date"
+                :value="datePart(field(layout)!)"
+                @change="setDate(field(layout)!, $event)"
+              >
+                <view class="picker-value" :class="{ placeholder: !datePart(field(layout)!) }">
+                  {{ datePart(field(layout)!) || '选择日期' }}
+                </view>
+              </picker>
+              <picker
+                :disabled="disabled(field(layout)!)"
+                mode="time"
+                :value="timePart(field(layout)!)"
+                @change="setTime(field(layout)!, $event)"
+              >
+                <view class="picker-value">{{ timePart(field(layout)!) }}</view>
+              </picker>
+            </view>
+            <view v-else-if="field(layout)?.type === 'BOOLEAN'" class="switch-row">
+              <text>{{ booleanValue(field(layout)!) ? '是' : '否' }}</text>
+              <switch
+                :checked="booleanValue(field(layout)!)"
+                :disabled="disabled(field(layout)!)"
+                @change="setBooleanFromEvent(field(layout)!, $event)"
+              />
+            </view>
+            <template v-else-if="field(layout)?.type === 'SELECT'">
+              <view v-if="field(layout)?.constraints.multiple" class="option-chips">
+                <button
+                  v-for="option in field(layout)?.options || []"
+                  :key="option.value"
+                  class="option-chip"
+                  :class="{ active: multipleValues(field(layout)!).includes(option.value), disabled: option.disabled }"
+                  :disabled="disabled(field(layout)!) || option.disabled"
+                  @click="toggleOption(field(layout)!, option)"
+                >{{ option.label }}</button>
+              </view>
+              <picker
+                v-else
+                :disabled="disabled(field(layout)!)"
+                :range="enabledOptions(field(layout)!)"
+                range-key="label"
+                :value="selectedOptionIndex(field(layout)!)"
+                @change="selectOption(field(layout)!, $event)"
+              >
+                <view class="picker-value" :class="{ placeholder: !textValue(field(layout)!) }">
+                  {{ selectedOptionLabel(field(layout)!) }}
+                </view>
+              </picker>
+            </template>
             <view v-else-if="field(layout)?.type === 'ATTACHMENT'" class="attachment-field">
               <wd-button
                 v-if="!disabled(field(layout)!)"
@@ -225,5 +358,5 @@ defineExpose({ editableValues, uploading, validate })
 </template>
 
 <style scoped>
-.renderer,.attachment-field,.section-card,.section-header>view{display:grid;gap:18rpx}.section-card{padding:26rpx;border-radius:24rpx;background:var(--wot-color-white,var(--uni-bg-color));box-shadow:0 8rpx 24rpx rgb(15 23 42 / 5%)}.section-header,.field-label,.file-row{display:flex;align-items:center;justify-content:space-between;gap:16rpx}.section-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18rpx}.field-card{display:grid;align-content:start;gap:14rpx;min-width:0;padding:20rpx;border-radius:18rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.field-card--wide{grid-column:1/-1}.section-title,.field-label{color:var(--wot-color-content,var(--uni-text-color));font-weight:700}.section-title{font-size:29rpx}.section-help,.section-toggle,.hint,.file-name{color:var(--wot-color-content-secondary,var(--uni-text-color-grey));font-size:24rpx}.required,.remove{color:var(--wot-color-danger,var(--uni-color-error));font-size:22rpx}.file-row{padding:10rpx 14rpx;border-radius:14rpx;background:var(--wot-color-white,var(--uni-bg-color))}.file-name{flex:1;overflow-wrap:anywhere}@media(max-width:420px){.section-grid{grid-template-columns:1fr}.field-card{grid-column:1/-1}}
+.renderer,.attachment-field,.section-card,.section-header>view{display:grid;gap:18rpx}.section-card{padding:26rpx;border-radius:24rpx;background:var(--wot-color-white,var(--uni-bg-color));box-shadow:0 8rpx 24rpx rgb(15 23 42 / 5%)}.section-header,.field-label,.file-row,.switch-row{display:flex;align-items:center;justify-content:space-between;gap:16rpx}.section-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18rpx}.field-card{display:grid;align-content:start;gap:14rpx;min-width:0;padding:20rpx;border-radius:18rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.field-card--wide{grid-column:1/-1}.section-title,.field-label{color:var(--wot-color-content,var(--uni-text-color));font-weight:700}.section-title{font-size:29rpx}.section-help,.section-toggle,.hint,.file-name{color:var(--wot-color-content-secondary,var(--uni-text-color-grey));font-size:24rpx}.required,.remove{color:var(--wot-color-danger,var(--uni-color-error));font-size:22rpx}.file-row{padding:10rpx 14rpx;border-radius:14rpx;background:var(--wot-color-white,var(--uni-bg-color))}.file-name{flex:1;overflow-wrap:anywhere}.native-textarea{box-sizing:border-box;width:100%;min-height:180rpx;padding:16rpx;border-radius:14rpx;background:var(--wot-color-white,var(--uni-bg-color));font-size:28rpx}.picker-value{min-height:44rpx;padding:16rpx;border-radius:14rpx;background:var(--wot-color-white,var(--uni-bg-color));font-size:28rpx}.picker-value.placeholder{color:var(--wot-color-content-secondary,var(--uni-text-color-grey))}.datetime-row{display:grid;grid-template-columns:1fr .7fr;gap:12rpx}.option-chips{display:flex;flex-wrap:wrap;gap:12rpx}.option-chip{padding:10rpx 18rpx;color:var(--wot-color-content,var(--uni-text-color));border:2rpx solid var(--wot-color-border,var(--uni-border-color));border-radius:999rpx;background:var(--wot-color-white,var(--uni-bg-color));font-size:24rpx;line-height:1.5}.option-chip.active{color:var(--wot-color-theme,var(--uni-color-primary));border-color:var(--wot-color-theme,var(--uni-color-primary));background:var(--wot-color-theme-light,var(--uni-color-primary-light))}.option-chip.disabled{opacity:.45}@media(max-width:420px){.section-grid{grid-template-columns:1fr}.field-card{grid-column:1/-1}}
 </style>
