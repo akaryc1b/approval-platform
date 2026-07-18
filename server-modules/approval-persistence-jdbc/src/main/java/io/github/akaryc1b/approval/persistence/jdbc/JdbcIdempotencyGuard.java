@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
@@ -37,7 +38,12 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
         this.jdbc = new NamedParameterJdbcTemplate(
             Objects.requireNonNull(dataSource, "dataSource must not be null")
         );
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+        this.objectMapper = Objects.requireNonNull(
+            objectMapper,
+            "objectMapper must not be null"
+        ).copy()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .enable(DeserializationFeature.USE_BIG_INTEGER_FOR_INTS);
         this.transactionTemplate = new TransactionTemplate(
             Objects.requireNonNull(transactionManager, "transactionManager must not be null")
         );
