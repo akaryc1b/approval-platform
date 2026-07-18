@@ -23,7 +23,7 @@ jobs:
         run: mvn -B -ntp -pl integrations/host-sdk -am -DskipTests install
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22.18.0'
 
