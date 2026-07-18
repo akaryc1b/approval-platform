@@ -364,7 +364,7 @@ onMounted(refreshWorkbench);
         </ElDescriptions>
         <section v-if="formRuntime" class="detail-section">
           <div class="section-header"><h3>申请表单</h3><ElTag effect="plain">{{ formRuntime.defaultedUiSchema ? '安全默认' : `UI v${formRuntime.uiSchema.version}` }}</ElTag></div>
-          <ApprovalFormRenderer v-model="formValues" :field-permissions="formRuntime.fieldPermissions" :readonly="!revisionTask" :schema="formRuntime.definition" :ui-schema="formRuntime.uiSchema"/>
+          <ApprovalFormRenderer v-model="formValues" :field-permissions="formRuntime.fieldPermissions" :required-fields="formRuntime.requiredFields" :readonly="!revisionTask" :schema="formRuntime.definition" :ui-schema="formRuntime.uiSchema"/>
         </section>
         <section class="detail-section"><h3>审批进度</h3><ElTimeline v-if="timeline?.items.length"><ElTimelineItem v-for="item in timeline.items" :key="item.eventId" :timestamp="formatDate(item.occurredAt)" :type="timelineType(item)"><strong>{{ timelineTitle(item) }}</strong><div>{{ item.operatorId }}</div><div v-if="item.attributes.comment">{{ item.attributes.comment }}</div></ElTimelineItem></ElTimeline><ElEmpty v-else description="暂无审批记录"/></section>
         <section v-if="!revisionTask && selectedTask.transferCandidates?.length" class="detail-section"><h3>转办人员</h3><ElSelect v-model="transferTargetId" class="full-width" placeholder="从审批人快照中选择"><ElOption v-for="candidate in selectedTask.transferCandidates" :key="candidate.userId" :label="candidate.displayName" :value="candidate.userId"/></ElSelect></section>
