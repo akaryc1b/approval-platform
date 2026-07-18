@@ -23,6 +23,11 @@ export interface PendingTaskPage {
   total: number
 }
 
+export interface TransferCandidate {
+  displayName: string
+  userId: string
+}
+
 export interface PendingTaskDetails {
   amount: number
   attachmentIds: string[]
@@ -44,6 +49,7 @@ export interface PendingTaskDetails {
   taskId: string
   taskName: string
   taskUpdatedAt: string
+  transferCandidates: TransferCandidate[]
 }
 
 export interface ApprovalTimelineItem {
@@ -69,6 +75,27 @@ export interface TaskActionResult {
   completedTaskId: string
   instanceId: string
   instanceStatus: 'COMPLETED' | 'RUNNING'
+}
+
+export interface TransferResult {
+  instanceId: string
+  previousAssigneeId: string
+  targetAssigneeId: string
+  taskId: string
+  transferredAt: string
+}
+
+export interface WithdrawResult {
+  instanceId: string
+  instanceStatus: 'WITHDRAWN'
+  withdrawnAt: string
+}
+
+export interface RetrieveResult {
+  activeTasks: PendingTaskItem[]
+  completedTaskId: string
+  instanceId: string
+  retrievedAt: string
 }
 
 interface PendingTaskParameters {
@@ -143,6 +170,15 @@ function approvalRequest<T>(path: string, options: ApprovalRequestOptions = {}) 
   })
 }
 
+function collaborationHeaders(action: string) {
+  const requestId = operationId(`mobile-${action}-request`)
+  return {
+    'Idempotency-Key': operationId(`mobile-${action}`),
+    'X-Request-Id': requestId,
+    'X-Trace-Id': requestId,
+  }
+}
+
 export function findPendingTasks(parameters: PendingTaskParameters) {
   const query: string[] = [
     `limit=${encodeURIComponent(String(parameters.limit))}`,
@@ -170,17 +206,12 @@ export function findApprovalTimeline(instanceId: string) {
 }
 
 function submitTaskAction(taskId: string, action: TaskAction, comment: string) {
-  const requestId = operationId(`mobile-${action}-request`)
   return approvalRequest<TaskActionResult>(
     `/approval/tasks/${encodeURIComponent(taskId)}/${action}`,
     {
       method: 'POST',
       data: { comment: comment.trim() || null },
-      header: {
-        'Idempotency-Key': operationId(`mobile-${action}`),
-        'X-Request-Id': requestId,
-        'X-Trace-Id': requestId,
-      },
+      header: collaborationHeaders(action),
     },
   )
 }
@@ -195,4 +226,44 @@ export function rejectTask(taskId: string, comment: string) {
 
 export function resubmitTask(taskId: string, comment: string) {
   return submitTaskAction(taskId, 'resubmit', comment)
+}
+
+export function transferTask(
+  taskId: string,
+  targetUserId: string,
+  comment: string,
+) {
+  return approvalRequest<TransferResult>(
+    `/approval/tasks/${encodeURIComponent(taskId)}/transfer`,
+    {
+      method: 'POST',
+      data: {
+        comment: comment.trim(),
+        targetUserId,
+      },
+      header: collaborationHeaders('transfer'),
+    },
+  )
+}
+
+export function withdrawInstance(instanceId: string, comment: string) {
+  return approvalRequest<WithdrawResult>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/withdraw`,
+    {
+      method: 'POST',
+      data: { comment: comment.trim() || null },
+      header: collaborationHeaders('withdraw'),
+    },
+  )
+}
+
+export function retrieveTask(taskId: string, comment: string) {
+  return approvalRequest<RetrieveResult>(
+    `/approval/tasks/${encodeURIComponent(taskId)}/retrieve`,
+    {
+      method: 'POST',
+      data: { comment: comment.trim() || null },
+      header: collaborationHeaders('retrieve'),
+    },
+  )
 }
