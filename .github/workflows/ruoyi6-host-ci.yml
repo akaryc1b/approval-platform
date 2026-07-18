@@ -1,22 +1,7 @@
 name: RuoYi 6.X Host Starter CI
 
 on:
-  push:
-    paths:
-      - 'pom.xml'
-      - 'package.json'
-      - 'integrations/host-sdk/**'
-      - 'integrations/ruoyi6-host-starter/**'
-      - 'scripts/upstream/bootstrap-ruoyi6.mjs'
-      - '.github/workflows/ruoyi6-host-ci.yml'
-  pull_request:
-    paths:
-      - 'pom.xml'
-      - 'package.json'
-      - 'integrations/host-sdk/**'
-      - 'integrations/ruoyi6-host-starter/**'
-      - 'scripts/upstream/bootstrap-ruoyi6.mjs'
-      - '.github/workflows/ruoyi6-host-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
