@@ -4,7 +4,7 @@
 
 生产级、可独立部署、面向中国式审批场景的通用审批平台。项目以 Flowable 为流程执行内核，提供仿钉钉/飞书的审批设计体验、动态表单、审批工作台、复杂任务协作、流程运维、AI 辅助审批和可插拔连接器。
 
-> 当前状态：架构与工程基线阶段。仓库暂为私有，待核心协议与安全边界稳定后再评估公开发布。
+> 当前状态：M1 首条纵向业务链路阶段。M0 架构、工程、连接器与多端基础已建立，当前优先完成采购付款审批的 PC、移动端和后端真实闭环。
 
 ## 项目定位
 
@@ -24,7 +24,7 @@
 - 移动端：UniApp Vue 3、Unibest、Wot UI
 - 流程：自研 Approval DSL，编译为 BPMN / DMN
 - 表单：自研 Form Schema，多端独立 Renderer
-- 数据库：优先 PostgreSQL，同时兼容 MySQL 8
+- 数据库：PostgreSQL 作为标准主库；MySQL 8 为后续兼容目标
 - 构建：Maven 多模块 + pnpm workspace
 - 许可：Apache License 2.0
 
@@ -71,19 +71,21 @@ approval-platform/
 
 ## 当前里程碑
 
-当前聚焦 `M0 Foundation`：
+当前聚焦 `M1 First Vertical Slice`：
 
-- 确定产品章程与功能对齐矩阵
-- 建立领域边界、审批 DSL、表单协议和连接器协议
-- 建立 Java / TypeScript Monorepo 基线
-- 建立 CI、质量门禁、安全与多租户约束
-- 实现第一条端到端采购付款审批样板
+- 采购付款流程发布、发起和条件/并行路由
+- 动态审批人解析与不可变身份快照
+- 平台任务投影、幂等、并发和全链路审计
+- 待办列表、待办详情和审批时间线查询
+- PC 与移动端接入真实 API
+- 驳回、撤回、拿回、转办、催办、抄送和已阅
+- 完成后签名业务回调与失败重试
 
 详细规划见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
 
 ## 贡献
 
-项目尚处于基线阶段。提交代码前请先阅读：
+提交代码前请先阅读：
 
 - [`docs/PRODUCT_CHARTER.md`](docs/PRODUCT_CHARTER.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
