@@ -31,9 +31,6 @@ public record UiSchemaDefinition(
         name = requireText(name, "name");
         sections = sections == null ? List.of() : List.copyOf(sections);
         nodePermissions = nodePermissions == null ? List.of() : List.copyOf(nodePermissions);
-        if (sections.isEmpty()) {
-            throw new IllegalArgumentException("sections must not be empty");
-        }
     }
 
     public record Section(
@@ -48,9 +45,6 @@ public record UiSchemaDefinition(
             title = requireText(title, "section.title");
             helpText = normalizeOptional(helpText);
             fields = fields == null ? List.of() : List.copyOf(fields);
-            if (fields.isEmpty()) {
-                throw new IllegalArgumentException("section.fields must not be empty");
-            }
         }
     }
 
