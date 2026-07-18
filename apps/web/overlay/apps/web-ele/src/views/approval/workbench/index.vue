@@ -21,7 +21,9 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElSkeleton,
   ElTag,
   ElTimeline,
@@ -35,6 +37,7 @@ import {
   findPendingTasks,
   rejectTask,
   resubmitTask,
+  transferTask,
 } from '#/api/approval';
 
 const pageSize = 10;
@@ -56,6 +59,7 @@ const detailError = ref('');
 const selectedTask = ref<PendingTaskDetails>();
 const timeline = ref<ApprovalTimeline>();
 const approvalComment = ref('');
+const transferTargetId = ref('');
 const submitting = ref(false);
 
 const pageOffset = computed(() => (currentPage.value - 1) * pageSize);
@@ -107,9 +111,12 @@ function taskTagType(task: Pick<PendingTaskItem, 'taskDefinitionKey'>) {
 function timelineTitle(item: ApprovalTimelineItem) {
   const labels: Record<string, string> = {
     INSTANCE_STARTED: '发起审批',
+    INSTANCE_WITHDRAWN: '发起人撤回',
     TASK_APPROVED: '同意审批',
     TASK_REJECTED: '驳回到发起人',
     TASK_RESUBMITTED: '发起人重新提交',
+    TASK_RETRIEVED: '审批人拿回',
+    TASK_TRANSFERRED: '任务转办',
   };
   return labels[item.action] || item.action;
 }
@@ -118,10 +125,14 @@ function timelineType(item: ApprovalTimelineItem) {
   if (item.action === 'TASK_APPROVED') {
     return 'success';
   }
-  if (item.action === 'TASK_REJECTED') {
+  if (item.action === 'TASK_REJECTED' || item.action === 'INSTANCE_WITHDRAWN') {
     return 'danger';
   }
-  if (item.action === 'TASK_RESUBMITTED') {
+  if (
+    item.action === 'TASK_RESUBMITTED' ||
+    item.action === 'TASK_RETRIEVED' ||
+    item.action === 'TASK_TRANSFERRED'
+  ) {
     return 'warning';
   }
   return 'primary';
@@ -173,6 +184,7 @@ async function openTask(task: PendingTaskItem) {
   selectedTask.value = undefined;
   timeline.value = undefined;
   approvalComment.value = '';
+  transferTargetId.value = '';
 
   try {
     const [details, timelineResult] = await Promise.all([
@@ -206,6 +218,12 @@ async function confirmAction(
   }
 }
 
+async function finishAction(message: string) {
+  ElMessage.success(message);
+  drawerOpen.value = false;
+  await loadTasks();
+}
+
 async function submitApproval() {
   const task = selectedTask.value;
   if (!task) {
@@ -224,9 +242,7 @@ async function submitApproval() {
   submitting.value = true;
   try {
     await approveTask(task.taskId, approvalComment.value);
-    ElMessage.success('审批已同意');
-    drawerOpen.value = false;
-    await loadTasks();
+    await finishAction('审批已同意');
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -257,9 +273,7 @@ async function submitRejection() {
   submitting.value = true;
   try {
     await rejectTask(task.taskId, comment);
-    ElMessage.success('已驳回到发起人');
-    drawerOpen.value = false;
-    await loadTasks();
+    await finishAction('已驳回到发起人');
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -285,9 +299,45 @@ async function submitResubmission() {
   submitting.value = true;
   try {
     await resubmitTask(task.taskId, approvalComment.value);
-    ElMessage.success('申请已重新提交');
-    drawerOpen.value = false;
-    await loadTasks();
+    await finishAction('申请已重新提交');
+  } catch (error) {
+    ElMessage.error(errorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function submitTransfer() {
+  const task = selectedTask.value;
+  const comment = approvalComment.value.trim();
+  if (!task) {
+    return;
+  }
+  if (!transferTargetId.value) {
+    ElMessage.warning('请选择转办人员');
+    return;
+  }
+  if (!comment) {
+    ElMessage.warning('转办时必须填写原因');
+    return;
+  }
+  const candidate = task.transferCandidates?.find(
+    (item) => item.userId === transferTargetId.value,
+  );
+  const confirmed = await confirmAction(
+    '转办确认',
+    `确认将该任务转办给 ${candidate?.displayName || transferTargetId.value} 吗？`,
+    '确认转办',
+    'warning',
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    await transferTask(task.taskId, transferTargetId.value, comment);
+    await finishAction('任务已转办');
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -361,12 +411,8 @@ onMounted(loadTasks);
                   {{ taskStage(task) }}
                 </ElTag>
               </div>
-              <span>
-                {{ task.businessKey }} · {{ task.purchaseOrderReference }}
-              </span>
-              <span>
-                发起人 {{ task.initiatorId }} · {{ formatDate(task.taskCreatedAt) }}
-              </span>
+              <span>{{ task.businessKey }} · {{ task.purchaseOrderReference }}</span>
+              <span>发起人 {{ task.initiatorId }} · {{ formatDate(task.taskCreatedAt) }}</span>
             </div>
             <div class="task-actions">
               <strong>{{ formatMoney(task.amount) }}</strong>
@@ -466,12 +512,37 @@ onMounted(loadTasks);
           <ElEmpty v-else description="暂无审批记录" :image-size="72" />
         </section>
 
+        <section
+          v-if="!revisionTask && selectedTask.transferCandidates?.length"
+          class="detail-section"
+        >
+          <h3>转办人员</h3>
+          <ElSelect
+            v-model="transferTargetId"
+            class="transfer-select"
+            clearable
+            filterable
+            placeholder="从流程审批人快照中选择"
+          >
+            <ElOption
+              v-for="candidate in selectedTask.transferCandidates"
+              :key="candidate.userId"
+              :label="candidate.displayName"
+              :value="candidate.userId"
+            >
+              <span>{{ candidate.displayName }}</span>
+              <span class="candidate-id">{{ candidate.userId }}</span>
+            </ElOption>
+          </ElSelect>
+          <div class="detail-hint">点击“转办”时，下方审批意见将作为转办原因且必须填写。</div>
+        </section>
+
         <section class="detail-section">
           <h3>{{ revisionTask ? '重新提交说明' : '审批意见' }}</h3>
           <ElInput
             v-model="approvalComment"
             :maxlength="2000"
-            :placeholder="revisionTask ? '填写本次修改说明（可选）' : '填写审批意见；驳回时必填'"
+            :placeholder="revisionTask ? '填写本次修改说明（可选）' : '填写审批意见；驳回或转办时必填'"
             :rows="4"
             show-word-limit
             type="textarea"
@@ -493,6 +564,15 @@ onMounted(loadTasks);
               重新提交
             </ElButton>
             <template v-else>
+              <ElButton
+                v-if="selectedTask?.transferCandidates?.length"
+                :disabled="!selectedTask"
+                :loading="submitting"
+                plain
+                @click="submitTransfer"
+              >
+                转办
+              </ElButton>
               <ElButton
                 :disabled="!selectedTask"
                 :loading="submitting"
@@ -540,7 +620,9 @@ onMounted(loadTasks);
 .section-header span,
 .task-main span,
 .timeline-meta,
-.timeline-comment {
+.timeline-comment,
+.detail-hint,
+.candidate-id {
   color: var(--el-text-color-secondary);
 }
 
@@ -628,14 +710,25 @@ onMounted(loadTasks);
   flex-wrap: wrap;
 }
 
-.drawer-footer {
+.transfer-select {
   width: 100%;
 }
 
+.detail-hint,
 .timeline-meta,
 .timeline-comment {
   margin-top: 4px;
   font-size: 13px;
+}
+
+.candidate-id {
+  float: right;
+  margin-left: 16px;
+  font-size: 12px;
+}
+
+.drawer-footer {
+  width: 100%;
 }
 
 @media (max-width: 720px) {
