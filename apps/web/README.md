@@ -15,20 +15,11 @@ apps/web/
 ## 命令
 
 ```bash
-# 拉取并验证固定版本，应用审批覆盖层
 pnpm web:bootstrap
-
-# 安装完整 Vben workspace 依赖
 pnpm web:install
-
-# 启动 Element Plus 应用
 pnpm web:dev
-
-# 类型检查和生产构建
 pnpm web:typecheck
 pnpm web:build
-
-# 删除生成工作区
 pnpm web:clean
 ```
 
@@ -36,17 +27,13 @@ pnpm web:clean
 
 PC 审批页面使用独立的原始 JSON 客户端，不改变 Vben 原有登录、菜单和 `{code,data}` 请求链路。
 
-本地或部署环境需要提供：
-
 ```dotenv
 VITE_APPROVAL_API_URL=/api
 VITE_APPROVAL_TENANT_ID=tenant-a
 VITE_APPROVAL_OPERATOR_ID=manager-1
 ```
 
-`VITE_APPROVAL_TENANT_ID` 和 `VITE_APPROVAL_OPERATOR_ID` 目前用于 M1 纵向链路联调。生产环境必须由可信登录或宿主适配器提供身份，不能允许最终用户自行修改。
-
-`VITE_APPROVAL_API_URL=/api` 假设网关或反向代理把 `/api/approval/**` 转发到审批服务。
+租户和操作人配置目前用于纵向链路联调。生产环境必须由可信登录或宿主适配器提供身份，不能允许最终用户自行修改。`VITE_APPROVAL_API_URL=/api` 假设网关或反向代理把 `/api/approval/**` 转发到审批服务。
 
 ## 上游管理规则
 
@@ -60,19 +47,12 @@ VITE_APPROVAL_OPERATOR_ID=manager-1
 ## 当前模块
 
 - 审批工作台：待我处理、我已处理、我发起的、搜索、分页和真实协作动作；
-- 审批讨论：待办、已处理、我发起和抄送审批共用评论线程，支持 @流程参与人和一层回复；
-- 评论附件：真实文件选择、上传、受权限控制的下载和附件元数据展示；
-- 消息直达：催办、抄送和 @提及消息打开对应审批讨论，提及消息高亮目标评论；
-- 消息与协作：未读消息、全部已读、催办、抄送和逐人已读回执；
-- 审批详情：采购付款数据、附件、时间线、同意、驳回、重提和转办；
-- 流程设计器：页面骨架；
-- 动态表单：页面骨架；
-- 流程管理：页面骨架；
-- 运维控制台：页面骨架；
-- 宿主无关的菜单、按钮权限和审批运行身份适配边界。
+- 审批讨论：评论、@流程参与人、一层回复、真实附件上传和权限下载；
+- 消息与协作：催办、抄送、@提及、未读、回执和消息直达评论；
+- 动态表单：已发布版本列表、JSON 编辑、服务端校验、不可变发布和 Element Plus 运行时预览；
+- 表单 Renderer：从平台 Form Schema 渲染 TEXT、MONEY 和 ATTACHMENT，不在页面重复定义字段；
+- 流程设计器、流程管理和运维控制台：后续 M2/M4 工作入口。
 
-单个评论附件最大 10 MiB、最多 20 个。上传后的附件在评论发布时绑定审批；绑定后仅合法审批参与者和消息接收人能够下载。
+Form Schema 发布后不可修改。需要调整字段时必须发布新版本，运行中的审批继续绑定原始版本。PC 预览与移动端 Renderer 消费同一份后端 Schema。
 
-独立部署默认使用 PostgreSQL `bytea` 保存附件二进制。应用层通过附件存储端口隔离，生产部署可以替换为 MinIO、S3 或其他对象存储，不改变页面接口和权限语义。
-
-平台内用户消息使用审批消息表保存，业务完成回调继续通过事务 Outbox 异步发送，二者职责独立。
+单个评论附件最大 10 MiB、最多 20 个。独立部署默认使用 PostgreSQL `bytea` 保存附件二进制；生产可通过附件存储端口替换为 MinIO、S3 或其他对象存储。
