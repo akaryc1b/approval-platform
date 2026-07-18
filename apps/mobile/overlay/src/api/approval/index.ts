@@ -1,0 +1,183 @@
+import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
+
+export interface PendingTaskItem {
+  amount: number
+  businessKey: string
+  definitionKey: string
+  initiatorId: string
+  instanceId: string
+  purchaseOrderReference: string
+  supplier: string
+  taskCreatedAt: string
+  taskDefinitionKey: string
+  taskId: string
+  taskName: string
+  taskUpdatedAt: string
+}
+
+export interface PendingTaskPage {
+  hasMore: boolean
+  items: PendingTaskItem[]
+  limit: number
+  offset: number
+  total: number
+}
+
+export interface PendingTaskDetails {
+  amount: number
+  attachmentIds: string[]
+  businessKey: string
+  compilerVersion: string
+  contentHash: string
+  definitionKey: string
+  definitionVersion: number
+  formKey: string
+  formVersion: number
+  initiatorId: string
+  instanceCreatedAt: string
+  instanceId: string
+  instanceUpdatedAt: string
+  purchaseOrderReference: string
+  supplier: string
+  taskCreatedAt: string
+  taskDefinitionKey: string
+  taskId: string
+  taskName: string
+  taskUpdatedAt: string
+}
+
+export interface ApprovalTimelineItem {
+  action: string
+  aggregateId: string
+  aggregateType: string
+  attributes: Record<string, string>
+  eventId: string
+  occurredAt: string
+  operatorId: string
+  requestId: string
+  traceId?: string
+}
+
+export interface ApprovalTimeline {
+  instanceId: string
+  items: ApprovalTimelineItem[]
+}
+
+export interface ApproveTaskResult {
+  completedAt: string
+  instanceId: string
+  status: 'COMPLETED' | 'RUNNING'
+  taskId: string
+}
+
+interface PendingTaskParameters {
+  keyword?: string
+  limit: number
+  offset: number
+}
+
+interface ApprovalRequestOptions {
+  data?: unknown
+  header?: Record<string, string>
+  method?: 'GET' | 'POST'
+}
+
+interface ApiErrorPayload {
+  code?: string
+  error?: string
+  message?: string
+}
+
+function joinUrl(baseUrl: string, path: string) {
+  const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+  return `${normalizedBase}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+function operationId(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`
+}
+
+function errorMessage(payload: unknown, statusCode: number) {
+  if (payload && typeof payload === 'object') {
+    const error = payload as ApiErrorPayload
+    return error.message || error.error || error.code || `请求失败（${statusCode}）`
+  }
+  if (typeof payload === 'string' && payload.trim()) {
+    return payload
+  }
+  return `请求失败（${statusCode}）`
+}
+
+function approvalRequest<T>(path: string, options: ApprovalRequestOptions = {}) {
+  const runtime = getApprovalRuntimeConfig()
+  const header: Record<string, string> = {
+    Accept: 'application/json',
+    'X-Operator-Id': runtime.operatorId,
+    'X-Tenant-Id': runtime.tenantId,
+    ...options.header,
+  }
+  if (options.data !== undefined && !header['Content-Type']) {
+    header['Content-Type'] = 'application/json'
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    uni.request({
+      url: joinUrl(runtime.apiBaseUrl, path),
+      method: options.method || 'GET',
+      data: options.data,
+      header,
+      success: (response) => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          resolve(response.data as T)
+          return
+        }
+        reject(new Error(errorMessage(response.data, response.statusCode)))
+      },
+      fail: (error) => {
+        reject(new Error(error.errMsg || '网络请求失败'))
+      },
+    })
+  })
+}
+
+export function findPendingTasks(parameters: PendingTaskParameters) {
+  const query: string[] = [
+    `limit=${encodeURIComponent(String(parameters.limit))}`,
+    `offset=${encodeURIComponent(String(parameters.offset))}`,
+  ]
+  const keyword = parameters.keyword?.trim()
+  if (keyword) {
+    query.push(`keyword=${encodeURIComponent(keyword)}`)
+  }
+  return approvalRequest<PendingTaskPage>(
+    `/approval/tasks/pending?${query.join('&')}`,
+  )
+}
+
+export function findPendingTask(taskId: string) {
+  return approvalRequest<PendingTaskDetails>(
+    `/approval/tasks/pending/${encodeURIComponent(taskId)}`,
+  )
+}
+
+export function findApprovalTimeline(instanceId: string) {
+  return approvalRequest<ApprovalTimeline>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/timeline`,
+  )
+}
+
+export function approveTask(taskId: string, comment: string) {
+  const requestId = operationId('mobile-approve-request')
+  return approvalRequest<ApproveTaskResult>(
+    `/approval/tasks/${encodeURIComponent(taskId)}/approve`,
+    {
+      method: 'POST',
+      data: { comment: comment.trim() || null },
+      header: {
+        'Idempotency-Key': operationId('mobile-approve'),
+        'X-Request-Id': requestId,
+        'X-Trace-Id': requestId,
+      },
+    },
+  )
+}
