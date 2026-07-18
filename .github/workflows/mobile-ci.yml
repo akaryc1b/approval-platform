@@ -1,18 +1,7 @@
 name: Approval Mobile CI
 
 on:
-  push:
-    paths:
-      - 'package.json'
-      - 'apps/mobile/**'
-      - 'scripts/upstream/bootstrap-unibest.mjs'
-      - '.github/workflows/mobile-ci.yml'
-  pull_request:
-    paths:
-      - 'package.json'
-      - 'apps/mobile/**'
-      - 'scripts/upstream/bootstrap-unibest.mjs'
-      - '.github/workflows/mobile-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
