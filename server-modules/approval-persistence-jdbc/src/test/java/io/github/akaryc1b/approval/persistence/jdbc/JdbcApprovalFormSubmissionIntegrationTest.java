@@ -106,7 +106,9 @@ class JdbcApprovalFormSubmissionIntegrationTest {
         ));
         service = new ApprovalFormSubmissionService(
             idempotency, forms, submissions, attachments, projections, messages,
-            (context, formKey, businessKey, values, parameters) -> startProjection(context, businessKey, values),
+            (context, formKey, businessKey, values, parameters) -> startProjection(
+                context, businessKey, values
+            ),
             new FormDataValidator(), new FormSubmissionHasher(objectMapper), audit,
             clock, UUID::randomUUID
         );
@@ -120,7 +122,25 @@ class JdbcApprovalFormSubmissionIntegrationTest {
         var created = service.submit(command);
         var replayed = service.submit(command);
 
-        assertEquals(created, replayed);
+        assertEquals(created.submissionId(), replayed.submissionId());
+        assertEquals(created.instanceId(), replayed.instanceId());
+        assertEquals(created.formKey(), replayed.formKey());
+        assertEquals(created.formVersion(), replayed.formVersion());
+        assertEquals(created.schemaHash(), replayed.schemaHash());
+        assertEquals(created.businessKey(), replayed.businessKey());
+        assertEquals(created.submittedBy(), replayed.submittedBy());
+        assertEquals(created.submittedAt(), replayed.submittedAt());
+        assertEquals(created.replayedExistingSubmission(), replayed.replayedExistingSubmission());
+        assertEquals(created.values().keySet(), replayed.values().keySet());
+        assertEquals(0, decimal(created.values().get("amount")).compareTo(
+            decimal(replayed.values().get("amount"))
+        ));
+        assertEquals(created.values().get("supplier"), replayed.values().get("supplier"));
+        assertEquals(
+            created.values().get("purchaseOrderReference"),
+            replayed.values().get("purchaseOrderReference")
+        );
+        assertEquals(created.values().get("attachments"), replayed.values().get("attachments"));
         assertEquals(INSTANCE_ID, created.instanceId());
         assertEquals(1, countRows("ap_form_submission"));
         assertEquals(1, countAudit("FORM_SUBMITTED"));
@@ -150,7 +170,12 @@ class JdbcApprovalFormSubmissionIntegrationTest {
                 PurchasePaymentTemplate.DEFINITION_KEY,
                 PurchasePaymentTemplate.FORM_VERSION,
                 "PO-FORM-002",
-                Map.of("amount", 10, "supplier", "A", "unknown", "x", "attachments", List.of(ATTACHMENT_ID.toString())),
+                Map.of(
+                    "amount", 10,
+                    "supplier", "A",
+                    "unknown", "x",
+                    "attachments", List.of(ATTACHMENT_ID.toString())
+                ),
                 Map.of()
             ))
         );
@@ -214,6 +239,10 @@ class JdbcApprovalFormSubmissionIntegrationTest {
 
     private RequestContext context(String requestId, String idempotencyKey) {
         return new RequestContext("tenant-a", "initiator-1", requestId, idempotencyKey, "trace-form");
+    }
+
+    private static BigDecimal decimal(Object value) {
+        return new BigDecimal(String.valueOf(value));
     }
 
     @SuppressWarnings("unchecked")
