@@ -9,6 +9,7 @@ import type {
 } from '#/api/approval';
 
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import {
@@ -42,6 +43,7 @@ import {
   urgeInstance,
 } from '#/api/approval';
 
+const router = useRouter();
 type ActiveTab = 'collaboration' | 'messages';
 type TagType = 'danger' | 'info' | 'primary' | 'success' | 'warning';
 
@@ -119,16 +121,14 @@ function formatDate(value?: string) {
 }
 
 function messageTypeLabel(type: ApprovalMessageItem['messageType']) {
-  const kind = type as string;
-  if (kind === 'URGE') return '催办';
-  if (kind === 'MENTION') return '@提及';
+  if (type === 'URGE') return '催办';
+  if (type === 'MENTION') return '@提及';
   return '抄送';
 }
 
 function messageTypeTag(type: ApprovalMessageItem['messageType']): TagType {
-  const kind = type as string;
-  if (kind === 'URGE') return 'warning';
-  if (kind === 'MENTION') return 'success';
+  if (type === 'URGE') return 'warning';
+  if (type === 'MENTION') return 'success';
   return 'primary';
 }
 
@@ -181,14 +181,28 @@ async function loadStarted() {
   }
 }
 
-async function readMessage(item: ApprovalMessageItem) {
+async function markRead(item: ApprovalMessageItem) {
   if (item.read) return;
+  await markMessageRead(item.messageId);
+  item.read = true;
+  item.readAt = new Date().toISOString();
+  unreadCount.value = Math.max(0, unreadCount.value - 1);
+}
+
+async function openMessage(item: ApprovalMessageItem) {
   try {
-    await markMessageRead(item.messageId);
-    item.read = true;
-    item.readAt = new Date().toISOString();
-    unreadCount.value = Math.max(0, unreadCount.value - 1);
-    if (messageUnreadOnly.value) await loadMessages();
+    await markRead(item);
+    await router.push({
+      path: '/approval/discussion/detail',
+      query: {
+        amount: String(item.amount),
+        businessKey: item.businessKey,
+        commentId: item.metadata.commentId || undefined,
+        instanceId: item.instanceId,
+        purchaseOrderReference: item.purchaseOrderReference,
+        supplier: item.supplier,
+      },
+    });
   } catch (error) {
     ElMessage.error(errorMessage(error));
   }
@@ -338,7 +352,7 @@ watch(activeTab, async (tab) => {
             :key="item.messageId"
             class="message-item"
             :class="{ 'message-item--unread': !item.read }"
-            @click="readMessage(item)"
+            @click="openMessage(item)"
           >
             <div class="item-main">
               <div class="title-row">
@@ -356,6 +370,7 @@ watch(activeTab, async (tab) => {
             <div class="item-side">
               <strong>{{ formatMoney(item.amount) }}</strong>
               <span>{{ formatDate(item.createdAt) }}</span>
+              <ElButton link type="primary">打开讨论</ElButton>
             </div>
           </article>
         </div>
