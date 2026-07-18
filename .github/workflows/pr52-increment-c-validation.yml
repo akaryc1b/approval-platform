@@ -44,6 +44,13 @@ jobs:
             exit "$status"
           fi
           tail -n 80 maven-verify.log
+      - name: Upload Maven verification log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr52-maven-${{ github.run_id }}
+          path: maven-verify.log
+          if-no-files-found: ignore
 
   web:
     name: Vben TypeScript / production build
@@ -70,6 +77,17 @@ jobs:
       - name: Build Vben application
         shell: bash
         run: pnpm web:build >web-build.log 2>&1 || { tail -n 220 web-build.log; exit 1; }
+      - name: Upload Vben verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr52-vben-${{ github.run_id }}
+          path: |
+            root-install.log
+            web-install.log
+            web-typecheck.log
+            web-build.log
+          if-no-files-found: ignore
 
   mobile:
     name: UniApp TypeScript / H5 / WeChat
@@ -99,3 +117,15 @@ jobs:
       - name: Build WeChat Mini Program
         shell: bash
         run: pnpm mobile:build:weixin >mobile-weixin.log 2>&1 || { tail -n 220 mobile-weixin.log; exit 1; }
+      - name: Upload mobile verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr52-mobile-${{ github.run_id }}
+          path: |
+            root-install.log
+            mobile-install.log
+            mobile-typecheck.log
+            mobile-h5.log
+            mobile-weixin.log
+          if-no-files-found: ignore
