@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
 import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
