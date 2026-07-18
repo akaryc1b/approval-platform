@@ -5,41 +5,17 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: pr-m2-form-design-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  source-fix:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
-      - name: Remove known unused imports
-        run: |
-          file=server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalFormDesignService.java
-          sed -i '/UiSchemaDefinition.FieldPermission;/d' "$file"
-          sed -i '/java.util.Set;/d' "$file"
-          if git diff --quiet -- "$file"; then
-            exit 0
-          fi
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add "$file"
-          git commit -m "Fix form design service Checkstyle imports"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
-
   backend:
-    needs: source-fix
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -57,12 +33,9 @@ jobs:
           path: backend.log
 
   web:
-    needs: source-fix
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.4
@@ -83,12 +56,9 @@ jobs:
           path: web.log
 
   mobile:
-    needs: source-fix
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.4
