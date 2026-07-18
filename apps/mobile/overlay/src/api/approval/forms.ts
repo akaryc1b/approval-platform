@@ -1,5 +1,6 @@
 import type {
   FormPage,
+  FormRuntimeView,
   FormSubmissionResult,
   FormSubmissionSnapshot,
   PublishedForm,
@@ -80,6 +81,18 @@ export function findForms(keyword = '', limit = 50, offset = 0) {
 export function findForm(formKey: string, version: number) {
   return request<PublishedForm>(
     `/approval/forms/${encodeURIComponent(formKey)}/versions/${version}`,
+  )
+}
+
+export function findStartFormRuntime(formKey: string, version: number) {
+  return request<FormRuntimeView>(
+    `/approval/forms/${encodeURIComponent(formKey)}/versions/${version}/runtime`,
+  )
+}
+
+export function findTaskFormRuntime(taskId: string) {
+  return request<FormRuntimeView>(
+    `/approval/tasks/${encodeURIComponent(taskId)}/form-runtime`,
   )
 }
 
