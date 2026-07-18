@@ -11,6 +11,7 @@ import {
   findPendingTask,
   rejectTask,
   resubmitTask,
+  transferTask,
 } from '@/api/approval'
 
 defineOptions({
@@ -30,7 +31,17 @@ const loadError = ref('')
 const submitting = ref(false)
 const details = ref<PendingTaskDetails>()
 const timeline = ref<ApprovalTimeline>()
+const transferIndex = ref(-1)
+
 const revisionTask = computed(() => details.value?.taskDefinitionKey === 'initiatorRevision')
+const transferCandidates = computed(() => details.value?.transferCandidates ?? [])
+const pickerIndex = computed(() => Math.max(transferIndex.value, 0))
+const selectedTransferCandidate = computed(() => {
+  if (transferIndex.value < 0) {
+    return undefined
+  }
+  return transferCandidates.value[transferIndex.value]
+})
 
 function taskStage(task: PendingTaskDetails) {
   const labels: Record<string, string> = {
@@ -45,18 +56,25 @@ function taskStage(task: PendingTaskDetails) {
 function timelineTitle(item: ApprovalTimelineItem) {
   const labels: Record<string, string> = {
     INSTANCE_STARTED: '发起审批',
+    INSTANCE_WITHDRAWN: '发起人撤回',
     TASK_APPROVED: '同意审批',
     TASK_REJECTED: '驳回到发起人',
     TASK_RESUBMITTED: '发起人重新提交',
+    TASK_RETRIEVED: '审批人拿回',
+    TASK_TRANSFERRED: '任务转办',
   }
   return labels[item.action] || item.action
 }
 
 function timelineTone(item: ApprovalTimelineItem) {
-  if (item.action === 'TASK_REJECTED') {
+  if (item.action === 'TASK_REJECTED' || item.action === 'INSTANCE_WITHDRAWN') {
     return 'danger'
   }
-  if (item.action === 'TASK_RESUBMITTED') {
+  if (
+    item.action === 'TASK_RESUBMITTED'
+    || item.action === 'TASK_RETRIEVED'
+    || item.action === 'TASK_TRANSFERRED'
+  ) {
     return 'warning'
   }
   if (item.action === 'TASK_APPROVED') {
@@ -87,6 +105,8 @@ async function loadDetails() {
   loadError.value = ''
   details.value = undefined
   timeline.value = undefined
+  opinion.value = ''
+  transferIndex.value = -1
   try {
     const task = await findPendingTask(taskId.value)
     const progress = await findApprovalTimeline(task.instanceId)
@@ -115,6 +135,10 @@ function confirmAction(title: string, content: string, confirmText: string) {
 
 function goBack() {
   uni.navigateBack()
+}
+
+function selectTransferCandidate(event: { detail: { value: number | string } }) {
+  transferIndex.value = Number(event.detail.value)
 }
 
 async function finishAction(
@@ -190,6 +214,35 @@ async function submitResubmission() {
   await finishAction(
     () => resubmitTask(task.taskId, opinion.value),
     '申请已重新提交',
+  )
+}
+
+async function submitTransfer() {
+  const task = details.value
+  const candidate = selectedTransferCandidate.value
+  const comment = opinion.value.trim()
+  if (!task || submitting.value) {
+    return
+  }
+  if (!candidate) {
+    uni.showToast({ title: '请选择转办人员', icon: 'none' })
+    return
+  }
+  if (!comment) {
+    uni.showToast({ title: '转办时必须填写原因', icon: 'none' })
+    return
+  }
+  const confirmed = await confirmAction(
+    '转办确认',
+    `确认将该任务转办给${candidate.displayName}吗？`,
+    '确认转办',
+  )
+  if (!confirmed) {
+    return
+  }
+  await finishAction(
+    () => transferTask(task.taskId, candidate.userId, comment),
+    '任务已转办',
   )
 }
 
@@ -287,6 +340,30 @@ onLoad((query) => {
         <text v-else class="muted-text">暂无审批记录</text>
       </view>
 
+      <view
+        v-if="!revisionTask && transferCandidates.length"
+        class="transfer-card"
+      >
+        <view class="section-title">转办人员</view>
+        <picker
+          :range="transferCandidates"
+          range-key="displayName"
+          :value="pickerIndex"
+          @change="selectTransferCandidate"
+        >
+          <view class="picker-field">
+            <view>
+              <text v-if="selectedTransferCandidate">
+                {{ selectedTransferCandidate.displayName }}
+              </text>
+              <text v-else class="muted-text">从流程审批人快照中选择</text>
+            </view>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+        <text class="field-hint">点击“转办”时，下方审批意见将作为转办原因且必须填写。</text>
+      </view>
+
       <view class="opinion-card">
         <view class="section-title">
           {{ revisionTask ? '重新提交说明' : '审批意见' }}
@@ -295,7 +372,7 @@ onLoad((query) => {
           v-model="opinion"
           :maxlength="2000"
           clearable
-          :placeholder="revisionTask ? '填写本次修改说明（可选）' : '填写审批意见；驳回时必填'"
+          :placeholder="revisionTask ? '填写本次修改说明（可选）' : '填写审批意见；驳回或转办时必填'"
           show-word-limit
         />
       </view>
@@ -314,6 +391,15 @@ onLoad((query) => {
           重新提交
         </wd-button>
         <template v-else>
+          <wd-button
+            v-if="transferCandidates.length"
+            plain
+            :disabled="!details || loading"
+            :loading="submitting"
+            @click="submitTransfer"
+          >
+            转办
+          </wd-button>
           <wd-button
             type="error"
             plain
@@ -347,6 +433,7 @@ onLoad((query) => {
 .summary-card,
 .attachment-card,
 .timeline-card,
+.transfer-card,
 .opinion-card,
 .state-card,
 .revision-notice {
@@ -367,7 +454,8 @@ onLoad((query) => {
 
 .summary-card__header,
 .action-bar,
-.action-group {
+.action-group,
+.picker-field {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -378,6 +466,7 @@ onLoad((query) => {
 .summary-grid text,
 .timeline-content text,
 .muted-text,
+.field-hint,
 .state-card {
   color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
   font-size: 24rpx;
@@ -424,6 +513,25 @@ onLoad((query) => {
   display: flex;
   flex-wrap: wrap;
   gap: 12rpx;
+}
+
+.picker-field {
+  min-height: 84rpx;
+  padding: 0 22rpx;
+  border: 1rpx solid var(--wot-color-border-light, var(--uni-border-color));
+  border-radius: var(--wot-radius-medium, 16rpx);
+  color: var(--wot-color-content, var(--uni-text-color));
+}
+
+.picker-arrow {
+  color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
+  font-size: 40rpx;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 14rpx;
+  line-height: 1.5;
 }
 
 .timeline-list {
