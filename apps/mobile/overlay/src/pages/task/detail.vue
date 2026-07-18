@@ -4,6 +4,7 @@ import type {
   ApprovalTimelineItem,
   PendingTaskDetails,
 } from '@/api/approval'
+import type { FormSubmissionSnapshot } from '@/api/approval/form-types'
 
 import {
   approveTask,
@@ -13,6 +14,8 @@ import {
   resubmitTask,
   transferTask,
 } from '@/api/approval'
+import { findFormSnapshot } from '@/api/approval/forms'
+import ApprovalFormRenderer from '@/components/approval/ApprovalFormRenderer.vue'
 
 defineOptions({
   name: 'ApprovalTaskDetail',
@@ -31,6 +34,7 @@ const loadError = ref('')
 const submitting = ref(false)
 const details = ref<PendingTaskDetails>()
 const timeline = ref<ApprovalTimeline>()
+const formSnapshot = ref<FormSubmissionSnapshot>()
 const transferIndex = ref(-1)
 
 const revisionTask = computed(() => details.value?.taskDefinitionKey === 'initiatorRevision')
@@ -105,13 +109,18 @@ async function loadDetails() {
   loadError.value = ''
   details.value = undefined
   timeline.value = undefined
+  formSnapshot.value = undefined
   opinion.value = ''
   transferIndex.value = -1
   try {
     const task = await findPendingTask(taskId.value)
-    const progress = await findApprovalTimeline(task.instanceId)
+    const [progress, snapshot] = await Promise.all([
+      findApprovalTimeline(task.instanceId),
+      findFormSnapshot(task.instanceId),
+    ])
     details.value = task
     timeline.value = progress
+    formSnapshot.value = snapshot
   }
   catch (error) {
     loadError.value = errorMessage(error)
@@ -303,6 +312,21 @@ onLoad((query) => {
         </view>
       </view>
 
+      <view v-if="formSnapshot" class="form-snapshot-card">
+        <view class="section-title">提交表单快照</view>
+        <view class="snapshot-meta">
+          <text>{{ formSnapshot.definition.name }} · v{{ formSnapshot.definition.version }}</text>
+          <text>提交人 {{ formSnapshot.submission.submittedBy }}</text>
+          <text>提交时间 {{ formatDate(formSnapshot.submission.submittedAt) }}</text>
+          <text>Schema {{ formSnapshot.submission.schemaHash.slice(0, 12) }}</text>
+        </view>
+        <ApprovalFormRenderer
+          :model-value="formSnapshot.submission.values"
+          readonly
+          :schema="formSnapshot.definition"
+        />
+      </view>
+
       <view class="attachment-card">
         <view class="section-title">附件</view>
         <view v-if="details.attachmentIds.length" class="attachment-list">
@@ -431,6 +455,7 @@ onLoad((query) => {
 }
 
 .summary-card,
+.form-snapshot-card,
 .attachment-card,
 .timeline-card,
 .transfer-card,
@@ -467,6 +492,7 @@ onLoad((query) => {
 .timeline-content text,
 .muted-text,
 .field-hint,
+.snapshot-meta,
 .state-card {
   color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
   font-size: 24rpx;
@@ -487,7 +513,8 @@ onLoad((query) => {
 }
 
 .summary-grid > view,
-.timeline-content {
+.timeline-content,
+.snapshot-meta {
   display: grid;
   gap: 8rpx;
 }
@@ -507,6 +534,11 @@ onLoad((query) => {
   color: var(--wot-color-content, var(--uni-text-color));
   font-size: 28rpx;
   font-weight: 700;
+}
+
+.snapshot-meta {
+  margin-bottom: 20rpx;
+  line-height: 1.5;
 }
 
 .attachment-list {
