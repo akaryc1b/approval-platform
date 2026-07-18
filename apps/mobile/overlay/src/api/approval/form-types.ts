@@ -2,7 +2,7 @@ export type FormFieldType = 'ATTACHMENT' | 'MONEY' | 'TEXT'
 export type FieldAccess = 'EDITABLE' | 'HIDDEN' | 'READONLY'
 export type RequiredOverride = 'INHERIT' | 'OPTIONAL' | 'REQUIRED'
 export type DefaultValueType
-  = | 'CURRENT_DATE'
+  = 'CURRENT_DATE'
     | 'CURRENT_DATETIME'
     | 'CURRENT_USER'
     | 'LITERAL'
