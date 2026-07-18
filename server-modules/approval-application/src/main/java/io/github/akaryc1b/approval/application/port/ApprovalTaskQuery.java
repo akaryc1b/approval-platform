@@ -64,6 +64,13 @@ public interface ApprovalTaskQuery {
     ) {
     }
 
+    record TransferCandidate(String userId, String displayName) {
+        public TransferCandidate {
+            userId = requireText(userId, "userId");
+            displayName = requireText(displayName, "displayName");
+        }
+    }
+
     record PendingTaskDetails(
         UUID taskId,
         UUID instanceId,
@@ -81,6 +88,7 @@ public interface ApprovalTaskQuery {
         String supplier,
         String purchaseOrderReference,
         List<String> attachmentIds,
+        List<TransferCandidate> transferCandidates,
         Instant instanceCreatedAt,
         Instant instanceUpdatedAt,
         Instant taskCreatedAt,
@@ -88,6 +96,9 @@ public interface ApprovalTaskQuery {
     ) {
         public PendingTaskDetails {
             attachmentIds = attachmentIds == null ? List.of() : List.copyOf(attachmentIds);
+            transferCandidates = transferCandidates == null
+                ? List.of()
+                : List.copyOf(transferCandidates);
         }
     }
 

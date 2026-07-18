@@ -62,6 +62,28 @@ public final class JdbcApprovalTimelineQuery implements ApprovalTimelineQuery {
                             and task.instance_id = instance.instance_id
                             and task.assignee_id = :operatorId
                       )
+                      or exists (
+                          select 1
+                          from ap_audit_event event
+                          where event.tenant_id = instance.tenant_id
+                            and event.operator_id = :operatorId
+                            and (
+                                (
+                                    event.aggregate_type = 'APPROVAL_INSTANCE'
+                                    and event.aggregate_id = instance.instance_id::text
+                                )
+                                or (
+                                    event.aggregate_type = 'APPROVAL_TASK'
+                                    and exists (
+                                        select 1
+                                        from ap_approval_task historical_task
+                                        where historical_task.tenant_id = event.tenant_id
+                                          and historical_task.instance_id = instance.instance_id
+                                          and historical_task.task_id::text = event.aggregate_id
+                                    )
+                                )
+                            )
+                      )
                   )
             )
             """,

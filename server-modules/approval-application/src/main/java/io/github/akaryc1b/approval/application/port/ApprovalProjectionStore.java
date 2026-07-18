@@ -33,12 +33,34 @@ public interface ApprovalProjectionStore {
 
     List<TaskProjection> findTasks(String tenantId, UUID instanceId);
 
+    default Optional<TaskProjection> findTask(String tenantId, UUID taskId) {
+        throw new UnsupportedOperationException("task lookup is not supported");
+    }
+
     TaskProjection claimPendingTask(
         String tenantId,
         UUID taskId,
         String operatorId,
         Instant claimedAt
     );
+
+    default TaskProjection claimPendingTaskForControl(
+        String tenantId,
+        UUID taskId,
+        Instant claimedAt
+    ) {
+        throw new UnsupportedOperationException("task control claim is not supported");
+    }
+
+    default TaskProjection transferPendingTask(
+        String tenantId,
+        UUID taskId,
+        String currentAssigneeId,
+        String targetAssigneeId,
+        Instant transferredAt
+    ) {
+        throw new UnsupportedOperationException("task transfer is not supported");
+    }
 
     void completeTaskAndSynchronize(
         String tenantId,
@@ -49,6 +71,26 @@ public interface ApprovalProjectionStore {
         InstanceStatus instanceStatus,
         Instant completedAt
     );
+
+    default void cancelClaimedTaskAndSynchronize(
+        String tenantId,
+        UUID instanceId,
+        UUID canceledTaskId,
+        long claimedTaskVersion,
+        List<TaskProjection> activeTasks,
+        Instant changedAt
+    ) {
+        throw new UnsupportedOperationException("controlled task replacement is not supported");
+    }
+
+    default void withdrawRunningInstance(
+        String tenantId,
+        UUID instanceId,
+        String initiatorId,
+        Instant withdrawnAt
+    ) {
+        throw new UnsupportedOperationException("instance withdrawal is not supported");
+    }
 
     record PublishedDefinition(
         String tenantId,

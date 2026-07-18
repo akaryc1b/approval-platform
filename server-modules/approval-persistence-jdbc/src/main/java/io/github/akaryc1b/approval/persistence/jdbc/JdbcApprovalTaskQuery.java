@@ -3,6 +3,8 @@ package io.github.akaryc1b.approval.persistence.jdbc;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.UserIdentitySnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -13,8 +15,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -115,6 +119,7 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
             select
                 task.task_id,
                 task.instance_id,
+                task.assignee_id,
                 instance.definition_key,
                 instance.definition_version,
                 instance.form_key,
@@ -129,6 +134,7 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
                 instance.supplier,
                 instance.purchase_order_reference,
                 instance.attachment_ids_json,
+                instance.assignee_snapshot_json,
                 instance.created_at as instance_created_at,
                 instance.updated_at as instance_updated_at,
                 task.created_at as task_created_at,
@@ -201,6 +207,10 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
             resultSet.getString("supplier"),
             resultSet.getString("purchase_order_reference"),
             decodeStringList(resultSet.getString("attachment_ids_json")),
+            decodeTransferCandidates(
+                resultSet.getString("assignee_snapshot_json"),
+                resultSet.getString("assignee_id")
+            ),
             instant(resultSet, "instance_created_at"),
             instant(resultSet, "instance_updated_at"),
             instant(resultSet, "task_created_at"),
@@ -214,6 +224,55 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
         } catch (JsonProcessingException exception) {
             throw new SQLException("unable to decode task detail attachments", exception);
         }
+    }
+
+    private List<TransferCandidate> decodeTransferCandidates(
+        String json,
+        String currentAssigneeId
+    ) throws SQLException {
+        try {
+            AssigneeSnapshot snapshot = objectMapper.readValue(json, AssigneeSnapshot.class);
+            Map<String, String> candidates = new LinkedHashMap<>();
+            addCandidate(candidates, snapshot, snapshot.managerAssignee(), currentAssigneeId);
+            addCandidate(candidates, snapshot, snapshot.financeReviewer(), currentAssigneeId);
+            for (String userId : snapshot.financeApprovers()) {
+                addCandidate(candidates, snapshot, userId, currentAssigneeId);
+            }
+            for (String userId : snapshot.identities().keySet()) {
+                addCandidate(candidates, snapshot, userId, currentAssigneeId);
+            }
+            return candidates.entrySet().stream()
+                .map(entry -> new TransferCandidate(entry.getKey(), entry.getValue()))
+                .toList();
+        } catch (JsonProcessingException exception) {
+            throw new SQLException("unable to decode transfer candidates", exception);
+        }
+    }
+
+    private static void addCandidate(
+        Map<String, String> candidates,
+        AssigneeSnapshot snapshot,
+        String userId,
+        String currentAssigneeId
+    ) {
+        if (userId == null || userId.isBlank() || userId.equals(currentAssigneeId)) {
+            return;
+        }
+        candidates.putIfAbsent(userId, displayName(snapshot, userId));
+    }
+
+    private static String displayName(AssigneeSnapshot snapshot, String userId) {
+        UserIdentitySnapshot direct = snapshot.identities().get(userId);
+        if (direct != null && direct.displayName() != null && !direct.displayName().isBlank()) {
+            return direct.displayName();
+        }
+        return snapshot.identities().values().stream()
+            .filter(identity -> userId.equals(identity.externalId()))
+            .map(UserIdentitySnapshot::displayName)
+            .filter(Objects::nonNull)
+            .filter(value -> !value.isBlank())
+            .findFirst()
+            .orElse(userId);
     }
 
     private static Instant instant(ResultSet resultSet, String column) throws SQLException {
