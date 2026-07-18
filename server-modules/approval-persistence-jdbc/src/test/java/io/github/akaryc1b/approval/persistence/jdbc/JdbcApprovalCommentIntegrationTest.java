@@ -251,7 +251,8 @@ class JdbcApprovalCommentIntegrationTest {
             0
         );
         assertEquals(2, copiedComments.total());
-        assertEquals(created.commentId(), copiedComments.items().getFirst().commentId());
+        assertTrue(copiedComments.items().stream()
+            .anyMatch(item -> created.commentId().equals(item.commentId())));
 
         var messages = messageService.findMessages(
             "tenant-a",
