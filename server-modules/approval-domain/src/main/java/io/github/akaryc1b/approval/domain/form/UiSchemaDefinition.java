@@ -33,6 +33,11 @@ public record UiSchemaDefinition(
         nodePermissions = nodePermissions == null ? List.of() : List.copyOf(nodePermissions);
     }
 
+    /** Compatibility alias for callers that name the immutable version explicitly. */
+    public int uiSchemaVersion() {
+        return version;
+    }
+
     public record Section(
         String key,
         String title,
