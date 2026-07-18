@@ -33,7 +33,17 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Verify Maven reactor
-        run: mvn -B -ntp verify
+        shell: bash
+        run: |
+          set +e
+          mvn -B -ntp verify >maven-verify.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo '--- Maven failure tail ---'
+            tail -n 220 maven-verify.log
+            exit "$status"
+          fi
+          tail -n 80 maven-verify.log
 
   web:
     name: Vben TypeScript / production build
@@ -49,13 +59,17 @@ jobs:
           corepack enable
           corepack prepare pnpm@10.33.4 --activate
       - name: Install root tooling
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: pnpm install --no-frozen-lockfile >root-install.log 2>&1 || { tail -n 160 root-install.log; exit 1; }
       - name: Install Vben workspace
-        run: pnpm web:install
+        shell: bash
+        run: pnpm web:install >web-install.log 2>&1 || { tail -n 180 web-install.log; exit 1; }
       - name: Type-check Vben application
-        run: pnpm web:typecheck
+        shell: bash
+        run: pnpm web:typecheck >web-typecheck.log 2>&1 || { cat web-typecheck.log; exit 1; }
       - name: Build Vben application
-        run: pnpm web:build
+        shell: bash
+        run: pnpm web:build >web-build.log 2>&1 || { tail -n 220 web-build.log; exit 1; }
 
   mobile:
     name: UniApp TypeScript / H5 / WeChat
@@ -71,12 +85,17 @@ jobs:
           corepack enable
           corepack prepare pnpm@10.33.4 --activate
       - name: Install root tooling
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: pnpm install --no-frozen-lockfile >root-install.log 2>&1 || { tail -n 160 root-install.log; exit 1; }
       - name: Install UniApp workspace
-        run: pnpm mobile:install
+        shell: bash
+        run: pnpm mobile:install >mobile-install.log 2>&1 || { tail -n 180 mobile-install.log; exit 1; }
       - name: Type-check UniApp application
-        run: pnpm mobile:typecheck
+        shell: bash
+        run: pnpm mobile:typecheck >mobile-typecheck.log 2>&1 || { cat mobile-typecheck.log; exit 1; }
       - name: Build H5 application
-        run: pnpm mobile:build:h5
+        shell: bash
+        run: pnpm mobile:build:h5 >mobile-h5.log 2>&1 || { tail -n 220 mobile-h5.log; exit 1; }
       - name: Build WeChat Mini Program
-        run: pnpm mobile:build:weixin
+        shell: bash
+        run: pnpm mobile:build:weixin >mobile-weixin.log 2>&1 || { tail -n 220 mobile-weixin.log; exit 1; }
