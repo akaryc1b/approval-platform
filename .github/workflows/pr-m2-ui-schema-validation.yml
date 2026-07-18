@@ -34,9 +34,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
-          cache: pnpm
-      - name: Install root tooling
-        run: pnpm install --frozen-lockfile
       - name: Bootstrap and install Vben
         run: pnpm web:install
       - name: TypeScript
@@ -54,9 +51,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
-          cache: pnpm
-      - name: Install root tooling
-        run: pnpm install --frozen-lockfile
       - name: Bootstrap and install UniApp
         run: pnpm mobile:install
       - name: TypeScript
