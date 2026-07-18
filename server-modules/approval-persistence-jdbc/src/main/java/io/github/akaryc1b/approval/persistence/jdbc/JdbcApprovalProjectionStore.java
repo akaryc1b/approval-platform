@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public final class JdbcApprovalProjectionStore implements ApprovalProjectionStore {
 
@@ -174,6 +175,20 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
     }
 
     @Override
+    public Optional<TaskProjection> findTask(String tenantId, UUID taskId) {
+        return jdbc.query(
+            """
+            select * from ap_approval_task
+            where tenant_id = :tenantId and task_id = :taskId
+            """,
+            new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("taskId", taskId),
+            taskMapper()
+        ).stream().findFirst();
+    }
+
+    @Override
     public TaskProjection claimPendingTask(
         String tenantId,
         UUID taskId,
@@ -199,11 +214,66 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
                 .addValue("claimedAt", offset(claimedAt)),
             taskMapper()
         );
-        if (claimed.size() == 1) {
-            return claimed.getFirst();
-        }
-        throw new ProjectionConflictException(
-            "task is not pending, does not exist, or is assigned to another operator"
+        return requireSingleClaim(claimed, "task is not pending, does not exist, or is assigned to another operator");
+    }
+
+    @Override
+    public TaskProjection claimPendingTaskForControl(
+        String tenantId,
+        UUID taskId,
+        Instant claimedAt
+    ) {
+        List<TaskProjection> claimed = jdbc.query(
+            """
+            update ap_approval_task
+            set status = 'COMPLETING',
+                version = version + 1,
+                updated_at = :claimedAt
+            where tenant_id = :tenantId
+              and task_id = :taskId
+              and status = 'PENDING'
+            returning *
+            """,
+            new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("taskId", taskId)
+                .addValue("claimedAt", offset(claimedAt)),
+            taskMapper()
+        );
+        return requireSingleClaim(claimed, "downstream task changed before it could be retrieved");
+    }
+
+    @Override
+    public TaskProjection transferPendingTask(
+        String tenantId,
+        UUID taskId,
+        String currentAssigneeId,
+        String targetAssigneeId,
+        Instant transferredAt
+    ) {
+        List<TaskProjection> transferred = jdbc.query(
+            """
+            update ap_approval_task
+            set assignee_id = :targetAssigneeId,
+                version = version + 1,
+                updated_at = :transferredAt
+            where tenant_id = :tenantId
+              and task_id = :taskId
+              and assignee_id = :currentAssigneeId
+              and status = 'PENDING'
+            returning *
+            """,
+            new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("taskId", taskId)
+                .addValue("currentAssigneeId", currentAssigneeId)
+                .addValue("targetAssigneeId", targetAssigneeId)
+                .addValue("transferredAt", offset(transferredAt)),
+            taskMapper()
+        );
+        return requireSingleClaim(
+            transferred,
+            "task changed, is no longer pending, or is assigned to another operator"
         );
     }
 
@@ -240,17 +310,103 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
         if (completed != 1) {
             throw new ProjectionConflictException("claimed task version changed before completion");
         }
+        synchronizeActiveTasks(tenantId, instanceId, completedTaskId, activeTasks, completedAt);
+        updateRunningInstanceStatus(tenantId, instanceId, instanceStatus, completedAt);
+    }
 
-        Map<String, TaskProjection> activeByEngineId = activeTasks.stream().collect(
-            java.util.stream.Collectors.toMap(
-                TaskProjection::engineTaskId,
-                task -> task,
-                (left, right) -> left
-            )
+    @Override
+    public void cancelClaimedTaskAndSynchronize(
+        String tenantId,
+        UUID instanceId,
+        UUID canceledTaskId,
+        long claimedTaskVersion,
+        List<TaskProjection> activeTasks,
+        Instant changedAt
+    ) {
+        int canceled = jdbc.update(
+            """
+            update ap_approval_task
+            set status = 'CANCELED',
+                updated_at = :changedAt,
+                version = version + 1
+            where tenant_id = :tenantId
+              and instance_id = :instanceId
+              and task_id = :taskId
+              and status = 'COMPLETING'
+              and version = :claimedVersion
+            """,
+            new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("instanceId", instanceId)
+                .addValue("taskId", canceledTaskId)
+                .addValue("claimedVersion", claimedTaskVersion)
+                .addValue("changedAt", offset(changedAt))
         );
-        List<TaskProjection> previous = findTasks(tenantId, instanceId);
-        for (TaskProjection task : previous) {
-            if (task.taskId().equals(completedTaskId)) {
+        if (canceled != 1) {
+            throw new ProjectionConflictException("claimed downstream task changed before retrieval");
+        }
+        synchronizeActiveTasks(tenantId, instanceId, canceledTaskId, activeTasks, changedAt);
+        updateRunningInstanceStatus(tenantId, instanceId, InstanceStatus.RUNNING, changedAt);
+    }
+
+    @Override
+    public void withdrawRunningInstance(
+        String tenantId,
+        UUID instanceId,
+        String initiatorId,
+        Instant withdrawnAt
+    ) {
+        int updated = jdbc.update(
+            """
+            update ap_approval_instance
+            set status = 'WITHDRAWN',
+                version = version + 1,
+                updated_at = :withdrawnAt
+            where tenant_id = :tenantId
+              and instance_id = :instanceId
+              and initiator_id = :initiatorId
+              and status = 'RUNNING'
+            """,
+            new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("instanceId", instanceId)
+                .addValue("initiatorId", initiatorId)
+                .addValue("withdrawnAt", offset(withdrawnAt))
+        );
+        if (updated != 1) {
+            throw new ProjectionConflictException(
+                "instance is missing, no longer running, or was not started by the operator"
+            );
+        }
+        jdbc.update(
+            """
+            update ap_approval_task
+            set status = 'CANCELED',
+                version = version + 1,
+                updated_at = :withdrawnAt
+            where tenant_id = :tenantId
+              and instance_id = :instanceId
+              and status in ('PENDING', 'COMPLETING')
+            """,
+            new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("instanceId", instanceId)
+                .addValue("withdrawnAt", offset(withdrawnAt))
+        );
+    }
+
+    private void synchronizeActiveTasks(
+        String tenantId,
+        UUID instanceId,
+        UUID ignoredTaskId,
+        List<TaskProjection> activeTasks,
+        Instant updatedAt
+    ) {
+        Map<String, TaskProjection> activeByEngineId = activeTasks.stream().collect(
+            Collectors.toMap(TaskProjection::engineTaskId, task -> task, (left, right) -> left)
+        );
+        for (TaskProjection task : findTasks(tenantId, instanceId)) {
+            if (task.taskId().equals(ignoredTaskId)) {
                 continue;
             }
             if ((task.status() == TaskStatus.PENDING || task.status() == TaskStatus.COMPLETING)
@@ -268,31 +424,50 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
                     new MapSqlParameterSource()
                         .addValue("tenantId", tenantId)
                         .addValue("taskId", task.taskId())
-                        .addValue("updatedAt", offset(completedAt))
+                        .addValue("updatedAt", offset(updatedAt))
                 );
             }
         }
         for (TaskProjection task : activeTasks) {
-            upsertActiveTask(task, completedAt);
+            upsertActiveTask(task, updatedAt);
         }
+    }
 
+    private void updateRunningInstanceStatus(
+        String tenantId,
+        UUID instanceId,
+        InstanceStatus status,
+        Instant updatedAt
+    ) {
         int instanceUpdated = jdbc.update(
             """
             update ap_approval_instance
             set status = :status,
                 version = version + 1,
                 updated_at = :updatedAt
-            where tenant_id = :tenantId and instance_id = :instanceId
+            where tenant_id = :tenantId
+              and instance_id = :instanceId
+              and status = 'RUNNING'
             """,
             new MapSqlParameterSource()
                 .addValue("tenantId", tenantId)
                 .addValue("instanceId", instanceId)
-                .addValue("status", instanceStatus.name())
-                .addValue("updatedAt", offset(completedAt))
+                .addValue("status", status.name())
+                .addValue("updatedAt", offset(updatedAt))
         );
         if (instanceUpdated != 1) {
-            throw new ProjectionConflictException("instance projection is missing");
+            throw new ProjectionConflictException("running instance projection changed or is missing");
         }
+    }
+
+    private static TaskProjection requireSingleClaim(
+        List<TaskProjection> claimed,
+        String message
+    ) {
+        if (claimed.size() == 1) {
+            return claimed.getFirst();
+        }
+        throw new ProjectionConflictException(message);
     }
 
     private void advisoryLock(String lockKey) {
