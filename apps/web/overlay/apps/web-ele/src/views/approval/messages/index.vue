@@ -121,14 +121,16 @@ function formatDate(value?: string) {
 }
 
 function messageTypeLabel(type: ApprovalMessageItem['messageType']) {
-  if (type === 'URGE') return '催办';
-  if (type === 'MENTION') return '@提及';
+  const kind = type as string;
+  if (kind === 'URGE') return '催办';
+  if (kind === 'MENTION') return '@提及';
   return '抄送';
 }
 
 function messageTypeTag(type: ApprovalMessageItem['messageType']): TagType {
-  if (type === 'URGE') return 'warning';
-  if (type === 'MENTION') return 'success';
+  const kind = type as string;
+  if (kind === 'URGE') return 'warning';
+  if (kind === 'MENTION') return 'success';
   return 'primary';
 }
 
