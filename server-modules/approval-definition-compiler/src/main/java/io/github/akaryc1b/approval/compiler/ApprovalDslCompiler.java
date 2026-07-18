@@ -10,12 +10,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
 
-/**
- * Deterministically compiles the product-owned Approval DSL into Flowable-compatible BPMN XML.
- */
+/** Deterministically compiles the product-owned Approval DSL into Flowable BPMN XML. */
 public final class ApprovalDslCompiler {
 
-    public static final String COMPILER_VERSION = "1.1.0";
+    public static final String COMPILER_VERSION = "1.2.0";
     public static final String DECISION_VARIABLE = "approvalDecision";
 
     private final ApprovalDefinitionValidator validator;
@@ -37,7 +35,10 @@ public final class ApprovalDslCompiler {
         validator.validateOrThrow(definition, formDefinition);
 
         String bpmnXml = writeBpmn(definition);
-        String resourceName = definition.definitionKey() + "-v" + definition.version() + ".bpmn20.xml";
+        String resourceName = definition.definitionKey()
+            + "-v"
+            + definition.version()
+            + ".bpmn20.xml";
         String hashMaterial = String.join(
             "\n",
             COMPILER_VERSION,
@@ -60,7 +61,7 @@ public final class ApprovalDslCompiler {
     }
 
     private static String writeBpmn(ApprovalDefinition definition) {
-        StringBuilder xml = new StringBuilder(6144);
+        StringBuilder xml = new StringBuilder(8192);
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
             .append("<definitions xmlns=\"http://www.omg.org/spec/BPMN/20100524/MODEL\"\n")
             .append("             xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n")
@@ -106,6 +107,22 @@ public final class ApprovalDslCompiler {
                 .append(attribute(conditionStep.name()))
                 .append("\" default=\"")
                 .append(defaultFlowId(conditionStep))
+                .append("\"/>\n");
+            return;
+        }
+        if (node instanceof ApprovalDefinition.ParallelSplitNode splitNode) {
+            xml.append("    <parallelGateway id=\"")
+                .append(attribute(splitNode.id()))
+                .append("\" name=\"")
+                .append(attribute(splitNode.name()))
+                .append("\"/>\n");
+            return;
+        }
+        if (node instanceof ApprovalDefinition.ParallelJoinNode joinNode) {
+            xml.append("    <parallelGateway id=\"")
+                .append(attribute(joinNode.id()))
+                .append("\" name=\"")
+                .append(attribute(joinNode.name()))
                 .append("\"/>\n");
             return;
         }
@@ -174,31 +191,16 @@ public final class ApprovalDslCompiler {
         ApprovalDefinition.ProcessNode node
     ) {
         if (node instanceof ApprovalDefinition.StartNode startNode) {
-            writeSimpleFlow(xml, simpleFlowId(startNode.id(), startNode.next()), startNode.id(), startNode.next());
+            writeSimpleFlow(
+                xml,
+                simpleFlowId(startNode.id(), startNode.next()),
+                startNode.id(),
+                startNode.next()
+            );
             return;
         }
         if (node instanceof ApprovalDefinition.ApprovalStep approvalStep) {
-            if (approvalStep.rejectNext() != null) {
-                xml.append("    <sequenceFlow id=\"")
-                    .append(attribute(rejectFlowId(approvalStep)))
-                    .append("\" sourceRef=\"")
-                    .append(attribute(approvalStep.id()))
-                    .append("\" targetRef=\"")
-                    .append(attribute(approvalStep.rejectNext()))
-                    .append("\">\n")
-                    .append("      <conditionExpression xsi:type=\"tFormalExpression\"><![CDATA[")
-                    .append("${")
-                    .append(DECISION_VARIABLE)
-                    .append(" == 'REJECTED'}")
-                    .append("]]></conditionExpression>\n")
-                    .append("    </sequenceFlow>\n");
-            }
-            writeSimpleFlow(
-                xml,
-                simpleFlowId(approvalStep.id(), approvalStep.next()),
-                approvalStep.id(),
-                approvalStep.next()
-            );
+            writeApprovalFlows(xml, approvalStep);
             return;
         }
         if (node instanceof ApprovalDefinition.HandleStep handleStep) {
@@ -211,29 +213,83 @@ public final class ApprovalDslCompiler {
             return;
         }
         if (node instanceof ApprovalDefinition.ConditionStep conditionStep) {
-            int index = 1;
-            for (ApprovalDefinition.ConditionRoute route : conditionStep.routes()) {
-                String flowId = "flow_" + conditionStep.id() + "_route_" + index;
-                xml.append("    <sequenceFlow id=\"")
-                    .append(attribute(flowId))
-                    .append("\" sourceRef=\"")
-                    .append(attribute(conditionStep.id()))
-                    .append("\" targetRef=\"")
-                    .append(attribute(route.next()))
-                    .append("\">\n")
-                    .append("      <conditionExpression xsi:type=\"tFormalExpression\"><![CDATA[")
-                    .append(conditionExpression(route.condition()))
-                    .append("]]></conditionExpression>\n")
-                    .append("    </sequenceFlow>\n");
-                index++;
+            writeConditionFlows(xml, conditionStep);
+            return;
+        }
+        if (node instanceof ApprovalDefinition.ParallelSplitNode splitNode) {
+            for (ApprovalDefinition.ParallelBranch branch : splitNode.branches()) {
+                writeSimpleFlow(
+                    xml,
+                    parallelBranchFlowId(splitNode, branch),
+                    splitNode.id(),
+                    branch.next()
+                );
             }
+            return;
+        }
+        if (node instanceof ApprovalDefinition.ParallelJoinNode joinNode) {
             writeSimpleFlow(
                 xml,
-                defaultFlowId(conditionStep),
-                conditionStep.id(),
-                conditionStep.defaultNext()
+                simpleFlowId(joinNode.id(), joinNode.next()),
+                joinNode.id(),
+                joinNode.next()
             );
         }
+    }
+
+    private static void writeApprovalFlows(
+        StringBuilder xml,
+        ApprovalDefinition.ApprovalStep approvalStep
+    ) {
+        if (approvalStep.rejectNext() != null) {
+            xml.append("    <sequenceFlow id=\"")
+                .append(attribute(rejectFlowId(approvalStep)))
+                .append("\" sourceRef=\"")
+                .append(attribute(approvalStep.id()))
+                .append("\" targetRef=\"")
+                .append(attribute(approvalStep.rejectNext()))
+                .append("\">\n")
+                .append("      <conditionExpression xsi:type=\"tFormalExpression\"><![CDATA[")
+                .append("${")
+                .append(DECISION_VARIABLE)
+                .append(" == 'REJECTED'}")
+                .append("]]></conditionExpression>\n")
+                .append("    </sequenceFlow>\n");
+        }
+        writeSimpleFlow(
+            xml,
+            simpleFlowId(approvalStep.id(), approvalStep.next()),
+            approvalStep.id(),
+            approvalStep.next()
+        );
+    }
+
+    private static void writeConditionFlows(
+        StringBuilder xml,
+        ApprovalDefinition.ConditionStep conditionStep
+    ) {
+        int index = 1;
+        for (ApprovalDefinition.ConditionRoute route : conditionStep.routes()) {
+            String flowId = "flow_" + conditionStep.id() + "_route_" + index;
+            xml.append("    <sequenceFlow id=\"")
+                .append(attribute(flowId))
+                .append("\" sourceRef=\"")
+                .append(attribute(conditionStep.id()))
+                .append("\" targetRef=\"")
+                .append(attribute(route.next()))
+                .append("\">\n")
+                .append("      <conditionExpression xsi:type=\"tFormalExpression\"><![CDATA[")
+                .append(conditionExpression(route.condition()))
+                .append("]]></conditionExpression>\n")
+                .append("    </sequenceFlow>\n");
+            index++;
+        }
+        writeSimpleFlow(
+            xml,
+            defaultFlowId(conditionStep),
+            conditionStep.id(),
+            conditionStep.defaultNext()
+        );
     }
 
     private static void writeSimpleFlow(
@@ -257,6 +313,13 @@ public final class ApprovalDslCompiler {
 
     private static String rejectFlowId(ApprovalDefinition.ApprovalStep approval) {
         return "flow_" + approval.id() + "_rejected";
+    }
+
+    private static String parallelBranchFlowId(
+        ApprovalDefinition.ParallelSplitNode split,
+        ApprovalDefinition.ParallelBranch branch
+    ) {
+        return "flow_" + split.id() + "_branch_" + branch.id();
     }
 
     private static String simpleFlowId(String source, String target) {
@@ -322,7 +385,6 @@ public final class ApprovalDslCompiler {
         String bpmnXml,
         String contentHash
     ) {
-
         public CompiledDefinition {
             definitionKey = requireText(definitionKey, "definitionKey");
             formKey = requireText(formKey, "formKey");
