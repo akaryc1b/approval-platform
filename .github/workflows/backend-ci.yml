@@ -1,20 +1,7 @@
 name: Backend CI
 
 on:
-  push:
-    paths:
-      - 'pom.xml'
-      - 'apps/server/**'
-      - 'server-modules/**'
-      - 'integrations/host-sdk/**'
-      - '.github/workflows/backend-ci.yml'
-  pull_request:
-    paths:
-      - 'pom.xml'
-      - 'apps/server/**'
-      - 'server-modules/**'
-      - 'integrations/host-sdk/**'
-      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
