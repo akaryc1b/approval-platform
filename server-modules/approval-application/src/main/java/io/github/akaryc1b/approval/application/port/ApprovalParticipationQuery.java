@@ -111,7 +111,7 @@ public interface ApprovalParticipationQuery {
             int limit,
             int offset
         ) {
-            this(items, total, limit, offset, hasMore(items, total, offset));
+            this(items, total, limit, offset, calculateHasMore(items, total, offset));
         }
 
         public StartedInstancePage {
@@ -133,7 +133,7 @@ public interface ApprovalParticipationQuery {
             int limit,
             int offset
         ) {
-            this(items, total, limit, offset, hasMore(items, total, offset));
+            this(items, total, limit, offset, calculateHasMore(items, total, offset));
         }
 
         public ProcessedTaskPage {
@@ -142,7 +142,7 @@ public interface ApprovalParticipationQuery {
         }
     }
 
-    private static boolean hasMore(List<?> items, long total, int offset) {
+    private static boolean calculateHasMore(List<?> items, long total, int offset) {
         return offset + (items == null ? 0 : items.size()) < total;
     }
 
