@@ -2,12 +2,14 @@ package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalApplicationService;
+import io.github.akaryc1b.approval.application.ApprovalParticipationQueryService;
 import io.github.akaryc1b.approval.application.ApprovalTaskQueryService;
 import io.github.akaryc1b.approval.application.ApprovalTimelineQueryService;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
 import io.github.akaryc1b.approval.application.PurchasePaymentCollaborationService;
 import io.github.akaryc1b.approval.application.PurchasePaymentTaskActionService;
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
+import io.github.akaryc1b.approval.application.port.ApprovalParticipationQuery;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery;
 import io.github.akaryc1b.approval.application.port.ApprovalTimelineQuery;
@@ -17,6 +19,7 @@ import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResol
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
 import io.github.akaryc1b.approval.engine.flowable.FlowableApprovalEngine;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalParticipationQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProjectionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalTaskQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalTimelineQuery;
@@ -94,6 +97,21 @@ public class ApprovalPlatformConfiguration {
     @Bean
     ApprovalTaskQueryService approvalTaskQueryService(ApprovalTaskQuery approvalTaskQuery) {
         return new ApprovalTaskQueryService(approvalTaskQuery);
+    }
+
+    @Bean
+    ApprovalParticipationQuery approvalParticipationQuery(
+        DataSource dataSource,
+        ObjectMapper approvalPersistenceObjectMapper
+    ) {
+        return new JdbcApprovalParticipationQuery(dataSource, approvalPersistenceObjectMapper);
+    }
+
+    @Bean
+    ApprovalParticipationQueryService approvalParticipationQueryService(
+        ApprovalParticipationQuery approvalParticipationQuery
+    ) {
+        return new ApprovalParticipationQueryService(approvalParticipationQuery);
     }
 
     @Bean
