@@ -66,7 +66,13 @@ public final class ApprovalDefinitionValidator {
                 requireNode(nodes, startNode.id(), startNode.next(), issues);
             } else if (node instanceof ApprovalDefinition.ApprovalStep approvalStep) {
                 requireNode(nodes, approvalStep.id(), approvalStep.next(), issues);
+                if (approvalStep.rejectNext() != null) {
+                    requireNode(nodes, approvalStep.id(), approvalStep.rejectNext(), issues);
+                }
                 validateApproval(approvalStep, issues);
+            } else if (node instanceof ApprovalDefinition.HandleStep handleStep) {
+                requireNode(nodes, handleStep.id(), handleStep.next(), issues);
+                validateHandle(handleStep, issues);
             } else if (node instanceof ApprovalDefinition.ConditionStep conditionStep) {
                 requireNode(nodes, conditionStep.id(), conditionStep.defaultNext(), issues);
                 for (ApprovalDefinition.ConditionRoute route : conditionStep.routes()) {
@@ -82,7 +88,8 @@ public final class ApprovalDefinitionValidator {
         }
 
         if (start instanceof ApprovalDefinition.StartNode) {
-            validateReachabilityAndCycles(definition.startNodeId(), nodes, issues);
+            validateReachability(definition.startNodeId(), nodes, issues);
+            validateCycles(definition.startNodeId(), nodes, issues);
         }
         return new ValidationReport(issues);
     }
@@ -129,14 +136,7 @@ public final class ApprovalDefinitionValidator {
         ApprovalDefinition.ApprovalStep approval,
         List<ValidationIssue> issues
     ) {
-        String variable = approval.assignee().variable();
-        if (!VARIABLE_IDENTIFIER.matcher(variable).matches()) {
-            issues.add(issue(
-                "INVALID_ASSIGNEE_VARIABLE",
-                approval.id(),
-                "assignee variable must be a safe identifier"
-            ));
-        }
+        validateAssigneeVariable(approval.id(), approval.assignee(), issues);
         boolean collection = approval.assignee().resolver()
             == ApprovalDefinition.AssigneeResolver.VARIABLE_USER_LIST;
         if (collection && approval.mode().type() == ApprovalDefinition.ApprovalModeType.SINGLE) {
@@ -153,11 +153,39 @@ public final class ApprovalDefinitionValidator {
                 "a single-user resolver requires SINGLE mode"
             ));
         }
-        if (approval.assignee().emptyPolicy()
-            != ApprovalDefinition.EmptyAssigneePolicy.FAIL) {
+    }
+
+    private static void validateHandle(
+        ApprovalDefinition.HandleStep handle,
+        List<ValidationIssue> issues
+    ) {
+        validateAssigneeVariable(handle.id(), handle.assignee(), issues);
+        if (handle.assignee().resolver()
+            == ApprovalDefinition.AssigneeResolver.VARIABLE_USER_LIST) {
+            issues.add(issue(
+                "INVALID_HANDLE_ASSIGNEE",
+                handle.id(),
+                "a handle step requires a single-user assignee"
+            ));
+        }
+    }
+
+    private static void validateAssigneeVariable(
+        String nodeId,
+        ApprovalDefinition.AssigneeRule assignee,
+        List<ValidationIssue> issues
+    ) {
+        if (!VARIABLE_IDENTIFIER.matcher(assignee.variable()).matches()) {
+            issues.add(issue(
+                "INVALID_ASSIGNEE_VARIABLE",
+                nodeId,
+                "assignee variable must be a safe identifier"
+            ));
+        }
+        if (assignee.emptyPolicy() != ApprovalDefinition.EmptyAssigneePolicy.FAIL) {
             issues.add(issue(
                 "UNSUPPORTED_EMPTY_POLICY",
-                approval.id(),
+                nodeId,
                 "the first compiler version supports FAIL only"
             ));
         }
@@ -208,14 +236,13 @@ public final class ApprovalDefinitionValidator {
         }
     }
 
-    private static void validateReachabilityAndCycles(
+    private static void validateReachability(
         String startNodeId,
         Map<String, ApprovalDefinition.ProcessNode> nodes,
         List<ValidationIssue> issues
     ) {
-        Set<String> visiting = new HashSet<>();
         Set<String> visited = new HashSet<>();
-        traverse(startNodeId, nodes, visiting, visited, issues);
+        collectReachable(startNodeId, nodes, visited);
         for (String nodeId : nodes.keySet()) {
             if (!visited.contains(nodeId)) {
                 issues.add(issue("UNREACHABLE_NODE", nodeId, "node is not reachable from start"));
@@ -223,23 +250,69 @@ public final class ApprovalDefinitionValidator {
         }
     }
 
-    private static void traverse(
+    private static void collectReachable(
+        String nodeId,
+        Map<String, ApprovalDefinition.ProcessNode> nodes,
+        Set<String> visited
+    ) {
+        if (!visited.add(nodeId) || !nodes.containsKey(nodeId)) {
+            return;
+        }
+        for (String target : outgoing(nodes.get(nodeId))) {
+            collectReachable(target, nodes, visited);
+        }
+    }
+
+    private static void validateCycles(
+        String startNodeId,
+        Map<String, ApprovalDefinition.ProcessNode> nodes,
+        List<ValidationIssue> issues
+    ) {
+        validateCycles(
+            startNodeId,
+            nodes,
+            new HashSet<>(),
+            new HashSet<>(),
+            new ArrayList<>(),
+            issues
+        );
+    }
+
+    private static void validateCycles(
         String nodeId,
         Map<String, ApprovalDefinition.ProcessNode> nodes,
         Set<String> visiting,
         Set<String> visited,
+        List<String> path,
         List<ValidationIssue> issues
     ) {
         if (visited.contains(nodeId) || !nodes.containsKey(nodeId)) {
             return;
         }
-        if (!visiting.add(nodeId)) {
-            issues.add(issue("PROCESS_CYCLE", nodeId, "cycles require an explicit future DSL feature"));
+        if (visiting.contains(nodeId)) {
+            int cycleStart = path.indexOf(nodeId);
+            List<String> cycle = cycleStart < 0
+                ? List.of(nodeId)
+                : path.subList(cycleStart, path.size());
+            boolean controlledRevision = cycle.stream()
+                .map(nodes::get)
+                .anyMatch(ApprovalDefinition.HandleStep.class::isInstance);
+            if (!controlledRevision) {
+                issues.add(issue(
+                    "PROCESS_CYCLE",
+                    nodeId,
+                    "cycles require an explicit HANDLE revision step"
+                ));
+            }
             return;
         }
+
+        visiting.add(nodeId);
+        path.add(nodeId);
         for (String target : outgoing(nodes.get(nodeId))) {
-            traverse(target, nodes, visiting, visited, issues);
+            validateCycles(target, nodes, visiting, visited, path, issues);
         }
+        path.removeLast();
         visiting.remove(nodeId);
         visited.add(nodeId);
     }
@@ -249,7 +322,13 @@ public final class ApprovalDefinitionValidator {
             return List.of(startNode.next());
         }
         if (node instanceof ApprovalDefinition.ApprovalStep approvalStep) {
-            return List.of(approvalStep.next());
+            if (approvalStep.rejectNext() == null) {
+                return List.of(approvalStep.next());
+            }
+            return List.of(approvalStep.next(), approvalStep.rejectNext());
+        }
+        if (node instanceof ApprovalDefinition.HandleStep handleStep) {
+            return List.of(handleStep.next());
         }
         if (node instanceof ApprovalDefinition.ConditionStep conditionStep) {
             List<String> values = new ArrayList<>();
