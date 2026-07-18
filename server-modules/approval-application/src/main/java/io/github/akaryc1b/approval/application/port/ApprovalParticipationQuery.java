@@ -60,6 +60,8 @@ public interface ApprovalParticipationQuery {
         String currentTaskDefinitionKey,
         String currentTaskName,
         boolean withdrawable,
+        long messageCount,
+        long readCount,
         Instant createdAt,
         Instant updatedAt
     ) {
@@ -69,6 +71,9 @@ public interface ApprovalParticipationQuery {
             status = Objects.requireNonNull(status, "status must not be null");
             currentTaskDefinitionKey = normalizeOptional(currentTaskDefinitionKey);
             currentTaskName = normalizeOptional(currentTaskName);
+            if (messageCount < 0 || readCount < 0 || readCount > messageCount) {
+                throw new IllegalArgumentException("message receipt counts are invalid");
+            }
         }
     }
 
