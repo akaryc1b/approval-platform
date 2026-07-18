@@ -42,8 +42,10 @@ function attachmentNames(field: FormField) {
   return Array.isArray(current) ? current.map(String) : [];
 }
 
-function changeAttachments(field: FormField, _file: UploadFile, files: UploadFiles) {
-  setValue(field, files.map((item) => item.name));
+function attachmentChange(field: FormField) {
+  return (_file: UploadFile, files: UploadFiles) => {
+    setValue(field, files.map((item) => item.name));
+  };
 }
 </script>
 
@@ -85,7 +87,7 @@ function changeAttachments(field: FormField, _file: UploadFile, files: UploadFil
           :disabled="readonly"
           :limit="field.constraints.multiple ? 20 : 1"
           :multiple="field.constraints.multiple"
-          @change="changeAttachments(field, $event, $event ? [] : [])"
+          :on-change="attachmentChange(field)"
         >
           <ElButton :disabled="readonly">选择文件</ElButton>
           <template #tip>
