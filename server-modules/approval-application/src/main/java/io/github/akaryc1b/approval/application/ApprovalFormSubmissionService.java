@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.application;
 
+import io.github.akaryc1b.approval.application.ApprovalFormRuntimeService.StartPlan;
 import io.github.akaryc1b.approval.application.FormDataValidator.NormalizedFormData;
 import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormStore;
@@ -36,6 +37,7 @@ public final class ApprovalFormSubmissionService {
     private final ApprovalProjectionStore projections;
     private final ApprovalMessageStore messages;
     private final FormSubmissionWorkflowStarter workflowStarter;
+    private final ApprovalFormRuntimeService runtimeService;
     private final FormDataValidator validator;
     private final FormSubmissionHasher hasher;
     private final AuditEventSink auditEvents;
@@ -56,6 +58,38 @@ public final class ApprovalFormSubmissionService {
         Clock clock,
         Supplier<UUID> identifiers
     ) {
+        this(
+            idempotency,
+            forms,
+            submissions,
+            attachments,
+            projections,
+            messages,
+            workflowStarter,
+            null,
+            validator,
+            hasher,
+            auditEvents,
+            clock,
+            identifiers
+        );
+    }
+
+    public ApprovalFormSubmissionService(
+        IdempotencyGuard idempotency,
+        ApprovalFormStore forms,
+        ApprovalFormSubmissionStore submissions,
+        ApprovalAttachmentStore attachments,
+        ApprovalProjectionStore projections,
+        ApprovalMessageStore messages,
+        FormSubmissionWorkflowStarter workflowStarter,
+        ApprovalFormRuntimeService runtimeService,
+        FormDataValidator validator,
+        FormSubmissionHasher hasher,
+        AuditEventSink auditEvents,
+        Clock clock,
+        Supplier<UUID> identifiers
+    ) {
         this.idempotency = Objects.requireNonNull(idempotency);
         this.forms = Objects.requireNonNull(forms);
         this.submissions = Objects.requireNonNull(submissions);
@@ -63,6 +97,7 @@ public final class ApprovalFormSubmissionService {
         this.projections = Objects.requireNonNull(projections);
         this.messages = Objects.requireNonNull(messages);
         this.workflowStarter = Objects.requireNonNull(workflowStarter);
+        this.runtimeService = runtimeService;
         this.validator = Objects.requireNonNull(validator);
         this.hasher = Objects.requireNonNull(hasher);
         this.auditEvents = Objects.requireNonNull(auditEvents);
@@ -72,17 +107,35 @@ public final class ApprovalFormSubmissionService {
 
     public SubmissionResult submit(SubmissionCommand command) {
         Objects.requireNonNull(command, "command must not be null");
-        PublishedForm form = forms.find(
-            command.context().tenantId(), command.formKey(), command.formVersion()
-        ).orElseThrow(() -> new IllegalArgumentException("published form version was not found"));
-        NormalizedFormData data = validator.validate(form.definition(), command.values());
+        StartPlan startPlan = runtimeService == null ? null : runtimeService.validateStart(
+            command.context().tenantId(),
+            command.formKey(),
+            command.formVersion(),
+            command.values()
+        );
+        PublishedForm form = startPlan == null
+            ? forms.find(command.context().tenantId(), command.formKey(), command.formVersion())
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "published form version was not found"
+                ))
+            : startPlan.form();
+        NormalizedFormData data = startPlan == null
+            ? validator.validate(form.definition(), command.values())
+            : startPlan.data();
         String requestHash = hasher.hash(
-            command.formKey(), command.formVersion(), form.contentHash(),
-            command.businessKey(), data.values(), command.startParameters()
+            command.formKey(),
+            command.formVersion(),
+            form.contentHash(),
+            command.businessKey(),
+            data.values(),
+            command.startParameters()
         );
         return idempotency.execute(
-            command.context(), SUBMIT_OPERATION, requestHash, SubmissionResult.class,
-            () -> submitOnce(command, form, data, requestHash)
+            command.context(),
+            SUBMIT_OPERATION,
+            requestHash,
+            SubmissionResult.class,
+            () -> submitOnce(command, form, startPlan, data, requestHash)
         );
     }
 
@@ -98,6 +151,7 @@ public final class ApprovalFormSubmissionService {
     private SubmissionResult submitOnce(
         SubmissionCommand command,
         PublishedForm form,
+        StartPlan startPlan,
         NormalizedFormData data,
         String requestHash
     ) {
@@ -114,39 +168,76 @@ public final class ApprovalFormSubmissionService {
         }
 
         WorkflowStartResult workflow = workflowStarter.start(
-            command.context(), command.formKey(), command.formVersion(), command.businessKey(),
-            data.values(), command.startParameters()
+            command.context(),
+            command.formKey(),
+            command.formVersion(),
+            command.businessKey(),
+            data.values(),
+            command.startParameters()
         );
         Instant now = clock.instant();
         attachments.bindToInstance(
-            command.context().tenantId(), command.context().operatorId(),
-            workflow.instanceId(), data.attachmentIds(), now
+            command.context().tenantId(),
+            command.context().operatorId(),
+            workflow.instanceId(),
+            data.attachmentIds(),
+            now
         );
+        Integer uiSchemaVersion = startPlan == null || startPlan.uiSchema().defaulted()
+            ? null
+            : startPlan.uiSchema().definition().version();
+        String uiSchemaHash = uiSchemaVersion == null ? null : startPlan.uiSchema().contentHash();
         FormSubmission submission = new FormSubmission(
-            identifiers.get(), command.context().tenantId(), command.formKey(),
-            command.formVersion(), form.contentHash(), command.businessKey(),
-            data.values(), command.startParameters(), workflow.instanceId(),
-            command.context().operatorId(), now, requestHash
+            identifiers.get(),
+            command.context().tenantId(),
+            command.formKey(),
+            command.formVersion(),
+            form.contentHash(),
+            uiSchemaVersion,
+            uiSchemaHash,
+            command.businessKey(),
+            data.values(),
+            command.startParameters(),
+            workflow.instanceId(),
+            command.context().operatorId(),
+            now,
+            requestHash
         );
         submissions.save(submission);
         auditEvents.append(new AuditEvent(
-            identifiers.get(), command.context().tenantId(), command.context().operatorId(),
-            "FORM_SUBMITTED", "FORM_SUBMISSION", submission.submissionId().toString(),
-            command.context().requestId(), command.context().traceId(), now,
-            Map.of(
-                "formKey", submission.formKey(),
-                "formVersion", Integer.toString(submission.formVersion()),
-                "businessKey", submission.businessKey(),
-                "instanceId", submission.instanceId().toString(),
-                "schemaHash", submission.schemaHash()
-            )
+            identifiers.get(),
+            command.context().tenantId(),
+            command.context().operatorId(),
+            "FORM_SUBMITTED",
+            "FORM_SUBMISSION",
+            submission.submissionId().toString(),
+            command.context().requestId(),
+            command.context().traceId(),
+            now,
+            auditAttributes(submission)
         ));
         return result(submission, false);
     }
 
+    private static Map<String, String> auditAttributes(FormSubmission submission) {
+        Map<String, String> attributes = new java.util.LinkedHashMap<>();
+        attributes.put("formKey", submission.formKey());
+        attributes.put("formVersion", Integer.toString(submission.formVersion()));
+        attributes.put("businessKey", submission.businessKey());
+        attributes.put("instanceId", submission.instanceId().toString());
+        attributes.put("schemaHash", submission.schemaHash());
+        if (submission.uiSchemaVersion() != null) {
+            attributes.put("uiSchemaVersion", Integer.toString(submission.uiSchemaVersion()));
+            attributes.put("uiSchemaHash", submission.uiSchemaHash());
+        }
+        return Map.copyOf(attributes);
+    }
+
     private SubmissionSnapshot snapshot(FormSubmission submission) {
         FormDefinition definition = forms.find(
-            submission.tenantId(), submission.formKey(), submission.formVersion()
+            submission.tenantId(),
+            submission.formKey(),
+            submission.formVersion()
         ).orElseThrow(() -> new IllegalStateException("submission form version is missing"))
             .definition();
         return new SubmissionSnapshot(submission, definition);
@@ -169,9 +260,16 @@ public final class ApprovalFormSubmissionService {
 
     private static SubmissionResult result(FormSubmission submission, boolean replayed) {
         return new SubmissionResult(
-            submission.submissionId(), submission.instanceId(), submission.formKey(),
-            submission.formVersion(), submission.schemaHash(), submission.businessKey(),
-            submission.values(), submission.submittedBy(), submission.submittedAt(), replayed
+            submission.submissionId(),
+            submission.instanceId(),
+            submission.formKey(),
+            submission.formVersion(),
+            submission.schemaHash(),
+            submission.businessKey(),
+            submission.values(),
+            submission.submittedBy(),
+            submission.submittedAt(),
+            replayed
         );
     }
 
@@ -186,7 +284,9 @@ public final class ApprovalFormSubmissionService {
         public SubmissionCommand {
             context = Objects.requireNonNull(context, "context must not be null");
             formKey = requireText(formKey, "formKey");
-            if (formVersion < 1) throw new IllegalArgumentException("formVersion must be positive");
+            if (formVersion < 1) {
+                throw new IllegalArgumentException("formVersion must be positive");
+            }
             businessKey = requireText(businessKey, "businessKey");
             values = values == null ? Map.of() : Map.copyOf(values);
             startParameters = startParameters == null ? Map.of() : Map.copyOf(startParameters);
@@ -194,11 +294,20 @@ public final class ApprovalFormSubmissionService {
     }
 
     public record SubmissionResult(
-        UUID submissionId, UUID instanceId, String formKey, int formVersion,
-        String schemaHash, String businessKey, Map<String, Object> values,
-        String submittedBy, Instant submittedAt, boolean replayedExistingSubmission
+        UUID submissionId,
+        UUID instanceId,
+        String formKey,
+        int formVersion,
+        String schemaHash,
+        String businessKey,
+        Map<String, Object> values,
+        String submittedBy,
+        Instant submittedAt,
+        boolean replayedExistingSubmission
     ) {
-        public SubmissionResult { values = values == null ? Map.of() : Map.copyOf(values); }
+        public SubmissionResult {
+            values = values == null ? Map.of() : Map.copyOf(values);
+        }
     }
 
     public record SubmissionSnapshot(FormSubmission submission, FormDefinition definition) {
@@ -209,7 +318,9 @@ public final class ApprovalFormSubmissionService {
     }
 
     private static String requireText(String value, String name) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
         return value.trim();
     }
 }
