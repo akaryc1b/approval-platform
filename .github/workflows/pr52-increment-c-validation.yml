@@ -1,6 +1,13 @@
 name: PR 52 Increment C Validation
 
 on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
   push:
     branches:
       - agent/m2-approval-dsl-tree-designer-release-package
