@@ -16,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Upload form design source for diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: form-design-source
+          path: server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalFormDesignService.java
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -31,12 +36,6 @@ jobs:
         with:
           name: backend-validation-log
           path: backend.log
-      - name: Upload form design source for diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: form-design-source
-          path: server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalFormDesignService.java
 
   web:
     runs-on: ubuntu-latest
