@@ -64,6 +64,13 @@ public final class JdbcApprovalTimelineQuery implements ApprovalTimelineQuery {
                       )
                       or exists (
                           select 1
+                          from ap_approval_message message
+                          where message.tenant_id = instance.tenant_id
+                            and message.instance_id = instance.instance_id
+                            and message.recipient_id = :operatorId
+                      )
+                      or exists (
+                          select 1
                           from ap_audit_event event
                           where event.tenant_id = instance.tenant_id
                             and event.operator_id = :operatorId

@@ -112,7 +112,20 @@ public final class JdbcApprovalParticipationQuery implements ApprovalParticipati
                           and revision_task.task_definition_key = :revisionTaskKey
                           and revision_task.status in ('PENDING', 'COMPLETING')
                     )
-                ) as withdrawable
+                ) as withdrawable,
+                (
+                    select count(*)
+                    from ap_approval_message message
+                    where message.tenant_id = instance.tenant_id
+                      and message.instance_id = instance.instance_id
+                ) as message_count,
+                (
+                    select count(*)
+                    from ap_approval_message message
+                    where message.tenant_id = instance.tenant_id
+                      and message.instance_id = instance.instance_id
+                      and message.read_at is not null
+                ) as read_count
             from ap_approval_instance instance
             where instance.tenant_id = :tenantId
               and instance.initiator_id = :initiatorId
@@ -283,6 +296,8 @@ public final class JdbcApprovalParticipationQuery implements ApprovalParticipati
             resultSet.getString("current_task_definition_key"),
             resultSet.getString("current_task_name"),
             resultSet.getBoolean("withdrawable"),
+            resultSet.getLong("message_count"),
+            resultSet.getLong("read_count"),
             instant(resultSet, "created_at"),
             instant(resultSet, "updated_at")
         );
