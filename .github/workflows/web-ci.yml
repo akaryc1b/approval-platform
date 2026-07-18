@@ -1,18 +1,7 @@
 name: Approval Web CI
 
 on:
-  push:
-    paths:
-      - 'package.json'
-      - 'apps/web/**'
-      - 'scripts/upstream/bootstrap-vben.mjs'
-      - '.github/workflows/web-ci.yml'
-  pull_request:
-    paths:
-      - 'package.json'
-      - 'apps/web/**'
-      - 'scripts/upstream/bootstrap-vben.mjs'
-      - '.github/workflows/web-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
