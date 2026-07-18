@@ -50,6 +50,13 @@ function formatDate(value?: string) {
   return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+function receiptTypeLabel(type: MessageReceipt['messageType']) {
+  const kind = type as string
+  if (kind === 'URGE') return '催办'
+  if (kind === 'MENTION') return '@提及'
+  return '抄送'
+}
+
 function selected(candidate: ApprovalUserOption) {
   return selectedRecipientIds.value.includes(candidate.userId)
 }
@@ -231,7 +238,7 @@ onLoad((query) => {
             <view>
               <text class="receipt-user">{{ receipt.recipientId }}</text>
               <text class="receipt-meta">
-                {{ receipt.messageType === 'URGE' ? '催办' : '抄送' }} ·
+                {{ receiptTypeLabel(receipt.messageType) }} ·
                 {{ formatDate(receipt.sentAt) }}
               </text>
             </view>
@@ -240,7 +247,7 @@ onLoad((query) => {
             </wd-tag>
           </view>
         </view>
-        <text v-else class="empty-text">尚未发送催办或抄送消息</text>
+        <text v-else class="empty-text">尚未发送催办、抄送或提及消息</text>
       </view>
     </template>
 
