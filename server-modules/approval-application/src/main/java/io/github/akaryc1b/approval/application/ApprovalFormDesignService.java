@@ -17,7 +17,6 @@ import io.github.akaryc1b.approval.domain.form.FormDesignDraft;
 import io.github.akaryc1b.approval.domain.form.FormPackage;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.FieldAccess;
-import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.FieldPermission;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.NodePermissions;
 import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 
@@ -34,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
