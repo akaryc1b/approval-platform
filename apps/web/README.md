@@ -32,22 +32,38 @@ pnpm web:build
 pnpm web:clean
 ```
 
+## 审批 API 配置
+
+PC 审批页面使用独立的原始 JSON 客户端，不改变 Vben 原有登录、菜单和 `{code,data}` 请求链路。
+
+本地或部署环境需要提供：
+
+```dotenv
+VITE_APPROVAL_API_URL=/api
+VITE_APPROVAL_TENANT_ID=tenant-a
+VITE_APPROVAL_OPERATOR_ID=manager-1
+```
+
+`VITE_APPROVAL_TENANT_ID` 和 `VITE_APPROVAL_OPERATOR_ID` 目前用于 M1 纵向链路联调。生产环境必须由可信登录或宿主适配器提供身份，不能允许最终用户自行修改。
+
+`VITE_APPROVAL_API_URL=/api` 假设网关或反向代理把 `/api/approval/**` 转发到审批服务。
+
 ## 上游管理规则
 
 - 必须同时锁定 tag 和 commit SHA；
 - 启动脚本发现 SHA 不一致时会删除并重新生成上游工作区；
-- `src/router/routes/modules`、`src/views/approval` 和 `src/platform/approval` 由本项目覆盖层管理；
+- `src/api/approval`、`src/router/routes/modules`、`src/views/approval` 和 `src/platform/approval` 由本项目覆盖层管理；
 - 审批业务代码不得直接修改 `.upstream` 中的文件；
 - 升级 Vben 时必须修改 `upstream.json`，记录兼容性验证和本地补丁；
 - 保留 Vben MIT License 和第三方声明。
 
 ## 当前模块
 
-- 审批工作台；
-- 流程设计器；
-- 动态表单；
-- 流程管理；
-- 运维控制台；
-- 宿主无关的菜单和按钮权限适配接口。
+- 审批工作台：真实待办总数、搜索、分页、详情、时间线和同意操作；
+- 流程设计器：页面骨架；
+- 动态表单：页面骨架；
+- 流程管理：页面骨架；
+- 运维控制台：页面骨架；
+- 宿主无关的菜单、按钮权限和审批运行身份适配边界。
 
-当前页面属于可构建工程骨架。真实数据、身份认证和动态菜单将在纵向业务链路与 Connector SDK 中接入。
+当前重点是完成采购付款审批的 PC 与移动端纵向链路。流程设计器和动态表单将在 M1 闭环稳定后进入 M2 开发。
