@@ -35,14 +35,26 @@ public record FormDefinition(
         FieldType type,
         String label,
         boolean required,
-        FieldConstraints constraints
+        FieldConstraints constraints,
+        DefaultValue defaultValue
     ) {
+
+        public FormField(
+            String key,
+            FieldType type,
+            String label,
+            boolean required,
+            FieldConstraints constraints
+        ) {
+            this(key, type, label, required, constraints, DefaultValue.none());
+        }
 
         public FormField {
             key = requireText(key, "field.key");
             type = Objects.requireNonNull(type, "field.type must not be null");
             label = requireText(label, "field.label");
             constraints = constraints == null ? FieldConstraints.none() : constraints;
+            defaultValue = defaultValue == null ? DefaultValue.none() : defaultValue;
         }
     }
 
@@ -87,6 +99,38 @@ public record FormDefinition(
         public static FieldConstraints attachments(int minItems, boolean multiple) {
             return new FieldConstraints(null, null, null, minItems, multiple);
         }
+    }
+
+    /**
+     * A deliberately closed default-value protocol. No user supplied expression is evaluated.
+     */
+    public record DefaultValue(DefaultValueType type, Object literal) {
+
+        public DefaultValue {
+            type = type == null ? DefaultValueType.NONE : type;
+            if (type == DefaultValueType.LITERAL && literal == null) {
+                throw new IllegalArgumentException("literal default value must not be null");
+            }
+            if (type != DefaultValueType.LITERAL && literal != null) {
+                throw new IllegalArgumentException("only LITERAL default value can contain literal data");
+            }
+        }
+
+        public static DefaultValue none() {
+            return new DefaultValue(DefaultValueType.NONE, null);
+        }
+
+        public static DefaultValue literal(Object value) {
+            return new DefaultValue(DefaultValueType.LITERAL, value);
+        }
+    }
+
+    public enum DefaultValueType {
+        NONE,
+        LITERAL,
+        CURRENT_USER,
+        CURRENT_DATE,
+        CURRENT_DATETIME
     }
 
     private static String requireText(String value, String name) {
