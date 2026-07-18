@@ -50,3 +50,33 @@ export interface PublishedForm {
   publishedBy: string
   tenantId: string
 }
+
+export interface FormSubmissionResult {
+  businessKey: string
+  formKey: string
+  formVersion: number
+  instanceId: string
+  replayedExistingSubmission: boolean
+  schemaHash: string
+  submissionId: string
+  submittedAt: string
+  submittedBy: string
+  values: Record<string, unknown>
+}
+
+export interface FormSubmissionSnapshot {
+  definition: FormDefinition
+  submission: {
+    businessKey: string
+    formKey: string
+    formVersion: number
+    instanceId: string
+    schemaHash: string
+    startParameters: Record<string, unknown>
+    submissionId: string
+    submittedAt: string
+    submittedBy: string
+    tenantId: string
+    values: Record<string, unknown>
+  }
+}
