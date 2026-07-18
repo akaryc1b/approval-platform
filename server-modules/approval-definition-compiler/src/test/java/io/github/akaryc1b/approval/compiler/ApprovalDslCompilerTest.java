@@ -26,13 +26,20 @@ class ApprovalDslCompilerTest {
         var second = compiler.compile(process, form);
 
         assertEquals(first, second);
-        assertEquals("purchase-payment-v1.bpmn20.xml", first.resourceName());
+        assertEquals("purchase-payment-v2.bpmn20.xml", first.resourceName());
+        assertEquals("1.1.0", first.compilerVersion());
         assertEquals(64, first.contentHash().length());
         assertTrue(first.bpmnXml().contains("<process id=\"purchase-payment\""));
         assertTrue(first.bpmnXml().contains("flowable:assignee=\"${managerAssignee}\""));
+        assertTrue(first.bpmnXml().contains("flowable:assignee=\"${initiatorAssignee}\""));
         assertTrue(first.bpmnXml().contains("${amount >= 10000}"));
         assertTrue(first.bpmnXml().contains("flowable:collection=\"financeApprovers\""));
-        assertTrue(first.bpmnXml().contains("${nrOfCompletedInstances == nrOfInstances}"));
+        assertTrue(first.bpmnXml().contains(
+            "${approvalDecision == 'REJECTED' || nrOfCompletedInstances == nrOfInstances}"
+        ));
+        assertTrue(first.bpmnXml().contains("${approvalDecision == 'REJECTED'}"));
+        assertTrue(first.bpmnXml().contains("targetRef=\"initiatorRevision\""));
+        assertTrue(validator.validate(process, form).valid());
     }
 
     @Test
@@ -78,7 +85,7 @@ class ApprovalDslCompilerTest {
         ApprovalDefinition definition = new ApprovalDefinition(
             ApprovalDefinition.CURRENT_SCHEMA_VERSION,
             PurchasePaymentTemplate.DEFINITION_KEY,
-            1,
+            PurchasePaymentTemplate.PROCESS_VERSION,
             "Invalid graph",
             "start",
             List.of(
@@ -97,6 +104,41 @@ class ApprovalDslCompilerTest {
     }
 
     @Test
+    void rejectsUncontrolledCyclesWithoutHandleStep() {
+        ApprovalDefinition definition = new ApprovalDefinition(
+            ApprovalDefinition.CURRENT_SCHEMA_VERSION,
+            PurchasePaymentTemplate.DEFINITION_KEY,
+            PurchasePaymentTemplate.PROCESS_VERSION,
+            "Unsafe cycle",
+            "start",
+            List.of(
+                new ApprovalDefinition.StartNode("start", "Start", "approvalA"),
+                new ApprovalDefinition.ApprovalStep(
+                    "approvalA",
+                    "Approval A",
+                    singleAssignee("managerA"),
+                    ApprovalDefinition.ApprovalMode.single(),
+                    "approvalB"
+                ),
+                new ApprovalDefinition.ApprovalStep(
+                    "approvalB",
+                    "Approval B",
+                    singleAssignee("managerB"),
+                    ApprovalDefinition.ApprovalMode.single(),
+                    "approvalA"
+                ),
+                new ApprovalDefinition.EndNode("end", "End")
+            )
+        );
+
+        var report = validator.validate(definition, PurchasePaymentTemplate.formDefinition());
+
+        assertFalse(report.valid());
+        assertTrue(report.issues().stream()
+            .anyMatch(issue -> "PROCESS_CYCLE".equals(issue.code())));
+    }
+
+    @Test
     void rejectsFormAndProcessKeyMismatch() {
         FormDefinition source = PurchasePaymentTemplate.formDefinition();
         FormDefinition otherForm = new FormDefinition(
@@ -112,5 +154,13 @@ class ApprovalDslCompilerTest {
         assertFalse(report.valid());
         assertTrue(report.issues().stream()
             .anyMatch(issue -> "FORM_PROCESS_KEY_MISMATCH".equals(issue.code())));
+    }
+
+    private static ApprovalDefinition.AssigneeRule singleAssignee(String variable) {
+        return new ApprovalDefinition.AssigneeRule(
+            ApprovalDefinition.AssigneeResolver.VARIABLE_USER,
+            variable,
+            ApprovalDefinition.EmptyAssigneePolicy.FAIL
+        );
     }
 }

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "definitionKey": "purchase-payment",
-  "version": 1,
+  "version": 2,
   "name": "Purchase payment approval",
   "startNodeId": "start",
   "nodes": [
@@ -21,7 +21,8 @@
         "emptyPolicy": "FAIL"
       },
       "mode": "SINGLE",
-      "next": "amountCondition"
+      "next": "amountCondition",
+      "rejectNext": "initiatorRevision"
     },
     {
       "id": "amountCondition",
@@ -49,7 +50,8 @@
         "emptyPolicy": "FAIL"
       },
       "mode": "SINGLE",
-      "next": "financeCountersign"
+      "next": "financeCountersign",
+      "rejectNext": "initiatorRevision"
     },
     {
       "id": "financeCountersign",
@@ -61,7 +63,19 @@
         "emptyPolicy": "FAIL"
       },
       "mode": "ALL",
-      "next": "end"
+      "next": "end",
+      "rejectNext": "initiatorRevision"
+    },
+    {
+      "id": "initiatorRevision",
+      "type": "HANDLE",
+      "name": "Initiator revises rejected request",
+      "assignee": {
+        "resolver": "VARIABLE_USER",
+        "variable": "initiatorAssignee",
+        "emptyPolicy": "FAIL"
+      },
+      "next": "managerApproval"
     },
     {
       "id": "end",

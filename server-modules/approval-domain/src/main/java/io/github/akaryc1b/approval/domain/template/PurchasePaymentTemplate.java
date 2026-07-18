@@ -12,13 +12,15 @@ import java.util.List;
 public final class PurchasePaymentTemplate {
 
     public static final String DEFINITION_KEY = "purchase-payment";
-    public static final int PROCESS_VERSION = 1;
+    public static final int PROCESS_VERSION = 2;
     public static final int FORM_VERSION = 1;
     public static final BigDecimal HIGH_VALUE_THRESHOLD = new BigDecimal("10000.00");
 
+    public static final String INITIATOR_ASSIGNEE_VARIABLE = "initiatorAssignee";
     public static final String MANAGER_ASSIGNEE_VARIABLE = "managerAssignee";
     public static final String FINANCE_REVIEWER_VARIABLE = "financeReviewer";
     public static final String FINANCE_APPROVERS_VARIABLE = "financeApprovers";
+    public static final String REVISION_TASK_KEY = "initiatorRevision";
 
     private PurchasePaymentTemplate() {
     }
@@ -45,7 +47,8 @@ public final class PurchasePaymentTemplate {
                         ApprovalDefinition.EmptyAssigneePolicy.FAIL
                     ),
                     ApprovalDefinition.ApprovalMode.single(),
-                    "amountCondition"
+                    "amountCondition",
+                    REVISION_TASK_KEY
                 ),
                 new ApprovalDefinition.ConditionStep(
                     "amountCondition",
@@ -69,7 +72,8 @@ public final class PurchasePaymentTemplate {
                         ApprovalDefinition.EmptyAssigneePolicy.FAIL
                     ),
                     ApprovalDefinition.ApprovalMode.single(),
-                    "financeCountersign"
+                    "financeCountersign",
+                    REVISION_TASK_KEY
                 ),
                 new ApprovalDefinition.ApprovalStep(
                     "financeCountersign",
@@ -80,7 +84,18 @@ public final class PurchasePaymentTemplate {
                         ApprovalDefinition.EmptyAssigneePolicy.FAIL
                     ),
                     ApprovalDefinition.ApprovalMode.all(),
-                    "end"
+                    "end",
+                    REVISION_TASK_KEY
+                ),
+                new ApprovalDefinition.HandleStep(
+                    REVISION_TASK_KEY,
+                    "Initiator revises rejected request",
+                    new ApprovalDefinition.AssigneeRule(
+                        ApprovalDefinition.AssigneeResolver.VARIABLE_USER,
+                        INITIATOR_ASSIGNEE_VARIABLE,
+                        ApprovalDefinition.EmptyAssigneePolicy.FAIL
+                    ),
+                    "managerApproval"
                 ),
                 new ApprovalDefinition.EndNode("end", "Completed")
             )

@@ -32,7 +32,7 @@ public record ApprovalDefinition(
         }
     }
 
-    public sealed interface ProcessNode permits StartNode, ApprovalStep, ConditionStep, EndNode {
+    public sealed interface ProcessNode permits StartNode, ApprovalStep, HandleStep, ConditionStep, EndNode {
 
         String id();
 
@@ -53,7 +53,8 @@ public record ApprovalDefinition(
         String name,
         AssigneeRule assignee,
         ApprovalMode mode,
-        String next
+        String next,
+        String rejectNext
     ) implements ProcessNode {
 
         public ApprovalStep {
@@ -62,6 +63,36 @@ public record ApprovalDefinition(
             assignee = Objects.requireNonNull(assignee, "approval.assignee must not be null");
             mode = Objects.requireNonNull(mode, "approval.mode must not be null");
             next = requireText(next, "approval.next");
+            rejectNext = normalizeOptional(rejectNext);
+        }
+
+        public ApprovalStep(
+            String id,
+            String name,
+            AssigneeRule assignee,
+            ApprovalMode mode,
+            String next
+        ) {
+            this(id, name, assignee, mode, next, null);
+        }
+    }
+
+    /**
+     * A user-owned handling step such as initiator revision after rejection.
+     * Its outgoing edge is an explicit controlled loop boundary.
+     */
+    public record HandleStep(
+        String id,
+        String name,
+        AssigneeRule assignee,
+        String next
+    ) implements ProcessNode {
+
+        public HandleStep {
+            id = requireText(id, "handle.id");
+            name = requireText(name, "handle.name");
+            assignee = Objects.requireNonNull(assignee, "handle.assignee must not be null");
+            next = requireText(next, "handle.next");
         }
     }
 
@@ -176,5 +207,9 @@ public record ApprovalDefinition(
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value;
+    }
+
+    private static String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }

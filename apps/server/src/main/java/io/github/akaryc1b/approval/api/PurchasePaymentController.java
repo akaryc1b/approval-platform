@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.api;
 import io.github.akaryc1b.approval.application.ApprovalTaskQueryService;
 import io.github.akaryc1b.approval.application.ApprovalTimelineQueryService;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
+import io.github.akaryc1b.approval.application.PurchasePaymentTaskActionService;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskDetails;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskPage;
@@ -43,15 +44,18 @@ public class PurchasePaymentController {
     private static final String TRACE_ID = "X-Trace-Id";
 
     private final PurchasePaymentApplicationService service;
+    private final PurchasePaymentTaskActionService taskActionService;
     private final ApprovalTaskQueryService taskQueryService;
     private final ApprovalTimelineQueryService timelineQueryService;
 
     public PurchasePaymentController(
         PurchasePaymentApplicationService service,
+        PurchasePaymentTaskActionService taskActionService,
         ApprovalTaskQueryService taskQueryService,
         ApprovalTimelineQueryService timelineQueryService
     ) {
         this.service = service;
+        this.taskActionService = taskActionService;
         this.taskQueryService = taskQueryService;
         this.timelineQueryService = timelineQueryService;
     }
@@ -166,7 +170,41 @@ public class PurchasePaymentController {
         @PathVariable UUID taskId,
         @Valid @RequestBody ApproveTaskRequest request
     ) {
-        return service.approve(new PurchasePaymentApplicationService.ApproveCommand(
+        return taskActionService.approve(new PurchasePaymentTaskActionService.TaskActionCommand(
+            context(tenantId, operatorId, requestId, idempotencyKey, traceId),
+            taskId,
+            request.comment()
+        ));
+    }
+
+    @PostMapping("/tasks/{taskId}/reject")
+    public PurchasePaymentApplicationService.ApproveResult reject(
+        @RequestHeader(TENANT_ID) String tenantId,
+        @RequestHeader(OPERATOR_ID) String operatorId,
+        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader(IDEMPOTENCY_KEY) String idempotencyKey,
+        @RequestHeader(value = TRACE_ID, required = false) String traceId,
+        @PathVariable UUID taskId,
+        @Valid @RequestBody RejectTaskRequest request
+    ) {
+        return taskActionService.reject(new PurchasePaymentTaskActionService.TaskActionCommand(
+            context(tenantId, operatorId, requestId, idempotencyKey, traceId),
+            taskId,
+            request.comment()
+        ));
+    }
+
+    @PostMapping("/tasks/{taskId}/resubmit")
+    public PurchasePaymentApplicationService.ApproveResult resubmit(
+        @RequestHeader(TENANT_ID) String tenantId,
+        @RequestHeader(OPERATOR_ID) String operatorId,
+        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader(IDEMPOTENCY_KEY) String idempotencyKey,
+        @RequestHeader(value = TRACE_ID, required = false) String traceId,
+        @PathVariable UUID taskId,
+        @Valid @RequestBody ResubmitTaskRequest request
+    ) {
+        return taskActionService.resubmit(new PurchasePaymentTaskActionService.TaskActionCommand(
             context(tenantId, operatorId, requestId, idempotencyKey, traceId),
             taskId,
             request.comment()
@@ -219,5 +257,13 @@ public class PurchasePaymentController {
     }
 
     public record ApproveTaskRequest(@Size(max = 2000) String comment) {
+    }
+
+    public record RejectTaskRequest(
+        @NotBlank @Size(max = 2000) String comment
+    ) {
+    }
+
+    public record ResubmitTaskRequest(@Size(max = 2000) String comment) {
     }
 }
