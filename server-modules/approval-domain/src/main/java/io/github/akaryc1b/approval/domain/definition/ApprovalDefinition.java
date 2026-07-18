@@ -4,9 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Framework-independent source model compiled into an engine-specific process artifact.
- */
+/** Framework-independent source model compiled into an engine-specific process artifact. */
 public record ApprovalDefinition(
     String schemaVersion,
     String definitionKey,
@@ -32,7 +30,8 @@ public record ApprovalDefinition(
         }
     }
 
-    public sealed interface ProcessNode permits StartNode, ApprovalStep, HandleStep, ConditionStep, EndNode {
+    public sealed interface ProcessNode permits StartNode, ApprovalStep, HandleStep,
+        ConditionStep, ParallelSplitNode, ParallelJoinNode, EndNode {
 
         String id();
 
@@ -40,7 +39,6 @@ public record ApprovalDefinition(
     }
 
     public record StartNode(String id, String name, String next) implements ProcessNode {
-
         public StartNode {
             id = requireText(id, "start.id");
             name = requireText(name, "start.name");
@@ -56,7 +54,6 @@ public record ApprovalDefinition(
         String next,
         String rejectNext
     ) implements ProcessNode {
-
         public ApprovalStep {
             id = requireText(id, "approval.id");
             name = requireText(name, "approval.name");
@@ -77,17 +74,13 @@ public record ApprovalDefinition(
         }
     }
 
-    /**
-     * A user-owned handling step such as initiator revision after rejection.
-     * Its outgoing edge is an explicit controlled loop boundary.
-     */
+    /** A user-owned handling step such as initiator revision after rejection. */
     public record HandleStep(
         String id,
         String name,
         AssigneeRule assignee,
         String next
     ) implements ProcessNode {
-
         public HandleStep {
             id = requireText(id, "handle.id");
             name = requireText(name, "handle.name");
@@ -102,7 +95,6 @@ public record ApprovalDefinition(
         List<ConditionRoute> routes,
         String defaultNext
     ) implements ProcessNode {
-
         public ConditionStep {
             id = requireText(id, "condition.id");
             name = requireText(name, "condition.name");
@@ -114,8 +106,44 @@ public record ApprovalDefinition(
         }
     }
 
-    public record EndNode(String id, String name) implements ProcessNode {
+    /** Deterministic parallel fan-out. Branch order is semantically stable. */
+    public record ParallelSplitNode(
+        String id,
+        String name,
+        List<ParallelBranch> branches,
+        String joinNodeId
+    ) implements ProcessNode {
+        public ParallelSplitNode {
+            id = requireText(id, "parallelSplit.id");
+            name = requireText(name, "parallelSplit.name");
+            branches = branches == null ? List.of() : List.copyOf(branches);
+            if (branches.size() < 2) {
+                throw new IllegalArgumentException(
+                    "parallelSplit.branches must contain at least two branches"
+                );
+            }
+            joinNodeId = requireText(joinNodeId, "parallelSplit.joinNodeId");
+        }
+    }
 
+    /** Deterministic parallel convergence point. */
+    public record ParallelJoinNode(String id, String name, String next) implements ProcessNode {
+        public ParallelJoinNode {
+            id = requireText(id, "parallelJoin.id");
+            name = requireText(name, "parallelJoin.name");
+            next = requireText(next, "parallelJoin.next");
+        }
+    }
+
+    public record ParallelBranch(String id, String name, String next) {
+        public ParallelBranch {
+            id = requireText(id, "parallelBranch.id");
+            name = requireText(name, "parallelBranch.name");
+            next = requireText(next, "parallelBranch.next");
+        }
+    }
+
+    public record EndNode(String id, String name) implements ProcessNode {
         public EndNode {
             id = requireText(id, "end.id");
             name = requireText(name, "end.name");
@@ -127,7 +155,6 @@ public record ApprovalDefinition(
         String variable,
         EmptyAssigneePolicy emptyPolicy
     ) {
-
         public AssigneeRule {
             resolver = Objects.requireNonNull(resolver, "resolver must not be null");
             variable = requireText(variable, "variable");
@@ -147,7 +174,6 @@ public record ApprovalDefinition(
     }
 
     public record ApprovalMode(ApprovalModeType type) {
-
         public ApprovalMode {
             type = Objects.requireNonNull(type, "approval mode type must not be null");
         }
@@ -172,7 +198,6 @@ public record ApprovalDefinition(
     }
 
     public record ConditionRoute(ComparisonCondition condition, String next) {
-
         public ConditionRoute {
             condition = Objects.requireNonNull(condition, "condition must not be null");
             next = requireText(next, "condition route next");
@@ -184,7 +209,6 @@ public record ApprovalDefinition(
         ComparisonOperator operator,
         BigDecimal value
     ) {
-
         public ComparisonCondition {
             field = requireText(field, "condition field");
             operator = Objects.requireNonNull(operator, "condition operator must not be null");

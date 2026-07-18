@@ -27,7 +27,7 @@ class ApprovalDslCompilerTest {
 
         assertEquals(first, second);
         assertEquals("purchase-payment-v2.bpmn20.xml", first.resourceName());
-        assertEquals("1.1.0", first.compilerVersion());
+        assertEquals("1.2.0", first.compilerVersion());
         assertEquals(64, first.contentHash().length());
         assertTrue(first.bpmnXml().contains("<process id=\"purchase-payment\""));
         assertTrue(first.bpmnXml().contains("flowable:assignee=\"${managerAssignee}\""));

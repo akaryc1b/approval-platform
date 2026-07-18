@@ -56,14 +56,24 @@
 - revision CAS 自动保存、服务端冲突提示与重新加载恢复；
 - TEXTAREA、NUMBER、DATE、DATETIME、BOOLEAN、SELECT 静态选项字段协议、校验、哈希和 PostgreSQL JSON 往返；
 - Element Plus 与移动端 H5/微信共用 Renderer 对新增字段类型的真实渲染；
-- 节点字段访问/必填覆盖矩阵、服务端多节点预览和不可变 Form Package 发布确认摘要。
+- 节点字段访问/必填覆盖矩阵、服务端多节点预览和不可变 Form Package 发布确认摘要；
+- 租户隔离的 Approval DSL 草稿仓库、空白/模板/已发布版本复制、搜索、归档和 revision CAS 生命周期；
+- Approval DSL 服务端权威静态检查，区分 error、warning 和 info，并校验条件字段、审批人规则、受控修订回路和 UI 权限上下文；
+- 正式的并行 split/join、条件与并行组合、嵌套并行拓扑和确定性 Flowable BPMN 编译；
+- 不部署真实流程的服务端权威模拟器，覆盖同意、驳回、条件默认路由、Handle 回路、并行等待/join、阻塞和迁移上限；
+- 不可变 Approval DSL 版本仓库、确定性 DSL 哈希、不可变 BPMN 编译制品仓库和稳定编译哈希；
+- Approval DSL、Form Package、Form/UI Schema、BPMN、编译器版本和部署元数据精确绑定的不可变 Release Package；
+- Release Package 版本锁定、请求幂等、语义重放、版本冲突和单事务原子发布/失败回滚；
+- Flyway V10 Approval 草稿、DSL 版本、编译制品和 Release Package 表、租户边界、状态约束、精确外键和检索索引；
+- PC 服务端流程设计工作台、草稿刷新恢复、显式/自动保存、冲突安全重载、撤销、复制/删除、条件/并行分支、服务端检查/模拟和发布确认。
 
 ### 下一优先级
 
-- 树状审批设计器、条件/并行分支和静态检查；
-- 流程模拟器和 DSL 发布联动；
-- Approval DSL 草稿生命周期和确定性版本发布；
-- Approval DSL、Form Schema、UI Schema、BPMN 编译制品和部署元数据 Release Package；
+- Release Package 到 Flowable 的显式幂等部署、平台部署投影、失败重试和部署审计；
+- 流程版本列表、结构 Diff、当前生效版本、历史版本和发布前综合检查；
+- 批量模拟场景、主要路径覆盖率、边界值和可导出模拟报告；
+- 设计器大流程性能、分支折叠、快捷键、冲突对比和离开页面未保存提示；
+- Approval DSL 与 Release Package 安全导入导出；
 - 复合区块和可插拔自定义组件。
 
 ## M3 Collaboration

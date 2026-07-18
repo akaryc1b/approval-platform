@@ -38,10 +38,11 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
         this.jdbc = new NamedParameterJdbcTemplate(
             Objects.requireNonNull(dataSource, "dataSource must not be null")
         );
-        this.objectMapper = Objects.requireNonNull(
+        ObjectMapper copy = Objects.requireNonNull(
             objectMapper,
             "objectMapper must not be null"
-        ).copy()
+        ).copy();
+        this.objectMapper = ApprovalDefinitionJacksonSupport.configure(copy)
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .enable(DeserializationFeature.USE_BIG_INTEGER_FOR_INTS);
         this.transactionTemplate = new TransactionTemplate(
@@ -173,7 +174,10 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
         try {
             return objectMapper.writeValueAsString(result);
         } catch (JsonProcessingException exception) {
-            throw new IllegalArgumentException("unable to encode idempotent command result", exception);
+            throw new IllegalArgumentException(
+                "unable to encode idempotent command result",
+                exception
+            );
         }
     }
 
@@ -181,7 +185,10 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
         try {
             return objectMapper.readValue(json, resultType);
         } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("unable to decode idempotent command result", exception);
+            throw new IllegalStateException(
+                "unable to decode idempotent command result",
+                exception
+            );
         }
     }
 
@@ -197,7 +204,9 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
 
     private static void requireHash(String value) {
         if (value == null || !value.matches("[0-9a-f]{64}")) {
-            throw new IllegalArgumentException("requestHash must be a lowercase SHA-256 value");
+            throw new IllegalArgumentException(
+                "requestHash must be a lowercase SHA-256 value"
+            );
         }
     }
 }
