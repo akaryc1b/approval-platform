@@ -28,9 +28,14 @@ function taskStage(task: Pick<PendingTaskItem, 'taskDefinitionKey' | 'taskName'>
   const labels: Record<string, string> = {
     financeCountersign: '财务会签',
     financeReview: '财务审核',
+    initiatorRevision: '发起人修改',
     managerApproval: '部门负责人审批',
   }
   return labels[task.taskDefinitionKey] || task.taskName
+}
+
+function taskTagType(task: Pick<PendingTaskItem, 'taskDefinitionKey'>) {
+  return task.taskDefinitionKey === 'initiatorRevision' ? 'warning' : 'primary'
 }
 
 function formatMoney(value: number) {
@@ -89,7 +94,7 @@ onShow(loadSummary)
     <view class="hero">
       <view>
         <text class="hero__eyebrow">审批工作台</text>
-        <view class="hero__title">你有 {{ taskPage.total }} 项待处理审批</view>
+        <view class="hero__title">你有 {{ taskPage.total }} 项待处理任务</view>
       </view>
       <wd-button size="small" type="primary" @click="openTaskList">
         全部待办
@@ -98,7 +103,7 @@ onShow(loadSummary)
 
     <view class="metric-grid">
       <view class="metric-card">
-        <text class="metric-card__label">待我审批</text>
+        <text class="metric-card__label">待我处理</text>
         <view class="metric-card__value">{{ taskPage.total }}</view>
         <wd-tag type="primary" plain>实时</wd-tag>
       </view>
@@ -136,7 +141,7 @@ onShow(loadSummary)
       >
         <view class="task-card__header">
           <text class="task-card__title">{{ task.supplier }}采购付款</text>
-          <wd-tag type="primary" plain>{{ taskStage(task) }}</wd-tag>
+          <wd-tag :type="taskTagType(task)" plain>{{ taskStage(task) }}</wd-tag>
         </view>
         <text class="task-card__meta">
           {{ task.businessKey }} · {{ task.purchaseOrderReference }}
