@@ -9,6 +9,8 @@ import {
   approveTask,
   findApprovalTimeline,
   findPendingTask,
+  rejectTask,
+  resubmitTask,
 } from '@/api/approval'
 
 defineOptions({
@@ -28,11 +30,13 @@ const loadError = ref('')
 const submitting = ref(false)
 const details = ref<PendingTaskDetails>()
 const timeline = ref<ApprovalTimeline>()
+const revisionTask = computed(() => details.value?.taskDefinitionKey === 'initiatorRevision')
 
 function taskStage(task: PendingTaskDetails) {
   const labels: Record<string, string> = {
     financeCountersign: '财务会签',
     financeReview: '财务审核',
+    initiatorRevision: '发起人修改',
     managerApproval: '部门负责人审批',
   }
   return labels[task.taskDefinitionKey] || task.taskName
@@ -42,8 +46,23 @@ function timelineTitle(item: ApprovalTimelineItem) {
   const labels: Record<string, string> = {
     INSTANCE_STARTED: '发起审批',
     TASK_APPROVED: '同意审批',
+    TASK_REJECTED: '驳回到发起人',
+    TASK_RESUBMITTED: '发起人重新提交',
   }
   return labels[item.action] || item.action
+}
+
+function timelineTone(item: ApprovalTimelineItem) {
+  if (item.action === 'TASK_REJECTED') {
+    return 'danger'
+  }
+  if (item.action === 'TASK_RESUBMITTED') {
+    return 'warning'
+  }
+  if (item.action === 'TASK_APPROVED') {
+    return 'success'
+  }
+  return 'primary'
 }
 
 function formatMoney(value: number) {
@@ -82,12 +101,12 @@ async function loadDetails() {
   }
 }
 
-function confirmApproval() {
+function confirmAction(title: string, content: string, confirmText: string) {
   return new Promise<boolean>((resolve) => {
     uni.showModal({
-      title: '审批确认',
-      content: '确认同意该审批吗？',
-      confirmText: '确认同意',
+      title,
+      content,
+      confirmText,
       success: result => resolve(result.confirm),
       fail: () => resolve(false),
     })
@@ -98,19 +117,14 @@ function goBack() {
   uni.navigateBack()
 }
 
-async function submitApproval() {
-  const task = details.value
-  if (!task || submitting.value) {
-    return
-  }
-  if (!await confirmApproval()) {
-    return
-  }
-
+async function finishAction(
+  action: () => Promise<unknown>,
+  successMessage: string,
+) {
   submitting.value = true
   try {
-    await approveTask(task.taskId, opinion.value)
-    uni.showToast({ title: '审批已同意', icon: 'success' })
+    await action()
+    uni.showToast({ title: successMessage, icon: 'success' })
     setTimeout(goBack, 500)
   }
   catch (error) {
@@ -119,6 +133,64 @@ async function submitApproval() {
   finally {
     submitting.value = false
   }
+}
+
+async function submitApproval() {
+  const task = details.value
+  if (!task || submitting.value) {
+    return
+  }
+  const confirmed = await confirmAction('审批确认', '确认同意该审批吗？', '确认同意')
+  if (!confirmed) {
+    return
+  }
+  await finishAction(
+    () => approveTask(task.taskId, opinion.value),
+    '审批已同意',
+  )
+}
+
+async function submitRejection() {
+  const task = details.value
+  const comment = opinion.value.trim()
+  if (!task || submitting.value) {
+    return
+  }
+  if (!comment) {
+    uni.showToast({ title: '驳回时必须填写原因', icon: 'none' })
+    return
+  }
+  const confirmed = await confirmAction(
+    '驳回确认',
+    '驳回后将生成发起人修改任务，确认继续吗？',
+    '确认驳回',
+  )
+  if (!confirmed) {
+    return
+  }
+  await finishAction(
+    () => rejectTask(task.taskId, comment),
+    '已驳回到发起人',
+  )
+}
+
+async function submitResubmission() {
+  const task = details.value
+  if (!task || submitting.value) {
+    return
+  }
+  const confirmed = await confirmAction(
+    '重新提交确认',
+    '重新提交后流程将从部门负责人审批重新开始，确认继续吗？',
+    '重新提交',
+  )
+  if (!confirmed) {
+    return
+  }
+  await finishAction(
+    () => resubmitTask(task.taskId, opinion.value),
+    '申请已重新提交',
+  )
 }
 
 onLoad((query) => {
@@ -139,13 +211,20 @@ onLoad((query) => {
     </view>
 
     <template v-else-if="details">
+      <view v-if="revisionTask" class="revision-notice">
+        <strong>申请已被驳回</strong>
+        <text>确认材料后可重新提交，流程将从部门负责人审批重新开始。</text>
+      </view>
+
       <view class="summary-card">
         <view class="summary-card__header">
           <view>
             <text class="eyebrow">采购付款审批</text>
             <view class="title">{{ details.supplier }}采购付款</view>
           </view>
-          <wd-tag type="primary">{{ taskStage(details) }}</wd-tag>
+          <wd-tag :type="revisionTask ? 'warning' : 'primary'">
+            {{ taskStage(details) }}
+          </wd-tag>
         </view>
         <view class="summary-grid">
           <view>
@@ -194,10 +273,13 @@ onLoad((query) => {
             :key="item.eventId"
             class="timeline-item"
           >
-            <view class="timeline-dot" />
+            <view class="timeline-dot" :class="`timeline-dot--${timelineTone(item)}`" />
             <view class="timeline-content">
               <strong>{{ timelineTitle(item) }}</strong>
               <text>操作人 {{ item.operatorId }}</text>
+              <text v-if="item.attributes.comment">
+                意见：{{ item.attributes.comment }}
+              </text>
               <text>{{ formatDate(item.occurredAt) }}</text>
             </view>
           </view>
@@ -206,12 +288,14 @@ onLoad((query) => {
       </view>
 
       <view class="opinion-card">
-        <view class="section-title">审批意见</view>
+        <view class="section-title">
+          {{ revisionTask ? '重新提交说明' : '审批意见' }}
+        </view>
         <wd-textarea
           v-model="opinion"
-          :maxlength="500"
+          :maxlength="2000"
           clearable
-          placeholder="填写审批意见"
+          :placeholder="revisionTask ? '填写本次修改说明（可选）' : '填写审批意见；驳回时必填'"
           show-word-limit
         />
       </view>
@@ -219,14 +303,36 @@ onLoad((query) => {
 
     <view class="action-bar">
       <wd-button plain @click="goBack">返回</wd-button>
-      <wd-button
-        type="primary"
-        :disabled="!details || loading"
-        :loading="submitting"
-        @click="submitApproval"
-      >
-        同意
-      </wd-button>
+      <view class="action-group">
+        <wd-button
+          v-if="revisionTask"
+          type="primary"
+          :disabled="!details || loading"
+          :loading="submitting"
+          @click="submitResubmission"
+        >
+          重新提交
+        </wd-button>
+        <template v-else>
+          <wd-button
+            type="error"
+            plain
+            :disabled="!details || loading"
+            :loading="submitting"
+            @click="submitRejection"
+          >
+            驳回
+          </wd-button>
+          <wd-button
+            type="primary"
+            :disabled="!details || loading"
+            :loading="submitting"
+            @click="submitApproval"
+          >
+            同意
+          </wd-button>
+        </template>
+      </view>
     </view>
   </view>
 </template>
@@ -242,15 +348,26 @@ onLoad((query) => {
 .attachment-card,
 .timeline-card,
 .opinion-card,
-.state-card {
+.state-card,
+.revision-notice {
   margin-bottom: 20rpx;
   padding: 28rpx;
   border-radius: var(--wot-radius-large, 24rpx);
   background: var(--wot-color-white, var(--uni-bg-color));
 }
 
+.revision-notice {
+  display: grid;
+  gap: 10rpx;
+  color: var(--wot-color-warning, #d97706);
+  background: var(--wot-color-warning-light, #fff7ed);
+  font-size: 25rpx;
+  line-height: 1.6;
+}
+
 .summary-card__header,
-.action-bar {
+.action-bar,
+.action-group {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -345,6 +462,21 @@ onLoad((query) => {
   box-shadow: 0 0 0 2rpx var(--wot-color-theme, var(--uni-color-primary));
 }
 
+.timeline-dot--success {
+  background: var(--wot-color-success, #22c55e);
+  box-shadow: 0 0 0 2rpx var(--wot-color-success, #22c55e);
+}
+
+.timeline-dot--danger {
+  background: var(--wot-color-danger, var(--uni-color-error));
+  box-shadow: 0 0 0 2rpx var(--wot-color-danger, var(--uni-color-error));
+}
+
+.timeline-dot--warning {
+  background: var(--wot-color-warning, #f59e0b);
+  box-shadow: 0 0 0 2rpx var(--wot-color-warning, #f59e0b);
+}
+
 .state-card {
   display: grid;
   justify-items: center;
@@ -361,7 +493,6 @@ onLoad((query) => {
   right: 0;
   bottom: 0;
   left: 0;
-  justify-content: flex-end;
   padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
   background: var(--wot-color-white, var(--uni-bg-color));
   box-shadow: 0 -8rpx 24rpx rgb(15 23 42 / 8%);
