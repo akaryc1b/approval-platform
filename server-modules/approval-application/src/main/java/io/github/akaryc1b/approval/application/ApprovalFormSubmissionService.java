@@ -114,7 +114,7 @@ public final class ApprovalFormSubmissionService {
         }
 
         WorkflowStartResult workflow = workflowStarter.start(
-            command.context(), command.formKey(), command.businessKey(),
+            command.context(), command.formKey(), command.formVersion(), command.businessKey(),
             data.values(), command.startParameters()
         );
         Instant now = clock.instant();
