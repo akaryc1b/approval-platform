@@ -22,6 +22,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ApprovalMessages',
+        path: '/approval/messages',
+        component: () => import('#/views/approval/messages/index.vue'),
+        meta: {
+          authority: ['approval:message:view'],
+          icon: 'lucide:bell-ring',
+          title: '消息与协作',
+        },
+      },
+      {
         name: 'ApprovalDesigner',
         path: '/approval/designer',
         component: () => import('#/views/approval/designer/index.vue'),

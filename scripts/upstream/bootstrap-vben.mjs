@@ -82,6 +82,7 @@ run('git', ['-C', upstreamDirectory, 'reset', '--hard', config.commit]);
 
 const upstreamApplication = resolve(upstreamDirectory, config.applicationPath);
 const managedPaths = [
+  'src/api/approval',
   'src/router/routes/modules',
   'src/views/approval',
   'src/platform/approval',
