@@ -12,6 +12,13 @@ import java.util.TreeMap;
 /** Produces deterministic hashes for normalized form submissions. */
 public final class FormSubmissionHasher {
 
+    public FormSubmissionHasher() {
+    }
+
+    public FormSubmissionHasher(Object ignoredSerializer) {
+        this();
+    }
+
     public String hash(
         String formKey,
         int formVersion,
