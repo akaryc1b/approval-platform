@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.application.port;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -12,22 +13,28 @@ public interface ApprovalCommentStore {
 
     void append(ApprovalComment comment);
 
+    Optional<StoredCommentItem> findComment(String tenantId, UUID instanceId, UUID commentId);
+
     StoredCommentPage findComments(CommentCriteria criteria);
 
     record ApprovalComment(
         UUID commentId,
         String tenantId,
         UUID instanceId,
+        UUID parentCommentId,
         String authorId,
         String body,
         List<String> mentionIds,
-        List<String> attachmentIds,
+        List<UUID> attachmentIds,
         Instant createdAt
     ) {
         public ApprovalComment {
             commentId = Objects.requireNonNull(commentId, "commentId must not be null");
             tenantId = requireText(tenantId, "tenantId");
             instanceId = Objects.requireNonNull(instanceId, "instanceId must not be null");
+            if (commentId.equals(parentCommentId)) {
+                throw new IllegalArgumentException("comment cannot reply to itself");
+            }
             authorId = requireText(authorId, "authorId");
             body = requireText(body, "body");
             mentionIds = mentionIds == null ? List.of() : List.copyOf(mentionIds);
@@ -52,10 +59,11 @@ public interface ApprovalCommentStore {
     record StoredCommentItem(
         UUID commentId,
         UUID instanceId,
+        UUID parentCommentId,
         String authorId,
         String body,
         List<String> mentionIds,
-        List<String> attachmentIds,
+        List<UUID> attachmentIds,
         Instant createdAt
     ) {
         public StoredCommentItem {
