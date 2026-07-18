@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalMessageService;
 import io.github.akaryc1b.approval.application.ApprovalMessageService.CopyCommand;
 import io.github.akaryc1b.approval.application.ApprovalMessageService.UrgeCommand;
-import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
 import io.github.akaryc1b.approval.application.port.ApprovalMessageStore.MessageIdentity;
+import io.github.akaryc1b.approval.application.port.ApprovalParticipationQuery.StartedInstanceCriteria;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
@@ -13,6 +13,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.Publ
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.UserIdentitySnapshot;
+import io.github.akaryc1b.approval.application.port.ApprovalTimelineQuery.TimelineIdentity;
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
@@ -181,26 +182,24 @@ class JdbcApprovalMessageIntegrationTest {
         var started = new JdbcApprovalParticipationQuery(
             dataSource,
             new ObjectMapper().findAndRegisterModules()
-        ).findStartedInstances(new io.github.akaryc1b.approval.application.port
-            .ApprovalParticipationQuery.StartedInstanceCriteria(
-                "tenant-a",
-                "initiator-1",
-                null,
-                20,
-                0
-            ));
+        ).findStartedInstances(new StartedInstanceCriteria(
+            "tenant-a",
+            "initiator-1",
+            null,
+            20,
+            0
+        ));
         assertEquals(2, started.items().getFirst().messageCount());
         assertEquals(1, started.items().getFirst().readCount());
 
         var timeline = new JdbcApprovalTimelineQuery(
             dataSource,
             new ObjectMapper().findAndRegisterModules()
-        ).findTimeline(new io.github.akaryc1b.approval.application.port
-            .ApprovalTimelineQuery.TimelineIdentity(
-                "tenant-a",
-                "finance-reviewer",
-                INSTANCE_ID
-            )).orElseThrow();
+        ).findTimeline(new TimelineIdentity(
+            "tenant-a",
+            "finance-reviewer",
+            INSTANCE_ID
+        )).orElseThrow();
         assertTrue(timeline.items().stream()
             .anyMatch(item -> "INSTANCE_COPIED".equals(item.action())));
     }
