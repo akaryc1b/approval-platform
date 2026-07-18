@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalApplicationService;
+import io.github.akaryc1b.approval.application.ApprovalMessageService;
 import io.github.akaryc1b.approval.application.ApprovalParticipationQueryService;
 import io.github.akaryc1b.approval.application.ApprovalTaskQueryService;
 import io.github.akaryc1b.approval.application.ApprovalTimelineQueryService;
@@ -9,6 +10,7 @@ import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService
 import io.github.akaryc1b.approval.application.PurchasePaymentCollaborationService;
 import io.github.akaryc1b.approval.application.PurchasePaymentTaskActionService;
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
+import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalParticipationQuery;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery;
@@ -19,6 +21,7 @@ import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResol
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
 import io.github.akaryc1b.approval.engine.flowable.FlowableApprovalEngine;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMessageStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalParticipationQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProjectionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalTaskQuery;
@@ -84,6 +87,14 @@ public class ApprovalPlatformConfiguration {
         ObjectMapper approvalPersistenceObjectMapper
     ) {
         return new JdbcApprovalProjectionStore(dataSource, approvalPersistenceObjectMapper);
+    }
+
+    @Bean
+    ApprovalMessageStore approvalMessageStore(
+        DataSource dataSource,
+        ObjectMapper approvalPersistenceObjectMapper
+    ) {
+        return new JdbcApprovalMessageStore(dataSource, approvalPersistenceObjectMapper);
     }
 
     @Bean
@@ -198,6 +209,24 @@ public class ApprovalPlatformConfiguration {
             approvalEngine,
             idempotencyGuard,
             approvalProjectionStore,
+            auditEventSink,
+            approvalClock,
+            UUID::randomUUID
+        );
+    }
+
+    @Bean
+    ApprovalMessageService approvalMessageService(
+        IdempotencyGuard idempotencyGuard,
+        ApprovalProjectionStore approvalProjectionStore,
+        ApprovalMessageStore approvalMessageStore,
+        AuditEventSink auditEventSink,
+        Clock approvalClock
+    ) {
+        return new ApprovalMessageService(
+            idempotencyGuard,
+            approvalProjectionStore,
+            approvalMessageStore,
             auditEventSink,
             approvalClock,
             UUID::randomUUID
