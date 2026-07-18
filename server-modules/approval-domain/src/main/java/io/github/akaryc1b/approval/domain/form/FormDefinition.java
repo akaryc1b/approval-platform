@@ -25,9 +25,6 @@ public record FormDefinition(
         }
         name = requireText(name, "name");
         fields = fields == null ? List.of() : List.copyOf(fields);
-        if (fields.isEmpty()) {
-            throw new IllegalArgumentException("fields must not be empty");
-        }
     }
 
     public record FormField(
