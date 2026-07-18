@@ -33,6 +33,8 @@ import {
   findApprovalTimeline,
   findPendingTask,
   findPendingTasks,
+  rejectTask,
+  resubmitTask,
 } from '#/api/approval';
 
 const pageSize = 10;
@@ -57,6 +59,12 @@ const approvalComment = ref('');
 const submitting = ref(false);
 
 const pageOffset = computed(() => (currentPage.value - 1) * pageSize);
+const revisionTask = computed(
+  () => selectedTask.value?.taskDefinitionKey === 'initiatorRevision',
+);
+const drawerTitle = computed(() =>
+  revisionTask.value ? '修改并重新提交' : '审批详情',
+);
 
 const moneyFormatter = new Intl.NumberFormat('zh-CN', {
   currency: 'CNY',
@@ -86,21 +94,37 @@ function taskStage(task: Pick<PendingTaskItem, 'taskDefinitionKey' | 'taskName'>
   const labels: Record<string, string> = {
     financeCountersign: '财务会签',
     financeReview: '财务审核',
+    initiatorRevision: '发起人修改',
     managerApproval: '部门负责人审批',
   };
   return labels[task.taskDefinitionKey] || task.taskName;
+}
+
+function taskTagType(task: Pick<PendingTaskItem, 'taskDefinitionKey'>) {
+  return task.taskDefinitionKey === 'initiatorRevision' ? 'warning' : 'primary';
 }
 
 function timelineTitle(item: ApprovalTimelineItem) {
   const labels: Record<string, string> = {
     INSTANCE_STARTED: '发起审批',
     TASK_APPROVED: '同意审批',
+    TASK_REJECTED: '驳回到发起人',
+    TASK_RESUBMITTED: '发起人重新提交',
   };
   return labels[item.action] || item.action;
 }
 
 function timelineType(item: ApprovalTimelineItem) {
-  return item.action === 'TASK_APPROVED' ? 'success' : 'primary';
+  if (item.action === 'TASK_APPROVED') {
+    return 'success';
+  }
+  if (item.action === 'TASK_REJECTED') {
+    return 'danger';
+  }
+  if (item.action === 'TASK_RESUBMITTED') {
+    return 'warning';
+  }
+  return 'primary';
 }
 
 async function loadTasks() {
@@ -164,21 +188,104 @@ async function openTask(task: PendingTaskItem) {
   }
 }
 
+async function confirmAction(
+  title: string,
+  message: string,
+  confirmButtonText: string,
+  type: 'error' | 'warning',
+) {
+  try {
+    await ElMessageBox.confirm(message, title, {
+      cancelButtonText: '取消',
+      confirmButtonText,
+      type,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function submitApproval() {
   const task = selectedTask.value;
   if (!task) {
     return;
   }
-  await ElMessageBox.confirm('确认同意该审批吗？', '审批确认', {
-    confirmButtonText: '确认同意',
-    cancelButtonText: '取消',
-    type: 'warning',
-  });
+  const confirmed = await confirmAction(
+    '审批确认',
+    '确认同意该审批吗？',
+    '确认同意',
+    'warning',
+  );
+  if (!confirmed) {
+    return;
+  }
 
   submitting.value = true;
   try {
     await approveTask(task.taskId, approvalComment.value);
     ElMessage.success('审批已同意');
+    drawerOpen.value = false;
+    await loadTasks();
+  } catch (error) {
+    ElMessage.error(errorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function submitRejection() {
+  const task = selectedTask.value;
+  const comment = approvalComment.value.trim();
+  if (!task) {
+    return;
+  }
+  if (!comment) {
+    ElMessage.warning('驳回时必须填写原因');
+    return;
+  }
+  const confirmed = await confirmAction(
+    '驳回确认',
+    '驳回后将生成发起人修改任务，确认继续吗？',
+    '确认驳回',
+    'error',
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    await rejectTask(task.taskId, comment);
+    ElMessage.success('已驳回到发起人');
+    drawerOpen.value = false;
+    await loadTasks();
+  } catch (error) {
+    ElMessage.error(errorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function submitResubmission() {
+  const task = selectedTask.value;
+  if (!task) {
+    return;
+  }
+  const confirmed = await confirmAction(
+    '重新提交确认',
+    '重新提交后流程将从部门负责人审批重新开始，确认继续吗？',
+    '重新提交',
+    'warning',
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    await resubmitTask(task.taskId, approvalComment.value);
+    ElMessage.success('申请已重新提交');
     drawerOpen.value = false;
     await loadTasks();
   } catch (error) {
@@ -197,9 +304,9 @@ onMounted(loadTasks);
       <section class="overview-grid">
         <ElCard shadow="never">
           <div class="overview-card">
-            <span>待我审批</span>
+            <span>待我处理</span>
             <strong>{{ taskPage.total }}</strong>
-            <small>按任务到达时间排序</small>
+            <small>包含审批与发起人修改任务</small>
           </div>
         </ElCard>
       </section>
@@ -250,7 +357,9 @@ onMounted(loadTasks);
             <div class="task-main">
               <div class="task-title-row">
                 <strong>{{ task.supplier }}采购付款</strong>
-                <ElTag effect="plain">{{ taskStage(task) }}</ElTag>
+                <ElTag :type="taskTagType(task)" effect="plain">
+                  {{ taskStage(task) }}
+                </ElTag>
               </div>
               <span>
                 {{ task.businessKey }} · {{ task.purchaseOrderReference }}
@@ -261,7 +370,9 @@ onMounted(loadTasks);
             </div>
             <div class="task-actions">
               <strong>{{ formatMoney(task.amount) }}</strong>
-              <ElButton type="primary" @click="openTask(task)">处理</ElButton>
+              <ElButton type="primary" @click="openTask(task)">
+                {{ task.taskDefinitionKey === 'initiatorRevision' ? '修改' : '处理' }}
+              </ElButton>
             </div>
           </article>
         </div>
@@ -281,9 +392,9 @@ onMounted(loadTasks);
 
     <ElDrawer
       v-model="drawerOpen"
+      :title="drawerTitle"
       destroy-on-close
       size="680px"
-      title="审批详情"
     >
       <ElSkeleton v-if="detailLoading" :rows="10" animated />
 
@@ -295,11 +406,19 @@ onMounted(loadTasks);
       />
 
       <div v-else-if="selectedTask" class="detail-content">
+        <ElAlert
+          v-if="revisionTask"
+          :closable="false"
+          show-icon
+          title="该申请已被驳回。确认材料后可重新提交，流程将从部门负责人审批重新开始。"
+          type="warning"
+        />
+
         <ElDescriptions :column="2" border title="申请信息">
           <ElDescriptionsItem label="业务编号">
             {{ selectedTask.businessKey }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="审批环节">
+          <ElDescriptionsItem label="当前环节">
             {{ taskStage(selectedTask) }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="发起人">
@@ -339,18 +458,21 @@ onMounted(loadTasks);
             >
               <strong>{{ timelineTitle(item) }}</strong>
               <div class="timeline-meta">操作人：{{ item.operatorId }}</div>
+              <div v-if="item.attributes.comment" class="timeline-comment">
+                意见：{{ item.attributes.comment }}
+              </div>
             </ElTimelineItem>
           </ElTimeline>
           <ElEmpty v-else description="暂无审批记录" :image-size="72" />
         </section>
 
         <section class="detail-section">
-          <h3>审批意见</h3>
+          <h3>{{ revisionTask ? '重新提交说明' : '审批意见' }}</h3>
           <ElInput
             v-model="approvalComment"
             :maxlength="2000"
+            :placeholder="revisionTask ? '填写本次修改说明（可选）' : '填写审批意见；驳回时必填'"
             :rows="4"
-            placeholder="填写审批意见"
             show-word-limit
             type="textarea"
           />
@@ -360,14 +482,36 @@ onMounted(loadTasks);
       <template #footer>
         <div class="drawer-footer">
           <ElButton @click="drawerOpen = false">取消</ElButton>
-          <ElButton
-            :disabled="!selectedTask"
-            :loading="submitting"
-            type="primary"
-            @click="submitApproval"
-          >
-            同意
-          </ElButton>
+          <div class="action-group">
+            <ElButton
+              v-if="revisionTask"
+              :disabled="!selectedTask"
+              :loading="submitting"
+              type="primary"
+              @click="submitResubmission"
+            >
+              重新提交
+            </ElButton>
+            <template v-else>
+              <ElButton
+                :disabled="!selectedTask"
+                :loading="submitting"
+                type="danger"
+                plain
+                @click="submitRejection"
+              >
+                驳回
+              </ElButton>
+              <ElButton
+                :disabled="!selectedTask"
+                :loading="submitting"
+                type="primary"
+                @click="submitApproval"
+              >
+                同意
+              </ElButton>
+            </template>
+          </div>
         </div>
       </template>
     </ElDrawer>
@@ -395,7 +539,8 @@ onMounted(loadTasks);
 .overview-card small,
 .section-header span,
 .task-main span,
-.timeline-meta {
+.timeline-meta,
+.timeline-comment {
   color: var(--el-text-color-secondary);
 }
 
@@ -410,6 +555,7 @@ onMounted(loadTasks);
 .search-bar,
 .pagination-row,
 .drawer-footer,
+.action-group,
 .attachment-list {
   display: flex;
   align-items: center;
@@ -483,10 +629,11 @@ onMounted(loadTasks);
 }
 
 .drawer-footer {
-  justify-content: flex-end;
+  width: 100%;
 }
 
-.timeline-meta {
+.timeline-meta,
+.timeline-comment {
   margin-top: 4px;
   font-size: 13px;
 }
