@@ -2,6 +2,8 @@ package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalApplicationService;
+import io.github.akaryc1b.approval.application.ApprovalCommentService;
+import io.github.akaryc1b.approval.application.ApprovalCopiedQueryService;
 import io.github.akaryc1b.approval.application.ApprovalMessageService;
 import io.github.akaryc1b.approval.application.ApprovalParticipationQueryService;
 import io.github.akaryc1b.approval.application.ApprovalTaskQueryService;
@@ -10,6 +12,7 @@ import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService
 import io.github.akaryc1b.approval.application.PurchasePaymentCollaborationService;
 import io.github.akaryc1b.approval.application.PurchasePaymentTaskActionService;
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
+import io.github.akaryc1b.approval.application.port.ApprovalCommentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalParticipationQuery;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
@@ -21,6 +24,7 @@ import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResol
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
 import io.github.akaryc1b.approval.engine.flowable.FlowableApprovalEngine;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalCommentStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMessageStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalParticipationQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProjectionStore;
@@ -95,6 +99,19 @@ public class ApprovalPlatformConfiguration {
         ObjectMapper approvalPersistenceObjectMapper
     ) {
         return new JdbcApprovalMessageStore(dataSource, approvalPersistenceObjectMapper);
+    }
+
+    @Bean
+    ApprovalCommentStore approvalCommentStore(
+        DataSource dataSource,
+        ObjectMapper approvalPersistenceObjectMapper
+    ) {
+        return new JdbcApprovalCommentStore(dataSource, approvalPersistenceObjectMapper);
+    }
+
+    @Bean
+    ApprovalCopiedQueryService approvalCopiedQueryService(ApprovalMessageStore approvalMessageStore) {
+        return new ApprovalCopiedQueryService(approvalMessageStore);
     }
 
     @Bean
@@ -227,6 +244,26 @@ public class ApprovalPlatformConfiguration {
             idempotencyGuard,
             approvalProjectionStore,
             approvalMessageStore,
+            auditEventSink,
+            approvalClock,
+            UUID::randomUUID
+        );
+    }
+
+    @Bean
+    ApprovalCommentService approvalCommentService(
+        IdempotencyGuard idempotencyGuard,
+        ApprovalProjectionStore approvalProjectionStore,
+        ApprovalMessageStore approvalMessageStore,
+        ApprovalCommentStore approvalCommentStore,
+        AuditEventSink auditEventSink,
+        Clock approvalClock
+    ) {
+        return new ApprovalCommentService(
+            idempotencyGuard,
+            approvalProjectionStore,
+            approvalMessageStore,
+            approvalCommentStore,
             auditEventSink,
             approvalClock,
             UUID::randomUUID
