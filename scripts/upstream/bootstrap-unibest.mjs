@@ -89,8 +89,10 @@ if (currentCommit !== config.commit) {
 run('git', ['-C', upstreamDirectory, 'reset', '--hard', config.commit]);
 
 const managedPaths = [
+  'src/api/approval',
   'src/pages/index',
   'src/pages/task',
+  'src/pages/message',
   'src/pages/initiate',
   'src/pages/profile',
   'src/components/approval',

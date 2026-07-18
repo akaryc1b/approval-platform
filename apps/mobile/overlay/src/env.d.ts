@@ -23,6 +23,7 @@ interface ImportMetaEnv {
   readonly VITE_APPROVAL_API_URL?: string
   readonly VITE_APPROVAL_CONNECTOR?: string
   readonly VITE_APPROVAL_TENANT_ID?: string
+  readonly VITE_APPROVAL_OPERATOR_ID?: string
 }
 
 interface ImportMeta {
