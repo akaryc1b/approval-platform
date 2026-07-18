@@ -27,6 +27,15 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Upload Approval design source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr52-source-${{ github.run_id }}
+          path: |
+            server-modules/approval-definition-compiler/src/main/java/io/github/akaryc1b/approval/compiler/ApprovalDefinitionValidator.java
+            server-modules/approval-definition-compiler/src/test/java/io/github/akaryc1b/approval/compiler/ApprovalNestedParallelDefinitionTest.java
+            server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
+          if-no-files-found: error
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
