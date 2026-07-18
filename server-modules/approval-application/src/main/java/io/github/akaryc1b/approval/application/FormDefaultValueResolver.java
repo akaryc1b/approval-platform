@@ -22,11 +22,16 @@ public final class FormDefaultValueResolver {
     }
 
     public Map<String, Object> resolve(FormDefinition definition, RequestContext context) {
-        Objects.requireNonNull(definition, "definition must not be null");
         Objects.requireNonNull(context, "context must not be null");
+        return resolve(definition, context.operatorId());
+    }
+
+    public Map<String, Object> resolve(FormDefinition definition, String operatorId) {
+        Objects.requireNonNull(definition, "definition must not be null");
+        String currentOperator = requireText(operatorId, "operatorId");
         Map<String, Object> values = new LinkedHashMap<>();
         definition.fields().forEach(field -> {
-            Object value = resolve(field.defaultValue(), context);
+            Object value = resolve(field.defaultValue(), currentOperator);
             if (value != null) {
                 values.put(field.key(), value);
             }
@@ -34,12 +39,12 @@ public final class FormDefaultValueResolver {
         return Map.copyOf(values);
     }
 
-    private Object resolve(DefaultValue defaultValue, RequestContext context) {
+    private Object resolve(DefaultValue defaultValue, String operatorId) {
         DefaultValueType type = defaultValue.type();
         return switch (type) {
             case NONE -> null;
             case LITERAL -> immutable(defaultValue.literal());
-            case CURRENT_USER -> context.operatorId();
+            case CURRENT_USER -> operatorId;
             case CURRENT_DATE -> LocalDate.now(clock).toString();
             case CURRENT_DATETIME -> clock.instant().toString();
         };
@@ -57,9 +62,10 @@ public final class FormDefaultValueResolver {
         return value;
     }
 
-    public static final class DefaultValueResolutionException extends RuntimeException {
-        public DefaultValueResolutionException(String message, Throwable cause) {
-            super(message, cause);
+    private static String requireText(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
         }
+        return value.trim();
     }
 }
