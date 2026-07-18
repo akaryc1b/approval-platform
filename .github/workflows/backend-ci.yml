@@ -2,6 +2,13 @@ name: Backend CI
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - agent/m1-comments-mentions-copied
+    paths:
+      - 'apps/server/**'
+      - 'server-modules/**'
+      - '.github/workflows/backend-ci.yml'
 
 permissions:
   contents: read
