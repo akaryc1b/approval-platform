@@ -45,8 +45,8 @@ public class ApprovalFormConfiguration {
     }
 
     @Bean
-    FormSubmissionHasher formSubmissionHasher(ObjectMapper approvalPersistenceObjectMapper) {
-        return new FormSubmissionHasher(approvalPersistenceObjectMapper);
+    FormSubmissionHasher formSubmissionHasher() {
+        return new FormSubmissionHasher();
     }
 
     @Bean
