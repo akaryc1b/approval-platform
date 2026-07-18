@@ -19,6 +19,27 @@ public interface ApprovalEngine {
 
     TaskResult complete(CompleteTaskCommand command);
 
+    default void terminate(TerminateInstanceCommand command) {
+        throw new EngineOperationException(
+            "INSTANCE_TERMINATION_UNSUPPORTED",
+            "the approval engine does not support process instance termination"
+        );
+    }
+
+    default TaskSnapshot transfer(TransferTaskCommand command) {
+        throw new EngineOperationException(
+            "TASK_TRANSFER_UNSUPPORTED",
+            "the approval engine does not support task transfer"
+        );
+    }
+
+    default void retrieve(RetrieveTaskCommand command) {
+        throw new EngineOperationException(
+            "TASK_RETRIEVE_UNSUPPORTED",
+            "the approval engine does not support task retrieval"
+        );
+    }
+
     record DeployCommand(
         String tenantId,
         String definitionKey,
@@ -112,6 +133,52 @@ public interface ApprovalEngine {
             taskId = requireText(taskId, "taskId");
             operatorId = requireText(operatorId, "operatorId");
             variables = variables == null ? Map.of() : Map.copyOf(variables);
+        }
+    }
+
+    record TerminateInstanceCommand(
+        String tenantId,
+        String processInstanceId,
+        String reason
+    ) {
+        public TerminateInstanceCommand {
+            tenantId = requireText(tenantId, "tenantId");
+            processInstanceId = requireText(processInstanceId, "processInstanceId");
+            reason = requireText(reason, "reason");
+        }
+    }
+
+    record TransferTaskCommand(
+        String tenantId,
+        String taskId,
+        String currentAssigneeId,
+        String targetAssigneeId
+    ) {
+        public TransferTaskCommand {
+            tenantId = requireText(tenantId, "tenantId");
+            taskId = requireText(taskId, "taskId");
+            currentAssigneeId = requireText(currentAssigneeId, "currentAssigneeId");
+            targetAssigneeId = requireText(targetAssigneeId, "targetAssigneeId");
+            if (currentAssigneeId.equals(targetAssigneeId)) {
+                throw new IllegalArgumentException("targetAssigneeId must differ from currentAssigneeId");
+            }
+        }
+    }
+
+    record RetrieveTaskCommand(
+        String tenantId,
+        String processInstanceId,
+        String currentTaskId,
+        String targetTaskDefinitionKey
+    ) {
+        public RetrieveTaskCommand {
+            tenantId = requireText(tenantId, "tenantId");
+            processInstanceId = requireText(processInstanceId, "processInstanceId");
+            currentTaskId = requireText(currentTaskId, "currentTaskId");
+            targetTaskDefinitionKey = requireText(
+                targetTaskDefinitionKey,
+                "targetTaskDefinitionKey"
+            );
         }
     }
 
