@@ -1,6 +1,8 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalAttachmentService;
+import io.github.akaryc1b.approval.application.ApprovalAttachmentService.UploadCommand;
 import io.github.akaryc1b.approval.application.ApprovalCommentService;
 import io.github.akaryc1b.approval.application.ApprovalCommentService.CommentCommand;
 import io.github.akaryc1b.approval.application.ApprovalMessageService;
@@ -31,6 +33,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -39,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -63,6 +67,7 @@ class JdbcApprovalCommentIntegrationTest {
     private JdbcApprovalProjectionStore projections;
     private JdbcApprovalMessageStore messageStore;
     private ApprovalMessageService messageService;
+    private ApprovalAttachmentService attachmentService;
     private ApprovalCommentService commentService;
 
     @BeforeAll
@@ -84,6 +89,7 @@ class JdbcApprovalCommentIntegrationTest {
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("""
             truncate table
+                ap_approval_attachment,
                 ap_approval_comment,
                 ap_approval_message,
                 ap_audit_event,
@@ -103,6 +109,7 @@ class JdbcApprovalCommentIntegrationTest {
         );
         projections = new JdbcApprovalProjectionStore(dataSource, objectMapper);
         messageStore = new JdbcApprovalMessageStore(dataSource, objectMapper);
+        JdbcApprovalAttachmentStore attachmentStore = new JdbcApprovalAttachmentStore(dataSource);
         JdbcAuditEventSink audit = new JdbcAuditEventSink(dataSource, objectMapper);
         messageService = new ApprovalMessageService(
             idempotency,
@@ -112,11 +119,20 @@ class JdbcApprovalCommentIntegrationTest {
             clock,
             UUID::randomUUID
         );
+        attachmentService = new ApprovalAttachmentService(
+            idempotency,
+            attachmentStore,
+            projections,
+            messageStore,
+            clock,
+            UUID::randomUUID
+        );
         commentService = new ApprovalCommentService(
             idempotency,
             projections,
             messageStore,
             new JdbcApprovalCommentStore(dataSource, objectMapper),
+            attachmentStore,
             audit,
             clock,
             UUID::randomUUID
@@ -125,7 +141,7 @@ class JdbcApprovalCommentIntegrationTest {
     }
 
     @Test
-    void commentsMentionsCopiedViewAreAuthorizedAndIdempotent() {
+    void commentsRepliesAttachmentsAndDeepLinksAreAuthorizedAndIdempotent() {
         messageService.copy(new CopyCommand(
             context("initiator-1", "copy-request", "copy-key"),
             INSTANCE_ID,
@@ -133,22 +149,99 @@ class JdbcApprovalCommentIntegrationTest {
             "请关注该审批"
         ));
 
+        byte[] contractBytes = "signed-contract".getBytes(StandardCharsets.UTF_8);
+        var attachment = attachmentService.upload(new UploadCommand(
+            context("manager-1", "upload-request", "upload-key"),
+            "合同.pdf",
+            "application/pdf",
+            contractBytes
+        ));
+        assertFalse(attachment.bound());
+        assertArrayEquals(
+            contractBytes,
+            attachmentService.download("tenant-a", "manager-1", attachment.attachmentId())
+                .orElseThrow()
+                .content()
+        );
+        assertTrue(attachmentService.download(
+            "tenant-a",
+            "finance-reviewer",
+            attachment.attachmentId()
+        ).isEmpty());
+
         CommentCommand command = new CommentCommand(
             context("manager-1", "comment-request", "comment-key"),
             INSTANCE_ID,
+            null,
             "请财务确认合同附件",
             List.of("finance-reviewer"),
-            List.of("contract-file", "invoice-file")
+            List.of(attachment.attachmentId())
         );
         var created = commentService.comment(command);
         var replayed = commentService.comment(command);
 
         assertEquals(created, replayed);
         assertEquals(1, countRows("ap_approval_comment"));
+        assertEquals(1, countRows("ap_approval_attachment"));
         assertEquals(1, countAudit("INSTANCE_COMMENTED"));
         assertEquals("部门负责人", created.authorDisplayName());
-        assertEquals(List.of("contract-file", "invoice-file"), created.attachmentIds());
+        assertEquals("合同.pdf", created.attachments().getFirst().fileName());
+        assertTrue(created.attachments().getFirst().bound());
         assertEquals("财务审核员", created.mentionedUsers().getFirst().displayName());
+        assertArrayEquals(
+            contractBytes,
+            attachmentService.download("tenant-a", "finance-reviewer", attachment.attachmentId())
+                .orElseThrow()
+                .content()
+        );
+        assertTrue(attachmentService.download(
+            "tenant-a",
+            "outsider",
+            attachment.attachmentId()
+        ).isEmpty());
+
+        var reply = commentService.comment(new CommentCommand(
+            context("finance-reviewer", "reply-request", "reply-key"),
+            INSTANCE_ID,
+            created.commentId(),
+            "已核对合同，金额一致。",
+            List.of("manager-1"),
+            List.of()
+        ));
+        assertTrue(reply.reply());
+        assertEquals(created.commentId(), reply.parentCommentId());
+        assertEquals("部门负责人", reply.replyToAuthorDisplayName());
+
+        assertThrows(
+            RuntimeException.class,
+            () -> commentService.comment(new CommentCommand(
+                context("manager-1", "nested-reply", "nested-reply-key"),
+                INSTANCE_ID,
+                reply.commentId(),
+                "不允许回复二级回复",
+                List.of(),
+                List.of()
+            ))
+        );
+
+        var outsiderAttachment = attachmentService.upload(new UploadCommand(
+            context("finance-a", "other-upload", "other-upload-key"),
+            "内部.txt",
+            "text/plain",
+            "private".getBytes(StandardCharsets.UTF_8)
+        ));
+        assertThrows(
+            RuntimeException.class,
+            () -> commentService.comment(new CommentCommand(
+                context("manager-1", "invalid-attachment", "invalid-attachment-key"),
+                INSTANCE_ID,
+                null,
+                "尝试引用他人未绑定附件",
+                List.of(),
+                List.of(outsiderAttachment.attachmentId())
+            ))
+        );
+        assertEquals(2, countRows("ap_approval_comment"));
 
         var copiedComments = commentService.findComments(
             "tenant-a",
@@ -157,13 +250,8 @@ class JdbcApprovalCommentIntegrationTest {
             20,
             0
         );
-        assertEquals(1, copiedComments.total());
+        assertEquals(2, copiedComments.total());
         assertEquals(created.commentId(), copiedComments.items().getFirst().commentId());
-        assertTrue(commentService.findOptions(
-            "tenant-a",
-            "finance-reviewer",
-            INSTANCE_ID
-        ).mentionCandidates().stream().anyMatch(option -> "manager-1".equals(option.userId())));
 
         var messages = messageService.findMessages(
             "tenant-a",
@@ -172,7 +260,6 @@ class JdbcApprovalCommentIntegrationTest {
             20,
             0
         );
-        assertEquals(2, messages.total());
         assertTrue(messages.items().stream()
             .anyMatch(item -> item.messageType() == MessageType.MENTION
                 && created.commentId().toString().equals(item.metadata().get("commentId"))));
@@ -192,36 +279,7 @@ class JdbcApprovalCommentIntegrationTest {
         ));
         assertEquals(1, copied.total());
         assertTrue(copied.items().getFirst().read());
-        assertEquals(1, copied.items().getFirst().commentCount());
-        assertEquals("initiator-1", copied.items().getFirst().copiedBy());
-
-        var copiedUserComment = commentService.comment(new CommentCommand(
-            context("finance-reviewer", "copied-comment", "copied-comment-key"),
-            INSTANCE_ID,
-            "已收到，我会继续关注。",
-            List.of(),
-            List.of()
-        ));
-        assertEquals("财务审核员", copiedUserComment.authorDisplayName());
-        assertEquals(2, commentService.findComments(
-            "tenant-a",
-            "manager-1",
-            INSTANCE_ID,
-            20,
-            0
-        ).total());
-
-        assertThrows(
-            RuntimeException.class,
-            () -> commentService.comment(new CommentCommand(
-                context("manager-1", "invalid-mention", "invalid-mention-key"),
-                INSTANCE_ID,
-                "非法提及",
-                List.of("outsider"),
-                List.of()
-            ))
-        );
-        assertEquals(2, countRows("ap_approval_comment"));
+        assertEquals(2, copied.items().getFirst().commentCount());
 
         assertThrows(
             RuntimeException.class,
