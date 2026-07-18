@@ -102,10 +102,7 @@ public final class FlowableApprovalEngine implements ApprovalEngine {
 
     @Override
     public TaskResult complete(CompleteTaskCommand command) {
-        Task task = taskService.createTaskQuery().taskId(command.taskId()).singleResult();
-        if (task == null || !command.tenantId().equals(task.getTenantId())) {
-            throw new EngineOperationException("TASK_NOT_FOUND", "task was not found for the tenant");
-        }
+        Task task = requireTask(command.tenantId(), command.taskId());
         if (!command.operatorId().equals(task.getAssignee())) {
             throw new EngineOperationException(
                 "TASK_NOT_ASSIGNED_TO_OPERATOR",
@@ -114,6 +111,59 @@ public final class FlowableApprovalEngine implements ApprovalEngine {
         }
         taskService.complete(command.taskId(), command.variables());
         return new TaskResult(command.taskId(), "COMPLETED");
+    }
+
+    @Override
+    public void terminate(TerminateInstanceCommand command) {
+        ProcessInstance instance = runtimeService.createProcessInstanceQuery()
+            .processInstanceId(command.processInstanceId())
+            .singleResult();
+        if (instance == null || !command.tenantId().equals(instance.getTenantId())) {
+            throw new EngineOperationException(
+                "PROCESS_INSTANCE_NOT_FOUND",
+                "process instance was not found for the tenant"
+            );
+        }
+        runtimeService.deleteProcessInstance(command.processInstanceId(), command.reason());
+    }
+
+    @Override
+    public TaskSnapshot transfer(TransferTaskCommand command) {
+        Task task = requireTask(command.tenantId(), command.taskId());
+        if (!command.currentAssigneeId().equals(task.getAssignee())) {
+            throw new EngineOperationException(
+                "TASK_NOT_ASSIGNED_TO_OPERATOR",
+                "task is not assigned to the current operator"
+            );
+        }
+        taskService.setAssignee(command.taskId(), command.targetAssigneeId());
+        return snapshot(requireTask(command.tenantId(), command.taskId()));
+    }
+
+    @Override
+    public void retrieve(RetrieveTaskCommand command) {
+        Task currentTask = requireTask(command.tenantId(), command.currentTaskId());
+        if (!command.processInstanceId().equals(currentTask.getProcessInstanceId())) {
+            throw new EngineOperationException(
+                "TASK_PROCESS_INSTANCE_MISMATCH",
+                "task does not belong to the requested process instance"
+            );
+        }
+        runtimeService.createChangeActivityStateBuilder()
+            .processInstanceId(command.processInstanceId())
+            .moveExecutionToActivityId(
+                currentTask.getExecutionId(),
+                command.targetTaskDefinitionKey()
+            )
+            .changeState();
+    }
+
+    private Task requireTask(String tenantId, String taskId) {
+        Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+        if (task == null || !tenantId.equals(task.getTenantId())) {
+            throw new EngineOperationException("TASK_NOT_FOUND", "task was not found for the tenant");
+        }
+        return task;
     }
 
     private static TaskSnapshot snapshot(Task task) {
