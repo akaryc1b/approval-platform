@@ -24,6 +24,7 @@ public final class PurchasePaymentFormSubmissionStarter implements FormSubmissio
     public WorkflowStartResult start(
         RequestContext context,
         String formKey,
+        int formVersion,
         String businessKey,
         Map<String, Object> values,
         Map<String, Object> startParameters
@@ -31,6 +32,12 @@ public final class PurchasePaymentFormSubmissionStarter implements FormSubmissio
         if (!PurchasePaymentTemplate.DEFINITION_KEY.equals(formKey)) {
             throw new UnsupportedFormSubmissionException(
                 "no workflow starter is registered for form " + formKey
+            );
+        }
+        if (formVersion != PurchasePaymentTemplate.FORM_VERSION) {
+            throw new UnsupportedFormSubmissionException(
+                "purchase-payment workflow is bound to form version "
+                    + PurchasePaymentTemplate.FORM_VERSION
             );
         }
         AssigneeRules rules = rules(startParameters, context.operatorId());
