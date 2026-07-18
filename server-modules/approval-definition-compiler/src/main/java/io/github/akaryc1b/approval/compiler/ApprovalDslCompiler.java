@@ -15,7 +15,8 @@ import java.util.Objects;
  */
 public final class ApprovalDslCompiler {
 
-    public static final String COMPILER_VERSION = "1.0.0";
+    public static final String COMPILER_VERSION = "1.1.0";
+    public static final String DECISION_VARIABLE = "approvalDecision";
 
     private final ApprovalDefinitionValidator validator;
 
@@ -59,7 +60,7 @@ public final class ApprovalDslCompiler {
     }
 
     private static String writeBpmn(ApprovalDefinition definition) {
-        StringBuilder xml = new StringBuilder(4096);
+        StringBuilder xml = new StringBuilder(6144);
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
             .append("<definitions xmlns=\"http://www.omg.org/spec/BPMN/20100524/MODEL\"\n")
             .append("             xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n")
@@ -92,6 +93,10 @@ public final class ApprovalDslCompiler {
         }
         if (node instanceof ApprovalDefinition.ApprovalStep approvalStep) {
             writeApproval(xml, approvalStep);
+            return;
+        }
+        if (node instanceof ApprovalDefinition.HandleStep handleStep) {
+            writeHandle(xml, handleStep);
             return;
         }
         if (node instanceof ApprovalDefinition.ConditionStep conditionStep) {
@@ -128,6 +133,11 @@ public final class ApprovalDslCompiler {
             .append("\" flowable:assignee=\"${")
             .append(attribute(assigneeVariable))
             .append("}\"");
+        if (approval.rejectNext() != null) {
+            xml.append(" default=\"")
+                .append(simpleFlowId(approval.id(), approval.next()))
+                .append("\"");
+        }
         if (!collection) {
             xml.append("/>\n");
             return;
@@ -140,10 +150,23 @@ public final class ApprovalDslCompiler {
             .append(attribute(assigneeVariable))
             .append("\">\n")
             .append("        <completionCondition xsi:type=\"tFormalExpression\"><![CDATA[")
-            .append(completionCondition(approval.mode().type()))
+            .append(completionCondition(approval.mode().type(), approval.rejectNext() != null))
             .append("]]></completionCondition>\n")
             .append("      </multiInstanceLoopCharacteristics>\n")
             .append("    </userTask>\n");
+    }
+
+    private static void writeHandle(
+        StringBuilder xml,
+        ApprovalDefinition.HandleStep handle
+    ) {
+        xml.append("    <userTask id=\"")
+            .append(attribute(handle.id()))
+            .append("\" name=\"")
+            .append(attribute(handle.name()))
+            .append("\" flowable:assignee=\"${")
+            .append(attribute(handle.assignee().variable()))
+            .append("}\"/>\n");
     }
 
     private static void writeOutgoingFlows(
@@ -155,11 +178,35 @@ public final class ApprovalDslCompiler {
             return;
         }
         if (node instanceof ApprovalDefinition.ApprovalStep approvalStep) {
+            if (approvalStep.rejectNext() != null) {
+                xml.append("    <sequenceFlow id=\"")
+                    .append(attribute(rejectFlowId(approvalStep)))
+                    .append("\" sourceRef=\"")
+                    .append(attribute(approvalStep.id()))
+                    .append("\" targetRef=\"")
+                    .append(attribute(approvalStep.rejectNext()))
+                    .append("\">\n")
+                    .append("      <conditionExpression xsi:type=\"tFormalExpression\"><![CDATA[")
+                    .append("${")
+                    .append(DECISION_VARIABLE)
+                    .append(" == 'REJECTED'}")
+                    .append("]]></conditionExpression>\n")
+                    .append("    </sequenceFlow>\n");
+            }
             writeSimpleFlow(
                 xml,
                 simpleFlowId(approvalStep.id(), approvalStep.next()),
                 approvalStep.id(),
                 approvalStep.next()
+            );
+            return;
+        }
+        if (node instanceof ApprovalDefinition.HandleStep handleStep) {
+            writeSimpleFlow(
+                xml,
+                simpleFlowId(handleStep.id(), handleStep.next()),
+                handleStep.id(),
+                handleStep.next()
             );
             return;
         }
@@ -208,18 +255,28 @@ public final class ApprovalDslCompiler {
         return "flow_" + condition.id() + "_default";
     }
 
+    private static String rejectFlowId(ApprovalDefinition.ApprovalStep approval) {
+        return "flow_" + approval.id() + "_rejected";
+    }
+
     private static String simpleFlowId(String source, String target) {
         return "flow_" + source + "_" + target;
     }
 
-    private static String completionCondition(ApprovalDefinition.ApprovalModeType type) {
-        return switch (type) {
-            case ALL -> "${nrOfCompletedInstances == nrOfInstances}";
-            case ANY -> "${nrOfCompletedInstances > 0}";
+    private static String completionCondition(
+        ApprovalDefinition.ApprovalModeType type,
+        boolean rejectable
+    ) {
+        String completed = switch (type) {
+            case ALL -> "nrOfCompletedInstances == nrOfInstances";
+            case ANY -> "nrOfCompletedInstances > 0";
             case SINGLE -> throw new IllegalArgumentException(
                 "SINGLE approval mode cannot compile as multi-instance"
             );
         };
+        return rejectable
+            ? "${" + DECISION_VARIABLE + " == 'REJECTED' || " + completed + "}"
+            : "${" + completed + "}";
     }
 
     private static String conditionExpression(ApprovalDefinition.ComparisonCondition condition) {
