@@ -109,7 +109,8 @@ public final class FormDefinitionValidator {
                 "SELECT field must contain at least one static option: " + field.key()
             );
         }
-        if (!constraints.multiple() && constraints.minItems() > 1) {
+        Integer minimumItems = constraints.minItems();
+        if (!constraints.multiple() && minimumItems != null && minimumItems > 1) {
             throw new IllegalArgumentException(
                 "single SELECT field cannot require multiple items: " + field.key()
             );
