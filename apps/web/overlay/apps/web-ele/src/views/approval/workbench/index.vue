@@ -5,9 +5,13 @@ import type {
   PendingTaskDetails,
   PendingTaskItem,
   PendingTaskPage,
+  ProcessedTaskItem,
+  ProcessedTaskPage,
+  StartedInstanceItem,
+  StartedInstancePage,
 } from '#/api/approval';
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import {
@@ -25,6 +29,8 @@ import {
   ElPagination,
   ElSelect,
   ElSkeleton,
+  ElTabPane,
+  ElTabs,
   ElTag,
   ElTimeline,
   ElTimelineItem,
@@ -35,23 +41,32 @@ import {
   findApprovalTimeline,
   findPendingTask,
   findPendingTasks,
+  findProcessedTasks,
+  findStartedInstances,
   rejectTask,
   resubmitTask,
+  retrieveTask,
   transferTask,
+  withdrawInstance,
 } from '#/api/approval';
 
+type WorkbenchTab = 'pending' | 'processed' | 'started';
+type TagType = 'danger' | 'info' | 'primary' | 'success' | 'warning';
+
 const pageSize = 10;
+const activeTab = ref<WorkbenchTab>('pending');
 const currentPage = ref(1);
 const keyword = ref('');
 const loading = ref(false);
 const loadError = ref('');
-const taskPage = ref<PendingTaskPage>({
-  hasMore: false,
-  items: [],
-  limit: pageSize,
-  offset: 0,
-  total: 0,
-});
+const listActionId = ref('');
+
+const pendingPage = ref<PendingTaskPage>(emptyPendingPage());
+const processedPage = ref<ProcessedTaskPage>(emptyProcessedPage());
+const startedPage = ref<StartedInstancePage>(emptyStartedPage());
+const pendingTotal = ref(0);
+const processedTotal = ref(0);
+const startedTotal = ref(0);
 
 const drawerOpen = ref(false);
 const detailLoading = ref(false);
@@ -69,6 +84,24 @@ const revisionTask = computed(
 const drawerTitle = computed(() =>
   revisionTask.value ? '修改并重新提交' : '审批详情',
 );
+const activeTotal = computed(() => {
+  if (activeTab.value === 'processed') {
+    return processedPage.value.total;
+  }
+  if (activeTab.value === 'started') {
+    return startedPage.value.total;
+  }
+  return pendingPage.value.total;
+});
+const activeItemCount = computed(() => {
+  if (activeTab.value === 'processed') {
+    return processedPage.value.items.length;
+  }
+  if (activeTab.value === 'started') {
+    return startedPage.value.items.length;
+  }
+  return pendingPage.value.items.length;
+});
 
 const moneyFormatter = new Intl.NumberFormat('zh-CN', {
   currency: 'CNY',
@@ -81,6 +114,18 @@ const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   month: '2-digit',
   year: 'numeric',
 });
+
+function emptyPendingPage(): PendingTaskPage {
+  return { hasMore: false, items: [], limit: pageSize, offset: 0, total: 0 };
+}
+
+function emptyProcessedPage(): ProcessedTaskPage {
+  return { hasMore: false, items: [], limit: pageSize, offset: 0, total: 0 };
+}
+
+function emptyStartedPage(): StartedInstancePage {
+  return { hasMore: false, items: [], limit: pageSize, offset: 0, total: 0 };
+}
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : '请求失败，请稍后重试';
@@ -104,8 +149,28 @@ function taskStage(task: Pick<PendingTaskItem, 'taskDefinitionKey' | 'taskName'>
   return labels[task.taskDefinitionKey] || task.taskName;
 }
 
-function taskTagType(task: Pick<PendingTaskItem, 'taskDefinitionKey'>) {
+function taskTagType(task: Pick<PendingTaskItem, 'taskDefinitionKey'>): TagType {
   return task.taskDefinitionKey === 'initiatorRevision' ? 'warning' : 'primary';
+}
+
+function instanceStatusLabel(status: StartedInstanceItem['status']) {
+  const labels = {
+    COMPLETED: '已完成',
+    REJECTED: '已驳回',
+    RUNNING: '审批中',
+    WITHDRAWN: '已撤回',
+  };
+  return labels[status];
+}
+
+function instanceStatusType(status: StartedInstanceItem['status']): TagType {
+  if (status === 'COMPLETED') {
+    return 'success';
+  }
+  if (status === 'WITHDRAWN' || status === 'REJECTED') {
+    return 'info';
+  }
+  return 'primary';
 }
 
 function timelineTitle(item: ApprovalTimelineItem) {
@@ -121,7 +186,7 @@ function timelineTitle(item: ApprovalTimelineItem) {
   return labels[item.action] || item.action;
 }
 
-function timelineType(item: ApprovalTimelineItem) {
+function timelineType(item: ApprovalTimelineItem): TagType {
   if (item.action === 'TASK_APPROVED') {
     return 'success';
   }
@@ -138,43 +203,79 @@ function timelineType(item: ApprovalTimelineItem) {
   return 'primary';
 }
 
-async function loadTasks() {
+async function loadActivePage() {
   loading.value = true;
   loadError.value = '';
+  const parameters = {
+    keyword: keyword.value,
+    limit: pageSize,
+    offset: pageOffset.value,
+  };
   try {
-    taskPage.value = await findPendingTasks({
-      keyword: keyword.value,
-      limit: pageSize,
-      offset: pageOffset.value,
-    });
+    if (activeTab.value === 'processed') {
+      processedPage.value = await findProcessedTasks(parameters);
+      processedTotal.value = processedPage.value.total;
+    } else if (activeTab.value === 'started') {
+      startedPage.value = await findStartedInstances(parameters);
+      startedTotal.value = startedPage.value.total;
+    } else {
+      pendingPage.value = await findPendingTasks(parameters);
+      pendingTotal.value = pendingPage.value.total;
+    }
   } catch (error) {
     loadError.value = errorMessage(error);
-    taskPage.value = {
-      hasMore: false,
-      items: [],
-      limit: pageSize,
-      offset: pageOffset.value,
-      total: 0,
-    };
+    if (activeTab.value === 'processed') {
+      processedPage.value = emptyProcessedPage();
+    } else if (activeTab.value === 'started') {
+      startedPage.value = emptyStartedPage();
+    } else {
+      pendingPage.value = emptyPendingPage();
+    }
   } finally {
     loading.value = false;
   }
 }
 
-async function searchTasks() {
+async function loadOverviewCounts() {
+  const parameters = { limit: 1, offset: 0 };
+  const [pending, processed, started] = await Promise.allSettled([
+    findPendingTasks(parameters),
+    findProcessedTasks(parameters),
+    findStartedInstances(parameters),
+  ]);
+  if (pending.status === 'fulfilled') {
+    pendingTotal.value = pending.value.total;
+  }
+  if (processed.status === 'fulfilled') {
+    processedTotal.value = processed.value.total;
+  }
+  if (started.status === 'fulfilled') {
+    startedTotal.value = started.value.total;
+  }
+}
+
+async function refreshWorkbench() {
+  await Promise.all([loadActivePage(), loadOverviewCounts()]);
+}
+
+async function searchItems() {
   currentPage.value = 1;
-  await loadTasks();
+  await loadActivePage();
 }
 
 async function resetSearch() {
   keyword.value = '';
   currentPage.value = 1;
-  await loadTasks();
+  await loadActivePage();
 }
 
 async function changePage(page: number) {
   currentPage.value = page;
-  await loadTasks();
+  await loadActivePage();
+}
+
+function selectTab(tab: WorkbenchTab) {
+  activeTab.value = tab;
 }
 
 async function openTask(task: PendingTaskItem) {
@@ -218,31 +319,20 @@ async function confirmAction(
   }
 }
 
-async function finishAction(message: string) {
+async function finishDrawerAction(message: string) {
   ElMessage.success(message);
   drawerOpen.value = false;
-  await loadTasks();
+  await refreshWorkbench();
 }
 
 async function submitApproval() {
   const task = selectedTask.value;
-  if (!task) {
-    return;
-  }
-  const confirmed = await confirmAction(
-    '审批确认',
-    '确认同意该审批吗？',
-    '确认同意',
-    'warning',
-  );
-  if (!confirmed) {
-    return;
-  }
-
+  if (!task) return;
+  if (!await confirmAction('审批确认', '确认同意该审批吗？', '确认同意', 'warning')) return;
   submitting.value = true;
   try {
     await approveTask(task.taskId, approvalComment.value);
-    await finishAction('审批已同意');
+    await finishDrawerAction('审批已同意');
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -253,27 +343,21 @@ async function submitApproval() {
 async function submitRejection() {
   const task = selectedTask.value;
   const comment = approvalComment.value.trim();
-  if (!task) {
-    return;
-  }
+  if (!task) return;
   if (!comment) {
     ElMessage.warning('驳回时必须填写原因');
     return;
   }
-  const confirmed = await confirmAction(
+  if (!await confirmAction(
     '驳回确认',
     '驳回后将生成发起人修改任务，确认继续吗？',
     '确认驳回',
     'error',
-  );
-  if (!confirmed) {
-    return;
-  }
-
+  )) return;
   submitting.value = true;
   try {
     await rejectTask(task.taskId, comment);
-    await finishAction('已驳回到发起人');
+    await finishDrawerAction('已驳回到发起人');
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -283,23 +367,17 @@ async function submitRejection() {
 
 async function submitResubmission() {
   const task = selectedTask.value;
-  if (!task) {
-    return;
-  }
-  const confirmed = await confirmAction(
+  if (!task) return;
+  if (!await confirmAction(
     '重新提交确认',
     '重新提交后流程将从部门负责人审批重新开始，确认继续吗？',
     '重新提交',
     'warning',
-  );
-  if (!confirmed) {
-    return;
-  }
-
+  )) return;
   submitting.value = true;
   try {
     await resubmitTask(task.taskId, approvalComment.value);
-    await finishAction('申请已重新提交');
+    await finishDrawerAction('申请已重新提交');
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -310,9 +388,7 @@ async function submitResubmission() {
 async function submitTransfer() {
   const task = selectedTask.value;
   const comment = approvalComment.value.trim();
-  if (!task) {
-    return;
-  }
+  if (!task) return;
   if (!transferTargetId.value) {
     ElMessage.warning('请选择转办人员');
     return;
@@ -324,20 +400,16 @@ async function submitTransfer() {
   const candidate = task.transferCandidates?.find(
     (item) => item.userId === transferTargetId.value,
   );
-  const confirmed = await confirmAction(
+  if (!await confirmAction(
     '转办确认',
     `确认将该任务转办给 ${candidate?.displayName || transferTargetId.value} 吗？`,
     '确认转办',
     'warning',
-  );
-  if (!confirmed) {
-    return;
-  }
-
+  )) return;
   submitting.value = true;
   try {
     await transferTask(task.taskId, transferTargetId.value, comment);
-    await finishAction('任务已转办');
+    await finishDrawerAction('任务已转办');
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -345,18 +417,79 @@ async function submitTransfer() {
   }
 }
 
-onMounted(loadTasks);
+async function submitWithdrawal(item: StartedInstanceItem) {
+  if (!item.withdrawable || listActionId.value) return;
+  if (!await confirmAction(
+    '撤回确认',
+    '撤回后当前审批任务将全部取消，确认继续吗？',
+    '确认撤回',
+    'error',
+  )) return;
+  listActionId.value = item.instanceId;
+  try {
+    await withdrawInstance(item.instanceId, '发起人从审批工作台撤回');
+    ElMessage.success('申请已撤回');
+    await refreshWorkbench();
+  } catch (error) {
+    ElMessage.error(errorMessage(error));
+  } finally {
+    listActionId.value = '';
+  }
+}
+
+async function submitRetrieve(item: ProcessedTaskItem) {
+  if (!item.retrievable || listActionId.value) return;
+  if (!await confirmAction(
+    '拿回确认',
+    '拿回后下游待办将取消，任务重新回到你名下，确认继续吗？',
+    '确认拿回',
+    'warning',
+  )) return;
+  listActionId.value = item.taskId;
+  try {
+    await retrieveTask(item.taskId, '审批人从已处理列表拿回');
+    ElMessage.success('任务已拿回');
+    activeTab.value = 'pending';
+    await refreshWorkbench();
+  } catch (error) {
+    ElMessage.error(errorMessage(error));
+  } finally {
+    listActionId.value = '';
+  }
+}
+
+watch(activeTab, async () => {
+  keyword.value = '';
+  currentPage.value = 1;
+  await loadActivePage();
+});
+
+onMounted(refreshWorkbench);
 </script>
 
 <template>
   <Page title="审批工作台">
     <div class="workbench">
       <section class="overview-grid">
-        <ElCard shadow="never">
+        <ElCard class="overview-shell" shadow="never" @click="selectTab('pending')">
           <div class="overview-card">
             <span>待我处理</span>
-            <strong>{{ taskPage.total }}</strong>
-            <small>包含审批与发起人修改任务</small>
+            <strong>{{ pendingTotal }}</strong>
+            <small>审批与发起人修改</small>
+          </div>
+        </ElCard>
+        <ElCard class="overview-shell" shadow="never" @click="selectTab('processed')">
+          <div class="overview-card">
+            <span>我已处理</span>
+            <strong>{{ processedTotal }}</strong>
+            <small>可安全拿回时显示操作</small>
+          </div>
+        </ElCard>
+        <ElCard class="overview-shell" shadow="never" @click="selectTab('started')">
+          <div class="overview-card">
+            <span>我发起的</span>
+            <strong>{{ startedTotal }}</strong>
+            <small>运行中的申请可撤回</small>
           </div>
         </ElCard>
       </section>
@@ -365,22 +498,28 @@ onMounted(loadTasks);
         <template #header>
           <div class="section-header">
             <div>
-              <strong>待处理任务</strong>
-              <span>查看申请信息、审批记录并完成处理</span>
+              <strong>审批事项</strong>
+              <span>按参与身份查看并执行允许的协作动作</span>
             </div>
-            <ElButton :loading="loading" @click="loadTasks">刷新</ElButton>
+            <ElButton :loading="loading" @click="refreshWorkbench">刷新</ElButton>
           </div>
         </template>
+
+        <ElTabs v-model="activeTab" class="workbench-tabs">
+          <ElTabPane :label="`待我处理 ${pendingTotal}`" name="pending" />
+          <ElTabPane :label="`我已处理 ${processedTotal}`" name="processed" />
+          <ElTabPane :label="`我发起的 ${startedTotal}`" name="started" />
+        </ElTabs>
 
         <div class="search-bar">
           <ElInput
             v-model="keyword"
             clearable
-            placeholder="搜索任务、业务编号、供应商或采购订单"
+            placeholder="搜索业务编号、供应商、采购订单或任务"
             @clear="resetSearch"
-            @keyup.enter="searchTasks"
+            @keyup.enter="searchItems"
           />
-          <ElButton type="primary" @click="searchTasks">搜索</ElButton>
+          <ElButton type="primary" @click="searchItems">搜索</ElButton>
         </div>
 
         <ElAlert
@@ -390,26 +529,18 @@ onMounted(loadTasks);
           class="state-block"
           type="error"
         />
-
         <ElSkeleton v-else-if="loading" :rows="5" animated class="state-block" />
-
         <ElEmpty
-          v-else-if="taskPage.items.length === 0"
-          description="当前没有待处理任务"
+          v-else-if="activeItemCount === 0"
+          :description="activeTab === 'pending' ? '当前没有待处理任务' : '当前没有相关审批记录'"
         />
 
-        <div v-else class="task-list">
-          <article
-            v-for="task in taskPage.items"
-            :key="task.taskId"
-            class="task-item"
-          >
+        <div v-else-if="activeTab === 'pending'" class="task-list">
+          <article v-for="task in pendingPage.items" :key="task.taskId" class="task-item">
             <div class="task-main">
               <div class="task-title-row">
                 <strong>{{ task.supplier }}采购付款</strong>
-                <ElTag :type="taskTagType(task)" effect="plain">
-                  {{ taskStage(task) }}
-                </ElTag>
+                <ElTag :type="taskTagType(task)" effect="plain">{{ taskStage(task) }}</ElTag>
               </div>
               <span>{{ task.businessKey }} · {{ task.purchaseOrderReference }}</span>
               <span>发起人 {{ task.initiatorId }} · {{ formatDate(task.taskCreatedAt) }}</span>
@@ -423,11 +554,66 @@ onMounted(loadTasks);
           </article>
         </div>
 
-        <div v-if="taskPage.total > pageSize" class="pagination-row">
+        <div v-else-if="activeTab === 'processed'" class="task-list">
+          <article v-for="task in processedPage.items" :key="task.taskId" class="task-item">
+            <div class="task-main">
+              <div class="task-title-row">
+                <strong>{{ task.supplier }}采购付款</strong>
+                <ElTag effect="plain" type="success">{{ taskStage(task) }}</ElTag>
+              </div>
+              <span>{{ task.businessKey }} · {{ task.purchaseOrderReference }}</span>
+              <span>处理时间 {{ formatDate(task.completedAt) }}</span>
+            </div>
+            <div class="task-actions">
+              <strong>{{ formatMoney(task.amount) }}</strong>
+              <ElButton
+                v-if="task.retrievable"
+                :loading="listActionId === task.taskId"
+                type="warning"
+                plain
+                @click="submitRetrieve(task)"
+              >
+                拿回
+              </ElButton>
+              <ElTag v-else effect="plain" type="info">不可拿回</ElTag>
+            </div>
+          </article>
+        </div>
+
+        <div v-else class="task-list">
+          <article v-for="item in startedPage.items" :key="item.instanceId" class="task-item">
+            <div class="task-main">
+              <div class="task-title-row">
+                <strong>{{ item.supplier }}采购付款</strong>
+                <ElTag :type="instanceStatusType(item.status)" effect="plain">
+                  {{ instanceStatusLabel(item.status) }}
+                </ElTag>
+              </div>
+              <span>{{ item.businessKey }} · {{ item.purchaseOrderReference }}</span>
+              <span>
+                当前环节 {{ item.currentTaskName || '流程已结束' }} · 更新时间 {{ formatDate(item.updatedAt) }}
+              </span>
+            </div>
+            <div class="task-actions">
+              <strong>{{ formatMoney(item.amount) }}</strong>
+              <ElButton
+                v-if="item.withdrawable"
+                :loading="listActionId === item.instanceId"
+                type="danger"
+                plain
+                @click="submitWithdrawal(item)"
+              >
+                撤回
+              </ElButton>
+            </div>
+          </article>
+        </div>
+
+        <div v-if="activeTotal > pageSize" class="pagination-row">
           <ElPagination
             :current-page="currentPage"
             :page-size="pageSize"
-            :total="taskPage.total"
+            :total="activeTotal"
             background
             layout="prev, pager, next, total"
             @current-change="changePage"
@@ -436,14 +622,8 @@ onMounted(loadTasks);
       </ElCard>
     </div>
 
-    <ElDrawer
-      v-model="drawerOpen"
-      :title="drawerTitle"
-      destroy-on-close
-      size="680px"
-    >
+    <ElDrawer v-model="drawerOpen" :title="drawerTitle" destroy-on-close size="680px">
       <ElSkeleton v-if="detailLoading" :rows="10" animated />
-
       <ElAlert
         v-else-if="detailError"
         :closable="false"
@@ -461,31 +641,15 @@ onMounted(loadTasks);
         />
 
         <ElDescriptions :column="2" border title="申请信息">
-          <ElDescriptionsItem label="业务编号">
-            {{ selectedTask.businessKey }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="当前环节">
-            {{ taskStage(selectedTask) }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="发起人">
-            {{ selectedTask.initiatorId }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="付款金额">
-            {{ formatMoney(selectedTask.amount) }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="供应商">
-            {{ selectedTask.supplier }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="采购订单">
-            {{ selectedTask.purchaseOrderReference }}
-          </ElDescriptionsItem>
+          <ElDescriptionsItem label="业务编号">{{ selectedTask.businessKey }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="当前环节">{{ taskStage(selectedTask) }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="发起人">{{ selectedTask.initiatorId }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="付款金额">{{ formatMoney(selectedTask.amount) }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="供应商">{{ selectedTask.supplier }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="采购订单">{{ selectedTask.purchaseOrderReference }}</ElDescriptionsItem>
           <ElDescriptionsItem :span="2" label="附件">
             <div v-if="selectedTask.attachmentIds.length" class="attachment-list">
-              <ElTag
-                v-for="attachment in selectedTask.attachmentIds"
-                :key="attachment"
-                effect="plain"
-              >
+              <ElTag v-for="attachment in selectedTask.attachmentIds" :key="attachment" effect="plain">
                 {{ attachment }}
               </ElTag>
             </div>
@@ -607,7 +771,12 @@ onMounted(loadTasks);
 
 .overview-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 320px);
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.overview-shell {
+  cursor: pointer;
 }
 
 .overview-card {
@@ -656,6 +825,10 @@ onMounted(loadTasks);
 .task-actions {
   display: grid;
   gap: 6px;
+}
+
+.workbench-tabs {
+  margin-bottom: 12px;
 }
 
 .search-bar :deep(.el-input) {
@@ -731,11 +904,13 @@ onMounted(loadTasks);
   width: 100%;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .overview-grid {
     grid-template-columns: 1fr;
   }
+}
 
+@media (max-width: 720px) {
   .section-header,
   .task-item,
   .search-bar {
