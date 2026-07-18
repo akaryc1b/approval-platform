@@ -2,9 +2,6 @@ name: Backend CI
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - agent/m1-comments-mentions-copied
 
 permissions:
   contents: read
