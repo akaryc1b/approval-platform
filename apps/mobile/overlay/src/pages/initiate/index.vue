@@ -1,130 +1,88 @@
 <script lang="ts" setup>
-defineOptions({
-  name: 'ApprovalInitiate',
-})
+import type { FormPage, FormSummary } from '@/api/approval/form-types'
+
+import { findForms } from '@/api/approval/forms'
+
+defineOptions({ name: 'ApprovalInitiate' })
 
 definePage({
-  style: {
-    navigationBarTitleText: '发起审批',
-  },
+  style: { navigationBarTitleText: '发起审批' },
 })
 
 const keyword = ref('')
-const templates = [
-  { category: '采购', icon: '🛒', name: '采购申请', description: '采购物资、设备和服务' },
-  { category: '财务', icon: '💳', name: '付款申请', description: '合同付款、预付款和尾款' },
-  { category: '合同', icon: '📄', name: '合同用印', description: '合同审查、用印和归档' },
-  { category: '人事', icon: '✈️', name: '出差申请', description: '行程、预算和出差审批' },
-  { category: '行政', icon: '🔑', name: '用章申请', description: '公章、合同章和法人章' },
-  { category: '通用', icon: '🧩', name: '通用审批', description: '自定义事项和附件审批' },
-]
+const loading = ref(false)
+const errorText = ref('')
+const page = ref<FormPage>({ hasMore: false, items: [], limit: 50, offset: 0, total: 0 })
 
-const visibleTemplates = computed(() => {
-  const normalized = keyword.value.trim().toLowerCase()
-  if (!normalized) {
-    return templates
+async function loadForms() {
+  loading.value = true
+  errorText.value = ''
+  try {
+    page.value = await findForms(keyword.value, 50, 0)
   }
-  return templates.filter(template =>
-    `${template.name}${template.category}${template.description}`.toLowerCase().includes(normalized),
-  )
-})
+  catch (error) {
+    errorText.value = error instanceof Error ? error.message : '表单模板加载失败'
+    page.value = { hasMore: false, items: [], limit: 50, offset: 0, total: 0 }
+  }
+  finally {
+    loading.value = false
+  }
+}
 
-function startTemplate(name: string) {
-  uni.showToast({
-    title: `${name}动态表单将在纵向链路中接入`,
-    icon: 'none',
+function openForm(item: FormSummary) {
+  uni.navigateTo({
+    url: `/pages/initiate/form?formKey=${encodeURIComponent(item.formKey)}&version=${item.version}`,
   })
 }
+
+onShow(loadForms)
 </script>
 
 <template>
   <view class="page">
     <view class="search-card">
-      <wd-search v-model="keyword" placeholder="搜索审批模板" />
+      <wd-search
+        v-model="keyword"
+        placeholder="搜索已发布表单"
+        @clear="loadForms"
+        @search="loadForms"
+      />
     </view>
 
     <view class="section-title">
-      <text>常用审批</text>
-      <wd-tag plain type="primary">模板中心</wd-tag>
+      <text>可发起表单</text>
+      <wd-tag plain type="primary">{{ page.total }} 个版本</wd-tag>
     </view>
 
-    <view class="template-grid">
+    <view v-if="loading" class="state-card">正在加载表单...</view>
+    <view v-else-if="errorText" class="state-card state-card--error">
+      <text>{{ errorText }}</text>
+      <wd-button size="small" plain @click="loadForms">重新加载</wd-button>
+    </view>
+    <view v-else-if="page.items.length === 0" class="state-card">
+      暂无已发布表单
+    </view>
+    <view v-else class="template-list">
       <view
-        v-for="template in visibleTemplates"
-        :key="template.name"
+        v-for="item in page.items"
+        :key="`${item.formKey}:${item.version}`"
         class="template-card"
-        @click="startTemplate(template.name)"
+        @click="openForm(item)"
       >
-        <view class="template-card__icon">{{ template.icon }}</view>
-        <view class="template-card__name">{{ template.name }}</view>
-        <view class="template-card__description">{{ template.description }}</view>
-        <wd-tag plain type="primary">{{ template.category }}</wd-tag>
+        <view class="template-main">
+          <text class="template-name">{{ item.name }}</text>
+          <text class="template-meta">{{ item.formKey }} · {{ item.fieldCount }} 个字段</text>
+          <text class="template-meta">发布人 {{ item.publishedBy }}</text>
+        </view>
+        <view class="template-side">
+          <wd-tag plain type="primary">v{{ item.version }}</wd-tag>
+          <text>›</text>
+        </view>
       </view>
-    </view>
-
-    <view class="empty-hint">
-      后续支持按租户、部门、角色和发起范围动态展示模板。
     </view>
   </view>
 </template>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  padding: 24rpx 24rpx 160rpx;
-  background: #f5f7fa;
-}
-
-.search-card {
-  overflow: hidden;
-  border-radius: 22rpx;
-  background: #ffffff;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 32rpx 4rpx 18rpx;
-  color: #111827;
-  font-size: 30rpx;
-  font-weight: 700;
-}
-
-.template-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20rpx;
-}
-
-.template-card {
-  display: grid;
-  gap: 12rpx;
-  padding: 28rpx;
-  border-radius: 24rpx;
-  background: #ffffff;
-  box-shadow: 0 8rpx 24rpx rgb(15 23 42 / 5%);
-}
-
-.template-card__icon {
-  font-size: 44rpx;
-}
-
-.template-card__name {
-  color: #111827;
-  font-size: 30rpx;
-  font-weight: 600;
-}
-
-.template-card__description,
-.empty-hint {
-  color: #8a8f99;
-  font-size: 24rpx;
-  line-height: 1.6;
-}
-
-.empty-hint {
-  padding: 32rpx 12rpx;
-  text-align: center;
-}
+.page{min-height:100vh;padding:24rpx 24rpx 160rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.search-card,.template-card,.state-card{border-radius:24rpx;background:var(--wot-color-white,var(--uni-bg-color));box-shadow:0 8rpx 24rpx rgb(15 23 42 / 5%)}.search-card{overflow:hidden}.section-title,.template-card,.template-side{display:flex;align-items:center;justify-content:space-between;gap:18rpx}.section-title{margin:32rpx 4rpx 18rpx;color:var(--wot-color-content,var(--uni-text-color));font-size:30rpx;font-weight:700}.template-list{display:grid;gap:18rpx}.template-card{padding:26rpx}.template-main{display:grid;flex:1;gap:9rpx}.template-name{color:var(--wot-color-content,var(--uni-text-color));font-size:29rpx;font-weight:700}.template-meta,.state-card,.template-side>text{color:var(--wot-color-content-secondary,var(--uni-text-color-grey));font-size:24rpx}.template-side{flex-direction:column}.state-card{display:grid;justify-items:center;gap:18rpx;padding:60rpx 24rpx;text-align:center}.state-card--error{color:var(--wot-color-danger,var(--uni-color-error))}
 </style>
