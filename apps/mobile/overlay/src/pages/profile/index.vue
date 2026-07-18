@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { findUnreadMessageCount } from '@/api/approval'
 import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
 
 defineOptions({
@@ -12,14 +13,30 @@ definePage({
 })
 
 const runtime = getApprovalRuntimeConfig()
+const unreadMessages = ref(0)
 
 function openTaskList() {
   uni.navigateTo({ url: '/pages/task/list' })
 }
 
+function openMessages() {
+  uni.navigateTo({ url: '/pages/message/index' })
+}
+
 function openInitiate() {
   uni.switchTab({ url: '/pages/initiate/index' })
 }
+
+async function loadUnreadMessages() {
+  try {
+    unreadMessages.value = (await findUnreadMessageCount()).unread
+  }
+  catch {
+    unreadMessages.value = 0
+  }
+}
+
+onShow(loadUnreadMessages)
 </script>
 
 <template>
@@ -35,8 +52,17 @@ function openInitiate() {
 
     <view class="entry-card">
       <view class="entry-row" @click="openTaskList">
-        <text>待我审批</text>
+        <text>审批工作台</text>
         <text class="entry-row__value">›</text>
+      </view>
+      <view class="entry-row" @click="openMessages">
+        <text>消息与协作</text>
+        <view class="entry-row__right">
+          <wd-tag v-if="unreadMessages" type="danger" plain>
+            {{ unreadMessages }} 未读
+          </wd-tag>
+          <text class="entry-row__value">›</text>
+        </view>
       </view>
       <view class="entry-row" @click="openInitiate">
         <text>发起审批</text>
@@ -128,13 +154,22 @@ function openInitiate() {
 }
 
 .entry-row,
-.runtime-row {
+.runtime-row,
+.entry-row__right {
   display: flex;
   align-items: center;
+}
+
+.entry-row,
+.runtime-row {
   justify-content: space-between;
   min-height: 92rpx;
   color: var(--wot-color-content, var(--uni-text-color));
   border-bottom: 1rpx solid var(--wot-color-border-light, var(--uni-border-color));
+}
+
+.entry-row__right {
+  gap: 14rpx;
 }
 
 .entry-row:last-child,
