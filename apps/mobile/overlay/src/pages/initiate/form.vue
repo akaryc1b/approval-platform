@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import type { PublishedForm } from '@/api/approval/form-types'
+import type { FormRuntimeView } from '@/api/approval/form-types'
 
-import { findForm, submitForm } from '@/api/approval/forms'
+import { findStartFormRuntime, submitForm } from '@/api/approval/forms'
 import ApprovalFormRenderer from '@/components/approval/ApprovalFormRenderer.vue'
 import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
 
@@ -17,7 +17,7 @@ const version = ref(0)
 const loading = ref(false)
 const submitting = ref(false)
 const errorText = ref('')
-const published = ref<PublishedForm>()
+const formRuntime = ref<FormRuntimeView>()
 const formValues = ref<Record<string, unknown>>({})
 const businessKey = ref(`FORM-${Date.now().toString(36).toUpperCase()}`)
 const connectorKey = ref(runtime.connector)
@@ -35,8 +35,8 @@ async function loadForm() {
   loading.value = true
   errorText.value = ''
   try {
-    published.value = await findForm(formKey.value, version.value)
-    formValues.value = {}
+    formRuntime.value = await findStartFormRuntime(formKey.value, version.value)
+    formValues.value = { ...formRuntime.value.values }
   }
   catch (error) {
     errorText.value = error instanceof Error ? error.message : '表单加载失败'
@@ -61,7 +61,7 @@ function validationMessage() {
 }
 
 async function submitDynamicForm() {
-  const schema = published.value?.definition
+  const schema = formRuntime.value?.definition
   if (!schema || submitting.value) return
   const message = validationMessage()
   if (message) {
@@ -138,15 +138,17 @@ onLoad((query) => {
       <text>{{ errorText }}</text>
       <wd-button size="small" plain @click="loadForm">重新加载</wd-button>
     </view>
-    <template v-else-if="published">
+    <template v-else-if="formRuntime">
       <view class="form-header">
         <view>
-          <text class="form-name">{{ published.definition.name }}</text>
+          <text class="form-name">{{ formRuntime.definition.name }}</text>
           <text class="form-meta">
-            {{ published.definition.formKey }} · v{{ published.definition.version }}
+            {{ formRuntime.definition.formKey }} · v{{ formRuntime.definition.version }}
           </text>
         </view>
-        <wd-tag plain type="success">已发布</wd-tag>
+        <wd-tag :type="formRuntime.defaultedUiSchema ? 'warning' : 'success'">
+          {{ formRuntime.defaultedUiSchema ? '默认布局' : `UI v${formRuntime.uiSchema.version}` }}
+        </wd-tag>
       </view>
 
       <view class="business-card">
@@ -157,14 +159,16 @@ onLoad((query) => {
       <ApprovalFormRenderer
         ref="renderer"
         v-model="formValues"
-        :schema="published.definition"
+        :field-permissions="formRuntime.fieldPermissions"
+        :schema="formRuntime.definition"
+        :ui-schema="formRuntime.uiSchema"
       />
 
       <view class="routing-card">
         <view class="routing-title" @click="showRouting = !showRouting">
           <view>
             <text class="section-title">审批人解析参数</text>
-            <text class="form-meta">后续由流程配置器管理，当前用于纵向链路</text>
+            <text class="form-meta">配置本次流程的组织解析规则</text>
           </view>
           <text>{{ showRouting ? '收起' : '展开' }}</text>
         </view>
@@ -182,7 +186,7 @@ onLoad((query) => {
       <wd-button plain @click="goBack">返回</wd-button>
       <wd-button
         type="primary"
-        :disabled="!published || loading"
+        :disabled="!formRuntime || loading"
         :loading="submitting"
         @click="submitDynamicForm"
       >
