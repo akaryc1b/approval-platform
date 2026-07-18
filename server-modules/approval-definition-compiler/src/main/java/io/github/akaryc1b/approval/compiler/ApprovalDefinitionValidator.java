@@ -2,19 +2,20 @@ package io.github.akaryc1b.approval.compiler;
 
 import io.github.akaryc1b.approval.domain.definition.ApprovalDefinition;
 import io.github.akaryc1b.approval.domain.form.FormDefinition;
+import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/**
- * Performs engine-independent graph, identifier and schema compatibility validation.
- */
+/** Performs engine-independent graph, identifier, schema and permission compatibility validation. */
 public final class ApprovalDefinitionValidator {
 
     private static final Pattern NODE_IDENTIFIER = Pattern.compile("[A-Za-z][A-Za-z0-9_-]*");
@@ -24,10 +25,19 @@ public final class ApprovalDefinitionValidator {
         ApprovalDefinition definition,
         FormDefinition formDefinition
     ) {
+        return validate(definition, formDefinition, null);
+    }
+
+    public ValidationReport validate(
+        ApprovalDefinition definition,
+        FormDefinition formDefinition,
+        UiSchemaDefinition uiSchemaDefinition
+    ) {
         List<ValidationIssue> issues = new ArrayList<>();
-        validateSchemas(definition, formDefinition, issues);
+        validateSchemas(definition, formDefinition, uiSchemaDefinition, issues);
 
         Map<String, ApprovalDefinition.ProcessNode> nodes = new LinkedHashMap<>();
+        int startNodes = 0;
         for (ApprovalDefinition.ProcessNode node : definition.nodes()) {
             if (!NODE_IDENTIFIER.matcher(node.id()).matches()) {
                 issues.add(issue("INVALID_NODE_ID", node.id(), "node ID is not engine-safe"));
@@ -35,6 +45,16 @@ public final class ApprovalDefinitionValidator {
             if (nodes.putIfAbsent(node.id(), node) != null) {
                 issues.add(issue("DUPLICATE_NODE_ID", node.id(), "node ID must be unique"));
             }
+            if (node instanceof ApprovalDefinition.StartNode) {
+                startNodes++;
+            }
+        }
+        if (startNodes != 1) {
+            issues.add(issue(
+                "INVALID_START_COUNT",
+                definition.definitionKey(),
+                "exactly one START node is required"
+            ));
         }
 
         ApprovalDefinition.ProcessNode start = nodes.get(definition.startNodeId());
@@ -61,6 +81,7 @@ public final class ApprovalDefinitionValidator {
         }
 
         int endNodes = 0;
+        Map<String, List<String>> splitOwnersByJoin = new LinkedHashMap<>();
         for (ApprovalDefinition.ProcessNode node : definition.nodes()) {
             if (node instanceof ApprovalDefinition.StartNode startNode) {
                 requireNode(nodes, startNode.id(), startNode.next(), issues);
@@ -74,11 +95,13 @@ public final class ApprovalDefinitionValidator {
                 requireNode(nodes, handleStep.id(), handleStep.next(), issues);
                 validateHandle(handleStep, issues);
             } else if (node instanceof ApprovalDefinition.ConditionStep conditionStep) {
-                requireNode(nodes, conditionStep.id(), conditionStep.defaultNext(), issues);
-                for (ApprovalDefinition.ConditionRoute route : conditionStep.routes()) {
-                    requireNode(nodes, conditionStep.id(), route.next(), issues);
-                    validateCondition(conditionStep.id(), route.condition(), fields, issues);
-                }
+                validateConditionStep(conditionStep, nodes, fields, issues);
+            } else if (node instanceof ApprovalDefinition.ParallelSplitNode split) {
+                validateParallelSplit(split, nodes, issues);
+                splitOwnersByJoin.computeIfAbsent(split.joinNodeId(), ignored -> new ArrayList<>())
+                    .add(split.id());
+            } else if (node instanceof ApprovalDefinition.ParallelJoinNode join) {
+                requireNode(nodes, join.id(), join.next(), issues);
             } else if (node instanceof ApprovalDefinition.EndNode) {
                 endNodes++;
             }
@@ -86,11 +109,31 @@ public final class ApprovalDefinitionValidator {
         if (endNodes == 0) {
             issues.add(issue("MISSING_END_NODE", definition.definitionKey(), "an END node is required"));
         }
+        for (ApprovalDefinition.ProcessNode node : definition.nodes()) {
+            if (!(node instanceof ApprovalDefinition.ParallelJoinNode join)) {
+                continue;
+            }
+            List<String> owners = splitOwnersByJoin.getOrDefault(join.id(), List.of());
+            if (owners.isEmpty()) {
+                issues.add(issue(
+                    "ORPHAN_PARALLEL_JOIN",
+                    join.id(),
+                    "parallel JOIN must be referenced by exactly one split"
+                ));
+            } else if (owners.size() > 1) {
+                issues.add(issue(
+                    "SHARED_PARALLEL_JOIN",
+                    join.id(),
+                    "parallel JOIN cannot be shared by multiple splits"
+                ));
+            }
+        }
 
         if (start instanceof ApprovalDefinition.StartNode) {
             validateReachability(definition.startNodeId(), nodes, issues);
             validateCycles(definition.startNodeId(), nodes, issues);
         }
+        validatePermissionContexts(definition, uiSchemaDefinition, issues);
         return new ValidationReport(issues);
     }
 
@@ -98,7 +141,15 @@ public final class ApprovalDefinitionValidator {
         ApprovalDefinition definition,
         FormDefinition formDefinition
     ) {
-        ValidationReport report = validate(definition, formDefinition);
+        validateOrThrow(definition, formDefinition, null);
+    }
+
+    public void validateOrThrow(
+        ApprovalDefinition definition,
+        FormDefinition formDefinition,
+        UiSchemaDefinition uiSchemaDefinition
+    ) {
+        ValidationReport report = validate(definition, formDefinition, uiSchemaDefinition);
         if (!report.valid()) {
             throw new DefinitionValidationException(report);
         }
@@ -107,6 +158,7 @@ public final class ApprovalDefinitionValidator {
     private static void validateSchemas(
         ApprovalDefinition definition,
         FormDefinition formDefinition,
+        UiSchemaDefinition uiSchemaDefinition,
         List<ValidationIssue> issues
     ) {
         if (!ApprovalDefinition.CURRENT_SCHEMA_VERSION.equals(definition.schemaVersion())) {
@@ -128,6 +180,24 @@ public final class ApprovalDefinitionValidator {
                 "FORM_PROCESS_KEY_MISMATCH",
                 formDefinition.formKey(),
                 "formKey must equal definitionKey"
+            ));
+        }
+        if (uiSchemaDefinition == null) {
+            return;
+        }
+        if (!UiSchemaDefinition.CURRENT_SCHEMA_VERSION.equals(uiSchemaDefinition.schemaVersion())) {
+            issues.add(issue(
+                "UNSUPPORTED_UI_SCHEMA",
+                uiSchemaDefinition.schemaVersion(),
+                "unsupported UI Schema version"
+            ));
+        }
+        if (!definition.definitionKey().equals(uiSchemaDefinition.formKey())
+            || formDefinition.version() != uiSchemaDefinition.formVersion()) {
+            issues.add(issue(
+                "UI_SCHEMA_BINDING_MISMATCH",
+                uiSchemaDefinition.formKey(),
+                "UI Schema must bind to the exact Form Schema used by the Approval DSL"
             ));
         }
     }
@@ -186,7 +256,39 @@ public final class ApprovalDefinitionValidator {
             issues.add(issue(
                 "UNSUPPORTED_EMPTY_POLICY",
                 nodeId,
-                "the first compiler version supports FAIL only"
+                "the compiler supports FAIL only"
+            ));
+        }
+    }
+
+    private static void validateConditionStep(
+        ApprovalDefinition.ConditionStep condition,
+        Map<String, ApprovalDefinition.ProcessNode> nodes,
+        Map<String, FormDefinition.FormField> fields,
+        List<ValidationIssue> issues
+    ) {
+        requireNode(nodes, condition.id(), condition.defaultNext(), issues);
+        Set<ApprovalDefinition.ComparisonCondition> conditions = new LinkedHashSet<>();
+        for (int index = 0; index < condition.routes().size(); index++) {
+            ApprovalDefinition.ConditionRoute route = condition.routes().get(index);
+            requireNode(nodes, condition.id(), route.next(), issues);
+            validateCondition(condition.id(), route.condition(), fields, issues);
+            if (!conditions.add(route.condition())) {
+                issues.add(issue(
+                    Severity.WARNING,
+                    "DUPLICATE_CONDITION_ROUTE",
+                    condition.id(),
+                    "route " + (index + 1) + " duplicates an earlier condition"
+                ));
+            }
+            warnConstantCondition(condition.id(), route.condition(), fields, issues);
+        }
+        if (condition.routes().stream().anyMatch(route -> route.next().equals(condition.defaultNext()))) {
+            issues.add(issue(
+                Severity.INFO,
+                "CONDITION_DEFAULT_REUSES_TARGET",
+                condition.id(),
+                "a conditional and default route converge on the same target"
             ));
         }
     }
@@ -212,12 +314,179 @@ public final class ApprovalDefinitionValidator {
                 nodeId,
                 "condition field is not present in the Form Schema"
             ));
-        } else if (field.type() != FormDefinition.FieldType.MONEY) {
+        } else if (field.type() != FormDefinition.FieldType.MONEY
+            && field.type() != FormDefinition.FieldType.NUMBER) {
             issues.add(issue(
                 "NON_NUMERIC_CONDITION_FIELD",
                 nodeId,
-                "comparison conditions currently require a MONEY field"
+                "comparison conditions require a MONEY or NUMBER field"
             ));
+        }
+    }
+
+    private static void warnConstantCondition(
+        String nodeId,
+        ApprovalDefinition.ComparisonCondition condition,
+        Map<String, FormDefinition.FormField> fields,
+        List<ValidationIssue> issues
+    ) {
+        FormDefinition.FormField field = fields.get(condition.field());
+        if (field == null || field.constraints().minimum() == null) {
+            return;
+        }
+        BigDecimal minimum = field.constraints().minimum();
+        int compared = condition.value().compareTo(minimum);
+        boolean alwaysTrue = switch (condition.operator()) {
+            case GREATER_THAN -> compared < 0;
+            case GREATER_THAN_OR_EQUAL -> compared <= 0;
+            default -> false;
+        };
+        boolean alwaysFalse = switch (condition.operator()) {
+            case LESS_THAN -> compared <= 0;
+            case LESS_THAN_OR_EQUAL, EQUAL -> compared < 0;
+            default -> false;
+        };
+        if (alwaysTrue || alwaysFalse) {
+            issues.add(issue(
+                Severity.WARNING,
+                alwaysTrue ? "CONDITION_ALWAYS_TRUE" : "CONDITION_ALWAYS_FALSE",
+                nodeId,
+                "condition is constant for values allowed by the Form Schema minimum"
+            ));
+        }
+    }
+
+    private static void validateParallelSplit(
+        ApprovalDefinition.ParallelSplitNode split,
+        Map<String, ApprovalDefinition.ProcessNode> nodes,
+        List<ValidationIssue> issues
+    ) {
+        ApprovalDefinition.ProcessNode join = nodes.get(split.joinNodeId());
+        if (!(join instanceof ApprovalDefinition.ParallelJoinNode)) {
+            issues.add(issue(
+                "MISSING_PARALLEL_JOIN",
+                split.id(),
+                "parallel split joinNodeId must reference a PARALLEL_JOIN node"
+            ));
+        }
+        Set<String> branchIds = new HashSet<>();
+        Set<String> branchTargets = new HashSet<>();
+        for (ApprovalDefinition.ParallelBranch branch : split.branches()) {
+            if (!NODE_IDENTIFIER.matcher(branch.id()).matches()) {
+                issues.add(issue(
+                    "INVALID_PARALLEL_BRANCH_ID",
+                    split.id(),
+                    "parallel branch ID is not engine-safe: " + branch.id()
+                ));
+            }
+            if (!branchIds.add(branch.id())) {
+                issues.add(issue(
+                    "DUPLICATE_PARALLEL_BRANCH_ID",
+                    split.id(),
+                    "parallel branch IDs must be unique"
+                ));
+            }
+            if (!branchTargets.add(branch.next())) {
+                issues.add(issue(
+                    Severity.WARNING,
+                    "DUPLICATE_PARALLEL_BRANCH_TARGET",
+                    split.id(),
+                    "multiple parallel branches enter the same node"
+                ));
+            }
+            requireNode(nodes, split.id(), branch.next(), issues);
+            if (join instanceof ApprovalDefinition.ParallelJoinNode
+                && !allPathsConverge(
+                    branch.next(),
+                    split.joinNodeId(),
+                    nodes,
+                    new HashSet<>(),
+                    new HashMap<>()
+                )) {
+                issues.add(issue(
+                    "PARALLEL_BRANCH_MISSING_JOIN",
+                    branch.id(),
+                    "all parallel branch paths must converge on join " + split.joinNodeId()
+                ));
+            }
+        }
+    }
+
+    private static boolean allPathsConverge(
+        String current,
+        String target,
+        Map<String, ApprovalDefinition.ProcessNode> nodes,
+        Set<String> visiting,
+        Map<String, Boolean> memo
+    ) {
+        if (current.equals(target)) {
+            return true;
+        }
+        Boolean known = memo.get(current);
+        if (known != null) {
+            return known;
+        }
+        if (!visiting.add(current)) {
+            return false;
+        }
+        ApprovalDefinition.ProcessNode node = nodes.get(current);
+        if (node == null
+            || node instanceof ApprovalDefinition.EndNode
+            || node instanceof ApprovalDefinition.ParallelJoinNode) {
+            visiting.remove(current);
+            memo.put(current, false);
+            return false;
+        }
+        List<String> targets = outgoing(node);
+        boolean converges = !targets.isEmpty();
+        for (String next : targets) {
+            if (!allPathsConverge(next, target, nodes, visiting, memo)) {
+                converges = false;
+                break;
+            }
+        }
+        visiting.remove(current);
+        memo.put(current, converges);
+        return converges;
+    }
+
+    private static void validatePermissionContexts(
+        ApprovalDefinition definition,
+        UiSchemaDefinition uiSchema,
+        List<ValidationIssue> issues
+    ) {
+        if (uiSchema == null) {
+            return;
+        }
+        Set<String> contexts = new HashSet<>();
+        for (UiSchemaDefinition.NodePermissions permissions : uiSchema.nodePermissions()) {
+            if (!contexts.add(permissions.contextKey())) {
+                issues.add(issue(
+                    "DUPLICATE_PERMISSION_CONTEXT",
+                    permissions.contextKey(),
+                    "UI Schema permission context must be unique"
+                ));
+            }
+        }
+        if (!contexts.contains(UiSchemaDefinition.START_CONTEXT)) {
+            issues.add(issue(
+                Severity.WARNING,
+                "MISSING_START_PERMISSION_CONTEXT",
+                UiSchemaDefinition.START_CONTEXT,
+                "start context is absent; runtime must apply the secure hidden-field default"
+            ));
+        }
+        for (ApprovalDefinition.ProcessNode node : definition.nodes()) {
+            if ((node instanceof ApprovalDefinition.ApprovalStep
+                || node instanceof ApprovalDefinition.HandleStep)
+                && !contexts.contains(node.id())) {
+                issues.add(issue(
+                    Severity.WARNING,
+                    "SAFE_PERMISSION_DEFAULT",
+                    node.id(),
+                    "node has no explicit UI permission context; all fields default to hidden"
+                ));
+            }
         }
     }
 
@@ -336,33 +605,76 @@ public final class ApprovalDefinitionValidator {
             values.add(conditionStep.defaultNext());
             return List.copyOf(values);
         }
+        if (node instanceof ApprovalDefinition.ParallelSplitNode split) {
+            return split.branches().stream().map(ApprovalDefinition.ParallelBranch::next).toList();
+        }
+        if (node instanceof ApprovalDefinition.ParallelJoinNode join) {
+            return List.of(join.next());
+        }
         return List.of();
     }
 
     private static ValidationIssue issue(String code, String subject, String message) {
-        return new ValidationIssue(code, subject, message);
+        return issue(Severity.ERROR, code, subject, message);
+    }
+
+    private static ValidationIssue issue(
+        Severity severity,
+        String code,
+        String subject,
+        String message
+    ) {
+        return new ValidationIssue(code, subject, message, severity);
+    }
+
+    public enum Severity {
+        ERROR,
+        WARNING,
+        INFO
     }
 
     public record ValidationReport(List<ValidationIssue> issues) {
-
         public ValidationReport {
             issues = issues == null ? List.of() : List.copyOf(issues);
         }
 
         public boolean valid() {
-            return issues.isEmpty();
+            return issues.stream().noneMatch(issue -> issue.severity() == Severity.ERROR);
+        }
+
+        public List<ValidationIssue> errors() {
+            return issues.stream().filter(issue -> issue.severity() == Severity.ERROR).toList();
+        }
+
+        public List<ValidationIssue> warnings() {
+            return issues.stream().filter(issue -> issue.severity() == Severity.WARNING).toList();
+        }
+
+        public List<ValidationIssue> infos() {
+            return issues.stream().filter(issue -> issue.severity() == Severity.INFO).toList();
         }
     }
 
-    public record ValidationIssue(String code, String subject, String message) {
+    public record ValidationIssue(
+        String code,
+        String subject,
+        String message,
+        Severity severity
+    ) {
+        public ValidationIssue(String code, String subject, String message) {
+            this(code, subject, message, Severity.ERROR);
+        }
+
+        public ValidationIssue {
+            severity = severity == null ? Severity.ERROR : severity;
+        }
     }
 
     public static final class DefinitionValidationException extends IllegalArgumentException {
-
         private final ValidationReport report;
 
         public DefinitionValidationException(ValidationReport report) {
-            super("Approval definition failed validation with " + report.issues().size() + " issue(s)");
+            super("Approval definition failed validation with " + report.errors().size() + " error(s)");
             this.report = report;
         }
 
