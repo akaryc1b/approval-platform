@@ -88,7 +88,13 @@ public class ApprovalFormDesignApiExceptionHandler {
         IllegalStateException exception,
         HttpServletRequest request
     ) {
-        return response(409, "FORM_DESIGN_INVALID_STATE", safeMessage(exception), false, request);
+        return response(
+            409,
+            "FORM_DESIGN_INVALID_STATE",
+            "form design state conflict",
+            false,
+            request
+        );
     }
 
     @ExceptionHandler(Exception.class)
