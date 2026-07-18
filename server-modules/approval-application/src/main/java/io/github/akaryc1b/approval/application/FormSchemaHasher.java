@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.domain.form.FormDefinition.DefaultValue;
 import io.github.akaryc1b.approval.domain.form.FormDefinition.DefaultValueType;
 import io.github.akaryc1b.approval.domain.form.FormDefinition.FieldConstraints;
 import io.github.akaryc1b.approval.domain.form.FormDefinition.FormField;
+import io.github.akaryc1b.approval.domain.form.FormDefinition.SelectOption;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -36,6 +37,7 @@ public final class FormSchemaHasher {
                 update(digest, Boolean.toString(field.required()));
                 appendConstraints(digest, field.constraints());
                 appendDefaultValue(digest, field.defaultValue());
+                appendOptions(digest, field.options());
             }
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException exception) {
@@ -59,6 +61,19 @@ public final class FormSchemaHasher {
         update(digest, defaultValue.type().name());
         if (defaultValue.type() == DefaultValueType.LITERAL) {
             appendLiteral(digest, defaultValue.literal());
+        }
+    }
+
+    private static void appendOptions(MessageDigest digest, List<SelectOption> options) {
+        if (options.isEmpty()) {
+            return;
+        }
+        update(digest, "select-options-v1");
+        update(digest, Integer.toString(options.size()));
+        for (SelectOption option : options) {
+            update(digest, option.value());
+            update(digest, option.label());
+            update(digest, Boolean.toString(option.disabled()));
         }
     }
 
