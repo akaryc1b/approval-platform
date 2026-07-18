@@ -109,6 +109,7 @@ public final class ApprovalFormSubmissionService {
         Objects.requireNonNull(command, "command must not be null");
         StartPlan startPlan = runtimeService == null ? null : runtimeService.validateStart(
             command.context().tenantId(),
+            command.context().operatorId(),
             command.formKey(),
             command.formVersion(),
             command.values()
