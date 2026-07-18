@@ -1,12 +1,15 @@
 package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalFormDesignService;
 import io.github.akaryc1b.approval.application.ApprovalFormRuntimeService;
 import io.github.akaryc1b.approval.application.ApprovalFormService;
 import io.github.akaryc1b.approval.application.ApprovalFormSubmissionService;
 import io.github.akaryc1b.approval.application.ApprovalUiSchemaService;
 import io.github.akaryc1b.approval.application.FormDataValidator;
+import io.github.akaryc1b.approval.application.FormDefaultValueResolver;
 import io.github.akaryc1b.approval.application.FormDefinitionValidator;
+import io.github.akaryc1b.approval.application.FormPackageHasher;
 import io.github.akaryc1b.approval.application.FormSchemaHasher;
 import io.github.akaryc1b.approval.application.FormSubmissionHasher;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
@@ -14,6 +17,8 @@ import io.github.akaryc1b.approval.application.PurchasePaymentFormSubmissionStar
 import io.github.akaryc1b.approval.application.UiSchemaDefinitionValidator;
 import io.github.akaryc1b.approval.application.UiSchemaHasher;
 import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore;
+import io.github.akaryc1b.approval.application.port.ApprovalFormDesignDraftStore;
+import io.github.akaryc1b.approval.application.port.ApprovalFormPackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormSubmissionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
@@ -22,6 +27,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalUiSchemaStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.FormSubmissionWorkflowStarter;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormDesignDraftStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormPackageStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormSubmissionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalUiSchemaStore;
@@ -56,6 +63,11 @@ public class ApprovalFormConfiguration {
     }
 
     @Bean
+    FormPackageHasher formPackageHasher() {
+        return new FormPackageHasher();
+    }
+
+    @Bean
     UiSchemaDefinitionValidator uiSchemaDefinitionValidator() {
         return new UiSchemaDefinitionValidator();
     }
@@ -63,6 +75,11 @@ public class ApprovalFormConfiguration {
     @Bean
     UiSchemaHasher uiSchemaHasher() {
         return new UiSchemaHasher();
+    }
+
+    @Bean
+    FormDefaultValueResolver formDefaultValueResolver(Clock approvalClock) {
+        return new FormDefaultValueResolver(approvalClock);
     }
 
     @Bean
@@ -87,6 +104,19 @@ public class ApprovalFormConfiguration {
         ObjectMapper approvalPersistenceObjectMapper
     ) {
         return new JdbcApprovalUiSchemaStore(dataSource, approvalPersistenceObjectMapper);
+    }
+
+    @Bean
+    ApprovalFormDesignDraftStore approvalFormDesignDraftStore(
+        DataSource dataSource,
+        ObjectMapper approvalPersistenceObjectMapper
+    ) {
+        return new JdbcApprovalFormDesignDraftStore(dataSource, approvalPersistenceObjectMapper);
+    }
+
+    @Bean
+    ApprovalFormPackageStore approvalFormPackageStore(DataSource dataSource) {
+        return new JdbcApprovalFormPackageStore(dataSource);
     }
 
     @Bean
@@ -132,6 +162,40 @@ public class ApprovalFormConfiguration {
     }
 
     @Bean
+    ApprovalFormDesignService approvalFormDesignService(
+        IdempotencyGuard idempotencyGuard,
+        ApprovalFormDesignDraftStore approvalFormDesignDraftStore,
+        ApprovalFormPackageStore approvalFormPackageStore,
+        ApprovalFormStore approvalFormStore,
+        ApprovalUiSchemaStore approvalUiSchemaStore,
+        AuditEventSink auditEventSink,
+        FormDefinitionValidator formDefinitionValidator,
+        UiSchemaDefinitionValidator uiSchemaDefinitionValidator,
+        FormSchemaHasher formSchemaHasher,
+        UiSchemaHasher uiSchemaHasher,
+        FormPackageHasher formPackageHasher,
+        FormDefaultValueResolver formDefaultValueResolver,
+        Clock approvalClock
+    ) {
+        return new ApprovalFormDesignService(
+            idempotencyGuard,
+            approvalFormDesignDraftStore,
+            approvalFormPackageStore,
+            approvalFormStore,
+            approvalUiSchemaStore,
+            auditEventSink,
+            formDefinitionValidator,
+            uiSchemaDefinitionValidator,
+            formSchemaHasher,
+            uiSchemaHasher,
+            formPackageHasher,
+            formDefaultValueResolver,
+            approvalClock,
+            UUID::randomUUID
+        );
+    }
+
+    @Bean
     ApprovalFormRuntimeService approvalFormRuntimeService(
         ApprovalFormStore approvalFormStore,
         ApprovalUiSchemaStore approvalUiSchemaStore,
@@ -139,7 +203,8 @@ public class ApprovalFormConfiguration {
         ApprovalProjectionStore approvalProjectionStore,
         ApprovalAttachmentStore approvalAttachmentStore,
         FormDataValidator formDataValidator,
-        FormSubmissionHasher formSubmissionHasher
+        FormSubmissionHasher formSubmissionHasher,
+        FormDefaultValueResolver formDefaultValueResolver
     ) {
         return new ApprovalFormRuntimeService(
             approvalFormStore,
@@ -149,6 +214,7 @@ public class ApprovalFormConfiguration {
             approvalAttachmentStore,
             formDataValidator,
             formSubmissionHasher,
+            formDefaultValueResolver,
             UUID::randomUUID
         );
     }
