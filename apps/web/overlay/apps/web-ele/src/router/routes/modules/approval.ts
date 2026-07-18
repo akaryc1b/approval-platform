@@ -22,6 +22,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ApprovalDiscussion',
+        path: '/approval/discussion',
+        component: () => import('#/views/approval/discussion/index.vue'),
+        meta: {
+          authority: ['approval:comment:view'],
+          icon: 'lucide:messages-square',
+          title: '审批讨论',
+        },
+      },
+      {
         name: 'ApprovalMessages',
         path: '/approval/messages',
         component: () => import('#/views/approval/messages/index.vue'),
