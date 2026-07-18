@@ -34,13 +34,13 @@ public final class JdbcApprovalFormStore implements ApprovalFormStore {
 
     @Override
     public void lockVersion(String tenantId, String formKey, int version) {
-        jdbc.queryForObject(
+        jdbc.query(
             "select pg_advisory_xact_lock(hashtextextended(:lockKey, 0))",
             new MapSqlParameterSource().addValue(
                 "lockKey",
                 "form:" + tenantId + ':' + formKey + ':' + version
             ),
-            Long.class
+            resultSet -> null
         );
     }
 
@@ -94,9 +94,10 @@ public final class JdbcApprovalFormStore implements ApprovalFormStore {
 
     @Override
     public FormPage findForms(FormCriteria criteria) {
+        String keyword = criteria.keyword() == null ? "" : criteria.keyword();
         MapSqlParameterSource parameters = new MapSqlParameterSource()
             .addValue("tenantId", criteria.tenantId())
-            .addValue("keyword", criteria.keyword())
+            .addValue("keyword", keyword)
             .addValue("limit", criteria.limit())
             .addValue("offset", criteria.offset());
         Long total = jdbc.queryForObject(
@@ -105,7 +106,7 @@ public final class JdbcApprovalFormStore implements ApprovalFormStore {
             from ap_form_definition
             where tenant_id = :tenantId
               and (
-                :keyword is null
+                :keyword = ''
                 or lower(form_key) like lower('%' || :keyword || '%')
                 or lower(name) like lower('%' || :keyword || '%')
               )
@@ -124,7 +125,7 @@ public final class JdbcApprovalFormStore implements ApprovalFormStore {
             from ap_form_definition
             where tenant_id = :tenantId
               and (
-                :keyword is null
+                :keyword = ''
                 or lower(form_key) like lower('%' || :keyword || '%')
                 or lower(name) like lower('%' || :keyword || '%')
               )
