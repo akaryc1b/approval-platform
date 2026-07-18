@@ -6,6 +6,7 @@ import type {
   FormField,
   UiFieldLayout,
   UiSchemaDefinition,
+  UiSection,
 } from '#/api/approval/form-types';
 
 import { computed, ref, watch } from 'vue';
@@ -44,7 +45,7 @@ const emit = defineEmits<{
 const activeSections = ref<string[]>([]);
 const model = computed(() => props.modelValue || {});
 const fieldByKey = computed(() => new Map(props.schema.fields.map(field => [field.key, field])));
-const sections = computed(() => {
+const sections = computed<UiSection[]>(() => {
   if (props.uiSchema?.sections.length) return props.uiSchema.sections;
   return [{
     collapsed: false,
@@ -62,7 +63,7 @@ function field(layout: UiFieldLayout) {
   return fieldByKey.value.get(layout.fieldKey);
 }
 
-function access(item: FormField) {
+function access(item: FormField): FieldAccess {
   if (props.readonly) return 'READONLY';
   return props.fieldPermissions[item.key] || 'EDITABLE';
 }
