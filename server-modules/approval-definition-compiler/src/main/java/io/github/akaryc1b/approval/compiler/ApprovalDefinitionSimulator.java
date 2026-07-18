@@ -40,46 +40,126 @@ public final class ApprovalDefinitionSimulator {
 
         Map<String, ApprovalDefinition.ProcessNode> nodes = new LinkedHashMap<>();
         definition.nodes().forEach(node -> nodes.put(node.id(), node));
-        List<SimulationStep> steps = new ArrayList<>();
-        List<SimulationIssue> issues = new ArrayList<>();
-        String current = definition.startNodeId();
+        Context context = new Context(nodes, scenario);
+        WalkResult result = walk(definition.startNodeId(), null, context);
+        if (result.status() == InternalStatus.JOIN_REACHED) {
+            context.issues().add(new SimulationIssue(
+                "UNEXPECTED_PARALLEL_JOIN",
+                result.terminalNodeId(),
+                "simulation reached a parallel join without its owning split"
+            ));
+            return context.result(SimulationStatus.BLOCKED, result.terminalNodeId());
+        }
+        return context.result(result.status().publicStatus(), result.terminalNodeId());
+    }
 
-        for (int sequence = 1; sequence <= scenario.maxTransitions(); sequence++) {
-            ApprovalDefinition.ProcessNode node = nodes.get(current);
+    private static WalkResult walk(
+        String startNodeId,
+        String stopBeforeJoin,
+        Context context
+    ) {
+        String current = startNodeId;
+        while (true) {
+            if (current.equals(stopBeforeJoin)) {
+                return WalkResult.joinReached(current);
+            }
+            if (!context.claim(current)) {
+                return WalkResult.stop(InternalStatus.TRANSITION_LIMIT_REACHED, current);
+            }
+            ApprovalDefinition.ProcessNode node = context.nodes().get(current);
             if (node == null) {
-                issues.add(new SimulationIssue(
+                context.issues().add(new SimulationIssue(
                     "UNKNOWN_NODE",
                     current,
                     "simulation reached an unknown node"
                 ));
-                return result(SimulationStatus.BLOCKED, current, steps, issues);
+                return WalkResult.stop(InternalStatus.BLOCKED, current);
             }
-            Transition transition = transition(node, scenario, issues);
-            steps.add(new SimulationStep(
-                sequence,
-                node.id(),
-                node.name(),
-                kind(node),
-                transition.outcome(),
-                transition.nextNodeId()
-            ));
+            if (node instanceof ApprovalDefinition.ParallelSplitNode split) {
+                WalkResult parallel = simulateParallel(split, context);
+                if (parallel.status() != InternalStatus.CONTINUE) {
+                    return parallel;
+                }
+                current = parallel.terminalNodeId();
+                continue;
+            }
+            if (node instanceof ApprovalDefinition.ParallelJoinNode join) {
+                context.issues().add(new SimulationIssue(
+                    "UNEXPECTED_PARALLEL_JOIN",
+                    join.id(),
+                    "parallel join was reached outside its owning split"
+                ));
+                context.addStep(join, "BLOCKED_UNEXPECTED_JOIN", null);
+                return WalkResult.stop(InternalStatus.BLOCKED, join.id());
+            }
+            Transition transition = transition(node, context.scenario(), context.issues());
+            context.addStep(node, transition.outcome(), transition.nextNodeId());
             if (transition.status() != null) {
-                return result(transition.status(), node.id(), steps, issues);
+                if (stopBeforeJoin != null && transition.status() == SimulationStatus.COMPLETED) {
+                    context.issues().add(new SimulationIssue(
+                        "PARALLEL_BRANCH_ESCAPED_JOIN",
+                        node.id(),
+                        "parallel branch completed before reaching join " + stopBeforeJoin
+                    ));
+                    return WalkResult.stop(InternalStatus.BLOCKED, node.id());
+                }
+                return WalkResult.stop(
+                    InternalStatus.fromPublic(transition.status()),
+                    node.id()
+                );
             }
             current = transition.nextNodeId();
         }
+    }
 
-        issues.add(new SimulationIssue(
-            "TRANSITION_LIMIT_REACHED",
-            current,
-            "simulation exceeded the configured transition limit"
-        ));
-        return result(
-            SimulationStatus.TRANSITION_LIMIT_REACHED,
-            current,
-            steps,
-            issues
-        );
+    private static WalkResult simulateParallel(
+        ApprovalDefinition.ParallelSplitNode split,
+        Context context
+    ) {
+        context.addStep(split, "PARALLEL_ENTER", split.joinNodeId());
+        for (ApprovalDefinition.ParallelBranch branch : split.branches()) {
+            context.addSyntheticStep(
+                split.id(),
+                split.name(),
+                NodeKind.PARALLEL_SPLIT,
+                "BRANCH_ENTER:" + branch.id(),
+                branch.next()
+            );
+            WalkResult branchResult = walk(branch.next(), split.joinNodeId(), context);
+            if (branchResult.status() != InternalStatus.JOIN_REACHED) {
+                context.issues().add(new SimulationIssue(
+                    "PARALLEL_BRANCH_BLOCKED",
+                    branch.id(),
+                    "parallel branch did not reach join " + split.joinNodeId()
+                ));
+                return branchResult;
+            }
+            context.addSyntheticStep(
+                split.id(),
+                split.name(),
+                NodeKind.PARALLEL_SPLIT,
+                "BRANCH_WAITING:" + branch.id(),
+                split.joinNodeId()
+            );
+        }
+
+        if (!context.claim(split.joinNodeId())) {
+            return WalkResult.stop(
+                InternalStatus.TRANSITION_LIMIT_REACHED,
+                split.joinNodeId()
+            );
+        }
+        ApprovalDefinition.ProcessNode target = context.nodes().get(split.joinNodeId());
+        if (!(target instanceof ApprovalDefinition.ParallelJoinNode join)) {
+            context.issues().add(new SimulationIssue(
+                "MISSING_PARALLEL_JOIN",
+                split.id(),
+                "parallel split join target is not a parallel join"
+            ));
+            return WalkResult.stop(InternalStatus.BLOCKED, split.id());
+        }
+        context.addStep(join, "PARALLEL_JOINED", join.next());
+        return WalkResult.continueAt(join.next());
     }
 
     private static Transition transition(
@@ -91,7 +171,15 @@ public final class ApprovalDefinitionSimulator {
             return Transition.next("STARTED", start.next());
         }
         if (node instanceof ApprovalDefinition.ApprovalStep approval) {
-            Decision decision = scenario.decisions().getOrDefault(approval.id(), Decision.APPROVE);
+            Decision decision = scenario.decisions().get(approval.id());
+            if (decision == null) {
+                issues.add(new SimulationIssue(
+                    "MISSING_APPROVAL_DECISION",
+                    approval.id(),
+                    "scenario did not provide a decision for the approval node"
+                ));
+                return Transition.stop("BLOCKED", SimulationStatus.BLOCKED);
+            }
             if (decision == Decision.REJECT) {
                 if (approval.rejectNext() == null) {
                     return Transition.stop("REJECTED", SimulationStatus.REJECTED);
@@ -187,21 +275,13 @@ public final class ApprovalDefinitionSimulator {
         if (node instanceof ApprovalDefinition.ConditionStep) {
             return NodeKind.CONDITION;
         }
+        if (node instanceof ApprovalDefinition.ParallelSplitNode) {
+            return NodeKind.PARALLEL_SPLIT;
+        }
+        if (node instanceof ApprovalDefinition.ParallelJoinNode) {
+            return NodeKind.PARALLEL_JOIN;
+        }
         return NodeKind.END;
-    }
-
-    private static SimulationResult result(
-        SimulationStatus status,
-        String terminalNodeId,
-        List<SimulationStep> steps,
-        List<SimulationIssue> issues
-    ) {
-        return new SimulationResult(
-            status,
-            terminalNodeId,
-            List.copyOf(steps),
-            List.copyOf(issues)
-        );
     }
 
     public enum Decision {
@@ -214,6 +294,8 @@ public final class ApprovalDefinitionSimulator {
         APPROVAL,
         HANDLE,
         CONDITION,
+        PARALLEL_SPLIT,
+        PARALLEL_JOIN,
         END
     }
 
@@ -229,7 +311,6 @@ public final class ApprovalDefinitionSimulator {
         Map<String, Decision> decisions,
         int maxTransitions
     ) {
-
         public Scenario {
             formValues = formValues == null ? Map.of() : Map.copyOf(formValues);
             decisions = decisions == null ? Map.of() : Map.copyOf(decisions);
@@ -251,7 +332,6 @@ public final class ApprovalDefinitionSimulator {
         List<SimulationStep> steps,
         List<SimulationIssue> issues
     ) {
-
         public SimulationResult {
             status = Objects.requireNonNull(status, "status must not be null");
             terminalNodeId = Objects.requireNonNull(
@@ -275,7 +355,6 @@ public final class ApprovalDefinitionSimulator {
         String outcome,
         String nextNodeId
     ) {
-
         public SimulationStep {
             if (sequence < 1) {
                 throw new IllegalArgumentException("sequence must be positive");
@@ -288,11 +367,130 @@ public final class ApprovalDefinitionSimulator {
     }
 
     public record SimulationIssue(String code, String nodeId, String message) {
-
         public SimulationIssue {
             code = Objects.requireNonNull(code, "code must not be null");
             nodeId = Objects.requireNonNull(nodeId, "nodeId must not be null");
             message = Objects.requireNonNull(message, "message must not be null");
+        }
+    }
+
+    private static final class Context {
+        private final Map<String, ApprovalDefinition.ProcessNode> nodes;
+        private final Scenario scenario;
+        private final List<SimulationStep> steps = new ArrayList<>();
+        private final List<SimulationIssue> issues = new ArrayList<>();
+        private int transitions;
+
+        private Context(
+            Map<String, ApprovalDefinition.ProcessNode> nodes,
+            Scenario scenario
+        ) {
+            this.nodes = nodes;
+            this.scenario = scenario;
+        }
+
+        private boolean claim(String nodeId) {
+            if (transitions >= scenario.maxTransitions()) {
+                issues.add(new SimulationIssue(
+                    "TRANSITION_LIMIT_REACHED",
+                    nodeId,
+                    "simulation exceeded the configured transition limit"
+                ));
+                return false;
+            }
+            transitions++;
+            return true;
+        }
+
+        private void addStep(
+            ApprovalDefinition.ProcessNode node,
+            String outcome,
+            String nextNodeId
+        ) {
+            addSyntheticStep(node.id(), node.name(), kind(node), outcome, nextNodeId);
+        }
+
+        private void addSyntheticStep(
+            String nodeId,
+            String nodeName,
+            NodeKind nodeKind,
+            String outcome,
+            String nextNodeId
+        ) {
+            steps.add(new SimulationStep(
+                steps.size() + 1,
+                nodeId,
+                nodeName,
+                nodeKind,
+                outcome,
+                nextNodeId
+            ));
+        }
+
+        private SimulationResult result(SimulationStatus status, String terminalNodeId) {
+            return new SimulationResult(
+                status,
+                terminalNodeId,
+                List.copyOf(steps),
+                List.copyOf(issues)
+            );
+        }
+
+        private Map<String, ApprovalDefinition.ProcessNode> nodes() {
+            return nodes;
+        }
+
+        private Scenario scenario() {
+            return scenario;
+        }
+
+        private List<SimulationIssue> issues() {
+            return issues;
+        }
+    }
+
+    private enum InternalStatus {
+        CONTINUE(null),
+        JOIN_REACHED(null),
+        COMPLETED(SimulationStatus.COMPLETED),
+        REJECTED(SimulationStatus.REJECTED),
+        BLOCKED(SimulationStatus.BLOCKED),
+        TRANSITION_LIMIT_REACHED(SimulationStatus.TRANSITION_LIMIT_REACHED);
+
+        private final SimulationStatus publicStatus;
+
+        InternalStatus(SimulationStatus publicStatus) {
+            this.publicStatus = publicStatus;
+        }
+
+        private SimulationStatus publicStatus() {
+            if (publicStatus == null) {
+                throw new IllegalStateException("internal status has no public equivalent");
+            }
+            return publicStatus;
+        }
+
+        private static InternalStatus fromPublic(SimulationStatus status) {
+            return switch (status) {
+                case COMPLETED -> COMPLETED;
+                case REJECTED -> REJECTED;
+                case BLOCKED -> BLOCKED;
+                case TRANSITION_LIMIT_REACHED -> TRANSITION_LIMIT_REACHED;
+            };
+        }
+    }
+
+    private record WalkResult(InternalStatus status, String terminalNodeId) {
+        private static WalkResult continueAt(String nodeId) {
+            return new WalkResult(InternalStatus.CONTINUE, nodeId);
+        }
+
+        private static WalkResult joinReached(String nodeId) {
+            return new WalkResult(InternalStatus.JOIN_REACHED, nodeId);
+        }
+
+        private static WalkResult stop(InternalStatus status, String nodeId) {
+            return new WalkResult(status, nodeId);
         }
     }
 
@@ -301,7 +499,6 @@ public final class ApprovalDefinitionSimulator {
         String nextNodeId,
         SimulationStatus status
     ) {
-
         private static Transition next(String outcome, String nextNodeId) {
             return new Transition(outcome, nextNodeId, null);
         }
@@ -312,7 +509,6 @@ public final class ApprovalDefinitionSimulator {
     }
 
     private record Evaluation(boolean matches, EvaluationIssue issue) {
-
         private static Evaluation match(boolean matches) {
             return new Evaluation(matches, null);
         }
