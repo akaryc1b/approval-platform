@@ -1,20 +1,7 @@
 name: Generic Spring Host CI
 
 on:
-  push:
-    paths:
-      - 'pom.xml'
-      - 'integrations/host-sdk/**'
-      - 'examples/generic-spring-host/**'
-      - 'examples/connector-smoke/**'
-      - '.github/workflows/generic-spring-host-ci.yml'
-  pull_request:
-    paths:
-      - 'pom.xml'
-      - 'integrations/host-sdk/**'
-      - 'examples/generic-spring-host/**'
-      - 'examples/connector-smoke/**'
-      - '.github/workflows/generic-spring-host-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
