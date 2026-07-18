@@ -1,0 +1,75 @@
+name: PR 52 Increment C Validation
+
+on:
+  push:
+    branches:
+      - agent/m2-approval-dsl-tree-designer-release-package
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr52-increment-c-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Java 21 / Maven / PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Verify Maven reactor
+        run: mvn -B -ntp verify
+
+  web:
+    name: Vben TypeScript / production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.4 --activate
+      - name: Install root tooling
+        run: pnpm install --frozen-lockfile
+      - name: Install Vben workspace
+        run: pnpm web:install
+      - name: Type-check Vben application
+        run: pnpm web:typecheck
+      - name: Build Vben application
+        run: pnpm web:build
+
+  mobile:
+    name: UniApp TypeScript / H5 / WeChat
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.4 --activate
+      - name: Install root tooling
+        run: pnpm install --frozen-lockfile
+      - name: Install UniApp workspace
+        run: pnpm mobile:install
+      - name: Type-check UniApp application
+        run: pnpm mobile:typecheck
+      - name: Build H5 application
+        run: pnpm mobile:build:h5
+      - name: Build WeChat Mini Program
+        run: pnpm mobile:build:weixin
