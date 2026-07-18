@@ -7,7 +7,7 @@
 ```text
 apps/mobile/
 ├── upstream.json   # Unibest commit 和 Wot UI 精确版本
-└── overlay/        # 审批页面、运行环境和导航配置
+└── overlay/        # 审批页面、API、运行环境和导航配置
 ```
 
 完整生成工作区位于 `.upstream/unibest`，不会提交到 Git。
@@ -37,13 +37,27 @@ pnpm mobile:clean
 
 ## 当前页面
 
-- 审批工作台；
-- 待办列表；
-- 审批详情与操作区；
+- 审批工作台：展示真实待办总数和最新任务；
+- 待办列表：支持搜索、分页、刷新和空状态；
+- 审批详情：展示采购付款数据、附件和审批时间线；
+- 审批操作：调用幂等的真实“同意”接口；
 - 发起审批模板；
-- 个人中心和运行环境展示。
+- 个人中心：展示当前租户、操作人、连接器和 API 环境。
 
-当前页面是可构建的产品骨架。审批动作只展示交互反馈，真实任务提交将在采购付款纵向链路中通过平台 API 接入。
+## 审批 API 配置
+
+覆盖层通过以下环境变量接入审批服务：
+
+```dotenv
+VITE_APPROVAL_API_URL = '/api'
+VITE_APPROVAL_CONNECTOR = 'standalone'
+VITE_APPROVAL_TENANT_ID = 'tenant-a'
+VITE_APPROVAL_OPERATOR_ID = 'manager-1'
+```
+
+H5 可以通过同源网关将 `/api/approval/**` 转发到审批服务。微信小程序、App 等无法使用浏览器同源代理的环境，应配置可访问的 HTTPS API 完整地址，并完成平台域名白名单配置。
+
+仓库中的租户和操作人仅用于本地纵向链路联调。生产部署必须由登录或宿主启动适配器提供可信身份，不能直接信任用户可修改的环境变量或请求参数。
 
 ## 架构约束
 
@@ -51,4 +65,5 @@ pnpm mobile:clean
 - 平台差异通过启动环境和 Connector 适配；
 - 动态表单使用平台自有 Form Schema 和移动 Renderer；
 - PC 与移动端共享协议、校验和权限逻辑，但不共享 Vue 页面组件；
+- 移动端查询平台投影和审计 API，不读取 Flowable 表；
 - 修改生成工作区无效，所有业务变更必须进入 `apps/mobile/overlay`。
