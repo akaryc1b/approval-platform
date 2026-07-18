@@ -5,8 +5,21 @@ export interface CommentUserOption {
   userId: string;
 }
 
+export interface ApprovalAttachment {
+  attachmentId: string;
+  bound: boolean;
+  boundAt?: string;
+  contentType: string;
+  createdAt: string;
+  fileName: string;
+  instanceId?: string;
+  sha256: string;
+  sizeBytes: number;
+  uploaderId: string;
+}
+
 export interface ApprovalCommentItem {
-  attachmentIds: string[];
+  attachments: ApprovalAttachment[];
   authorDisplayName: string;
   authorId: string;
   body: string;
@@ -14,6 +27,10 @@ export interface ApprovalCommentItem {
   createdAt: string;
   instanceId: string;
   mentionedUsers: CommentUserOption[];
+  parentCommentId?: string;
+  reply: boolean;
+  replyToAuthorDisplayName?: string;
+  replyToAuthorId?: string;
 }
 
 export interface ApprovalCommentPage {
@@ -90,13 +107,19 @@ async function parseError(response: Response) {
     `请求失败（${response.status}）`;
 }
 
-async function request<T>(path: string, init: RequestInit = {}) {
+function runtimeHeaders(init?: HeadersInit) {
   const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init.headers);
+  const headers = new Headers(init);
   headers.set('Accept', 'application/json');
   headers.set('X-Operator-Id', runtime.operatorId);
   headers.set('X-Tenant-Id', runtime.tenantId);
-  if (init.body && !headers.has('Content-Type')) {
+  return headers;
+}
+
+async function request<T>(path: string, init: RequestInit = {}) {
+  const runtime = getApprovalRuntimeConfig();
+  const headers = runtimeHeaders(init.headers);
+  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
   const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
@@ -108,6 +131,18 @@ async function request<T>(path: string, init: RequestInit = {}) {
     throw new Error(await parseError(response));
   }
   return (await response.json()) as T;
+}
+
+async function requestBlob(path: string) {
+  const runtime = getApprovalRuntimeConfig();
+  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
+    credentials: 'same-origin',
+    headers: runtimeHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  return response.blob();
 }
 
 function pageQuery(parameters: PageParameters) {
@@ -139,8 +174,36 @@ export function findApprovalComments(instanceId: string, limit = 100, offset = 0
   );
 }
 
+export function uploadApprovalAttachment(file: File) {
+  const requestId = operationId('web-attachment-request');
+  const body = new FormData();
+  body.append('file', file, file.name);
+  return request<ApprovalAttachment>('/approval/attachments', {
+    body,
+    headers: {
+      'Idempotency-Key': operationId('web-attachment'),
+      'X-Request-Id': requestId,
+      'X-Trace-Id': requestId,
+    },
+    method: 'POST',
+  });
+}
+
+export async function downloadApprovalAttachment(attachment: ApprovalAttachment) {
+  const blob = await requestBlob(
+    `/approval/attachments/${encodeURIComponent(attachment.attachmentId)}/content`,
+  );
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = attachment.fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export function createApprovalComment(
   instanceId: string,
+  parentCommentId: string | undefined,
   body: string,
   mentionIds: string[],
   attachmentIds: string[],
@@ -153,6 +216,7 @@ export function createApprovalComment(
         attachmentIds,
         body: body.trim(),
         mentionIds,
+        parentCommentId: parentCommentId || null,
       }),
       headers: {
         'Idempotency-Key': operationId('web-comment'),
