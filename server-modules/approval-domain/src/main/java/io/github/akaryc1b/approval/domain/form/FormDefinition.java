@@ -33,7 +33,8 @@ public record FormDefinition(
         String label,
         boolean required,
         FieldConstraints constraints,
-        DefaultValue defaultValue
+        DefaultValue defaultValue,
+        List<SelectOption> options
     ) {
 
         public FormField(
@@ -43,7 +44,26 @@ public record FormDefinition(
             boolean required,
             FieldConstraints constraints
         ) {
-            this(key, type, label, required, constraints, DefaultValue.none());
+            this(
+                key,
+                type,
+                label,
+                required,
+                constraints,
+                DefaultValue.none(),
+                List.of()
+            );
+        }
+
+        public FormField(
+            String key,
+            FieldType type,
+            String label,
+            boolean required,
+            FieldConstraints constraints,
+            DefaultValue defaultValue
+        ) {
+            this(key, type, label, required, constraints, defaultValue, List.of());
         }
 
         public FormField {
@@ -52,13 +72,27 @@ public record FormDefinition(
             label = requireText(label, "field.label");
             constraints = constraints == null ? FieldConstraints.none() : constraints;
             defaultValue = defaultValue == null ? DefaultValue.none() : defaultValue;
+            options = options == null ? List.of() : List.copyOf(options);
         }
     }
 
     public enum FieldType {
         TEXT,
+        TEXTAREA,
         MONEY,
+        NUMBER,
+        DATE,
+        DATETIME,
+        BOOLEAN,
+        SELECT,
         ATTACHMENT
+    }
+
+    public record SelectOption(String value, String label, boolean disabled) {
+        public SelectOption {
+            value = requireText(value, "option.value");
+            label = requireText(label, "option.label");
+        }
     }
 
     public record FieldConstraints(
@@ -89,12 +123,20 @@ public record FormDefinition(
             return new FieldConstraints(maxLength, null, null, null, false);
         }
 
-        public static FieldConstraints money(int precision, BigDecimal minimum) {
+        public static FieldConstraints number(int precision, BigDecimal minimum) {
             return new FieldConstraints(null, precision, minimum, null, false);
         }
 
-        public static FieldConstraints attachments(int minItems, boolean multiple) {
+        public static FieldConstraints money(int precision, BigDecimal minimum) {
+            return number(precision, minimum);
+        }
+
+        public static FieldConstraints selection(int minItems, boolean multiple) {
             return new FieldConstraints(null, null, null, minItems, multiple);
+        }
+
+        public static FieldConstraints attachments(int minItems, boolean multiple) {
+            return selection(minItems, multiple);
         }
     }
 
