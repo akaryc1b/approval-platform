@@ -26,10 +26,11 @@ public class ApprovalFormRuntimeController {
     @GetMapping("/forms/{formKey}/versions/{formVersion}/runtime")
     public RuntimeView startRuntime(
         @RequestHeader(TENANT_ID) String tenantId,
+        @RequestHeader(OPERATOR_ID) String operatorId,
         @PathVariable String formKey,
         @PathVariable int formVersion
     ) {
-        return service.startRuntime(tenantId, formKey, formVersion);
+        return service.startRuntime(tenantId, operatorId, formKey, formVersion);
     }
 
     @GetMapping("/tasks/{taskId}/form-runtime")
