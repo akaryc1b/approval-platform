@@ -109,6 +109,32 @@ class VisualFormFieldProtocolTest {
         assertThrows(IllegalArgumentException.class, () -> definitionValidator.validate(invalid));
     }
 
+    @Test
+    void allowsSingleSelectWithoutExplicitMinItems() {
+        FormDefinition definition = new FormDefinition(
+            FormDefinition.CURRENT_SCHEMA_VERSION,
+            "select-default-minimum",
+            1,
+            "Select default minimum",
+            List.of(new FormField(
+                "category",
+                FieldType.SELECT,
+                "Category",
+                false,
+                FieldConstraints.none(),
+                DefaultValue.none(),
+                selectOptions("A", "B")
+            ))
+        );
+
+        definitionValidator.validate(definition);
+        assertEquals(Map.of(), dataValidator.validate(definition, Map.of()).values());
+        assertEquals(
+            Map.of("category", "A"),
+            dataValidator.validate(definition, Map.of("category", "A")).values()
+        );
+    }
+
     private static FormDefinition definition(List<SelectOption> options) {
         return new FormDefinition(
             FormDefinition.CURRENT_SCHEMA_VERSION,
