@@ -52,6 +52,55 @@ export interface PendingTaskDetails {
   transferCandidates: TransferCandidate[];
 }
 
+export interface StartedInstanceItem {
+  amount: number;
+  attachmentIds: string[];
+  businessKey: string;
+  createdAt: string;
+  currentTaskDefinitionKey?: string;
+  currentTaskName?: string;
+  definitionKey: string;
+  initiatorId: string;
+  instanceId: string;
+  purchaseOrderReference: string;
+  status: 'COMPLETED' | 'REJECTED' | 'RUNNING' | 'WITHDRAWN';
+  supplier: string;
+  updatedAt: string;
+  withdrawable: boolean;
+}
+
+export interface StartedInstancePage {
+  hasMore: boolean;
+  items: StartedInstanceItem[];
+  limit: number;
+  offset: number;
+  total: number;
+}
+
+export interface ProcessedTaskItem {
+  amount: number;
+  businessKey: string;
+  completedAt: string;
+  definitionKey: string;
+  initiatorId: string;
+  instanceId: string;
+  instanceStatus: 'COMPLETED' | 'REJECTED' | 'RUNNING' | 'WITHDRAWN';
+  purchaseOrderReference: string;
+  retrievable: boolean;
+  supplier: string;
+  taskDefinitionKey: string;
+  taskId: string;
+  taskName: string;
+}
+
+export interface ProcessedTaskPage {
+  hasMore: boolean;
+  items: ProcessedTaskItem[];
+  limit: number;
+  offset: number;
+  total: number;
+}
+
 export interface ApprovalTimelineItem {
   action: string;
   aggregateId: string;
@@ -98,16 +147,16 @@ export interface RetrieveResult {
   retrievedAt: string;
 }
 
+interface PageParameters {
+  keyword?: string;
+  limit: number;
+  offset: number;
+}
+
 interface ApiErrorPayload {
   code?: string;
   error?: string;
   message?: string;
-}
-
-interface PendingTaskParameters {
-  keyword?: string;
-  limit: number;
-  offset: number;
 }
 
 type TaskAction = 'approve' | 'reject' | 'resubmit';
@@ -166,7 +215,7 @@ function collaborationHeaders(action: string) {
   };
 }
 
-export function findPendingTasks(parameters: PendingTaskParameters) {
+function pageQuery(parameters: PageParameters) {
   const query = new URLSearchParams({
     limit: String(parameters.limit),
     offset: String(parameters.offset),
@@ -175,8 +224,24 @@ export function findPendingTasks(parameters: PendingTaskParameters) {
   if (keyword) {
     query.set('keyword', keyword);
   }
+  return query.toString();
+}
+
+export function findPendingTasks(parameters: PageParameters) {
   return approvalRequest<PendingTaskPage>(
-    `/approval/tasks/pending?${query.toString()}`,
+    `/approval/tasks/pending?${pageQuery(parameters)}`,
+  );
+}
+
+export function findStartedInstances(parameters: PageParameters) {
+  return approvalRequest<StartedInstancePage>(
+    `/approval/instances/started?${pageQuery(parameters)}`,
+  );
+}
+
+export function findProcessedTasks(parameters: PageParameters) {
+  return approvalRequest<ProcessedTaskPage>(
+    `/approval/tasks/processed?${pageQuery(parameters)}`,
   );
 }
 
