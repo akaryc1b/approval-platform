@@ -93,6 +93,7 @@ const managedPaths = [
   'src/pages/index',
   'src/pages/task',
   'src/pages/message',
+  'src/pages/discussion',
   'src/pages/initiate',
   'src/pages/profile',
   'src/components/approval',
