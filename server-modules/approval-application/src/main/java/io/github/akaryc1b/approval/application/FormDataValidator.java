@@ -1,0 +1,116 @@
+package io.github.akaryc1b.approval.application;
+
+import io.github.akaryc1b.approval.domain.form.FormDefinition;
+import io.github.akaryc1b.approval.domain.form.FormDefinition.FormField;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+
+/** Validates and canonicalizes submitted values against a published schema. */
+public final class FormDataValidator {
+
+    public NormalizedFormData validate(FormDefinition definition, Map<String, Object> input) {
+        Objects.requireNonNull(definition, "definition must not be null");
+        Map<String, Object> source = input == null ? Map.of() : input;
+        Set<String> known = new LinkedHashSet<>();
+        definition.fields().forEach(field -> known.add(field.key()));
+        List<String> unknown = source.keySet().stream().filter(key -> !known.contains(key)).sorted().toList();
+        if (!unknown.isEmpty()) {
+            throw new FormDataValidationException("unknown form fields: " + String.join(",", unknown));
+        }
+        Map<String, Object> values = new LinkedHashMap<>();
+        List<UUID> attachments = new ArrayList<>();
+        for (FormField field : definition.fields()) {
+            Object raw = source.get(field.key());
+            if (field.type() == FormDefinition.FieldType.TEXT) {
+                String value = text(field, raw);
+                if (value != null) values.put(field.key(), value);
+            } else if (field.type() == FormDefinition.FieldType.MONEY) {
+                BigDecimal value = money(field, raw);
+                if (value != null) values.put(field.key(), value);
+            } else if (field.type() == FormDefinition.FieldType.ATTACHMENT) {
+                List<String> ids = attachmentIds(field, raw);
+                if (!ids.isEmpty() || field.required()) values.put(field.key(), ids);
+                ids.forEach(id -> attachments.add(UUID.fromString(id)));
+            } else {
+                throw invalid(field, "has an unsupported type");
+            }
+        }
+        return new NormalizedFormData(Map.copyOf(values), List.copyOf(attachments));
+    }
+
+    private static String text(FormField field, Object raw) {
+        if (raw == null) return missing(field);
+        if (!(raw instanceof String value)) throw invalid(field, "must be a string");
+        String normalized = value.trim();
+        if (normalized.isEmpty()) return missing(field);
+        Integer maximum = field.constraints().maxLength();
+        if (maximum != null && normalized.length() > maximum) {
+            throw invalid(field, "must not exceed " + maximum + " characters");
+        }
+        return normalized;
+    }
+
+    private static BigDecimal money(FormField field, Object raw) {
+        if (raw == null || raw instanceof String text && text.isBlank()) return missing(field);
+        BigDecimal value;
+        try {
+            value = raw instanceof BigDecimal decimal ? decimal : new BigDecimal(raw.toString());
+        } catch (RuntimeException exception) {
+            throw invalid(field, "must be a valid decimal number");
+        }
+        Integer precision = field.constraints().precision();
+        if (precision != null && Math.max(value.scale(), 0) > precision) {
+            throw invalid(field, "must not exceed " + precision + " decimal places");
+        }
+        BigDecimal minimum = field.constraints().minimum();
+        if (minimum != null && value.compareTo(minimum) < 0) {
+            throw invalid(field, "must be at least " + minimum.toPlainString());
+        }
+        return value.stripTrailingZeros();
+    }
+
+    private static List<String> attachmentIds(FormField field, Object raw) {
+        if (raw != null && !(raw instanceof List<?>)) throw invalid(field, "must be an attachment list");
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        for (Object item : raw == null ? List.of() : (List<?>) raw) {
+            try {
+                ids.add(UUID.fromString(String.valueOf(item).trim()).toString());
+            } catch (RuntimeException exception) {
+                throw invalid(field, "contains an invalid attachment ID");
+            }
+        }
+        int minimum = field.constraints().minItems() == null ? 0 : field.constraints().minItems();
+        if (field.required()) minimum = Math.max(minimum, 1);
+        if (ids.size() < minimum) throw invalid(field, "requires at least " + minimum + " attachment(s)");
+        if (!field.constraints().multiple() && ids.size() > 1) throw invalid(field, "accepts one attachment");
+        return List.copyOf(ids);
+    }
+
+    private static <T> T missing(FormField field) {
+        if (field.required()) throw invalid(field, "is required");
+        return null;
+    }
+
+    private static FormDataValidationException invalid(FormField field, String message) {
+        return new FormDataValidationException(field.key() + " " + message);
+    }
+
+    public record NormalizedFormData(Map<String, Object> values, List<UUID> attachmentIds) {
+        public NormalizedFormData {
+            values = values == null ? Map.of() : Map.copyOf(values);
+            attachmentIds = attachmentIds == null ? List.of() : List.copyOf(attachmentIds);
+        }
+    }
+
+    public static final class FormDataValidationException extends RuntimeException {
+        public FormDataValidationException(String message) { super(message); }
+    }
+}
