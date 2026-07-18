@@ -26,6 +26,8 @@ definePage({
 
 type ActiveTab = 'collaboration' | 'messages'
 
+type TagType = 'danger' | 'primary' | 'success' | 'warning'
+
 const activeTab = ref<ActiveTab>('messages')
 const unreadCount = ref(0)
 const unreadOnly = ref(false)
@@ -76,7 +78,17 @@ function formatDate(value?: string) {
 }
 
 function messageTypeLabel(type: ApprovalMessageItem['messageType']) {
-  return type === 'URGE' ? '催办' : '抄送'
+  const kind = type as string
+  if (kind === 'URGE') return '催办'
+  if (kind === 'MENTION') return '@提及'
+  return '抄送'
+}
+
+function messageTypeTag(type: ApprovalMessageItem['messageType']): TagType {
+  const kind = type as string
+  if (kind === 'URGE') return 'warning'
+  if (kind === 'MENTION') return 'success'
+  return 'primary'
 }
 
 function statusLabel(status: StartedInstanceItem['status']) {
@@ -227,7 +239,7 @@ onShow(async () => {
       <view class="summary-card" @click="selectTab('messages')">
         <text>未读消息</text>
         <strong>{{ unreadCount }}</strong>
-        <wd-tag type="danger" plain>催办与抄送</wd-tag>
+        <wd-tag type="danger" plain>催办、抄送与提及</wd-tag>
       </view>
       <view class="summary-card" @click="selectTab('collaboration')">
         <text>我发起的</text>
@@ -277,7 +289,7 @@ onShow(async () => {
         >
           <view class="card-header">
             <text class="card-title">{{ item.title }}</text>
-            <wd-tag :type="item.messageType === 'URGE' ? 'warning' : 'primary'" plain>
+            <wd-tag :type="messageTypeTag(item.messageType)" plain>
               {{ messageTypeLabel(item.messageType) }}
             </wd-tag>
           </view>

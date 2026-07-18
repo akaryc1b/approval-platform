@@ -5,19 +5,22 @@ import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.Inst
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Platform-owned user message and read-receipt store.
+ * Platform-owned user message, copied-approval and read-receipt store.
  */
 public interface ApprovalMessageStore {
 
     int append(List<ApprovalMessage> messages);
 
     MessagePage findMessages(MessageCriteria criteria);
+
+    CopiedInstancePage findCopiedInstances(CopiedInstanceCriteria criteria);
 
     long countUnread(MessageIdentity identity);
 
@@ -77,6 +80,25 @@ public interface ApprovalMessageStore {
         }
     }
 
+    record CopiedInstanceCriteria(
+        String tenantId,
+        String recipientId,
+        String keyword,
+        int limit,
+        int offset
+    ) {
+        public CopiedInstanceCriteria {
+            tenantId = requireText(tenantId, "tenantId");
+            recipientId = requireText(recipientId, "recipientId");
+            keyword = normalizeOptional(keyword);
+            validatePage(limit, offset);
+        }
+
+        public String normalizedKeyword() {
+            return keyword == null ? "" : keyword.toLowerCase(Locale.ROOT);
+        }
+    }
+
     record MessageIdentity(String tenantId, String recipientId) {
         public MessageIdentity {
             tenantId = requireText(tenantId, "tenantId");
@@ -112,6 +134,42 @@ public interface ApprovalMessageStore {
         }
     }
 
+    record CopiedInstanceItem(
+        UUID copyMessageId,
+        UUID instanceId,
+        String definitionKey,
+        String businessKey,
+        String initiatorId,
+        BigDecimal amount,
+        String supplier,
+        String purchaseOrderReference,
+        InstanceStatus status,
+        String currentTaskDefinitionKey,
+        String currentTaskName,
+        String copiedBy,
+        Instant copiedAt,
+        Instant copyReadAt,
+        long commentCount,
+        Instant updatedAt
+    ) {
+        public CopiedInstanceItem {
+            copyMessageId = Objects.requireNonNull(copyMessageId, "copyMessageId must not be null");
+            instanceId = Objects.requireNonNull(instanceId, "instanceId must not be null");
+            status = Objects.requireNonNull(status, "status must not be null");
+            copiedAt = Objects.requireNonNull(copiedAt, "copiedAt must not be null");
+            updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+            currentTaskDefinitionKey = normalizeOptional(currentTaskDefinitionKey);
+            currentTaskName = normalizeOptional(currentTaskName);
+            if (commentCount < 0) {
+                throw new IllegalArgumentException("commentCount must not be negative");
+            }
+        }
+
+        public boolean read() {
+            return copyReadAt != null;
+        }
+    }
+
     record MessagePage(
         List<MessageItem> items,
         long total,
@@ -120,15 +178,29 @@ public interface ApprovalMessageStore {
         boolean hasMore
     ) {
         public MessagePage(List<MessageItem> items, long total, int limit, int offset) {
-            this(items, total, limit, offset, offset + (items == null ? 0 : items.size()) < total);
+            this(items, total, limit, offset, calculateHasMore(items, total, offset));
         }
 
         public MessagePage {
             items = items == null ? List.of() : List.copyOf(items);
-            if (total < 0) {
-                throw new IllegalArgumentException("total must not be negative");
-            }
-            validatePage(limit, offset);
+            validatePageResult(total, limit, offset);
+        }
+    }
+
+    record CopiedInstancePage(
+        List<CopiedInstanceItem> items,
+        long total,
+        int limit,
+        int offset,
+        boolean hasMore
+    ) {
+        public CopiedInstancePage(List<CopiedInstanceItem> items, long total, int limit, int offset) {
+            this(items, total, limit, offset, calculateHasMore(items, total, offset));
+        }
+
+        public CopiedInstancePage {
+            items = items == null ? List.of() : List.copyOf(items);
+            validatePageResult(total, limit, offset);
         }
     }
 
@@ -157,7 +229,12 @@ public interface ApprovalMessageStore {
 
     enum MessageType {
         URGE,
-        COPY
+        COPY,
+        MENTION
+    }
+
+    private static boolean calculateHasMore(List<?> items, long total, int offset) {
+        return offset + (items == null ? 0 : items.size()) < total;
     }
 
     private static void validatePage(int limit, int offset) {
@@ -169,6 +246,13 @@ public interface ApprovalMessageStore {
         }
     }
 
+    private static void validatePageResult(long total, int limit, int offset) {
+        if (total < 0) {
+            throw new IllegalArgumentException("total must not be negative");
+        }
+        validatePage(limit, offset);
+    }
+
     private static String requireText(String value, String name) {
         Objects.requireNonNull(value, name + " must not be null");
         String normalized = value.trim();
@@ -176,5 +260,13 @@ public interface ApprovalMessageStore {
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return normalized;
+    }
+
+    private static String normalizeOptional(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

@@ -136,6 +136,96 @@ public final class JdbcApprovalMessageStore implements ApprovalMessageStore {
     }
 
     @Override
+    public CopiedInstancePage findCopiedInstances(CopiedInstanceCriteria criteria) {
+        Objects.requireNonNull(criteria, "criteria must not be null");
+        MapSqlParameterSource parameters = copiedParameters(criteria);
+        Long total = jdbc.queryForObject(
+            """
+            select count(*)
+            from ap_approval_message message
+            join ap_approval_instance instance
+              on instance.tenant_id = message.tenant_id
+             and instance.instance_id = message.instance_id
+            where message.tenant_id = :tenantId
+              and message.recipient_id = :recipientId
+              and message.message_type = 'COPY'
+              and (
+                  :hasKeyword = false
+                  or position(:keyword in lower(instance.business_key)) > 0
+                  or position(:keyword in lower(instance.supplier)) > 0
+                  or position(:keyword in lower(instance.purchase_order_reference)) > 0
+              )
+            """,
+            parameters,
+            Long.class
+        );
+        long matched = total == null ? 0 : total;
+        if (matched == 0) {
+            return new CopiedInstancePage(List.of(), 0, criteria.limit(), criteria.offset());
+        }
+        List<CopiedInstanceItem> items = jdbc.query(
+            """
+            select
+                message.message_id as copy_message_id,
+                instance.instance_id,
+                instance.definition_key,
+                instance.business_key,
+                instance.initiator_id,
+                instance.amount,
+                instance.supplier,
+                instance.purchase_order_reference,
+                instance.status,
+                instance.updated_at,
+                message.sender_id as copied_by,
+                message.created_at as copied_at,
+                message.read_at as copy_read_at,
+                (
+                    select task.task_definition_key
+                    from ap_approval_task task
+                    where task.tenant_id = instance.tenant_id
+                      and task.instance_id = instance.instance_id
+                      and task.status = 'PENDING'
+                    order by task.created_at, task.task_id
+                    limit 1
+                ) as current_task_definition_key,
+                (
+                    select task.task_name
+                    from ap_approval_task task
+                    where task.tenant_id = instance.tenant_id
+                      and task.instance_id = instance.instance_id
+                      and task.status = 'PENDING'
+                    order by task.created_at, task.task_id
+                    limit 1
+                ) as current_task_name,
+                (
+                    select count(*)
+                    from ap_approval_comment comment
+                    where comment.tenant_id = instance.tenant_id
+                      and comment.instance_id = instance.instance_id
+                ) as comment_count
+            from ap_approval_message message
+            join ap_approval_instance instance
+              on instance.tenant_id = message.tenant_id
+             and instance.instance_id = message.instance_id
+            where message.tenant_id = :tenantId
+              and message.recipient_id = :recipientId
+              and message.message_type = 'COPY'
+              and (
+                  :hasKeyword = false
+                  or position(:keyword in lower(instance.business_key)) > 0
+                  or position(:keyword in lower(instance.supplier)) > 0
+                  or position(:keyword in lower(instance.purchase_order_reference)) > 0
+              )
+            order by message.created_at desc, message.message_id desc
+            limit :limit offset :offset
+            """,
+            parameters,
+            copiedItemMapper()
+        );
+        return new CopiedInstancePage(items, matched, criteria.limit(), criteria.offset());
+    }
+
+    @Override
     public long countUnread(MessageIdentity identity) {
         Long count = jdbc.queryForObject(
             """
@@ -254,6 +344,16 @@ public final class JdbcApprovalMessageStore implements ApprovalMessageStore {
         return Boolean.TRUE.equals(exists);
     }
 
+    private static MapSqlParameterSource copiedParameters(CopiedInstanceCriteria criteria) {
+        return new MapSqlParameterSource()
+            .addValue("tenantId", criteria.tenantId())
+            .addValue("recipientId", criteria.recipientId())
+            .addValue("hasKeyword", criteria.keyword() != null)
+            .addValue("keyword", criteria.normalizedKeyword())
+            .addValue("limit", criteria.limit())
+            .addValue("offset", criteria.offset());
+    }
+
     private RowMapper<MessageItem> messageItemMapper() {
         return (resultSet, rowNumber) -> new MessageItem(
             resultSet.getObject("message_id", UUID.class),
@@ -272,6 +372,27 @@ public final class JdbcApprovalMessageStore implements ApprovalMessageStore {
             resultSet.getString("supplier"),
             resultSet.getString("purchase_order_reference"),
             InstanceStatus.valueOf(resultSet.getString("instance_status"))
+        );
+    }
+
+    private static RowMapper<CopiedInstanceItem> copiedItemMapper() {
+        return (resultSet, rowNumber) -> new CopiedInstanceItem(
+            resultSet.getObject("copy_message_id", UUID.class),
+            resultSet.getObject("instance_id", UUID.class),
+            resultSet.getString("definition_key"),
+            resultSet.getString("business_key"),
+            resultSet.getString("initiator_id"),
+            resultSet.getBigDecimal("amount"),
+            resultSet.getString("supplier"),
+            resultSet.getString("purchase_order_reference"),
+            InstanceStatus.valueOf(resultSet.getString("status")),
+            resultSet.getString("current_task_definition_key"),
+            resultSet.getString("current_task_name"),
+            resultSet.getString("copied_by"),
+            instant(resultSet, "copied_at"),
+            nullableInstant(resultSet, "copy_read_at"),
+            resultSet.getLong("comment_count"),
+            instant(resultSet, "updated_at")
         );
     }
 
