@@ -19,6 +19,10 @@ function openTaskList() {
   uni.navigateTo({ url: '/pages/task/list' })
 }
 
+function openDiscussion() {
+  uni.navigateTo({ url: '/pages/discussion/index' })
+}
+
 function openMessages() {
   uni.navigateTo({ url: '/pages/message/index' })
 }
@@ -53,6 +57,10 @@ onShow(loadUnreadMessages)
     <view class="entry-card">
       <view class="entry-row" @click="openTaskList">
         <text>审批工作台</text>
+        <text class="entry-row__value">›</text>
+      </view>
+      <view class="entry-row" @click="openDiscussion">
+        <text>审批讨论</text>
         <text class="entry-row__value">›</text>
       </view>
       <view class="entry-row" @click="openMessages">
