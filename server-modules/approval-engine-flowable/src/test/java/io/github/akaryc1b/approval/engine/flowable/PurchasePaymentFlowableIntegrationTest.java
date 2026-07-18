@@ -72,11 +72,11 @@ class PurchasePaymentFlowableIntegrationTest {
 
         ApprovalEngine.EngineOperationException wrongOperator = assertThrows(
             ApprovalEngine.EngineOperationException.class,
-            () -> complete(managerTask, "intruder")
+            () -> complete(managerTask, "intruder", "APPROVED")
         );
         assertEquals("TASK_NOT_ASSIGNED_TO_OPERATOR", wrongOperator.code());
 
-        complete(managerTask, "manager-1");
+        complete(managerTask, "manager-1", "APPROVED");
         List<ApprovalEngine.TaskSnapshot> countersign = activeTasks(instanceId);
         assertEquals(2, countersign.size());
         assertEquals(
@@ -86,10 +86,10 @@ class PurchasePaymentFlowableIntegrationTest {
         assertTrue(countersign.stream()
             .allMatch(task -> "financeCountersign".equals(task.taskDefinitionKey())));
 
-        complete(countersign.getFirst(), countersign.getFirst().assigneeId());
+        complete(countersign.getFirst(), countersign.getFirst().assigneeId(), "APPROVED");
         assertEquals(1, activeTasks(instanceId).size());
         ApprovalEngine.TaskSnapshot remaining = activeTasks(instanceId).getFirst();
-        complete(remaining, remaining.assigneeId());
+        complete(remaining, remaining.assigneeId(), "APPROVED");
         assertTrue(activeTasks(instanceId).isEmpty());
     }
 
@@ -97,17 +97,51 @@ class PurchasePaymentFlowableIntegrationTest {
     void highValueRequestAddsFinanceReviewBeforeParallelCountersign() {
         String instanceId = start(new BigDecimal("25000.00"), "high-value-po");
         ApprovalEngine.TaskSnapshot managerTask = onlyTask(instanceId);
-        complete(managerTask, "manager-1");
+        complete(managerTask, "manager-1", "APPROVED");
 
         ApprovalEngine.TaskSnapshot financeReview = onlyTask(instanceId);
         assertEquals("financeReview", financeReview.taskDefinitionKey());
         assertEquals("finance-reviewer", financeReview.assigneeId());
-        complete(financeReview, "finance-reviewer");
+        complete(financeReview, "finance-reviewer", "APPROVED");
 
         List<ApprovalEngine.TaskSnapshot> countersign = activeTasks(instanceId);
         assertEquals(2, countersign.size());
         assertTrue(countersign.stream()
             .allMatch(task -> "financeCountersign".equals(task.taskDefinitionKey())));
+    }
+
+    @Test
+    void rejectedManagerTaskReturnsToInitiatorAndCanBeResubmitted() {
+        String instanceId = start(new BigDecimal("5000.00"), "manager-reject-po");
+        ApprovalEngine.TaskSnapshot managerTask = onlyTask(instanceId);
+
+        complete(managerTask, "manager-1", "REJECTED");
+
+        ApprovalEngine.TaskSnapshot revision = onlyTask(instanceId);
+        assertEquals(PurchasePaymentTemplate.REVISION_TASK_KEY, revision.taskDefinitionKey());
+        assertEquals("initiator-1", revision.assigneeId());
+
+        complete(revision, "initiator-1", "RESUBMITTED");
+
+        ApprovalEngine.TaskSnapshot restartedManager = onlyTask(instanceId);
+        assertEquals("managerApproval", restartedManager.taskDefinitionKey());
+        assertEquals("manager-1", restartedManager.assigneeId());
+    }
+
+    @Test
+    void oneCountersignerCanRejectAndCancelRemainingCountersignTasks() {
+        String instanceId = start(new BigDecimal("5000.00"), "countersign-reject-po");
+        complete(onlyTask(instanceId), "manager-1", "APPROVED");
+        List<ApprovalEngine.TaskSnapshot> countersign = activeTasks(instanceId);
+        assertEquals(2, countersign.size());
+
+        ApprovalEngine.TaskSnapshot rejecting = countersign.getFirst();
+        complete(rejecting, rejecting.assigneeId(), "REJECTED");
+
+        List<ApprovalEngine.TaskSnapshot> active = activeTasks(instanceId);
+        assertEquals(1, active.size());
+        assertEquals(PurchasePaymentTemplate.REVISION_TASK_KEY, active.getFirst().taskDefinitionKey());
+        assertEquals("initiator-1", active.getFirst().assigneeId());
     }
 
     private String start(BigDecimal amount, String businessKey) {
@@ -140,12 +174,19 @@ class PurchasePaymentFlowableIntegrationTest {
         ));
     }
 
-    private void complete(ApprovalEngine.TaskSnapshot task, String operatorId) {
+    private void complete(
+        ApprovalEngine.TaskSnapshot task,
+        String operatorId,
+        String decision
+    ) {
         engine.complete(new ApprovalEngine.CompleteTaskCommand(
             TENANT_ID,
             task.taskId(),
             operatorId,
-            Map.of("decision", "APPROVED")
+            Map.of(
+                ApprovalDslCompiler.DECISION_VARIABLE, decision,
+                "decision", decision
+            )
         ));
     }
 }
