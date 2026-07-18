@@ -94,6 +94,10 @@ function confirmApproval() {
   })
 }
 
+function goBack() {
+  uni.navigateBack()
+}
+
 async function submitApproval() {
   const task = details.value
   if (!task || submitting.value) {
@@ -107,7 +111,7 @@ async function submitApproval() {
   try {
     await approveTask(task.taskId, opinion.value)
     uni.showToast({ title: '审批已同意', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 500)
+    setTimeout(goBack, 500)
   }
   catch (error) {
     uni.showToast({ title: errorMessage(error), icon: 'none' })
@@ -214,7 +218,7 @@ onLoad((query) => {
     </template>
 
     <view class="action-bar">
-      <wd-button plain @click="uni.navigateBack()">返回</wd-button>
+      <wd-button plain @click="goBack">返回</wd-button>
       <wd-button
         type="primary"
         :disabled="!details || loading"
