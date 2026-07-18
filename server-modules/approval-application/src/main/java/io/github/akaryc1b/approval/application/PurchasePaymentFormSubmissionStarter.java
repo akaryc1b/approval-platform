@@ -24,6 +24,24 @@ public final class PurchasePaymentFormSubmissionStarter implements FormSubmissio
     public WorkflowStartResult start(
         RequestContext context,
         String formKey,
+        String businessKey,
+        Map<String, Object> values,
+        Map<String, Object> startParameters
+    ) {
+        return start(
+            context,
+            formKey,
+            PurchasePaymentTemplate.FORM_VERSION,
+            businessKey,
+            values,
+            startParameters
+        );
+    }
+
+    @Override
+    public WorkflowStartResult start(
+        RequestContext context,
+        String formKey,
         int formVersion,
         String businessKey,
         Map<String, Object> values,
