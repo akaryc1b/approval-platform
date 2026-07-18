@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.application.ApprovalApplicationService;
 import io.github.akaryc1b.approval.application.ApprovalTaskQueryService;
 import io.github.akaryc1b.approval.application.ApprovalTimelineQueryService;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
+import io.github.akaryc1b.approval.application.PurchasePaymentTaskActionService;
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery;
@@ -140,6 +141,26 @@ public class ApprovalPlatformConfiguration {
             approvalProjectionStore,
             auditEventSink,
             assigneeResolver,
+            businessEventOutbox,
+            approvalClock,
+            UUID::randomUUID
+        );
+    }
+
+    @Bean
+    PurchasePaymentTaskActionService purchasePaymentTaskActionService(
+        ApprovalEngine approvalEngine,
+        IdempotencyGuard idempotencyGuard,
+        ApprovalProjectionStore approvalProjectionStore,
+        AuditEventSink auditEventSink,
+        ApprovalBusinessEventOutbox businessEventOutbox,
+        Clock approvalClock
+    ) {
+        return new PurchasePaymentTaskActionService(
+            approvalEngine,
+            idempotencyGuard,
+            approvalProjectionStore,
+            auditEventSink,
             businessEventOutbox,
             approvalClock,
             UUID::randomUUID
