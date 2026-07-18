@@ -14,6 +14,7 @@ interface ApiErrorPayload {
 }
 
 interface RequestOptions {
+  allowNotFound?: boolean
   data?: unknown
   header?: Record<string, string>
   method?: 'GET' | 'POST'
@@ -56,6 +57,10 @@ function request<T>(path: string, options: RequestOptions = {}) {
           resolve(response.data as T)
           return
         }
+        if (options.allowNotFound && response.statusCode === 404) {
+          resolve(undefined as T)
+          return
+        }
         reject(new Error(errorMessage(response.data, response.statusCode)))
       },
       fail: error => reject(new Error(error.errMsg || '网络请求失败')),
@@ -79,8 +84,9 @@ export function findForm(formKey: string, version: number) {
 }
 
 export function findFormSnapshot(instanceId: string) {
-  return request<FormSubmissionSnapshot>(
+  return request<FormSubmissionSnapshot | undefined>(
     `/approval/instances/${encodeURIComponent(instanceId)}/form-snapshot`,
+    { allowNotFound: true },
   )
 }
 
