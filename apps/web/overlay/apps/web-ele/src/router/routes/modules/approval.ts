@@ -32,6 +32,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ApprovalDiscussionDetail',
+        path: '/approval/discussion/detail',
+        component: () => import('#/views/approval/discussion/detail.vue'),
+        meta: {
+          authority: ['approval:comment:view'],
+          hideInMenu: true,
+          title: '审批讨论详情',
+        },
+      },
+      {
         name: 'ApprovalMessages',
         path: '/approval/messages',
         component: () => import('#/views/approval/messages/index.vue'),
