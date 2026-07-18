@@ -95,7 +95,7 @@ function joinUrl(baseUrl: string, path: string) {
   return `${normalized}${path.startsWith('/') ? path : `/${path}`}`
 }
 
-function runtimeHeaders(extra: Record<string, string> = {}) {
+function runtimeHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const runtime = getApprovalRuntimeConfig()
   return {
     Accept: 'application/json',
@@ -116,7 +116,7 @@ function errorMessage(payload: unknown, statusCode: number) {
 
 function request<T>(path: string, options: RequestOptions = {}) {
   const runtime = getApprovalRuntimeConfig()
-  const header = runtimeHeaders(options.header)
+  const header: Record<string, string> = runtimeHeaders(options.header)
   if (options.data !== undefined) header['Content-Type'] = 'application/json'
   return new Promise<T>((resolve, reject) => {
     uni.request({
