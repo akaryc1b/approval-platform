@@ -21,6 +21,7 @@ import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.FieldPermissio
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.NodePermissions;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.Section;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -28,10 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-/** Resolves server-authoritative layout and field access for start and task contexts. */
+/** Resolves server-authoritative layout, defaults and field rules for start and task contexts. */
 public final class ApprovalFormRuntimeService {
 
     private final ApprovalFormStore forms;
@@ -41,6 +43,7 @@ public final class ApprovalFormRuntimeService {
     private final ApprovalAttachmentStore attachments;
     private final FormDataValidator validator;
     private final FormSubmissionHasher submissionHasher;
+    private final FormDefaultValueResolver defaultValues;
     private final Supplier<UUID> identifiers;
 
     public ApprovalFormRuntimeService(
@@ -53,6 +56,30 @@ public final class ApprovalFormRuntimeService {
         FormSubmissionHasher submissionHasher,
         Supplier<UUID> identifiers
     ) {
+        this(
+            forms,
+            uiSchemas,
+            submissions,
+            projections,
+            attachments,
+            validator,
+            submissionHasher,
+            new FormDefaultValueResolver(Clock.systemUTC()),
+            identifiers
+        );
+    }
+
+    public ApprovalFormRuntimeService(
+        ApprovalFormStore forms,
+        ApprovalUiSchemaStore uiSchemas,
+        ApprovalFormSubmissionStore submissions,
+        ApprovalProjectionStore projections,
+        ApprovalAttachmentStore attachments,
+        FormDataValidator validator,
+        FormSubmissionHasher submissionHasher,
+        FormDefaultValueResolver defaultValues,
+        Supplier<UUID> identifiers
+    ) {
         this.forms = Objects.requireNonNull(forms);
         this.uiSchemas = Objects.requireNonNull(uiSchemas);
         this.submissions = Objects.requireNonNull(submissions);
@@ -60,23 +87,39 @@ public final class ApprovalFormRuntimeService {
         this.attachments = Objects.requireNonNull(attachments);
         this.validator = Objects.requireNonNull(validator);
         this.submissionHasher = Objects.requireNonNull(submissionHasher);
+        this.defaultValues = Objects.requireNonNull(defaultValues);
         this.identifiers = Objects.requireNonNull(identifiers);
     }
 
     public RuntimeView startRuntime(String tenantId, String formKey, int formVersion) {
+        return startRuntime(tenantId, "system", formKey, formVersion);
+    }
+
+    public RuntimeView startRuntime(
+        String tenantId,
+        String operatorId,
+        String formKey,
+        int formVersion
+    ) {
         PublishedForm form = requireForm(tenantId, formKey, formVersion);
         UiSelection selection = latestUiSchema(tenantId, form.definition());
-        Map<String, FieldAccess> permissions = permissions(
+        RuntimePermissions permissions = permissions(
             form.definition(),
             selection,
             UiSchemaDefinition.START_CONTEXT
+        );
+        Map<String, Object> values = defaultValues.resolve(form.definition(), operatorId);
+        NormalizedFormData normalized = validator.validate(
+            form.definition(),
+            values,
+            permissions.requiredFields()
         );
         return view(
             form.definition(),
             selection,
             UiSchemaDefinition.START_CONTEXT,
             permissions,
-            Map.of(),
+            normalized.values(),
             0
         );
     }
@@ -87,7 +130,7 @@ public final class ApprovalFormRuntimeService {
             .orElseThrow(() -> new IllegalArgumentException("approval instance has no form snapshot"));
         PublishedForm form = requireForm(tenantId, submission.formKey(), submission.formVersion());
         UiSelection selection = pinnedUiSchema(submission, form.definition());
-        Map<String, FieldAccess> permissions = permissions(
+        RuntimePermissions permissions = permissions(
             form.definition(),
             selection,
             task.taskDefinitionKey()
@@ -114,15 +157,32 @@ public final class ApprovalFormRuntimeService {
         int formVersion,
         Map<String, Object> input
     ) {
+        return validateStart(tenantId, "system", formKey, formVersion, input);
+    }
+
+    public StartPlan validateStart(
+        String tenantId,
+        String operatorId,
+        String formKey,
+        int formVersion,
+        Map<String, Object> input
+    ) {
         PublishedForm form = requireForm(tenantId, formKey, formVersion);
         UiSelection selection = latestUiSchema(tenantId, form.definition());
-        Map<String, FieldAccess> permissions = permissions(
+        RuntimePermissions permissions = permissions(
             form.definition(),
             selection,
             UiSchemaDefinition.START_CONTEXT
         );
-        rejectNonEditable(input, permissions);
-        return new StartPlan(form, selection, validator.validate(form.definition(), input));
+        Map<String, Object> defaults = defaultValues.resolve(form.definition(), operatorId);
+        rejectNonEditable(input, permissions.fieldAccess(), defaults.keySet());
+        Map<String, Object> complete = new LinkedHashMap<>(defaults);
+        editableValues(input, permissions.fieldAccess()).forEach(complete::put);
+        return new StartPlan(
+            form,
+            selection,
+            validator.validate(form.definition(), complete, permissions.requiredFields())
+        );
     }
 
     public RevisionPlan planRevision(
@@ -136,12 +196,12 @@ public final class ApprovalFormRuntimeService {
             .orElseThrow(() -> new IllegalArgumentException("approval instance has no form snapshot"));
         PublishedForm form = requireForm(tenantId, submission.formKey(), submission.formVersion());
         UiSelection selection = pinnedUiSchema(submission, form.definition());
-        Map<String, FieldAccess> permissions = permissions(
+        RuntimePermissions permissions = permissions(
             form.definition(),
             selection,
             task.taskDefinitionKey()
         );
-        rejectNonEditable(changes, permissions);
+        rejectNonEditable(changes, permissions.fieldAccess(), Set.of());
         Optional<FormSubmissionRevision> previous = submissions.findLatestRevision(
             tenantId,
             task.instanceId()
@@ -149,10 +209,12 @@ public final class ApprovalFormRuntimeService {
         Map<String, Object> merged = new LinkedHashMap<>(
             previous.map(FormSubmissionRevision::values).orElse(submission.values())
         );
-        if (changes != null) {
-            merged.putAll(changes);
-        }
-        NormalizedFormData normalized = validator.validate(form.definition(), merged);
+        editableValues(changes, permissions.fieldAccess()).forEach(merged::put);
+        NormalizedFormData normalized = validator.validate(
+            form.definition(),
+            merged,
+            permissions.requiredFields()
+        );
         String contentHash = submissionHasher.hash(
             submission.formKey(),
             submission.formVersion(),
@@ -245,7 +307,7 @@ public final class ApprovalFormRuntimeService {
         return new UiSelection(schema.definition(), schema.contentHash(), false);
     }
 
-    private static Map<String, FieldAccess> permissions(
+    private static RuntimePermissions permissions(
         FormDefinition form,
         UiSelection selection,
         String contextKey
@@ -253,31 +315,47 @@ public final class ApprovalFormRuntimeService {
         Optional<NodePermissions> configured = selection.definition().nodePermissions().stream()
             .filter(item -> item.contextKey().equals(contextKey))
             .findFirst();
-        Map<String, FieldAccess> result = new LinkedHashMap<>();
+        Map<String, FieldAccess> access = new LinkedHashMap<>();
+        Map<String, Boolean> required = new LinkedHashMap<>();
         if (configured.isPresent()) {
-            configured.get().fields().forEach(item -> result.put(item.fieldKey(), item.access()));
+            Map<String, FormDefinition.FormField> fields = new LinkedHashMap<>();
+            form.fields().forEach(field -> fields.put(field.key(), field));
+            configured.get().fields().forEach(item -> {
+                FormDefinition.FormField field = fields.get(item.fieldKey());
+                access.put(item.fieldKey(), item.access());
+                required.put(
+                    item.fieldKey(),
+                    UiSchemaDefinitionValidator.effectiveRequired(
+                        field.required(),
+                        item.requiredOverride()
+                    )
+                );
+            });
         } else {
             FieldAccess fallback = selection.defaulted()
                 ? UiSchemaDefinition.START_CONTEXT.equals(contextKey)
                     ? FieldAccess.EDITABLE
                     : FieldAccess.READONLY
                 : FieldAccess.HIDDEN;
-            form.fields().forEach(field -> result.put(field.key(), fallback));
+            form.fields().forEach(field -> {
+                access.put(field.key(), fallback);
+                required.put(field.key(), field.required());
+            });
         }
-        return Map.copyOf(result);
+        return new RuntimePermissions(Map.copyOf(access), Map.copyOf(required));
     }
 
     private static RuntimeView view(
         FormDefinition form,
         UiSelection selection,
         String contextKey,
-        Map<String, FieldAccess> permissions,
+        RuntimePermissions permissions,
         Map<String, Object> values,
         int revisionNumber
     ) {
         Map<String, Object> visible = new LinkedHashMap<>();
         values.forEach((key, value) -> {
-            if (permissions.getOrDefault(key, FieldAccess.HIDDEN) != FieldAccess.HIDDEN) {
+            if (permissions.fieldAccess().getOrDefault(key, FieldAccess.HIDDEN) != FieldAccess.HIDDEN) {
                 visible.put(key, value);
             }
         });
@@ -287,7 +365,8 @@ public final class ApprovalFormRuntimeService {
             selection.contentHash(),
             selection.defaulted(),
             contextKey,
-            permissions,
+            permissions.fieldAccess(),
+            permissions.requiredFields(),
             Map.copyOf(visible),
             revisionNumber
         );
@@ -295,13 +374,15 @@ public final class ApprovalFormRuntimeService {
 
     private static void rejectNonEditable(
         Map<String, Object> input,
-        Map<String, FieldAccess> permissions
+        Map<String, FieldAccess> permissions,
+        Set<String> serverDefaultedFields
     ) {
         if (input == null) {
             return;
         }
         List<String> forbidden = input.keySet().stream()
             .filter(key -> permissions.get(key) != FieldAccess.EDITABLE)
+            .filter(key -> !serverDefaultedFields.contains(key))
             .sorted()
             .toList();
         if (!forbidden.isEmpty()) {
@@ -309,6 +390,22 @@ public final class ApprovalFormRuntimeService {
                 "fields are not editable in the current context: " + String.join(",", forbidden)
             );
         }
+    }
+
+    private static Map<String, Object> editableValues(
+        Map<String, Object> input,
+        Map<String, FieldAccess> permissions
+    ) {
+        if (input == null || input.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> values = new LinkedHashMap<>();
+        input.forEach((key, value) -> {
+            if (permissions.get(key) == FieldAccess.EDITABLE) {
+                values.put(key, value);
+            }
+        });
+        return values;
     }
 
     private static UiSelection defaultUiSchema(FormDefinition form) {
@@ -337,6 +434,16 @@ public final class ApprovalFormRuntimeService {
     ) {
     }
 
+    public record RuntimePermissions(
+        Map<String, FieldAccess> fieldAccess,
+        Map<String, Boolean> requiredFields
+    ) {
+        public RuntimePermissions {
+            fieldAccess = fieldAccess == null ? Map.of() : Map.copyOf(fieldAccess);
+            requiredFields = requiredFields == null ? Map.of() : Map.copyOf(requiredFields);
+        }
+    }
+
     public record RuntimeView(
         FormDefinition definition,
         UiSchemaDefinition uiSchema,
@@ -344,11 +451,13 @@ public final class ApprovalFormRuntimeService {
         boolean defaultedUiSchema,
         String contextKey,
         Map<String, FieldAccess> fieldPermissions,
+        Map<String, Boolean> requiredFields,
         Map<String, Object> values,
         int revisionNumber
     ) {
         public RuntimeView {
             fieldPermissions = fieldPermissions == null ? Map.of() : Map.copyOf(fieldPermissions);
+            requiredFields = requiredFields == null ? Map.of() : Map.copyOf(requiredFields);
             values = values == null ? Map.of() : Map.copyOf(values);
         }
     }

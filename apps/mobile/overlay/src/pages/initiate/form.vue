@@ -160,6 +160,7 @@ onLoad((query) => {
         ref="renderer"
         v-model="formValues"
         :field-permissions="formRuntime.fieldPermissions"
+        :required-fields="formRuntime.requiredFields"
         :schema="formRuntime.definition"
         :ui-schema="formRuntime.uiSchema"
       />

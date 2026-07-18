@@ -31,9 +31,6 @@ public record UiSchemaDefinition(
         name = requireText(name, "name");
         sections = sections == null ? List.of() : List.copyOf(sections);
         nodePermissions = nodePermissions == null ? List.of() : List.copyOf(nodePermissions);
-        if (sections.isEmpty()) {
-            throw new IllegalArgumentException("sections must not be empty");
-        }
     }
 
     public record Section(
@@ -48,9 +45,6 @@ public record UiSchemaDefinition(
             title = requireText(title, "section.title");
             helpText = normalizeOptional(helpText);
             fields = fields == null ? List.of() : List.copyOf(fields);
-            if (fields.isEmpty()) {
-                throw new IllegalArgumentException("section.fields must not be empty");
-            }
         }
     }
 
@@ -77,10 +71,21 @@ public record UiSchemaDefinition(
         }
     }
 
-    public record FieldPermission(String fieldKey, FieldAccess access) {
+    public record FieldPermission(
+        String fieldKey,
+        FieldAccess access,
+        RequiredOverride requiredOverride
+    ) {
+        public FieldPermission(String fieldKey, FieldAccess access) {
+            this(fieldKey, access, RequiredOverride.INHERIT);
+        }
+
         public FieldPermission {
             fieldKey = requireText(fieldKey, "fieldPermission.fieldKey");
             access = Objects.requireNonNull(access, "fieldPermission.access must not be null");
+            requiredOverride = requiredOverride == null
+                ? RequiredOverride.INHERIT
+                : requiredOverride;
         }
     }
 
@@ -88,6 +93,12 @@ public record UiSchemaDefinition(
         EDITABLE,
         READONLY,
         HIDDEN
+    }
+
+    public enum RequiredOverride {
+        INHERIT,
+        REQUIRED,
+        OPTIONAL
     }
 
     private static String requireText(String value, String name) {

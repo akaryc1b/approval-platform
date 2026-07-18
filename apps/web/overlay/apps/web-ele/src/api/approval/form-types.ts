@@ -1,5 +1,12 @@
 export type FormFieldType = 'ATTACHMENT' | 'MONEY' | 'TEXT';
 export type FieldAccess = 'EDITABLE' | 'HIDDEN' | 'READONLY';
+export type RequiredOverride = 'INHERIT' | 'OPTIONAL' | 'REQUIRED';
+export type DefaultValueType =
+  | 'CURRENT_DATE'
+  | 'CURRENT_DATETIME'
+  | 'CURRENT_USER'
+  | 'LITERAL'
+  | 'NONE';
 
 export interface FormFieldConstraints {
   maxLength?: number;
@@ -9,8 +16,14 @@ export interface FormFieldConstraints {
   precision?: number;
 }
 
+export interface FormDefaultValue {
+  literal?: unknown;
+  type: DefaultValueType;
+}
+
 export interface FormField {
   constraints: FormFieldConstraints;
+  defaultValue?: FormDefaultValue;
   key: string;
   label: string;
   required: boolean;
@@ -43,6 +56,7 @@ export interface UiSection {
 export interface UiFieldPermission {
   access: FieldAccess;
   fieldKey: string;
+  requiredOverride?: RequiredOverride;
 }
 
 export interface UiNodePermissions {
@@ -65,10 +79,62 @@ export interface FormRuntimeView {
   defaultedUiSchema: boolean;
   definition: FormDefinition;
   fieldPermissions: Record<string, FieldAccess>;
+  requiredFields: Record<string, boolean>;
   revisionNumber: number;
   uiSchema: UiSchemaDefinition;
   uiSchemaHash?: string;
   values: Record<string, unknown>;
+}
+
+export type FormDesignDraftStatus = 'ARCHIVED' | 'DRAFT' | 'PUBLISHED' | 'VALIDATED';
+
+export interface FormDesignDraft {
+  createdAt: string;
+  createdBy: string;
+  draftId: string;
+  formDefinition: FormDefinition;
+  formKey: string;
+  name: string;
+  publishedPackageVersion?: number;
+  revision: number;
+  sourceFormVersion?: number;
+  sourceUiSchemaVersion?: number;
+  status: FormDesignDraftStatus;
+  tenantId: string;
+  uiSchemaDefinition: UiSchemaDefinition;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface FormDesignValidationReport {
+  draftId: string;
+  errors: string[];
+  fieldCount: number;
+  formHash: string;
+  formVersion: number;
+  nodePermissionCount: number;
+  revision: number;
+  sectionCount: number;
+  status: FormDesignDraftStatus;
+  uiSchemaHash: string;
+  uiSchemaVersion: number;
+  valid: boolean;
+  warnings: string[];
+}
+
+export interface FormPackagePublishResult {
+  draftId: string;
+  draftRevision: number;
+  formHash: string;
+  formKey: string;
+  formVersion: number;
+  packageHash: string;
+  packageVersion: number;
+  publishedAt: string;
+  publishedBy: string;
+  replayedExistingPackage: boolean;
+  uiSchemaHash: string;
+  uiSchemaVersion: number;
 }
 
 export interface FormSummary {

@@ -14,12 +14,14 @@ const props = withDefaults(defineProps<{
   fieldPermissions?: Record<string, FieldAccess>
   modelValue?: Record<string, unknown>
   readonly?: boolean
+  requiredFields?: Record<string, boolean>
   schema: FormDefinition
   uiSchema?: UiSchemaDefinition
 }>(), {
   fieldPermissions: () => ({}),
   modelValue: () => ({}),
   readonly: false,
+  requiredFields: () => ({}),
   uiSchema: undefined,
 })
 const emit = defineEmits<{
@@ -48,6 +50,9 @@ function field(layout: UiFieldLayout) {
 }
 function access(item: FormField): FieldAccess {
   return props.readonly ? 'READONLY' : (props.fieldPermissions[item.key] || 'EDITABLE')
+}
+function required(item: FormField) {
+  return props.requiredFields[item.key] ?? item.required
 }
 function visible(item?: FormField) {
   return Boolean(item && access(item) !== 'HIDDEN')
@@ -127,7 +132,7 @@ function validate() {
     const current = value(item)
     const empty = current == null || current === ''
       || (Array.isArray(current) && current.length === 0)
-    if (item.required && empty) return `${item.label}不能为空`
+    if (required(item) && empty) return `${item.label}不能为空`
     if (item.type === 'MONEY' && !empty) {
       const amount = Number(current)
       if (!Number.isFinite(amount)) return `${item.label}格式不正确`
@@ -171,7 +176,7 @@ defineExpose({ editableValues, uploading, validate })
           >
             <view class="field-label">
               <text>{{ field(layout)?.label }}</text>
-              <text v-if="field(layout)?.required" class="required">必填</text>
+              <text v-if="required(field(layout)!)" class="required">必填</text>
             </view>
             <wd-input
               v-if="field(layout)?.type === 'TEXT'"

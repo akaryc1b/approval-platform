@@ -29,12 +29,14 @@ const props = withDefaults(defineProps<{
   fieldPermissions?: Record<string, FieldAccess>;
   modelValue?: Record<string, unknown>;
   readonly?: boolean;
+  requiredFields?: Record<string, boolean>;
   schema: FormDefinition;
   uiSchema?: UiSchemaDefinition;
 }>(), {
   fieldPermissions: () => ({}),
   modelValue: () => ({}),
   readonly: false,
+  requiredFields: () => ({}),
   uiSchema: undefined,
 });
 
@@ -66,6 +68,10 @@ function field(layout: UiFieldLayout) {
 function access(item: FormField): FieldAccess {
   if (props.readonly) return 'READONLY';
   return props.fieldPermissions[item.key] || 'EDITABLE';
+}
+
+function required(item: FormField) {
+  return props.requiredFields[item.key] ?? item.required;
 }
 
 function visible(item: FormField | undefined) {
@@ -118,7 +124,7 @@ function numberValue(item: FormField) {
               <ElFormItem
                 v-if="field(layout)"
                 :label="field(layout)?.label"
-                :required="field(layout)?.required"
+                :required="required(field(layout)!)"
               >
                 <template v-if="field(layout)" #default>
                   <ElInput

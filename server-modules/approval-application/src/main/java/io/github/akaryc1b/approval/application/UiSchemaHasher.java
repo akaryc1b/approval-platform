@@ -4,6 +4,7 @@ import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.FieldLayout;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.FieldPermission;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.NodePermissions;
+import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.RequiredOverride;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.Section;
 
 import java.nio.charset.StandardCharsets;
@@ -41,6 +42,10 @@ public final class UiSchemaHasher {
                 for (FieldPermission field : permissions.fields()) {
                     update(digest, field.fieldKey());
                     update(digest, field.access().name());
+                    if (field.requiredOverride() != RequiredOverride.INHERIT) {
+                        update(digest, "required-override-v1");
+                        update(digest, field.requiredOverride().name());
+                    }
                 }
             }
             return HexFormat.of().formatHex(digest.digest());

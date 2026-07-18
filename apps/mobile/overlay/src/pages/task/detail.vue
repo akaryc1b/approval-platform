@@ -249,6 +249,7 @@ onLoad((query) => {
           ref="renderer"
           v-model="formValues"
           :field-permissions="formRuntime.fieldPermissions"
+          :required-fields="formRuntime.requiredFields"
           :readonly="!revisionTask"
           :schema="formRuntime.definition"
           :ui-schema="formRuntime.uiSchema"

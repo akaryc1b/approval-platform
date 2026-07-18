@@ -1,5 +1,12 @@
 export type FormFieldType = 'ATTACHMENT' | 'MONEY' | 'TEXT'
 export type FieldAccess = 'EDITABLE' | 'HIDDEN' | 'READONLY'
+export type RequiredOverride = 'INHERIT' | 'OPTIONAL' | 'REQUIRED'
+export type DefaultValueType
+  = 'CURRENT_DATE'
+    | 'CURRENT_DATETIME'
+    | 'CURRENT_USER'
+    | 'LITERAL'
+    | 'NONE'
 
 export interface FormFieldConstraints {
   maxLength?: number
@@ -9,8 +16,14 @@ export interface FormFieldConstraints {
   precision?: number
 }
 
+export interface FormDefaultValue {
+  literal?: unknown
+  type: DefaultValueType
+}
+
 export interface FormField {
   constraints: FormFieldConstraints
+  defaultValue?: FormDefaultValue
   key: string
   label: string
   required: boolean
@@ -43,6 +56,7 @@ export interface UiSection {
 export interface UiFieldPermission {
   access: FieldAccess
   fieldKey: string
+  requiredOverride?: RequiredOverride
 }
 
 export interface UiNodePermissions {
@@ -65,6 +79,7 @@ export interface FormRuntimeView {
   defaultedUiSchema: boolean
   definition: FormDefinition
   fieldPermissions: Record<string, FieldAccess>
+  requiredFields: Record<string, boolean>
   revisionNumber: number
   uiSchema: UiSchemaDefinition
   uiSchemaHash?: string

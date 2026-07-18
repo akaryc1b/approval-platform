@@ -43,16 +43,25 @@
 - 无 UI Schema 历史表单的安全默认行为；
 - PC Form/UI Schema JSON 工作台和 Element Plus Renderer；
 - Wot UI 移动 Renderer、H5 和微信小程序共用协议；
-- TEXT、MONEY、ATTACHMENT 基础字段协议。
+- TEXT、MONEY、ATTACHMENT 基础字段协议；
+- 租户隔离的表单设计草稿、空白/模板/已发布版本复制和草稿状态生命周期；
+- revision 乐观锁、自动保存幂等、过期 revision 冲突和已发布草稿不可修改；
+- 草稿服务端校验、节点上下文预览、归档和低噪声审计；
+- `INHERIT`、`REQUIRED`、`OPTIONAL` 节点必填覆盖及服务端有效必填校验；
+- `NONE`、`LITERAL`、`CURRENT_USER`、`CURRENT_DATE`、`CURRENT_DATETIME` 安全类型化默认值；
+- 默认值后端解析、Runtime 预填和不可变提交快照持久化；
+- 不可变 Form Package、精确 Form/UI 版本与哈希绑定和事务联合发布；
+- Flyway V9 草稿、Form Package、租户约束、精确外键和查询索引。
 
 ### 下一优先级
 
-- 可视化表单设计器 MVP；
-- 节点字段必填覆盖和字段级默认值表达式；
+- PC 三栏可视化表单设计器 MVP；
+- TEXTAREA、NUMBER、DATE、DATETIME、BOOLEAN、SELECT 字段类型；
+- 节点权限矩阵、跨端多节点预览和发布校验摘要；
 - 树状审批设计器、条件/并行分支和静态检查；
 - 流程模拟器和 DSL 发布联动；
-- 更多字段类型、复合区块和可插拔自定义组件；
-- UI Schema 与流程版本发布编排。
+- 复合区块和可插拔自定义组件；
+- Approval DSL、Form Schema、UI Schema 和编译制品 Release Package。
 
 ## M3 Collaboration
 
