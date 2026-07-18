@@ -86,7 +86,8 @@ public final class FormDefinitionValidator {
                 reject(constraints.precision(), "precision", field);
                 reject(constraints.minimum(), "minimum", field);
                 rejectOptions(field);
-                if (!constraints.multiple() && constraints.minItems() > 1) {
+                Integer minimumItems = constraints.minItems();
+        if (!constraints.multiple() && minimumItems != null && minimumItems > 1) {
                     throw new IllegalArgumentException(
                         "single attachment field cannot require multiple items: " + field.key()
                     );
@@ -100,7 +101,6 @@ public final class FormDefinitionValidator {
 
     private static void validateSelect(FormField field) {
         FieldConstraints constraints = field.constraints();
-        require(constraints.minItems(), "SELECT minItems", field);
         reject(constraints.maxLength(), "maxLength", field);
         reject(constraints.precision(), "precision", field);
         reject(constraints.minimum(), "minimum", field);
@@ -284,7 +284,7 @@ public final class FormDefinitionValidator {
             return new BigDecimal(value.toString());
         } catch (RuntimeException exception) {
             throw new IllegalArgumentException(
-                field.type() + ' ' + name + " must be numeric: " + field.key()
+                field.type() + " " + name + " must be numeric: " + field.key()
             );
         }
     }

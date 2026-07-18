@@ -10,8 +10,6 @@ import type {
   FormField,
   FormFieldType,
   FormPackagePublishResult,
-  RequiredOverride,
-  UiFieldLayout,
   UiNodePermissions,
   UiSchemaDefinition,
   UiSection,
@@ -84,8 +82,7 @@ const palette: PaletteItem[] = [
   { description: '一个或多个文件', label: '附件', type: 'ATTACHMENT' },
 ];
 
-const statusOptions: Array<{ label: string; value?: FormDesignDraftStatus }> = [
-  { label: '全部状态' },
+const statusOptions: Array<{ label: string; value: FormDesignDraftStatus }> = [
   { label: '草稿', value: 'DRAFT' },
   { label: '已校验', value: 'VALIDATED' },
   { label: '已发布', value: 'PUBLISHED' },
@@ -138,12 +135,14 @@ const selectedSection = computed(() => {
   return uiSchemaDefinition.value.sections.find(item => item.key === selection.value?.sectionKey);
 });
 const selectedField = computed(() => {
-  if (selection.value?.kind !== 'field' || !formDefinition.value) return undefined;
-  return formDefinition.value.fields.find(item => item.key === selection.value?.fieldKey);
+  const selected = selection.value;
+  if (!selected || selected.kind !== 'field' || !formDefinition.value) return undefined;
+  return formDefinition.value.fields.find(item => item.key === selected.fieldKey);
 });
 const selectedLayout = computed(() => {
-  if (selection.value?.kind !== 'field') return undefined;
-  return selectedSection.value?.fields.find(item => item.fieldKey === selection.value?.fieldKey);
+  const selected = selection.value;
+  if (!selected || selected.kind !== 'field') return undefined;
+  return selectedSection.value?.fields.find(item => item.fieldKey === selected.fieldKey);
 });
 const selectedDefault = computed(() => selectedField.value?.defaultValue);
 const contexts = computed(() => uiSchemaDefinition.value?.nodePermissions.map(item => item.contextKey) || []);
@@ -584,6 +583,10 @@ function removeOption(index: number) {
   selectedField.value?.options?.splice(index, 1);
 }
 
+function setLiteralDefault(value: string) {
+  if (selectedDefault.value) selectedDefault.value.literal = value;
+}
+
 function selectSection(sectionKey: string) {
   selection.value = { kind: 'section', sectionKey };
   selectedRightTab.value = 'properties';
@@ -916,7 +919,7 @@ onBeforeUnmount(() => {
                 <ElFormItem label="字段标题"><ElInput v-model="selectedField.label" :disabled="!editable" /></ElFormItem>
                 <ElFormItem label="字段 Key"><ElInput :model-value="selectedField.key" disabled /></ElFormItem>
                 <ElFormItem label="字段类型">
-                  <ElSelect v-model="selectedField.type" :disabled="!editable">
+                  <ElSelect :model-value="selectedField.type" disabled>
                     <ElOption v-for="item in palette" :key="item.type" :label="item.label" :value="item.type" />
                   </ElSelect>
                 </ElFormItem>
@@ -962,7 +965,11 @@ onBeforeUnmount(() => {
                     </ElSelect>
                   </ElFormItem>
                   <ElFormItem v-if="selectedDefault.type === 'LITERAL'" label="固定值">
-                    <ElInput v-model="selectedDefault.literal" :disabled="!editable" />
+                    <ElInput
+                      :model-value="String(selectedDefault.literal ?? '')"
+                      :disabled="!editable"
+                      @update:model-value="setLiteralDefault"
+                    />
                   </ElFormItem>
                 </template>
               </ElForm>
