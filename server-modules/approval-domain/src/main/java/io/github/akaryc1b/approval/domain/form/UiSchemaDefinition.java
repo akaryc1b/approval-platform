@@ -77,10 +77,21 @@ public record UiSchemaDefinition(
         }
     }
 
-    public record FieldPermission(String fieldKey, FieldAccess access) {
+    public record FieldPermission(
+        String fieldKey,
+        FieldAccess access,
+        RequiredOverride requiredOverride
+    ) {
+        public FieldPermission(String fieldKey, FieldAccess access) {
+            this(fieldKey, access, RequiredOverride.INHERIT);
+        }
+
         public FieldPermission {
             fieldKey = requireText(fieldKey, "fieldPermission.fieldKey");
             access = Objects.requireNonNull(access, "fieldPermission.access must not be null");
+            requiredOverride = requiredOverride == null
+                ? RequiredOverride.INHERIT
+                : requiredOverride;
         }
     }
 
@@ -88,6 +99,12 @@ public record UiSchemaDefinition(
         EDITABLE,
         READONLY,
         HIDDEN
+    }
+
+    public enum RequiredOverride {
+        INHERIT,
+        REQUIRED,
+        OPTIONAL
     }
 
     private static String requireText(String value, String name) {
