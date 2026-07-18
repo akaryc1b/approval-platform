@@ -1,0 +1,39 @@
+name: Apply PR 51 SELECT Null Safety Fix
+
+on:
+  push:
+    branches: [agent/m2-visual-form-designer]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[pr51-select-null-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/m2-visual-form-designer
+      - name: Apply SELECT minItems null-safety fix
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/FormDefinitionValidator.java')
+          text = path.read_text()
+          old = '        if (!constraints.multiple() && constraints.minItems() > 1) {'
+          new = (
+              '        Integer minimumItems = constraints.minItems();\n'
+              '        if (!constraints.multiple() && minimumItems != null && minimumItems > 1) {'
+          )
+          if old not in text:
+              raise SystemExit('Expected SELECT single-value validation fragment was not found')
+          path.write_text(text.replace(old, new, 1))
+      - name: Commit fix
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/FormDefinitionValidator.java
+          git commit -m "Make SELECT minItems validation null-safe [pr51-select-null-fixed]"
+          git push origin HEAD:agent/m2-visual-form-designer
