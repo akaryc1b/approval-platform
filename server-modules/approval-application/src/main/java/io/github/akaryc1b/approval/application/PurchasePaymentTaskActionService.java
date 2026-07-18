@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.application;
 
+import io.github.akaryc1b.approval.application.ApprovalFormRuntimeService.RevisionPlan;
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
@@ -37,12 +38,14 @@ public final class PurchasePaymentTaskActionService {
     private static final String APPROVE_OPERATION = "purchase-payment.approve.v1";
     private static final String REJECT_OPERATION = "purchase-payment.reject.v1";
     private static final String RESUBMIT_OPERATION = "purchase-payment.resubmit.v1";
+    private static final FormSubmissionHasher ACTION_VALUES_HASHER = new FormSubmissionHasher();
 
     private final ApprovalEngine engine;
     private final IdempotencyGuard idempotencyGuard;
     private final ApprovalProjectionStore projections;
     private final AuditEventSink auditEvents;
     private final ApprovalBusinessEventOutbox businessEventOutbox;
+    private final ApprovalFormRuntimeService formRuntimeService;
     private final Clock clock;
     private final Supplier<UUID> identifierGenerator;
 
@@ -52,6 +55,28 @@ public final class PurchasePaymentTaskActionService {
         ApprovalProjectionStore projections,
         AuditEventSink auditEvents,
         ApprovalBusinessEventOutbox businessEventOutbox,
+        Clock clock,
+        Supplier<UUID> identifierGenerator
+    ) {
+        this(
+            engine,
+            idempotencyGuard,
+            projections,
+            auditEvents,
+            businessEventOutbox,
+            null,
+            clock,
+            identifierGenerator
+        );
+    }
+
+    public PurchasePaymentTaskActionService(
+        ApprovalEngine engine,
+        IdempotencyGuard idempotencyGuard,
+        ApprovalProjectionStore projections,
+        AuditEventSink auditEvents,
+        ApprovalBusinessEventOutbox businessEventOutbox,
+        ApprovalFormRuntimeService formRuntimeService,
         Clock clock,
         Supplier<UUID> identifierGenerator
     ) {
@@ -66,6 +91,7 @@ public final class PurchasePaymentTaskActionService {
             businessEventOutbox,
             "businessEventOutbox must not be null"
         );
+        this.formRuntimeService = formRuntimeService;
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.identifierGenerator = Objects.requireNonNull(
             identifierGenerator,
@@ -113,13 +139,33 @@ public final class PurchasePaymentTaskActionService {
     ) {
         Objects.requireNonNull(command, "command must not be null");
         String comment = normalizeOptional(command.comment());
-        String requestHash = hashValues(command.taskId().toString(), decision.name(), comment);
+        String valuesHash = ACTION_VALUES_HASHER.hash(
+            "task-action",
+            1,
+            command.taskId().toString(),
+            decision.name(),
+            command.values(),
+            Map.of()
+        );
+        String requestHash = hashValues(
+            command.taskId().toString(),
+            decision.name(),
+            comment,
+            valuesHash
+        );
         return idempotencyGuard.execute(
             command.context(),
             operation,
             requestHash,
             PurchasePaymentApplicationService.ApproveResult.class,
-            () -> executeTransition(command, decision, revisionRequired, auditAction, comment)
+            () -> executeTransition(
+                command,
+                decision,
+                revisionRequired,
+                auditAction,
+                comment,
+                requestHash
+            )
         );
     }
 
@@ -128,8 +174,17 @@ public final class PurchasePaymentTaskActionService {
         Decision decision,
         boolean revisionRequired,
         String auditAction,
-        String comment
+        String comment,
+        String requestHash
     ) {
+        RevisionPlan revisionPlan = revisionRequired && formRuntimeService != null
+            ? formRuntimeService.planRevision(
+                command.context().tenantId(),
+                command.context().operatorId(),
+                command.taskId(),
+                command.values()
+            )
+            : null;
         Instant now = clock.instant();
         TaskProjection claimed = projections.claimPendingTask(
             command.context().tenantId(),
@@ -144,6 +199,9 @@ public final class PurchasePaymentTaskActionService {
             "task instance projection is missing"
         ));
         validateAction(command.context(), instance, claimed, decision, revisionRequired);
+        if (revisionPlan != null) {
+            formRuntimeService.saveRevision(revisionPlan, command.context(), requestHash, now);
+        }
 
         Map<String, Object> variables = new LinkedHashMap<>();
         variables.put(ApprovalDslCompiler.DECISION_VARIABLE, decision.name());
@@ -198,6 +256,10 @@ public final class PurchasePaymentTaskActionService {
         attributes.put("decision", decision.name());
         if (comment != null) {
             attributes.put("comment", comment);
+        }
+        if (revisionPlan != null) {
+            attributes.put("formRevision", Integer.toString(revisionPlan.revisionNumber()));
+            attributes.put("formDataHash", revisionPlan.contentHash());
         }
         appendAudit(
             command.context(),
@@ -355,10 +417,20 @@ public final class PurchasePaymentTaskActionService {
         RESUBMITTED
     }
 
-    public record TaskActionCommand(RequestContext context, UUID taskId, String comment) {
+    public record TaskActionCommand(
+        RequestContext context,
+        UUID taskId,
+        String comment,
+        Map<String, Object> values
+    ) {
         public TaskActionCommand {
             context = Objects.requireNonNull(context, "context must not be null");
             taskId = Objects.requireNonNull(taskId, "taskId must not be null");
+            values = values == null ? Map.of() : Map.copyOf(values);
+        }
+
+        public TaskActionCommand(RequestContext context, UUID taskId, String comment) {
+            this(context, taskId, comment, Map.of());
         }
     }
 }

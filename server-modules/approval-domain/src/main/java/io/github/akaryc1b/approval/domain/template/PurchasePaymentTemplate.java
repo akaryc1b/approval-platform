@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.domain.template;
 
 import io.github.akaryc1b.approval.domain.definition.ApprovalDefinition;
 import io.github.akaryc1b.approval.domain.form.FormDefinition;
+import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -14,6 +15,7 @@ public final class PurchasePaymentTemplate {
     public static final String DEFINITION_KEY = "purchase-payment";
     public static final int PROCESS_VERSION = 2;
     public static final int FORM_VERSION = 1;
+    public static final int UI_SCHEMA_VERSION = 1;
     public static final BigDecimal HIGH_VALUE_THRESHOLD = new BigDecimal("10000.00");
 
     public static final String INITIATOR_ASSIGNEE_VARIABLE = "initiatorAssignee";
@@ -139,5 +141,85 @@ public final class PurchasePaymentTemplate {
                 )
             )
         );
+    }
+
+    public static UiSchemaDefinition uiSchemaDefinition() {
+        return new UiSchemaDefinition(
+            UiSchemaDefinition.CURRENT_SCHEMA_VERSION,
+            DEFINITION_KEY,
+            FORM_VERSION,
+            UI_SCHEMA_VERSION,
+            "Purchase payment UI",
+            List.of(
+                new UiSchemaDefinition.Section(
+                    "request",
+                    "申请信息",
+                    "填写本次采购付款的业务信息。",
+                    false,
+                    List.of(
+                        layout("amount", "请输入付款金额", "金额用于流程条件判断。", 12),
+                        layout("supplier", "请输入供应商名称", null, 12),
+                        layout("purchaseOrderReference", "请输入采购订单号", null, 24)
+                    )
+                ),
+                new UiSchemaDefinition.Section(
+                    "materials",
+                    "付款材料",
+                    "上传付款依据，单个文件不超过 10 MiB。",
+                    false,
+                    List.of(layout("attachments", null, "支持多个附件。", 24))
+                )
+            ),
+            List.of(
+                permissions(UiSchemaDefinition.START_CONTEXT,
+                    access("amount", UiSchemaDefinition.FieldAccess.EDITABLE),
+                    access("supplier", UiSchemaDefinition.FieldAccess.EDITABLE),
+                    access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.EDITABLE),
+                    access("attachments", UiSchemaDefinition.FieldAccess.EDITABLE)),
+                permissions("managerApproval",
+                    access("amount", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("supplier", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("attachments", UiSchemaDefinition.FieldAccess.HIDDEN)),
+                permissions("financeReview",
+                    access("amount", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("supplier", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("attachments", UiSchemaDefinition.FieldAccess.READONLY)),
+                permissions("financeCountersign",
+                    access("amount", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("supplier", UiSchemaDefinition.FieldAccess.HIDDEN),
+                    access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("attachments", UiSchemaDefinition.FieldAccess.READONLY)),
+                permissions(REVISION_TASK_KEY,
+                    access("amount", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("supplier", UiSchemaDefinition.FieldAccess.EDITABLE),
+                    access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.EDITABLE),
+                    access("attachments", UiSchemaDefinition.FieldAccess.EDITABLE))
+            )
+        );
+    }
+
+    private static UiSchemaDefinition.FieldLayout layout(
+        String fieldKey,
+        String placeholder,
+        String helpText,
+        int span
+    ) {
+        return new UiSchemaDefinition.FieldLayout(fieldKey, placeholder, helpText, span);
+    }
+
+    private static UiSchemaDefinition.FieldPermission access(
+        String fieldKey,
+        UiSchemaDefinition.FieldAccess access
+    ) {
+        return new UiSchemaDefinition.FieldPermission(fieldKey, access);
+    }
+
+    private static UiSchemaDefinition.NodePermissions permissions(
+        String contextKey,
+        UiSchemaDefinition.FieldPermission... permissions
+    ) {
+        return new UiSchemaDefinition.NodePermissions(contextKey, List.of(permissions));
     }
 }

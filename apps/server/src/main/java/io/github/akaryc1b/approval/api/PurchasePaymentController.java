@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -207,7 +208,8 @@ public class PurchasePaymentController {
         return taskActionService.resubmit(new PurchasePaymentTaskActionService.TaskActionCommand(
             context(tenantId, operatorId, requestId, idempotencyKey, traceId),
             taskId,
-            request.comment()
+            request.comment(),
+            request.values()
         ));
     }
 
@@ -264,6 +266,12 @@ public class PurchasePaymentController {
     ) {
     }
 
-    public record ResubmitTaskRequest(@Size(max = 2000) String comment) {
+    public record ResubmitTaskRequest(
+        @Size(max = 2000) String comment,
+        Map<String, Object> values
+    ) {
+        public ResubmitTaskRequest {
+            values = values == null ? Map.of() : Map.copyOf(values);
+        }
     }
 }

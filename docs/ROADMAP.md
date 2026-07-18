@@ -30,19 +30,29 @@
 - 租户隔离、不可变的 Form Schema 版本仓库；
 - Form Schema 服务端校验、确定性内容哈希和幂等发布；
 - 表单版本列表、搜索、详情与采购付款模板 API；
-- PC JSON 编辑、服务端校验、发布和 Element Plus 运行时预览；
-- 移动端真实已发布表单列表和 Wot UI 运行时 Renderer；
+- 通用表单提交、服务端权威校验和不可变数据快照；
+- 表单 Key/精确版本到流程启动器的绑定；
+- 移动端真实发布表单发起和审批详情快照；
+- 租户隔离、不可变的 UI Schema 版本仓库；
+- UI Schema 与精确 Form Schema Key/版本强绑定；
+- 字段顺序、区块、placeholder、helpText、跨度和默认折叠协议；
+- `EDITABLE`、`READONLY`、`HIDDEN` 节点字段权限；
+- 发起、普通审批和发起人修改节点的后端权威权限解析；
+- 提交、审批详情和重提的字段权限校验；
+- UI Schema 版本/哈希固定与不可变表单修订快照；
+- 无 UI Schema 历史表单的安全默认行为；
+- PC Form/UI Schema JSON 工作台和 Element Plus Renderer；
+- Wot UI 移动 Renderer、H5 和微信小程序共用协议；
 - TEXT、MONEY、ATTACHMENT 基础字段协议。
 
 ### 下一优先级
 
-- 通用表单实例提交、校验结果和不可变数据快照；
-- 将采购付款发起页迁移到通用 Form Schema 提交链路；
-- UI Schema、布局、默认值、帮助文本和只读展示；
-- 节点级字段可见、可编辑和必填权限；
 - 可视化表单设计器 MVP；
+- 节点字段必填覆盖和字段级默认值表达式；
 - 树状审批设计器、条件/并行分支和静态检查；
-- 流程模拟器和 DSL 发布联动。
+- 流程模拟器和 DSL 发布联动；
+- 更多字段类型、复合区块和可插拔自定义组件；
+- UI Schema 与流程版本发布编排。
 
 ## M3 Collaboration
 

@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.application.ApprovalApplicationService;
 import io.github.akaryc1b.approval.application.ApprovalAttachmentService;
 import io.github.akaryc1b.approval.application.ApprovalCommentService;
 import io.github.akaryc1b.approval.application.ApprovalCopiedQueryService;
+import io.github.akaryc1b.approval.application.ApprovalFormRuntimeService;
 import io.github.akaryc1b.approval.application.ApprovalMessageService;
 import io.github.akaryc1b.approval.application.ApprovalParticipationQueryService;
 import io.github.akaryc1b.approval.application.ApprovalTaskQueryService;
@@ -209,6 +210,7 @@ public class ApprovalPlatformConfiguration {
         ApprovalProjectionStore approvalProjectionStore,
         AuditEventSink auditEventSink,
         ApprovalBusinessEventOutbox businessEventOutbox,
+        ApprovalFormRuntimeService approvalFormRuntimeService,
         Clock approvalClock
     ) {
         return new PurchasePaymentTaskActionService(
@@ -217,6 +219,7 @@ public class ApprovalPlatformConfiguration {
             approvalProjectionStore,
             auditEventSink,
             businessEventOutbox,
+            approvalFormRuntimeService,
             approvalClock,
             UUID::randomUUID
         );
