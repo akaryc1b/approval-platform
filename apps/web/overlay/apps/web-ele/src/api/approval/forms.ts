@@ -49,6 +49,7 @@ async function request<T>(path: string, init: RequestInit = {}) {
       `请求失败（${response.status}）`,
     );
   }
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
@@ -83,6 +84,18 @@ export function findTaskFormRuntime(taskId: string) {
   return request<FormRuntimeView>(
     `/approval/tasks/${encodeURIComponent(taskId)}/form-runtime`,
   );
+}
+
+export function resubmitFormTask(
+  taskId: string,
+  comment: string,
+  values: Record<string, unknown>,
+) {
+  return request<unknown>(`/approval/tasks/${encodeURIComponent(taskId)}/resubmit`, {
+    body: JSON.stringify({ comment: comment.trim() || null, values }),
+    headers: writeHeaders('resubmit'),
+    method: 'POST',
+  });
 }
 
 export function findPurchasePaymentTemplate() {
