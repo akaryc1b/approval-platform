@@ -6,6 +6,7 @@ import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -65,50 +66,57 @@ class ApprovalParallelDefinitionTest {
     }
 
     private static ApprovalDefinition definition(String financeTarget) {
+        List<ApprovalDefinition.ProcessNode> nodes = new ArrayList<>(List.of(
+            new ApprovalDefinition.StartNode("start", "Start", "split"),
+            new ApprovalDefinition.ParallelSplitNode(
+                "split",
+                "Parallel review",
+                List.of(
+                    new ApprovalDefinition.ParallelBranch(
+                        "managerBranch",
+                        "Manager",
+                        "managerApproval"
+                    ),
+                    new ApprovalDefinition.ParallelBranch(
+                        "financeBranch",
+                        "Finance",
+                        "amountRoute"
+                    )
+                ),
+                "join"
+            ),
+            approval("managerApproval", "Manager approval", "join"),
+            new ApprovalDefinition.ConditionStep(
+                "amountRoute",
+                "Amount route",
+                List.of(new ApprovalDefinition.ConditionRoute(
+                    new ApprovalDefinition.ComparisonCondition(
+                        "amount",
+                        ApprovalDefinition.ComparisonOperator.GREATER_THAN_OR_EQUAL,
+                        new BigDecimal("10000")
+                    ),
+                    "financeApproval"
+                )),
+                financeTarget
+            ),
+            approval("financeApproval", "Finance approval", financeTarget),
+            new ApprovalDefinition.ParallelJoinNode("join", "Join", "end")
+        ));
+        if (!"join".equals(financeTarget)) {
+            nodes.add(new ApprovalDefinition.ParallelJoinNode(
+                "otherJoin",
+                "Other join",
+                "end"
+            ));
+        }
+        nodes.add(new ApprovalDefinition.EndNode("end", "End"));
         return new ApprovalDefinition(
             ApprovalDefinition.CURRENT_SCHEMA_VERSION,
             PurchasePaymentTemplate.DEFINITION_KEY,
             PurchasePaymentTemplate.PROCESS_VERSION,
             "Parallel purchase payment",
             "start",
-            List.of(
-                new ApprovalDefinition.StartNode("start", "Start", "split"),
-                new ApprovalDefinition.ParallelSplitNode(
-                    "split",
-                    "Parallel review",
-                    List.of(
-                        new ApprovalDefinition.ParallelBranch(
-                            "managerBranch",
-                            "Manager",
-                            "managerApproval"
-                        ),
-                        new ApprovalDefinition.ParallelBranch(
-                            "financeBranch",
-                            "Finance",
-                            "amountRoute"
-                        )
-                    ),
-                    "join"
-                ),
-                approval("managerApproval", "Manager approval", "join"),
-                new ApprovalDefinition.ConditionStep(
-                    "amountRoute",
-                    "Amount route",
-                    List.of(new ApprovalDefinition.ConditionRoute(
-                        new ApprovalDefinition.ComparisonCondition(
-                            "amount",
-                            ApprovalDefinition.ComparisonOperator.GREATER_THAN_OR_EQUAL,
-                            new BigDecimal("10000")
-                        ),
-                        "financeApproval"
-                    )),
-                    financeTarget
-                ),
-                approval("financeApproval", "Finance approval", financeTarget),
-                new ApprovalDefinition.ParallelJoinNode("join", "Join", "end"),
-                new ApprovalDefinition.ParallelJoinNode("otherJoin", "Other join", "end"),
-                new ApprovalDefinition.EndNode("end", "End")
-            )
+            nodes
         );
     }
 
