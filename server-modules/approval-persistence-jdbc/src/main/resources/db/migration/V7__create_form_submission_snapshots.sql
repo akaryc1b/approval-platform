@@ -1,7 +1,7 @@
 create table if not exists ap_form_submission (
     submission_id uuid primary key,
     tenant_id varchar(128) not null,
-    form_key varchar(128) not null,
+    form_key varchar(64) not null,
     form_version integer not null check (form_version > 0),
     schema_hash char(64) not null,
     business_key varchar(256) not null,
@@ -11,6 +11,8 @@ create table if not exists ap_form_submission (
     submitted_by varchar(256) not null,
     submitted_at timestamptz not null,
     request_hash char(64) not null,
+    foreign key (tenant_id, form_key, form_version)
+        references ap_form_definition (tenant_id, form_key, form_version),
     unique (tenant_id, business_key),
     unique (tenant_id, instance_id)
 );
