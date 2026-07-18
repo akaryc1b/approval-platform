@@ -69,6 +69,15 @@ function request<T>(path: string, options: RequestOptions = {}) {
   })
 }
 
+function writeHeaders(action: string) {
+  const requestId = operationId(`mobile-${action}-request`)
+  return {
+    'Idempotency-Key': operationId(`mobile-${action}`),
+    'X-Request-Id': requestId,
+    'X-Trace-Id': requestId,
+  }
+}
+
 export function findForms(keyword = '', limit = 50, offset = 0) {
   const query = [
     `limit=${encodeURIComponent(String(limit))}`,
@@ -110,17 +119,24 @@ export function submitForm(
   values: Record<string, unknown>,
   startParameters: Record<string, unknown>,
 ) {
-  const requestId = operationId('mobile-form-submit-request')
   return request<FormSubmissionResult>(
     `/approval/forms/${encodeURIComponent(formKey)}/versions/${version}/submissions`,
     {
       method: 'POST',
       data: { businessKey, values, startParameters },
-      header: {
-        'Idempotency-Key': operationId('mobile-form-submit'),
-        'X-Request-Id': requestId,
-        'X-Trace-Id': requestId,
-      },
+      header: writeHeaders('form-submit'),
     },
   )
+}
+
+export function resubmitFormTask(
+  taskId: string,
+  comment: string,
+  values: Record<string, unknown>,
+) {
+  return request<unknown>(`/approval/tasks/${encodeURIComponent(taskId)}/resubmit`, {
+    method: 'POST',
+    data: { comment: comment.trim() || null, values },
+    header: writeHeaders('resubmit'),
+  })
 }
