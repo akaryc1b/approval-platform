@@ -76,6 +76,7 @@ public final class FlowableApprovalEngine implements ApprovalEngine {
         Map<String, Object> variables = new LinkedHashMap<>(command.variables());
         variables.putIfAbsent("approvalInitiatorId", command.initiatorId());
         variables.putIfAbsent("initiatorAssignee", command.initiatorId());
+        variables.putIfAbsent("approvalDecision", "PENDING");
         ProcessInstance instance = runtimeService.createProcessInstanceBuilder()
             .processDefinitionKey(command.definitionKey())
             .businessKey(command.businessKey())
