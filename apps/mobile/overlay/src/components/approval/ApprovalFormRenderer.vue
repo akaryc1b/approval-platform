@@ -6,8 +6,8 @@ import type {
   FormField,
   UiFieldLayout,
   UiSchemaDefinition,
+  UiSection,
 } from '@/api/approval/form-types'
-
 import { uploadApprovalAttachment } from '@/api/approval/comments'
 
 const props = withDefaults(defineProps<{
@@ -22,7 +22,6 @@ const props = withDefaults(defineProps<{
   readonly: false,
   uiSchema: undefined,
 })
-
 const emit = defineEmits<{
   'update:modelValue': [value: Record<string, unknown>]
 }>()
@@ -30,63 +29,52 @@ const emit = defineEmits<{
 const uploading = ref(false)
 const uploadedByField = ref<Record<string, ApprovalAttachment[]>>({})
 const collapsed = ref<Record<string, boolean>>({})
-const fieldByKey = computed(() => new Map(props.schema.fields.map(field => [field.key, field])))
-const sections = computed(() => {
-  if (props.uiSchema?.sections.length) return props.uiSchema.sections
-  return [{
-    collapsed: false,
-    fields: props.schema.fields.map(field => ({ fieldKey: field.key, span: 24 })),
-    key: 'default',
-    title: '申请信息',
-  }]
-})
+const fieldByKey = computed(() => new Map(props.schema.fields.map(item => [item.key, item])))
+const sections = computed<UiSection[]>(() => props.uiSchema?.sections.length
+  ? props.uiSchema.sections
+  : [{
+      collapsed: false,
+      fields: props.schema.fields.map(item => ({ fieldKey: item.key, span: 24 })),
+      key: 'default',
+      title: '申请信息',
+    }])
 
-watch(sections, (value) => {
+watch(sections, value => {
   collapsed.value = Object.fromEntries(value.map(section => [section.key, section.collapsed]))
 }, { immediate: true })
 
 function field(layout: UiFieldLayout) {
   return fieldByKey.value.get(layout.fieldKey)
 }
-
-function access(item: FormField) {
-  if (props.readonly) return 'READONLY'
-  return props.fieldPermissions[item.key] || 'EDITABLE'
+function access(item: FormField): FieldAccess {
+  return props.readonly ? 'READONLY' : (props.fieldPermissions[item.key] || 'EDITABLE')
 }
-
-function visible(item: FormField | undefined) {
+function visible(item?: FormField) {
   return Boolean(item && access(item) !== 'HIDDEN')
 }
-
 function disabled(item: FormField) {
   return access(item) !== 'EDITABLE'
 }
-
 function value(item: FormField) {
   return props.modelValue?.[item.key]
 }
-
 function textValue(item: FormField) {
   const current = value(item)
   return current == null ? '' : String(current)
 }
-
 function setValue(item: FormField, nextValue: unknown) {
-  if (disabled(item)) return
-  emit('update:modelValue', { ...props.modelValue, [item.key]: nextValue })
+  if (!disabled(item)) emit('update:modelValue', { ...props.modelValue, [item.key]: nextValue })
 }
-
 function attachmentIds(item: FormField) {
   const current = value(item)
   return Array.isArray(current) ? current.map(String) : []
 }
-
 function attachmentItems(item: FormField) {
   const known = uploadedByField.value[item.key] || []
-  if (known.length) return known.map(file => ({ id: file.attachmentId, name: file.fileName }))
-  return attachmentIds(item).map(id => ({ id, name: id }))
+  return known.length
+    ? known.map(file => ({ id: file.attachmentId, name: file.fileName }))
+    : attachmentIds(item).map(id => ({ id, name: id }))
 }
-
 function removeAttachment(item: FormField, attachmentId: string) {
   if (disabled(item)) return
   uploadedByField.value = {
@@ -96,11 +84,9 @@ function removeAttachment(item: FormField, attachmentId: string) {
   }
   setValue(item, attachmentIds(item).filter(id => id !== attachmentId))
 }
-
 function chooseFiles(item: FormField) {
   if (disabled(item) || uploading.value) return
-  const currentCount = attachmentIds(item).length
-  const remaining = item.constraints.multiple ? 20 - currentCount : 1 - currentCount
+  const remaining = (item.constraints.multiple ? 20 : 1) - attachmentIds(item).length
   if (remaining <= 0) {
     uni.showToast({ title: '已达到附件数量上限', icon: 'none' })
     return
@@ -108,7 +94,7 @@ function chooseFiles(item: FormField) {
   uni.chooseMessageFile({
     count: remaining,
     type: 'file',
-    success: async (result) => {
+    success: async result => {
       uploading.value = true
       try {
         const uploaded = [...(uploadedByField.value[item.key] || [])]
@@ -131,11 +117,9 @@ function chooseFiles(item: FormField) {
     },
   })
 }
-
 function toggleSection(key: string) {
   collapsed.value = { ...collapsed.value, [key]: !collapsed.value[key] }
 }
-
 function validate() {
   if (uploading.value) return '附件正在上传，请稍后'
   for (const item of props.schema.fields) {
@@ -160,17 +144,11 @@ function validate() {
   }
   return ''
 }
-
 function editableValues() {
-  const result: Record<string, unknown> = {}
-  for (const item of props.schema.fields) {
-    if (access(item) === 'EDITABLE' && item.key in (props.modelValue || {})) {
-      result[item.key] = props.modelValue?.[item.key]
-    }
-  }
-  return result
+  return Object.fromEntries(props.schema.fields
+    .filter(item => access(item) === 'EDITABLE' && item.key in (props.modelValue || {}))
+    .map(item => [item.key, props.modelValue?.[item.key]]))
 }
-
 defineExpose({ editableValues, uploading, validate })
 </script>
 
@@ -200,8 +178,7 @@ defineExpose({ editableValues, uploading, validate })
               :disabled="disabled(field(layout)!)"
               :maxlength="field(layout)?.constraints.maxLength"
               :model-value="textValue(field(layout)!)"
-              clearable
-              no-border
+              clearable no-border
               :placeholder="layout.placeholder || '请输入'"
               @update:model-value="setValue(field(layout)!, $event)"
             />
@@ -209,23 +186,17 @@ defineExpose({ editableValues, uploading, validate })
               v-else-if="field(layout)?.type === 'MONEY'"
               :disabled="disabled(field(layout)!)"
               :model-value="textValue(field(layout)!)"
-              clearable
-              no-border
+              clearable no-border type="digit"
               :placeholder="layout.placeholder || '请输入金额'"
-              type="digit"
               @update:model-value="setValue(field(layout)!, $event)"
             />
             <view v-else-if="field(layout)?.type === 'ATTACHMENT'" class="attachment-field">
               <wd-button
                 v-if="!disabled(field(layout)!)"
-                size="small"
-                plain
-                :disabled="uploading"
-                :loading="uploading"
+                size="small" plain
+                :disabled="uploading" :loading="uploading"
                 @click="chooseFiles(field(layout)!)"
-              >
-                选择并上传文件
-              </wd-button>
+              >选择并上传文件</wd-button>
               <view
                 v-for="file in attachmentItems(field(layout)!)"
                 :key="file.id"
