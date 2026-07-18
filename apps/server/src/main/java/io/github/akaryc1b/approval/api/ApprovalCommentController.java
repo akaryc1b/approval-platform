@@ -70,6 +70,7 @@ public class ApprovalCommentController {
         return service.comment(new CommentCommand(
             new RequestContext(tenantId, operatorId, requestId, idempotencyKey, traceId),
             instanceId,
+            request.parentCommentId(),
             request.body(),
             request.mentionIds(),
             request.attachmentIds()
@@ -77,9 +78,10 @@ public class ApprovalCommentController {
     }
 
     public record CommentRequest(
+        UUID parentCommentId,
         @NotBlank @Size(max = 4000) String body,
         @Size(max = 50) List<@NotBlank @Size(max = 512) String> mentionIds,
-        @Size(max = 20) List<@NotBlank @Size(max = 512) String> attachmentIds
+        @Size(max = 20) List<UUID> attachmentIds
     ) {
         public CommentRequest {
             mentionIds = mentionIds == null ? List.of() : List.copyOf(mentionIds);
