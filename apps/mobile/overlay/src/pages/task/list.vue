@@ -9,7 +9,7 @@ defineOptions({
 
 definePage({
   style: {
-    navigationBarTitleText: '待我审批',
+    navigationBarTitleText: '待我处理',
   },
 })
 
@@ -30,9 +30,14 @@ function taskStage(task: Pick<PendingTaskItem, 'taskDefinitionKey' | 'taskName'>
   const labels: Record<string, string> = {
     financeCountersign: '财务会签',
     financeReview: '财务审核',
+    initiatorRevision: '发起人修改',
     managerApproval: '部门负责人审批',
   }
   return labels[task.taskDefinitionKey] || task.taskName
+}
+
+function taskTagType(task: Pick<PendingTaskItem, 'taskDefinitionKey'>) {
+  return task.taskDefinitionKey === 'initiatorRevision' ? 'warning' : 'primary'
 }
 
 function formatMoney(value: number) {
@@ -123,7 +128,7 @@ onShow(loadTasks)
     </view>
 
     <view class="summary-row">
-      <text>共 {{ taskPage.total }} 项待办</text>
+      <text>共 {{ taskPage.total }} 项待处理任务</text>
       <wd-button size="small" plain :loading="loading" @click="loadTasks">
         刷新
       </wd-button>
@@ -151,7 +156,7 @@ onShow(loadTasks)
       >
         <view class="task-card__header">
           <text class="task-card__title">{{ task.supplier }}采购付款</text>
-          <wd-tag type="primary" plain>{{ taskStage(task) }}</wd-tag>
+          <wd-tag :type="taskTagType(task)" plain>{{ taskStage(task) }}</wd-tag>
         </view>
         <text class="task-card__meta">
           {{ task.businessKey }} · {{ task.purchaseOrderReference }}
