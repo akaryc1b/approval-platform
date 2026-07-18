@@ -1,6 +1,7 @@
 import type {
   FormPage,
   FormSubmissionResult,
+  FormSubmissionSnapshot,
   PublishedForm,
 } from './form-types'
 
@@ -74,6 +75,12 @@ export function findForms(keyword = '', limit = 50, offset = 0) {
 export function findForm(formKey: string, version: number) {
   return request<PublishedForm>(
     `/approval/forms/${encodeURIComponent(formKey)}/versions/${version}`,
+  )
+}
+
+export function findFormSnapshot(instanceId: string) {
+  return request<FormSubmissionSnapshot>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/form-snapshot`,
   )
 }
 
