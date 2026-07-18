@@ -62,7 +62,9 @@ export interface StartedInstanceItem {
   definitionKey: string;
   initiatorId: string;
   instanceId: string;
+  messageCount: number;
   purchaseOrderReference: string;
+  readCount: number;
   status: 'COMPLETED' | 'REJECTED' | 'RUNNING' | 'WITHDRAWN';
   supplier: string;
   updatedAt: string;
@@ -145,6 +147,66 @@ export interface RetrieveResult {
   completedTaskId: string;
   instanceId: string;
   retrievedAt: string;
+}
+
+export interface ApprovalUserOption {
+  displayName: string;
+  userId: string;
+}
+
+export interface CollaborationOptions {
+  activeAssignees: ApprovalUserOption[];
+  canUrge: boolean;
+  copyCandidates: ApprovalUserOption[];
+  instanceId: string;
+}
+
+export interface MessageActionResult {
+  createdAt: string;
+  createdMessages: number;
+  instanceId: string;
+  recipients: string[];
+}
+
+export interface ApprovalMessageItem {
+  amount: number;
+  body: string;
+  businessKey: string;
+  createdAt: string;
+  instanceId: string;
+  instanceStatus: StartedInstanceItem['status'];
+  messageId: string;
+  messageType: 'COPY' | 'URGE';
+  metadata: Record<string, string>;
+  purchaseOrderReference: string;
+  read: boolean;
+  readAt?: string;
+  senderId: string;
+  supplier: string;
+  taskId?: string;
+  title: string;
+}
+
+export interface ApprovalMessagePage {
+  hasMore: boolean;
+  items: ApprovalMessageItem[];
+  limit: number;
+  offset: number;
+  total: number;
+}
+
+export interface MessageReceipt {
+  messageId: string;
+  messageType: 'COPY' | 'URGE';
+  read: boolean;
+  readAt?: string;
+  recipientId: string;
+  senderId: string;
+  sentAt: string;
+}
+
+export interface UnreadCount {
+  unread: number;
 }
 
 interface PageParameters {
@@ -317,5 +379,77 @@ export function retrieveTask(taskId: string, comment: string) {
       headers: collaborationHeaders('retrieve'),
       method: 'POST',
     },
+  );
+}
+
+export function findCollaborationOptions(instanceId: string) {
+  return approvalRequest<CollaborationOptions>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/collaboration-options`,
+  );
+}
+
+export function urgeInstance(instanceId: string, comment: string) {
+  return approvalRequest<MessageActionResult>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/urge`,
+    {
+      body: JSON.stringify({ comment: comment.trim() || null }),
+      headers: collaborationHeaders('urge'),
+      method: 'POST',
+    },
+  );
+}
+
+export function copyInstance(
+  instanceId: string,
+  recipientIds: string[],
+  comment: string,
+) {
+  return approvalRequest<MessageActionResult>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/copy`,
+    {
+      body: JSON.stringify({
+        comment: comment.trim() || null,
+        recipientIds,
+      }),
+      headers: collaborationHeaders('copy'),
+      method: 'POST',
+    },
+  );
+}
+
+export function findMessageReceipts(instanceId: string) {
+  return approvalRequest<MessageReceipt[]>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/receipts`,
+  );
+}
+
+export function findMessages(
+  unreadOnly: boolean,
+  limit: number,
+  offset: number,
+) {
+  const query = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+    unreadOnly: String(unreadOnly),
+  });
+  return approvalRequest<ApprovalMessagePage>(`/approval/messages?${query.toString()}`);
+}
+
+export function findUnreadMessageCount() {
+  return approvalRequest<UnreadCount>('/approval/messages/unread-count');
+}
+
+export function markMessageRead(messageId: string) {
+  return approvalRequest<{ firstRead: boolean; messageId: string; readAt: string }>(
+    `/approval/messages/${encodeURIComponent(messageId)}/read`,
+    { method: 'POST' },
+  );
+}
+
+export function markAllMessagesRead() {
+  return approvalRequest<{ readAt: string; updatedMessages: number }>(
+    '/approval/messages/read-all',
+    { method: 'POST' },
   );
 }
