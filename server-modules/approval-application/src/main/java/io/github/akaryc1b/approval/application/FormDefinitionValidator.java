@@ -29,6 +29,9 @@ public final class FormDefinitionValidator {
         if (!FORM_KEY.matcher(definition.formKey()).matches()) {
             throw new IllegalArgumentException("invalid formKey: " + definition.formKey());
         }
+        if (definition.fields().isEmpty()) {
+            throw new IllegalArgumentException("published Form Schema must contain at least one field");
+        }
         HashSet<String> keys = new HashSet<>();
         for (FormField field : definition.fields()) {
             if (!FIELD_KEY.matcher(field.key()).matches()) {
