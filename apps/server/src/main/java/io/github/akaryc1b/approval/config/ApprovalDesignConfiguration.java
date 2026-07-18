@@ -16,10 +16,12 @@ import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.compiler.ApprovalDefinitionSimulator;
 import io.github.akaryc1b.approval.compiler.ApprovalDefinitionValidator;
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
+import io.github.akaryc1b.approval.persistence.jdbc.ApprovalDefinitionJacksonSupport;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalCompiledArtifactStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalDefinitionVersionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalDesignDraftStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalReleasePackageStore;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -29,6 +31,19 @@ import java.util.UUID;
 
 @Configuration(proxyBeanMethods = false)
 public class ApprovalDesignConfiguration {
+
+    @Bean
+    static BeanPostProcessor approvalDefinitionObjectMapperSupport() {
+        return new BeanPostProcessor() {
+            @Override
+            public Object postProcessAfterInitialization(Object bean, String beanName) {
+                if (bean instanceof ObjectMapper objectMapper) {
+                    ApprovalDefinitionJacksonSupport.configure(objectMapper);
+                }
+                return bean;
+            }
+        };
+    }
 
     @Bean
     ApprovalDefinitionValidator approvalDefinitionValidator() {
