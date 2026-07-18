@@ -63,11 +63,12 @@ export interface ApprovalTimeline {
   items: ApprovalTimelineItem[]
 }
 
-export interface ApproveTaskResult {
+export interface TaskActionResult {
+  activeTasks: PendingTaskItem[]
   completedAt: string
+  completedTaskId: string
   instanceId: string
-  status: 'COMPLETED' | 'RUNNING'
-  taskId: string
+  instanceStatus: 'COMPLETED' | 'RUNNING'
 }
 
 interface PendingTaskParameters {
@@ -87,6 +88,8 @@ interface ApiErrorPayload {
   error?: string
   message?: string
 }
+
+type TaskAction = 'approve' | 'reject' | 'resubmit'
 
 function joinUrl(baseUrl: string, path: string) {
   const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
@@ -166,18 +169,30 @@ export function findApprovalTimeline(instanceId: string) {
   )
 }
 
-export function approveTask(taskId: string, comment: string) {
-  const requestId = operationId('mobile-approve-request')
-  return approvalRequest<ApproveTaskResult>(
-    `/approval/tasks/${encodeURIComponent(taskId)}/approve`,
+function submitTaskAction(taskId: string, action: TaskAction, comment: string) {
+  const requestId = operationId(`mobile-${action}-request`)
+  return approvalRequest<TaskActionResult>(
+    `/approval/tasks/${encodeURIComponent(taskId)}/${action}`,
     {
       method: 'POST',
       data: { comment: comment.trim() || null },
       header: {
-        'Idempotency-Key': operationId('mobile-approve'),
+        'Idempotency-Key': operationId(`mobile-${action}`),
         'X-Request-Id': requestId,
         'X-Trace-Id': requestId,
       },
     },
   )
+}
+
+export function approveTask(taskId: string, comment: string) {
+  return submitTaskAction(taskId, 'approve', comment)
+}
+
+export function rejectTask(taskId: string, comment: string) {
+  return submitTaskAction(taskId, 'reject', comment)
+}
+
+export function resubmitTask(taskId: string, comment: string) {
+  return submitTaskAction(taskId, 'resubmit', comment)
 }
