@@ -1,10 +1,12 @@
 <script lang="ts" setup>
 import type {
+  ApprovalAttachment,
+  ApprovalCommentItem,
   ApprovalCommentPage,
   CommentOptions,
 } from '#/api/approval/comments';
 
-import { ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 
 import {
   ElAlert,
@@ -20,20 +22,28 @@ import {
 
 import {
   createApprovalComment,
+  downloadApprovalAttachment,
   findApprovalComments,
   findCommentOptions,
+  uploadApprovalAttachment,
 } from '#/api/approval/comments';
 
-const props = defineProps<{ instanceId: string }>();
+const props = defineProps<{
+  focusCommentId?: string;
+  instanceId: string;
+}>();
 
 const loading = ref(false);
 const submitting = ref(false);
+const uploading = ref(false);
 const errorText = ref('');
 const comments = ref<ApprovalCommentPage>(emptyPage());
 const options = ref<CommentOptions>();
 const body = ref('');
 const mentionIds = ref<string[]>([]);
-const attachmentText = ref('');
+const attachments = ref<ApprovalAttachment[]>([]);
+const replyingTo = ref<ApprovalCommentItem>();
+const fileInput = ref<HTMLInputElement>();
 
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   day: '2-digit',
@@ -55,13 +65,19 @@ function formatDate(value: string) {
   return dateFormatter.format(new Date(value));
 }
 
-function attachmentIds() {
-  return Array.from(new Set(
-    attachmentText.value
-      .split(/[\n,;，；]/)
-      .map((item) => item.trim())
-      .filter(Boolean),
-  )).slice(0, 20);
+function formatSize(value: number) {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MiB`;
+}
+
+async function focusComment() {
+  if (!props.focusCommentId) return;
+  await nextTick();
+  document.getElementById(`approval-comment-${props.focusCommentId}`)?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+  });
 }
 
 async function loadComments() {
@@ -75,12 +91,72 @@ async function loadComments() {
     ]);
     comments.value = page;
     options.value = optionResult;
+    await focusComment();
   } catch (error) {
     comments.value = emptyPage();
     options.value = undefined;
     errorText.value = errorMessage(error);
   } finally {
     loading.value = false;
+  }
+}
+
+function startReply(item: ApprovalCommentItem) {
+  if (item.reply) return;
+  replyingTo.value = item;
+  const candidate = options.value?.mentionCandidates.find(
+    (user) => user.userId === item.authorId,
+  );
+  if (candidate && !mentionIds.value.includes(candidate.userId)) {
+    mentionIds.value = [...mentionIds.value, candidate.userId];
+  }
+}
+
+function cancelReply() {
+  replyingTo.value = undefined;
+}
+
+function chooseFiles() {
+  fileInput.value?.click();
+}
+
+async function uploadFiles(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  if (attachments.value.length + files.length > 20) {
+    ElMessage.warning('单条评论最多上传 20 个附件');
+    return;
+  }
+  uploading.value = true;
+  try {
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error(`${file.name} 超过 10 MiB`);
+      }
+      const uploaded = await uploadApprovalAttachment(file);
+      attachments.value = [...attachments.value, uploaded];
+    }
+    ElMessage.success(`已上传 ${files.length} 个附件`);
+  } catch (error) {
+    ElMessage.error(errorMessage(error));
+  } finally {
+    uploading.value = false;
+  }
+}
+
+function removeAttachment(attachmentId: string) {
+  attachments.value = attachments.value.filter(
+    (item) => item.attachmentId !== attachmentId,
+  );
+}
+
+async function downloadAttachment(item: ApprovalAttachment) {
+  try {
+    await downloadApprovalAttachment(item);
+  } catch (error) {
+    ElMessage.error(errorMessage(error));
   }
 }
 
@@ -94,13 +170,15 @@ async function submitComment() {
   try {
     await createApprovalComment(
       props.instanceId,
+      replyingTo.value?.commentId,
       content,
       mentionIds.value,
-      attachmentIds(),
+      attachments.value.map((item) => item.attachmentId),
     );
     body.value = '';
     mentionIds.value = [];
-    attachmentText.value = '';
+    attachments.value = [];
+    replyingTo.value = undefined;
     ElMessage.success('评论已发布');
     await loadComments();
   } catch (error) {
@@ -110,7 +188,11 @@ async function submitComment() {
   }
 }
 
-watch(() => props.instanceId, loadComments, { immediate: true });
+watch(
+  () => [props.instanceId, props.focusCommentId],
+  loadComments,
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -138,11 +220,21 @@ watch(() => props.instanceId, loadComments, { immediate: true });
     <div v-else class="comment-list">
       <article
         v-for="item in comments.items"
+        :id="`approval-comment-${item.commentId}`"
         :key="item.commentId"
         class="comment-item"
+        :class="{
+          'comment-item--focus': item.commentId === focusCommentId,
+          'comment-item--reply': item.reply,
+        }"
       >
         <div class="comment-meta">
-          <strong>{{ item.authorDisplayName }}</strong>
+          <div>
+            <strong>{{ item.authorDisplayName }}</strong>
+            <span v-if="item.replyToAuthorDisplayName">
+              回复 {{ item.replyToAuthorDisplayName }}
+            </span>
+          </div>
           <span>{{ formatDate(item.createdAt) }}</span>
         </div>
         <p>{{ item.body }}</p>
@@ -157,17 +249,20 @@ watch(() => props.instanceId, loadComments, { immediate: true });
             @{{ user.displayName }}
           </ElTag>
         </div>
-        <div v-if="item.attachmentIds.length" class="tag-row">
+        <div v-if="item.attachments.length" class="attachment-row">
           <span class="hint">附件</span>
-          <ElTag
-            v-for="attachment in item.attachmentIds"
-            :key="attachment"
-            effect="plain"
-            size="small"
-            type="info"
+          <ElButton
+            v-for="attachment in item.attachments"
+            :key="attachment.attachmentId"
+            link
+            type="primary"
+            @click="downloadAttachment(attachment)"
           >
-            {{ attachment }}
-          </ElTag>
+            {{ attachment.fileName }}（{{ formatSize(attachment.sizeBytes) }}）
+          </ElButton>
+        </div>
+        <div v-if="!item.reply" class="comment-actions">
+          <ElButton link type="primary" @click="startReply(item)">回复</ElButton>
         </div>
       </article>
     </div>
@@ -180,6 +275,16 @@ watch(() => props.instanceId, loadComments, { immediate: true });
     />
 
     <div class="composer">
+      <ElAlert
+        v-if="replyingTo"
+        :closable="false"
+        type="info"
+      >
+        <template #title>
+          正在回复 {{ replyingTo.authorDisplayName }}
+          <ElButton link type="primary" @click="cancelReply">取消回复</ElButton>
+        </template>
+      </ElAlert>
       <ElSelect
         v-model="mentionIds"
         collapse-tags
@@ -202,20 +307,44 @@ watch(() => props.instanceId, loadComments, { immediate: true });
         v-model="body"
         :maxlength="4000"
         :rows="4"
-        placeholder="发表审批评论"
+        :placeholder="replyingTo ? `回复 ${replyingTo.authorDisplayName}` : '发表审批评论'"
         show-word-limit
         type="textarea"
       />
-      <ElInput
-        v-model="attachmentText"
-        placeholder="附件引用 ID（可选，逗号或换行分隔，最多 20 个）"
-        type="textarea"
-        :rows="2"
+      <input
+        ref="fileInput"
+        hidden
+        multiple
+        type="file"
+        @change="uploadFiles"
       />
+      <div class="upload-row">
+        <ElButton :loading="uploading" plain @click="chooseFiles">
+          选择附件
+        </ElButton>
+        <span>单文件不超过 10 MiB，最多 20 个</span>
+      </div>
+      <div v-if="attachments.length" class="pending-attachments">
+        <ElTag
+          v-for="attachment in attachments"
+          :key="attachment.attachmentId"
+          closable
+          effect="plain"
+          type="info"
+          @close="removeAttachment(attachment.attachmentId)"
+        >
+          {{ attachment.fileName }} · {{ formatSize(attachment.sizeBytes) }}
+        </ElTag>
+      </div>
       <div class="composer-footer">
-        <span>附件上传能力接入后，这里将替换为文件选择器。</span>
-        <ElButton :loading="submitting" type="primary" @click="submitComment">
-          发布评论
+        <span>上传后的文件会在评论发布时绑定到当前审批。</span>
+        <ElButton
+          :disabled="uploading"
+          :loading="submitting"
+          type="primary"
+          @click="submitComment"
+        >
+          {{ replyingTo ? '发布回复' : '发布评论' }}
         </ElButton>
       </div>
     </div>
@@ -231,7 +360,10 @@ watch(() => props.instanceId, loadComments, { immediate: true });
 .comment-header,
 .comment-meta,
 .composer-footer,
-.tag-row {
+.tag-row,
+.attachment-row,
+.upload-row,
+.comment-actions {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -243,6 +375,12 @@ watch(() => props.instanceId, loadComments, { immediate: true });
   justify-content: space-between;
 }
 
+.comment-meta > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .comment-header h3 {
   margin: 0 0 4px;
   font-size: 16px;
@@ -252,6 +390,7 @@ watch(() => props.instanceId, loadComments, { immediate: true });
 .comment-meta span,
 .hint,
 .composer-footer span,
+.upload-row span,
 .candidate-id {
   color: var(--el-text-color-secondary);
   font-size: 13px;
@@ -267,6 +406,18 @@ watch(() => props.instanceId, loadComments, { immediate: true });
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--el-border-radius-base);
   background: var(--el-fill-color-blank);
+  scroll-margin-top: 24px;
+}
+
+.comment-item--reply {
+  margin-left: 36px;
+  border-left: 3px solid var(--el-color-primary-light-5);
+}
+
+.comment-item--focus {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  box-shadow: 0 0 0 2px var(--el-color-primary-light-8);
 }
 
 .comment-item p {
@@ -276,9 +427,17 @@ watch(() => props.instanceId, loadComments, { immediate: true });
   white-space: pre-wrap;
 }
 
-.tag-row {
+.tag-row,
+.attachment-row,
+.pending-attachments {
+  display: flex;
   flex-wrap: wrap;
   margin-top: 8px;
+}
+
+.comment-actions {
+  justify-content: flex-end;
+  margin-top: 6px;
 }
 
 .composer {
@@ -286,6 +445,10 @@ watch(() => props.instanceId, loadComments, { immediate: true });
   gap: 12px;
   padding-top: 16px;
   border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.pending-attachments {
+  gap: 8px;
 }
 
 .candidate-id {
