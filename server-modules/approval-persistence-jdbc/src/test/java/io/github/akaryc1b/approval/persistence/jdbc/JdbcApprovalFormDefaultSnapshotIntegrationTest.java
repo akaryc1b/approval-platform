@@ -10,6 +10,10 @@ import io.github.akaryc1b.approval.application.FormSchemaHasher;
 import io.github.akaryc1b.approval.application.FormSubmissionHasher;
 import io.github.akaryc1b.approval.application.UiSchemaHasher;
 import io.github.akaryc1b.approval.application.port.ApprovalFormStore.PublishedForm;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.PublishedDefinition;
 import io.github.akaryc1b.approval.application.port.ApprovalUiSchemaStore.PublishedUiSchema;
 import io.github.akaryc1b.approval.application.port.FormSubmissionWorkflowStarter.WorkflowStartResult;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
@@ -31,6 +35,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -47,6 +52,7 @@ class JdbcApprovalFormDefaultSnapshotIntegrationTest {
     private static final UUID INSTANCE_ID = UUID.fromString(
         "77777777-7777-7777-7777-777777777777"
     );
+    private static final String DEFINITION_HASH = "c".repeat(64);
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
@@ -61,6 +67,7 @@ class JdbcApprovalFormDefaultSnapshotIntegrationTest {
     private JdbcApprovalFormStore forms;
     private JdbcApprovalUiSchemaStore uiSchemas;
     private JdbcApprovalFormSubmissionStore submissions;
+    private JdbcApprovalProjectionStore projections;
     private ApprovalFormSubmissionService service;
 
     @BeforeAll
@@ -88,10 +95,7 @@ class JdbcApprovalFormDefaultSnapshotIntegrationTest {
         uiSchemas = new JdbcApprovalUiSchemaStore(dataSource, objectMapper);
         submissions = new JdbcApprovalFormSubmissionStore(dataSource, objectMapper);
         JdbcApprovalAttachmentStore attachments = new JdbcApprovalAttachmentStore(dataSource);
-        JdbcApprovalProjectionStore projections = new JdbcApprovalProjectionStore(
-            dataSource,
-            objectMapper
-        );
+        projections = new JdbcApprovalProjectionStore(dataSource, objectMapper);
         JdbcApprovalMessageStore messages = new JdbcApprovalMessageStore(dataSource, objectMapper);
         FormDataValidator validator = new FormDataValidator();
         FormSubmissionHasher submissionHasher = new FormSubmissionHasher(objectMapper);
@@ -118,10 +122,10 @@ class JdbcApprovalFormDefaultSnapshotIntegrationTest {
             attachments,
             projections,
             messages,
-            (context, formKey, businessKey, values, parameters) -> new WorkflowStartResult(
-                INSTANCE_ID,
-                "RUNNING",
-                NOW
+            (context, formKey, businessKey, values, parameters) -> startWorkflow(
+                context,
+                formKey,
+                businessKey
             ),
             runtimeService,
             validator,
@@ -155,6 +159,37 @@ class JdbcApprovalFormDefaultSnapshotIntegrationTest {
         var snapshot = submissions.findByInstance("tenant-defaults", INSTANCE_ID).orElseThrow();
         assertEquals("initiator-1", snapshot.values().get("owner"));
         assertEquals(NOW.toString(), snapshot.values().get("submittedAt"));
+    }
+
+    private WorkflowStartResult startWorkflow(
+        RequestContext context,
+        String formKey,
+        String businessKey
+    ) {
+        projections.createInstance(new InstanceProjection(
+            INSTANCE_ID,
+            context.tenantId(),
+            businessKey,
+            "engine-default-snapshot",
+            "default-process",
+            1,
+            formKey,
+            1,
+            "test-compiler",
+            DEFINITION_HASH,
+            context.operatorId(),
+            BigDecimal.ZERO,
+            "Default supplier",
+            "DEFAULT-PO",
+            List.of(),
+            new AssigneeSnapshot("manager", "reviewer", List.of(), Map.of()),
+            "b".repeat(64),
+            InstanceStatus.RUNNING,
+            0,
+            NOW,
+            NOW
+        ), List.of());
+        return new WorkflowStartResult(INSTANCE_ID, "RUNNING", NOW);
     }
 
     private void publishDefinition() {
@@ -225,6 +260,20 @@ class JdbcApprovalFormDefaultSnapshotIntegrationTest {
             "tenant-defaults",
             uiSchema,
             new UiSchemaHasher().hash(uiSchema),
+            "publisher",
+            NOW
+        ));
+        projections.saveDefinition(new PublishedDefinition(
+            "tenant-defaults",
+            "default-process",
+            1,
+            definition.formKey(),
+            definition.version(),
+            "test-compiler",
+            DEFINITION_HASH,
+            "deployment-default-snapshot",
+            "engine-definition-default-snapshot",
+            1,
             "publisher",
             NOW
         ));
