@@ -7,7 +7,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [ -f .github/pr53-connected-patch.tgz.b64 ]; then
+if compgen -G '.github/pr53-connected-patch-fix.b64.part-*' >/dev/null; then
+  LC_ALL=C cat .github/pr53-connected-patch-fix.b64.part-* \
+    | base64 --decode >"$archive"
+elif [ -f .github/pr53-connected-patch.tgz.b64 ]; then
   base64 --decode .github/pr53-connected-patch.tgz.b64 >"$archive"
 elif compgen -G '.github/pr53-connected-patch.tgz.b64.part-*' >/dev/null; then
   LC_ALL=C cat .github/pr53-connected-patch.tgz.b64.part-* \
@@ -116,7 +119,8 @@ while index < len(lines):
 print(f'Applied {changed_hunks} exact hunks across {changed_files} files')
 PY
 
-rm -f .github/pr53-connected-patch.tgz.b64 \
+rm -f .github/pr53-connected-patch-fix.b64.part-* \
+  .github/pr53-connected-patch.tgz.b64 \
   .github/pr53-connected-patch.tgz.b64.part-* \
   .github/pr53-connected-patch.tgz.part-* \
   .github/pr53-connected.patch \
