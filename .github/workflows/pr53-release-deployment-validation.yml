@@ -176,7 +176,8 @@ jobs:
             echo 'No queued patch helper found.'
             exit 0
           fi
-          if [ ! -f .github/pr53-connected-patch.tgz.b64 ] \
+          if [ ! -f .github/pr53-connected.patch ] \
+            && [ ! -f .github/pr53-connected-patch.tgz.b64 ] \
             && ! compgen -G '.github/pr53-connected-patch.tgz.b64.part-*' >/dev/null \
             && ! compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
             echo 'No queued product patch found.'
@@ -186,5 +187,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'feat: add effective release activation and exact instance version binding'
+          git commit -m 'feat: add release preflight and warning acknowledgements'
           git push origin HEAD:${{ github.ref_name }}
