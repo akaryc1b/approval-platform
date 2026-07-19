@@ -31,11 +31,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          payload=.github/pr53-connected-patch.tgz.b64
-          if [ -f "$payload" ]; then
-            base64 --decode "$payload" | tar -xzf -
+          if compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
+            cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
           fi
-          rm -f "$payload" .github/workflows/pr53-connected-patch.yml
+          rm -f .github/pr53-connected-patch.tgz.part-* \
+            .github/pr53-connected-patch.tgz.b64 \
+            .github/pr53-connected-patch.part-* \
+            .github/workflows/pr53-connected-patch.yml
           git diff --check
       - uses: actions/setup-java@v4
         with:
@@ -72,11 +74,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          payload=.github/pr53-connected-patch.tgz.b64
-          if [ -f "$payload" ]; then
-            base64 --decode "$payload" | tar -xzf -
+          if compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
+            cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
           fi
-          rm -f "$payload" .github/workflows/pr53-connected-patch.yml
+          rm -f .github/pr53-connected-patch.tgz.part-* \
+            .github/pr53-connected-patch.tgz.b64 \
+            .github/pr53-connected-patch.part-* \
+            .github/workflows/pr53-connected-patch.yml
           git diff --check
       - uses: actions/setup-node@v4
         with:
@@ -119,11 +123,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          payload=.github/pr53-connected-patch.tgz.b64
-          if [ -f "$payload" ]; then
-            base64 --decode "$payload" | tar -xzf -
+          if compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
+            cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
           fi
-          rm -f "$payload" .github/workflows/pr53-connected-patch.yml
+          rm -f .github/pr53-connected-patch.tgz.part-* \
+            .github/pr53-connected-patch.tgz.b64 \
+            .github/pr53-connected-patch.part-* \
+            .github/workflows/pr53-connected-patch.yml
           git diff --check
       - uses: actions/setup-node@v4
         with:
@@ -178,13 +184,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          payload=.github/pr53-connected-patch.tgz.b64
-          if [ ! -f "$payload" ]; then
+          if ! compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
             echo 'No queued product patch found.'
             exit 0
           fi
-          base64 --decode "$payload" | tar -xzf -
-          rm -f "$payload" .github/workflows/pr53-connected-patch.yml
+          cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
+          rm -f .github/pr53-connected-patch.tgz.part-* \
+            .github/pr53-connected-patch.tgz.b64 \
+            .github/pr53-connected-patch.part-* \
+            .github/workflows/pr53-connected-patch.yml
           git diff --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
