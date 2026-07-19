@@ -30,11 +30,22 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
+          set +e
           if [ -f .github/scripts/apply-pr53-connected-patch.sh ]; then
-            bash .github/scripts/apply-pr53-connected-patch.sh
+            bash .github/scripts/apply-pr53-connected-patch.sh >patch-apply.log 2>&1
           else
-            git diff --check
+            git diff --check >patch-apply.log 2>&1
           fi
+          status=$?
+          cat patch-apply.log
+          exit "$status"
+      - name: Upload patch application log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr53-patch-apply-${{ github.run_id }}
+          path: patch-apply.log
+          if-no-files-found: ignore
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
