@@ -1,0 +1,261 @@
+diff --git a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalReleaseDeploymentIntegrationTest.java b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalReleaseDeploymentIntegrationTest.java
+--- a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalReleaseDeploymentIntegrationTest.java
++++ b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalReleaseDeploymentIntegrationTest.java
+@@ -3,11 +3,17 @@
+ import com.fasterxml.jackson.databind.ObjectMapper;
++import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;
+ import io.github.akaryc1b.approval.application.ApprovalReleaseDeploymentService;
++import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
++import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
+ import io.github.akaryc1b.approval.application.port.AuditEventSink;
++import io.github.akaryc1b.approval.compiler.ApprovalDefinitionSimulator;
++import io.github.akaryc1b.approval.compiler.ApprovalDefinitionValidator;
++import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
+ import io.github.akaryc1b.approval.domain.context.RequestContext;
+ import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseDeployment;
+ import io.github.akaryc1b.approval.engine.ApprovalEngine;
+@@ -43,12 +49,34 @@
+     private static final String FORM_HASH = "3".repeat(64);
+     private static final String UI_HASH = "4".repeat(64);
+     private static final String COMPILED_HASH = "5".repeat(64);
+-    private static final String BPMN_HASH = "6".repeat(64);
+-    private static final String METADATA_HASH = "7".repeat(64);
+-    private static final String PACKAGE_HASH = "8".repeat(64);
++    private static final String BPMN_ARTIFACT = """
++        <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
++          <process id="purchase-payment" isExecutable="true" />
++        </definitions>
++        """;
++    private static final ApprovalReleasePackageHasher RELEASE_HASHER =
++        new ApprovalReleasePackageHasher();
++    private static final String BPMN_HASH = RELEASE_HASHER.artifactHash(BPMN_ARTIFACT);
++    private static final String METADATA_HASH = RELEASE_HASHER.deploymentMetadataHash(
++        "1.2.0",
++        "process.bpmn20.xml",
++        BPMN_HASH
++    );
++    private static final String PACKAGE_HASH = RELEASE_HASHER.hash(
++        DEFINITION_KEY, 1, 2, DEFINITION_HASH,
++        1, FORM_PACKAGE_HASH, 1, FORM_HASH, 1, UI_HASH,
++        "1.2.0", "process.bpmn20.xml", BPMN_ARTIFACT,
++        COMPILED_HASH, BPMN_HASH, null, null, METADATA_HASH
++    );
+@@ -129,19 +157,36 @@
+     void servicePersistsFailureRetriesAndNeverDuplicatesSuccessfulDeployment() {
+         FailingOnceEngine engine = new FailingOnceEngine();
+         ApprovalReleaseDeploymentService service = service(engine);
+ 
+-        var failed = service.deploy(command("request-1", "key-1"));
+-        var requestReplay = service.deploy(command("request-2", "key-1"));
+-        var retried = service.deploy(command("request-3", "key-2"));
+-        var semanticReplay = service.deploy(command("request-4", "key-3"));
++        var initialPreflight = deploymentPreflight();
++        var failed = service.deploy(command("request-1", "key-1", initialPreflight));
++        var requestReplay = service.deploy(command("request-2", "key-1", initialPreflight));
++        var retryPreflight = deploymentPreflight();
++        assertEquals(List.of("PREVIOUS_DEPLOYMENT_FAILED"), retryPreflight.warningCodes());
++        var retried = service.deploy(command("request-3", "key-2", retryPreflight));
++        var semanticReplay = service.deploy(command("request-4", "key-3", retryPreflight));
+ 
+         assertEquals(ApprovalReleaseDeployment.Status.FAILED, failed.deployment().status());
+         assertEquals(failed, requestReplay);
+         assertEquals(ApprovalReleaseDeployment.Status.DEPLOYED, retried.deployment().status());
+         assertEquals(2, retried.deployment().attemptCount());
+         assertTrue(semanticReplay.replayedExistingDeployment());
+         assertEquals(retried.deployment(), semanticReplay.deployment());
+         assertEquals(2, engine.calls());
+         assertEquals(1, count("ap_approval_release_deployment"));
+         assertEquals(2, count("ap_audit_event"));
++        assertEquals(
++            "PREVIOUS_DEPLOYMENT_FAILED",
++            jdbc.queryForObject(
++                "select attributes_json ->> 'acknowledgedWarningCodes' "
++                    + "from ap_audit_event order by occurred_at desc limit 1",
++                String.class
++            )
++        );
+     }
+@@ -150,17 +195,43 @@
+     private ApprovalReleaseDeploymentService service(ApprovalEngine engine) {
+         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+         AuditEventSink auditEvents = new JdbcAuditEventSink(dataSource, objectMapper);
++        JdbcApprovalReleasePackageStore releaseStore =
++            new JdbcApprovalReleasePackageStore(dataSource);
+         return new ApprovalReleaseDeploymentService(
+             new JdbcIdempotencyGuard(
+                 dataSource,
+                 objectMapper,
+                 new DataSourceTransactionManager(dataSource),
+                 CLOCK
+             ),
+-            new JdbcApprovalReleasePackageStore(dataSource),
++            releaseStore,
+             deployments,
++            preflight(releaseStore, objectMapper),
+             engine,
+             auditEvents,
+             CLOCK,
+             UUID::randomUUID
+         );
+     }
+ 
+-    private static ApprovalReleaseDeploymentService.DeployCommand command(
++    private ApprovalReleasePreflightService.PreflightReport deploymentPreflight() {
++        return preflight(
++            new JdbcApprovalReleasePackageStore(dataSource),
++            new ObjectMapper().findAndRegisterModules()
++        ).preflightDeployment(new ApprovalReleasePreflightService.DeploymentRequest(
++            TENANT,
++            DEFINITION_KEY,
++            1,
++            "flowable-primary"
++        ));
++    }
++
++    private static ApprovalReleaseDeploymentService.DeployCommand command(
+         String requestId,
+-        String idempotencyKey
++        String idempotencyKey,
++        ApprovalReleasePreflightService.PreflightReport preflight
+     ) {
+         return new ApprovalReleaseDeploymentService.DeployCommand(
+             new RequestContext(
+@@ -178,7 +249,42 @@
+             ),
+             DEFINITION_KEY,
+-            1
++            1,
++            preflight.deploymentTarget(),
++            preflight.preflightHash(),
++            preflight.warningCodes()
+         );
+     }
++
++    private static ApprovalReleasePreflightService preflight(
++        JdbcApprovalReleasePackageStore releaseStore,
++        ObjectMapper objectMapper
++    ) {
++        ApprovalDefinitionValidator validator = new ApprovalDefinitionValidator();
++        return new ApprovalReleasePreflightService(
++            new JdbcApprovalDesignDraftStore(dataSource, objectMapper),
++            new JdbcApprovalDefinitionVersionStore(dataSource, objectMapper),
++            releaseStore,
++            new JdbcApprovalReleaseDeploymentStore(dataSource),
++            new JdbcApprovalFormPackageStore(dataSource),
++            new JdbcApprovalFormStore(dataSource, objectMapper),
++            new JdbcApprovalUiSchemaStore(dataSource, objectMapper),
++            validator,
++            new ApprovalDefinitionSimulator(validator),
++            new ApprovalDslCompiler(validator),
++            new ApprovalDefinitionHasher(),
++            RELEASE_HASHER
++        );
++    }
+@@ -289,8 +395,8 @@
+                 form_version, form_hash, compiler_version, resource_name,
+                 bpmn_xml, compiled_artifact_hash, bpmn_hash, created_at
+             ) values (?, ?, 2, ?, 1, ?, '1.2.0', 'process.bpmn20.xml',
+-                      '<definitions />', ?, ?, ?)
++                      ?, ?, ?, ?)
+             """,
+             TENANT,
+             DEFINITION_KEY,
+             DEFINITION_HASH,
+             FORM_HASH,
++            BPMN_ARTIFACT,
+             COMPILED_HASH,
+             BPMN_HASH,
+             now
+@@ -311,8 +417,8 @@
+                 compiled_artifact_hash, bpmn_hash, deployment_metadata_hash,
+                 package_hash, source_draft_id, published_by, published_at
+             ) values (?, ?, 1, 2, ?, 1, ?, 1, ?, 1, ?, '1.2.0',
+-                      'process.bpmn20.xml', '<definitions />', ?, ?, ?, ?, ?,
++                      'process.bpmn20.xml', ?, ?, ?, ?, ?, ?,
+                       'publisher', ?)
+             """,
+             TENANT,
+@@ -322,6 +428,7 @@
+             FORM_PACKAGE_HASH,
+             FORM_HASH,
+             UI_HASH,
++            BPMN_ARTIFACT,
+             COMPILED_HASH,
+             BPMN_HASH,
+             METADATA_HASH,
+diff --git a/apps/web/overlay/apps/web-ele/src/views/approval/versions/index.vue b/apps/web/overlay/apps/web-ele/src/views/approval/versions/index.vue
+--- a/apps/web/overlay/apps/web-ele/src/views/approval/versions/index.vue
++++ b/apps/web/overlay/apps/web-ele/src/views/approval/versions/index.vue
+@@ -42,11 +42,12 @@
+ import { copyPublishedApprovalDesignDraft } from '#/api/approval/process-design';
+ import {
+   deployApprovalReleasePackage,
+   diffApprovalReleaseVersions,
+   findApprovalDefinitionVersion,
+   findApprovalReleasePackage,
+   findApprovalVersionCenter,
++  preflightApprovalDeployment,
+ } from '#/api/approval/release-version-management';
+@@ -214,48 +215,60 @@
+ async function deploy(row: ApprovalReleaseVersionSummary) {
+   if (!center.value || row.deployment?.status === 'PENDING') return;
+   const action = row.deployment?.status === 'FAILED' ? '重试部署' : '部署';
+-  try {
+-    await ElMessageBox.confirm(
+-      `${action} Release v${row.releaseVersion}，Package Hash ${shortHash(row.packageHash)}？`,
+-      `${action}确认`,
+-      { confirmButtonText: action, type: 'warning' },
+-    );
+-  } catch {
+-    return;
+-  }
+   operationLoading.value = true;
+   try {
++    const report = await preflightApprovalDeployment({
++      definitionKey: center.value.definitionKey,
++      deploymentTarget: 'flowable-primary',
++      releaseVersion: row.releaseVersion,
++    });
++    if (!report.deployable || report.errors.length > 0) {
++      ElMessage.error(
++        `部署前检查存在阻断项：${report.errors.map(item => item.code).join('、')}`,
++      );
++      return;
++    }
++    const warningCodes = [...new Set(report.warnings.map(item => item.code))].sort();
++    const summary = [
++      `${action} Release v${row.releaseVersion}`,
++      `Package ${shortHash(row.packageHash)}`,
++      `BPMN ${shortHash(report.generatedHashes.bpmnHash)}`,
++      `Preflight ${shortHash(report.preflightHash)}`,
++      warningCodes.length
++        ? `需确认警告：${warningCodes.join('、')}`
++        : '没有需要确认的警告',
++    ].join('\n');
++    try {
++      await ElMessageBox.confirm(summary, `${action}前综合检查`, {
++        confirmButtonText: warningCodes.length ? '确认警告并继续' : action,
++        type: warningCodes.length ? 'warning' : 'info',
++      });
++    } catch {
++      return;
++    }
+     const result = await deployApprovalReleasePackage(
+       center.value.definitionKey,
+       row.releaseVersion,
++      {
++        acknowledgedWarningCodes: warningCodes,
++        deploymentTarget: report.deploymentTarget,
++        preflightHash: report.preflightHash,
++      },
+     );
+     ElMessage.success(
+       result.replayedExistingDeployment ? '已返回现有部署结果' : '部署请求已完成',
+     );
+     await load();
+   } catch (error) {
+     ElMessage.error(message(error));
+   } finally {
+     operationLoading.value = false;
+   }
+ }
