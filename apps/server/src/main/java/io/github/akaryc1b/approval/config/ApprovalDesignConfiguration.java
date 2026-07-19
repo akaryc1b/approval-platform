@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService;
 import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;
 import io.github.akaryc1b.approval.application.ApprovalDesignService;
 import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
@@ -96,6 +97,25 @@ public class ApprovalDesignConfiguration {
     @Bean
     ApprovalReleasePackageStore approvalReleasePackageStore(DataSource dataSource) {
         return new JdbcApprovalReleasePackageStore(dataSource);
+    }
+
+    @Bean
+    ApprovalBatchSimulationService approvalBatchSimulationService(
+        ApprovalDesignDraftStore approvalDesignDraftStore,
+        ApprovalFormPackageStore approvalFormPackageStore,
+        ApprovalFormStore approvalFormStore,
+        ApprovalUiSchemaStore approvalUiSchemaStore,
+        ApprovalDefinitionValidator approvalDefinitionValidator,
+        ApprovalDefinitionSimulator approvalDefinitionSimulator
+    ) {
+        return new ApprovalBatchSimulationService(
+            approvalDesignDraftStore,
+            approvalFormPackageStore,
+            approvalFormStore,
+            approvalUiSchemaStore,
+            approvalDefinitionValidator,
+            approvalDefinitionSimulator
+        );
     }
 
     @Bean
