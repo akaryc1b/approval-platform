@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;
 import io.github.akaryc1b.approval.application.ApprovalDesignService;
 import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
+import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
 import io.github.akaryc1b.approval.application.port.ApprovalCompiledArtifactStore;
 import io.github.akaryc1b.approval.application.port.ApprovalDefinitionVersionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalDesignDraftStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormPackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormStore;
+import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalUiSchemaStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
@@ -94,6 +96,37 @@ public class ApprovalDesignConfiguration {
     @Bean
     ApprovalReleasePackageStore approvalReleasePackageStore(DataSource dataSource) {
         return new JdbcApprovalReleasePackageStore(dataSource);
+    }
+
+    @Bean
+    ApprovalReleasePreflightService approvalReleasePreflightService(
+        ApprovalDesignDraftStore approvalDesignDraftStore,
+        ApprovalDefinitionVersionStore approvalDefinitionVersionStore,
+        ApprovalReleasePackageStore approvalReleasePackageStore,
+        ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore,
+        ApprovalFormPackageStore approvalFormPackageStore,
+        ApprovalFormStore approvalFormStore,
+        ApprovalUiSchemaStore approvalUiSchemaStore,
+        ApprovalDefinitionValidator approvalDefinitionValidator,
+        ApprovalDefinitionSimulator approvalDefinitionSimulator,
+        ApprovalDslCompiler approvalDslCompiler,
+        ApprovalDefinitionHasher approvalDefinitionHasher,
+        ApprovalReleasePackageHasher approvalReleasePackageHasher
+    ) {
+        return new ApprovalReleasePreflightService(
+            approvalDesignDraftStore,
+            approvalDefinitionVersionStore,
+            approvalReleasePackageStore,
+            approvalReleaseDeploymentStore,
+            approvalFormPackageStore,
+            approvalFormStore,
+            approvalUiSchemaStore,
+            approvalDefinitionValidator,
+            approvalDefinitionSimulator,
+            approvalDslCompiler,
+            approvalDefinitionHasher,
+            approvalReleasePackageHasher
+        );
     }
 
     @Bean
