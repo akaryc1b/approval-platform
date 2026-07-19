@@ -1,0 +1,83 @@
+diff --git a/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightService.java b/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightService.java
+--- a/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightService.java
++++ b/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightService.java
+@@ -84,6 +84,13 @@ public final class ApprovalReleasePreflightService {
+             ));
+         }
+         List<Issue> issues = new ArrayList<>();
++        if (!draft.definitionKey().equals(request.definitionKey())) {
++            issues.add(error(
++                "DEFINITION_KEY_MISMATCH",
++                request.definitionKey(),
++                "requested definition key does not match the Approval DSL draft"
++            ));
++        }
+         if (draft.status() == ApprovalDesignDraft.Status.ARCHIVED) {
+             issues.add(error(
+                 "DRAFT_ARCHIVED",
+diff --git a/server-modules/approval-application/src/test/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightServiceTest.java b/server-modules/approval-application/src/test/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightServiceTest.java
+--- a/server-modules/approval-application/src/test/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightServiceTest.java
++++ b/server-modules/approval-application/src/test/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightServiceTest.java
+@@ -129,6 +129,28 @@ class ApprovalReleasePreflightServiceTest {
+         ));
+     }
+ 
++    @Test
++    void rejectsDefinitionKeyThatDoesNotMatchTheTenantDraft() {
++        var report = service.preflightPublication(
++            new ApprovalReleasePreflightService.PublicationRequest(
++                TENANT,
++                DRAFT_ID,
++                draft.revision(),
++                "another-definition",
++                draft.definition().version(),
++                1,
++                "flowable-primary",
++                null
++            )
++        );
++
++        assertFalse(report.publishable());
++        assertFalse(report.deployable());
++        assertTrue(hasError(report, "DEFINITION_KEY_MISMATCH"));
++    }
++
+     @Test
+     void staleRevisionAndOccupiedDefinitionVersionBlockPublication() {
+         definitions.value = new ApprovalDefinitionVersion(
+             TENANT,
+diff --git a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
+--- a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
++++ b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
+@@ -256,6 +256,27 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+             ApprovalDesignDraft.Status.PUBLISHED,
+             drafts.find(TENANT, draft.draftId()).orElseThrow().status()
+         );
++        assertEquals(
++            report.preflightHash(),
++            jdbc.queryForObject(
++                "select attributes_json ->> 'preflightHash' from ap_audit_event "
++                    + "where action = 'APPROVAL_RELEASE_PACKAGE_PUBLISHED'",
++                String.class
++            )
++        );
++        assertEquals(
++            String.join(",", report.warningCodes()),
++            jdbc.queryForObject(
++                "select attributes_json ->> 'acknowledgedWarningCodes' "
++                    + "from ap_audit_event "
++                    + "where action = 'APPROVAL_RELEASE_PACKAGE_PUBLISHED'",
++                String.class
++            )
++        );
++        assertEquals(
++            "default",
++            jdbc.queryForObject(
++                "select attributes_json ->> 'deploymentTarget' from ap_audit_event "
++                    + "where action = 'APPROVAL_RELEASE_PACKAGE_PUBLISHED'",
++                String.class
++            )
++        );
+ 
+         assertThrows(
+             ApprovalDesignExceptions.ReleaseVersionConflict.class,
