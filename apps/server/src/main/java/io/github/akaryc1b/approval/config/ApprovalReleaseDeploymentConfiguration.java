@@ -1,6 +1,9 @@
 package io.github.akaryc1b.approval.config;
 
 import io.github.akaryc1b.approval.application.ApprovalReleaseDeploymentService;
+import io.github.akaryc1b.approval.application.ApprovalReleaseStructuralDiff;
+import io.github.akaryc1b.approval.application.ApprovalVersionManagementService;
+import io.github.akaryc1b.approval.application.port.ApprovalDefinitionVersionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
@@ -20,6 +23,26 @@ public class ApprovalReleaseDeploymentConfiguration {
     @Bean
     ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore(DataSource dataSource) {
         return new JdbcApprovalReleaseDeploymentStore(dataSource);
+    }
+
+    @Bean
+    ApprovalReleaseStructuralDiff approvalReleaseStructuralDiff() {
+        return new ApprovalReleaseStructuralDiff();
+    }
+
+    @Bean
+    ApprovalVersionManagementService approvalVersionManagementService(
+        ApprovalDefinitionVersionStore approvalDefinitionVersionStore,
+        ApprovalReleasePackageStore approvalReleasePackageStore,
+        ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore,
+        ApprovalReleaseStructuralDiff approvalReleaseStructuralDiff
+    ) {
+        return new ApprovalVersionManagementService(
+            approvalDefinitionVersionStore,
+            approvalReleasePackageStore,
+            approvalReleaseDeploymentStore,
+            approvalReleaseStructuralDiff
+        );
     }
 
     @Bean

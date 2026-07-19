@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.application.port;
 
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseDeployment;
 
+import java.util.List;
 import java.util.Optional;
 
 /** Platform-owned deployment projection store; it never reads engine database tables. */
@@ -14,6 +15,13 @@ public interface ApprovalReleaseDeploymentStore {
         String definitionKey,
         int releaseVersion
     );
+
+    default List<ApprovalReleaseDeployment> findByDefinition(
+        String tenantId,
+        String definitionKey
+    ) {
+        return List.of();
+    }
 
     void save(ApprovalReleaseDeployment deployment);
 

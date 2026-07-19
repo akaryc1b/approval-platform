@@ -14,7 +14,8 @@ import java.util.UUID;
 
 @RestControllerAdvice(assignableTypes = {
     ApprovalDesignController.class,
-    ApprovalReleasePackageController.class
+    ApprovalReleasePackageController.class,
+    ApprovalVersionManagementController.class
 })
 public class ApprovalDesignApiExceptionHandler {
 

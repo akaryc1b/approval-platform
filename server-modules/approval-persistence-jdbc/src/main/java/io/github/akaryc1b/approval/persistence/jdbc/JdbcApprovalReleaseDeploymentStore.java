@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -51,23 +52,33 @@ public final class JdbcApprovalReleaseDeploymentStore
         int releaseVersion
     ) {
         return jdbc.query(
-            """
-            select deployment_record_id, tenant_id, definition_key, release_version,
-                   release_package_hash, status, attempt_count,
-                   engine_deployment_id, engine_definition_id, engine_version,
-                   last_error_code, last_error_message, requested_by,
-                   created_at, updated_at, deployed_at
-            from ap_approval_release_deployment
-            where tenant_id = :tenantId
-              and definition_key = :definitionKey
-              and release_version = :releaseVersion
-            """,
+            selectDeployment()
+                + " where tenant_id = :tenantId"
+                + " and definition_key = :definitionKey"
+                + " and release_version = :releaseVersion",
             new MapSqlParameterSource()
                 .addValue("tenantId", tenantId)
                 .addValue("definitionKey", definitionKey)
                 .addValue("releaseVersion", releaseVersion),
             (resultSet, rowNumber) -> deployment(resultSet)
         ).stream().findFirst();
+    }
+
+    @Override
+    public List<ApprovalReleaseDeployment> findByDefinition(
+        String tenantId,
+        String definitionKey
+    ) {
+        return jdbc.query(
+            selectDeployment()
+                + " where tenant_id = :tenantId"
+                + " and definition_key = :definitionKey"
+                + " order by release_version desc",
+            new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("definitionKey", definitionKey),
+            (resultSet, rowNumber) -> deployment(resultSet)
+        );
     }
 
     @Override
@@ -121,6 +132,17 @@ public final class JdbcApprovalReleaseDeploymentStore
             """,
             parameters(deployment).addValue("expectedAttemptCount", expectedAttemptCount)
         ) == 1;
+    }
+
+    private static String selectDeployment() {
+        return """
+            select deployment_record_id, tenant_id, definition_key, release_version,
+                   release_package_hash, status, attempt_count,
+                   engine_deployment_id, engine_definition_id, engine_version,
+                   last_error_code, last_error_message, requested_by,
+                   created_at, updated_at, deployed_at
+            from ap_approval_release_deployment
+            """;
     }
 
     private static MapSqlParameterSource parameters(
