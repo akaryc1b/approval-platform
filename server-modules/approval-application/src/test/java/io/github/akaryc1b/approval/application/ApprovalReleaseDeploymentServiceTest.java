@@ -34,6 +34,9 @@ class ApprovalReleaseDeploymentServiceTest {
     private static final Instant NOW = Instant.parse("2026-07-19T00:00:00Z");
     private static final String TENANT = "tenant-a";
     private static final String DEFINITION_KEY = "purchase-payment";
+    private static final String PREFLIGHT_HASH = "a".repeat(64);
+    private static final String RETRY_PREFLIGHT_HASH = "b".repeat(64);
+    private static final String RETRY_WARNING = "PREVIOUS_DEPLOYMENT_FAILED";
 
     private InMemoryDeploymentStore deployments;
     private RecordingEngine engine;
@@ -61,14 +64,28 @@ class ApprovalReleaseDeploymentServiceTest {
         assertEquals(first.deployment(), semanticReplay.deployment());
         assertEquals(1, engine.calls());
         assertEquals(1, audits.size());
+        assertEquals(PREFLIGHT_HASH, audits.getFirst().attributes().get("preflightHash"));
+        assertEquals("default", audits.getFirst().attributes().get("deploymentTarget"));
     }
 
     @Test
-    void persistsFailureAndRetriesWithANewAttempt() {
+    void persistsFailureAndRequiresAcknowledgementBeforeRetry() {
         engine.failNext();
 
         var failed = service.deploy(command("request-failed", "key-failed"));
-        var retried = service.deploy(command("request-retry", "key-retry"));
+        assertThrows(
+            ApprovalReleaseDeploymentService
+                .ReleaseDeploymentWarningAcknowledgementRequired.class,
+            () -> service.deploy(new ApprovalReleaseDeploymentService.DeployCommand(
+                context("request-unacknowledged", "key-unacknowledged"),
+                DEFINITION_KEY,
+                1,
+                "default",
+                RETRY_PREFLIGHT_HASH,
+                List.of()
+            ))
+        );
+        var retried = service.deploy(retryCommand("request-retry", "key-retry"));
 
         assertEquals(ApprovalReleaseDeployment.Status.FAILED, failed.deployment().status());
         assertEquals("ENGINE_UNAVAILABLE", failed.deployment().lastErrorCode());
@@ -77,6 +94,29 @@ class ApprovalReleaseDeploymentServiceTest {
         assertEquals(2, retried.deployment().attemptCount());
         assertEquals(2, engine.calls());
         assertEquals(2, audits.size());
+        assertEquals(
+            RETRY_WARNING,
+            audits.getLast().attributes().get("acknowledgedWarningCodes")
+        );
+    }
+
+    @Test
+    void rejectsStalePreflightBeforeCallingTheEngine() {
+        assertThrows(
+            ApprovalReleaseDeploymentService.ReleaseDeploymentPreflightConflict.class,
+            () -> service.deploy(new ApprovalReleaseDeploymentService.DeployCommand(
+                context("request-stale", "key-stale"),
+                DEFINITION_KEY,
+                1,
+                "default",
+                "c".repeat(64),
+                List.of()
+            ))
+        );
+
+        assertEquals(0, engine.calls());
+        assertTrue(deployments.find(TENANT, DEFINITION_KEY, 1).isEmpty());
+        assertTrue(audits.isEmpty());
     }
 
     @Test
@@ -92,7 +132,7 @@ class ApprovalReleaseDeploymentServiceTest {
             () -> missing.deploy(command("request-missing", "key-missing"))
         );
 
-        deployments.save(pending("b".repeat(64)));
+        deployments.save(pending("d".repeat(64)));
         assertThrows(
             ApprovalReleaseDeploymentService.ReleaseDeploymentConflictException.class,
             () -> service.deploy(command("request-conflict", "key-conflict"))
@@ -110,6 +150,21 @@ class ApprovalReleaseDeploymentServiceTest {
             new InMemoryIdempotencyGuard(),
             new SingleReleaseStore(releasePackage),
             deploymentStore,
+            request -> {
+                ApprovalReleaseDeployment current = deploymentStore.find(
+                    request.tenantId(),
+                    request.definitionKey(),
+                    request.releaseVersion()
+                ).orElse(null);
+                boolean retry = current != null
+                    && current.status() == ApprovalReleaseDeployment.Status.FAILED;
+                return new ApprovalReleaseDeploymentService.DeploymentPreflightDecision(
+                    retry ? RETRY_PREFLIGHT_HASH : PREFLIGHT_HASH,
+                    retry ? List.of(RETRY_WARNING) : List.of(),
+                    true,
+                    List.of()
+                );
+            },
             approvalEngine,
             auditEventSink,
             Clock.fixed(NOW, ZoneOffset.UTC),
@@ -122,15 +177,36 @@ class ApprovalReleaseDeploymentServiceTest {
         String idempotencyKey
     ) {
         return new ApprovalReleaseDeploymentService.DeployCommand(
-            new RequestContext(
-                TENANT,
-                "operator-a",
-                requestId,
-                idempotencyKey,
-                requestId + "-trace"
-            ),
+            context(requestId, idempotencyKey),
             DEFINITION_KEY,
-            1
+            1,
+            "default",
+            PREFLIGHT_HASH,
+            List.of()
+        );
+    }
+
+    private static ApprovalReleaseDeploymentService.DeployCommand retryCommand(
+        String requestId,
+        String idempotencyKey
+    ) {
+        return new ApprovalReleaseDeploymentService.DeployCommand(
+            context(requestId, idempotencyKey),
+            DEFINITION_KEY,
+            1,
+            "default",
+            RETRY_PREFLIGHT_HASH,
+            List.of(RETRY_WARNING)
+        );
+    }
+
+    private static RequestContext context(String requestId, String idempotencyKey) {
+        return new RequestContext(
+            TENANT,
+            "operator-a",
+            requestId,
+            idempotencyKey,
+            requestId + "-trace"
         );
     }
 
