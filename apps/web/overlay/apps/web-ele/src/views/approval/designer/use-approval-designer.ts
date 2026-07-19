@@ -153,9 +153,8 @@ export function useApprovalDesigner() {
     draftId: string,
     options: { force?: boolean } = {},
   ) {
-    const switchingDraft = draft.value && draft.value.draftId !== draftId;
-    if (!options.force && switchingDraft
-      && !(await confirmDiscardChanges('切换流程草稿'))) {
+    if (!options.force && draft.value
+      && !(await confirmDiscardChanges('重新加载或切换流程草稿'))) {
       return false;
     }
     suspended = true;
@@ -205,7 +204,7 @@ export function useApprovalDesigner() {
             source: input.source,
           });
       await loadDrafts();
-      await openDraft(created.draftId);
+      await openDraft(created.draftId, { force: true });
       ElMessage.success('流程草稿已创建');
     } catch (error) {
       showError(error);
