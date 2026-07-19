@@ -119,6 +119,7 @@ public final class ApprovalDesignCommands {
         long expectedRevision,
         int definitionVersion,
         int releaseVersion,
+        String deploymentTarget,
         String preflightHash,
         List<String> acknowledgedWarningCodes,
         ApprovalDefinitionSimulator.Scenario preflightScenario
@@ -129,6 +130,7 @@ public final class ApprovalDesignCommands {
             positive(expectedRevision, "expectedRevision");
             positive(definitionVersion, "definitionVersion");
             positive(releaseVersion, "releaseVersion");
+            deploymentTarget = target(deploymentTarget);
             preflightHash = hash(preflightHash, "preflightHash");
             TreeSet<String> warnings = new TreeSet<>();
             if (acknowledgedWarningCodes != null) {
@@ -150,6 +152,10 @@ public final class ApprovalDesignCommands {
             subjectType = text(subjectType, "subjectType");
             snapshotHash = hash(snapshotHash, "snapshotHash");
         }
+    }
+
+    private static String target(String value) {
+        return value == null || value.isBlank() ? "default" : value.trim();
     }
 
     private static String text(String value, String name) {
