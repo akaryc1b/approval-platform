@@ -15,6 +15,8 @@ export type ComparisonOperator =
   | 'LESS_THAN_OR_EQUAL'
   | 'NOT_EQUAL';
 export type ValidationSeverity = 'ERROR' | 'INFO' | 'WARNING';
+export type ApprovalPreflightScope = 'DEPLOYMENT' | 'PUBLICATION';
+export type ApprovalPreflightSeverity = 'ERROR' | 'INFO' | 'WARNING';
 
 interface BaseNode {
   id: string;
@@ -238,6 +240,88 @@ export interface ApprovalPublishResult {
   replayedExistingRelease: boolean;
 }
 
+export interface ApprovalPreflightIssue {
+  code: string;
+  message: string;
+  severity: ApprovalPreflightSeverity;
+  subject: string;
+}
+
+export interface ApprovalPreflightReport {
+  compiler: {
+    artifactBytes: number;
+    attempted: boolean;
+    compilerVersion?: string;
+    deterministic: boolean;
+    resourceName?: string;
+    successful: boolean;
+  };
+  deployable: boolean;
+  deploymentCompatibility: {
+    bpmnWellFormed: boolean;
+    existingDeploymentStatus?: string;
+    processDefinitionKey?: string;
+    processKeyMatches: boolean;
+    semanticReplay: boolean;
+    supported: boolean;
+    target: string;
+  };
+  deploymentTarget: string;
+  draftId: string;
+  draftRevision: number;
+  errors: ApprovalPreflightIssue[];
+  generatedHashes: {
+    bpmnHash?: string;
+    compiledArtifactHash?: string;
+    definitionHash?: string;
+    deploymentMetadataHash?: string;
+    formPackageHash?: string;
+    releasePackageHash?: string;
+  };
+  infos: ApprovalPreflightIssue[];
+  preflightHash: string;
+  publishable: boolean;
+  scope: ApprovalPreflightScope;
+  simulation: {
+    executed: boolean;
+    issueCodes: string[];
+    requested: boolean;
+    status?: string;
+    stepCount: number;
+    terminalNodeId?: string;
+  };
+  targetDefinitionVersion: number;
+  targetReleaseVersion: number;
+  tenantId: string;
+  warnings: ApprovalPreflightIssue[];
+}
+
+export interface ApprovalPreflightScenario {
+  decisions: Record<string, 'APPROVE' | 'REJECT'>;
+  formValues: Record<string, unknown>;
+  maxTransitions: number;
+}
+
+export interface ApprovalPublicationPreflightInput {
+  definitionKey: string;
+  deploymentTarget: string;
+  draftId: string;
+  expectedRevision: number;
+  scenario?: ApprovalPreflightScenario;
+  targetDefinitionVersion: number;
+  targetReleaseVersion: number;
+}
+
+export interface PublishApprovalDesignDraftInput {
+  acknowledgedWarningCodes: string[];
+  definitionVersion: number;
+  deploymentTarget: string;
+  expectedRevision: number;
+  preflightHash: string;
+  preflightScenario?: ApprovalPreflightScenario;
+  releaseVersion: number;
+}
+
 export interface CreateApprovalDesignDraftInput {
   definitionKey: string;
   definitionVersion: number;
@@ -423,16 +507,21 @@ export function archiveApprovalDesignDraft(draftId: string, expectedRevision: nu
   );
 }
 
+export function preflightApprovalPublication(input: ApprovalPublicationPreflightInput) {
+  return request<ApprovalPreflightReport>('/approval/preflight/publication', {
+    body: JSON.stringify(input),
+    method: 'POST',
+  });
+}
+
 export function publishApprovalDesignDraft(
   draftId: string,
-  expectedRevision: number,
-  definitionVersion: number,
-  releaseVersion: number,
+  input: PublishApprovalDesignDraftInput,
 ) {
   return request<ApprovalPublishResult>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/publish`,
     {
-      body: JSON.stringify({ definitionVersion, expectedRevision, releaseVersion }),
+      body: JSON.stringify(input),
       headers: writeHeaders('approval-release-publish'),
       method: 'POST',
     },

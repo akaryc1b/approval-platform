@@ -4,6 +4,7 @@ import type {
   ApprovalDesignDraftSummary,
   ApprovalDesignValidationResult,
   ApprovalNode,
+  ApprovalPreflightReport,
   ApprovalPublishResult,
   ApprovalSimulationResponse,
   ApprovalStep,
@@ -22,6 +23,7 @@ import {
   createApprovalDesignDraft,
   findApprovalDesignDraft,
   findApprovalDesignDrafts,
+  preflightApprovalPublication,
   publishApprovalDesignDraft,
   simulateApprovalDesignDraft,
   updateApprovalDesignDraft,
@@ -47,6 +49,7 @@ export function useApprovalDesigner() {
   const validation = ref<ApprovalDesignValidationResult>();
   const simulation = ref<ApprovalSimulationResponse>();
   const published = ref<ApprovalPublishResult>();
+  const preflight = ref<ApprovalPreflightReport>();
   const decisions = ref<Record<string, Decision>>({});
   const amount = ref(1200);
   const undoStack = ref<DraftSnapshot[]>([]);
@@ -219,21 +222,56 @@ export function useApprovalDesigner() {
 
   async function publish() {
     if (!draft.value) return;
-    const check = await validate();
-    if (!check || check.issues.some(issue => issue.severity === 'ERROR') || !draft.value) return;
-    const warningCount = check.issues.filter(issue => issue.severity === 'WARNING').length;
-    const warningText = warningCount
-      ? `存在 ${warningCount} 条警告，确认继续发布？`
-      : '确认发布不可变流程版本和 Release Package？';
-    await ElMessageBox.confirm(warningText, '发布确认', { type: 'warning' });
+    if (saveState.value === 'dirty' && !(await save())) return;
+    const current = draft.value;
+    const scenario = {
+      decisions: decisions.value,
+      formValues: { amount: amount.value },
+      maxTransitions: 200,
+    };
     try {
+      const report = await preflightApprovalPublication({
+        definitionKey: current.definitionKey,
+        deploymentTarget: 'default',
+        draftId: current.draftId,
+        expectedRevision: current.revision,
+        scenario,
+        targetDefinitionVersion: current.definition.version,
+        targetReleaseVersion: current.definition.version,
+      });
+      preflight.value = report;
+      if (!report.publishable || report.errors.length > 0) {
+        ElMessage.error(
+          `发布前检查存在阻断项：${report.errors.map(item => item.code).join('、')}`,
+        );
+        return;
+      }
+      const warningCodes = [...new Set(report.warnings.map(item => item.code))].sort();
+      const summary = [
+        `DSL v${report.targetDefinitionVersion} / Release v${report.targetReleaseVersion}`,
+        `Preflight ${report.preflightHash.slice(0, 12)}…`,
+        `BPMN ${report.generatedHashes.bpmnHash?.slice(0, 12) ?? '—'}…`,
+        warningCodes.length
+          ? `需确认警告：${warningCodes.join('、')}`
+          : '没有需要确认的警告',
+      ].join('\n');
+      await ElMessageBox.confirm(summary, '发布前综合检查', {
+        confirmButtonText: warningCodes.length ? '确认警告并发布' : '确认发布',
+        type: warningCodes.length ? 'warning' : 'info',
+      });
       const result = await publishApprovalDesignDraft(
-        draft.value.draftId,
-        draft.value.revision,
-        draft.value.definition.version,
-        draft.value.definition.version,
+        current.draftId,
+        {
+          acknowledgedWarningCodes: warningCodes,
+          definitionVersion: current.definition.version,
+          deploymentTarget: report.deploymentTarget,
+          expectedRevision: current.revision,
+          preflightHash: report.preflightHash,
+          preflightScenario: scenario,
+          releaseVersion: current.definition.version,
+        },
       );
-      await openDraft(draft.value.draftId);
+      await openDraft(current.draftId);
       published.value = result;
       ElMessage.success('Release Package 已发布');
     } catch (error) {
@@ -459,6 +497,7 @@ export function useApprovalDesigner() {
     validation.value = undefined;
     simulation.value = undefined;
     published.value = undefined;
+    preflight.value = undefined;
   }
 
   function nextId(prefix: string) {
@@ -489,6 +528,7 @@ export function useApprovalDesigner() {
     moveNode,
     nodeOptions,
     openDraft,
+    preflight,
     publish,
     published,
     reload,

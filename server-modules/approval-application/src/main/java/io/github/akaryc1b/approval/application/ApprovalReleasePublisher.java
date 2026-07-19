@@ -67,10 +67,10 @@ final class ApprovalReleasePublisher {
             command.context().tenantId(),
             command.draftId()
         );
-        requireFreshPreflight(command, current);
         if (current.status() == ApprovalDesignDraft.Status.PUBLISHED) {
             return replay(command, current);
         }
+        requireFreshPreflight(command, current);
         ApprovalDesignChecks.requireEditable(current);
         ApprovalDesignChecks.requireRevision(current, command.expectedRevision());
         if (current.definition().version() != command.definitionVersion()) {
