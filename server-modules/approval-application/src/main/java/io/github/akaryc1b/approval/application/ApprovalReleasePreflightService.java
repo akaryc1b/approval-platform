@@ -80,6 +80,13 @@ public final class ApprovalReleasePreflightService {
                 "Approval DSL draft was not found for the tenant"
             ));
         List<Issue> issues = new ArrayList<>();
+        if (!draft.definitionKey().equals(request.definitionKey())) {
+            issues.add(error(
+                "DEFINITION_KEY_MISMATCH",
+                request.definitionKey(),
+                "requested definition key does not match the Approval DSL draft"
+            ));
+        }
         if (draft.status() == ApprovalDesignDraft.Status.ARCHIVED) {
             issues.add(error(
                 "DRAFT_ARCHIVED",

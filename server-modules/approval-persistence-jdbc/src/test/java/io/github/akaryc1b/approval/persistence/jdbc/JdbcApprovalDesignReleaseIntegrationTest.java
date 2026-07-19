@@ -257,6 +257,31 @@ class JdbcApprovalDesignReleaseIntegrationTest {
             ApprovalDesignDraft.Status.PUBLISHED,
             drafts.find(TENANT, draft.draftId()).orElseThrow().status()
         );
+        assertEquals(
+            report.preflightHash(),
+            jdbc.queryForObject(
+                "select attributes_json ->> 'preflightHash' from ap_audit_event "
+                    + "where action = 'APPROVAL_RELEASE_PACKAGE_PUBLISHED'",
+                String.class
+            )
+        );
+        assertEquals(
+            String.join(",", report.warningCodes()),
+            jdbc.queryForObject(
+                "select attributes_json ->> 'acknowledgedWarningCodes' "
+                    + "from ap_audit_event "
+                    + "where action = 'APPROVAL_RELEASE_PACKAGE_PUBLISHED'",
+                String.class
+            )
+        );
+        assertEquals(
+            "default",
+            jdbc.queryForObject(
+                "select attributes_json ->> 'deploymentTarget' from ap_audit_event "
+                    + "where action = 'APPROVAL_RELEASE_PACKAGE_PUBLISHED'",
+                String.class
+            )
+        );
 
         assertThrows(
             ApprovalDesignExceptions.ReleaseVersionConflict.class,

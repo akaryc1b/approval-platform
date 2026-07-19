@@ -127,6 +127,26 @@ class ApprovalReleasePreflightServiceTest {
     }
 
     @Test
+    void rejectsDefinitionKeyThatDoesNotMatchTheTenantDraft() {
+        var report = service.preflightPublication(
+            new ApprovalReleasePreflightService.PublicationRequest(
+                TENANT,
+                DRAFT_ID,
+                draft.revision(),
+                "another-definition",
+                draft.definition().version(),
+                1,
+                "flowable-primary",
+                null
+            )
+        );
+
+        assertFalse(report.publishable());
+        assertFalse(report.deployable());
+        assertTrue(hasError(report, "DEFINITION_KEY_MISMATCH"));
+    }
+
+    @Test
     void staleRevisionAndOccupiedDefinitionVersionBlockPublication() {
         definitions.value = new ApprovalDefinitionVersion(
             TENANT,
