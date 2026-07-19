@@ -1,9 +1,8 @@
 diff --git a/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightService.java b/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightService.java
 --- a/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightService.java
 +++ b/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePreflightService.java
-@@ -84,6 +84,13 @@ public final class ApprovalReleasePreflightService {
+@@ -84,5 +84,12 @@ public final class ApprovalReleasePreflightService {
              ));
-         }
          List<Issue> issues = new ArrayList<>();
 +        if (!draft.definitionKey().equals(request.definitionKey())) {
 +            issues.add(error(
