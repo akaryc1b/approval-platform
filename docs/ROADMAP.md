@@ -77,11 +77,16 @@
 - 确定性 preflight hash、事务内重新计算、草稿 revision/制品变化防陈旧提交和 warning 精确确认；
 - 发布与部署审计记录 Preflight Hash、目标环境、确认警告、确认人和确认时间；
 - BPMN 安全解析、process key 校验、Release Package 完整性复算以及编译制品精确字节保留；
-- PC 流程设计器和版本中心真实 Preflight、阻断项展示、warning 确认及同 Hash 发布/部署。
+- PC 流程设计器和版本中心真实 Preflight、阻断项展示、warning 确认及同 Hash 发布/部署；
+- 服务端权威命名场景批量模拟，支持 1–100 个场景、稳定排序、草稿 revision/状态/租户边界检查且不部署或启动流程；
+- 场景输入深度、元素、文本、决策、身份快照、预期节点和迁移次数限制，以及 `MASKED`、`FIELD_NAMES_ONLY`、`FULL` 表单值披露模式；
+- 精确绑定 Approval DSL、Form Package、Form/UI Schema 版本与哈希的确定性模拟报告、稳定 `reportHash` 和可审计元数据；
+- 节点、Start/End、同意/驳回、条件路由/默认路由、并行 split/branch/join、Handle 回路、阻塞和迁移上限的路径覆盖率与未覆盖项；
+- PostgreSQL/Testcontainers 验证真实 JDBC 草稿/Form/UI 读取、过期 revision、跨租户隔离和模拟过程零草稿/审计写入；
+- PC 批量模拟工作台、采购付款预设、场景编辑/复制、路径详情、覆盖率、基线复制以及来自同一权威报告的 JSON 复制与下载。
 
 ### 下一优先级
 
-- 批量模拟场景、主要路径覆盖率、边界值和可导出模拟报告；
 - 设计器大流程性能、分支折叠、快捷键、冲突对比和离开页面未保存提示；
 - Approval DSL 与 Release Package 安全导入导出；
 - 复合区块和可插拔自定义组件。
