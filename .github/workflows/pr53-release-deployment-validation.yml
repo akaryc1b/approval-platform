@@ -30,19 +30,9 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          for helper in \
-            .github/scripts/apply-pr53-connected-patch.sh \
-            .github/scripts/apply-pr53-d7-java-fix.sh \
-            .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
-            .github/scripts/apply-pr53-d8-server.sh \
-            .github/scripts/apply-pr53-d8-renderers.sh \
-            .github/scripts/apply-pr53-d8-designer.sh \
-            .github/scripts/apply-pr53-d8-designer-fix.sh \
-            .github/scripts/apply-pr53-d8-authority.sh \
-            .github/scripts/apply-pr53-d8-authority-test-fix.sh \
-            .github/scripts/apply-pr53-d8-authority-compile-fix.sh; do
-            if [ -f "$helper" ]; then bash "$helper"; fi
-          done
+          if [ -f .github/scripts/apply-pr53-d9-permissions.sh ]; then
+            bash .github/scripts/apply-pr53-d9-permissions.sh
+          fi
           git diff --check
       - uses: actions/setup-java@v4
         with:
@@ -78,19 +68,9 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          for helper in \
-            .github/scripts/apply-pr53-connected-patch.sh \
-            .github/scripts/apply-pr53-d7-java-fix.sh \
-            .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
-            .github/scripts/apply-pr53-d8-server.sh \
-            .github/scripts/apply-pr53-d8-renderers.sh \
-            .github/scripts/apply-pr53-d8-designer.sh \
-            .github/scripts/apply-pr53-d8-designer-fix.sh \
-            .github/scripts/apply-pr53-d8-authority.sh \
-            .github/scripts/apply-pr53-d8-authority-test-fix.sh \
-            .github/scripts/apply-pr53-d8-authority-compile-fix.sh; do
-            if [ -f "$helper" ]; then bash "$helper"; fi
-          done
+          if [ -f .github/scripts/apply-pr53-d9-permissions.sh ]; then
+            bash .github/scripts/apply-pr53-d9-permissions.sh
+          fi
           git diff --check
       - uses: actions/setup-node@v4
         with:
@@ -144,19 +124,9 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          for helper in \
-            .github/scripts/apply-pr53-connected-patch.sh \
-            .github/scripts/apply-pr53-d7-java-fix.sh \
-            .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
-            .github/scripts/apply-pr53-d8-server.sh \
-            .github/scripts/apply-pr53-d8-renderers.sh \
-            .github/scripts/apply-pr53-d8-designer.sh \
-            .github/scripts/apply-pr53-d8-designer-fix.sh \
-            .github/scripts/apply-pr53-d8-authority.sh \
-            .github/scripts/apply-pr53-d8-authority-test-fix.sh \
-            .github/scripts/apply-pr53-d8-authority-compile-fix.sh; do
-            if [ -f "$helper" ]; then bash "$helper"; fi
-          done
+          if [ -f .github/scripts/apply-pr53-d9-permissions.sh ]; then
+            bash .github/scripts/apply-pr53-d9-permissions.sh
+          fi
           git diff --check
       - uses: actions/setup-node@v4
         with:
@@ -210,30 +180,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          queued=false
-          for helper in \
-            .github/scripts/apply-pr53-connected-patch.sh \
-            .github/scripts/apply-pr53-d7-java-fix.sh \
-            .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
-            .github/scripts/apply-pr53-d8-server.sh \
-            .github/scripts/apply-pr53-d8-renderers.sh \
-            .github/scripts/apply-pr53-d8-designer.sh \
-            .github/scripts/apply-pr53-d8-designer-fix.sh \
-            .github/scripts/apply-pr53-d8-authority.sh \
-            .github/scripts/apply-pr53-d8-authority-test-fix.sh \
-            .github/scripts/apply-pr53-d8-authority-compile-fix.sh; do
-            if [ -f "$helper" ]; then
-              queued=true
-              bash "$helper"
-            fi
-          done
-          if [ "$queued" != true ]; then
+          if [ ! -f .github/scripts/apply-pr53-d9-permissions.sh ]; then
             echo 'No queued product patch found.'
             exit 0
           fi
+          bash .github/scripts/apply-pr53-d9-permissions.sh
           git diff --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'feat: enforce composite section runtime authority'
+          git commit -m 'feat: enforce approval management permissions'
           git push origin HEAD:${{ github.head_ref || github.ref_name }}
