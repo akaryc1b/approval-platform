@@ -36,7 +36,8 @@ jobs:
             .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
             .github/scripts/apply-pr53-d8-server.sh \
             .github/scripts/apply-pr53-d8-renderers.sh \
-            .github/scripts/apply-pr53-d8-designer.sh; do
+            .github/scripts/apply-pr53-d8-designer.sh \
+            .github/scripts/apply-pr53-d8-designer-fix.sh; do
             if [ -f "$helper" ]; then bash "$helper"; fi
           done
           git diff --check
@@ -80,7 +81,8 @@ jobs:
             .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
             .github/scripts/apply-pr53-d8-server.sh \
             .github/scripts/apply-pr53-d8-renderers.sh \
-            .github/scripts/apply-pr53-d8-designer.sh; do
+            .github/scripts/apply-pr53-d8-designer.sh \
+            .github/scripts/apply-pr53-d8-designer-fix.sh; do
             if [ -f "$helper" ]; then bash "$helper"; fi
           done
           git diff --check
@@ -142,7 +144,8 @@ jobs:
             .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
             .github/scripts/apply-pr53-d8-server.sh \
             .github/scripts/apply-pr53-d8-renderers.sh \
-            .github/scripts/apply-pr53-d8-designer.sh; do
+            .github/scripts/apply-pr53-d8-designer.sh \
+            .github/scripts/apply-pr53-d8-designer-fix.sh; do
             if [ -f "$helper" ]; then bash "$helper"; fi
           done
           git diff --check
@@ -205,7 +208,8 @@ jobs:
             .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
             .github/scripts/apply-pr53-d8-server.sh \
             .github/scripts/apply-pr53-d8-renderers.sh \
-            .github/scripts/apply-pr53-d8-designer.sh; do
+            .github/scripts/apply-pr53-d8-designer.sh \
+            .github/scripts/apply-pr53-d8-designer-fix.sh; do
             if [ -f "$helper" ]; then
               queued=true
               bash "$helper"
