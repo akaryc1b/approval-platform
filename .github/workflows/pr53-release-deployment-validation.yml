@@ -34,9 +34,15 @@ jobs:
           if compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
             cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
           fi
+          if compgen -G '.github/pr53-version-page.part-*' >/dev/null; then
+            mkdir -p apps/web/overlay/apps/web-ele/src/views/approval/versions
+            cat .github/pr53-version-page.part-* \
+              > apps/web/overlay/apps/web-ele/src/views/approval/versions/index.vue
+          fi
           rm -f .github/pr53-connected-patch.tgz.part-* \
             .github/pr53-connected-patch.tgz.b64 \
             .github/pr53-connected-patch.part-* \
+            .github/pr53-version-page.part-* \
             .github/workflows/pr53-connected-patch.yml
           git diff --check
       - uses: actions/setup-java@v4
@@ -77,9 +83,15 @@ jobs:
           if compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
             cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
           fi
+          if compgen -G '.github/pr53-version-page.part-*' >/dev/null; then
+            mkdir -p apps/web/overlay/apps/web-ele/src/views/approval/versions
+            cat .github/pr53-version-page.part-* \
+              > apps/web/overlay/apps/web-ele/src/views/approval/versions/index.vue
+          fi
           rm -f .github/pr53-connected-patch.tgz.part-* \
             .github/pr53-connected-patch.tgz.b64 \
             .github/pr53-connected-patch.part-* \
+            .github/pr53-version-page.part-* \
             .github/workflows/pr53-connected-patch.yml
           git diff --check
       - uses: actions/setup-node@v4
@@ -126,9 +138,15 @@ jobs:
           if compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
             cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
           fi
+          if compgen -G '.github/pr53-version-page.part-*' >/dev/null; then
+            mkdir -p apps/web/overlay/apps/web-ele/src/views/approval/versions
+            cat .github/pr53-version-page.part-* \
+              > apps/web/overlay/apps/web-ele/src/views/approval/versions/index.vue
+          fi
           rm -f .github/pr53-connected-patch.tgz.part-* \
             .github/pr53-connected-patch.tgz.b64 \
             .github/pr53-connected-patch.part-* \
+            .github/pr53-version-page.part-* \
             .github/workflows/pr53-connected-patch.yml
           git diff --check
       - uses: actions/setup-node@v4
@@ -184,18 +202,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
+          has_patch=false
+          if compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
+            cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
+            has_patch=true
+          fi
+          if compgen -G '.github/pr53-version-page.part-*' >/dev/null; then
+            mkdir -p apps/web/overlay/apps/web-ele/src/views/approval/versions
+            cat .github/pr53-version-page.part-* \
+              > apps/web/overlay/apps/web-ele/src/views/approval/versions/index.vue
+            has_patch=true
+          fi
+          if [ "$has_patch" != true ]; then
             echo 'No queued product patch found.'
             exit 0
           fi
-          cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
           rm -f .github/pr53-connected-patch.tgz.part-* \
             .github/pr53-connected-patch.tgz.b64 \
             .github/pr53-connected-patch.part-* \
+            .github/pr53-version-page.part-* \
             .github/workflows/pr53-connected-patch.yml
           git diff --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'feat: add approval release version queries and structural diff'
+          git commit -m 'feat: add approval release version management center'
           git push origin HEAD:${{ github.ref_name }}
