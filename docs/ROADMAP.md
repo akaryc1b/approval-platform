@@ -72,11 +72,15 @@
 - 平台拥有的当前生效 Release projection、revision CAS、激活历史、版本切换和历史版本回滚；
 - 新实例通过精确 Release Package、engineDefinitionId、DSL、Form Package 和编译器版本启动并持久化版本快照；
 - PC 版本生效页面、激活/回滚确认摘要、变更原因、expected revision、当前生效详情和激活历史；
-- Flyway V11–V13 部署、生效版本、激活历史、实例版本快照、租户边界、精确外键和 PostgreSQL 并发 CAS 约束。
+- Flyway V11–V13 部署、生效版本、激活历史、实例版本快照、租户边界、精确外键和 PostgreSQL 并发 CAS 约束；
+- 发布和部署前服务端权威 Preflight，统一输出 errors、warnings、infos、制品哈希、编译、模拟和部署兼容性摘要；
+- 确定性 preflight hash、事务内重新计算、草稿 revision/制品变化防陈旧提交和 warning 精确确认；
+- 发布与部署审计记录 Preflight Hash、目标环境、确认警告、确认人和确认时间；
+- BPMN 安全解析、process key 校验、Release Package 完整性复算以及编译制品精确字节保留；
+- PC 流程设计器和版本中心真实 Preflight、阻断项展示、warning 确认及同 Hash 发布/部署。
 
 ### 下一优先级
 
-- 发布和部署前服务端综合检查、warning acknowledgement 和防陈旧 preflight hash；
 - 批量模拟场景、主要路径覆盖率、边界值和可导出模拟报告；
 - 设计器大流程性能、分支折叠、快捷键、冲突对比和离开页面未保存提示；
 - Approval DSL 与 Release Package 安全导入导出；
