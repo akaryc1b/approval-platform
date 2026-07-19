@@ -50,7 +50,7 @@ while index < len(lines):
     if not path.is_file():
         raise SystemExit(f'Patch target does not exist: {path}')
     text = path.read_text()
-    cursor = 0
+    line_delta = 0
     index += 1
     file_hunks = 0
 
@@ -78,27 +78,34 @@ while index < len(lines):
             line[1:] for line in body
             if line.startswith((' ', '+')) and not line.startswith('+++ ')
         )
+        current_lines = text.splitlines(keepends=True)
+        expected_line = max(old_start - 1 + line_delta, 0)
+        expected_position = sum(len(line) for line in current_lines[:expected_line])
+
         if not old_block:
-            existing_lines = text.splitlines(keepends=True)
-            position = sum(len(line) for line in existing_lines[:max(old_start - 1, 0)])
+            position = min(expected_position, len(text))
         else:
-            position = text.find(old_block, cursor)
-            if position < 0:
-                position = text.find(old_block)
-            if position < 0:
+            candidates: list[int] = []
+            candidate = text.find(old_block)
+            while candidate >= 0:
+                candidates.append(candidate)
+                candidate = text.find(old_block, candidate + 1)
+            if not candidates:
                 preview = old_block[:240].replace('\n', '\\n')
                 raise SystemExit(
                     f'Exact patch context not found for {path} near old line '
                     f'{old_start}: {preview}'
                 )
-            duplicate = text.find(old_block, position + 1)
-            if duplicate >= 0 and duplicate >= cursor:
+            ranked = sorted((abs(value - expected_position), value) for value in candidates)
+            if len(ranked) > 1 and ranked[0][0] == ranked[1][0]:
                 raise SystemExit(
-                    f'Exact patch context is ambiguous for {path} near old line {old_start}'
+                    f'Exact patch context has an equal-distance tie for {path} '
+                    f'near old line {old_start}'
                 )
+            position = ranked[0][1]
 
         text = text[:position] + new_block + text[position + len(old_block):]
-        cursor = position + len(new_block)
+        line_delta += new_block.count('\n') - old_block.count('\n')
         file_hunks += 1
         changed_hunks += 1
 
