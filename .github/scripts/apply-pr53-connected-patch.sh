@@ -60,7 +60,33 @@ helper = '''    private static <T> T requireMapValue(T value) {
 if service.count(identity_marker) != 1:
     raise SystemExit('Expected identity sorting marker')
 service = service.replace(identity_marker, helper + identity_marker, 1)
+old_scenarios = '            scenarios = scenarios == null ? List.of() : List.copyOf(scenarios);\n'
+new_scenarios = '            scenarios = scenarios == null\n                ? List.of()\n                : Collections.unmodifiableList(new ArrayList<>(scenarios));\n'
+if service.count(old_scenarios) != 1:
+    raise SystemExit('Expected one scenario list copy')
+service = service.replace(old_scenarios, new_scenarios, 1)
+old_decisions = '            approvalDecisions = sortedMap(approvalDecisions);\n            if (approvalDecisions.size() > MAX_DECISIONS) {\n'
+new_decisions = '            if (approvalDecisions != null\n                && approvalDecisions.size() > MAX_DECISIONS) {\n'
+if service.count(old_decisions) != 1:
+    raise SystemExit('Expected decision limit after sorting')
+service = service.replace(old_decisions, new_decisions, 1)
+old_decision_tail = '                        + MAX_DECISIONS\n                        + " entries"\n                );\n            }\n            identitySnapshots = sortedIdentities(identitySnapshots);\n'
+new_decision_tail = '                        + MAX_DECISIONS\n                        + " entries"\n                );\n            }\n            approvalDecisions = sortedMap(approvalDecisions);\n            identitySnapshots = sortedIdentities(identitySnapshots);\n'
+if service.count(old_decision_tail) != 1:
+    raise SystemExit('Expected decision limit tail')
+service = service.replace(old_decision_tail, new_decision_tail, 1)
 service_path.write_text(service)
+
+controller_path = Path(
+    'apps/server/src/main/java/io/github/akaryc1b/approval/api/'
+    'ApprovalBatchSimulationController.java'
+)
+controller = controller_path.read_text()
+old_file_name = '        String fileName = "approval-simulation-"\n            + report.definitionKey()\n            + \'-\'\n'
+new_file_name = '        String safeDefinitionKey = report.definitionKey().replaceAll(\n            "[^A-Za-z0-9._-]",\n            "_"\n        );\n        String fileName = "approval-simulation-"\n            + safeDefinitionKey\n            + \'-\'\n'
+if controller.count(old_file_name) != 1:
+    raise SystemExit('Expected report export file name')
+controller_path.write_text(controller.replace(old_file_name, new_file_name, 1))
 
 test_path = Path(
     'server-modules/approval-application/src/test/java/'
@@ -100,6 +126,15 @@ additional = marker + '''
         org.junit.jupiter.api.Assertions.assertNull(
             ((List<?>) nullableArray.formValues().get("items")).get(1)
         );
+
+        List<NamedScenario> scenariosWithNull = new ArrayList<>();
+        scenariosWithNull.add(null);
+        IllegalArgumentException invalidScenario =
+            org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new BatchCommand(TENANT, DRAFT_ID, 1, scenariosWithNull)
+            );
+        assertEquals("scenario must not be null", invalidScenario.getMessage());
 
         Map<String, ApprovalDefinitionSimulator.Decision> decisionsWithNull =
             new LinkedHashMap<>();
