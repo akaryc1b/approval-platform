@@ -54,7 +54,37 @@ export interface FormDefinition {
   version: number
 }
 
+export type FormComponentType
+  = | 'ATTACHMENT'
+    | 'BOOLEAN'
+    | 'BUSINESS_REFERENCE'
+    | 'DATE'
+    | 'DATETIME'
+    | 'DEPARTMENT_SELECTOR'
+    | 'MONEY'
+    | 'NUMBER'
+    | 'SELECT'
+    | 'TEXT'
+    | 'TEXTAREA'
+    | 'USER_SELECTOR'
+export type FormFallbackRenderer = 'READONLY_JSON' | 'READONLY_TEXT'
+export type UiSectionVisibilityMode = 'ALWAYS' | 'FIELD_EQUALS' | 'FIELD_NOT_EMPTY'
+
+export interface UiComponentDefinition {
+  componentType: FormComponentType | string
+  componentVersion: number
+  fallbackRenderer: FormFallbackRenderer
+  properties: Record<string, unknown>
+}
+
+export interface UiSectionVisibility {
+  expectedValue?: unknown
+  fieldKey?: string
+  mode: UiSectionVisibilityMode
+}
+
 export interface UiFieldLayout {
+  component?: UiComponentDefinition
   fieldKey: string
   helpText?: string
   placeholder?: string
@@ -62,11 +92,17 @@ export interface UiFieldLayout {
 }
 
 export interface UiSection {
+  children?: UiSection[]
   collapsed: boolean
+  collapsible?: boolean
+  columns?: number
   fields: UiFieldLayout[]
   helpText?: string
   key: string
+  order?: number
+  readonlySummary?: boolean
   title: string
+  visibility?: UiSectionVisibility
 }
 
 export interface UiFieldPermission {
