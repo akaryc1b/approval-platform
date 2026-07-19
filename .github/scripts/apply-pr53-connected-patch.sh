@@ -48,10 +48,8 @@ api_path = Path(
     'apps/web/overlay/apps/web-ele/src/api/approval/process-design.ts'
 )
 api = api_path.read_text()
-export_function = '''export async function exportApprovalDesignDraftBatchReport(
-'''
-archive_function = '''export function archiveApprovalDesignDraft(
-'''
+export_function = 'export async function exportApprovalDesignDraftBatchReport('
+archive_function = 'export function archiveApprovalDesignDraft('
 replacement = '''export async function exportApprovalDesignDraftBatchReport(
   draftId: string,
   input: ApprovalBatchSimulationInput,
