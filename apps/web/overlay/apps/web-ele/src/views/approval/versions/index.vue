@@ -45,6 +45,7 @@ import {
   findApprovalDefinitionVersion,
   findApprovalReleasePackage,
   findApprovalVersionCenter,
+  preflightApprovalDeployment,
 } from '#/api/approval/release-version-management';
 
 const definitionKey = ref('');
@@ -212,20 +213,45 @@ async function openDetail(row: ApprovalReleaseVersionSummary) {
 async function deploy(row: ApprovalReleaseVersionSummary) {
   if (!center.value || row.deployment?.status === 'PENDING') return;
   const action = row.deployment?.status === 'FAILED' ? '重试部署' : '部署';
-  try {
-    await ElMessageBox.confirm(
-      `${action} Release v${row.releaseVersion}，Package Hash ${shortHash(row.packageHash)}？`,
-      `${action}确认`,
-      { confirmButtonText: action, type: 'warning' },
-    );
-  } catch {
-    return;
-  }
   operationLoading.value = true;
   try {
+    const report = await preflightApprovalDeployment({
+      definitionKey: center.value.definitionKey,
+      deploymentTarget: 'flowable-primary',
+      releaseVersion: row.releaseVersion,
+    });
+    if (!report.deployable || report.errors.length > 0) {
+      ElMessage.error(
+        `部署前检查存在阻断项：${report.errors.map(item => item.code).join('、')}`,
+      );
+      return;
+    }
+    const warningCodes = [...new Set(report.warnings.map(item => item.code))].sort();
+    const summary = [
+      `${action} Release v${row.releaseVersion}`,
+      `Package ${shortHash(row.packageHash)}`,
+      `BPMN ${shortHash(report.generatedHashes.bpmnHash)}`,
+      `Preflight ${shortHash(report.preflightHash)}`,
+      warningCodes.length
+        ? `需确认警告：${warningCodes.join('、')}`
+        : '没有需要确认的警告',
+    ].join('\n');
+    try {
+      await ElMessageBox.confirm(summary, `${action}前综合检查`, {
+        confirmButtonText: warningCodes.length ? '确认警告并继续' : action,
+        type: warningCodes.length ? 'warning' : 'info',
+      });
+    } catch {
+      return;
+    }
     const result = await deployApprovalReleasePackage(
       center.value.definitionKey,
       row.releaseVersion,
+      {
+        acknowledgedWarningCodes: warningCodes,
+        deploymentTarget: report.deploymentTarget,
+        preflightHash: report.preflightHash,
+      },
     );
     ElMessage.success(
       result.replayedExistingDeployment ? '已返回现有部署结果' : '部署请求已完成',

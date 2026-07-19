@@ -1,8 +1,14 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;
 import io.github.akaryc1b.approval.application.ApprovalReleaseDeploymentService;
+import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
+import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
+import io.github.akaryc1b.approval.compiler.ApprovalDefinitionSimulator;
+import io.github.akaryc1b.approval.compiler.ApprovalDefinitionValidator;
+import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseDeployment;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
@@ -44,9 +50,25 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
     private static final String FORM_HASH = "3".repeat(64);
     private static final String UI_HASH = "4".repeat(64);
     private static final String COMPILED_HASH = "5".repeat(64);
-    private static final String BPMN_HASH = "6".repeat(64);
-    private static final String METADATA_HASH = "7".repeat(64);
-    private static final String PACKAGE_HASH = "8".repeat(64);
+    private static final String BPMN_ARTIFACT = """
+        <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <process id="purchase-payment" isExecutable="true" />
+        </definitions>
+        """;
+    private static final ApprovalReleasePackageHasher RELEASE_HASHER =
+        new ApprovalReleasePackageHasher();
+    private static final String BPMN_HASH = RELEASE_HASHER.artifactHash(BPMN_ARTIFACT);
+    private static final String METADATA_HASH = RELEASE_HASHER.deploymentMetadataHash(
+        "1.2.0",
+        "process.bpmn20.xml",
+        BPMN_HASH
+    );
+    private static final String PACKAGE_HASH = RELEASE_HASHER.hash(
+        DEFINITION_KEY, 1, 2, DEFINITION_HASH,
+        1, FORM_PACKAGE_HASH, 1, FORM_HASH, 1, UI_HASH,
+        "1.2.0", "process.bpmn20.xml", BPMN_ARTIFACT,
+        COMPILED_HASH, BPMN_HASH, null, null, METADATA_HASH
+    );
 
     @Container
     private static final PostgreSQLContainer<?> POSTGRES =
@@ -129,10 +151,13 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
         FailingOnceEngine engine = new FailingOnceEngine();
         ApprovalReleaseDeploymentService service = service(engine);
 
-        var failed = service.deploy(command("request-1", "key-1"));
-        var requestReplay = service.deploy(command("request-2", "key-1"));
-        var retried = service.deploy(command("request-3", "key-2"));
-        var semanticReplay = service.deploy(command("request-4", "key-3"));
+        var initialPreflight = deploymentPreflight();
+        var failed = service.deploy(command("request-1", "key-1", initialPreflight));
+        var requestReplay = service.deploy(command("request-2", "key-1", initialPreflight));
+        var retryPreflight = deploymentPreflight();
+        assertEquals(List.of("PREVIOUS_DEPLOYMENT_FAILED"), retryPreflight.warningCodes());
+        var retried = service.deploy(command("request-3", "key-2", retryPreflight));
+        var semanticReplay = service.deploy(command("request-4", "key-3", retryPreflight));
 
         assertEquals(ApprovalReleaseDeployment.Status.FAILED, failed.deployment().status());
         assertEquals(failed, requestReplay);
@@ -143,11 +168,21 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
         assertEquals(2, engine.calls());
         assertEquals(1, count("ap_approval_release_deployment"));
         assertEquals(2, count("ap_audit_event"));
+        assertEquals(
+            "PREVIOUS_DEPLOYMENT_FAILED",
+            jdbc.queryForObject(
+                "select attributes_json ->> 'acknowledgedWarningCodes' "
+                    + "from ap_audit_event where action = 'APPROVAL_RELEASE_DEPLOYED'",
+                String.class
+            )
+        );
     }
 
     private ApprovalReleaseDeploymentService service(ApprovalEngine engine) {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         AuditEventSink auditEvents = new JdbcAuditEventSink(dataSource, objectMapper);
+        JdbcApprovalReleasePackageStore releaseStore =
+            new JdbcApprovalReleasePackageStore(dataSource);
         return new ApprovalReleaseDeploymentService(
             new JdbcIdempotencyGuard(
                 dataSource,
@@ -155,8 +190,9 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
                 new DataSourceTransactionManager(dataSource),
                 CLOCK
             ),
-            new JdbcApprovalReleasePackageStore(dataSource),
+            releaseStore,
             deployments,
+            preflight(releaseStore, objectMapper),
             engine,
             auditEvents,
             CLOCK,
@@ -164,9 +200,22 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
         );
     }
 
+    private ApprovalReleasePreflightService.PreflightReport deploymentPreflight() {
+        return preflight(
+            new JdbcApprovalReleasePackageStore(dataSource),
+            new ObjectMapper().findAndRegisterModules()
+        ).preflightDeployment(new ApprovalReleasePreflightService.DeploymentRequest(
+            TENANT,
+            DEFINITION_KEY,
+            1,
+            "flowable-primary"
+        ));
+    }
+
     private static ApprovalReleaseDeploymentService.DeployCommand command(
         String requestId,
-        String idempotencyKey
+        String idempotencyKey,
+        ApprovalReleasePreflightService.PreflightReport preflight
     ) {
         return new ApprovalReleaseDeploymentService.DeployCommand(
             new RequestContext(
@@ -177,7 +226,31 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
                 requestId + "-trace"
             ),
             DEFINITION_KEY,
-            1
+            1,
+            preflight.deploymentTarget(),
+            preflight.preflightHash(),
+            preflight.warningCodes()
+        );
+    }
+
+    private static ApprovalReleasePreflightService preflight(
+        JdbcApprovalReleasePackageStore releaseStore,
+        ObjectMapper objectMapper
+    ) {
+        ApprovalDefinitionValidator validator = new ApprovalDefinitionValidator();
+        return new ApprovalReleasePreflightService(
+            new JdbcApprovalDesignDraftStore(dataSource, objectMapper),
+            new JdbcApprovalDefinitionVersionStore(dataSource, objectMapper),
+            releaseStore,
+            new JdbcApprovalReleaseDeploymentStore(dataSource),
+            new JdbcApprovalFormPackageStore(dataSource),
+            new JdbcApprovalFormStore(dataSource, objectMapper),
+            new JdbcApprovalUiSchemaStore(dataSource, objectMapper),
+            validator,
+            new ApprovalDefinitionSimulator(validator),
+            new ApprovalDslCompiler(validator),
+            new ApprovalDefinitionHasher(),
+            RELEASE_HASHER
         );
     }
 
@@ -290,12 +363,13 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
                 form_version, form_hash, compiler_version, resource_name,
                 bpmn_xml, compiled_artifact_hash, bpmn_hash, created_at
             ) values (?, ?, 2, ?, 1, ?, '1.2.0', 'process.bpmn20.xml',
-                      '<definitions />', ?, ?, ?)
+                      ?, ?, ?, ?)
             """,
             TENANT,
             DEFINITION_KEY,
             DEFINITION_HASH,
             FORM_HASH,
+            BPMN_ARTIFACT,
             COMPILED_HASH,
             BPMN_HASH,
             now
@@ -311,7 +385,7 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
                 compiled_artifact_hash, bpmn_hash, deployment_metadata_hash,
                 package_hash, source_draft_id, published_by, published_at
             ) values (?, ?, 1, 2, ?, 1, ?, 1, ?, 1, ?, '1.2.0',
-                      'process.bpmn20.xml', '<definitions />', ?, ?, ?, ?, ?,
+                      'process.bpmn20.xml', ?, ?, ?, ?, ?, ?,
                       'publisher', ?)
             """,
             TENANT,
@@ -320,6 +394,7 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
             FORM_PACKAGE_HASH,
             FORM_HASH,
             UI_HASH,
+            BPMN_ARTIFACT,
             COMPILED_HASH,
             BPMN_HASH,
             METADATA_HASH,
