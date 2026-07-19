@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.ApprovalDesignExceptions;
+import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.compiler.ApprovalDefinitionValidator;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @RestControllerAdvice(assignableTypes = {
     ApprovalDesignController.class,
     ApprovalReleasePackageController.class,
+    ApprovalReleasePreflightController.class,
     ApprovalVersionManagementController.class
 })
 public class ApprovalDesignApiExceptionHandler {
@@ -36,7 +38,8 @@ public class ApprovalDesignApiExceptionHandler {
     @ExceptionHandler({
         ApprovalDesignExceptions.DraftNotFound.class,
         ApprovalDesignExceptions.FormPackageNotFound.class,
-        ApprovalDesignExceptions.PublishedDefinitionNotFound.class
+        ApprovalDesignExceptions.PublishedDefinitionNotFound.class,
+        ApprovalReleasePreflightService.ReleasePackageNotFoundException.class
     })
     ResponseEntity<ApiError> notFound(Exception exception, HttpServletRequest request) {
         return response(
