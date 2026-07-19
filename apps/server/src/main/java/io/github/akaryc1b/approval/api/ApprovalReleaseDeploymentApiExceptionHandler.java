@@ -51,8 +51,24 @@ public class ApprovalReleaseDeploymentApiExceptionHandler {
         );
     }
 
+    @ExceptionHandler(
+        ApprovalReleaseDeploymentService.ReleaseDeploymentWarningAcknowledgementRequired.class
+    )
+    ResponseEntity<ApiError> warningAcknowledgementRequired(
+        Exception exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            422,
+            "APPROVAL_DEPLOYMENT_WARNING_ACKNOWLEDGEMENT_REQUIRED",
+            safeMessage(exception),
+            request
+        );
+    }
+
     @ExceptionHandler({
         ApprovalReleaseDeploymentService.ReleaseDeploymentConflictException.class,
+        ApprovalReleaseDeploymentService.ReleaseDeploymentPreflightConflict.class,
         ApprovalEffectiveReleaseService.DeploymentNotReadyException.class,
         ApprovalEffectiveReleaseService.ActivationConflictException.class,
         IdempotencyGuard.IdempotencyConflictException.class
