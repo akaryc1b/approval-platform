@@ -9,9 +9,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/approval/release-packages")
@@ -39,7 +42,8 @@ public class ApprovalReleaseDeploymentController {
         @RequestHeader(IDEMPOTENCY_KEY) String idempotencyKey,
         @RequestHeader(value = TRACE_ID, required = false) String traceId,
         @PathVariable String definitionKey,
-        @PathVariable int releaseVersion
+        @PathVariable int releaseVersion,
+        @RequestBody DeploymentRequest request
     ) {
         return service.deploy(new DeployCommand(
             new RequestContext(
@@ -50,7 +54,10 @@ public class ApprovalReleaseDeploymentController {
                 traceId
             ),
             definitionKey,
-            releaseVersion
+            releaseVersion,
+            request.deploymentTarget(),
+            request.preflightHash(),
+            request.acknowledgedWarningCodes()
         ));
     }
 
@@ -63,5 +70,12 @@ public class ApprovalReleaseDeploymentController {
         return service.find(tenantId, definitionKey, releaseVersion)
             .map(ResponseEntity::ok)
             .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    public record DeploymentRequest(
+        String deploymentTarget,
+        String preflightHash,
+        List<String> acknowledgedWarningCodes
+    ) {
     }
 }
