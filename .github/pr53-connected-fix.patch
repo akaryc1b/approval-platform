@@ -1,0 +1,27 @@
+diff --git a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
+--- a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
++++ b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
+@@ -312,6 +312,6 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+                 "default",
+                 report.preflightHash(),
+                 List.of(),
+-                null
++                ApprovalDefinitionSimulator.Scenario.empty()
+             ))
+         );
+@@ -427,6 +427,6 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+                 definitionVersion,
+                 releaseVersion,
+                 "default",
+-                null
++                ApprovalDefinitionSimulator.Scenario.empty()
+             )
+         );
+@@ -451,6 +451,6 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+             "default",
+             report.preflightHash(),
+             report.warningCodes(),
+-            null
++            ApprovalDefinitionSimulator.Scenario.empty()
+         );
+     }
