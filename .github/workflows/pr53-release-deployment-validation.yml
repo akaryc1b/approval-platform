@@ -36,6 +36,9 @@ jobs:
           if [ -f .github/scripts/apply-pr53-d7-java-fix.sh ]; then
             bash .github/scripts/apply-pr53-d7-java-fix.sh
           fi
+          if [ -f .github/scripts/apply-pr53-d7-protocol-test-fix.sh ]; then
+            bash .github/scripts/apply-pr53-d7-protocol-test-fix.sh
+          fi
           git diff --check
       - uses: actions/setup-java@v4
         with:
@@ -76,6 +79,9 @@ jobs:
           fi
           if [ -f .github/scripts/apply-pr53-d7-java-fix.sh ]; then
             bash .github/scripts/apply-pr53-d7-java-fix.sh
+          fi
+          if [ -f .github/scripts/apply-pr53-d7-protocol-test-fix.sh ]; then
+            bash .github/scripts/apply-pr53-d7-protocol-test-fix.sh
           fi
           git diff --check
       - uses: actions/setup-node@v4
@@ -127,6 +133,9 @@ jobs:
           fi
           if [ -f .github/scripts/apply-pr53-d7-java-fix.sh ]; then
             bash .github/scripts/apply-pr53-d7-java-fix.sh
+          fi
+          if [ -f .github/scripts/apply-pr53-d7-protocol-test-fix.sh ]; then
+            bash .github/scripts/apply-pr53-d7-protocol-test-fix.sh
           fi
           git diff --check
       - uses: actions/setup-node@v4
@@ -196,6 +205,9 @@ jobs:
           bash .github/scripts/apply-pr53-connected-patch.sh
           if [ -f .github/scripts/apply-pr53-d7-java-fix.sh ]; then
             bash .github/scripts/apply-pr53-d7-java-fix.sh
+          fi
+          if [ -f .github/scripts/apply-pr53-d7-protocol-test-fix.sh ]; then
+            bash .github/scripts/apply-pr53-d7-protocol-test-fix.sh
           fi
           git diff --check
           git config user.name 'github-actions[bot]'
