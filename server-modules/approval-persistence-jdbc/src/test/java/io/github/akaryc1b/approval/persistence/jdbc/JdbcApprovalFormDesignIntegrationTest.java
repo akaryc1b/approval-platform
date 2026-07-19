@@ -38,6 +38,8 @@ import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -166,6 +168,90 @@ class JdbcApprovalFormDesignIntegrationTest {
         assertEquals(1, copied.sourceUiSchemaVersion());
         assertEquals(2, copied.formDefinition().version());
         assertEquals(2, copied.uiSchemaDefinition().version());
+    }
+
+    @Test
+    void roundTripsCompositeSectionsAndWhitelistComponentsThroughPostgresql() {
+        FormDesignDraft created = service.createBlank(
+            createCommand("tenant-a", "composite-create", "composite-create-key", "composite-form")
+        );
+        FormDefinition form = templateForm("composite-form", 1, "Composite form");
+        UiSchemaDefinition source = PurchasePaymentTemplate.uiSchemaDefinition();
+        UiSchemaDefinition.Section child = new UiSchemaDefinition.Section(
+            "materials",
+            "Materials",
+            "Nested materials",
+            false,
+            List.of(
+                source.sections().get(0).fields().get(2),
+                source.sections().get(1).fields().get(0)
+            ),
+            0,
+            1,
+            true,
+            UiSchemaDefinition.SectionVisibility.always(),
+            false,
+            List.of()
+        );
+        UiSchemaDefinition.FieldLayout ownerLayout = new UiSchemaDefinition.FieldLayout(
+            "supplier",
+            "Select owner",
+            null,
+            12,
+            new UiSchemaDefinition.ComponentDefinition(
+                "USER_SELECTOR",
+                1,
+                Map.of("scope", "tenant", "selectionMode", "single"),
+                UiSchemaDefinition.FallbackRenderer.READONLY_TEXT
+            )
+        );
+        UiSchemaDefinition.Section root = new UiSchemaDefinition.Section(
+            "request",
+            "Request",
+            "Composite root",
+            false,
+            List.of(source.sections().get(0).fields().get(0), ownerLayout),
+            0,
+            2,
+            true,
+            new UiSchemaDefinition.SectionVisibility(
+                UiSchemaDefinition.VisibilityMode.FIELD_NOT_EMPTY,
+                "supplier",
+                null
+            ),
+            false,
+            List.of(child)
+        );
+        UiSchemaDefinition uiSchema = new UiSchemaDefinition(
+            source.schemaVersion(),
+            form.formKey(),
+            form.version(),
+            1,
+            "Composite UI",
+            List.of(root),
+            source.nodePermissions()
+        );
+
+        FormDesignDraft updated = service.update(new UpdateCommand(
+            context("tenant-a", "composite-update", "composite-update-key"),
+            created.draftId(),
+            1,
+            "Composite form",
+            form,
+            uiSchema,
+            SaveMode.EXPLICIT
+        ));
+        FormDesignDraft roundTripped = service.find("tenant-a", updated.draftId()).orElseThrow();
+        assertEquals(uiSchema, roundTripped.uiSchemaDefinition());
+        assertEquals(new UiSchemaHasher().hash(uiSchema), new UiSchemaHasher().hash(
+            roundTripped.uiSchemaDefinition()
+        ));
+        var validation = service.validate(new RevisionCommand(
+            context("tenant-a", "composite-validate", "composite-validate-key"),
+            updated.draftId(),
+            updated.revision()
+        ));
+        assertTrue(validation.valid());
     }
 
     @Test
