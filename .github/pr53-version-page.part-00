@@ -1,0 +1,200 @@
+<script lang="ts" setup>
+import type {
+  ApprovalReleasePackageDetail,
+  ApprovalReleaseVersionSummary,
+  ApprovalStructuralDiffChange,
+  ApprovalStructuralDiffResult,
+  ApprovalVersionCenter,
+} from '#/api/approval/release-version-management';
+
+import { computed, ref } from 'vue';
+
+import { Page } from '@vben/common-ui';
+import {
+  ElAlert,
+  ElButton,
+  ElCard,
+  ElCol,
+  ElDescriptions,
+  ElDescriptionsItem,
+  ElDialog,
+  ElDrawer,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElProgress,
+  ElRow,
+  ElSelect,
+  ElSkeleton,
+  ElTable,
+  ElTableColumn,
+  ElTabPane,
+  ElTabs,
+  ElTag,
+} from 'element-plus';
+
+import { copyPublishedApprovalDesignDraft } from '#/api/approval/process-design';
+import {
+  deployApprovalReleasePackage,
+  diffApprovalReleaseVersions,
+  findApprovalDefinitionVersion,
+  findApprovalReleasePackage,
+  findApprovalVersionCenter,
+} from '#/api/approval/release-version-management';
+
+const definitionKey = ref('');
+const center = ref<ApprovalVersionCenter>();
+const loading = ref(false);
+const operationLoading = ref(false);
+const fromReleaseVersion = ref<number>();
+const toReleaseVersion = ref<number>();
+const diff = ref<ApprovalStructuralDiffResult>();
+const diffLoading = ref(false);
+const detail = ref<ApprovalReleasePackageDetail>();
+const detailVisible = ref(false);
+const detailLoading = ref(false);
+const detailTab = ref('package');
+const copyVisible = ref(false);
+const copyLoading = ref(false);
+const copySource = ref<ApprovalReleaseVersionSummary>();
+const copyInput = ref({
+  formPackageVersion: 1,
+  name: '',
+  targetDefinitionVersion: 1,
+});
+
+const releaseVersions = computed(() => center.value?.releaseVersions || []);
+const definitionVersions = computed(() => center.value?.definitionVersions || []);
+const highImpactChanges = computed(() => diff.value?.changes.filter(
+  item => item.impact === 'HIGH',
+).length || 0);
+const changedSubjectCount = computed(() => new Set(
+  diff.value?.changes.map(item => `${item.subjectType}:${item.subjectId}`) || [],
+).size);
+
+function message(error: unknown) {
+  return error instanceof Error ? error.message : '版本管理请求失败';
+}
+
+function formatDate(value?: string) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('zh-CN', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function shortHash(value?: string) {
+  return value ? `${value.slice(0, 8)}…${value.slice(-6)}` : '—';
+}
+
+function displayValue(value: unknown) {
+  if (value === undefined || value === null || value === '') return '—';
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value, null, 2);
+}
+
+function deploymentLabel(row: ApprovalReleaseVersionSummary) {
+  if (!row.deployment) return '未部署';
+  return {
+    DEPLOYED: '已部署',
+    FAILED: '部署失败',
+    PENDING: '部署中',
+  }[row.deployment.status];
+}
+
+function deploymentType(row: ApprovalReleaseVersionSummary) {
+  if (!row.deployment) return 'info';
+  return row.deployment.status === 'DEPLOYED'
+    ? 'success'
+    : row.deployment.status === 'FAILED'
+      ? 'danger'
+      : 'warning';
+}
+
+function impactLabel(impact: ApprovalStructuralDiffChange['impact']) {
+  return { HIGH: '高', LOW: '低', MEDIUM: '中' }[impact];
+}
+
+function impactType(impact: ApprovalStructuralDiffChange['impact']) {
+  return impact === 'HIGH' ? 'danger' : impact === 'MEDIUM' ? 'warning' : 'info';
+}
+
+function changeTypeLabel(type: ApprovalStructuralDiffChange['changeType']) {
+  return {
+    ADDED: '新增',
+    MODIFIED: '修改',
+    REMOVED: '删除',
+    REORDERED: '重排',
+  }[type];
+}
+
+function subjectTypeLabel(type: ApprovalStructuralDiffChange['subjectType']) {
+  return {
+    BPMN: 'BPMN',
+    COMPILER: '编译器',
+    CONDITION_ROUTE: '条件分支',
+    DEFINITION: '流程定义',
+    FORM_PACKAGE: '表单包',
+    NODE: '节点',
+    PARALLEL_BRANCH: '并行分支',
+    RELEASE_PACKAGE: '发布包',
+    UI_PERMISSIONS: '字段权限',
+  }[type];
+}
+
+async function load() {
+  const key = definitionKey.value.trim();
+  if (!key) {
+    ElMessage.warning('请输入流程定义 Key');
+    return;
+  }
+  loading.value = true;
+  diff.value = undefined;
+  try {
+    center.value = await findApprovalVersionCenter(key);
+    const versions = center.value.releaseVersions.map(item => item.releaseVersion);
+    toReleaseVersion.value = versions[0];
+    fromReleaseVersion.value = versions[1] ?? versions[0];
+  } catch (error) {
+    center.value = undefined;
+    ElMessage.error(message(error));
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function runDiff() {
+  const key = center.value?.definitionKey;
+  if (!key || !fromReleaseVersion.value || !toReleaseVersion.value) {
+    ElMessage.warning('请选择两个发布版本');
+    return;
+  }
+  diffLoading.value = true;
+  try {
+    diff.value = await diffApprovalReleaseVersions(
+      key,
+      fromReleaseVersion.value,
+      toReleaseVersion.value,
+    );
+  } catch (error) {
+    diff.value = undefined;
+    ElMessage.error(message(error));
+  } finally {
+    diffLoading.value = false;
+  }
+}
+
+async function openDetail(row: ApprovalReleaseVersionSummary) {
+  if (!center.value) return;
+  detailVisible.value = true;
+  detailLoading.value = true;
+  detailTab.value = 'package';
+  detail.value = undefined;
+  try {
+    detail.value = await findApprovalReleasePackage(

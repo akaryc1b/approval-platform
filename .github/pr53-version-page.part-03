@@ -1,0 +1,172 @@
+          </div>
+          <ElInput
+            :model-value="detail.bpmnArtifact"
+            readonly
+            resize="vertical"
+            :rows="24"
+            type="textarea"
+          />
+        </ElTabPane>
+      </ElTabs>
+    </ElDrawer>
+
+    <ElDialog v-model="copyVisible" title="从历史版本创建新草稿" width="520px">
+      <ElForm label-position="top">
+        <ElFormItem label="来源版本">
+          <ElInput
+            :model-value="copySource ? `DSL v${copySource.definitionVersion}` : ''"
+            disabled
+          />
+        </ElFormItem>
+        <ElFormItem label="草稿名称">
+          <ElInput v-model="copyInput.name" maxlength="128" />
+        </ElFormItem>
+        <ElRow :gutter="16">
+          <ElCol :span="12">
+            <ElFormItem label="目标 DSL 版本">
+              <ElInputNumber
+                v-model="copyInput.targetDefinitionVersion"
+                :min="1"
+                controls-position="right"
+              />
+            </ElFormItem>
+          </ElCol>
+          <ElCol :span="12">
+            <ElFormItem label="Form Package 版本">
+              <ElInputNumber
+                v-model="copyInput.formPackageVersion"
+                :min="1"
+                controls-position="right"
+              />
+            </ElFormItem>
+          </ElCol>
+        </ElRow>
+      </ElForm>
+      <template #footer>
+        <ElButton @click="copyVisible = false">取消</ElButton>
+        <ElButton type="primary" :loading="copyLoading" @click="submitCopy">
+          创建草稿
+        </ElButton>
+      </template>
+    </ElDialog>
+  </Page>
+</template>
+
+<style scoped>
+.version-page {
+  display: grid;
+  gap: 16px;
+}
+
+.search-bar {
+  display: grid;
+  grid-template-columns: minmax(260px, 560px) auto;
+  gap: 12px;
+  justify-content: start;
+}
+
+.summary-card :deep(.el-card__body) {
+  display: flex;
+  min-height: 88px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.summary-card span,
+.subtle,
+.card-title span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.summary-card strong {
+  font-size: 24px;
+}
+
+.card-title,
+.card-title > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-title > div {
+  justify-content: flex-start;
+}
+
+.tag-line,
+.diff-toolbar,
+.hash-line,
+.artifact-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-line {
+  flex-wrap: wrap;
+}
+
+.hash-line {
+  justify-content: space-between;
+  line-height: 24px;
+}
+
+.hash-line span {
+  color: var(--el-text-color-secondary);
+}
+
+.error-text {
+  margin-top: 6px;
+  color: var(--el-color-danger);
+  font-size: 12px;
+}
+
+.diff-toolbar {
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.diff-toolbar :deep(.el-select) {
+  width: 220px;
+}
+
+.diff-summary {
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.diff-value {
+  max-height: 160px;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.artifact-heading {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+@media (max-width: 640px) {
+  .search-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .card-title,
+  .card-title > div,
+  .artifact-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+</style>
