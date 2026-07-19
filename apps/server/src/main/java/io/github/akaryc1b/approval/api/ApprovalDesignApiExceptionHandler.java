@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @RestControllerAdvice(assignableTypes = {
+    ApprovalBatchSimulationController.class,
     ApprovalDesignController.class,
     ApprovalReleasePackageController.class,
     ApprovalReleasePreflightController.class,
