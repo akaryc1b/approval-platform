@@ -28,10 +28,18 @@ public record ApprovalCompiledArtifact(
         formHash = requireHash(formHash, "formHash");
         compilerVersion = requireText(compilerVersion, "compilerVersion");
         resourceName = requireText(resourceName, "resourceName");
-        bpmnXml = requireText(bpmnXml, "bpmnXml");
+        bpmnXml = requireArtifact(bpmnXml, "bpmnXml");
         compiledArtifactHash = requireHash(compiledArtifactHash, "compiledArtifactHash");
         bpmnHash = requireHash(bpmnHash, "bpmnHash");
         createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+    }
+
+    private static String requireArtifact(String value, String name) {
+        Objects.requireNonNull(value, name + " must not be null");
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return value;
     }
 
     private static String requireText(String value, String name) {
