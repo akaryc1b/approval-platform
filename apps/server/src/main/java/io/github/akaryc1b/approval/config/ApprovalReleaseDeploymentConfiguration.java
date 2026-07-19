@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.config;
 
 import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService;
 import io.github.akaryc1b.approval.application.ApprovalReleaseDeploymentService;
+import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
 import io.github.akaryc1b.approval.application.ApprovalReleaseStructuralDiff;
 import io.github.akaryc1b.approval.application.ApprovalVersionManagementService;
 import io.github.akaryc1b.approval.application.port.ApprovalDefinitionVersionStore;
@@ -80,6 +81,7 @@ public class ApprovalReleaseDeploymentConfiguration {
         IdempotencyGuard idempotencyGuard,
         ApprovalReleasePackageStore approvalReleasePackageStore,
         ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore,
+        ApprovalReleasePreflightService approvalReleasePreflightService,
         ApprovalEngine approvalEngine,
         AuditEventSink auditEventSink,
         Clock approvalClock
@@ -88,6 +90,7 @@ public class ApprovalReleaseDeploymentConfiguration {
             idempotencyGuard,
             approvalReleasePackageStore,
             approvalReleaseDeploymentStore,
+            approvalReleasePreflightService,
             approvalEngine,
             auditEventSink,
             approvalClock,
