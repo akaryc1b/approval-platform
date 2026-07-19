@@ -13,6 +13,8 @@ import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -70,7 +72,10 @@ final class ApprovalReleasePublisher {
         if (current.status() == ApprovalDesignDraft.Status.PUBLISHED) {
             return replay(command, current);
         }
-        requireFreshPreflight(command, current);
+        ApprovalReleasePreflightService.PreflightReport preflightReport = requireFreshPreflight(
+            command,
+            current
+        );
         ApprovalDesignChecks.requireEditable(current);
         ApprovalDesignChecks.requireRevision(current, command.expectedRevision());
         if (current.definition().version() != command.definitionVersion()) {
@@ -198,12 +203,18 @@ final class ApprovalReleasePublisher {
             "APPROVAL_RELEASE_PACKAGE_PUBLISHED",
             published,
             now,
-            ApprovalDesignAuditor.releaseAttributes(release, published.revision())
+            publicationAuditAttributes(
+                command,
+                release,
+                published.revision(),
+                preflightReport,
+                now
+            )
         );
         return new ApprovalDesignResults.Publish(release, published.revision(), false);
     }
 
-    private void requireFreshPreflight(
+    private ApprovalReleasePreflightService.PreflightReport requireFreshPreflight(
         ApprovalDesignCommands.Publish command,
         ApprovalDesignDraft current
     ) {
@@ -239,6 +250,28 @@ final class ApprovalReleasePublisher {
                 "all current preflight warnings must be acknowledged exactly"
             );
         }
+        return report;
+    }
+
+    private static Map<String, String> publicationAuditAttributes(
+        ApprovalDesignCommands.Publish command,
+        ApprovalReleasePackage release,
+        long draftRevision,
+        ApprovalReleasePreflightService.PreflightReport report,
+        Instant acknowledgedAt
+    ) {
+        Map<String, String> attributes = new LinkedHashMap<>(
+            ApprovalDesignAuditor.releaseAttributes(release, draftRevision)
+        );
+        attributes.put("deploymentTarget", command.deploymentTarget());
+        attributes.put("preflightHash", report.preflightHash());
+        attributes.put(
+            "acknowledgedWarningCodes",
+            String.join(",", command.acknowledgedWarningCodes())
+        );
+        attributes.put("acknowledgedBy", command.context().operatorId());
+        attributes.put("acknowledgedAt", acknowledgedAt.toString());
+        return Map.copyOf(attributes);
     }
 
     private ApprovalDesignResults.Publish replay(
