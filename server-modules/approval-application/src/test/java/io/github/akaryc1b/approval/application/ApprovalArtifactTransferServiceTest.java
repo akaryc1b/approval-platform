@@ -42,7 +42,6 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -151,7 +150,7 @@ class ApprovalArtifactTransferServiceTest {
             sourceRelease.deploymentMetadataHash(),
             payload.deploymentMetadataHash()
         );
-        assertEquals(envelope, envelopeWithExportedAt(envelope, NOW.plusSeconds(60)));
+        envelopeWithExportedAt(envelope, NOW.plusSeconds(60));
         assertFalse(envelope.toString().contains(SOURCE_TENANT));
         assertFalse(envelope.toString().contains("source-publisher"));
     }
@@ -600,10 +599,7 @@ class ApprovalArtifactTransferServiceTest {
         );
     }
 
-    private TransferEnvelope envelopeWithExportedAt(
-        TransferEnvelope source,
-        Instant exportedAt
-    ) {
+    private void envelopeWithExportedAt(TransferEnvelope source, Instant exportedAt) {
         TransferEnvelope changed = new TransferEnvelope(
             source.format(),
             source.formatVersion(),
@@ -621,7 +617,6 @@ class ApprovalArtifactTransferServiceTest {
         );
         assertEquals(source.payloadHash(), changed.payloadHash());
         assertEquals(source.envelopeHash(), changed.envelopeHash());
-        return source;
     }
 
     private ReleasePackagePayload copyReleasePayload(
