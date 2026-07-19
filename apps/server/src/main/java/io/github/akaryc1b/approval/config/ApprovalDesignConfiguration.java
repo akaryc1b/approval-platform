@@ -106,7 +106,8 @@ public class ApprovalDesignConfiguration {
         ApprovalFormStore approvalFormStore,
         ApprovalUiSchemaStore approvalUiSchemaStore,
         ApprovalDefinitionValidator approvalDefinitionValidator,
-        ApprovalDefinitionSimulator approvalDefinitionSimulator
+        ApprovalDefinitionSimulator approvalDefinitionSimulator,
+        Clock approvalClock
     ) {
         return new ApprovalBatchSimulationService(
             approvalDesignDraftStore,
@@ -114,7 +115,8 @@ public class ApprovalDesignConfiguration {
             approvalFormStore,
             approvalUiSchemaStore,
             approvalDefinitionValidator,
-            approvalDefinitionSimulator
+            approvalDefinitionSimulator,
+            approvalClock
         );
     }
 

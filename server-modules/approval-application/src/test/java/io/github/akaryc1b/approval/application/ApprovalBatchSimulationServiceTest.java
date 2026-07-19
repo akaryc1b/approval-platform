@@ -19,7 +19,11 @@ import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -263,6 +267,268 @@ class ApprovalBatchSimulationServiceTest {
         assertFalse(exception.getMessage().isBlank());
     }
 
+    @Test
+    void rejectsInvalidBatchSizesDuplicateIdsAndOversizedInputs() {
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> new BatchCommand(TENANT, DRAFT_ID, 1, List.of())
+        );
+
+        List<NamedScenario> tooMany = new ArrayList<>();
+        for (int index = 0; index < 101; index++) {
+            tooMany.add(scenario(
+                "scenario-" + index,
+                BigDecimal.ONE,
+                Map.of(),
+                Map.of(),
+                null,
+                List.of(),
+                List.of(),
+                10
+            ));
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> new BatchCommand(TENANT, DRAFT_ID, 1, tooMany)
+        );
+
+        NamedScenario duplicate = scenario(
+            "duplicate",
+            BigDecimal.ONE,
+            Map.of(),
+            Map.of(),
+            null,
+            List.of(),
+            List.of(),
+            10
+        );
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> new BatchCommand(TENANT, DRAFT_ID, 1, List.of(duplicate, duplicate))
+        );
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> new NamedScenario(
+                "transition-limit",
+                "transition-limit",
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                null,
+                List.of(),
+                List.of(),
+                1_001
+            )
+        );
+
+        Map<String, Object> values = new LinkedHashMap<>();
+        for (int index = 0; index < 201; index++) {
+            values.put("field" + index, index);
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> new NamedScenario(
+                "too-many-values",
+                "too-many-values",
+                values,
+                Map.of(),
+                Map.of(),
+                null,
+                List.of(),
+                List.of(),
+                10
+            )
+        );
+
+        List<Object> valuesWithNull = new ArrayList<>();
+        valuesWithNull.add("present");
+        valuesWithNull.add(null);
+        NamedScenario nullableArray = new NamedScenario(
+            "nullable-array",
+            "nullable-array",
+            Map.of("items", valuesWithNull),
+            Map.of(),
+            Map.of(),
+            null,
+            List.of(),
+            List.of(),
+            10
+        );
+        org.junit.jupiter.api.Assertions.assertNull(
+            ((List<?>) nullableArray.formValues().get("items")).get(1)
+        );
+
+        List<NamedScenario> scenariosWithNull = new ArrayList<>();
+        scenariosWithNull.add(null);
+        IllegalArgumentException invalidScenario =
+            org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new BatchCommand(TENANT, DRAFT_ID, 1, scenariosWithNull)
+            );
+        assertEquals("scenario must not be null", invalidScenario.getMessage());
+
+        Map<String, ApprovalDefinitionSimulator.Decision> decisionsWithNull =
+            new LinkedHashMap<>();
+        decisionsWithNull.put("managerApproval", null);
+        IllegalArgumentException invalidDecision =
+            org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new NamedScenario(
+                    "null-decision",
+                    "null-decision",
+                    Map.of(),
+                    decisionsWithNull,
+                    Map.of(),
+                    null,
+                    List.of(),
+                    List.of(),
+                    10
+                )
+            );
+        assertEquals("map value must not be null", invalidDecision.getMessage());
+    }
+
+    @Test
+    void producesStablePrivateReportsBoundToExactFormPackageIdentity() {
+        TestFixture fixture = fixture(
+            PurchasePaymentTemplate.processDefinition(),
+            PurchasePaymentTemplate.formDefinition(),
+            PurchasePaymentTemplate.uiSchemaDefinition(),
+            ApprovalDesignDraft.Status.VALIDATED,
+            Clock.fixed(NOW, ZoneOffset.UTC)
+        );
+        NamedScenario scenario = scenario(
+            "stable-report",
+            new BigDecimal("10000"),
+            Map.of(
+                "managerApproval", ApprovalDefinitionSimulator.Decision.APPROVE,
+                "financeReview", ApprovalDefinitionSimulator.Decision.APPROVE,
+                "financeCountersign", ApprovalDefinitionSimulator.Decision.APPROVE
+            ),
+            Map.of(),
+            ApprovalDefinitionSimulator.SimulationStatus.COMPLETED,
+            List.of("end"),
+            List.of("initiatorRevision"),
+            100
+        );
+        BatchCommand command = new BatchCommand(
+            TENANT,
+            DRAFT_ID,
+            fixture.draft().revision(),
+            List.of(scenario)
+        );
+
+        var first = fixture.service().simulate(command);
+        var second = fixture.service().simulate(command);
+
+        assertEquals(first.reportHash(), second.reportHash());
+        assertEquals("1.0", first.schemaVersion());
+        assertEquals(NOW, first.generatedAt());
+        assertEquals(1, first.formPackageVersion());
+        assertEquals(PACKAGE_HASH, first.formPackageHash());
+        assertEquals(FORM_HASH, first.formSchemaHash());
+        assertEquals(UI_HASH, first.uiSchemaHash());
+        assertEquals(1, first.scenarioCount());
+        assertEquals(
+            ApprovalBatchSimulationService.FormValueDisclosure.MASKED,
+            first.formValueDisclosure()
+        );
+        assertEquals(
+            "[REDACTED]",
+            first.scenarioResults().getFirst().formValues().get("amount")
+        );
+        assertTrue(first.scenarioResults().getFirst().formFieldNames().contains("amount"));
+        assertEquals(100, first.coverage().startNodes().percentage());
+        assertTrue(first.coverage().criticalPathCoverage().percentage() > 0);
+    }
+
+    @Test
+    void supportsExplicitFullAndFieldNameOnlyReportDisclosure() {
+        TestFixture fixture = fixture(
+            PurchasePaymentTemplate.processDefinition(),
+            PurchasePaymentTemplate.formDefinition(),
+            PurchasePaymentTemplate.uiSchemaDefinition()
+        );
+        NamedScenario scenario = scenario(
+            "disclosure",
+            new BigDecimal("5000"),
+            Map.of(
+                "managerApproval", ApprovalDefinitionSimulator.Decision.APPROVE,
+                "financeCountersign", ApprovalDefinitionSimulator.Decision.APPROVE
+            ),
+            Map.of(),
+            ApprovalDefinitionSimulator.SimulationStatus.COMPLETED,
+            List.of("end"),
+            List.of(),
+            100
+        );
+
+        var full = fixture.service().simulate(new BatchCommand(
+            TENANT,
+            DRAFT_ID,
+            fixture.draft().revision(),
+            List.of(scenario),
+            ApprovalBatchSimulationService.FormValueDisclosure.FULL
+        ));
+        var names = fixture.service().simulate(new BatchCommand(
+            TENANT,
+            DRAFT_ID,
+            fixture.draft().revision(),
+            List.of(scenario),
+            ApprovalBatchSimulationService.FormValueDisclosure.FIELD_NAMES_ONLY
+        ));
+
+        assertEquals(new BigDecimal("5000"), full.scenarioResults().getFirst()
+            .formValues().get("amount"));
+        assertTrue(names.scenarioResults().getFirst().formValues().isEmpty());
+        assertEquals(List.of("amount"), names.scenarioResults().getFirst().formFieldNames());
+    }
+
+    @Test
+    void rejectsCrossTenantAndNonEditableDraftsBeforeSimulation() {
+        TestFixture editable = fixture(
+            PurchasePaymentTemplate.processDefinition(),
+            PurchasePaymentTemplate.formDefinition(),
+            PurchasePaymentTemplate.uiSchemaDefinition()
+        );
+        NamedScenario scenario = scenario(
+            "tenant-boundary",
+            BigDecimal.ONE,
+            Map.of(),
+            Map.of(),
+            null,
+            List.of(),
+            List.of(),
+            10
+        );
+        org.junit.jupiter.api.Assertions.assertThrows(
+            ApprovalDesignExceptions.DraftNotFound.class,
+            () -> editable.service().simulate(new BatchCommand(
+                "another-tenant",
+                DRAFT_ID,
+                editable.draft().revision(),
+                List.of(scenario)
+            ))
+        );
+
+        TestFixture archived = fixture(
+            PurchasePaymentTemplate.processDefinition(),
+            PurchasePaymentTemplate.formDefinition(),
+            PurchasePaymentTemplate.uiSchemaDefinition(),
+            ApprovalDesignDraft.Status.ARCHIVED,
+            Clock.fixed(NOW, ZoneOffset.UTC)
+        );
+        org.junit.jupiter.api.Assertions.assertThrows(
+            ApprovalDesignExceptions.DraftStateConflict.class,
+            () -> archived.service().simulate(new BatchCommand(
+                TENANT,
+                DRAFT_ID,
+                archived.draft().revision(),
+                List.of(scenario)
+            ))
+        );
+    }
+
     private static NamedScenario scenario(
         String id,
         BigDecimal amount,
@@ -291,6 +557,22 @@ class ApprovalBatchSimulationServiceTest {
         FormDefinition form,
         UiSchemaDefinition ui
     ) {
+        return fixture(
+            definition,
+            form,
+            ui,
+            ApprovalDesignDraft.Status.VALIDATED,
+            Clock.fixed(NOW, ZoneOffset.UTC)
+        );
+    }
+
+    private static TestFixture fixture(
+        ApprovalDefinition definition,
+        FormDefinition form,
+        UiSchemaDefinition ui,
+        ApprovalDesignDraft.Status status,
+        Clock clock
+    ) {
         FormPackage formPackage = new FormPackage(
             TENANT,
             definition.definitionKey(),
@@ -317,7 +599,7 @@ class ApprovalBatchSimulationServiceTest {
             ),
             null,
             5,
-            ApprovalDesignDraft.Status.VALIDATED,
+            status,
             null,
             null,
             "designer",
@@ -332,7 +614,8 @@ class ApprovalBatchSimulationServiceTest {
             new SingleFormStore(form),
             new SingleUiStore(ui),
             validator,
-            new ApprovalDefinitionSimulator(validator)
+            new ApprovalDefinitionSimulator(validator),
+            clock
         );
         return new TestFixture(draft, service);
     }

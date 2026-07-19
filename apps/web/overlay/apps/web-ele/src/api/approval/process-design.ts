@@ -345,6 +345,123 @@ export interface ApprovalSimulationInput {
   maxTransitions?: number;
 }
 
+export type ApprovalFormValueDisclosure = 'FIELD_NAMES_ONLY' | 'FULL' | 'MASKED';
+export type ApprovalBatchRunStatus =
+  | 'BLOCKED'
+  | 'ERROR'
+  | 'EXPECTATION_FAILED'
+  | 'PASSED'
+  | 'TRANSITION_LIMIT_REACHED';
+
+export interface ApprovalBatchScenarioInput {
+  approvalDecisions: Record<string, 'APPROVE' | 'REJECT'>;
+  expectedSkippedNodeIds: string[];
+  expectedTerminalStatus?: SimulationResult['status'];
+  expectedVisitedNodeIds: string[];
+  formValues: Record<string, unknown>;
+  identitySnapshots: Record<string, StableIdentitySnapshot[]>;
+  maxTransitions: number;
+  name: string;
+  scenarioId: string;
+}
+
+export interface ApprovalCoverageMetric {
+  covered: number;
+  percentage: number;
+  total: number;
+}
+
+export interface ApprovalBatchIdentityResolution {
+  inputVariable: string;
+  nodeId: string;
+  resolvable: boolean;
+  resolver: AssigneeResolver;
+  snapshotHashes: string[];
+  subjectIds: string[];
+}
+
+export interface ApprovalBatchScenarioResult {
+  expectationFailures: string[];
+  formFieldNames: string[];
+  formValues: Record<string, unknown>;
+  identityResolutions: ApprovalBatchIdentityResolution[];
+  issueCodes: string[];
+  name: string;
+  pathSummary: string;
+  runStatus: ApprovalBatchRunStatus;
+  scenarioId: string;
+  simulationStatus?: SimulationResult['status'];
+  skippedNodeIds: string[];
+  steps: SimulationStep[];
+  terminalNodeId?: string;
+  visitedNodeIds: string[];
+}
+
+export interface ApprovalBatchCoverageReport {
+  approvalPassPaths: ApprovalCoverageMetric;
+  approvalRejectPaths: ApprovalCoverageMetric;
+  blockedObserved: boolean;
+  blockedScenarioIds: string[];
+  conditionRoutes: ApprovalCoverageMetric;
+  criticalPathCoverage: ApprovalCoverageMetric;
+  decisionCoverage: ApprovalCoverageMetric;
+  defaultRoutes: ApprovalCoverageMetric;
+  endNodes: ApprovalCoverageMetric;
+  handleRevisionLoops: ApprovalCoverageMetric;
+  nodes: ApprovalCoverageMetric;
+  parallelBranches: ApprovalCoverageMetric;
+  parallelJoins: ApprovalCoverageMetric;
+  parallelSplits: ApprovalCoverageMetric;
+  startNodes: ApprovalCoverageMetric;
+  structuralCoverage: ApprovalCoverageMetric;
+  transitionLimitObserved: boolean;
+  transitionLimitScenarioIds: string[];
+  uncoveredApprovalPassNodeIds: string[];
+  uncoveredApprovalRejectNodeIds: string[];
+  uncoveredConditionRouteIds: string[];
+  uncoveredDefaultRouteIds: string[];
+  uncoveredEndNodeIds: string[];
+  uncoveredHandleNodeIds: string[];
+  uncoveredNodeIds: string[];
+  uncoveredParallelBranchIds: string[];
+  uncoveredParallelJoinNodeIds: string[];
+  uncoveredParallelSplitNodeIds: string[];
+  uncoveredStartNodeIds: string[];
+}
+
+export interface ApprovalBatchUncoveredItem {
+  category: string;
+  stableId: string;
+}
+
+export interface ApprovalBatchSimulationReport {
+  coverage: ApprovalBatchCoverageReport;
+  definitionKey: string;
+  definitionVersion: number;
+  draftId: string;
+  draftRevision: number;
+  formPackageHash: string;
+  formPackageVersion: number;
+  formSchemaHash: string;
+  formSchemaVersion: number;
+  formValueDisclosure: ApprovalFormValueDisclosure;
+  generatedAt: string;
+  reportHash: string;
+  scenarioCount: number;
+  scenarioResults: ApprovalBatchScenarioResult[];
+  schemaVersion: string;
+  tenantId: string;
+  uiSchemaHash: string;
+  uiSchemaVersion: number;
+  uncoveredItems: ApprovalBatchUncoveredItem[];
+}
+
+export interface ApprovalBatchSimulationInput {
+  expectedRevision: number;
+  formValueDisclosure?: ApprovalFormValueDisclosure;
+  scenarios: ApprovalBatchScenarioInput[];
+}
+
 interface ApiErrorPayload {
   code?: string;
   error?: string;
@@ -494,6 +611,29 @@ export function simulateApprovalDesignDraft(
       method: 'POST',
     },
   );
+}
+
+export function simulateApprovalDesignDraftBatch(
+  draftId: string,
+  input: ApprovalBatchSimulationInput,
+) {
+  return request<ApprovalBatchSimulationReport>(
+    `/approval/process-design-drafts/${encodeURIComponent(draftId)}/batch-simulate`,
+    {
+      body: JSON.stringify(input),
+      method: 'POST',
+    },
+  );
+}
+
+export async function exportApprovalDesignDraftBatchReport(
+  draftId: string,
+  input: ApprovalBatchSimulationInput,
+) {
+  const report = await simulateApprovalDesignDraftBatch(draftId, input);
+  return new Blob([JSON.stringify(report, null, 2)], {
+    type: 'application/json;charset=utf-8',
+  });
 }
 
 export function archiveApprovalDesignDraft(draftId: string, expectedRevision: number) {

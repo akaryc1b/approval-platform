@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.persistence.jdbc;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService;
 import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;
 import io.github.akaryc1b.approval.application.ApprovalDesignCommands;
 import io.github.akaryc1b.approval.application.ApprovalDesignExceptions;
@@ -37,11 +38,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import javax.sql.DataSource;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -435,6 +438,77 @@ class JdbcApprovalDesignReleaseIntegrationTest {
         assertEquals(0, count("ap_approval_definition"));
         assertEquals(0, count("ap_approval_compiled_artifact"));
         assertEquals(0, count("ap_approval_release_package"));
+    }
+
+    @Test
+    void batchSimulationReadsExactTenantDraftWithoutRuntimeWrites() {
+        ApprovalDesignDraft draft = createDraft(
+            "batch-create",
+            "batch-create-key"
+        );
+        ApprovalDefinitionValidator validator = new ApprovalDefinitionValidator();
+        ApprovalBatchSimulationService batch = new ApprovalBatchSimulationService(
+            drafts,
+            new JdbcApprovalFormPackageStore(dataSource),
+            new JdbcApprovalFormStore(dataSource, objectMapper),
+            new JdbcApprovalUiSchemaStore(dataSource, objectMapper),
+            validator,
+            new ApprovalDefinitionSimulator(validator),
+            CLOCK
+        );
+        var scenario = new ApprovalBatchSimulationService.NamedScenario(
+            "postgres-high-value",
+            "PostgreSQL high value",
+            Map.of("amount", new BigDecimal("10000")),
+            Map.of(
+                "managerApproval", ApprovalDefinitionSimulator.Decision.APPROVE,
+                "financeReview", ApprovalDefinitionSimulator.Decision.APPROVE,
+                "financeCountersign", ApprovalDefinitionSimulator.Decision.APPROVE
+            ),
+            Map.of(),
+            ApprovalDefinitionSimulator.SimulationStatus.COMPLETED,
+            List.of("end"),
+            List.of("initiatorRevision"),
+            100
+        );
+        int draftRows = count("ap_approval_design_draft");
+        int auditRows = count("ap_audit_event");
+
+        var report = batch.simulate(new ApprovalBatchSimulationService.BatchCommand(
+            TENANT,
+            draft.draftId(),
+            draft.revision(),
+            List.of(scenario)
+        ));
+
+        assertEquals(draft.revision(), report.draftRevision());
+        assertEquals(1, report.scenarioCount());
+        assertEquals(
+            ApprovalBatchSimulationService.ScenarioRunStatus.PASSED,
+            report.scenarioResults().getFirst().runStatus()
+        );
+        assertEquals(draftRows, count("ap_approval_design_draft"));
+        assertEquals(auditRows, count("ap_audit_event"));
+        assertThrows(
+            ApprovalDesignExceptions.DraftRevisionConflict.class,
+            () -> batch.simulate(new ApprovalBatchSimulationService.BatchCommand(
+                TENANT,
+                draft.draftId(),
+                draft.revision() + 1,
+                List.of(scenario)
+            ))
+        );
+        assertThrows(
+            ApprovalDesignExceptions.DraftNotFound.class,
+            () -> batch.simulate(new ApprovalBatchSimulationService.BatchCommand(
+                OTHER_TENANT,
+                draft.draftId(),
+                draft.revision(),
+                List.of(scenario)
+            ))
+        );
+        assertEquals(draftRows, count("ap_approval_design_draft"));
+        assertEquals(auditRows, count("ap_audit_event"));
     }
 
     private ApprovalReleasePreflightService.PreflightReport publicationPreflight(

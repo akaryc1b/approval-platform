@@ -62,6 +62,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ApprovalSimulations',
+        path: '/approval/simulations',
+        component: () => import('#/views/approval/simulations/index.vue'),
+        meta: {
+          authority: ['approval:definition:design'],
+          icon: 'lucide:flask-conical',
+          title: '批量模拟',
+        },
+      },
+      {
         name: 'ApprovalVersions',
         path: '/approval/versions',
         component: () => import('#/views/approval/versions/index.vue'),

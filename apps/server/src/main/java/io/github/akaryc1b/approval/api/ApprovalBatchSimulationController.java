@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.api;
 import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService;
 import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService.BatchCommand;
 import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService.BatchReport;
+import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService.FormValueDisclosure;
 import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService.NamedScenario;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,17 +34,22 @@ public class ApprovalBatchSimulationController {
         @PathVariable UUID draftId,
         @RequestBody BatchSimulationRequest request
     ) {
-        return service.simulate(new BatchCommand(
-            tenantId,
-            draftId,
-            request.expectedRevision(),
-            request.scenarios()
-        ));
+        return service.simulate(request.toCommand(tenantId, draftId));
     }
 
     public record BatchSimulationRequest(
         long expectedRevision,
-        List<NamedScenario> scenarios
+        List<NamedScenario> scenarios,
+        FormValueDisclosure formValueDisclosure
     ) {
+        private BatchCommand toCommand(String tenantId, UUID draftId) {
+            return new BatchCommand(
+                tenantId,
+                draftId,
+                expectedRevision,
+                scenarios,
+                formValueDisclosure
+            );
+        }
     }
 }
