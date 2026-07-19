@@ -1,0 +1,35 @@
+name: PR 53 Patch Diagnostics
+
+on:
+  push:
+    branches:
+      - agent/m2-release-deployment-and-designer-hardening
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Diagnose queued patch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run patch helper
+        id: patch
+        shell: bash
+        run: |
+          set +e
+          bash .github/scripts/apply-pr53-connected-patch.sh >patch.log 2>&1
+          status=$?
+          cat patch.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr53-patch-diagnostics-${{ github.run_id }}
+          path: patch.log
+      - name: Fail after upload
+        if: steps.patch.outputs.status != '0'
+        run: exit 1
