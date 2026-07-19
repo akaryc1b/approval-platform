@@ -1,0 +1,502 @@
+diff --git a/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePublisher.java b/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePublisher.java
+--- a/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePublisher.java
++++ b/server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalReleasePublisher.java
+@@ -65,11 +65,11 @@ final class ApprovalReleasePublisher {
+             command.context().tenantId(),
+             command.draftId()
+         );
+-        requireFreshPreflight(command, current);
+         if (current.status() == ApprovalDesignDraft.Status.PUBLISHED) {
+             return replay(command, current);
+         }
++        requireFreshPreflight(command, current);
+         ApprovalDesignChecks.requireEditable(current);
+         ApprovalDesignChecks.requireRevision(current, command.expectedRevision());
+         if (current.definition().version() != command.definitionVersion()) {
+diff --git a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
+--- a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
++++ b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalDesignReleaseIntegrationTest.java
+@@ -9,6 +9,7 @@ import io.github.akaryc1b.approval.application.ApprovalDesignCommands;
+ import io.github.akaryc1b.approval.application.ApprovalDesignExceptions;
+ import io.github.akaryc1b.approval.application.ApprovalDesignService;
+ import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
++import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
+ import io.github.akaryc1b.approval.application.FormPackageHasher;
+ import io.github.akaryc1b.approval.application.FormSchemaHasher;
+ import io.github.akaryc1b.approval.application.UiSchemaHasher;
+@@ -72,6 +73,7 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+     private JdbcTemplate jdbc;
+     private JdbcApprovalDesignDraftStore drafts;
+     private ApprovalDesignService service;
++    private ApprovalReleasePreflightService preflight;
+ 
+     @BeforeAll
+     static void migrate() {
+@@ -107,7 +109,10 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+         seedFormPackage(TENANT, 1);
+         drafts = new JdbcApprovalDesignDraftStore(dataSource, objectMapper);
+-        service = service(new JdbcApprovalReleasePackageStore(dataSource));
++        JdbcApprovalReleasePackageStore releaseStore =
++            new JdbcApprovalReleasePackageStore(dataSource);
++        service = service(releaseStore);
++        preflight = preflight(releaseStore);
+     }
+@@ -207,47 +212,52 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+         ));
+         assertTrue(validation.valid());
+ 
+-        var published = service.publish(new ApprovalDesignCommands.Publish(
++        var report = publicationPreflight(
++            draft.draftId(),
++            validation.revision(),
++            PurchasePaymentTemplate.PROCESS_VERSION,
++            1
++        );
++        var published = service.publish(publishCommand(
+             context(TENANT, "publish", "publish-key"),
+             draft.draftId(),
+             validation.revision(),
+             PurchasePaymentTemplate.PROCESS_VERSION,
+-            1
+-        ));
+-        var requestReplay = service.publish(new ApprovalDesignCommands.Publish(
++            1,
++            report
++        ));
++        var requestReplay = service.publish(publishCommand(
+             context(TENANT, "publish-retry", "publish-key"),
+             draft.draftId(),
+             validation.revision(),
+             PurchasePaymentTemplate.PROCESS_VERSION,
+-            1
+-        ));
+-        var semanticReplay = service.publish(new ApprovalDesignCommands.Publish(
++            1,
++            report
++        ));
++        var semanticReplay = service.publish(publishCommand(
+             context(TENANT, "publish-semantic", "publish-semantic-key"),
+             draft.draftId(),
+             validation.revision(),
+             PurchasePaymentTemplate.PROCESS_VERSION,
+-            1
+-        ));
++            1,
++            report
++        ));
+ 
+         assertFalse(published.replayedExistingRelease());
+         assertEquals(published, requestReplay);
+@@ -267,15 +277,16 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+         assertThrows(
+             ApprovalDesignExceptions.ReleaseVersionConflict.class,
+-            () -> service.publish(new ApprovalDesignCommands.Publish(
++            () -> service.publish(publishCommand(
+                 context(TENANT, "publish-conflict", "publish-conflict-key"),
+                 draft.draftId(),
+                 validation.revision(),
+                 PurchasePaymentTemplate.PROCESS_VERSION,
+-                2
++                2,
++                report
+             ))
+         );
+@@ -276,6 +287,54 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+         );
+     }
+ 
++    @Test
++    void requiresExactWarningAcknowledgementAndRejectsStalePreflightHash() {
++        ApprovalDesignDraft draft = createDraft("preflight-create", "preflight-create-key");
++        var report = publicationPreflight(
++            draft.draftId(),
++            draft.revision(),
++            PurchasePaymentTemplate.PROCESS_VERSION,
++            1
++        );
++        assertFalse(report.warningCodes().isEmpty());
++
++        assertThrows(
++            ApprovalDesignExceptions.WarningAcknowledgementRequired.class,
++            () -> service.publish(new ApprovalDesignCommands.Publish(
++                context(TENANT, "missing-warning", "missing-warning-key"),
++                draft.draftId(),
++                draft.revision(),
++                PurchasePaymentTemplate.PROCESS_VERSION,
++                1,
++                "default",
++                report.preflightHash(),
++                List.of(),
++                null
++            ))
++        );
++        assertEquals(0, count("ap_approval_release_package"));
++
++        ApprovalDesignDraft changed = service.update(new ApprovalDesignCommands.Update(
++            context(TENANT, "preflight-change", "preflight-change-key"),
++            draft.draftId(),
++            draft.revision(),
++            "Changed after preflight",
++            draft.definition(),
++            1,
++            ApprovalDesignCommands.SaveMode.EXPLICIT
++        ));
++        assertThrows(
++            ApprovalDesignExceptions.PreflightConflict.class,
++            () -> service.publish(publishCommand(
++                context(TENANT, "stale-preflight", "stale-preflight-key"),
++                changed.draftId(),
++                draft.revision(),
++                PurchasePaymentTemplate.PROCESS_VERSION,
++                1,
++                report
++            ))
++        );
++        assertEquals(0, count("ap_approval_definition"));
++        assertEquals(0, count("ap_approval_compiled_artifact"));
++        assertEquals(0, count("ap_approval_release_package"));
++    }
++
+     @Test
+     void rollsBackDefinitionArtifactAndPackageWhenPublicationFails() {
+         ApprovalDesignDraft draft = createDraft("rollback-create", "rollback-create-key");
+@@ -289,12 +348,19 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+         ApprovalReleasePackageStore delegate = new JdbcApprovalReleasePackageStore(dataSource);
+         ApprovalReleasePackageStore failing = new FailingReleaseStore(delegate);
+         ApprovalDesignService failingService = service(failing);
++        var report = publicationPreflight(
++            draft.draftId(),
++            validation.revision(),
++            PurchasePaymentTemplate.PROCESS_VERSION,
++            1
++        );
+ 
+         assertThrows(
+             IllegalStateException.class,
+-            () -> failingService.publish(new ApprovalDesignCommands.Publish(
++            () -> failingService.publish(publishCommand(
+                 context(TENANT, "rollback-publish", "rollback-publish-key"),
+                 draft.draftId(),
+                 validation.revision(),
+                 PurchasePaymentTemplate.PROCESS_VERSION,
+-                1
++                1,
++                report
+             ))
+         );
+@@ -317,14 +383,21 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+         ));
+ 
++        var report = publicationPreflight(
++            updated.draftId(),
++            updated.revision(),
++            PurchasePaymentTemplate.PROCESS_VERSION,
++            1
++        );
+         assertThrows(
+-            ApprovalDefinitionValidator.DefinitionValidationException.class,
+-            () -> service.publish(new ApprovalDesignCommands.Publish(
++            ApprovalDesignExceptions.PreflightConflict.class,
++            () -> service.publish(publishCommand(
+                 context(TENANT, "invalid-publish", "invalid-publish-key"),
+                 updated.draftId(),
+                 updated.revision(),
+                 PurchasePaymentTemplate.PROCESS_VERSION,
+-                1
++                1,
++                report
+             ))
+         );
+@@ -333,6 +406,72 @@ class JdbcApprovalDesignReleaseIntegrationTest {
+         assertEquals(0, count("ap_approval_release_package"));
+     }
+ 
++    private ApprovalReleasePreflightService.PreflightReport publicationPreflight(
++        UUID draftId,
++        long revision,
++        int definitionVersion,
++        int releaseVersion
++    ) {
++        return preflight.preflightPublication(
++            new ApprovalReleasePreflightService.PublicationRequest(
++                TENANT,
++                draftId,
++                revision,
++                PurchasePaymentTemplate.DEFINITION_KEY,
++                definitionVersion,
++                releaseVersion,
++                "default",
++                null
++            )
++        );
++    }
++
++    private static ApprovalDesignCommands.Publish publishCommand(
++        RequestContext context,
++        UUID draftId,
++        long revision,
++        int definitionVersion,
++        int releaseVersion,
++        ApprovalReleasePreflightService.PreflightReport report
++    ) {
++        return new ApprovalDesignCommands.Publish(
++            context,
++            draftId,
++            revision,
++            definitionVersion,
++            releaseVersion,
++            "default",
++            report.preflightHash(),
++            report.warningCodes(),
++            null
++        );
++    }
++
++    private ApprovalReleasePreflightService preflight(
++        ApprovalReleasePackageStore releaseStore
++    ) {
++        ApprovalDefinitionValidator validator = new ApprovalDefinitionValidator();
++        return new ApprovalReleasePreflightService(
++            new JdbcApprovalDesignDraftStore(dataSource, objectMapper),
++            new JdbcApprovalDefinitionVersionStore(dataSource, objectMapper),
++            releaseStore,
++            new JdbcApprovalReleaseDeploymentStore(dataSource),
++            new JdbcApprovalFormPackageStore(dataSource),
++            new JdbcApprovalFormStore(dataSource, objectMapper),
++            new JdbcApprovalUiSchemaStore(dataSource, objectMapper),
++            validator,
++            new ApprovalDefinitionSimulator(validator),
++            new ApprovalDslCompiler(validator),
++            new ApprovalDefinitionHasher(),
++            new ApprovalReleasePackageHasher()
++        );
++    }
++
+     private ApprovalDesignDraft createDraft(String requestId, String idempotencyKey) {
+         return service.createFromPurchasePaymentTemplate(new ApprovalDesignCommands.Create(
+             context(TENANT, requestId, idempotencyKey),
+diff --git a/apps/web/overlay/apps/web-ele/src/api/approval/process-design.ts b/apps/web/overlay/apps/web-ele/src/api/approval/process-design.ts
+--- a/apps/web/overlay/apps/web-ele/src/api/approval/process-design.ts
++++ b/apps/web/overlay/apps/web-ele/src/api/approval/process-design.ts
+@@ -18,6 +18,8 @@ export type ComparisonOperator =
+   | 'LESS_THAN_OR_EQUAL'
+   | 'NOT_EQUAL';
+ export type ValidationSeverity = 'ERROR' | 'INFO' | 'WARNING';
++export type ApprovalPreflightScope = 'DEPLOYMENT' | 'PUBLICATION';
++export type ApprovalPreflightSeverity = 'ERROR' | 'INFO' | 'WARNING';
+ 
+ interface BaseNode {
+@@ -241,6 +243,77 @@ export interface ApprovalPublishResult {
+   replayedExistingRelease: boolean;
+ }
+ 
++export interface ApprovalPreflightIssue {
++  code: string;
++  message: string;
++  severity: ApprovalPreflightSeverity;
++  subject: string;
++}
++
++export interface ApprovalPreflightReport {
++  compiler: {
++    artifactBytes: number;
++    attempted: boolean;
++    compilerVersion?: string;
++    deterministic: boolean;
++    resourceName?: string;
++    successful: boolean;
++  };
++  deployable: boolean;
++  deploymentCompatibility: {
++    bpmnWellFormed: boolean;
++    existingDeploymentStatus?: string;
++    processDefinitionKey?: string;
++    processKeyMatches: boolean;
++    semanticReplay: boolean;
++    supported: boolean;
++    target: string;
++  };
++  deploymentTarget: string;
++  draftId: string;
++  draftRevision: number;
++  errors: ApprovalPreflightIssue[];
++  generatedHashes: {
++    bpmnHash?: string;
++    compiledArtifactHash?: string;
++    definitionHash?: string;
++    deploymentMetadataHash?: string;
++    formPackageHash?: string;
++    releasePackageHash?: string;
++  };
++  infos: ApprovalPreflightIssue[];
++  preflightHash: string;
++  publishable: boolean;
++  scope: ApprovalPreflightScope;
++  simulation: {
++    executed: boolean;
++    issueCodes: string[];
++    requested: boolean;
++    status?: string;
++    stepCount: number;
++    terminalNodeId?: string;
++  };
++  targetDefinitionVersion: number;
++  targetReleaseVersion: number;
++  tenantId: string;
++  warnings: ApprovalPreflightIssue[];
++}
++
++export interface ApprovalPreflightScenario {
++  decisions: Record<string, 'APPROVE' | 'REJECT'>;
++  formValues: Record<string, unknown>;
++  maxTransitions: number;
++}
++
++export interface ApprovalPublicationPreflightInput {
++  definitionKey: string;
++  deploymentTarget: string;
++  draftId: string;
++  expectedRevision: number;
++  scenario?: ApprovalPreflightScenario;
++  targetDefinitionVersion: number;
++  targetReleaseVersion: number;
++}
++
++export interface PublishApprovalDesignDraftInput {
++  acknowledgedWarningCodes: string[];
++  definitionVersion: number;
++  deploymentTarget: string;
++  expectedRevision: number;
++  preflightHash: string;
++  preflightScenario?: ApprovalPreflightScenario;
++  releaseVersion: number;
++}
++
+ export interface CreateApprovalDesignDraftInput {
+@@ -425,18 +498,26 @@ export function archiveApprovalDesignDraft(draftId: string, expectedRevision: number) {
+   );
+ }
+ 
++export function preflightApprovalPublication(input: ApprovalPublicationPreflightInput) {
++  return request<ApprovalPreflightReport>('/approval/preflight/publication', {
++    body: JSON.stringify(input),
++    method: 'POST',
++  });
++}
++
+ export function publishApprovalDesignDraft(
+   draftId: string,
+-  expectedRevision: number,
+-  definitionVersion: number,
+-  releaseVersion: number,
++  input: PublishApprovalDesignDraftInput,
+ ) {
+   return request<ApprovalPublishResult>(
+     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/publish`,
+     {
+-      body: JSON.stringify({ definitionVersion, expectedRevision, releaseVersion }),
++      body: JSON.stringify(input),
+       headers: writeHeaders('approval-release-publish'),
+       method: 'POST',
+     },
+   );
+ }
+diff --git a/apps/web/overlay/apps/web-ele/src/views/approval/designer/use-approval-designer.ts b/apps/web/overlay/apps/web-ele/src/views/approval/designer/use-approval-designer.ts
+--- a/apps/web/overlay/apps/web-ele/src/views/approval/designer/use-approval-designer.ts
++++ b/apps/web/overlay/apps/web-ele/src/views/approval/designer/use-approval-designer.ts
+@@ -7,6 +7,7 @@ import type {
+   ApprovalDesignValidationResult,
+   ApprovalNode,
++  ApprovalPreflightReport,
+   ApprovalPublishResult,
+   ApprovalSimulationResponse,
+@@ -24,6 +25,7 @@ import {
+   findApprovalDesignDraft,
+   findApprovalDesignDrafts,
++  preflightApprovalPublication,
+   publishApprovalDesignDraft,
+@@ -48,6 +50,7 @@ export function useApprovalDesigner() {
+   const validation = ref<ApprovalDesignValidationResult>();
+   const simulation = ref<ApprovalSimulationResponse>();
+   const published = ref<ApprovalPublishResult>();
++  const preflight = ref<ApprovalPreflightReport>();
+   const decisions = ref<Record<string, Decision>>({});
+@@ -219,28 +222,60 @@ export function useApprovalDesigner() {
+   }
+ 
+   async function publish() {
+     if (!draft.value) return;
+-    const check = await validate();
+-    if (!check || check.issues.some(issue => issue.severity === 'ERROR') || !draft.value) return;
+-    const warningCount = check.issues.filter(issue => issue.severity === 'WARNING').length;
+-    const warningText = warningCount
+-      ? `存在 ${warningCount} 条警告，确认继续发布？`
+-      : '确认发布不可变流程版本和 Release Package？';
+-    await ElMessageBox.confirm(warningText, '发布确认', { type: 'warning' });
++    if (saveState.value === 'dirty' && !(await save())) return;
++    const current = draft.value;
++    const scenario = {
++      decisions: decisions.value,
++      formValues: { amount: amount.value },
++      maxTransitions: 200,
++    };
+     try {
++      const report = await preflightApprovalPublication({
++        definitionKey: current.definitionKey,
++        deploymentTarget: 'default',
++        draftId: current.draftId,
++        expectedRevision: current.revision,
++        scenario,
++        targetDefinitionVersion: current.definition.version,
++        targetReleaseVersion: current.definition.version,
++      });
++      preflight.value = report;
++      if (!report.publishable || report.errors.length > 0) {
++        ElMessage.error(
++          `发布前检查存在阻断项：${report.errors.map(item => item.code).join('、')}`,
++        );
++        return;
++      }
++      const warningCodes = [...new Set(report.warnings.map(item => item.code))].sort();
++      const summary = [
++        `DSL v${report.targetDefinitionVersion} / Release v${report.targetReleaseVersion}`,
++        `Preflight ${report.preflightHash.slice(0, 12)}…`,
++        `BPMN ${report.generatedHashes.bpmnHash?.slice(0, 12) ?? '—'}…`,
++        warningCodes.length
++          ? `需确认警告：${warningCodes.join('、')}`
++          : '没有需要确认的警告',
++      ].join('\n');
++      await ElMessageBox.confirm(summary, '发布前综合检查', {
++        confirmButtonText: warningCodes.length ? '确认警告并发布' : '确认发布',
++        type: warningCodes.length ? 'warning' : 'info',
++      });
+       const result = await publishApprovalDesignDraft(
+-        draft.value.draftId,
+-        draft.value.revision,
+-        draft.value.definition.version,
+-        draft.value.definition.version,
++        current.draftId,
++        {
++          acknowledgedWarningCodes: warningCodes,
++          definitionVersion: current.definition.version,
++          deploymentTarget: report.deploymentTarget,
++          expectedRevision: current.revision,
++          preflightHash: report.preflightHash,
++          preflightScenario: scenario,
++          releaseVersion: current.definition.version,
++        },
+       );
+-      await openDraft(draft.value.draftId);
++      await openDraft(current.draftId);
+       published.value = result;
+       ElMessage.success('Release Package 已发布');
+@@ -464,6 +499,7 @@ export function useApprovalDesigner() {
+     validation.value = undefined;
+     simulation.value = undefined;
+     published.value = undefined;
++    preflight.value = undefined;
+@@ -498,6 +534,7 @@ export function useApprovalDesigner() {
+     nodeOptions,
+     openDraft,
++    preflight,
+     publish,
