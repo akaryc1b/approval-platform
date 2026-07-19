@@ -116,6 +116,15 @@ class ApprovalBatchSimulationServiceTest {
             ),
             report.scenarios().stream().map(value -> value.scenarioId()).toList()
         );
+        assertTrue(
+            report.scenarios().stream().noneMatch(value ->
+                value.runStatus() == ScenarioRunStatus.ERROR
+            ),
+            () -> "scenario errors: " + report.scenarios().stream()
+                .filter(value -> value.runStatus() == ScenarioRunStatus.ERROR)
+                .map(value -> value.scenarioId() + ": " + value.expectationFailures())
+                .toList()
+        );
         assertEquals(100, report.coverage().nodes().percentage());
         assertEquals(100, report.coverage().approvalPassPaths().percentage());
         assertEquals(100, report.coverage().conditionRoutes().percentage());

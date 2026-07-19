@@ -125,7 +125,7 @@ public final class ApprovalBatchSimulationService {
         }
 
         List<String> visited = result.steps().stream()
-            .map(ApprovalDefinitionSimulator.Step::nodeId)
+            .map(ApprovalDefinitionSimulator.SimulationStep::nodeId)
             .distinct()
             .sorted()
             .toList();
@@ -320,7 +320,7 @@ public final class ApprovalBatchSimulationService {
                 == ApprovalDefinitionSimulator.SimulationStatus.TRANSITION_LIMIT_REACHED) {
                 transitionLimitScenarios.add(scenario.scenarioId());
             }
-            for (ApprovalDefinitionSimulator.Step step : scenario.steps()) {
+            for (ApprovalDefinitionSimulator.SimulationStep step : scenario.steps()) {
                 coveredNodes.add(step.nodeId());
                 ApprovalDefinition.ProcessNode node = nodes.get(step.nodeId());
                 if (node instanceof ApprovalDefinition.ApprovalStep) {
@@ -330,7 +330,7 @@ public final class ApprovalBatchSimulationService {
                         coveredRejects.add(step.nodeId());
                     }
                 } else if (node instanceof ApprovalDefinition.ConditionStep condition) {
-                    if (step.outcome().startsWith("ROUTE:")) {
+                    if (step.outcome().startsWith("ROUTE_")) {
                         int index = routeIndex(step.outcome());
                         if (index >= 0 && index < condition.routes().size()) {
                             coveredConditions.add(conditionRouteId(condition, index));
@@ -343,7 +343,7 @@ public final class ApprovalBatchSimulationService {
                     String branchId = step.outcome().substring("BRANCH_ENTER:".length());
                     coveredParallelBranches.add(parallelBranchId(split.id(), branchId));
                 } else if (node instanceof ApprovalDefinition.HandleStep
-                    && "RESUBMITTED".equals(step.outcome())) {
+                    && "HANDLED".equals(step.outcome())) {
                     coveredHandleLoops.add(step.nodeId());
                 } else if (node instanceof ApprovalDefinition.EndNode) {
                     coveredEnds.add(step.nodeId());
@@ -375,7 +375,7 @@ public final class ApprovalBatchSimulationService {
 
     private static int routeIndex(String outcome) {
         try {
-            return Integer.parseInt(outcome.substring("ROUTE:".length())) - 1;
+            return Integer.parseInt(outcome.substring("ROUTE_".length())) - 1;
         } catch (NumberFormatException exception) {
             return -1;
         }
@@ -579,7 +579,7 @@ public final class ApprovalBatchSimulationService {
         String terminalNodeId,
         List<String> visitedNodeIds,
         List<String> skippedNodeIds,
-        List<ApprovalDefinitionSimulator.Step> steps,
+        List<ApprovalDefinitionSimulator.SimulationStep> steps,
         List<String> issueCodes,
         List<String> expectationFailures,
         List<IdentityResolution> identityResolutions,
