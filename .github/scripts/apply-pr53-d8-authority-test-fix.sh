@@ -49,7 +49,12 @@ old = '''    private static void invokeRejectNonEditable(Map<String, FieldAccess
 '''
 if old not in text:
     raise SystemExit('obsolete test helper was not found')
-test.write_text(text.replace(old, '', 1), encoding='utf-8')
+text = text.replace(old, '', 1)
+fixture = 'schema(form, false, true)'
+if text.count(fixture) != 2:
+    raise SystemExit('expected exactly two authority fixture calls')
+text = text.replace(fixture, 'schema(form, true, false)')
+test.write_text(text, encoding='utf-8')
 PY
 
 rm -f .github/scripts/apply-pr53-d8-authority-test-fix.sh
