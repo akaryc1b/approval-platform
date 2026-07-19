@@ -86,7 +86,12 @@ old_file_name = '        String fileName = "approval-simulation-"\n            +
 new_file_name = '        String safeDefinitionKey = report.definitionKey().replaceAll(\n            "[^A-Za-z0-9._-]",\n            "_"\n        );\n        String fileName = "approval-simulation-"\n            + safeDefinitionKey\n            + \'-\'\n'
 if controller.count(old_file_name) != 1:
     raise SystemExit('Expected report export file name')
-controller_path.write_text(controller.replace(old_file_name, new_file_name, 1))
+controller = controller.replace(old_file_name, new_file_name, 1)
+old_method = '    public ResponseEntity<BatchReport> export(\n'
+new_method = '    public ResponseEntity<BatchReport> exportReport(\n'
+if controller.count(old_method) != 1:
+    raise SystemExit('Expected one report export method')
+controller_path.write_text(controller.replace(old_method, new_method, 1))
 
 test_path = Path(
     'server-modules/approval-application/src/test/java/'
@@ -160,6 +165,116 @@ if test.count(marker) != 1:
     raise SystemExit('Expected oversized scenario assertion marker')
 test_path.write_text(test.replace(marker, additional, 1))
 PY
+
+bash /dev/stdin <<'D5_INTEGRATION'
+#!/usr/bin/env bash
+set -euo pipefail
+python3 - <<'PY'
+from pathlib import Path
+
+path = Path(
+    'server-modules/approval-persistence-jdbc/src/test/java/'
+    'io/github/akaryc1b/approval/persistence/jdbc/'
+    'JdbcApprovalDesignReleaseIntegrationTest.java'
+)
+text = path.read_text()
+text = text.replace(
+    'import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;\n',
+    'import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService;\n'
+    'import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;\n',
+    1,
+)
+text = text.replace(
+    'import java.time.Clock;\n',
+    'import java.math.BigDecimal;\nimport java.time.Clock;\n',
+    1,
+)
+text = text.replace(
+    'import java.util.List;\n',
+    'import java.util.List;\nimport java.util.Map;\n',
+    1,
+)
+marker = '''    private ApprovalReleasePreflightService.PreflightReport publicationPreflight(
+'''
+test = '''    @Test
+    void batchSimulationReadsExactTenantDraftWithoutRuntimeWrites() {
+        ApprovalDesignDraft draft = createDraft(
+            "batch-create",
+            "batch-create-key"
+        );
+        ApprovalDefinitionValidator validator = new ApprovalDefinitionValidator();
+        ApprovalBatchSimulationService batch = new ApprovalBatchSimulationService(
+            drafts,
+            new JdbcApprovalFormPackageStore(dataSource),
+            new JdbcApprovalFormStore(dataSource, objectMapper),
+            new JdbcApprovalUiSchemaStore(dataSource, objectMapper),
+            validator,
+            new ApprovalDefinitionSimulator(validator),
+            CLOCK
+        );
+        var scenario = new ApprovalBatchSimulationService.NamedScenario(
+            "postgres-high-value",
+            "PostgreSQL high value",
+            Map.of("amount", new BigDecimal("10000")),
+            Map.of(
+                "managerApproval", ApprovalDefinitionSimulator.Decision.APPROVE,
+                "financeReview", AprovalDefinitionSimulator.Decision.APPROVE,
+                "financeCountersign", ApprovalDefinitionSimulator.Decision.APPROVE
+            ),
+            Map.of(),
+            ApprovalDefinitionSimulator.SimulationStatus.COMPLETED,
+            List.of("end"),
+            List.of("initiatorRevision"),
+            100
+        );
+        int draftRows = count("ap_approval_design_draft");
+        int auditRows = count("ap_audit_event");
+
+        var report = batch.simulate(new ApprovalBatchSimulationService.BatchCommand(
+            TENANT,
+            draft.draftId(),
+            draft.revision(),
+            List.of(scenario)
+        ));
+
+        assertEquals(draft.revision(), report.draftRevision());
+        assertEquals(1, report.scenarioCount());
+        assertEquals(
+            ApprovalBatchSimulationService.ScenarioRunStatus.PASSED,
+            report.scenarioResults().getFirst().runStatus()
+        );
+        assertEquals(draftRows, count("ap_approval_design_draft"));
+        assertEquals(auditRows, count("ap_audit_event"));
+        assertThrows(
+            ApprovalDesignExceptions.DraftRevisionConflict.class,
+            () -> batch.simulate(new ApprovalBatchSimulationService.BatchCommand(
+                TENANT,
+                draft.draftId(),
+                draft.revision() + 1,
+                List.of(scenario)
+            ))
+        );
+        assertThrows(
+            ApprovalDesignExceptions.DraftNotFound.class,
+            () -> batch.simulate(new ApprovalBatchSimulationService.BatchCommand(
+                OTHER_TENANT,
+                draft.draftId(),
+                draft.revision(),
+                List.of(scenario)
+            ))
+        );
+        assertEquals(draftRows, count("ap_approval_design_draft"));
+        assertEquals(auditRows, count("ap_audit_event"));
+    }
+
+'''
+if text.count(marker) != 1:
+    raise SystemExit('integration insertion marker not found')
+text = text.replace(marker, test + marker, 1)
+path.write_text(text)
+PY
+git diff --check
+D5_INTEGRATION
 
 rm -f "${parts[@]}"
 git diff --check
