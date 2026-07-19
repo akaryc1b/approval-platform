@@ -15,10 +15,14 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -32,6 +36,7 @@ public final class ApprovalReleaseDeploymentService {
     private final IdempotencyGuard idempotency;
     private final ApprovalReleasePackageStore releases;
     private final ApprovalReleaseDeploymentStore deployments;
+    private final DeploymentPreflight deploymentPreflight;
     private final ApprovalEngine engine;
     private final AuditEventSink auditEvents;
     private final Clock clock;
@@ -41,6 +46,29 @@ public final class ApprovalReleaseDeploymentService {
         IdempotencyGuard idempotency,
         ApprovalReleasePackageStore releases,
         ApprovalReleaseDeploymentStore deployments,
+        ApprovalReleasePreflightService preflight,
+        ApprovalEngine engine,
+        AuditEventSink auditEvents,
+        Clock clock,
+        Supplier<UUID> identifiers
+    ) {
+        this(
+            idempotency,
+            releases,
+            deployments,
+            request -> decision(preflight.preflightDeployment(request)),
+            engine,
+            auditEvents,
+            clock,
+            identifiers
+        );
+    }
+
+    ApprovalReleaseDeploymentService(
+        IdempotencyGuard idempotency,
+        ApprovalReleasePackageStore releases,
+        ApprovalReleaseDeploymentStore deployments,
+        DeploymentPreflight deploymentPreflight,
         ApprovalEngine engine,
         AuditEventSink auditEvents,
         Clock clock,
@@ -49,6 +77,7 @@ public final class ApprovalReleaseDeploymentService {
         this.idempotency = Objects.requireNonNull(idempotency);
         this.releases = Objects.requireNonNull(releases);
         this.deployments = Objects.requireNonNull(deployments);
+        this.deploymentPreflight = Objects.requireNonNull(deploymentPreflight);
         this.engine = Objects.requireNonNull(engine);
         this.auditEvents = Objects.requireNonNull(auditEvents);
         this.clock = Objects.requireNonNull(clock);
@@ -98,6 +127,7 @@ public final class ApprovalReleaseDeploymentService {
             }
         }
 
+        requireFreshPreflight(command);
         ApprovalReleaseDeployment pending = pending(command, releasePackage, current);
         persistPending(pending, current);
 
@@ -108,7 +138,7 @@ public final class ApprovalReleaseDeploymentService {
             ApprovalReleaseDeployment failed = failed(pending, exception);
             requireUpdated(failed, pending.attemptCount());
             appendAudit(
-                command.context(),
+                command,
                 "APPROVAL_RELEASE_DEPLOYMENT_FAILED",
                 failed,
                 Map.of(
@@ -122,7 +152,7 @@ public final class ApprovalReleaseDeploymentService {
         ApprovalReleaseDeployment deployed = deployed(pending, engineResult);
         requireUpdated(deployed, pending.attemptCount());
         appendAudit(
-            command.context(),
+            command,
             "APPROVAL_RELEASE_DEPLOYED",
             deployed,
             Map.of(
@@ -132,6 +162,33 @@ public final class ApprovalReleaseDeploymentService {
             )
         );
         return new DeploymentResult(deployed, false);
+    }
+
+    private void requireFreshPreflight(DeployCommand command) {
+        DeploymentPreflightDecision decision = deploymentPreflight.check(
+            new ApprovalReleasePreflightService.DeploymentRequest(
+                command.context().tenantId(),
+                command.definitionKey(),
+                command.releaseVersion(),
+                command.deploymentTarget()
+            )
+        );
+        if (!decision.preflightHash().equals(command.preflightHash())) {
+            throw new ReleaseDeploymentPreflightConflict(
+                "deployment preflight is stale and must be refreshed"
+            );
+        }
+        if (!decision.deployable() || !decision.errorCodes().isEmpty()) {
+            throw new ReleaseDeploymentPreflightConflict(
+                "deployment preflight contains blocking errors: "
+                    + String.join(", ", decision.errorCodes())
+            );
+        }
+        if (!decision.warningCodes().equals(command.acknowledgedWarningCodes())) {
+            throw new ReleaseDeploymentWarningAcknowledgementRequired(
+                "all current deployment preflight warnings must be acknowledged exactly"
+            );
+        }
     }
 
     private static ApprovalEngine.DeployCommand deployCommand(
@@ -279,22 +336,31 @@ public final class ApprovalReleaseDeploymentService {
     }
 
     private void appendAudit(
-        RequestContext context,
+        DeployCommand command,
         String action,
         ApprovalReleaseDeployment deployment,
         Map<String, String> attributes
     ) {
+        Map<String, String> complete = new LinkedHashMap<>(attributes);
+        complete.put("deploymentTarget", command.deploymentTarget());
+        complete.put("preflightHash", command.preflightHash());
+        complete.put(
+            "acknowledgedWarningCodes",
+            String.join(",", command.acknowledgedWarningCodes())
+        );
+        complete.put("acknowledgedBy", command.context().operatorId());
+        complete.put("acknowledgedAt", deployment.updatedAt().toString());
         auditEvents.append(new AuditEvent(
             identifiers.get(),
-            context.tenantId(),
-            context.operatorId(),
+            command.context().tenantId(),
+            command.context().operatorId(),
             action,
             "APPROVAL_RELEASE_DEPLOYMENT",
             deployment.deploymentRecordId().toString(),
-            context.requestId(),
-            context.traceId(),
+            command.context().requestId(),
+            command.context().traceId(),
             deployment.updatedAt(),
-            attributes
+            Map.copyOf(complete)
         ));
     }
 
@@ -304,6 +370,9 @@ public final class ApprovalReleaseDeploymentService {
             update(digest, "approval-release-deploy-v1");
             update(digest, command.definitionKey());
             update(digest, Integer.toString(command.releaseVersion()));
+            update(digest, command.deploymentTarget());
+            update(digest, command.preflightHash());
+            update(digest, String.join(",", command.acknowledgedWarningCodes()));
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
@@ -318,10 +387,29 @@ public final class ApprovalReleaseDeploymentService {
         digest.update((byte) '\n');
     }
 
+    private static DeploymentPreflightDecision decision(
+        ApprovalReleasePreflightService.PreflightReport report
+    ) {
+        List<String> errors = report.errors().stream()
+            .map(ApprovalReleasePreflightService.Issue::code)
+            .distinct()
+            .sorted()
+            .toList();
+        return new DeploymentPreflightDecision(
+            report.preflightHash(),
+            report.warningCodes(),
+            report.deployable(),
+            errors
+        );
+    }
+
     public record DeployCommand(
         RequestContext context,
         String definitionKey,
-        int releaseVersion
+        int releaseVersion,
+        String deploymentTarget,
+        String preflightHash,
+        List<String> acknowledgedWarningCodes
     ) {
         public DeployCommand {
             context = Objects.requireNonNull(context, "context must not be null");
@@ -329,6 +417,17 @@ public final class ApprovalReleaseDeploymentService {
             if (releaseVersion < 1) {
                 throw new IllegalArgumentException("releaseVersion must be positive");
             }
+            deploymentTarget = deploymentTarget == null || deploymentTarget.isBlank()
+                ? "default"
+                : deploymentTarget.trim();
+            preflightHash = requireHash(preflightHash, "preflightHash");
+            TreeSet<String> warningCodes = new TreeSet<>();
+            if (acknowledgedWarningCodes != null) {
+                acknowledgedWarningCodes.forEach(value -> warningCodes.add(
+                    requireText(value, "acknowledgedWarningCode")
+                ));
+            }
+            acknowledgedWarningCodes = List.copyOf(warningCodes);
         }
     }
 
@@ -339,6 +438,32 @@ public final class ApprovalReleaseDeploymentService {
         public DeploymentResult {
             deployment = Objects.requireNonNull(deployment, "deployment must not be null");
         }
+    }
+
+    record DeploymentPreflightDecision(
+        String preflightHash,
+        List<String> warningCodes,
+        boolean deployable,
+        List<String> errorCodes
+    ) {
+        DeploymentPreflightDecision {
+            preflightHash = requireHash(preflightHash, "preflightHash");
+            warningCodes = warningCodes == null
+                ? List.of()
+                : new ArrayList<>(new TreeSet<>(warningCodes));
+            errorCodes = errorCodes == null
+                ? List.of()
+                : new ArrayList<>(new TreeSet<>(errorCodes));
+            warningCodes = List.copyOf(warningCodes);
+            errorCodes = List.copyOf(errorCodes);
+        }
+    }
+
+    @FunctionalInterface
+    interface DeploymentPreflight {
+        DeploymentPreflightDecision check(
+            ApprovalReleasePreflightService.DeploymentRequest request
+        );
     }
 
     public static final class ReleasePackageNotFoundException extends RuntimeException {
@@ -353,11 +478,32 @@ public final class ApprovalReleaseDeploymentService {
         }
     }
 
+    public static final class ReleaseDeploymentPreflightConflict extends RuntimeException {
+        public ReleaseDeploymentPreflightConflict(String message) {
+            super(message);
+        }
+    }
+
+    public static final class ReleaseDeploymentWarningAcknowledgementRequired
+        extends RuntimeException {
+        public ReleaseDeploymentWarningAcknowledgementRequired(String message) {
+            super(message);
+        }
+    }
+
     private static String requireText(String value, String name) {
         Objects.requireNonNull(value, name + " must not be null");
         if (value.isBlank()) {
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value.trim();
+    }
+
+    private static String requireHash(String value, String name) {
+        String normalized = requireText(value, name);
+        if (!normalized.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException(name + " must be a lowercase SHA-256 value");
+        }
+        return normalized;
     }
 }
