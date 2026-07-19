@@ -40,6 +40,13 @@ import type {
   ApprovalDesignerConflict,
   ApprovalDesignerSnapshot,
 } from './designer-conflict';
+import {
+  buildApprovalDesignerTopologyIndex,
+  describeApprovalDesignerDeletion,
+  filterApprovalDesignerNodes,
+  resolveApprovalDesignerNodeId,
+} from './designer-topology.mjs';
+import type { ApprovalDesignerTopologyIndex } from './designer-topology.mjs';
 
 type Decision = 'APPROVE' | 'REJECT';
 type AddableNodeKind = 'APPROVAL' | 'CONDITION' | 'HANDLE' | 'PARALLEL';
@@ -75,14 +82,19 @@ export function useApprovalDesigner() {
   const redoStack = ref<ApprovalDesignerSnapshot[]>([]);
   const baseSnapshot = ref<ApprovalDesignerSnapshot>();
   const conflict = ref<DesignerConflictState>();
+  const nodeSearch = ref('');
+  const nodeKindFilter = ref<ApprovalNode['kind'][]>([]);
+  const nodeRenderLimit = ref(120);
+  const collapsedBranchNodeIds = ref<Set<string>>(new Set());
 
   let suspended = true;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let sequence = 1;
 
-  const selectedNode = computed(() => draft.value?.definition.nodes.find(
-    node => node.id === selectedNodeId.value,
-  ));
+  const topology = computed<ApprovalDesignerTopologyIndex<ApprovalNode>>(() =>
+    buildApprovalDesignerTopologyIndex(draft.value?.definition.nodes ?? []),
+  );
+  const selectedNode = computed(() => topology.value.byId.get(selectedNodeId.value));
   const selectedApproval = computed<ApprovalStep | undefined>(() =>
     selectedNode.value?.kind === 'APPROVAL' ? selectedNode.value : undefined,
   );
@@ -97,10 +109,25 @@ export function useApprovalDesigner() {
   );
   const editable = computed(() => draft.value?.status === 'DRAFT'
     || draft.value?.status === 'VALIDATED');
-  const nodeOptions = computed(() => draft.value?.definition.nodes.map(node => ({
+  const nodeOptions = computed(() => topology.value.orderedNodes.map(node => ({
     label: `${node.name} · ${node.id}`,
     value: node.id,
-  })) ?? []);
+  })));
+  const approvalNodes = computed(() => topology.value.orderedNodes.filter(
+    (node): node is ApprovalStep => node.kind === 'APPROVAL',
+  ));
+  const visibleNodes = computed(() => filterApprovalDesignerNodes(
+    topology.value,
+    nodeSearch.value,
+    nodeKindFilter.value,
+  ));
+  const renderedNodes = computed(() => visibleNodes.value.slice(0, nodeRenderLimit.value));
+  const hasMoreVisibleNodes = computed(
+    () => renderedNodes.value.length < visibleNodes.value.length,
+  );
+  const filtersActive = computed(
+    () => Boolean(nodeSearch.value.trim()) || nodeKindFilter.value.length > 0,
+  );
   const errors = computed(() => validation.value?.issues.filter(
     issue => issue.severity === 'ERROR',
   ) ?? []);
@@ -120,6 +147,9 @@ export function useApprovalDesigner() {
     flush: 'sync',
   });
   watch(() => draft.value?.name, () => markChanged(), { flush: 'sync' });
+  watch([nodeSearch, nodeKindFilter], () => {
+    nodeRenderLimit.value = 120;
+  }, { deep: true });
   watch(
     () => draft.value?.formPackage.packageVersion,
     () => markChanged(),
@@ -127,12 +157,14 @@ export function useApprovalDesigner() {
   );
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('keydown', handleKeyboardShortcut);
   }
   onBeforeRouteLeave(() => confirmDiscardChanges('离开流程设计器'));
   onBeforeUnmount(() => {
     if (saveTimer) clearTimeout(saveTimer);
     if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('keydown', handleKeyboardShortcut);
     }
   });
 
@@ -168,6 +200,16 @@ export function useApprovalDesigner() {
       decisions.value = {};
       undoStack.value = [];
       redoStack.value = [];
+      nodeSearch.value = '';
+      nodeKindFilter.value = [];
+      nodeRenderLimit.value = 120;
+      collapsedBranchNodeIds.value = new Set(
+        loaded.definition.nodes.length >= 100
+          ? loaded.definition.nodes
+              .filter(node => ['CONDITION', 'PARALLEL_SPLIT'].includes(node.kind))
+              .map(node => node.id)
+          : [],
+      );
       saveState.value = 'saved';
       return true;
     } catch (error) {
@@ -425,10 +467,13 @@ export function useApprovalDesigner() {
 
   function addNode(kind: AddableNodeKind) {
     if (!draft.value || !editable.value) return;
-    const end = draft.value.definition.nodes.find(node => node.kind === 'END');
-    const predecessor = end && draft.value.definition.nodes.find(
-      node => outgoing(node).includes(end.id),
-    );
+    const end = topology.value.orderedNodes.find(node => node.kind === 'END');
+    const predecessorId = end
+      ? topology.value.incomingById.get(end.id)?.[0]
+      : undefined;
+    const predecessor = predecessorId
+      ? topology.value.byId.get(predecessorId)
+      : undefined;
     if (!end || !predecessor) return;
     remember();
     if (kind === 'PARALLEL') {
@@ -520,7 +565,7 @@ export function useApprovalDesigner() {
     const split = selectedParallel.value;
     if (!draft.value || !split || split.branches.length <= 2) return;
     const branch = split.branches[index];
-    const entry = draft.value.definition.nodes.find(node => node.id === branch?.next);
+    const entry = branch ? topology.value.byId.get(branch.next) : undefined;
     if (!entry || !('next' in entry) || entry.next !== split.joinNodeId) {
       ElMessage.info('请先清空该分支中的复合节点');
       return;
@@ -550,18 +595,36 @@ export function useApprovalDesigner() {
     selectedNodeId.value = copy.id;
   }
 
-  function deleteNode() {
+  async function deleteNode() {
     const node = selectedNode.value;
-    if (!draft.value || !node) return;
-    if (node.kind === 'PARALLEL_SPLIT') {
-      ElMessage.info('请先删除并行分支中的节点');
+    if (!draft.value || !node || !editable.value) return;
+    const impact = describeApprovalDesignerDeletion(topology.value, node.id);
+    if (!impact.deletable) {
+      ElMessage.info(impact.reason ?? '当前节点不能安全删除');
       return;
     }
-    if (!('next' in node) || ['END', 'PARALLEL_JOIN', 'START'].includes(node.kind)) return;
-    const predecessor = draft.value.definition.nodes.find(
-      candidate => outgoing(candidate).includes(node.id),
-    );
-    if (!predecessor) return;
+    const predecessorId = impact.incomingNodeIds[0];
+    const predecessor = predecessorId
+      ? topology.value.byId.get(predecessorId)
+      : undefined;
+    if (!predecessor || !('next' in node)) return;
+    const details = [
+      `节点：${node.name}（${node.id}）`,
+      `前置引用：${predecessor.id}`,
+      `删除后重连到：${node.next}`,
+      impact.joinNodeId ? `该节点直接进入并行汇聚 ${impact.joinNodeId}` : '',
+      node.kind === 'APPROVAL' && node.rejectNext
+        ? `驳回目标 ${node.rejectNext} 将随节点一起移除`
+        : '',
+    ].filter(Boolean).join('\n');
+    try {
+      await ElMessageBox.confirm(details, '确认删除节点及重连影响', {
+        confirmButtonText: '确认删除',
+        type: impact.joinNodeId ? 'warning' : 'info',
+      });
+    } catch {
+      return;
+    }
     remember();
     replaceTarget(predecessor, node.id, node.next);
     draft.value.definition.nodes = draft.value.definition.nodes.filter(
@@ -688,6 +751,87 @@ export function useApprovalDesigner() {
     event.returnValue = '';
   }
 
+  function focusNode(subject: string) {
+    const nodeId = resolveNodeId(subject);
+    if (!nodeId) return false;
+    if (!visibleNodes.value.some(node => node.id === nodeId)) {
+      nodeSearch.value = '';
+      nodeKindFilter.value = [];
+    }
+    const order = topology.value.orderById.get(nodeId) ?? 0;
+    nodeRenderLimit.value = Math.max(
+      nodeRenderLimit.value,
+      Math.ceil((order + 1) / 120) * 120,
+    );
+    selectedNodeId.value = nodeId;
+    return true;
+  }
+
+  function resolveNodeId(subject?: string) {
+    return resolveApprovalDesignerNodeId(topology.value, subject);
+  }
+
+  function showMoreNodes() {
+    nodeRenderLimit.value += 120;
+  }
+
+  function toggleBranchCollapse(nodeId: string) {
+    const next = new Set(collapsedBranchNodeIds.value);
+    if (next.has(nodeId)) next.delete(nodeId);
+    else next.add(nodeId);
+    collapsedBranchNodeIds.value = next;
+  }
+
+  function isBranchCollapsed(nodeId: string) {
+    return collapsedBranchNodeIds.value.has(nodeId);
+  }
+
+  function collapseAllBranches() {
+    collapsedBranchNodeIds.value = new Set(
+      topology.value.orderedNodes
+        .filter(node => ['CONDITION', 'PARALLEL_SPLIT'].includes(node.kind))
+        .map(node => node.id),
+    );
+  }
+
+  function expandAllBranches() {
+    collapsedBranchNodeIds.value = new Set();
+  }
+
+  function handleKeyboardShortcut(event: KeyboardEvent) {
+    const key = event.key.toLocaleLowerCase();
+    const modifier = event.ctrlKey || event.metaKey;
+    if (modifier && key === 's') {
+      event.preventDefault();
+      void save();
+      return;
+    }
+    if (isEditableEventTarget(event.target)) return;
+    if (modifier && key === 'z') {
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (modifier && key === 'y') {
+      event.preventDefault();
+      redo();
+      return;
+    }
+    if (!modifier && !event.repeat && ['backspace', 'delete'].includes(key)) {
+      event.preventDefault();
+      void deleteNode();
+    }
+  }
+
+  function isEditableEventTarget(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.isContentEditable) return true;
+    return Boolean(target.closest(
+      'input, textarea, select, [contenteditable="true"], button, a, [role="button"]',
+    ));
+  }
+
   function clearResults() {
     validation.value = undefined;
     simulation.value = undefined;
@@ -707,9 +851,12 @@ export function useApprovalDesigner() {
     applySafeConflictMerge,
     addConditionRoute,
     addNode,
+    approvalNodes,
     amount,
     archive,
     busy,
+    collapseAllBranches,
+    collapsedBranchNodeIds,
     conflict,
     copyNode,
     createDraft,
@@ -718,25 +865,34 @@ export function useApprovalDesigner() {
     draft,
     drafts,
     editable,
+    expandAllBranches,
     errors,
+    filtersActive,
+    focusNode,
+    hasMoreVisibleNodes,
     hasPendingChanges,
     json,
     keyword,
     loadDrafts,
     moveNode,
+    nodeKindFilter,
     nodeOptions,
+    nodeSearch,
     openDraft,
     preflight,
     publish,
     published,
+    renderedNodes,
     redo,
     redoStack,
     reload,
     reloadServerVersion,
+    resolveNodeId,
     removeBranch,
     removeConditionRoute,
     save,
     saveState,
+    showMoreNodes,
     selectedApproval,
     selectedCondition,
     selectedHandle,
@@ -746,11 +902,15 @@ export function useApprovalDesigner() {
     simulate,
     simulation,
     status,
+    toggleBranchCollapse,
+    topology,
     undo,
     undoStack,
     validate,
     validation,
+    visibleNodes,
     warnings,
+    isBranchCollapsed,
   };
 }
 
@@ -771,18 +931,6 @@ function assignee(variable: string) {
     resolver: 'VARIABLE_USER' as const,
     variable,
   };
-}
-
-function outgoing(node: ApprovalNode) {
-  if (node.kind === 'END') return [];
-  if (node.kind === 'CONDITION') {
-    return [...node.routes.map(route => route.next), node.defaultNext];
-  }
-  if (node.kind === 'PARALLEL_SPLIT') return node.branches.map(branch => branch.next);
-  return [
-    node.next,
-    ...(node.kind === 'APPROVAL' && node.rejectNext ? [node.rejectNext] : []),
-  ];
 }
 
 function replaceTarget(node: ApprovalNode, oldTarget: string, newTarget: string) {
