@@ -30,24 +30,11 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          set -euo pipefail
-          if [ -f '.github/pr53-connected-patch.tgz.b64' ]; then
-            base64 --decode .github/pr53-connected-patch.tgz.b64 | tar -xzf -
-          elif compgen -G '.github/pr53-connected-patch.tgz.b64.part-*' >/dev/null; then
-            cat .github/pr53-connected-patch.tgz.b64.part-* | base64 --decode | tar -xzf -
-          elif compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
-            cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
+          if [ -f .github/scripts/apply-pr53-connected-patch.sh ]; then
+            bash .github/scripts/apply-pr53-connected-patch.sh
+          else
+            git diff --check
           fi
-          if [ -f '.github/pr53-connected.patch' ]; then
-            git apply --whitespace=error-all .github/pr53-connected.patch
-          fi
-          rm -f .github/pr53-connected-patch.tgz.b64 \
-            .github/pr53-connected-patch.tgz.b64.part-* \
-            .github/pr53-connected-patch.tgz.part-* \
-            .github/pr53-connected.patch \
-            .github/pr53-version-page.part-* \
-            .github/workflows/pr53-connected-patch.yml
-          git diff --check
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -82,24 +69,11 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          set -euo pipefail
-          if [ -f '.github/pr53-connected-patch.tgz.b64' ]; then
-            base64 --decode .github/pr53-connected-patch.tgz.b64 | tar -xzf -
-          elif compgen -G '.github/pr53-connected-patch.tgz.b64.part-*' >/dev/null; then
-            cat .github/pr53-connected-patch.tgz.b64.part-* | base64 --decode | tar -xzf -
-          elif compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
-            cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
+          if [ -f .github/scripts/apply-pr53-connected-patch.sh ]; then
+            bash .github/scripts/apply-pr53-connected-patch.sh
+          else
+            git diff --check
           fi
-          if [ -f '.github/pr53-connected.patch' ]; then
-            git apply --whitespace=error-all .github/pr53-connected.patch
-          fi
-          rm -f .github/pr53-connected-patch.tgz.b64 \
-            .github/pr53-connected-patch.tgz.b64.part-* \
-            .github/pr53-connected-patch.tgz.part-* \
-            .github/pr53-connected.patch \
-            .github/pr53-version-page.part-* \
-            .github/workflows/pr53-connected-patch.yml
-          git diff --check
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -140,24 +114,11 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          set -euo pipefail
-          if [ -f '.github/pr53-connected-patch.tgz.b64' ]; then
-            base64 --decode .github/pr53-connected-patch.tgz.b64 | tar -xzf -
-          elif compgen -G '.github/pr53-connected-patch.tgz.b64.part-*' >/dev/null; then
-            cat .github/pr53-connected-patch.tgz.b64.part-* | base64 --decode | tar -xzf -
-          elif compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
-            cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
+          if [ -f .github/scripts/apply-pr53-connected-patch.sh ]; then
+            bash .github/scripts/apply-pr53-connected-patch.sh
+          else
+            git diff --check
           fi
-          if [ -f '.github/pr53-connected.patch' ]; then
-            git apply --whitespace=error-all .github/pr53-connected.patch
-          fi
-          rm -f .github/pr53-connected-patch.tgz.b64 \
-            .github/pr53-connected-patch.tgz.b64.part-* \
-            .github/pr53-connected-patch.tgz.part-* \
-            .github/pr53-connected.patch \
-            .github/pr53-version-page.part-* \
-            .github/workflows/pr53-connected-patch.yml
-          git diff --check
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -211,31 +172,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          has_patch=false
-          if [ -f '.github/pr53-connected-patch.tgz.b64' ]; then
-            base64 --decode .github/pr53-connected-patch.tgz.b64 | tar -xzf -
-            has_patch=true
-          elif compgen -G '.github/pr53-connected-patch.tgz.b64.part-*' >/dev/null; then
-            cat .github/pr53-connected-patch.tgz.b64.part-* | base64 --decode | tar -xzf -
-            has_patch=true
-          elif compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
-            cat .github/pr53-connected-patch.tgz.part-* | tar -xzf -
-            has_patch=true
+          if [ ! -f .github/scripts/apply-pr53-connected-patch.sh ]; then
+            echo 'No queued patch helper found.'
+            exit 0
           fi
-          if [ "$has_patch" != true ]; then
+          if [ ! -f .github/pr53-connected-patch.tgz.b64 ] \
+            && ! compgen -G '.github/pr53-connected-patch.tgz.b64.part-*' >/dev/null \
+            && ! compgen -G '.github/pr53-connected-patch.tgz.part-*' >/dev/null; then
             echo 'No queued product patch found.'
             exit 0
           fi
-          if [ -f '.github/pr53-connected.patch' ]; then
-            git apply --whitespace=error-all .github/pr53-connected.patch
-          fi
-          rm -f .github/pr53-connected-patch.tgz.b64 \
-            .github/pr53-connected-patch.tgz.b64.part-* \
-            .github/pr53-connected-patch.tgz.part-* \
-            .github/pr53-connected.patch \
-            .github/pr53-version-page.part-* \
-            .github/workflows/pr53-connected-patch.yml
-          git diff --check
+          bash .github/scripts/apply-pr53-connected-patch.sh
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
