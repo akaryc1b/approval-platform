@@ -39,7 +39,8 @@ jobs:
             .github/scripts/apply-pr53-d8-designer.sh \
             .github/scripts/apply-pr53-d8-designer-fix.sh \
             .github/scripts/apply-pr53-d8-authority.sh \
-            .github/scripts/apply-pr53-d8-authority-test-fix.sh; do
+            .github/scripts/apply-pr53-d8-authority-test-fix.sh \
+            .github/scripts/apply-pr53-d8-authority-compile-fix.sh; do
             if [ -f "$helper" ]; then bash "$helper"; fi
           done
           git diff --check
@@ -86,7 +87,8 @@ jobs:
             .github/scripts/apply-pr53-d8-designer.sh \
             .github/scripts/apply-pr53-d8-designer-fix.sh \
             .github/scripts/apply-pr53-d8-authority.sh \
-            .github/scripts/apply-pr53-d8-authority-test-fix.sh; do
+            .github/scripts/apply-pr53-d8-authority-test-fix.sh \
+            .github/scripts/apply-pr53-d8-authority-compile-fix.sh; do
             if [ -f "$helper" ]; then bash "$helper"; fi
           done
           git diff --check
@@ -151,7 +153,8 @@ jobs:
             .github/scripts/apply-pr53-d8-designer.sh \
             .github/scripts/apply-pr53-d8-designer-fix.sh \
             .github/scripts/apply-pr53-d8-authority.sh \
-            .github/scripts/apply-pr53-d8-authority-test-fix.sh; do
+            .github/scripts/apply-pr53-d8-authority-test-fix.sh \
+            .github/scripts/apply-pr53-d8-authority-compile-fix.sh; do
             if [ -f "$helper" ]; then bash "$helper"; fi
           done
           git diff --check
@@ -217,7 +220,8 @@ jobs:
             .github/scripts/apply-pr53-d8-designer.sh \
             .github/scripts/apply-pr53-d8-designer-fix.sh \
             .github/scripts/apply-pr53-d8-authority.sh \
-            .github/scripts/apply-pr53-d8-authority-test-fix.sh; do
+            .github/scripts/apply-pr53-d8-authority-test-fix.sh \
+            .github/scripts/apply-pr53-d8-authority-compile-fix.sh; do
             if [ -f "$helper" ]; then
               queued=true
               bash "$helper"
