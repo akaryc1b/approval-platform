@@ -24,7 +24,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -392,7 +391,24 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
     private static ApprovalReleaseDeployment retryPending(
         ApprovalReleaseDeployment failed
     ) {
-        return pending(failed.tenantId(), failed.attemptCount() + 1, failed.releasePackageHash());
+        return new ApprovalReleaseDeployment(
+            failed.deploymentRecordId(),
+            failed.tenantId(),
+            failed.definitionKey(),
+            failed.releaseVersion(),
+            failed.releasePackageHash(),
+            ApprovalReleaseDeployment.Status.PENDING,
+            failed.attemptCount() + 1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            failed.requestedBy(),
+            failed.createdAt(),
+            NOW,
+            null
+        );
     }
 
     private static ApprovalReleaseDeployment deployed(
