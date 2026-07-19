@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.api;
 
+import io.github.akaryc1b.approval.application.ApprovalArtifactTransferExceptions;
 import io.github.akaryc1b.approval.application.ApprovalDesignExceptions;
 import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
@@ -14,6 +15,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @RestControllerAdvice(assignableTypes = {
+    ApprovalArtifactTransferController.class,
     ApprovalBatchSimulationController.class,
     ApprovalDesignController.class,
     ApprovalReleasePackageController.class,
@@ -21,6 +23,132 @@ import java.util.UUID;
     ApprovalVersionManagementController.class
 })
 public class ApprovalDesignApiExceptionHandler {
+
+    @ExceptionHandler(ApprovalArtifactTransferExceptions.InvalidFormat.class)
+    ResponseEntity<ApiError> transferInvalidFormat(
+        ApprovalArtifactTransferExceptions.InvalidFormat exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            400,
+            "APPROVAL_TRANSFER_INVALID_FORMAT",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
+    @ExceptionHandler(ApprovalArtifactTransferExceptions.UnsupportedVersion.class)
+    ResponseEntity<ApiError> transferUnsupportedVersion(
+        ApprovalArtifactTransferExceptions.UnsupportedVersion exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            400,
+            "APPROVAL_TRANSFER_UNSUPPORTED_VERSION",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
+    @ExceptionHandler(ApprovalArtifactTransferExceptions.TooLarge.class)
+    ResponseEntity<ApiError> transferTooLarge(
+        ApprovalArtifactTransferExceptions.TooLarge exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            400,
+            "APPROVAL_TRANSFER_TOO_LARGE",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
+    @ExceptionHandler(ApprovalArtifactTransferExceptions.HashMismatch.class)
+    ResponseEntity<ApiError> transferHashMismatch(
+        ApprovalArtifactTransferExceptions.HashMismatch exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            400,
+            "APPROVAL_TRANSFER_HASH_MISMATCH",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
+    @ExceptionHandler(ApprovalArtifactTransferExceptions.ArtifactIntegrityFailed.class)
+    ResponseEntity<ApiError> transferIntegrityFailed(
+        ApprovalArtifactTransferExceptions.ArtifactIntegrityFailed exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            400,
+            "APPROVAL_TRANSFER_ARTIFACT_INTEGRITY_FAILED",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
+    @ExceptionHandler(ApprovalArtifactTransferExceptions.SourceNotFound.class)
+    ResponseEntity<ApiError> transferSourceNotFound(
+        ApprovalArtifactTransferExceptions.SourceNotFound exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            404,
+            "APPROVAL_TRANSFER_SOURCE_NOT_FOUND",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
+    @ExceptionHandler(ApprovalArtifactTransferExceptions.FormPackageIncompatible.class)
+    ResponseEntity<ApiError> transferFormPackageIncompatible(
+        ApprovalArtifactTransferExceptions.FormPackageIncompatible exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            409,
+            "APPROVAL_TRANSFER_FORM_PACKAGE_INCOMPATIBLE",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
+    @ExceptionHandler(ApprovalArtifactTransferExceptions.ImportConflict.class)
+    ResponseEntity<ApiError> transferImportConflict(
+        ApprovalArtifactTransferExceptions.ImportConflict exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            409,
+            "APPROVAL_TRANSFER_IMPORT_CONFLICT",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
+    @ExceptionHandler(ApprovalArtifactTransferExceptions.ValidationFailed.class)
+    ResponseEntity<ApiError> transferValidationFailed(
+        ApprovalArtifactTransferExceptions.ValidationFailed exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            422,
+            "APPROVAL_TRANSFER_VALIDATION_FAILED",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
 
     @ExceptionHandler({
         IllegalArgumentException.class,
