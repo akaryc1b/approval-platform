@@ -14,6 +14,7 @@ import type {
 } from '#/api/approval/process-design';
 
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 import {
@@ -30,12 +31,30 @@ import {
   validateApprovalDesignDraft,
 } from '#/api/approval/process-design';
 
+import {
+  analyzeDesignerConflict,
+  mergeDesignerConflict,
+  snapshotApprovalDesignerDraft,
+} from './designer-conflict';
+import type {
+  ApprovalDesignerConflict,
+  ApprovalDesignerSnapshot,
+} from './designer-conflict';
+
 type Decision = 'APPROVE' | 'REJECT';
 type AddableNodeKind = 'APPROVAL' | 'CONDITION' | 'HANDLE' | 'PARALLEL';
 
-interface DraftSnapshot {
-  definition: ApprovalDesignDraft['definition'];
-  name: string;
+type DesignerSaveState =
+  | 'conflict'
+  | 'dirty'
+  | 'failed'
+  | 'idle'
+  | 'saved'
+  | 'saving';
+
+interface DesignerConflictState {
+  analysis: ApprovalDesignerConflict;
+  serverDraft: ApprovalDesignDraft;
 }
 
 export function useApprovalDesigner() {
@@ -45,14 +64,17 @@ export function useApprovalDesigner() {
   const keyword = ref('');
   const status = ref<ApprovalDesignDraftStatus>();
   const busy = ref(false);
-  const saveState = ref<'conflict' | 'dirty' | 'idle' | 'saved' | 'saving'>('idle');
+  const saveState = ref<DesignerSaveState>('idle');
   const validation = ref<ApprovalDesignValidationResult>();
   const simulation = ref<ApprovalSimulationResponse>();
   const published = ref<ApprovalPublishResult>();
   const preflight = ref<ApprovalPreflightReport>();
   const decisions = ref<Record<string, Decision>>({});
   const amount = ref(1200);
-  const undoStack = ref<DraftSnapshot[]>([]);
+  const undoStack = ref<ApprovalDesignerSnapshot[]>([]);
+  const redoStack = ref<ApprovalDesignerSnapshot[]>([]);
+  const baseSnapshot = ref<ApprovalDesignerSnapshot>();
+  const conflict = ref<DesignerConflictState>();
 
   let suspended = true;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -86,11 +108,32 @@ export function useApprovalDesigner() {
     issue => issue.severity === 'WARNING',
   ) ?? []);
   const json = computed(() => JSON.stringify(draft.value?.definition ?? {}, null, 2));
+  const hasPendingChanges = computed(() => [
+    'conflict',
+    'dirty',
+    'failed',
+    'saving',
+  ].includes(saveState.value));
 
-  watch(() => draft.value?.definition, markChanged, { deep: true });
-  watch(() => draft.value?.name, markChanged);
+  watch(() => draft.value?.definition, () => markChanged(), {
+    deep: true,
+    flush: 'sync',
+  });
+  watch(() => draft.value?.name, () => markChanged(), { flush: 'sync' });
+  watch(
+    () => draft.value?.formPackage.packageVersion,
+    () => markChanged(),
+    { flush: 'sync' },
+  );
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+  }
+  onBeforeRouteLeave(() => confirmDiscardChanges('离开流程设计器'));
   onBeforeUnmount(() => {
     if (saveTimer) clearTimeout(saveTimer);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
   });
 
   async function loadDrafts() {
@@ -106,17 +149,31 @@ export function useApprovalDesigner() {
     }
   }
 
-  async function openDraft(draftId: string) {
+  async function openDraft(
+    draftId: string,
+    options: { force?: boolean } = {},
+  ) {
+    const switchingDraft = draft.value && draft.value.draftId !== draftId;
+    if (!options.force && switchingDraft
+      && !(await confirmDiscardChanges('切换流程草稿'))) {
+      return false;
+    }
     suspended = true;
     try {
-      draft.value = await findApprovalDesignDraft(draftId);
-      selectedNodeId.value = draft.value.definition.startNodeId;
+      const loaded = await findApprovalDesignDraft(draftId);
+      draft.value = loaded;
+      baseSnapshot.value = snapshotApprovalDesignerDraft(loaded);
+      conflict.value = undefined;
+      selectedNodeId.value = loaded.definition.startNodeId;
       clearResults();
       decisions.value = {};
       undoStack.value = [];
+      redoStack.value = [];
       saveState.value = 'saved';
+      return true;
     } catch (error) {
       showError(error);
+      return false;
     } finally {
       suspended = false;
     }
@@ -130,6 +187,7 @@ export function useApprovalDesigner() {
     source: 'BLANK' | 'COPY' | 'PURCHASE_PAYMENT_TEMPLATE';
     sourceDefinitionVersion: number;
   }) {
+    if (!(await confirmDiscardChanges('新建流程草稿'))) return;
     try {
       const created = input.source === 'COPY'
         ? await copyPublishedApprovalDesignDraft({
@@ -156,17 +214,23 @@ export function useApprovalDesigner() {
 
   async function save(mode: 'AUTO_SAVE' | 'EXPLICIT' = 'EXPLICIT') {
     const current = draft.value;
-    if (!current || !editable.value || saveState.value === 'saving') return false;
+    if (!current || !editable.value || saveState.value === 'saving'
+      || saveState.value === 'conflict') return false;
     if (saveTimer) clearTimeout(saveTimer);
     saveState.value = 'saving';
     try {
-      draft.value = await updateApprovalDesignDraft(current.draftId, {
+      const saved = await updateApprovalDesignDraft(current.draftId, {
         definition: current.definition,
         expectedRevision: current.revision,
         formPackageVersion: current.formPackage.packageVersion,
         name: current.name,
         saveMode: mode,
       });
+      suspended = true;
+      draft.value = saved;
+      baseSnapshot.value = snapshotApprovalDesignerDraft(saved);
+      conflict.value = undefined;
+      suspended = false;
       saveState.value = 'saved';
       await loadDrafts();
       if (mode === 'EXPLICIT') ElMessage.success('流程草稿已保存');
@@ -174,23 +238,93 @@ export function useApprovalDesigner() {
     } catch (error) {
       if (error instanceof ApprovalDesignApiError
         && error.code === 'APPROVAL_DESIGN_REVISION_CONFLICT') {
-        saveState.value = 'conflict';
-        ElMessage.warning('草稿已被其他操作更新，请重新加载');
+        await captureConflict(current);
       } else {
-        saveState.value = 'dirty';
+        saveState.value = 'failed';
         showError(error);
       }
       return false;
+    } finally {
+      suspended = false;
     }
   }
 
   async function reload() {
-    if (draft.value) await openDraft(draft.value.draftId);
+    await reloadServerVersion();
+  }
+
+  async function reloadServerVersion() {
+    const current = draft.value;
+    if (!current || !(await confirmDiscardChanges('加载服务端版本'))) return false;
+    return openDraft(current.draftId, { force: true });
+  }
+
+  async function applySafeConflictMerge() {
+    const current = draft.value;
+    const state = conflict.value;
+    const base = baseSnapshot.value;
+    if (!current || !state || !base) return false;
+    if (!state.analysis.canAutoMerge) {
+      ElMessage.warning('本地与服务端存在重叠修改，请加载服务端版本后手动重做');
+      return false;
+    }
+    const serverBase = snapshotApprovalDesignerDraft(state.serverDraft);
+    const merged = mergeDesignerConflict(
+      base,
+      snapshotApprovalDesignerDraft(current),
+      serverBase,
+    );
+    suspended = true;
+    draft.value = structuredClone(state.serverDraft);
+    applySnapshot(merged);
+    baseSnapshot.value = serverBase;
+    conflict.value = undefined;
+    undoStack.value = [];
+    redoStack.value = [];
+    suspended = false;
+    markChanged(false);
+    ElMessage.success('非重叠修改已安全合并，请保存确认');
+    return true;
+  }
+
+  async function captureConflict(localDraft: ApprovalDesignDraft) {
+    saveState.value = 'conflict';
+    try {
+      const serverDraft = await findApprovalDesignDraft(localDraft.draftId);
+      const base = baseSnapshot.value ?? snapshotApprovalDesignerDraft(localDraft);
+      conflict.value = {
+        analysis: analyzeDesignerConflict(
+          base,
+          snapshotApprovalDesignerDraft(localDraft),
+          snapshotApprovalDesignerDraft(serverDraft),
+        ),
+        serverDraft,
+      };
+      ElMessage.warning('草稿已被其他操作更新，请比较本地与服务端修改');
+    } catch (error) {
+      conflict.value = undefined;
+      showError(error);
+    }
+  }
+
+  async function ensureSaved() {
+    if (saveState.value === 'conflict') {
+      ElMessage.warning('请先处理版本冲突');
+      return false;
+    }
+    if (saveState.value === 'saving') {
+      ElMessage.info('草稿正在保存，请稍后重试');
+      return false;
+    }
+    if (saveState.value === 'dirty' || saveState.value === 'failed') {
+      return save();
+    }
+    return true;
   }
 
   async function validate() {
     if (!draft.value) return undefined;
-    if (saveState.value === 'dirty' && !(await save())) return undefined;
+    if (!(await ensureSaved())) return undefined;
     const current = draft.value;
     try {
       const result = await validateApprovalDesignDraft(current.draftId, current.revision);
@@ -208,7 +342,7 @@ export function useApprovalDesigner() {
 
   async function simulate() {
     if (!draft.value) return;
-    if (saveState.value === 'dirty' && !(await save())) return;
+    if (!(await ensureSaved())) return;
     try {
       simulation.value = await simulateApprovalDesignDraft(
         draft.value.draftId,
@@ -222,7 +356,7 @@ export function useApprovalDesigner() {
 
   async function publish() {
     if (!draft.value) return;
-    if (saveState.value === 'dirty' && !(await save())) return;
+    if (!(await ensureSaved())) return;
     const current = draft.value;
     const scenario = {
       decisions: decisions.value,
@@ -280,7 +414,7 @@ export function useApprovalDesigner() {
   }
 
   async function archive() {
-    if (!draft.value) return;
+    if (!draft.value || !(await confirmDiscardChanges('归档流程草稿'))) return;
     await ElMessageBox.confirm('确认归档当前流程草稿？', '归档草稿', { type: 'warning' });
     try {
       draft.value = await archiveApprovalDesignDraft(draft.value.draftId, draft.value.revision);
@@ -450,6 +584,7 @@ export function useApprovalDesigner() {
   function addConditionRoute() {
     const condition = selectedCondition.value;
     if (!condition) return;
+    remember();
     condition.routes.push({
       condition: {
         field: 'amount',
@@ -462,35 +597,96 @@ export function useApprovalDesigner() {
 
   function removeConditionRoute(index: number) {
     const condition = selectedCondition.value;
-    if (condition && condition.routes.length > 1) condition.routes.splice(index, 1);
+    if (!condition || condition.routes.length <= 1) return;
+    remember();
+    condition.routes.splice(index, 1);
   }
 
   function undo() {
     if (!draft.value) return;
     const state = undoStack.value.pop();
     if (!state) return;
-    suspended = true;
-    draft.value.definition = state.definition;
-    draft.value.name = state.name;
-    suspended = false;
-    markChanged();
+    pushHistory(redoStack.value, snapshotApprovalDesignerDraft(draft.value));
+    applySnapshot(state);
+    markChanged(false);
   }
 
-  function markChanged() {
+  function redo() {
+    if (!draft.value) return;
+    const state = redoStack.value.pop();
+    if (!state) return;
+    pushHistory(undoStack.value, snapshotApprovalDesignerDraft(draft.value));
+    applySnapshot(state);
+    markChanged(false);
+  }
+
+  function markChanged(clearRedo = true) {
     if (suspended || !draft.value || !editable.value) return;
-    saveState.value = 'dirty';
     clearResults();
+    if (clearRedo) redoStack.value = [];
+    if (conflict.value && baseSnapshot.value) {
+      conflict.value.analysis = analyzeDesignerConflict(
+        baseSnapshot.value,
+        snapshotApprovalDesignerDraft(draft.value),
+        snapshotApprovalDesignerDraft(conflict.value.serverDraft),
+      );
+      saveState.value = 'conflict';
+      if (saveTimer) clearTimeout(saveTimer);
+      return;
+    }
+    saveState.value = 'dirty';
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => save('AUTO_SAVE'), 900);
   }
 
   function remember() {
     if (!draft.value) return;
-    undoStack.value.push({
-      definition: structuredClone(draft.value.definition),
-      name: draft.value.name,
-    });
-    if (undoStack.value.length > 30) undoStack.value.shift();
+    pushHistory(undoStack.value, snapshotApprovalDesignerDraft(draft.value));
+    redoStack.value = [];
+  }
+
+  function applySnapshot(snapshot: ApprovalDesignerSnapshot) {
+    if (!draft.value) return;
+    suspended = true;
+    draft.value.definition = structuredClone(snapshot.definition);
+    draft.value.formPackage.packageVersion = snapshot.formPackageVersion;
+    draft.value.name = snapshot.name;
+    if (!draft.value.definition.nodes.some(node => node.id === selectedNodeId.value)) {
+      selectedNodeId.value = draft.value.definition.startNodeId;
+    }
+    suspended = false;
+  }
+
+  function pushHistory(
+    stack: ApprovalDesignerSnapshot[],
+    snapshot: ApprovalDesignerSnapshot,
+  ) {
+    stack.push(snapshot);
+    if (stack.length > 30) stack.shift();
+  }
+
+  async function confirmDiscardChanges(action: string) {
+    if (!hasPendingChanges.value) return true;
+    try {
+      await ElMessageBox.confirm(
+        `当前草稿存在未保存修改或版本冲突，确认${action}并放弃本地状态？`,
+        '未保存修改',
+        {
+          cancelButtonText: '继续编辑',
+          confirmButtonText: '放弃并继续',
+          type: 'warning',
+        },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function handleBeforeUnload(event: BeforeUnloadEvent) {
+    if (!hasPendingChanges.value) return;
+    event.preventDefault();
+    event.returnValue = '';
   }
 
   function clearResults() {
@@ -509,11 +705,13 @@ export function useApprovalDesigner() {
 
   return {
     addBranch,
+    applySafeConflictMerge,
     addConditionRoute,
     addNode,
     amount,
     archive,
     busy,
+    conflict,
     copyNode,
     createDraft,
     decisions,
@@ -522,6 +720,7 @@ export function useApprovalDesigner() {
     drafts,
     editable,
     errors,
+    hasPendingChanges,
     json,
     keyword,
     loadDrafts,
@@ -531,7 +730,10 @@ export function useApprovalDesigner() {
     preflight,
     publish,
     published,
+    redo,
+    redoStack,
     reload,
+    reloadServerVersion,
     removeBranch,
     removeConditionRoute,
     save,
