@@ -6,9 +6,12 @@ import type {
 
 import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
+export const APPROVAL_TRANSFER_MAX_FILE_BYTES = 2 * 1024 * 1024;
+
 export type ApprovalReleaseDeploymentStatus = 'DEPLOYED' | 'FAILED' | 'PENDING';
 export type ApprovalDiffChangeType = 'ADDED' | 'MODIFIED' | 'REMOVED' | 'REORDERED';
 export type ApprovalDiffImpact = 'HIGH' | 'LOW' | 'MEDIUM';
+export type ApprovalArtifactType = 'APPROVAL_DSL' | 'APPROVAL_RELEASE_PACKAGE';
 export type ApprovalDiffSubjectType =
   | 'BPMN'
   | 'COMPILER'
@@ -145,6 +148,62 @@ export interface ApprovalStructuralDiffResult {
   toReleaseVersion?: number;
 }
 
+export interface ApprovalDslTransferPayload {
+  definition: ApprovalDefinition;
+}
+
+export interface ApprovalReleaseTransferPayload {
+  bpmnArtifact: string;
+  bpmnHash: string;
+  bpmnResourceName: string;
+  compiledArtifactHash: string;
+  compilerVersion: string;
+  definition: ApprovalDefinition;
+  deploymentMetadataHash: string;
+  dmnArtifact?: string;
+  dmnHash?: string;
+  formSchemaHash: string;
+  formSchemaVersion: number;
+  releasePackageHash: string;
+  uiSchemaHash: string;
+  uiSchemaVersion: number;
+}
+
+export interface ApprovalArtifactTransferEnvelope {
+  artifactType: ApprovalArtifactType;
+  definitionHash: string;
+  definitionKey: string;
+  definitionVersion: number;
+  envelopeHash: string;
+  exportedAt: string;
+  format: 'APPROVAL_DSL_EXPORT_V1' | 'APPROVAL_RELEASE_PACKAGE_EXPORT_V1';
+  formatVersion: number;
+  formPackageHash: string;
+  formPackageVersion: number;
+  payload: ApprovalDslTransferPayload | ApprovalReleaseTransferPayload;
+  payloadHash: string;
+  releaseVersion?: number;
+}
+
+export interface ApprovalArtifactImportInput {
+  envelope: ApprovalArtifactTransferEnvelope;
+  targetDefinitionKey: string;
+  targetDefinitionVersion: number;
+  targetFormPackageVersion: number;
+  targetName: string;
+}
+
+export interface ApprovalArtifactImportResult {
+  definitionKey: string;
+  definitionVersion: number;
+  draftId: string;
+  formPackageVersion: number;
+  revision: number;
+  sourceEnvelopeHash: string;
+  sourcePayloadHash: string;
+  status: 'DRAFT';
+}
+
 interface ApprovalReleaseDeployment {
   attemptCount: number;
   createdAt: string;
@@ -273,6 +332,32 @@ export function findApprovalReleasePackage(
   return request<ApprovalReleasePackageDetail>(
     `/approval/release-packages/${encodeURIComponent(definitionKey)}/${releaseVersion}`,
   );
+}
+
+export function exportApprovalDefinitionVersion(
+  definitionKey: string,
+  definitionVersion: number,
+) {
+  return request<ApprovalArtifactTransferEnvelope>(
+    `/approval/artifact-transfer/definition-exports/${encodeURIComponent(definitionKey)}/${definitionVersion}`,
+  );
+}
+
+export function exportApprovalReleaseVersion(
+  definitionKey: string,
+  releaseVersion: number,
+) {
+  return request<ApprovalArtifactTransferEnvelope>(
+    `/approval/artifact-transfer/release-exports/${encodeURIComponent(definitionKey)}/${releaseVersion}`,
+  );
+}
+
+export function importApprovalArtifact(input: ApprovalArtifactImportInput) {
+  return request<ApprovalArtifactImportResult>('/approval/artifact-transfer/imports', {
+    body: JSON.stringify(input),
+    headers: writeHeaders('approval-artifact-import'),
+    method: 'POST',
+  });
 }
 
 export function diffApprovalDefinitionVersions(
