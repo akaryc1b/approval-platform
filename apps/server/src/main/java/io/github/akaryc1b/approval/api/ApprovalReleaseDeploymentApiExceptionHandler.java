@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.api;
 
+import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService;
 import io.github.akaryc1b.approval.application.ApprovalReleaseDeploymentService;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,7 +12,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.UUID;
 
-@RestControllerAdvice(assignableTypes = ApprovalReleaseDeploymentController.class)
+@RestControllerAdvice(assignableTypes = {
+    ApprovalReleaseDeploymentController.class,
+    ApprovalEffectiveReleaseController.class
+})
 public class ApprovalReleaseDeploymentApiExceptionHandler {
 
     @ExceptionHandler({
@@ -30,7 +34,11 @@ public class ApprovalReleaseDeploymentApiExceptionHandler {
         );
     }
 
-    @ExceptionHandler(ApprovalReleaseDeploymentService.ReleasePackageNotFoundException.class)
+    @ExceptionHandler({
+        ApprovalReleaseDeploymentService.ReleasePackageNotFoundException.class,
+        ApprovalEffectiveReleaseService.ReleasePackageNotFoundException.class,
+        ApprovalEffectiveReleaseService.EffectiveReleaseNotFoundException.class
+    })
     ResponseEntity<ApiError> notFound(
         Exception exception,
         HttpServletRequest request
@@ -45,6 +53,8 @@ public class ApprovalReleaseDeploymentApiExceptionHandler {
 
     @ExceptionHandler({
         ApprovalReleaseDeploymentService.ReleaseDeploymentConflictException.class,
+        ApprovalEffectiveReleaseService.DeploymentNotReadyException.class,
+        ApprovalEffectiveReleaseService.ActivationConflictException.class,
         IdempotencyGuard.IdempotencyConflictException.class
     })
     ResponseEntity<ApiError> conflict(

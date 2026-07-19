@@ -1,9 +1,11 @@
 package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.application.port.ApprovalDefinitionVersionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.domain.definition.ApprovalDefinitionVersion;
+import io.github.akaryc1b.approval.domain.definition.ApprovalEffectiveRelease;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseDeployment;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 
@@ -22,17 +24,20 @@ public final class ApprovalVersionManagementService {
     private final ApprovalDefinitionVersionStore definitions;
     private final ApprovalReleasePackageStore releases;
     private final ApprovalReleaseDeploymentStore deployments;
+    private final ApprovalEffectiveReleaseStore effectiveReleases;
     private final ApprovalReleaseStructuralDiff structuralDiff;
 
     public ApprovalVersionManagementService(
         ApprovalDefinitionVersionStore definitions,
         ApprovalReleasePackageStore releases,
         ApprovalReleaseDeploymentStore deployments,
+        ApprovalEffectiveReleaseStore effectiveReleases,
         ApprovalReleaseStructuralDiff structuralDiff
     ) {
         this.definitions = Objects.requireNonNull(definitions);
         this.releases = Objects.requireNonNull(releases);
         this.deployments = Objects.requireNonNull(deployments);
+        this.effectiveReleases = Objects.requireNonNull(effectiveReleases);
         this.structuralDiff = Objects.requireNonNull(structuralDiff);
     }
 
@@ -79,6 +84,10 @@ public final class ApprovalVersionManagementService {
         Integer latestPublishedReleaseVersion = releases.findLatest(normalizedTenant, normalizedKey)
             .map(ApprovalReleasePackage::releaseVersion)
             .orElse(null);
+        ApprovalEffectiveRelease effectiveRelease = effectiveReleases.find(
+            normalizedTenant,
+            normalizedKey
+        ).orElse(null);
 
         List<DefinitionVersionSummary> definitionVersions = definitionPage.items().stream()
             .map(DefinitionVersionSummary::from)
@@ -87,7 +96,8 @@ public final class ApprovalVersionManagementService {
             .map(value -> ReleaseVersionSummary.from(
                 value,
                 deploymentByVersion.get(value.releaseVersion()),
-                Objects.equals(value.releaseVersion(), currentDeployedReleaseVersion)
+                Objects.equals(value.releaseVersion(), currentDeployedReleaseVersion),
+                effectiveRelease != null && value.releaseVersion() == effectiveRelease.effectiveReleaseVersion()
             ))
             .toList();
         return new VersionCenter(
@@ -96,7 +106,9 @@ public final class ApprovalVersionManagementService {
             latestDefinitionVersion,
             latestPublishedReleaseVersion,
             currentDeployedReleaseVersion,
-            null,
+            effectiveRelease == null
+                ? null
+                : effectiveRelease.effectiveReleaseVersion(),
             definitionVersions,
             page(definitionPage),
             releaseVersions,
@@ -285,7 +297,8 @@ public final class ApprovalVersionManagementService {
         private static ReleaseVersionSummary from(
             ApprovalReleasePackage value,
             ApprovalReleaseDeployment deployment,
-            boolean currentDeployed
+            boolean currentDeployed,
+            boolean currentEffective
         ) {
             return new ReleaseVersionSummary(
                 value.releaseVersion(),
@@ -307,7 +320,7 @@ public final class ApprovalVersionManagementService {
                 value.publishedAt(),
                 DeploymentSummary.from(deployment),
                 currentDeployed,
-                false
+                currentEffective
             );
         }
     }

@@ -119,6 +119,13 @@ public interface ApprovalProjectionStore {
         int formVersion,
         String compilerVersion,
         String contentHash,
+        Integer releaseVersion,
+        String releasePackageHash,
+        Integer formPackageVersion,
+        String formPackageHash,
+        Integer uiSchemaVersion,
+        String uiSchemaHash,
+        String engineDefinitionId,
         String initiatorId,
         BigDecimal amount,
         String supplier,
@@ -133,6 +140,58 @@ public interface ApprovalProjectionStore {
     ) {
         public InstanceProjection {
             attachmentIds = attachmentIds == null ? List.of() : List.copyOf(attachmentIds);
+            boolean anyReleaseSnapshot = releaseVersion != null
+                || releasePackageHash != null
+                || formPackageVersion != null
+                || formPackageHash != null
+                || uiSchemaVersion != null
+                || uiSchemaHash != null
+                || engineDefinitionId != null;
+            boolean completeReleaseSnapshot = releaseVersion != null
+                && releasePackageHash != null
+                && formPackageVersion != null
+                && formPackageHash != null
+                && uiSchemaVersion != null
+                && uiSchemaHash != null
+                && engineDefinitionId != null;
+            if (anyReleaseSnapshot && !completeReleaseSnapshot) {
+                throw new IllegalArgumentException(
+                    "instance release snapshot must be either complete or absent"
+                );
+            }
+        }
+
+        public InstanceProjection(
+            UUID instanceId,
+            String tenantId,
+            String businessKey,
+            String engineInstanceId,
+            String definitionKey,
+            int definitionVersion,
+            String formKey,
+            int formVersion,
+            String compilerVersion,
+            String contentHash,
+            String initiatorId,
+            BigDecimal amount,
+            String supplier,
+            String purchaseOrderReference,
+            List<String> attachmentIds,
+            AssigneeSnapshot assigneeSnapshot,
+            String requestHash,
+            InstanceStatus status,
+            long version,
+            Instant createdAt,
+            Instant updatedAt
+        ) {
+            this(
+                instanceId, tenantId, businessKey, engineInstanceId,
+                definitionKey, definitionVersion, formKey, formVersion,
+                compilerVersion, contentHash, null, null, null, null,
+                null, null, null, initiatorId, amount, supplier,
+                purchaseOrderReference, attachmentIds, assigneeSnapshot,
+                requestHash, status, version, createdAt, updatedAt
+            );
         }
     }
 

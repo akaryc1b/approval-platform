@@ -1,14 +1,17 @@
 package io.github.akaryc1b.approval.config;
 
+import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService;
 import io.github.akaryc1b.approval.application.ApprovalReleaseDeploymentService;
 import io.github.akaryc1b.approval.application.ApprovalReleaseStructuralDiff;
 import io.github.akaryc1b.approval.application.ApprovalVersionManagementService;
 import io.github.akaryc1b.approval.application.port.ApprovalDefinitionVersionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalEffectiveReleaseStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalReleaseDeploymentStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +29,11 @@ public class ApprovalReleaseDeploymentConfiguration {
     }
 
     @Bean
+    ApprovalEffectiveReleaseStore approvalEffectiveReleaseStore(DataSource dataSource) {
+        return new JdbcApprovalEffectiveReleaseStore(dataSource);
+    }
+
+    @Bean
     ApprovalReleaseStructuralDiff approvalReleaseStructuralDiff() {
         return new ApprovalReleaseStructuralDiff();
     }
@@ -35,13 +43,35 @@ public class ApprovalReleaseDeploymentConfiguration {
         ApprovalDefinitionVersionStore approvalDefinitionVersionStore,
         ApprovalReleasePackageStore approvalReleasePackageStore,
         ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore,
+        ApprovalEffectiveReleaseStore approvalEffectiveReleaseStore,
         ApprovalReleaseStructuralDiff approvalReleaseStructuralDiff
     ) {
         return new ApprovalVersionManagementService(
             approvalDefinitionVersionStore,
             approvalReleasePackageStore,
             approvalReleaseDeploymentStore,
+            approvalEffectiveReleaseStore,
             approvalReleaseStructuralDiff
+        );
+    }
+
+    @Bean
+    ApprovalEffectiveReleaseService approvalEffectiveReleaseService(
+        IdempotencyGuard idempotencyGuard,
+        ApprovalReleasePackageStore approvalReleasePackageStore,
+        ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore,
+        ApprovalEffectiveReleaseStore approvalEffectiveReleaseStore,
+        AuditEventSink auditEventSink,
+        Clock approvalClock
+    ) {
+        return new ApprovalEffectiveReleaseService(
+            idempotencyGuard,
+            approvalReleasePackageStore,
+            approvalReleaseDeploymentStore,
+            approvalEffectiveReleaseStore,
+            auditEventSink,
+            approvalClock,
+            UUID::randomUUID
         );
     }
 

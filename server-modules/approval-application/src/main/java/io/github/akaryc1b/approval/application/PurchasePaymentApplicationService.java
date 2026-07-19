@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
+import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
@@ -15,6 +16,7 @@ import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResol
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.domain.audit.AuditEvent;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
+import io.github.akaryc1b.approval.domain.definition.ApprovalEffectiveRelease;
 import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
 
@@ -52,6 +54,7 @@ public final class PurchasePaymentApplicationService {
     private final AuditEventSink auditEvents;
     private final PurchasePaymentAssigneeResolver assigneeResolver;
     private final ApprovalBusinessEventOutbox businessEventOutbox;
+    private final ApprovalEffectiveReleaseStore effectiveReleases;
     private final Clock clock;
     private final Supplier<UUID> identifierGenerator;
 
@@ -77,6 +80,7 @@ public final class PurchasePaymentApplicationService {
                 );
             },
             ApprovalBusinessEventOutbox.noOp(),
+            legacyEffectiveReleases(projections),
             clock,
             identifierGenerator
         );
@@ -90,6 +94,32 @@ public final class PurchasePaymentApplicationService {
         AuditEventSink auditEvents,
         PurchasePaymentAssigneeResolver assigneeResolver,
         ApprovalBusinessEventOutbox businessEventOutbox,
+        Clock clock,
+        Supplier<UUID> identifierGenerator
+    ) {
+        this(
+            engine,
+            compiler,
+            idempotencyGuard,
+            projections,
+            auditEvents,
+            assigneeResolver,
+            businessEventOutbox,
+            legacyEffectiveReleases(projections),
+            clock,
+            identifierGenerator
+        );
+    }
+
+    public PurchasePaymentApplicationService(
+        ApprovalEngine engine,
+        ApprovalDslCompiler compiler,
+        IdempotencyGuard idempotencyGuard,
+        ApprovalProjectionStore projections,
+        AuditEventSink auditEvents,
+        PurchasePaymentAssigneeResolver assigneeResolver,
+        ApprovalBusinessEventOutbox businessEventOutbox,
+        ApprovalEffectiveReleaseStore effectiveReleases,
         Clock clock,
         Supplier<UUID> identifierGenerator
     ) {
@@ -108,6 +138,10 @@ public final class PurchasePaymentApplicationService {
         this.businessEventOutbox = Objects.requireNonNull(
             businessEventOutbox,
             "businessEventOutbox must not be null"
+        );
+        this.effectiveReleases = Objects.requireNonNull(
+            effectiveReleases,
+            "effectiveReleases must not be null"
         );
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.identifierGenerator = Objects.requireNonNull(
@@ -229,13 +263,13 @@ public final class PurchasePaymentApplicationService {
                     ? assigneeResolver.resolve(command.context(), command.assigneeRules())
                     : command.assignees();
                 validateResolvedAssignees(assignees);
-                PublishedDefinition definition = projections.findDefinition(
+                ApprovalEffectiveRelease effectiveRelease = effectiveReleases.find(
                     command.context().tenantId(),
-                    PurchasePaymentTemplate.DEFINITION_KEY,
-                    PurchasePaymentTemplate.PROCESS_VERSION
+                    PurchasePaymentTemplate.DEFINITION_KEY
                 ).orElseThrow(() -> new IllegalStateException(
-                    "purchase payment definition version 1 has not been published"
+                    "purchase payment does not have an effective deployed release"
                 ));
+                boolean legacyStart = effectiveReleases instanceof LegacyEffectiveReleaseStore;
                 UUID instanceId = identifierGenerator.get();
                 Instant now = clock.instant();
                 Map<String, Object> variables = new LinkedHashMap<>();
@@ -256,18 +290,39 @@ public final class PurchasePaymentApplicationService {
                     assignees.financeApprovers()
                 );
                 variables.put("approvalInstanceId", instanceId.toString());
-                variables.put("definitionVersion", definition.definitionVersion());
-                variables.put("formVersion", definition.formVersion());
-                variables.put("compilerVersion", definition.compilerVersion());
-                variables.put("contentHash", definition.contentHash());
+                variables.put("definitionVersion", effectiveRelease.definitionVersion());
+                variables.put("formVersion", effectiveRelease.formSchemaVersion());
+                variables.put("compilerVersion", effectiveRelease.compilerVersion());
+                variables.put("contentHash", effectiveRelease.definitionHash());
+                if (!legacyStart) {
+                    variables.put("releaseVersion", effectiveRelease.effectiveReleaseVersion());
+                    variables.put("releasePackageHash", effectiveRelease.releasePackageHash());
+                    variables.put("formPackageVersion", effectiveRelease.formPackageVersion());
+                    variables.put("uiSchemaVersion", effectiveRelease.uiSchemaVersion());
+                }
 
-                String engineInstanceId = engine.start(new ApprovalEngine.StartCommand(
-                    command.context().tenantId(),
-                    definition.definitionKey(),
-                    command.businessKey(),
-                    command.context().operatorId(),
-                    Map.copyOf(variables)
-                )).engineInstanceId();
+                String engineInstanceId = legacyStart
+                    ? engine.start(new ApprovalEngine.StartCommand(
+                        command.context().tenantId(),
+                        effectiveRelease.definitionKey(),
+                        command.businessKey(),
+                        command.context().operatorId(),
+                        Map.copyOf(variables)
+                    )).engineInstanceId()
+                    : engine.startExact(new ApprovalEngine.ExactStartCommand(
+                        command.context().tenantId(),
+                        effectiveRelease.definitionKey(),
+                        effectiveRelease.engineDeploymentId(),
+                        effectiveRelease.engineDefinitionId(),
+                        command.businessKey(),
+                        command.context().operatorId(),
+                        effectiveRelease.effectiveReleaseVersion(),
+                        effectiveRelease.releasePackageHash(),
+                        effectiveRelease.definitionVersion(),
+                        effectiveRelease.formPackageVersion(),
+                        effectiveRelease.compilerVersion(),
+                        Map.copyOf(variables)
+                    )).engineInstanceId();
                 List<TaskProjection> tasks = newTaskProjections(
                     instanceId,
                     command.context().tenantId(),
@@ -284,12 +339,33 @@ public final class PurchasePaymentApplicationService {
                     command.context().tenantId(),
                     command.businessKey(),
                     engineInstanceId,
-                    definition.definitionKey(),
-                    definition.definitionVersion(),
-                    definition.formKey(),
-                    definition.formVersion(),
-                    definition.compilerVersion(),
-                    definition.contentHash(),
+                    effectiveRelease.definitionKey(),
+                    effectiveRelease.definitionVersion(),
+                    effectiveRelease.definitionKey(),
+                    effectiveRelease.formSchemaVersion(),
+                    effectiveRelease.compilerVersion(),
+                    effectiveRelease.definitionHash(),
+                    legacyStart
+                        ? null
+                        : effectiveRelease.effectiveReleaseVersion(),
+                    legacyStart
+                        ? null
+                        : effectiveRelease.releasePackageHash(),
+                    legacyStart
+                        ? null
+                        : effectiveRelease.formPackageVersion(),
+                    legacyStart
+                        ? null
+                        : effectiveRelease.formPackageHash(),
+                    legacyStart
+                        ? null
+                        : effectiveRelease.uiSchemaVersion(),
+                    legacyStart
+                        ? null
+                        : effectiveRelease.uiSchemaHash(),
+                    legacyStart
+                        ? null
+                        : effectiveRelease.engineDefinitionId(),
                     command.context().operatorId(),
                     command.amount(),
                     command.supplier(),
@@ -506,13 +582,31 @@ public final class PurchasePaymentApplicationService {
     }
 
     private static Map<String, String> versionAttributes(InstanceProjection instance) {
-        return Map.of(
-            "definitionKey", instance.definitionKey(),
-            "definitionVersion", Integer.toString(instance.definitionVersion()),
-            "formVersion", Integer.toString(instance.formVersion()),
-            "compilerVersion", instance.compilerVersion(),
-            "contentHash", instance.contentHash()
-        );
+        Map<String, String> attributes = new LinkedHashMap<>();
+        attributes.put("definitionKey", instance.definitionKey());
+        attributes.put("definitionVersion", Integer.toString(instance.definitionVersion()));
+        attributes.put("formVersion", Integer.toString(instance.formVersion()));
+        attributes.put("compilerVersion", instance.compilerVersion());
+        attributes.put("contentHash", instance.contentHash());
+        if (instance.releaseVersion() != null) {
+            attributes.put("releaseVersion", Integer.toString(instance.releaseVersion()));
+            attributes.put("releasePackageHash", instance.releasePackageHash());
+            attributes.put(
+                "formPackageVersion",
+                Integer.toString(instance.formPackageVersion())
+            );
+            attributes.put("formPackageHash", instance.formPackageHash());
+            attributes.put("uiSchemaVersion", Integer.toString(instance.uiSchemaVersion()));
+            attributes.put("uiSchemaHash", instance.uiSchemaHash());
+            attributes.put("engineDefinitionId", instance.engineDefinitionId());
+        }
+        return Map.copyOf(attributes);
+    }
+
+    private static ApprovalEffectiveReleaseStore legacyEffectiveReleases(
+        ApprovalProjectionStore projections
+    ) {
+        return new LegacyEffectiveReleaseStore(projections);
     }
 
     private static void validateStart(StartCommand command) {
@@ -711,6 +805,87 @@ public final class PurchasePaymentApplicationService {
     ) {
         public InstanceDetails {
             tasks = tasks == null ? List.of() : List.copyOf(tasks);
+        }
+    }
+
+    private static final class LegacyEffectiveReleaseStore
+        implements ApprovalEffectiveReleaseStore {
+
+        private final ApprovalProjectionStore projections;
+
+        private LegacyEffectiveReleaseStore(ApprovalProjectionStore projections) {
+            this.projections = projections;
+        }
+
+        @Override
+        public void lock(String tenantId, String definitionKey) {
+        }
+
+        @Override
+        public Optional<ApprovalEffectiveRelease> find(
+            String tenantId,
+            String definitionKey
+        ) {
+            return projections.findDefinition(
+                tenantId,
+                definitionKey,
+                PurchasePaymentTemplate.PROCESS_VERSION
+            ).map(value -> new ApprovalEffectiveRelease(
+                value.tenantId(),
+                value.definitionKey(),
+                value.definitionVersion(),
+                null,
+                value.contentHash(),
+                value.definitionVersion(),
+                value.contentHash(),
+                value.formVersion(),
+                value.contentHash(),
+                value.formVersion(),
+                value.contentHash(),
+                value.formVersion(),
+                value.contentHash(),
+                value.compilerVersion(),
+                value.contentHash(),
+                value.contentHash(),
+                value.contentHash(),
+                value.deploymentId(),
+                value.engineDefinitionId(),
+                value.engineVersion(),
+                ApprovalEffectiveRelease.Status.ACTIVE,
+                1,
+                value.publishedBy(),
+                value.publishedAt(),
+                "legacy published definition",
+                "legacy-" + value.definitionKey() + '-' + value.definitionVersion(),
+                null
+            ));
+        }
+
+        @Override
+        public void save(
+            ApprovalEffectiveRelease effectiveRelease,
+            ApprovalEffectiveRelease.Activation activation
+        ) {
+            throw new UnsupportedOperationException("legacy effective release store is read-only");
+        }
+
+        @Override
+        public boolean update(
+            ApprovalEffectiveRelease effectiveRelease,
+            long expectedRevision,
+            ApprovalEffectiveRelease.Activation activation
+        ) {
+            throw new UnsupportedOperationException("legacy effective release store is read-only");
+        }
+
+        @Override
+        public boolean wasActivated(String tenantId, String definitionKey, int releaseVersion) {
+            return false;
+        }
+
+        @Override
+        public ActivationPage findHistory(ActivationCriteria criteria) {
+            return new ActivationPage(List.of(), 0, criteria.limit(), criteria.offset());
         }
     }
 }
