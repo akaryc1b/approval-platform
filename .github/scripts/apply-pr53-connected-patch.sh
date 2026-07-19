@@ -9,37 +9,57 @@ service = Path(
     'io/github/akaryc1b/approval/application/ApprovalBatchSimulationService.java'
 )
 service_text = service.read_text()
-old_type = 'ApprovalDefinitionSimulator.Step'
-expected_type_count = 3
-if service_text.count(old_type) != expected_type_count:
-    raise SystemExit(
-        f'Expected {expected_type_count} simulator Step references, '
-        f'found {service_text.count(old_type)}'
-    )
-service.write_text(
-    service_text.replace(old_type, 'ApprovalDefinitionSimulator.SimulationStep')
+replacements = (
+    (
+        'ApprovalDefinitionSimulator.Step',
+        'ApprovalDefinitionSimulator.SimulationStep',
+        3,
+    ),
+    ('startsWith("ROUTE:")', 'startsWith("ROUTE_")', 1),
+    ('substring("ROUTE:".length())', 'substring("ROUTE_".length())', 1),
+    ('"RESUBMITTED".equals(step.outcome())', '"HANDLED".equals(step.outcome())', 1),
 )
+for old, new, expected_count in replacements:
+    actual_count = service_text.count(old)
+    if actual_count != expected_count:
+        raise SystemExit(
+            f'Expected {expected_count} occurrences of {old!r}, found {actual_count}'
+        )
+    service_text = service_text.replace(old, new)
+service.write_text(service_text)
 
 test = Path(
     'server-modules/approval-application/src/test/java/'
     'io/github/akaryc1b/approval/application/ApprovalBatchSimulationServiceTest.java'
 )
 test_text = test.read_text()
-old_ui_call = 'PurchasePaymentTemplate.uiSchemaDefinition()'
-expected_ui_count = 3
-if test_text.count(old_ui_call) != expected_ui_count:
-    raise SystemExit(
-        f'Expected {expected_ui_count} template UI calls, '
-        f'found {test_text.count(old_ui_call)}'
-    )
-test_text = test_text.replace(old_ui_call, 'purchasePaymentUi()')
-marker = '    private static ApprovalDefinition parallelDefinition() {\n'
-helper = '''    private static UiSchemaDefinition purchasePaymentUi() {\n        FormDefinition form = PurchasePaymentTemplate.formDefinition();\n        return new UiSchemaDefinition(\n            UiSchemaDefinition.CURRENT_SCHEMA_VERSION,\n            form.formKey(),\n            form.version(),\n            1,\n            "Purchase payment batch UI",\n            List.of(),\n            List.of()\n        );\n    }\n\n'''
-if marker not in test_text:
-    raise SystemExit('Parallel definition marker was not found')
 if 'private static UiSchemaDefinition purchasePaymentUi()' in test_text:
-    raise SystemExit('Purchase payment UI helper already exists')
-test.write_text(test_text.replace(marker, helper + marker, 1))
+    raise SystemExit('Unexpected temporary purchase payment UI helper remains in source')
+if test_text.count('PurchasePaymentTemplate.uiSchemaDefinition()') != 3:
+    raise SystemExit('Tests must use the complete PurchasePaymentTemplate UI Schema')
+marker = '''        assertEquals(
+            List.of(
+                "blocked-countersign",
+                "high-value",
+                "low-value",
+                "manager-reject-loop"
+            ),
+            report.scenarios().stream().map(value -> value.scenarioId()).toList()
+        );
+'''
+diagnostic = marker + '''        assertTrue(
+            report.scenarios().stream().noneMatch(value ->
+                value.runStatus() == ScenarioRunStatus.ERROR
+            ),
+            () -> "scenario errors: " + report.scenarios().stream()
+                .filter(value -> value.runStatus() == ScenarioRunStatus.ERROR)
+                .map(value -> value.scenarioId() + ": " + value.expectationFailures())
+                .toList()
+        );
+'''
+if test_text.count(marker) != 1:
+    raise SystemExit('Batch simulation result ordering assertion marker was not found')
+test.write_text(test_text.replace(marker, diagnostic, 1))
 PY
 
 rm -f .github/pr53-connected.patch .github/scripts/apply-pr53-connected-patch.sh
