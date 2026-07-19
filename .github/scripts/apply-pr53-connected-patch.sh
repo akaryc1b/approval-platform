@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+exec > >(tee /tmp/pr53-apply-patch.log) 2>&1
+trap 'cp /tmp/pr53-apply-patch.log maven-verify.log 2>/dev/null || true' EXIT
 set -x
 
 bash .github/scripts/apply-pr53-connected-patch-core.sh
