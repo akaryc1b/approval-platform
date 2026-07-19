@@ -196,7 +196,11 @@ public class ApprovalDesignController {
             draftId,
             request.expectedRevision(),
             request.definitionVersion(),
-            request.releaseVersion()
+            request.releaseVersion(),
+            request.deploymentTarget(),
+            request.preflightHash(),
+            request.acknowledgedWarningCodes(),
+            request.preflightScenario()
         ));
     }
 
@@ -266,7 +270,11 @@ public class ApprovalDesignController {
     public record PublishRequest(
         long expectedRevision,
         int definitionVersion,
-        int releaseVersion
+        int releaseVersion,
+        String deploymentTarget,
+        String preflightHash,
+        List<String> acknowledgedWarningCodes,
+        ApprovalDefinitionSimulator.Scenario preflightScenario
     ) {
     }
 }
