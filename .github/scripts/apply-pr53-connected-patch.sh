@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+set -x
 
 bash .github/scripts/apply-pr53-connected-patch-core.sh
 
