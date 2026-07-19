@@ -71,35 +71,42 @@ public record ApprovalReleaseDeployment(
         String errorMessage,
         Instant deployedAt
     ) {
-        boolean engineIdentityPresent = engineDeploymentId != null
-            && !engineDeploymentId.isBlank()
-            && engineDefinitionId != null
-            && !engineDefinitionId.isBlank()
+        boolean anyEngineIdentity = engineDeploymentId != null
+            || engineDefinitionId != null
+            || engineVersion != null;
+        boolean completeEngineIdentity = hasText(engineDeploymentId)
+            && hasText(engineDefinitionId)
             && engineVersion != null
             && engineVersion > 0;
-        boolean errorPresent = errorCode != null
-            && !errorCode.isBlank()
-            && errorMessage != null
-            && !errorMessage.isBlank();
+        boolean anyError = errorCode != null || errorMessage != null;
+        boolean completeError = hasText(errorCode) && hasText(errorMessage);
+
         if (status == Status.DEPLOYED) {
-            if (!engineIdentityPresent || errorPresent || deployedAt == null) {
+            if (!completeEngineIdentity || anyError || deployedAt == null) {
                 throw new IllegalArgumentException(
-                    "deployed projection requires engine identity and deployedAt only"
+                    "deployed projection requires complete engine identity and deployedAt only"
                 );
             }
             return;
         }
-        if (engineIdentityPresent || deployedAt != null) {
+        if (anyEngineIdentity || deployedAt != null) {
             throw new IllegalArgumentException(
                 "only deployed projection can contain engine identity"
             );
         }
-        if (status == Status.FAILED && !errorPresent) {
-            throw new IllegalArgumentException("failed projection requires an error");
+        if (status == Status.FAILED) {
+            if (!completeError) {
+                throw new IllegalArgumentException("failed projection requires a complete error");
+            }
+            return;
         }
-        if (status == Status.PENDING && errorPresent) {
+        if (anyError) {
             throw new IllegalArgumentException("pending projection cannot contain an error");
         }
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private static String requireText(String value, String name) {

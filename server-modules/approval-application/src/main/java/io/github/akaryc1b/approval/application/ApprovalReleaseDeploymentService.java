@@ -26,6 +26,8 @@ import java.util.function.Supplier;
 public final class ApprovalReleaseDeploymentService {
 
     private static final String DEPLOY_OPERATION = "approval-release.deploy.v1";
+    private static final int MAX_ERROR_CODE_LENGTH = 128;
+    private static final int MAX_ERROR_MESSAGE_LENGTH = 1000;
 
     private final IdempotencyGuard idempotency;
     private final ApprovalReleasePackageStore releases;
@@ -98,30 +100,10 @@ public final class ApprovalReleaseDeploymentService {
 
         ApprovalReleaseDeployment pending = pending(command, releasePackage, current);
         persistPending(pending, current);
+
+        ApprovalEngine.DeploymentResult engineResult;
         try {
-            ApprovalEngine.DeploymentResult engineResult = engine.deploy(
-                new ApprovalEngine.DeployCommand(
-                    tenantId,
-                    releasePackage.definitionKey(),
-                    releasePackage.definitionVersion(),
-                    releasePackage.bpmnResourceName(),
-                    releasePackage.bpmnArtifact(),
-                    releasePackage.bpmnHash()
-                )
-            );
-            ApprovalReleaseDeployment deployed = deployed(pending, engineResult);
-            requireUpdated(deployed, pending.attemptCount());
-            appendAudit(
-                command.context(),
-                "APPROVAL_RELEASE_DEPLOYED",
-                deployed,
-                Map.of(
-                    "releasePackageHash", releasePackage.packageHash(),
-                    "engineDeploymentId", engineResult.deploymentId(),
-                    "engineDefinitionId", engineResult.engineDefinitionId()
-                )
-            );
-            return new DeploymentResult(deployed, false);
+            engineResult = engine.deploy(deployCommand(tenantId, releasePackage));
         } catch (RuntimeException exception) {
             ApprovalReleaseDeployment failed = failed(pending, exception);
             requireUpdated(failed, pending.attemptCount());
@@ -136,6 +118,34 @@ public final class ApprovalReleaseDeploymentService {
             );
             return new DeploymentResult(failed, false);
         }
+
+        ApprovalReleaseDeployment deployed = deployed(pending, engineResult);
+        requireUpdated(deployed, pending.attemptCount());
+        appendAudit(
+            command.context(),
+            "APPROVAL_RELEASE_DEPLOYED",
+            deployed,
+            Map.of(
+                "releasePackageHash", releasePackage.packageHash(),
+                "engineDeploymentId", engineResult.deploymentId(),
+                "engineDefinitionId", engineResult.engineDefinitionId()
+            )
+        );
+        return new DeploymentResult(deployed, false);
+    }
+
+    private static ApprovalEngine.DeployCommand deployCommand(
+        String tenantId,
+        ApprovalReleasePackage releasePackage
+    ) {
+        return new ApprovalEngine.DeployCommand(
+            tenantId,
+            releasePackage.definitionKey(),
+            releasePackage.definitionVersion(),
+            releasePackage.bpmnResourceName(),
+            releasePackage.bpmnArtifact(),
+            releasePackage.bpmnHash()
+        );
     }
 
     private ApprovalReleaseDeployment pending(
@@ -217,13 +227,19 @@ public final class ApprovalReleaseDeploymentService {
         ApprovalReleaseDeployment pending,
         RuntimeException exception
     ) {
-        String code = exception instanceof ApprovalEngine.EngineOperationException engineException
+        String rawCode = exception instanceof ApprovalEngine.EngineOperationException engineException
             ? engineException.code()
             : "ENGINE_DEPLOYMENT_FAILED";
-        String message = exception.getMessage();
-        if (message == null || message.isBlank()) {
-            message = "workflow engine deployment failed";
-        }
+        String code = bounded(
+            rawCode,
+            MAX_ERROR_CODE_LENGTH,
+            "ENGINE_DEPLOYMENT_FAILED"
+        );
+        String message = bounded(
+            exception.getMessage(),
+            MAX_ERROR_MESSAGE_LENGTH,
+            "workflow engine deployment failed"
+        );
         return new ApprovalReleaseDeployment(
             pending.deploymentRecordId(),
             pending.tenantId(),
@@ -242,6 +258,13 @@ public final class ApprovalReleaseDeploymentService {
             clock.instant(),
             null
         );
+    }
+
+    private static String bounded(String value, int maximumLength, String fallback) {
+        String normalized = value == null || value.isBlank() ? fallback : value.trim();
+        return normalized.length() <= maximumLength
+            ? normalized
+            : normalized.substring(0, maximumLength);
     }
 
     private static void requirePackageIdentity(
