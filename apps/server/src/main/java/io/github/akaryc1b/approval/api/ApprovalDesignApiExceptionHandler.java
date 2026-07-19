@@ -65,6 +65,20 @@ public class ApprovalDesignApiExceptionHandler {
         );
     }
 
+    @ExceptionHandler(ApprovalDesignExceptions.WarningAcknowledgementRequired.class)
+    ResponseEntity<ApiError> warningAcknowledgementRequired(
+        ApprovalDesignExceptions.WarningAcknowledgementRequired exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            422,
+            "APPROVAL_PREFLIGHT_WARNING_ACKNOWLEDGEMENT_REQUIRED",
+            exception.getMessage(),
+            false,
+            request
+        );
+    }
+
     @ExceptionHandler(ApprovalDesignExceptions.DraftRevisionConflict.class)
     ResponseEntity<ApiError> revisionConflict(
         ApprovalDesignExceptions.DraftRevisionConflict exception,
@@ -85,6 +99,7 @@ public class ApprovalDesignApiExceptionHandler {
         ApprovalDesignExceptions.ReleaseVersionConflict.class,
         ApprovalDesignExceptions.CompiledArtifactConflict.class,
         ApprovalDesignExceptions.FormPackageIntegrity.class,
+        ApprovalDesignExceptions.PreflightConflict.class,
         IdempotencyGuard.IdempotencyConflictException.class
     })
     ResponseEntity<ApiError> stateConflict(Exception exception, HttpServletRequest request) {
