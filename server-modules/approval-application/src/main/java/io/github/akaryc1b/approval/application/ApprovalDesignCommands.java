@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeSet;
 import java.util.UUID;
 
 /** Validated command protocol for Approval DSL design operations. */
@@ -117,7 +118,10 @@ public final class ApprovalDesignCommands {
         UUID draftId,
         long expectedRevision,
         int definitionVersion,
-        int releaseVersion
+        int releaseVersion,
+        String preflightHash,
+        List<String> acknowledgedWarningCodes,
+        ApprovalDefinitionSimulator.Scenario preflightScenario
     ) {
         public Publish {
             context = Objects.requireNonNull(context);
@@ -125,6 +129,14 @@ public final class ApprovalDesignCommands {
             positive(expectedRevision, "expectedRevision");
             positive(definitionVersion, "definitionVersion");
             positive(releaseVersion, "releaseVersion");
+            preflightHash = hash(preflightHash, "preflightHash");
+            TreeSet<String> warnings = new TreeSet<>();
+            if (acknowledgedWarningCodes != null) {
+                acknowledgedWarningCodes.forEach(value -> warnings.add(
+                    text(value, "acknowledgedWarningCode")
+                ));
+            }
+            acknowledgedWarningCodes = List.copyOf(warnings);
         }
     }
 
