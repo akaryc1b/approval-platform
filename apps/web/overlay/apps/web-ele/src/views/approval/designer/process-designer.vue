@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { nextTick, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { Page } from '@vben/common-ui';
 import {
   ElAlert,
@@ -23,6 +24,7 @@ import {
 import { useApprovalDesigner } from './use-approval-designer';
 
 const designer = useApprovalDesigner();
+const route = useRoute();
 const createVisible = ref(false);
 const nodeKinds = [
   { label: '开始', value: 'START' },
@@ -42,7 +44,13 @@ const createForm = ref({
   sourceDefinitionVersion: 1,
 });
 
-onMounted(designer.loadDrafts);
+onMounted(async () => {
+  await designer.loadDrafts();
+  const importedDraftId = typeof route.query.draftId === 'string'
+    ? route.query.draftId
+    : undefined;
+  if (importedDraftId) await designer.openDraft(importedDraftId);
+});
 
 async function submitCreate() {
   const created = await designer.createDraft(createForm.value);

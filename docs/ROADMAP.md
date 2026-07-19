@@ -94,11 +94,17 @@
 - 保存、撤销、重做和删除快捷键，输入框、可编辑内容、按钮和链接的快捷键保护；
 - 服务端校验问题、模拟步骤和模拟问题的一键节点定位；
 - 删除节点前的引用、重连、驳回目标和并行汇聚影响摘要，以及不安全拓扑删除阻断；
-- 取消未保存修改确认时保留新建流程弹窗和用户输入。
+- 取消未保存修改确认时保留新建流程弹窗和用户输入；
+- `APPROVAL_DSL_EXPORT_V1` 与 `APPROVAL_RELEASE_PACKAGE_EXPORT_V1` 确定性跨租户传输协议；
+- DSL、BPMN、DMN、编译制品、部署元数据、Release Package、payload 与 envelope 的服务端重算和完整性拒绝；
+- 2 MiB 请求、JSON 深度/元素/字符串、500 节点、BPMN/DMN 字节数和安全资源名硬限制；
+- 重复 JSON key、未知字段、整数溢出、非法 Unicode、XXE/外部 DTD/schema 和非法 XML 防御；
+- 导入只创建目标租户 revision 1 的 DRAFT，精确重绑本地 Form Package，单事务幂等和低敏审计；
+- PostgreSQL/Testcontainers 证明导出零写入、跨租户隔离、失败零部分写入和成功仅新增草稿/审计；
+- PC 版本中心的 DSL/Release 导出、安全文件名、2 MiB 单 JSON 导入预览和只创建草稿确认。
 
 ### 下一优先级
 
-- Approval DSL 与 Release Package 安全导入导出；
 - 复合区块和可插拔自定义组件。
 
 ## M3 Collaboration

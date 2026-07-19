@@ -156,6 +156,69 @@ class ApprovalArtifactTransferServiceTest {
     }
 
     @Test
+    void rejectsMissingDefinitionAndReleaseForTheTenant() {
+        assertThrows(
+            ApprovalArtifactTransferExceptions.SourceNotFound.class,
+            () -> service.exportDefinition("missing-tenant", KEY, 1)
+        );
+        assertThrows(
+            ApprovalArtifactTransferExceptions.SourceNotFound.class,
+            () -> service.exportRelease("missing-tenant", KEY, 1)
+        );
+    }
+
+    @Test
+    void rejectsUnsupportedFormatAndTamperedReleasePackageHash() {
+        TransferEnvelope definitionEnvelope = service.exportDefinition(
+            SOURCE_TENANT,
+            KEY,
+            sourceDefinition.version()
+        );
+        TransferEnvelope unsupported = new TransferEnvelope(
+            "APPROVAL_UNKNOWN_EXPORT_V1",
+            definitionEnvelope.formatVersion(),
+            definitionEnvelope.artifactType(),
+            definitionEnvelope.exportedAt(),
+            definitionEnvelope.definitionKey(),
+            definitionEnvelope.definitionVersion(),
+            definitionEnvelope.releaseVersion(),
+            definitionEnvelope.formPackageVersion(),
+            definitionEnvelope.definitionHash(),
+            definitionEnvelope.formPackageHash(),
+            definitionEnvelope.payload(),
+            definitionEnvelope.payloadHash(),
+            definitionEnvelope.envelopeHash()
+        );
+        assertThrows(
+            ApprovalArtifactTransferExceptions.InvalidFormat.class,
+            () -> service.verifyEnvelope(unsupported)
+        );
+
+        TransferEnvelope releaseEnvelope = service.exportRelease(SOURCE_TENANT, KEY, 1);
+        ReleasePackagePayload original = (ReleasePackagePayload) releaseEnvelope.payload();
+        ReleasePackagePayload tampered = new ReleasePackagePayload(
+            original.definition(),
+            original.compilerVersion(),
+            original.bpmnResourceName(),
+            original.bpmnArtifact(),
+            original.bpmnHash(),
+            original.dmnArtifact(),
+            original.dmnHash(),
+            original.compiledArtifactHash(),
+            original.deploymentMetadataHash(),
+            "f".repeat(64),
+            original.formSchemaVersion(),
+            original.formSchemaHash(),
+            original.uiSchemaVersion(),
+            original.uiSchemaHash()
+        );
+        assertThrows(
+            ApprovalArtifactTransferExceptions.HashMismatch.class,
+            () -> service.verifyEnvelope(withPayload(releaseEnvelope, tampered))
+        );
+    }
+
+    @Test
     void rejectsTamperedDefinitionAndDeclaredEnvelopeHashes() {
         TransferEnvelope envelope = service.exportDefinition(
             SOURCE_TENANT,
@@ -251,6 +314,12 @@ class ApprovalArtifactTransferServiceTest {
             "<definitions>",
             original.bpmnHash()
         );
+        ReleasePackagePayload validButTampered = copyReleasePayload(
+            original,
+            original.bpmnResourceName(),
+            original.bpmnArtifact() + "\n",
+            original.bpmnHash()
+        );
         ReleasePackagePayload unsafeResource = copyReleasePayload(
             original,
             "../approval.bpmn20.xml",
@@ -270,6 +339,10 @@ class ApprovalArtifactTransferServiceTest {
         assertThrows(
             ApprovalArtifactTransferExceptions.ArtifactIntegrityFailed.class,
             () -> service.verifyEnvelope(withPayload(envelope, invalidXml))
+        );
+        assertThrows(
+            ApprovalArtifactTransferExceptions.HashMismatch.class,
+            () -> service.verifyEnvelope(withPayload(envelope, validButTampered))
         );
         assertThrows(
             ApprovalArtifactTransferExceptions.InvalidFormat.class,

@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -13,7 +14,9 @@ import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 import io.github.akaryc1b.approval.persistence.jdbc.ApprovalDefinitionJacksonSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -29,7 +32,10 @@ class ApprovalArtifactTransferJsonCodecTest {
 
     @BeforeEach
     void setUp() {
-        mapper = JsonMapper.builder().addModule(new JavaTimeModule()).build();
+        mapper = JsonMapper.builder()
+            .addModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .build();
         ApprovalDefinitionJacksonSupport.configure(mapper);
         codec = new ApprovalArtifactTransferJsonCodec(mapper);
     }
@@ -86,7 +92,10 @@ class ApprovalArtifactTransferJsonCodecTest {
         ObjectNode nullPayload = (ObjectNode) mapper.readTree(validBody());
         ((ObjectNode) nullPayload.get("envelope")).putNull("payload");
         ObjectNode overflow = (ObjectNode) mapper.readTree(validBody());
-        overflow.put("targetDefinitionVersion", "999999999999999999999999999");
+        overflow.put(
+            "targetDefinitionVersion",
+            new BigInteger("999999999999999999999999999")
+        );
 
         assertThrows(
             ApprovalArtifactTransferExceptions.InvalidFormat.class,
@@ -112,6 +121,62 @@ class ApprovalArtifactTransferJsonCodecTest {
         assertThrows(
             ApprovalArtifactTransferExceptions.InvalidFormat.class,
             () -> codec.decodeImport(deep.getBytes(StandardCharsets.UTF_8))
+        );
+    }
+
+    @Test
+    void jsonPropertyOrderDoesNotChangeDecodedTransferIdentity() throws Exception {
+        ObjectNode original = (ObjectNode) mapper.readTree(validBody());
+        ObjectNode originalEnvelope = (ObjectNode) original.get("envelope");
+        ObjectNode originalPayload = (ObjectNode) originalEnvelope.get("payload");
+
+        ObjectNode reorderedPayload = mapper.createObjectNode();
+        java.util.List<String> payloadFields = new java.util.ArrayList<>();
+        originalPayload.fieldNames().forEachRemaining(payloadFields::add);
+        java.util.Collections.reverse(payloadFields);
+        payloadFields.forEach(name -> reorderedPayload.set(name, originalPayload.get(name)));
+
+        ObjectNode reorderedEnvelope = mapper.createObjectNode();
+        java.util.List<String> envelopeFields = new java.util.ArrayList<>();
+        originalEnvelope.fieldNames().forEachRemaining(envelopeFields::add);
+        java.util.Collections.reverse(envelopeFields);
+        envelopeFields.forEach(name -> reorderedEnvelope.set(
+            name,
+            "payload".equals(name) ? reorderedPayload : originalEnvelope.get(name)
+        ));
+
+        ObjectNode reordered = mapper.createObjectNode();
+        reordered.put("targetName", original.get("targetName").textValue());
+        reordered.put(
+            "targetFormPackageVersion",
+            original.get("targetFormPackageVersion").intValue()
+        );
+        reordered.put(
+            "targetDefinitionVersion",
+            original.get("targetDefinitionVersion").intValue()
+        );
+        reordered.put(
+            "targetDefinitionKey",
+            original.get("targetDefinitionKey").textValue()
+        );
+        reordered.set("envelope", reorderedEnvelope);
+
+        assertEquals(
+            codec.decodeImport(validBody()),
+            codec.decodeImport(mapper.writeValueAsBytes(reordered))
+        );
+    }
+
+    @Test
+    void controllerRejectsOversizedBodyBeforeJsonBinding() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setContent(new byte[
+            ApprovalArtifactTransferJsonCodec.MAX_REQUEST_BYTES + 1
+        ]);
+
+        assertThrows(
+            ApprovalArtifactTransferExceptions.TooLarge.class,
+            () -> ApprovalArtifactTransferController.readBody(request)
         );
     }
 

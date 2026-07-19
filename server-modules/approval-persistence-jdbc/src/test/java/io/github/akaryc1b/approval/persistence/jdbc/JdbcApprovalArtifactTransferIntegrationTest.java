@@ -47,7 +47,6 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalArtifactTransferIntegrationTest {
@@ -224,7 +223,9 @@ class JdbcApprovalArtifactTransferIntegrationTest {
             PurchasePaymentTemplate.PROCESS_VERSION
         );
         jdbc.update(
-            "delete from ap_form_package where tenant_id = ? and form_key = ?",
+            "update ap_form_package set form_hash = ? "
+                + "where tenant_id = ? and form_key = ?",
+            "0".repeat(64),
             TARGET_TENANT,
             PurchasePaymentTemplate.DEFINITION_KEY
         );
