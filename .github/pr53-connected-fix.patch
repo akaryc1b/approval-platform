@@ -1,0 +1,12 @@
+diff --git a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalReleaseDeploymentIntegrationTest.java b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalReleaseDeploymentIntegrationTest.java
+--- a/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalReleaseDeploymentIntegrationTest.java
++++ b/server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalReleaseDeploymentIntegrationTest.java
+@@ -165,8 +165,8 @@ class JdbcApprovalReleaseDeploymentIntegrationTest {
+             "PREVIOUS_DEPLOYMENT_FAILED",
+             jdbc.queryForObject(
+                 "select attributes_json ->> 'acknowledgedWarningCodes' "
+-                    + "from ap_audit_event order by occurred_at desc limit 1",
++                    + "from ap_audit_event where action = 'APPROVAL_RELEASE_DEPLOYED'",
+                 String.class
+             )
+         );
