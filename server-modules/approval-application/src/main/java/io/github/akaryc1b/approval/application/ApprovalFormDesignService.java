@@ -299,13 +299,17 @@ public final class ApprovalFormDesignService {
                 required.put(field.key(), field.required());
             });
         }
+        Map<String, FieldAccess> effectiveAccess = UiSchemaDefinitionValidator.applySectionAccess(
+            draft.uiSchemaDefinition(),
+            access
+        );
         Map<String, Object> values = defaultValues.resolve(
             draft.formDefinition(),
             command.operatorId()
         );
         Map<String, Object> visibleValues = new LinkedHashMap<>();
         values.forEach((key, value) -> {
-            if (access.getOrDefault(key, FieldAccess.HIDDEN) != FieldAccess.HIDDEN) {
+            if (effectiveAccess.getOrDefault(key, FieldAccess.HIDDEN) != FieldAccess.HIDDEN) {
                 visibleValues.put(key, value);
             }
         });
@@ -317,7 +321,7 @@ public final class ApprovalFormDesignService {
             draft.uiSchemaDefinition(),
             formHasher.hash(draft.formDefinition()),
             uiHasher.hash(draft.uiSchemaDefinition()),
-            Map.copyOf(access),
+            effectiveAccess,
             Map.copyOf(required),
             Map.copyOf(visibleValues)
         );
@@ -741,13 +745,19 @@ public final class ApprovalFormDesignService {
             draft.formDefinition().version(),
             draft.uiSchemaDefinition().version(),
             draft.formDefinition().fields().size(),
-            draft.uiSchemaDefinition().sections().size(),
+            sectionCount(draft.uiSchemaDefinition().sections()),
             draft.uiSchemaDefinition().nodePermissions().size(),
             formHash,
             uiHash,
             List.copyOf(errors),
             List.of()
         );
+    }
+
+    private static int sectionCount(List<UiSchemaDefinition.Section> sections) {
+        return sections.stream()
+            .mapToInt(section -> 1 + sectionCount(section.children()))
+            .sum();
     }
 
     private void appendAudit(

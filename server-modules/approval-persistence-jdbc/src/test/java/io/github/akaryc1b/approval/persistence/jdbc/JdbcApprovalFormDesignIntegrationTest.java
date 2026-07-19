@@ -252,6 +252,7 @@ class JdbcApprovalFormDesignIntegrationTest {
             updated.revision()
         ));
         assertTrue(validation.valid());
+        assertEquals(2, validation.sectionCount());
     }
 
     @Test

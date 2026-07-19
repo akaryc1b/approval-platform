@@ -56,7 +56,8 @@ public final class UiSchemaDefinitionValidator {
             fieldsByKey.put(field.key(), field);
         });
         validateLayout(uiSchema, formFields, fieldsByKey);
-        validatePermissions(uiSchema, formFields, fieldsByKey);
+        Set<String> readonlySummaryFields = readonlySummaryFields(uiSchema);
+        validatePermissions(uiSchema, formFields, fieldsByKey, readonlySummaryFields);
     }
 
     private void validateLayout(
@@ -193,7 +194,8 @@ public final class UiSchemaDefinitionValidator {
     private static void validatePermissions(
         UiSchemaDefinition uiSchema,
         Set<String> formFields,
-        Map<String, FormField> fieldsByKey
+        Map<String, FormField> fieldsByKey,
+        Set<String> readonlySummaryFields
     ) {
         Set<String> contexts = new HashSet<>();
         boolean startFound = false;
@@ -222,7 +224,8 @@ public final class UiSchemaDefinitionValidator {
                 validateRequiredCombination(
                     permissionSet.contextKey(),
                     fieldsByKey.get(permission.fieldKey()),
-                    permission
+                    permission,
+                    readonlySummaryFields.contains(permission.fieldKey())
                 );
             }
             if (!permissionFields.equals(formFields)) {
@@ -240,9 +243,11 @@ public final class UiSchemaDefinitionValidator {
     private static void validateRequiredCombination(
         String contextKey,
         FormField field,
-        FieldPermission permission
+        FieldPermission permission,
+        boolean readonlySummary
     ) {
-        if (permission.access() == FieldAccess.HIDDEN
+        FieldAccess effectiveAccess = effectiveAccess(permission.access(), readonlySummary);
+        if (effectiveAccess == FieldAccess.HIDDEN
             && permission.requiredOverride() == RequiredOverride.REQUIRED) {
             throw new IllegalArgumentException(
                 "hidden field cannot be explicitly required: " + permission.fieldKey()
@@ -252,12 +257,48 @@ public final class UiSchemaDefinitionValidator {
         if (!UiSchemaDefinition.START_CONTEXT.equals(contextKey) || !required) {
             return;
         }
-        boolean editable = permission.access() == FieldAccess.EDITABLE;
+        boolean editable = effectiveAccess == FieldAccess.EDITABLE;
         boolean defaulted = field.defaultValue().type() != DefaultValueType.NONE;
         if (!editable && !defaulted) {
             throw new IllegalArgumentException(
                 "required start field must be editable or have a server default: " + field.key()
             );
+        }
+    }
+
+    public static Map<String, FieldAccess> applySectionAccess(
+        UiSchemaDefinition uiSchema,
+        Map<String, FieldAccess> fieldAccess
+    ) {
+        Objects.requireNonNull(uiSchema, "uiSchema must not be null");
+        Objects.requireNonNull(fieldAccess, "fieldAccess must not be null");
+        Set<String> readonlyFields = readonlySummaryFields(uiSchema);
+        Map<String, FieldAccess> effective = new java.util.LinkedHashMap<>();
+        fieldAccess.forEach((fieldKey, access) -> effective.put(
+            fieldKey,
+            effectiveAccess(access, readonlyFields.contains(fieldKey))
+        ));
+        return Map.copyOf(effective);
+    }
+
+    public static Set<String> readonlySummaryFields(UiSchemaDefinition uiSchema) {
+        Objects.requireNonNull(uiSchema, "uiSchema must not be null");
+        Set<String> fields = new LinkedHashSet<>();
+        collectReadonlySummaryFields(uiSchema.sections(), false, fields);
+        return Set.copyOf(fields);
+    }
+
+    private static void collectReadonlySummaryFields(
+        List<Section> sections,
+        boolean inheritedReadonly,
+        Set<String> fields
+    ) {
+        for (Section section : sections) {
+            boolean readonly = inheritedReadonly || section.readonlySummary();
+            if (readonly) {
+                section.fields().forEach(layout -> fields.add(layout.fieldKey()));
+            }
+            collectReadonlySummaryFields(section.children(), readonly, fields);
         }
     }
 
