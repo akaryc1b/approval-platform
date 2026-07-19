@@ -64,9 +64,23 @@ codec_test = Path(
 )
 replace_once(
     codec_test,
+    "import com.fasterxml.jackson.databind.ObjectMapper;",
+    """import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;""",
+)
+replace_once(
+    codec_test,
     "import java.nio.charset.StandardCharsets;",
     """import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;""",
+)
+replace_once(
+    codec_test,
+    '''        mapper = JsonMapper.builder().addModule(new JavaTimeModule()).build();''',
+    '''        mapper = JsonMapper.builder()
+            .addModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .build();''',
 )
 replace_once(
     codec_test,
