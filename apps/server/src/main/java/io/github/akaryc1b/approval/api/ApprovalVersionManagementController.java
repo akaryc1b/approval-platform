@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Aggregated read API for the PC Approval version-management center. */
+@ApprovalManagementPermission(ApprovalManagementPermission.Requirement.READ)
 @RestController
 @RequestMapping("/api/approval/version-management")
 public class ApprovalVersionManagementController {

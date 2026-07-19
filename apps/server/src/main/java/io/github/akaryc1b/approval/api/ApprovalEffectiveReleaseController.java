@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Administrative API for exact effective release activation and rollback. */
+@ApprovalManagementPermission(ApprovalManagementPermission.Requirement.READ)
 @RestController
 @RequestMapping("/api/approval/version-management")
 public class ApprovalEffectiveReleaseController {
@@ -53,6 +54,7 @@ public class ApprovalEffectiveReleaseController {
         return service.findHistory(tenantId, definitionKey, limit, offset);
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.ACTIVATE)
     @PostMapping("/{definitionKey}/releases/{releaseVersion}/activate")
     public ActivationResult activate(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -76,6 +78,7 @@ public class ApprovalEffectiveReleaseController {
         ));
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.ACTIVATE)
     @PostMapping("/{definitionKey}/releases/{releaseVersion}/rollback")
     public ActivationResult rollback(
         @RequestHeader(TENANT_ID) String tenantId,

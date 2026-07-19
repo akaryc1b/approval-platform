@@ -26,6 +26,7 @@ public class ApprovalReleasePreflightController {
         this.service = service;
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.PUBLISH)
     @PostMapping("/publication")
     public PreflightReport publication(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -43,6 +44,7 @@ public class ApprovalReleasePreflightController {
         ));
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DEPLOY)
     @PostMapping("/deployment")
     public PreflightReport deployment(
         @RequestHeader(TENANT_ID) String tenantId,

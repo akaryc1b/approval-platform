@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 /** Server-authoritative named scenario batch simulation without engine deployment. */
+@ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
 @RestController
 @RequestMapping("/api/approval/process-design-drafts")
 public class ApprovalBatchSimulationController {

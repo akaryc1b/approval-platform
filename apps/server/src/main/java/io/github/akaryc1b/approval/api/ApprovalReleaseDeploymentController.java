@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@ApprovalManagementPermission(ApprovalManagementPermission.Requirement.READ)
 @RestController
 @RequestMapping("/api/approval/release-packages")
 public class ApprovalReleaseDeploymentController {
@@ -34,6 +35,7 @@ public class ApprovalReleaseDeploymentController {
         this.service = service;
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DEPLOY)
     @PostMapping("/{definitionKey}/{releaseVersion}/deployment")
     public DeploymentResult deploy(
         @RequestHeader(TENANT_ID) String tenantId,

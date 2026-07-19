@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@ApprovalManagementPermission(ApprovalManagementPermission.Requirement.READ)
 @RestController
 @RequestMapping("/api/approval/process-design-drafts")
 public class ApprovalDesignController {
@@ -46,6 +47,7 @@ public class ApprovalDesignController {
         this.service = service;
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PostMapping
     public ResponseEntity<ApprovalDesignDraft> create(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -68,6 +70,7 @@ public class ApprovalDesignController {
         return withRevision(draft);
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PostMapping("/from-published")
     public ResponseEntity<ApprovalDesignDraft> createFromPublished(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -109,6 +112,7 @@ public class ApprovalDesignController {
             .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PutMapping("/{draftId}")
     public ResponseEntity<ApprovalDesignDraft> update(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -131,6 +135,7 @@ public class ApprovalDesignController {
         return withRevision(draft);
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PostMapping("/{draftId}/validate")
     public ApprovalDesignResults.Validation validate(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -148,6 +153,7 @@ public class ApprovalDesignController {
         ));
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PostMapping("/{draftId}/simulate")
     public ApprovalDesignResults.Simulation simulate(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -163,6 +169,7 @@ public class ApprovalDesignController {
         ));
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PostMapping("/{draftId}/archive")
     public ResponseEntity<ApprovalDesignDraft> archive(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -181,6 +188,7 @@ public class ApprovalDesignController {
         return withRevision(draft);
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.PUBLISH)
     @PostMapping("/{draftId}/publish")
     public ApprovalDesignResults.Publish publish(
         @RequestHeader(TENANT_ID) String tenantId,
