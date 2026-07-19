@@ -45,8 +45,8 @@ const createForm = ref({
 onMounted(designer.loadDrafts);
 
 async function submitCreate() {
-  await designer.createDraft(createForm.value);
-  createVisible.value = false;
+  const created = await designer.createDraft(createForm.value);
+  if (created) createVisible.value = false;
 }
 
 function statusType(status?: string) {

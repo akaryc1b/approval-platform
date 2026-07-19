@@ -228,7 +228,7 @@ export function useApprovalDesigner() {
     source: 'BLANK' | 'COPY' | 'PURCHASE_PAYMENT_TEMPLATE';
     sourceDefinitionVersion: number;
   }) {
-    if (!(await confirmDiscardChanges('新建流程草稿'))) return;
+    if (!(await confirmDiscardChanges('新建流程草稿'))) return false;
     try {
       const created = input.source === 'COPY'
         ? await copyPublishedApprovalDesignDraft({
@@ -248,8 +248,10 @@ export function useApprovalDesigner() {
       await loadDrafts();
       await openDraft(created.draftId, { force: true });
       ElMessage.success('流程草稿已创建');
+      return true;
     } catch (error) {
       showError(error);
+      return false;
     }
   }
 
