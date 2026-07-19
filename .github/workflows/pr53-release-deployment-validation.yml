@@ -30,21 +30,15 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          if [ -f .github/scripts/apply-pr53-connected-patch.sh ]; then
-            bash .github/scripts/apply-pr53-connected-patch.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d7-java-fix.sh ]; then
-            bash .github/scripts/apply-pr53-d7-java-fix.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d7-protocol-test-fix.sh ]; then
-            bash .github/scripts/apply-pr53-d7-protocol-test-fix.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d8-server.sh ]; then
-            bash .github/scripts/apply-pr53-d8-server.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d8-renderers.sh ]; then
-            bash .github/scripts/apply-pr53-d8-renderers.sh
-          fi
+          for helper in \
+            .github/scripts/apply-pr53-connected-patch.sh \
+            .github/scripts/apply-pr53-d7-java-fix.sh \
+            .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
+            .github/scripts/apply-pr53-d8-server.sh \
+            .github/scripts/apply-pr53-d8-renderers.sh \
+            .github/scripts/apply-pr53-d8-designer.sh; do
+            if [ -f "$helper" ]; then bash "$helper"; fi
+          done
           git diff --check
       - uses: actions/setup-java@v4
         with:
@@ -80,21 +74,15 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          if [ -f .github/scripts/apply-pr53-connected-patch.sh ]; then
-            bash .github/scripts/apply-pr53-connected-patch.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d7-java-fix.sh ]; then
-            bash .github/scripts/apply-pr53-d7-java-fix.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d7-protocol-test-fix.sh ]; then
-            bash .github/scripts/apply-pr53-d7-protocol-test-fix.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d8-server.sh ]; then
-            bash .github/scripts/apply-pr53-d8-server.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d8-renderers.sh ]; then
-            bash .github/scripts/apply-pr53-d8-renderers.sh
-          fi
+          for helper in \
+            .github/scripts/apply-pr53-connected-patch.sh \
+            .github/scripts/apply-pr53-d7-java-fix.sh \
+            .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
+            .github/scripts/apply-pr53-d8-server.sh \
+            .github/scripts/apply-pr53-d8-renderers.sh \
+            .github/scripts/apply-pr53-d8-designer.sh; do
+            if [ -f "$helper" ]; then bash "$helper"; fi
+          done
           git diff --check
       - uses: actions/setup-node@v4
         with:
@@ -109,6 +97,9 @@ jobs:
       - name: Verify form renderer semantics
         shell: bash
         run: pnpm web:test:form-renderer >form-renderer-test.log 2>&1 || { cat form-renderer-test.log; exit 1; }
+      - name: Verify form designer section operations
+        shell: bash
+        run: pnpm web:test:form-designer >form-designer-test.log 2>&1 || { cat form-designer-test.log; exit 1; }
       - name: Benchmark designer topology
         shell: bash
         run: pnpm web:benchmark:designer >designer-benchmark.log 2>&1 || { cat designer-benchmark.log; exit 1; }
@@ -129,6 +120,7 @@ jobs:
           path: |
             root-install.log
             form-renderer-test.log
+            form-designer-test.log
             designer-benchmark.log
             web-install.log
             web-typecheck.log
@@ -144,21 +136,15 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          if [ -f .github/scripts/apply-pr53-connected-patch.sh ]; then
-            bash .github/scripts/apply-pr53-connected-patch.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d7-java-fix.sh ]; then
-            bash .github/scripts/apply-pr53-d7-java-fix.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d7-protocol-test-fix.sh ]; then
-            bash .github/scripts/apply-pr53-d7-protocol-test-fix.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d8-server.sh ]; then
-            bash .github/scripts/apply-pr53-d8-server.sh
-          fi
-          if [ -f .github/scripts/apply-pr53-d8-renderers.sh ]; then
-            bash .github/scripts/apply-pr53-d8-renderers.sh
-          fi
+          for helper in \
+            .github/scripts/apply-pr53-connected-patch.sh \
+            .github/scripts/apply-pr53-d7-java-fix.sh \
+            .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
+            .github/scripts/apply-pr53-d8-server.sh \
+            .github/scripts/apply-pr53-d8-renderers.sh \
+            .github/scripts/apply-pr53-d8-designer.sh; do
+            if [ -f "$helper" ]; then bash "$helper"; fi
+          done
           git diff --check
       - uses: actions/setup-node@v4
         with:
@@ -218,7 +204,8 @@ jobs:
             .github/scripts/apply-pr53-d7-java-fix.sh \
             .github/scripts/apply-pr53-d7-protocol-test-fix.sh \
             .github/scripts/apply-pr53-d8-server.sh \
-            .github/scripts/apply-pr53-d8-renderers.sh; do
+            .github/scripts/apply-pr53-d8-renderers.sh \
+            .github/scripts/apply-pr53-d8-designer.sh; do
             if [ -f "$helper" ]; then
               queued=true
               bash "$helper"
@@ -232,5 +219,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'feat: add cross-platform composite form renderers'
+          git commit -m 'feat: enhance composite form designer'
           git push origin HEAD:${{ github.head_ref || github.ref_name }}
