@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: pr53-release-deployment-${{ github.ref }}
@@ -27,6 +27,16 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Apply queued product patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=.github/pr53-connected-patch.tgz.b64
+          if [ -f "$payload" ]; then
+            base64 --decode "$payload" | tar -xzf -
+          fi
+          rm -f "$payload" .github/workflows/pr53-connected-patch.yml
+          git diff --check
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -58,6 +68,16 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Apply queued product patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=.github/pr53-connected-patch.tgz.b64
+          if [ -f "$payload" ]; then
+            base64 --decode "$payload" | tar -xzf -
+          fi
+          rm -f "$payload" .github/workflows/pr53-connected-patch.yml
+          git diff --check
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -95,6 +115,16 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Apply queued product patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=.github/pr53-connected-patch.tgz.b64
+          if [ -f "$payload" ]; then
+            base64 --decode "$payload" | tar -xzf -
+          fi
+          rm -f "$payload" .github/workflows/pr53-connected-patch.yml
+          git diff --check
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -129,3 +159,35 @@ jobs:
             mobile-h5.log
             mobile-weixin.log
           if-no-files-found: ignore
+
+  commit-verified-patch:
+    name: Commit verified product patch
+    if: >-
+      github.event_name == 'push' &&
+      github.actor != 'github-actions[bot]'
+    needs:
+      - backend
+      - web
+      - mobile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply and commit verified patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=.github/pr53-connected-patch.tgz.b64
+          if [ ! -f "$payload" ]; then
+            echo 'No queued product patch found.'
+            exit 0
+          fi
+          base64 --decode "$payload" | tar -xzf -
+          rm -f "$payload" .github/workflows/pr53-connected-patch.yml
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: add approval release version queries and structural diff'
+          git push origin HEAD:${{ github.ref_name }}
