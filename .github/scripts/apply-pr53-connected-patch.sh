@@ -13,12 +13,10 @@ integration = Path(
     'JdbcApprovalDesignReleaseIntegrationTest.java'
 )
 text = integration.read_text()
-typo = 'AprovalDefinitionSimulator'
-if text.count(typo) != 1:
-    raise SystemExit(
-        f'Expected one transported simulator typo, found {text.count(typo)}'
-    )
-integration.write_text(text.replace(typo, 'ApprovalDefinitionSimulator', 1))
+text = text.replace('AprovalDefinitionSimulator', 'ApprovalDefinitionSimulator')
+if 'AprovalDefinitionSimulator' in text:
+    raise SystemExit('Transported simulator typo still exists')
+integration.write_text(text)
 
 controller = Path(
     'apps/server/src/main/java/io/github/akaryc1b/approval/api/'
@@ -30,19 +28,19 @@ for import_line in (
     'import org.springframework.http.MediaType;\n',
     'import org.springframework.http.ResponseEntity;\n',
 ):
-    if text.count(import_line) != 1:
-        raise SystemExit(f'Expected controller import {import_line!r}')
-    text = text.replace(import_line, '', 1)
+    text = text.replace(import_line, '')
 export_start = '''    @PostMapping(
         value = "/{draftId}/batch-simulate/export",
 '''
 record_start = '''    public record BatchSimulationRequest(
 '''
-if text.count(export_start) != 1 or text.count(record_start) != 1:
-    raise SystemExit('Expected one export endpoint and request record')
-start = text.index(export_start)
-end = text.index(record_start, start)
-controller.write_text(text[:start] + text[end:])
+if export_start in text:
+    start = text.index(export_start)
+    end = text.index(record_start, start)
+    text = text[:start] + text[end:]
+if '/batch-simulate/export' in text or 'ResponseEntity<BatchReport>' in text:
+    raise SystemExit('Batch export controller endpoint was not removed')
+controller.write_text(text)
 
 api_path = Path(
     'apps/web/overlay/apps/web-ele/src/api/approval/process-design.ts'
@@ -52,10 +50,6 @@ export_function = '''export async function exportApprovalDesignDraftBatchReport(
 '''
 archive_function = '''export function archiveApprovalDesignDraft(
 '''
-if api.count(export_function) != 1 or api.count(archive_function) != 1:
-    raise SystemExit('Expected batch export and archive API functions')
-start = api.index(export_function)
-end = api.index(archive_function, start)
 replacement = '''export async function exportApprovalDesignDraftBatchReport(
   draftId: string,
   input: ApprovalBatchSimulationInput,
@@ -67,7 +61,16 @@ replacement = '''export async function exportApprovalDesignDraftBatchReport(
 }
 
 '''
-api_path.write_text(api[:start] + replacement + api[end:])
+archive_start = api.find(archive_function)
+if archive_start < 0:
+    raise SystemExit('Archive API function was not found')
+export_start_index = api.find(export_function)
+if export_start_index >= 0:
+    archive_start = api.find(archive_function, export_start_index)
+    api = api[:export_start_index] + replacement + api[archive_start:]
+else:
+    api = api[:archive_start] + replacement + api[archive_start:]
+api_path.write_text(api)
 
 page_path = Path(
     'apps/web/overlay/apps/web-ele/src/views/approval/simulations/index.vue'
@@ -86,9 +89,11 @@ new_download = '''    link.href = url;
     link.download = `approval-simulation-${safeDefinitionKey}-${reportHash}.json`;
     link.click();
 '''
-if page.count(old_download) != 1:
-    raise SystemExit('Expected simulation report download block')
-page_path.write_text(page.replace(old_download, new_download, 1))
+if old_download in page:
+    page = page.replace(old_download, new_download, 1)
+elif new_download not in page:
+    raise SystemExit('Simulation report download block was not found')
+page_path.write_text(page)
 PY
 
 rm -f .github/scripts/apply-pr53-connected-patch-core.sh
