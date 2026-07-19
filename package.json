@@ -28,6 +28,7 @@
     "web:build": "pnpm web:bootstrap && pnpm --dir .upstream/vben build:ele",
     "web:benchmark:designer": "node scripts/benchmarks/approval-designer-topology-benchmark.mjs",
     "web:test:form-renderer": "node --test scripts/tests/approval-form-renderer-protocol.test.mjs",
+    "web:test:form-designer": "node --test scripts/tests/form-designer-sections.test.mjs",
     "mobile:bootstrap": "node scripts/upstream/bootstrap-unibest.mjs",
     "mobile:clean": "node scripts/upstream/bootstrap-unibest.mjs --clean",
     "mobile:install": "pnpm mobile:bootstrap && pnpm -C .upstream/unibest install --no-frozen-lockfile && pnpm -C .upstream/unibest init-baseFiles",
