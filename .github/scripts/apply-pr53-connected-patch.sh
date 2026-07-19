@@ -2,6 +2,7 @@
 set -euo pipefail
 
 patch_file=.github/pr53-connected.patch
+fix_patch=.github/pr53-connected-fix.patch
 if [ ! -f "$patch_file" ]; then
   echo 'No queued connected patch found.'
   exit 0
@@ -78,5 +79,10 @@ while index < len(lines):
 print(f'Applied {changed_hunks} exact hunks across {changed_files} files')
 PY
 
-rm -f "$patch_file" .github/scripts/apply-pr53-connected-patch.sh
+if [ -f "$fix_patch" ]; then
+  git apply --check --whitespace=error-all "$fix_patch"
+  git apply --whitespace=error-all "$fix_patch"
+fi
+
+rm -f "$patch_file" "$fix_patch" .github/scripts/apply-pr53-connected-patch.sh
 git diff --check
