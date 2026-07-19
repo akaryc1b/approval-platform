@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalArtifactTransferService;
 import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService;
 import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;
 import io.github.akaryc1b.approval.application.ApprovalDesignService;
@@ -148,6 +149,40 @@ public class ApprovalDesignConfiguration {
             approvalDslCompiler,
             approvalDefinitionHasher,
             approvalReleasePackageHasher
+        );
+    }
+
+    @Bean
+    ApprovalArtifactTransferService approvalArtifactTransferService(
+        IdempotencyGuard idempotencyGuard,
+        ApprovalDesignDraftStore approvalDesignDraftStore,
+        ApprovalDefinitionVersionStore approvalDefinitionVersionStore,
+        ApprovalReleasePackageStore approvalReleasePackageStore,
+        ApprovalFormPackageStore approvalFormPackageStore,
+        ApprovalFormStore approvalFormStore,
+        ApprovalUiSchemaStore approvalUiSchemaStore,
+        AuditEventSink auditEventSink,
+        ApprovalDefinitionValidator approvalDefinitionValidator,
+        ApprovalDslCompiler approvalDslCompiler,
+        ApprovalDefinitionHasher approvalDefinitionHasher,
+        ApprovalReleasePackageHasher approvalReleasePackageHasher,
+        Clock approvalClock
+    ) {
+        return new ApprovalArtifactTransferService(
+            idempotencyGuard,
+            approvalDesignDraftStore,
+            approvalDefinitionVersionStore,
+            approvalReleasePackageStore,
+            approvalFormPackageStore,
+            approvalFormStore,
+            approvalUiSchemaStore,
+            auditEventSink,
+            approvalDefinitionValidator,
+            approvalDslCompiler,
+            approvalDefinitionHasher,
+            approvalReleasePackageHasher,
+            approvalClock,
+            UUID::randomUUID
         );
     }
 
