@@ -101,11 +101,19 @@
 - 重复 JSON key、未知字段、整数溢出、非法 Unicode、XXE/外部 DTD/schema 和非法 XML 防御；
 - 导入只创建目标租户 revision 1 的 DRAFT，精确重绑本地 Form Package，单事务幂等和低敏审计；
 - PostgreSQL/Testcontainers 证明导出零写入、跨租户隔离、失败零部分写入和成功仅新增草稿/审计；
-- PC 版本中心的 DSL/Release 导出、安全文件名、2 MiB 单 JSON 导入预览和只创建草稿确认。
+- PC 版本中心的 DSL/Release 导出、安全文件名、2 MiB 单 JSON 导入预览和只创建草稿确认；
+- 最多四层的递归 UI Section 树、全局唯一 Section Key、同级稳定顺序、1–4 列布局、折叠和递归字段唯一归属；
+- `ALWAYS`、`FIELD_EQUALS`、`FIELD_NOT_EMPTY` 受控可见性协议，不执行表达式、脚本、远程模块或动态 import；
+- 版本化白名单组件注册表以及 `BUSINESS_REFERENCE`、`USER_SELECTOR`、`DEPARTMENT_SELECTOR` 业务组件；
+- 组件与字段类型兼容校验、有界惰性属性、稳定属性哈希、未知组件/版本拒绝和只读 fallback；
+- PC、H5、微信小程序一致的递归区块顺序、隐藏、必填、只读摘要和安全 fallback 语义；
+- PC 表单设计器的子区块、复制、同级重排、跨嵌套区块字段移动、组件选择、属性编辑、撤销/重做和离开保护；
+- `readonlySummary` 在发布校验、设计预览、发起、任务运行时和重提中的服务端权威降级，不能提升 `HIDDEN`/`READONLY` 权限；
+- 递归区块与组件协议确定性哈希、PostgreSQL JSON 往返、跨端纯函数语义门禁和 committed-head 全矩阵验证。
 
 ### 下一优先级
 
-- 复合区块和可插拔自定义组件。
+- 权限边界、审计与可观测性、兼容性矩阵和运维文档。
 
 ## M3 Collaboration
 
