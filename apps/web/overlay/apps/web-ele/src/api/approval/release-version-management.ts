@@ -1,6 +1,7 @@
 import type {
   ApprovalDefinition,
   ApprovalDesignDraft,
+  ApprovalPreflightReport,
 } from './process-design';
 
 import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
@@ -168,6 +169,18 @@ interface ApprovalDeploymentResult {
   replayedExistingDeployment: boolean;
 }
 
+export interface ApprovalDeploymentPreflightInput {
+  definitionKey: string;
+  deploymentTarget: string;
+  releaseVersion: number;
+}
+
+export interface ApprovalReleaseDeploymentInput {
+  acknowledgedWarningCodes: string[];
+  deploymentTarget: string;
+  preflightHash: string;
+}
+
 interface ApiErrorPayload {
   code?: string;
   error?: string;
@@ -290,13 +303,22 @@ export function diffApprovalReleaseVersions(
   );
 }
 
+export function preflightApprovalDeployment(input: ApprovalDeploymentPreflightInput) {
+  return request<ApprovalPreflightReport>('/approval/preflight/deployment', {
+    body: JSON.stringify(input),
+    method: 'POST',
+  });
+}
+
 export function deployApprovalReleasePackage(
   definitionKey: string,
   releaseVersion: number,
+  input: ApprovalReleaseDeploymentInput,
 ) {
   return request<ApprovalDeploymentResult>(
     `/approval/release-packages/${encodeURIComponent(definitionKey)}/${releaseVersion}/deployment`,
     {
+      body: JSON.stringify(input),
       headers: writeHeaders('approval-release-deploy'),
       method: 'POST',
     },
