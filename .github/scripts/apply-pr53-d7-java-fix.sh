@@ -213,5 +213,36 @@ codec_test_method = '''    @Test
 
 ''' + codec_marker
 replace_once(codec_test, codec_marker, codec_test_method)
+
+designer = Path(
+    "apps/web/overlay/apps/web-ele/src/views/approval/designer/process-designer.vue"
+)
+replace_once(
+    designer,
+    """import { nextTick, onMounted, ref } from 'vue';
+import { Page } from '@vben/common-ui';""",
+    """import { nextTick, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import { Page } from '@vben/common-ui';""",
+)
+replace_once(
+    designer,
+    """const designer = useApprovalDesigner();
+const createVisible = ref(false);""",
+    """const designer = useApprovalDesigner();
+const route = useRoute();
+const createVisible = ref(false);""",
+)
+replace_once(
+    designer,
+    "onMounted(designer.loadDrafts);",
+    """onMounted(async () => {
+  await designer.loadDrafts();
+  const importedDraftId = typeof route.query.draftId === 'string'
+    ? route.query.draftId
+    : undefined;
+  if (importedDraftId) await designer.openDraft(importedDraftId);
+});""",
+)
 PY
 rm -f .github/scripts/apply-pr53-d7-java-fix.sh
