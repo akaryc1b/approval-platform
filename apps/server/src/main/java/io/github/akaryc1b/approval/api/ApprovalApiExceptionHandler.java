@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationStore;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
@@ -48,6 +49,20 @@ public class ApprovalApiExceptionHandler {
         HttpServletRequest request
     ) {
         return response(409, "PROJECTION_CONFLICT", exception.getMessage(), false, request);
+    }
+
+    @ExceptionHandler(ApprovalTaskCollaborationStore.CollaborationConflictException.class)
+    ResponseEntity<ApiError> collaborationConflict(
+        ApprovalTaskCollaborationStore.CollaborationConflictException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            409,
+            "APPROVAL_TASK_COLLABORATION_CONFLICT",
+            exception.getMessage(),
+            false,
+            request
+        );
     }
 
     @ExceptionHandler(ApprovalEngine.EngineOperationException.class)
