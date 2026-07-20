@@ -59,13 +59,13 @@ const consistencyCount = computed(() => failures.value.items.filter(
   item => item.category === 'CONSISTENCY_CHECK',
 ).length);
 
-const categoryLabels: Record<FailureCategory, string> = {
+const categoryLabels: Readonly<Record<string, string>> = {
   BUSINESS_OUTBOX: '业务回调 Outbox',
   CONSISTENCY_CHECK: '一致性检查',
   NOTIFICATION_DELIVERY: '通知投递',
 };
 
-const kindLabels: Record<FailureKind, string> = {
+const kindLabels: Readonly<Record<string, string>> = {
   BUSINESS_CALLBACK: '业务回调',
   CONNECTOR: '连接器',
   EMAIL: '邮件',
