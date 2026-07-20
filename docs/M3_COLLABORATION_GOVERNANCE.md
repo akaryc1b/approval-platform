@@ -180,7 +180,42 @@ The permanent workflow exposed and verified two real corrections before the code
 - UniApp type checking required number-input values to be normalized to strings before the H5 and WeChat builds could run;
 - terminal reachability tests were corrected to verify the still-reachable value before the decisive rejection and zero reachable work after the policy becomes terminal and remaining participants are canceled.
 
-The next increment will continue M3 with notification preferences and reliable notification delivery governance, separated from the business callback Outbox.
+## Increment F — notification preferences and reliable delivery governance
+
+The sixth increment adds an independent platform notification domain. Notification intents and delivery evidence are distinct from the existing business callback Outbox and from the existing urge/copy message records.
+
+Completed capabilities:
+
+- tenant-isolated user notification settings with timezone, quiet hours, emergency bypass, digest eligibility and optimistic version control;
+- event-and-channel preferences for task assignments, automatic delegation, employee handover, collaboration assignments and results, approval completion or rejection, and comment mentions;
+- `IN_APP`, `CONNECTOR` and `EMAIL` channels, with only `IN_APP` enabled by default;
+- pluggable connector and email delivery SPIs where missing providers return explicit failures and never pretend that a notification was sent;
+- immutable notification intents written from approved audit facts in the same transaction as the business command;
+- external delivery through an independent scheduler so notification failure does not roll back approval state;
+- deterministic deduplication by tenant, business event, recipient and channel;
+- PostgreSQL `FOR UPDATE SKIP LOCKED` claims with processing leases for concurrent workers;
+- exponential retry delays, five-attempt limits, durable delivery-attempt history, dead-letter status and user-authorized replay;
+- quiet-hour scheduling in the user's configured timezone and emergency events bypassing quiet hours when enabled;
+- notification history, unread counts, mark-read, mark-all-read, delivery attempts and dead-letter replay APIs under `/api/approval/notifications`;
+- audit-event mappings for new task assignment, automatic delegation, formal employee handover, add-sign assignment and threshold result, approval completion or rejection, and comment mention;
+- Flyway V19 tables for user settings, per-event/channel preferences, notification intents and delivery attempts, with due-delivery, history, unread and instance indexes;
+- a PC notification center with history, unread and failed states, delivery-attempt details, replay, deep links and a full event/channel preference matrix;
+- a shared H5/WeChat notification center with history, unread state, failed replay, process/task jumps, quiet hours and channel preferences;
+- mobile personal-center notification entry with an independent unread badge.
+
+Code head `bc45e07f6f95b6fd6ed5601f5ab88177fbf94350` passed permanent workflow run `29732391526`:
+
+- repository hygiene: passed;
+- Java 21 / Maven / PostgreSQL: passed;
+- `JdbcApprovalNotificationIntegrationTest`: 10 tests, 0 failures, 0 errors, 0 skipped;
+- Vben TypeScript and production build: passed;
+- UniApp TypeScript, H5 and WeChat builds: passed.
+
+The permanent workflow exposed and verified one cross-platform correction before the code head became green:
+
+- native UniApp switches accepted the original bindings during type checking and H5 compilation, but the WeChat compiler rejected `v-model`; all notification switches now use explicit checked/change bindings that pass H5 and WeChat builds.
+
+The next increment will continue M3 with comment, mention and collaboration-record governance.
 
 ## Initial validation baseline
 
