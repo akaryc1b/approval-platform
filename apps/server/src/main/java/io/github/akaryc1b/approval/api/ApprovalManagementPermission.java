@@ -20,7 +20,10 @@ public @interface ApprovalManagementPermission {
         PUBLISH("approval.management.publish", "publish"),
         DEPLOY("approval.management.deploy", "deploy"),
         ACTIVATE("approval.management.activate", "activate"),
-        TRANSFER("approval.management.transfer", "transfer");
+        TRANSFER("approval.management.transfer", "transfer"),
+        AUDIT_READ("approval.management.audit.read", "audit-read"),
+        AUDIT_EXPORT("approval.management.audit.export", "audit-export"),
+        AUDIT_VERIFY("approval.management.audit.verify", "audit-verify");
 
         private final String authority;
         private final String metricTag;
