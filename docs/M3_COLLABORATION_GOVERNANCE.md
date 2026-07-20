@@ -1,222 +1,202 @@
 # M3 Collaboration, Delegation and Notification Governance
 
-## Status
+## Status and branch governance
 
-M3 is active on `agent/m3-collaboration-delegation-and-notification-hardening` after M2 was merged and the permanent validation workflow on `main` was confirmed green.
+M3 is active on `agent/m3-collaboration-delegation-and-notification-hardening` from the fully merged M2 baseline on `main`.
 
-The M3 pull request must remain open and in Draft state during implementation. It must target `main` directly and must not be stacked on an M2 branch.
+PR #54 must remain:
 
-## Scope baseline
+- open;
+- Draft;
+- based directly on `main`;
+- not stacked, merged, closed or auto-merged;
+- updated without force push or branch deletion.
 
-M3 will harden collaboration, delegation and notification behavior across backend, PC and mobile clients. The implementation scope includes:
+Issues #13 and #14 remain open until the complete M3 scope is finished and an explicit close request is given.
 
-- sequential and parallel countersign, any-sign, vote and weighted approval policies;
-- add-sign, remove-sign, delegation and assisted handling with explicit authority boundaries;
-- proxy rules, employee-departure transfer and durable process handover;
-- comment governance, notification-channel governance and user notification preferences;
-- tenant isolation, idempotency, concurrency safety, immutable audit evidence and stable authorization failures;
-- consistent PC, H5 and WeChat semantics backed by server-authoritative APIs;
-- permanent committed-head CI coverage with no PR-only helper, self-committing workflow or temporary payload.
+## Permanent validation contract
 
-## Delivery guardrails
+Every committed implementation and documentation head is validated by:
 
-- Preserve existing M1 and M2 runtime compatibility unless a migration is explicitly documented and tested.
-- Do not read or mutate Flowable tables directly; platform-owned projections and application ports remain authoritative.
-- Keep identity, delegation and notification decisions deterministic and auditable.
-- Keep notification delivery separate from business callback Outbox responsibilities.
-- Add database constraints, integration coverage and cross-platform contract tests with each increment.
-- Do not mark the M3 pull request ready, merge it, close it or retarget it during active development.
+`.github/workflows/approval-platform-validation.yml`
 
-## Increment A — delegation policy foundation
+The permanent workflow verifies:
 
-The first M3 increment establishes a server-authoritative proxy-rule lifecycle without changing existing task assignment behavior yet.
+- repository hygiene and rejection of temporary PR artifacts;
+- Java 21, the full Maven reactor and PostgreSQL/Testcontainers tests;
+- Vben TypeScript and the production build;
+- UniApp TypeScript, H5 and the WeChat Mini Program build.
 
-Completed capabilities:
+No PR-only workflow, self-committing CI, helper payload, patch, archive, downloaded artifact or generated build output may be committed.
 
-- tenant-owned delegation rules with `ALL` and definition-specific scopes;
-- self-service create, list and revoke APIs under `/api/approval/delegations`;
-- durable request idempotency for create and revoke commands;
-- principal-scoped PostgreSQL advisory serialization for overlap-safe writes;
-- same-scope time-window overlap rejection while allowing definition-specific rules to override a global rule;
-- deterministic effective-rule resolution with definition-specific precedence;
-- self-delegation, invalid time windows, durations longer than 366 days and unauthorized revocation rejection;
-- immutable `DELEGATION_RULE_CREATED` and `DELEGATION_RULE_REVOKED` audit evidence;
-- stable delegation-specific 400, 404, 409 and 500 API responses;
-- Flyway V14 schema constraints and resolution/query indexes;
-- PostgreSQL/Testcontainers coverage for idempotency, tenant isolation, overlap rejection, precedence, revocation and fallback.
+## Architecture guardrails
 
-Implementation head `df242607fef1db2d01af5230c35408f89ffc7b26` passed permanent workflow run `29712802784`:
+- Platform-owned projections and application ports are authoritative.
+- Flowable tables are never read or mutated directly.
+- Identity selection uses exact immutable identity evidence rather than free-text user identifiers.
+- Delegation, handover, collaboration, notification and comment decisions are tenant isolated, idempotent, concurrency safe and auditable.
+- Notification delivery remains independent from the business callback Outbox.
+- PC, H5 and WeChat consume the same server-authoritative semantics.
+- Frontend visibility never replaces backend authorization or database/platform query filtering.
 
-- repository hygiene: passed;
-- Java 21 / Maven / PostgreSQL: passed;
-- `JdbcApprovalDelegationIntegrationTest`: 3 tests, 0 failures, 0 errors, 0 skipped;
-- Vben TypeScript and production build: passed;
-- UniApp TypeScript, H5 and WeChat builds: passed.
+## Completed increment evidence
 
-Final documented head `d4308b0e6d4ab281aaff484d4d486fd2ad0db74d` passed permanent committed-head workflow run `29713024085` with the same four jobs green.
+| Increment | Scope | Verified head | Permanent run |
+| --- | --- | --- | --- |
+| A | delegation policy foundation | `d4308b0e6d4ab281aaff484d4d486fd2ad0db74d` | `29713024085` |
+| B | delegated task assignment and responsibility evidence | `c4cd5e235d65c49f2a258ba949e94b0522406b8c` | `29714577565` |
+| C | exact identities and employee handover | `81e5b31ec20c816e13f2861546df8431a70a8532` | `29718536112` |
+| D | governed add-sign and remove-sign | `6195341eea242651b783ddfdfc1a98d6065a0601` | `29720696299` |
+| E | vote and weighted collaboration | `e02088e65f35984c7988e4c08165ab5e7cb24ba5` | `29726800409` |
+| F | notification preferences and reliable delivery | `47ce510e6a906461855e071875d3dbb89eaeaace` | `29732695556` |
 
-## Increment B — delegated task assignment and responsibility evidence
+### Increment A — delegation policy foundation
 
-The second increment binds active delegation rules into the real workflow-engine task lifecycle while retaining platform-owned responsibility evidence.
+Increment A established tenant-owned global and definition-specific delegation rules, overlap-safe PostgreSQL writes, deterministic precedence, idempotent create/revoke commands, stable errors and immutable audit evidence.
 
-Completed capabilities:
+### Increment B — delegated task assignment
 
-- an `ApprovalEngine` decorator that resolves delegation whenever a new active user task becomes visible;
-- real Flowable task transfer through the existing engine SPI, without direct Flowable table reads or writes;
-- definition-specific rules taking precedence over global rules at assignment time;
-- initiator revision tasks explicitly excluded from automatic delegation;
-- restart-safe definition resolution from the platform-owned approval instance projection;
-- Flyway V15 task-delegation evidence storing the original principal, effective delegate, rule, scope and lifecycle status;
-- assignment terminal states synchronized for completion, manual transfer, retrieve and instance termination;
-- immutable `TASK_DELEGATED` audit evidence preserving the original principal as the responsibility identity;
-- participant-authorized `GET /api/approval/tasks/{taskId}/delegation` responsibility query;
-- PC delegation management page and route with create, list, include-revoked and revoke actions;
-- H5/WeChat shared delegation management page and a personal-center entry;
-- PC and mobile task details showing original principal, actual delegate, rule scope and automatic-delegation timeline events;
-- PostgreSQL/Testcontainers coverage for one-time assignment, completion evidence, manual-transfer supersession, restart resolution and revision-task exclusion.
+Increment B connected effective delegation to real Flowable user tasks through the existing engine SPI while preserving original-principal responsibility evidence and synchronizing completion, transfer, retrieve and terminal states.
 
-Implementation head `030d6d2bbc13c3ef6c5ed9050aa4f8a22e319919` passed permanent workflow run `29713811312`; `JdbcDelegatingApprovalEngineIntegrationTest` executed 3 tests with no failures, errors or skips.
+### Increment C — exact identity and employee handover
 
-Cross-platform head `c4cd5e235d65c49f2a258ba949e94b0522406b8c` passed permanent workflow run `29714577565` after a real mobile type-check failure was fixed from the downloaded Actions log:
+Increment C removed free-text identity entry, added connector-backed immutable identity snapshots and implemented current/future task handover with formal handover precedence over temporary delegation.
 
-- repository hygiene: passed;
-- Java 21 / Maven / PostgreSQL: passed;
-- Vben TypeScript and production build: passed;
-- UniApp TypeScript, H5 and WeChat builds: passed.
+### Increment D and E — collaboration policies
 
-## Increment C — governed identities and employee handover
+The existing collaboration aggregate supports `ALL`, `ANY`, `VOTE` and `WEIGHTED`, exact participants, count and weight thresholds, real-time reachability, governed add/remove operations, immutable decisions and parent-task state gates. The original task owner remains the Flowable responsibility owner.
 
-The third increment removes free-text identity entry from delegation commands and adds durable employee-departure handover across current and future approval tasks.
+### Increment F — reliable notification delivery
 
-Completed capabilities:
+Increment F added notification intents independent from the business callback Outbox, `IN_APP`, `CONNECTOR` and `EMAIL` preferences, timezone-aware quiet hours, emergency bypass, retries, exponential backoff, delivery attempts, dead letters, replay and shared PC/H5/WeChat notification centers. `JdbcApprovalNotificationIntegrationTest` executed 10 tests with no failures, errors or skips.
 
-- a connector-backed approval identity directory using exact `source`, `objectType` and external identity values;
-- deterministic identity mismatch, missing-user, inactive-user and connector-unavailable failures;
-- separate candidate searches for active delegates/successors and inactive-or-active departing principals;
-- PC, H5 and WeChat delegation creation using selected organization identities instead of raw user ID text;
-- delegation creation rejecting identities that no longer exist or are inactive;
-- management-protected employee handover create, list and revoke APIs using `approval.management.transfer`;
-- Flyway V16 principal-handover and task-handover evidence with one active handover per tenant/principal;
-- immediate transfer of all current pending tasks to the successor;
-- existing tasks already handled by a temporary delegate included in formal handover and their old delegation evidence marked `SUPERSEDED`;
-- formal employee handover taking precedence over temporary delegation for future tasks;
-- future initiator-revision tasks assigned to the successor while preserving task-specific resubmit authority only;
-- completion, manual transfer, retrieve and process termination synchronizing handover assignment terminal states;
-- immutable `EMPLOYEE_HANDOVER_CREATED`, `EMPLOYEE_HANDOVER_REVOKED` and `TASK_HANDOVER_ASSIGNED` audit evidence;
-- timeline reads supporting platform task IDs and engine task IDs for responsibility events;
-- a PC employee-handover governance page with exact departing-user and active-successor selection, immediate-transfer confirmation, history and revoke actions.
+## Increment G — governed comments, mentions and collaboration records
 
-Implementation head `81e5b31ec20c816e13f2861546df8431a70a8532` passed permanent workflow run `29718536112`:
+Increment G extends the existing comment, attachment, message and notification subsystems. It does not create a parallel comment implementation.
 
-- repository hygiene: passed;
-- Java 21 / Maven / PostgreSQL: passed;
-- `JdbcApprovalHandoverIntegrationTest`: 4 tests, 0 failures, 0 errors, 0 skipped;
-- Vben TypeScript and production build: passed;
-- UniApp TypeScript, H5 and WeChat builds: passed.
+### Comment lifecycle and revision evidence
 
-## Increment D — governed dynamic add-sign and remove-sign
+The existing `ApprovalCommentService`, `ApprovalCommentStore`, `JdbcApprovalCommentStore` and `ApprovalCommentController` now support:
 
-The fourth increment attaches a platform-owned collaboration policy to an existing pending task while leaving the original Flowable task and responsibility owner unchanged.
+- `ACTIVE` and `DELETED` lifecycle states;
+- creation and one-level replies;
+- author-only edits and tombstone deletion;
+- a 15-minute edit/delete window;
+- `expectedVersion` optimistic concurrency;
+- stable tombstone text while retaining historical evidence;
+- mandatory persisted delete reasons;
+- immutable structured `CREATE`, `EDIT` and `DELETE` revisions;
+- revision number, body, mentions, attachments, visibility, operator, reason and occurrence time;
+- revision-body access restricted to the comment author or approval initiator;
+- terminal approval instances retaining readable history while the comment area becomes read-only.
 
-Completed capabilities:
+Historical bodies, mention evidence and attachment references are never physically deleted and are not stored only inside generic audit JSON.
 
-- exact active connector identities for every add-sign participant, with duplicate resolved-user and current-owner rejection;
-- the initial `ALL` and `ANY` collaboration lifecycle, subsequently extended and regression-hardened by Increment E;
-- parent-task approval blocked until collaboration is satisfied, with task claim and collaboration creation serialized by the same PostgreSQL advisory lock;
-- transfer and retrieve blocked while collaboration is active;
-- process withdrawal canceling the active collaboration and all remaining participant work;
-- remove-sign allowed only for pending participants before any collaboration decision and never for the final pending participant;
-- initiator-revision tasks excluded from dynamic add-sign;
-- durable idempotency for collaboration creation, participant decision and remove-sign commands;
-- Flyway V17 policy and participant evidence with one active policy per tenant/task, exact identity evidence and constrained terminal metadata;
-- immutable `TASK_COLLABORATION_CREATED`, `TASK_COLLABORATOR_REMOVED` and `TASK_COLLABORATION_PARTICIPANT_DECIDED` audit evidence;
-- participant-authorized collaboration task queries and owner/initiator/participant policy visibility;
-- PC `加签协作` workspace for selecting a real pending task, exact organization identities, `ALL`/`ANY` mode, remove-sign and participant decisions;
-- shared H5/WeChat `加签协作` workspace and personal-center entry using the same server-authoritative APIs and semantics.
+### Visibility and private replies
 
-Backend implementation head `8801c38984647a11287dd39f46842cd02e3be77b` passed permanent workflow run `29720189256`.
+Comments support:
 
-Cross-platform head `6195341eea242651b783ddfdfc1a98d6065a0601` passed permanent workflow run `29720696299`:
+- `PARTICIPANTS`: approval participants may read the current comment;
+- `MENTIONED_ONLY`: only the author and explicitly mentioned recipients may read it.
 
-- repository hygiene: passed;
-- Java 21 / Maven / PostgreSQL: passed;
-- `JdbcApprovalTaskCollaborationIntegrationTest`: 3 tests, 0 failures, 0 errors, 0 skipped;
-- Vben TypeScript and production build: passed;
-- UniApp TypeScript, H5 and WeChat builds: passed.
+Private comments must mention at least one valid approval participant. Replies inherit the parent visibility, cannot expand a private audience and must preserve the parent author in the private reply audience when required.
 
-## Increment E — governed vote and weighted approval policies
+Comment-list visibility is filtered by PostgreSQL/platform query criteria before records are returned. Clients do not receive an unrestricted list for frontend-only hiding.
 
-The fifth increment extends the existing collaboration policy instead of creating a parallel voting subsystem. Platform-owned projections, PostgreSQL transactions and the original task responsibility identity remain authoritative.
+### Precise mention identities
 
-Completed capabilities:
+Mention candidates are assembled from platform-owned evidence for:
 
-- `ALL`, `ANY`, `VOTE` and `WEIGHTED` collaboration modes in the existing application port, service and JDBC aggregate;
-- corrected `ANY` semantics: one rejection remains active, the first approval satisfies the policy, and only rejection by every effective participant rejects it;
-- vote thresholds constrained to the effective participant count and weighted thresholds constrained to the effective total weight;
-- positive participant weights persisted as immutable responsibility evidence instead of remaining request-only data;
-- real-time approval counts, approved weights, pending values and maximum reachable counts or weights derived transactionally from participant evidence rather than a mutable aggregate cache;
-- participant addition before any decision, using exact active connector identities and rejecting duplicate users or the current task owner;
-- remove-sign validation that returns a stable conflict when the remaining vote count or total weight would make the configured threshold invalid;
-- participant addition and removal prohibited after the first decision to prevent vote manipulation;
-- the same tenant/task PostgreSQL advisory lock used by policy creation, participant addition, remove-sign, participant decisions and parent-task claim;
-- parent-task gates where `ACTIVE` blocks approval, transfer and retrieve but still permits an explicit parent rejection; `SATISFIED` permits the original approver to approve or reject; `REJECTED` permits only rejection; and `CANCELED` behaves as no active policy;
-- process withdrawal and explicit parent rejection canceling remaining collaboration work without changing the original Flowable assignee;
-- existing task collaboration APIs extended with thresholds, weights and progress, plus `POST /api/approval/tasks/{taskId}/collaboration/participants` for governed participant addition;
-- stable collaboration error codes for invalid thresholds or weights, duplicates, owner participation, decisions already started, unreachable thresholds, authorization, concurrent modification and connector resolution failures;
-- immutable `TASK_COLLABORATION_CREATED`, `TASK_COLLABORATOR_ADDED`, `TASK_COLLABORATOR_REMOVED`, `TASK_COLLABORATION_PARTICIPANT_DECIDED`, `TASK_COLLABORATION_THRESHOLD_REACHED` and `TASK_COLLABORATION_THRESHOLD_IMPOSSIBLE` audit evidence with mode, thresholds, participant weights, progress, owner, task and process-definition attributes;
-- Flyway V18 compatible extension adding threshold columns, participant weights, mode/threshold/weight constraints and collaboration query indexes without reading or mutating Flowable tables;
-- PC, H5 and WeChat `加签协作` workspaces supporting all four modes, exact identity search, per-user weights, threshold previews, live progress, participant decisions, governed addition and remove-sign, and clear Chinese terminal states.
+- the initiator;
+- current and historical task participants represented by approval projections;
+- copy/message participants;
+- collaboration/add-sign participants;
+- immutable approval identity snapshots.
 
-Code head `36d4602b877a534b7e4f4e7ce23d4c0eac69f470` passed permanent workflow run `29726540642`:
+Candidate evidence includes internal user ID, display name, identity source, object type and external identity value. Create and edit commands reject users who are not valid participants in the approval instance.
 
-- repository hygiene: passed;
-- Java 21 / Maven / PostgreSQL: passed;
-- `JdbcApprovalTaskCollaborationIntegrationTest`: 19 tests, 0 failures, 0 errors, 0 skipped;
-- Vben TypeScript and production build: passed;
-- UniApp TypeScript, H5 and WeChat builds: passed.
+The existing `MENTION` message and `COMMENT_MENTION` notification paths are reused. A create revision notifies its recipients once; an edit revision notifies only newly added recipients. Existing recipients are not notified again merely because the body changed.
 
-The permanent workflow exposed and verified two real corrections before the code head became green:
+### Attachment governance
 
-- UniApp type checking required number-input values to be normalized to strings before the H5 and WeChat builds could run;
-- terminal reachability tests were corrected to verify the still-reachable value before the decisive rejection and zero reachable work after the policy becomes terminal and remaining participants are canceled.
+Comment attachments must:
 
-## Increment F — notification preferences and reliable delivery governance
+- be uploaded by the current comment author;
+- belong to the same tenant and approval instance;
+- never reference another user's upload or another approval instance;
+- pass the same ownership validation during edits.
 
-The sixth increment adds an independent platform notification domain. Notification intents and delivery evidence are distinct from the existing business callback Outbox and from the existing urge/copy message records.
+Attachment download authorization checks comment references. When an attachment is referenced by private comments, a participant cannot bypass private comment visibility by requesting the attachment ID directly.
 
-Completed capabilities:
+### Collaboration participant authority
 
-- tenant-isolated user notification settings with timezone, quiet hours, emergency bypass, digest eligibility and optimistic version control;
-- event-and-channel preferences for task assignments, automatic delegation, employee handover, collaboration assignments and results, approval completion or rejection, and comment mentions;
-- `IN_APP`, `CONNECTOR` and `EMAIL` channels, with only `IN_APP` enabled by default;
-- pluggable connector and email delivery SPIs where missing providers return explicit failures and never pretend that a notification was sent;
-- immutable notification intents written from approved audit facts in the same transaction as the business command;
-- external delivery through an independent scheduler so notification failure does not roll back approval state;
-- deterministic deduplication by tenant, business event, recipient and channel;
-- PostgreSQL `FOR UPDATE SKIP LOCKED` claims with processing leases for concurrent workers;
-- exponential retry delays, five-attempt limits, durable delivery-attempt history, dead-letter status and user-authorized replay;
-- quiet-hour scheduling in the user's configured timezone and emergency events bypassing quiet hours when enabled;
-- notification history, unread counts, mark-read, mark-all-read, delivery attempts and dead-letter replay APIs under `/api/approval/notifications`;
-- audit-event mappings for new task assignment, automatic delegation, formal employee handover, add-sign assignment and threshold result, approval completion or rejection, and comment mention;
-- Flyway V19 tables for user settings, per-event/channel preferences, notification intents and delivery attempts, with due-delivery, history, unread and instance indexes;
-- a PC notification center with history, unread and failed states, delivery-attempt details, replay, deep links and a full event/channel preference matrix;
-- a shared H5/WeChat notification center with history, unread state, failed replay, process/task jumps, quiet hours and channel preferences;
-- mobile personal-center notification entry with an independent unread badge.
+Add-sign/collaboration participants are formal comment participants. They may read visible comments, create and reply, be precisely mentioned and download visible comment attachments. Collaboration status does not grant authority to modify another author's comment, read unrelated private comments, read all revision bodies or perform comment administration.
 
-Code head `bc45e07f6f95b6fd6ed5601f5ab88177fbf94350` passed permanent workflow run `29732391526`:
+### API contract
+
+The existing controller path exposes:
+
+- `POST /api/approval/instances/{instanceId}/comments`;
+- `PUT /api/approval/instances/{instanceId}/comments/{commentId}`;
+- `DELETE /api/approval/instances/{instanceId}/comments/{commentId}`;
+- `GET /api/approval/instances/{instanceId}/comments/{commentId}/revisions`;
+- `GET /api/approval/instances/{instanceId}/comments/options`;
+- `GET /api/approval/instances/{instanceId}/comments`.
+
+Stable errors distinguish invalid request, unauthorized access, not found, expired edit window, read-only instance, concurrent modification, invalid mention, private audience expansion, attachment ownership conflict and deleted-comment state conflict.
+
+### Database migration
+
+Flyway `V20__govern_approval_comment_lifecycle.sql` adds:
+
+- status, visibility, current revision and optimistic version fields;
+- update and deletion metadata;
+- the structured comment-revision table;
+- lifecycle and metadata constraints;
+- visibility, mention, attachment and revision indexes;
+- compatibility backfill for legacy comments as `ACTIVE`, `PARTICIPANTS`, revision 1 with initial revision evidence.
+
+The migration uses only platform-owned tables.
+
+### PC, H5 and WeChat clients
+
+The existing PC and mobile comment components share the server contract for:
+
+- visibility selection and private markers;
+- exact mention candidates with identity evidence;
+- attachments and one-level replies;
+- author edit and delete actions;
+- mandatory delete reasons;
+- edited state and tombstones;
+- revision history;
+- terminal read-only state;
+- collaboration-participant use.
+
+The mobile implementation avoids browser-only APIs. H5 and WeChat use the same UniApp page and both are built by permanent CI. No native Mini Program `switch` uses `v-model`.
+
+### PostgreSQL validation evidence
+
+Code head `4e887fe47e0bd5564418a0a10a67f0e58ea0fbed` passed permanent workflow run `29741633579`:
 
 - repository hygiene: passed;
 - Java 21 / Maven / PostgreSQL: passed;
-- `JdbcApprovalNotificationIntegrationTest`: 10 tests, 0 failures, 0 errors, 0 skipped;
+- `JdbcApprovalCommentIntegrationTest`: 15 tests, 0 failures, 0 errors, 0 skipped;
+- full 16-module Maven reactor: `BUILD SUCCESS`;
 - Vben TypeScript and production build: passed;
 - UniApp TypeScript, H5 and WeChat builds: passed.
 
-The permanent workflow exposed and verified one cross-platform correction before the code head became green:
+The PostgreSQL/Testcontainers matrix covers create/edit revisions, new-mention notifications, private visibility and attachment bypass prevention, private reply inheritance, author permissions, the 15-minute window, optimistic conflicts, tombstones, terminal read-only state, collaboration participants, attachment ownership, revision permissions, tenant isolation, idempotency, audit evidence and mention-notification deduplication.
 
-- native UniApp switches accepted the original bindings during type checking and H5 compilation, but the WeChat compiler rejected `v-model`; all notification switches now use explicit checked/change bindings that pass H5 and WeChat builds.
+The permanent workflow exposed and verified real implementation corrections before the code head became green:
 
-The next increment will continue M3 with comment, mention and collaboration-record governance.
+- constructor wiring was updated after attachment download became comment-audience aware;
+- PC and mobile page models were updated for the server-owned read-only flag;
+- a test fixture was corrected to reuse an already published tenant definition rather than weaken the production uniqueness constraint.
 
-## Initial validation baseline
+## Next increment
 
-M3 starts from `main` merge commit `4e468f9f049b52cb20855872cddf44eaa237501b`, which contains the complete M2 delivery and the permanent `.github/workflows/approval-platform-validation.yml` workflow.
+Increment H will add versioned audit-event contracts, integrity evidence, bounded administrative query/export, consistency checks, failure-queue operations, a unified permission matrix, cross-module fault tests, database-index validation and final M3 acceptance without direct Flowable-table access.
+
+## Initial M3 baseline
+
+M3 started from `main` merge commit `4e468f9f049b52cb20855872cddf44eaa237501b`, which contains the complete M2 delivery and the permanent validation workflow.
