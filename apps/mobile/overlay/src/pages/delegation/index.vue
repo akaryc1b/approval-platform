@@ -288,7 +288,7 @@ watch(includeRevoked, loadRules)
         <view class="form-title">新建代理规则</view>
         <view class="field">
           <text class="field-label">代理人用户 ID</text>
-          <input v-model="form.delegateId" class="field-input" maxlength="256" placeholder="例如 user-1002">
+          <input v-model="form.delegateId" class="field-input" :maxlength="256" placeholder="例如 user-1002">
         </view>
         <view class="field">
           <text class="field-label">代理范围</text>
@@ -298,7 +298,7 @@ watch(includeRevoked, loadRules)
         </view>
         <view v-if="form.scope === 'DEFINITION'" class="field">
           <text class="field-label">流程标识</text>
-          <input v-model="form.definitionKey" class="field-input" maxlength="256" placeholder="例如 purchase-payment">
+          <input v-model="form.definitionKey" class="field-input" :maxlength="256" placeholder="例如 purchase-payment">
         </view>
         <view class="date-grid">
           <view class="field">
@@ -331,7 +331,7 @@ watch(includeRevoked, loadRules)
           <textarea
             v-model="form.reason"
             class="field-textarea"
-            maxlength="2000"
+            :maxlength="2000"
             placeholder="说明请假、出差或临时职责安排"
           />
         </view>
