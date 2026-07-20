@@ -9,6 +9,7 @@ export type ApprovalConnectorType =
 export interface ApprovalRuntimeConfig {
   apiBaseUrl: string
   connector: ApprovalConnectorType
+  connectorKey: string
   operatorId: string
   tenantId: string
 }
@@ -19,6 +20,11 @@ function requiredValue(value: string | undefined, name: string) {
     throw new Error(`${name} is required for approval API requests`)
   }
   return normalized
+}
+
+function defaultConnectorKey(connector: ApprovalConnectorType) {
+  if (connector === 'standalone' || connector === 'generic') return 'generic-rest'
+  return connector
 }
 
 /**
@@ -34,6 +40,8 @@ export function getApprovalRuntimeConfig(): ApprovalRuntimeConfig {
   const connector = (
     import.meta.env.VITE_APPROVAL_CONNECTOR || 'standalone'
   ) as ApprovalConnectorType
+  const connectorKey = import.meta.env.VITE_APPROVAL_CONNECTOR_KEY?.trim()
+    || defaultConnectorKey(connector)
   const tenantId = requiredValue(
     import.meta.env.VITE_APPROVAL_TENANT_ID,
     'VITE_APPROVAL_TENANT_ID',
@@ -46,6 +54,7 @@ export function getApprovalRuntimeConfig(): ApprovalRuntimeConfig {
   return {
     apiBaseUrl,
     connector,
+    connectorKey,
     operatorId,
     tenantId,
   }
