@@ -38,7 +38,7 @@ readme.write_text(text, encoding='utf-8')
 
 operations = Path('docs/OPERATIONS.md')
 text = operations.read_text(encoding='utf-8')
-old = '''The Spring `local` profile disables this boundary for the repository's standalone development environment. Production deployments must not activate the local profile and must not disable the boundary.'''
+old = '''The Spring `local` profile disables management authorization for standalone development. Never use the local profile in production.'''
 new = '''No Spring profile is activated by default. Developers who need the standalone local settings must explicitly set `SPRING_PROFILES_ACTIVE=local`. The `local` profile disables this boundary; production deployments must not activate that profile and must not disable the boundary.'''
 if old not in text:
     raise SystemExit('operations local-profile marker was not found')
