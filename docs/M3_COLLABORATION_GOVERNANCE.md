@@ -121,8 +121,7 @@ The fourth increment attaches a platform-owned collaboration policy to an existi
 Completed capabilities:
 
 - exact active connector identities for every add-sign participant, with duplicate resolved-user and current-owner rejection;
-- `ALL` collaboration requiring every remaining participant to approve and `ANY` collaboration completing after the first approval;
-- any participant rejection placing the collaboration in `REJECTED` state and forcing the parent approval task to use its rejection action;
+- the initial `ALL` and `ANY` collaboration lifecycle, subsequently extended and regression-hardened by Increment E;
 - parent-task approval blocked until collaboration is satisfied, with task claim and collaboration creation serialized by the same PostgreSQL advisory lock;
 - transfer and retrieve blocked while collaboration is active;
 - process withdrawal canceling the active collaboration and all remaining participant work;
@@ -145,7 +144,43 @@ Cross-platform head `6195341eea242651b783ddfdfc1a98d6065a0601` passed permanent 
 - Vben TypeScript and production build: passed;
 - UniApp TypeScript, H5 and WeChat builds: passed.
 
-The next increment will continue M3 with governed vote and weighted approval policies, followed by notification-channel preferences and delivery governance.
+## Increment E — governed vote and weighted approval policies
+
+The fifth increment extends the existing collaboration policy instead of creating a parallel voting subsystem. Platform-owned projections, PostgreSQL transactions and the original task responsibility identity remain authoritative.
+
+Completed capabilities:
+
+- `ALL`, `ANY`, `VOTE` and `WEIGHTED` collaboration modes in the existing application port, service and JDBC aggregate;
+- corrected `ANY` semantics: one rejection remains active, the first approval satisfies the policy, and only rejection by every effective participant rejects it;
+- vote thresholds constrained to the effective participant count and weighted thresholds constrained to the effective total weight;
+- positive participant weights persisted as immutable responsibility evidence instead of remaining request-only data;
+- real-time approval counts, approved weights, pending values and maximum reachable counts or weights derived transactionally from participant evidence rather than a mutable aggregate cache;
+- participant addition before any decision, using exact active connector identities and rejecting duplicate users or the current task owner;
+- remove-sign validation that returns a stable conflict when the remaining vote count or total weight would make the configured threshold invalid;
+- participant addition and removal prohibited after the first decision to prevent vote manipulation;
+- the same tenant/task PostgreSQL advisory lock used by policy creation, participant addition, remove-sign, participant decisions and parent-task claim;
+- parent-task gates where `ACTIVE` blocks approval, transfer and retrieve but still permits an explicit parent rejection; `SATISFIED` permits the original approver to approve or reject; `REJECTED` permits only rejection; and `CANCELED` behaves as no active policy;
+- process withdrawal and explicit parent rejection canceling remaining collaboration work without changing the original Flowable assignee;
+- existing task collaboration APIs extended with thresholds, weights and progress, plus `POST /api/approval/tasks/{taskId}/collaboration/participants` for governed participant addition;
+- stable collaboration error codes for invalid thresholds or weights, duplicates, owner participation, decisions already started, unreachable thresholds, authorization, concurrent modification and connector resolution failures;
+- immutable `TASK_COLLABORATION_CREATED`, `TASK_COLLABORATOR_ADDED`, `TASK_COLLABORATOR_REMOVED`, `TASK_COLLABORATION_PARTICIPANT_DECIDED`, `TASK_COLLABORATION_THRESHOLD_REACHED` and `TASK_COLLABORATION_THRESHOLD_IMPOSSIBLE` audit evidence with mode, thresholds, participant weights, progress, owner, task and process-definition attributes;
+- Flyway V18 compatible extension adding threshold columns, participant weights, mode/threshold/weight constraints and collaboration query indexes without reading or mutating Flowable tables;
+- PC, H5 and WeChat `加签协作` workspaces supporting all four modes, exact identity search, per-user weights, threshold previews, live progress, participant decisions, governed addition and remove-sign, and clear Chinese terminal states.
+
+Code head `36d4602b877a534b7e4f4e7ce23d4c0eac69f470` passed permanent workflow run `29726540642`:
+
+- repository hygiene: passed;
+- Java 21 / Maven / PostgreSQL: passed;
+- `JdbcApprovalTaskCollaborationIntegrationTest`: 19 tests, 0 failures, 0 errors, 0 skipped;
+- Vben TypeScript and production build: passed;
+- UniApp TypeScript, H5 and WeChat builds: passed.
+
+The permanent workflow exposed and verified two real corrections before the code head became green:
+
+- UniApp type checking required number-input values to be normalized to strings before the H5 and WeChat builds could run;
+- terminal reachability tests were corrected to verify the still-reachable value before the decisive rejection and zero reachable work after the policy becomes terminal and remaining participants are canceled.
+
+The next increment will continue M3 with notification preferences and reliable notification delivery governance, separated from the business callback Outbox.
 
 ## Initial validation baseline
 
