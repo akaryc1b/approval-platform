@@ -62,6 +62,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ApprovalHandovers',
+        path: '/approval/handovers',
+        component: () => import('#/views/approval/handovers/index.vue'),
+        meta: {
+          authority: ['approval:ops:view'],
+          icon: 'lucide:users-round',
+          title: '离职交接',
+        },
+      },
+      {
         name: 'ApprovalDesigner',
         path: '/approval/designer',
         component: () => import('#/views/approval/designer/index.vue'),
