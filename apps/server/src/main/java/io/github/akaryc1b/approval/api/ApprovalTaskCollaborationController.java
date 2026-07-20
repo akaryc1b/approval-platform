@@ -1,8 +1,12 @@
 package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.ApprovalTaskCollaborationService;
+import io.github.akaryc1b.approval.application.ApprovalTaskCollaborationService.ParticipantSpec;
 import io.github.akaryc1b.approval.application.port.ApprovalIdentityDirectory.IdentityReference;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationStore.CollaborationMode;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationStore.CollaborationParticipant;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationStore.CollaborationProgress;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationStore.CollaborationStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationStore.ParticipantDecision;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationStore.PendingCollaborationTask;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationStore.TaskCollaboration;
@@ -23,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,7 +48,7 @@ public class ApprovalTaskCollaborationController {
     }
 
     @PostMapping("/tasks/{taskId}/collaboration")
-    public TaskCollaboration create(
+    public TaskCollaborationResponse create(
         @RequestHeader(TENANT_ID) String tenantId,
         @RequestHeader(OPERATOR_ID) String operatorId,
         @RequestHeader(REQUEST_ID) String requestId,
@@ -52,23 +57,50 @@ public class ApprovalTaskCollaborationController {
         @PathVariable UUID taskId,
         @Valid @RequestBody CreateCollaborationRequest request
     ) {
-        return service.create(new ApprovalTaskCollaborationService.CreateCollaborationCommand(
-            context(tenantId, operatorId, requestId, idempotencyKey, traceId),
-            taskId,
-            request.connectorKey(),
-            request.mode(),
-            request.participants().stream().map(IdentityReferenceRequest::identity).toList(),
-            request.reason()
-        ));
+        TaskCollaboration collaboration = service.create(
+            new ApprovalTaskCollaborationService.CreateCollaborationCommand(
+                context(tenantId, operatorId, requestId, idempotencyKey, traceId),
+                taskId,
+                request.connectorKey(),
+                request.mode(),
+                request.approvalThreshold(),
+                request.approvalWeightThreshold(),
+                request.participants().stream().map(ParticipantRequest::participant).toList(),
+                request.reason()
+            )
+        );
+        return TaskCollaborationResponse.from(collaboration);
+    }
+
+    @PostMapping("/tasks/{taskId}/collaboration/participants")
+    public TaskCollaborationResponse addParticipants(
+        @RequestHeader(TENANT_ID) String tenantId,
+        @RequestHeader(OPERATOR_ID) String operatorId,
+        @RequestHeader(REQUEST_ID) String requestId,
+        @RequestHeader(IDEMPOTENCY_KEY) String idempotencyKey,
+        @RequestHeader(value = TRACE_ID, required = false) String traceId,
+        @PathVariable UUID taskId,
+        @Valid @RequestBody AddParticipantsRequest request
+    ) {
+        TaskCollaboration collaboration = service.add(
+            new ApprovalTaskCollaborationService.AddParticipantsCommand(
+                context(tenantId, operatorId, requestId, idempotencyKey, traceId),
+                taskId,
+                request.connectorKey(),
+                request.participants().stream().map(ParticipantRequest::participant).toList(),
+                request.reason()
+            )
+        );
+        return TaskCollaborationResponse.from(collaboration);
     }
 
     @GetMapping("/tasks/{taskId}/collaboration")
-    public TaskCollaboration findByTask(
+    public TaskCollaborationResponse findByTask(
         @RequestHeader(TENANT_ID) String tenantId,
         @RequestHeader(OPERATOR_ID) String operatorId,
         @PathVariable UUID taskId
     ) {
-        return service.findByTask(tenantId, operatorId, taskId);
+        return TaskCollaborationResponse.from(service.findByTask(tenantId, operatorId, taskId));
     }
 
     @GetMapping("/collaboration/tasks/pending")
@@ -81,7 +113,7 @@ public class ApprovalTaskCollaborationController {
     }
 
     @PostMapping("/collaboration/participants/{participantId}/remove")
-    public TaskCollaboration removeParticipant(
+    public TaskCollaborationResponse removeParticipant(
         @RequestHeader(TENANT_ID) String tenantId,
         @RequestHeader(OPERATOR_ID) String operatorId,
         @RequestHeader(REQUEST_ID) String requestId,
@@ -90,15 +122,18 @@ public class ApprovalTaskCollaborationController {
         @PathVariable UUID participantId,
         @Valid @RequestBody RemoveParticipantRequest request
     ) {
-        return service.remove(new ApprovalTaskCollaborationService.RemoveParticipantCommand(
-            context(tenantId, operatorId, requestId, idempotencyKey, traceId),
-            participantId,
-            request.reason()
-        ));
+        TaskCollaboration collaboration = service.remove(
+            new ApprovalTaskCollaborationService.RemoveParticipantCommand(
+                context(tenantId, operatorId, requestId, idempotencyKey, traceId),
+                participantId,
+                request.reason()
+            )
+        );
+        return TaskCollaborationResponse.from(collaboration);
     }
 
     @PostMapping("/collaboration/participants/{participantId}/decide")
-    public TaskCollaboration decideParticipant(
+    public TaskCollaborationResponse decideParticipant(
         @RequestHeader(TENANT_ID) String tenantId,
         @RequestHeader(OPERATOR_ID) String operatorId,
         @RequestHeader(REQUEST_ID) String requestId,
@@ -107,12 +142,15 @@ public class ApprovalTaskCollaborationController {
         @PathVariable UUID participantId,
         @Valid @RequestBody DecideParticipantRequest request
     ) {
-        return service.decide(new ApprovalTaskCollaborationService.DecideParticipantCommand(
-            context(tenantId, operatorId, requestId, idempotencyKey, traceId),
-            participantId,
-            request.decision(),
-            request.comment()
-        ));
+        TaskCollaboration collaboration = service.decide(
+            new ApprovalTaskCollaborationService.DecideParticipantCommand(
+                context(tenantId, operatorId, requestId, idempotencyKey, traceId),
+                participantId,
+                request.decision(),
+                request.comment()
+            )
+        );
+        return TaskCollaborationResponse.from(collaboration);
     }
 
     private static RequestContext context(
@@ -134,7 +172,9 @@ public class ApprovalTaskCollaborationController {
     public record CreateCollaborationRequest(
         @NotBlank @Size(max = 128) String connectorKey,
         @NotNull CollaborationMode mode,
-        @NotEmpty @Size(max = 20) List<@Valid IdentityReferenceRequest> participants,
+        @Min(1) @Max(20) Integer approvalThreshold,
+        @Min(1) @Max(20000) Integer approvalWeightThreshold,
+        @NotEmpty @Size(max = 20) List<@Valid ParticipantRequest> participants,
         @NotBlank @Size(max = 2000) String reason
     ) {
         public CreateCollaborationRequest {
@@ -142,13 +182,27 @@ public class ApprovalTaskCollaborationController {
         }
     }
 
-    public record IdentityReferenceRequest(
+    public record AddParticipantsRequest(
+        @NotBlank @Size(max = 128) String connectorKey,
+        @NotEmpty @Size(max = 20) List<@Valid ParticipantRequest> participants,
+        @NotBlank @Size(max = 2000) String reason
+    ) {
+        public AddParticipantsRequest {
+            participants = participants == null ? List.of() : List.copyOf(participants);
+        }
+    }
+
+    public record ParticipantRequest(
         @NotBlank @Size(max = 128) String source,
         @NotBlank @Size(max = 128) String objectType,
-        @NotBlank @Size(max = 256) String value
+        @NotBlank @Size(max = 256) String value,
+        @Min(1) @Max(1000) Integer weight
     ) {
-        IdentityReference identity() {
-            return new IdentityReference(source, objectType, value);
+        ParticipantSpec participant() {
+            return new ParticipantSpec(
+                new IdentityReference(source, objectType, value),
+                weight == null ? 1 : weight
+            );
         }
     }
 
@@ -161,5 +215,59 @@ public class ApprovalTaskCollaborationController {
         @NotNull ParticipantDecision decision,
         @NotBlank @Size(max = 2000) String comment
     ) {
+    }
+
+    public record TaskCollaborationResponse(
+        UUID policyId,
+        String tenantId,
+        UUID taskId,
+        UUID instanceId,
+        String engineTaskId,
+        String engineInstanceId,
+        String definitionKey,
+        String taskDefinitionKey,
+        String taskName,
+        String ownerAssigneeId,
+        CollaborationMode mode,
+        Integer approvalThreshold,
+        Integer approvalWeightThreshold,
+        CollaborationStatus status,
+        String reason,
+        String createdBy,
+        Instant createdAt,
+        String terminalBy,
+        Instant terminalAt,
+        String terminalReason,
+        long version,
+        List<CollaborationParticipant> participants,
+        CollaborationProgress progress
+    ) {
+        static TaskCollaborationResponse from(TaskCollaboration collaboration) {
+            return new TaskCollaborationResponse(
+                collaboration.policyId(),
+                collaboration.tenantId(),
+                collaboration.taskId(),
+                collaboration.instanceId(),
+                collaboration.engineTaskId(),
+                collaboration.engineInstanceId(),
+                collaboration.definitionKey(),
+                collaboration.taskDefinitionKey(),
+                collaboration.taskName(),
+                collaboration.ownerAssigneeId(),
+                collaboration.mode(),
+                collaboration.approvalThreshold(),
+                collaboration.approvalWeightThreshold(),
+                collaboration.status(),
+                collaboration.reason(),
+                collaboration.createdBy(),
+                collaboration.createdAt(),
+                collaboration.terminalBy(),
+                collaboration.terminalAt(),
+                collaboration.terminalReason(),
+                collaboration.version(),
+                collaboration.participants(),
+                collaboration.progress()
+            );
+        }
     }
 }
