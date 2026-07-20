@@ -2,7 +2,7 @@ import type { IdentityReference } from '#/api/approval/identities';
 
 import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
-export type CollaborationMode = 'ALL' | 'ANY';
+export type CollaborationMode = 'ALL' | 'ANY' | 'VOTE' | 'WEIGHTED';
 export type CollaborationStatus = 'ACTIVE' | 'CANCELED' | 'REJECTED' | 'SATISFIED';
 export type ParticipantDecision = 'APPROVED' | 'REJECTED';
 export type ParticipantStatus =
@@ -11,6 +11,10 @@ export type ParticipantStatus =
   | 'PENDING'
   | 'REJECTED'
   | 'REMOVED';
+
+export interface CollaborationParticipantInput extends IdentityReference {
+  weight?: number;
+}
 
 export interface CollaborationParticipant {
   addedAt: string;
@@ -28,9 +32,25 @@ export interface CollaborationParticipant {
   status: ParticipantStatus;
   tenantId: string;
   version: number;
+  weight: number;
+}
+
+export interface CollaborationProgress {
+  approvedCount: number;
+  approvedWeight: number;
+  eligibleParticipantCount: number;
+  maximumReachableApprovalCount: number;
+  maximumReachableApprovalWeight: number;
+  pendingCount: number;
+  pendingWeight: number;
+  rejectedCount: number;
+  rejectedWeight: number;
+  totalWeight: number;
 }
 
 export interface TaskCollaboration {
+  approvalThreshold?: number;
+  approvalWeightThreshold?: number;
   createdAt: string;
   createdBy: string;
   definitionKey: string;
@@ -41,6 +61,7 @@ export interface TaskCollaboration {
   ownerAssigneeId: string;
   participants: CollaborationParticipant[];
   policyId: string;
+  progress: CollaborationProgress;
   reason: string;
   status: CollaborationStatus;
   taskDefinitionKey: string;
@@ -55,12 +76,16 @@ export interface TaskCollaboration {
 
 export interface PendingCollaborationTask {
   addedAt: string;
+  approvalThreshold?: number;
+  approvalWeightThreshold?: number;
   definitionKey: string;
   instanceId: string;
   mode: CollaborationMode;
   ownerAssigneeId: string;
   participantId: string;
+  participantWeight: number;
   policyId: string;
+  progress: CollaborationProgress;
   reason: string;
   taskDefinitionKey: string;
   taskId: string;
@@ -139,20 +164,44 @@ export function findPendingCollaborationTasks(limit = 100) {
 export function createTaskCollaboration(
   taskId: string,
   mode: CollaborationMode,
-  participants: IdentityReference[],
+  participants: CollaborationParticipantInput[],
   reason: string,
+  approvalThreshold?: number,
+  approvalWeightThreshold?: number,
 ) {
   const runtime = getApprovalRuntimeConfig();
   return request<TaskCollaboration>(
     `/approval/tasks/${encodeURIComponent(taskId)}/collaboration`,
     {
       body: JSON.stringify({
+        approvalThreshold,
+        approvalWeightThreshold,
         connectorKey: runtime.connector,
         mode,
         participants,
         reason: reason.trim(),
       }),
       headers: commandHeaders('web-task-collaboration-create'),
+      method: 'POST',
+    },
+  );
+}
+
+export function addTaskCollaborators(
+  taskId: string,
+  participants: CollaborationParticipantInput[],
+  reason: string,
+) {
+  const runtime = getApprovalRuntimeConfig();
+  return request<TaskCollaboration>(
+    `/approval/tasks/${encodeURIComponent(taskId)}/collaboration/participants`,
+    {
+      body: JSON.stringify({
+        connectorKey: runtime.connector,
+        participants,
+        reason: reason.trim(),
+      }),
+      headers: commandHeaders('web-task-collaboration-add'),
       method: 'POST',
     },
   );
