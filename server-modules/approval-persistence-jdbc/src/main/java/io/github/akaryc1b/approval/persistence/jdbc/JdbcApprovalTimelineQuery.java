@@ -86,7 +86,10 @@ public final class JdbcApprovalTimelineQuery implements ApprovalTimelineQuery {
                                         from ap_approval_task historical_task
                                         where historical_task.tenant_id = event.tenant_id
                                           and historical_task.instance_id = instance.instance_id
-                                          and historical_task.task_id::text = event.aggregate_id
+                                          and (
+                                              historical_task.task_id::text = event.aggregate_id
+                                              or historical_task.engine_task_id = event.aggregate_id
+                                          )
                                     )
                                 )
                             )
@@ -127,7 +130,10 @@ public final class JdbcApprovalTimelineQuery implements ApprovalTimelineQuery {
                           from ap_approval_task task
                           where task.tenant_id = event.tenant_id
                             and task.instance_id = :instanceId
-                            and task.task_id::text = event.aggregate_id
+                            and (
+                                task.task_id::text = event.aggregate_id
+                                or task.engine_task_id = event.aggregate_id
+                            )
                       )
                   )
               )
