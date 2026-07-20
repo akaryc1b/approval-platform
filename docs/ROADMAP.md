@@ -23,7 +23,7 @@
 - 平台实例/任务投影、幂等、并发、审计与 Outbox；
 - PC、H5 和微信小程序真实接口工作台与协作页面。
 
-## M2 Designer and Forms — in progress
+## M2 Designer and Forms — complete
 
 ### 已完成
 
@@ -118,9 +118,10 @@
 - Java/Spring/Flowable/PostgreSQL/Node/PC/UniApp、协议版本、Renderer 和认证源兼容性矩阵；
 - 生产启动、Flyway、权限、健康探针、指标、发布/部署/激活/回滚、备份恢复和故障处置运维手册。
 
-### 下一优先级
+### 完成状态
 
-- D10 全量 Diff 审查、临时内容清扫和最终 committed-head 验证。
+- D10 已完成全量 Diff 审查、调试/临时载荷扫描、PR 专用 helper 与自提交工作流清扫、默认生产权限边界复核和最终 committed-head 验证；
+- M2 交付保持在 Draft PR 中，后续合并、发布和 M3 范围由维护者显式决定。
 
 ## M3 Collaboration
 
