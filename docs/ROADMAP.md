@@ -109,11 +109,18 @@
 - PC、H5、微信小程序一致的递归区块顺序、隐藏、必填、只读摘要和安全 fallback 语义；
 - PC 表单设计器的子区块、复制、同级重排、跨嵌套区块字段移动、组件选择、属性编辑、撤销/重做和离开保护；
 - `readonlySummary` 在发布校验、设计预览、发起、任务运行时和重提中的服务端权威降级，不能提升 `HIDDEN`/`READONLY` 权限；
-- 递归区块与组件协议确定性哈希、PostgreSQL JSON 往返、跨端纯函数语义门禁和 committed-head 全矩阵验证。
+- 递归区块与组件协议确定性哈希、PostgreSQL JSON 往返、跨端纯函数语义门禁和 committed-head 全矩阵验证；
+- 管理 API 的 `READ`、`DESIGN`、`PUBLISH`、`DEPLOY`、`ACTIVATE`、`TRANSFER` 封闭能力模型和显式 `ADMIN` 超级权限；
+- 默认基于已认证 Servlet Principal 的 fail-closed 权限边界，以及显式 opt-in 的可信网关 Header 模式；
+- 稳定 403 错误、权限集合不回显、拒绝事件低敏日志和管理端点反射覆盖门禁；
+- `approval.management.authorization` 与 `approval.management.request.duration` 低基数指标，不使用租户、用户、路径或制品作为时序标签；
+- Form/Release 发布、部署成功/失败、生效切换、回滚和安全导入的事务审计事件与运维核对表；
+- Java/Spring/Flowable/PostgreSQL/Node/PC/UniApp、协议版本、Renderer 和认证源兼容性矩阵；
+- 生产启动、Flyway、权限、健康探针、指标、发布/部署/激活/回滚、备份恢复和故障处置运维手册。
 
 ### 下一优先级
 
-- 权限边界、审计与可观测性、兼容性矩阵和运维文档。
+- D10 全量 Diff 审查、临时内容清扫和最终 committed-head 验证。
 
 ## M3 Collaboration
 
