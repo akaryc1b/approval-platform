@@ -1,3 +1,5 @@
+import type { IdentityReference } from '#/api/approval/identities';
+
 import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
 export type DelegationScope = 'ALL' | 'DEFINITION';
@@ -45,8 +47,9 @@ export interface DelegatedTaskAssignment {
 }
 
 export interface CreateDelegationPayload {
+  connectorKey: string;
   definitionKey?: string;
-  delegateId: string;
+  delegateIdentity: IdentityReference;
   reason: string;
   scope: DelegationScope;
   validFrom: string;
