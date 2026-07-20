@@ -33,6 +33,8 @@ public interface ApprovalHandoverStore {
         Instant revokedAt
     );
 
+    List<PendingTask> findPendingTasksByPrincipal(String tenantId, String principalId);
+
     void lockEngineTask(String tenantId, String engineTaskId);
 
     HandoverTaskAssignment createAssignment(HandoverTaskAssignment assignment);
@@ -63,6 +65,32 @@ public interface ApprovalHandoverStore {
         String engineInstanceId,
         Instant canceledAt
     );
+
+    record PendingTask(
+        UUID taskId,
+        UUID instanceId,
+        String engineTaskId,
+        String engineInstanceId,
+        String definitionKey,
+        String taskDefinitionKey,
+        String taskName,
+        String assigneeId,
+        long version
+    ) {
+        public PendingTask {
+            taskId = Objects.requireNonNull(taskId, "taskId must not be null");
+            instanceId = Objects.requireNonNull(instanceId, "instanceId must not be null");
+            engineTaskId = requireText(engineTaskId, "engineTaskId");
+            engineInstanceId = requireText(engineInstanceId, "engineInstanceId");
+            definitionKey = requireText(definitionKey, "definitionKey");
+            taskDefinitionKey = requireText(taskDefinitionKey, "taskDefinitionKey");
+            taskName = requireText(taskName, "taskName");
+            assigneeId = requireText(assigneeId, "assigneeId");
+            if (version < 1) {
+                throw new IllegalArgumentException("version must be positive");
+            }
+        }
+    }
 
     record PrincipalHandover(
         UUID handoverId,
