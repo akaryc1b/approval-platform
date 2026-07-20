@@ -38,6 +38,7 @@ No PR-only workflow, self-committing CI, helper payload, patch, archive, downloa
 - Notification delivery remains independent from the business callback Outbox.
 - PC, H5 and WeChat consume the same server-authoritative semantics.
 - Frontend visibility never replaces backend authorization or database/platform query filtering.
+- Audit hash chaining is platform tamper-evidence and is not represented as legal non-repudiation.
 
 ## Completed increment evidence
 
@@ -49,6 +50,8 @@ No PR-only workflow, self-committing CI, helper payload, patch, archive, downloa
 | D | governed add-sign and remove-sign | `6195341eea242651b783ddfdfc1a98d6065a0601` | `29720696299` |
 | E | vote and weighted collaboration | `e02088e65f35984c7988e4c08165ab5e7cb24ba5` | `29726800409` |
 | F | notification preferences and reliable delivery | `47ce510e6a906461855e071875d3dbb89eaeaace` | `29732695556` |
+| G | governed comments, mentions and collaboration records | `c808abcf5cec103dbff7002bd3ccaa3733d105c5` | `29742019154` |
+| H1–H3 | versioned audit contracts, integrity and bounded export | `10a6153f3d490c44a6f0b864976d5739eddcbee4` | `29751940560` |
 
 ### Increment A — delegation policy foundation
 
@@ -193,9 +196,96 @@ The permanent workflow exposed and verified real implementation corrections befo
 - PC and mobile page models were updated for the server-owned read-only flag;
 - a test fixture was corrected to reuse an already published tenant definition rather than weaken the production uniqueness constraint.
 
+## Increment H1–H3 — audit contract, integrity and administration
+
+H1–H3 evolve the existing `AuditEvent`, `AuditEventSink` and `JdbcAuditEventSink` path. They do not create a second audit fact store.
+
+### Versioned event contracts
+
+`AuditEventContract` assigns stable schema names and schema versions across delegation, employee handover, collaboration, voting, notifications, comments, task lifecycle, process lifecycle and audit administration.
+
+Newly emitted events include:
+
+- event ID;
+- tenant ID;
+- aggregate type and aggregate ID;
+- action;
+- schema name and schema version;
+- operator ID;
+- request ID and trace ID;
+- occurrence time;
+- normalized attributes.
+
+The domain validates current contract versions and required attributes before persistence. Comment lifecycle events require comment ID, revision and visibility evidence. The pre-revision compatibility action `INSTANCE_COMMENTED` remains readable and usable by the existing notification path without weakening the new `CREATED`, `EDITED` and `DELETED` contracts.
+
+Legacy persisted events are backfilled as schema version 0 and remain queryable. Participant timelines expose server-produced `summary`, `schemaName` and `schemaVersion`; PC, H5 and WeChat no longer interpret arbitrary audit attributes for timeline descriptions.
+
+### Tenant-isolated integrity evidence
+
+Flyway `V21__version_and_chain_audit_events.sql` adds:
+
+- schema name and version columns;
+- per-tenant sequence numbers;
+- previous, canonical payload and current SHA-256 hashes;
+- a tenant chain-state table;
+- deterministic PostgreSQL hash functions;
+- compatibility backfill for existing audit rows;
+- tenant/time/action, operator, aggregate, request and trace indexes.
+
+`JdbcAuditEventSink` locks a tenant chain-state row before appending, inserts the event and advances the chain state in one transaction. A failed insert cannot leave a half-written event or advance chain state. Tenant chains are independent.
+
+The verification API checks sequence continuity, previous hashes, canonical payload hashes, current hashes and stored chain-tail state. It returns the first invalid event and sequence when corruption is detected. The API and PC page explicitly state that this is platform tamper-evidence, not a claim of legal non-repudiation.
+
+### Bounded query and export
+
+Management APIs are protected by the existing fail-closed permission interceptor with separate authorities:
+
+- `approval.management.audit.read`;
+- `approval.management.audit.export`;
+- `approval.management.audit.verify`.
+
+The API supports filtering by operator, action, aggregate, request ID, trace ID and time range with server pagination. Time ranges are limited to 31 days. Structured CSV and JSON exports are generated server-side, capped at 10,000 rows and rejected when the result would exceed the requested maximum. Sensitive attribute names are redacted before management query or export results are returned.
+
+Audit export and integrity verification are idempotent operations and generate their own versioned audit events.
+
+### PC and participant clients
+
+The PC audit-governance workspace provides:
+
+- bounded filters and pagination;
+- schema/version and hash details;
+- integrity verification;
+- server-side CSV or JSON export;
+- clear separation from ordinary participant functionality.
+
+Participant PC, H5 and WeChat timelines consume the same server-authoritative versioned summaries. Mobile clients do not expose tenant-wide audit query, export or verification controls.
+
+### PostgreSQL and permanent-CI evidence
+
+Code head `10a6153f3d490c44a6f0b864976d5739eddcbee4` passed permanent workflow run `29751940560`:
+
+- repository hygiene: passed;
+- Java 21 / Maven / PostgreSQL: passed;
+- `JdbcApprovalAuditIntegrationTest`: 8 tests, 0 failures, 0 errors, 0 skipped;
+- `JdbcApprovalNotificationIntegrationTest`: 10 tests, 0 failures, 0 errors, 0 skipped;
+- `JdbcApprovalCommentIntegrationTest`: 15 tests, 0 failures, 0 errors, 0 skipped;
+- approval PostgreSQL module: 109 tests, 0 failures, 0 errors, 0 skipped;
+- full 16-module Maven reactor: `BUILD SUCCESS`;
+- Vben TypeScript and production build: passed;
+- UniApp TypeScript, H5 and WeChat builds: passed.
+
+The audit PostgreSQL matrix covers schema/version assignment, tenant-chain isolation, 24-way concurrent append serialization, deterministic hash linkage, payload tamper detection, transaction rollback after duplicate failure, bounded filtering/pagination, sensitive-field redaction, range limits, idempotent audited export/verification and current-contract required fields.
+
+Permanent CI exposed and verified these corrections before the stage became green:
+
+- the audit store transaction-manager import was corrected after a real Java compile failure;
+- the concurrency fixture was corrected from an eight-thread deadlock to 24 simultaneous writers;
+- the legacy `INSTANCE_COMMENTED` notification action was retained as a compatibility contract while new lifecycle actions remain strict;
+- frontend timeline rendering was changed to server-owned versioned summaries rather than arbitrary audit attributes.
+
 ## Next increment
 
-Increment H will add versioned audit-event contracts, integrity evidence, bounded administrative query/export, consistency checks, failure-queue operations, a unified permission matrix, cross-module fault tests, database-index validation and final M3 acceptance without direct Flowable-table access.
+Increment H4 and later stages will add projection-consistency findings, carefully governed repair/replay actions, separated failure-queue operations, the unified permission matrix, cross-module fault tests, index-plan evidence and final M3 acceptance without direct Flowable-table access.
 
 ## Initial M3 baseline
 
