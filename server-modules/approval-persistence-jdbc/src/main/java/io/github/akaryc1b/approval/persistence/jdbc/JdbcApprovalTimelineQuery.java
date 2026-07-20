@@ -109,6 +109,8 @@ public final class JdbcApprovalTimelineQuery implements ApprovalTimelineQuery {
             select
                 event.event_id,
                 event.action,
+                event.schema_name,
+                event.schema_version,
                 event.operator_id,
                 event.aggregate_type,
                 event.aggregate_id,
@@ -137,7 +139,7 @@ public final class JdbcApprovalTimelineQuery implements ApprovalTimelineQuery {
                       )
                   )
               )
-            order by event.occurred_at, event.event_id
+            order by event.tenant_sequence, event.event_id
             """,
             parameters,
             timelineItemMapper()
@@ -146,17 +148,75 @@ public final class JdbcApprovalTimelineQuery implements ApprovalTimelineQuery {
     }
 
     private RowMapper<TimelineItem> timelineItemMapper() {
-        return (resultSet, rowNumber) -> new TimelineItem(
-            resultSet.getObject("event_id", UUID.class),
-            resultSet.getString("action"),
-            resultSet.getString("operator_id"),
-            resultSet.getString("aggregate_type"),
-            resultSet.getString("aggregate_id"),
-            resultSet.getString("request_id"),
-            resultSet.getString("trace_id"),
-            instant(resultSet, "occurred_at"),
-            decodeAttributes(resultSet.getString("attributes_json"))
-        );
+        return (resultSet, rowNumber) -> {
+            Map<String, String> attributes = decodeAttributes(
+                resultSet.getString("attributes_json")
+            );
+            String action = resultSet.getString("action");
+            String schemaName = resultSet.getString("schema_name");
+            int schemaVersion = resultSet.getInt("schema_version");
+            return new TimelineItem(
+                resultSet.getObject("event_id", UUID.class),
+                action,
+                schemaName,
+                schemaVersion,
+                summary(action, schemaName, schemaVersion, attributes),
+                resultSet.getString("operator_id"),
+                resultSet.getString("aggregate_type"),
+                resultSet.getString("aggregate_id"),
+                resultSet.getString("request_id"),
+                resultSet.getString("trace_id"),
+                instant(resultSet, "occurred_at"),
+                attributes
+            );
+        };
+    }
+
+    private static String summary(
+        String action,
+        String schemaName,
+        int schemaVersion,
+        Map<String, String> attributes
+    ) {
+        String label = switch (action) {
+            case "INSTANCE_STARTED" -> "发起审批";
+            case "INSTANCE_COPIED" -> "抄送审批";
+            case "INSTANCE_URGED" -> "催办审批";
+            case "INSTANCE_WITHDRAWN" -> "撤回审批";
+            case "INSTANCE_COMMENTED", "INSTANCE_COMMENT_CREATED" -> "发表审批评论";
+            case "INSTANCE_COMMENT_EDITED" -> "编辑审批评论";
+            case "INSTANCE_COMMENT_DELETED" -> "删除审批评论";
+            case "TASK_APPROVED" -> "同意审批";
+            case "TASK_REJECTED" -> "驳回审批";
+            case "TASK_RESUBMITTED" -> "重新提交审批";
+            case "TASK_RETRIEVED" -> "拿回审批任务";
+            case "TASK_TRANSFERRED" -> "转办审批任务";
+            case "TASK_DELEGATED" -> "代理审批任务";
+            case "TASK_HANDOVER_APPLIED" -> "执行离职交接";
+            case "TASK_COLLABORATION_STARTED" -> "发起协作审批";
+            case "TASK_COLLABORATION_DECIDED" -> "提交协作审批决定";
+            default -> schemaVersion == 0
+                ? "历史审批事件 · " + action
+                : "审批事件 · " + schemaName + " v" + schemaVersion;
+        };
+        String reason = normalized(attributes.get("reason"));
+        if (reason == null) {
+            return label;
+        }
+        return label + "：" + abbreviate(reason, 200);
+    }
+
+    private static String abbreviate(String value, int maxLength) {
+        return value.length() <= maxLength
+            ? value
+            : value.substring(0, maxLength - 3) + "...";
+    }
+
+    private static String normalized(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     private Map<String, String> decodeAttributes(String json) throws SQLException {
