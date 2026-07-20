@@ -181,37 +181,29 @@ class JdbcApprovalCrossModuleFaultIntegrationTest {
 
     @Test
     void outboxAttemptEvidenceConflictDoesNotHalfCommitStateTransition() {
-        UUID sourceId = pendingOutbox("tenant-a");
+        UUID sourceId = deadOutbox("tenant-a");
+        JdbcApprovalOperationalFailureStore failureStore =
+            new JdbcApprovalOperationalFailureStore(dataSource);
+        assertTrue(failureStore.replayOutboxDead(
+            "tenant-a",
+            sourceId,
+            "operator-1",
+            "fault-replay-request",
+            NOW.plusSeconds(2)
+        ));
         var claimed = outboxRepository.claimDue(
-            NOW,
+            NOW.plusSeconds(2),
             1,
             "worker-conflict",
             Duration.ofMinutes(5)
         ).getFirst();
-        jdbc.update(
-            """
-            insert into ap_outbox_delivery_attempt (
-                attempt_id, tenant_id, outbox_id, attempt_number,
-                started_at, completed_at, successful, retryable,
-                worker_id, error_code, error_message
-            ) values (?, ?, ?, 1, ?, ?, false, false, ?, ?, ?)
-            """,
-            UUID.randomUUID(),
-            "tenant-a",
-            sourceId,
-            offset(NOW),
-            offset(NOW.plusSeconds(1)),
-            claimed.workerId(),
-            "PREEXISTING_ATTEMPT",
-            "fixture reserves attempt number"
-        );
 
         assertThrows(RuntimeException.class, () -> outboxRepository.markDead(
             sourceId,
             claimed.workerId(),
             1,
             "callback unavailable",
-            NOW.plusSeconds(2)
+            NOW.plusSeconds(3)
         ));
 
         assertEquals("IN_FLIGHT", outboxValue(sourceId, "status"));
@@ -271,11 +263,13 @@ class JdbcApprovalCrossModuleFaultIntegrationTest {
 
         assertEquals(1, count("ap_audit_event"));
         assertEquals(1, chainSequence("tenant-a"));
-        assertTrue(realAudit.verify(new io.github.akaryc1b.approval.application.port.ApprovalAuditStore.AuditIntegrityCriteria(
-            "tenant-a",
-            NOW.minusSeconds(1),
-            NOW.plusSeconds(10)
-        )).valid());
+        assertTrue(realAudit.verify(
+            new io.github.akaryc1b.approval.application.port.ApprovalAuditStore.AuditIntegrityCriteria(
+                "tenant-a",
+                NOW.minusSeconds(1),
+                NOW.plusSeconds(10)
+            )
+        ).valid());
     }
 
     private ReplayCommand replayCommand(
