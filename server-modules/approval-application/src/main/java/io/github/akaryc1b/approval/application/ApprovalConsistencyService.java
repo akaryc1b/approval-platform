@@ -25,6 +25,7 @@ import java.util.HexFormat;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /** Detect-only consistency administration over platform-owned approval evidence. */
@@ -38,6 +39,7 @@ public final class ApprovalConsistencyService {
     private final AuditEventSink auditEvents;
     private final Clock clock;
     private final Supplier<UUID> identifierGenerator;
+    private final AtomicReference<Instant> lastStartedAt = new AtomicReference<>(Instant.MIN);
 
     public ApprovalConsistencyService(
         IdempotencyGuard idempotencyGuard,
@@ -103,7 +105,7 @@ public final class ApprovalConsistencyService {
     }
 
     private ConsistencyCheck executeRun(RequestContext context) {
-        Instant startedAt = clock.instant();
+        Instant startedAt = nextStartedAt();
         ConsistencyCheck check = store.run(new ConsistencyCheckRequest(
             identifierGenerator.get(),
             context.tenantId(),
@@ -122,7 +124,7 @@ public final class ApprovalConsistencyService {
             check.checkId().toString(),
             context.requestId(),
             context.traceId(),
-            clock.instant(),
+            startedAt,
             Map.of(
                 "checkId", check.checkId().toString(),
                 "scope", check.scope().name(),
@@ -132,6 +134,17 @@ public final class ApprovalConsistencyService {
             )
         ));
         return check;
+    }
+
+    private Instant nextStartedAt() {
+        Instant observed = clock.instant();
+        while (true) {
+            Instant previous = lastStartedAt.get();
+            Instant next = observed.isAfter(previous) ? observed : previous.plusNanos(1);
+            if (lastStartedAt.compareAndSet(previous, next)) {
+                return next;
+            }
+        }
     }
 
     private static String sha256(String value) {
