@@ -1,5 +1,7 @@
 package io.github.akaryc1b.approval.config;
 
+import io.github.akaryc1b.approval.application.ApprovalDelegationIdentityService;
+import io.github.akaryc1b.approval.application.ApprovalDelegationService;
 import io.github.akaryc1b.approval.application.ApprovalIdentityService;
 import io.github.akaryc1b.approval.application.ConnectorApprovalIdentityDirectory;
 import io.github.akaryc1b.approval.application.port.ApprovalIdentityDirectory;
@@ -48,5 +50,16 @@ public class ApprovalIdentityConfiguration {
         ApprovalIdentityDirectory approvalIdentityDirectory
     ) {
         return new ApprovalIdentityService(approvalIdentityDirectory);
+    }
+
+    @Bean
+    ApprovalDelegationIdentityService approvalDelegationIdentityService(
+        ApprovalIdentityDirectory approvalIdentityDirectory,
+        ApprovalDelegationService approvalDelegationService
+    ) {
+        return new ApprovalDelegationIdentityService(
+            approvalIdentityDirectory,
+            approvalDelegationService
+        );
     }
 }
