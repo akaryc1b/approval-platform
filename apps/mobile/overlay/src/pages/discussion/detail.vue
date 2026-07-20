@@ -1,8 +1,5 @@
 <script lang="ts" setup>
-import type {
-  ApprovalTimeline,
-  ApprovalTimelineItem,
-} from '@/api/approval'
+import type { ApprovalTimeline } from '@/api/approval'
 import type {
   ApprovalAttachment,
   ApprovalCommentItem,
@@ -100,25 +97,6 @@ function formatSize(value: number) {
 function formatDate(value: string) {
   const date = new Date(value)
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
-
-function timelineTitle(item: ApprovalTimelineItem) {
-  const labels: Record<string, string> = {
-    INSTANCE_COMMENTED: '发表审批评论',
-    INSTANCE_COMMENT_CREATED: '创建审批评论',
-    INSTANCE_COMMENT_DELETED: '删除审批评论',
-    INSTANCE_COMMENT_EDITED: '编辑审批评论',
-    INSTANCE_COPIED: '抄送审批',
-    INSTANCE_STARTED: '发起审批',
-    INSTANCE_URGED: '催办审批',
-    INSTANCE_WITHDRAWN: '撤回审批',
-    TASK_APPROVED: '同意审批',
-    TASK_REJECTED: '驳回到发起人',
-    TASK_RESUBMITTED: '重新提交',
-    TASK_RETRIEVED: '拿回任务',
-    TASK_TRANSFERRED: '转办任务',
-  }
-  return labels[item.action] || item.action
 }
 
 function visibilityLabel(value: CommentVisibility) {
@@ -454,10 +432,9 @@ onLoad((query) => {
           <view v-for="item in timeline.items" :key="item.eventId" class="timeline-item">
             <view class="timeline-dot" />
             <view class="timeline-content">
-              <strong>{{ timelineTitle(item) }}</strong>
+              <strong>{{ item.summary }}</strong>
               <text>操作人 {{ item.operatorId }}</text>
-              <text v-if="item.attributes.comment">意见：{{ item.attributes.comment }}</text>
-              <text v-if="item.attributes.reason">原因：{{ item.attributes.reason }}</text>
+              <text>{{ item.schemaName }} v{{ item.schemaVersion }}</text>
               <text>{{ formatDate(item.occurredAt) }}</text>
             </view>
           </view>
