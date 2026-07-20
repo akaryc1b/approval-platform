@@ -65,6 +65,9 @@ public record AuditEventContract(
         if (action.startsWith("AUDIT_")) {
             return "approval.audit.operation";
         }
+        if (action.startsWith("OPERATIONAL_FAILURE_")) {
+            return "approval.operational-failure";
+        }
         if (action.contains("CONSISTENCY")) {
             return "approval.consistency";
         }
@@ -131,6 +134,12 @@ public record AuditEventContract(
                 "status",
                 "findingCount",
                 "detectOnly"
+            );
+            case "OPERATIONAL_FAILURE_REPLAYED" -> Set.of(
+                "category",
+                "sourceId",
+                "outcome",
+                "replacementSourceId"
             );
             default -> Set.of();
         };
