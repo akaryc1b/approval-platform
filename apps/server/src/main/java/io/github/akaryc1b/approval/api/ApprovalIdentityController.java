@@ -33,6 +33,7 @@ public class ApprovalIdentityController {
         @RequestHeader(value = TRACE_ID, required = false) String traceId,
         @RequestParam String connectorKey,
         @RequestParam(required = false) String keyword,
+        @RequestParam(defaultValue = "true") boolean activeOnly,
         @RequestParam(defaultValue = "20") int limit
     ) {
         requireOperator(operatorId);
@@ -42,6 +43,7 @@ public class ApprovalIdentityController {
             requestId,
             traceId,
             keyword,
+            activeOnly,
             limit
         );
     }
