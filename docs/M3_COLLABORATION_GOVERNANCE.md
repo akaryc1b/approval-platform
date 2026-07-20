@@ -27,6 +27,34 @@ M3 will harden collaboration, delegation and notification behavior across backen
 - Add database constraints, integration coverage and cross-platform contract tests with each increment.
 - Do not mark the M3 pull request ready, merge it, close it or retarget it during active development.
 
+## Increment A — delegation policy foundation
+
+The first M3 increment establishes a server-authoritative proxy-rule lifecycle without changing existing task assignment behavior yet.
+
+Completed capabilities:
+
+- tenant-owned delegation rules with `ALL` and definition-specific scopes;
+- self-service create, list and revoke APIs under `/api/approval/delegations`;
+- durable request idempotency for create and revoke commands;
+- principal-scoped PostgreSQL advisory serialization for overlap-safe writes;
+- same-scope time-window overlap rejection while allowing definition-specific rules to override a global rule;
+- deterministic effective-rule resolution with definition-specific precedence;
+- self-delegation, invalid time windows, durations longer than 366 days and unauthorized revocation rejection;
+- immutable `DELEGATION_RULE_CREATED` and `DELEGATION_RULE_REVOKED` audit evidence;
+- stable delegation-specific 400, 404, 409 and 500 API responses;
+- Flyway V14 schema constraints and resolution/query indexes;
+- PostgreSQL/Testcontainers coverage for idempotency, tenant isolation, overlap rejection, precedence, revocation and fallback.
+
+Implementation head `df242607fef1db2d01af5230c35408f89ffc7b26` passed permanent workflow run `29712802784`:
+
+- repository hygiene: passed;
+- Java 21 / Maven / PostgreSQL: passed;
+- `JdbcApprovalDelegationIntegrationTest`: 3 tests, 0 failures, 0 errors, 0 skipped;
+- Vben TypeScript and production build: passed;
+- UniApp TypeScript, H5 and WeChat builds: passed.
+
+The next increment will bind effective delegation resolution into platform-owned task assignment and expose governed PC/mobile management surfaces. It will preserve the original principal as immutable audit identity rather than silently replacing ownership.
+
 ## Initial validation baseline
 
 M3 starts from `main` merge commit `4e468f9f049b52cb20855872cddf44eaa237501b`, which contains the complete M2 delivery and the permanent `.github/workflows/approval-platform-validation.yml` workflow.
