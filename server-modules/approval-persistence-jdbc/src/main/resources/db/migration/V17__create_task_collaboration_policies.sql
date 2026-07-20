@@ -1,3 +1,6 @@
+create unique index if not exists uk_approval_task_tenant_task
+    on ap_approval_task (tenant_id, task_id);
+
 create table ap_task_collaboration_policy (
     policy_id uuid not null,
     tenant_id varchar(128) not null,
