@@ -3,6 +3,9 @@ package io.github.akaryc1b.approval.persistence.jdbc;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalHandoverService;
 import io.github.akaryc1b.approval.application.DelegatingApprovalEngine;
+import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore.DelegationRule;
+import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore.DelegationScope;
+import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore.DelegationStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalHandoverStore;
 import io.github.akaryc1b.approval.application.port.ApprovalIdentityDirectory;
 import io.github.akaryc1b.approval.application.port.ApprovalIdentityDirectory.IdentityCandidate;
@@ -15,6 +18,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.Inst
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.PublishedDefinition;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskDelegationAssignmentStore.AssignmentStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskDelegationAssignmentStore.DelegatedTaskAssignment;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
@@ -128,12 +133,7 @@ class JdbcApprovalHandoverIntegrationTest {
         delegationAssignments = new JdbcApprovalTaskDelegationAssignmentStore(dataSource);
         engine = new FakeApprovalEngine();
         service = new ApprovalHandoverService(
-            new JdbcIdempotencyGuard(
-                dataSource,
-                objectMapper,
-                new JdbcTransactionManager(dataSource),
-                clock
-            ),
+            idempotencyGuard(objectMapper, clock),
             new StubIdentityDirectory(),
             handovers,
             projections,
@@ -198,6 +198,104 @@ class JdbcApprovalHandoverIntegrationTest {
     }
 
     @Test
+    void formalHandoverOverridesActiveTemporaryDelegation() {
+        TaskProjection pending = createPendingTask(
+            "temporary-delegate",
+            "managerApproval",
+            "engine-task-delegated",
+            "engine-instance-delegated"
+        );
+        UUID ruleId = UUID.randomUUID();
+        delegations.create(new DelegationRule(
+            ruleId,
+            "tenant-a",
+            "departing-user",
+            "temporary-delegate",
+            DelegationScope.ALL,
+            null,
+            NOW.minusSeconds(60),
+            NOW.plusSeconds(3600),
+            DelegationStatus.ACTIVE,
+            "temporary leave",
+            "departing-user",
+            NOW.minusSeconds(60),
+            null,
+            null,
+            null,
+            1
+        ));
+        delegationAssignments.create(new DelegatedTaskAssignment(
+            UUID.randomUUID(),
+            "tenant-a",
+            pending.engineTaskId(),
+            "engine-instance-delegated",
+            PurchasePaymentTemplate.DEFINITION_KEY,
+            pending.taskDefinitionKey(),
+            "departing-user",
+            "temporary-delegate",
+            ruleId,
+            DelegationScope.ALL,
+            AssignmentStatus.ACTIVE,
+            NOW.minusSeconds(30),
+            null,
+            null,
+            null,
+            null,
+            null,
+            1
+        ));
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        DelegatingApprovalEngine decorated = new DelegatingApprovalEngine(
+            engine,
+            delegations,
+            delegationAssignments,
+            handovers,
+            event -> {
+            },
+            clock,
+            UUID::randomUUID
+        );
+        ApprovalHandoverService decoratedService = new ApprovalHandoverService(
+            idempotencyGuard(objectMapper, clock),
+            new StubIdentityDirectory(),
+            handovers,
+            projections,
+            decorated,
+            new JdbcAuditEventSink(dataSource, objectMapper),
+            clock,
+            UUID::randomUUID
+        );
+
+        var result = decoratedService.create(
+            createCommand("handover-delegated", "handover-delegated-key")
+        );
+
+        assertEquals(1, result.transferredTaskCount());
+        assertEquals(
+            "successor-user",
+            projections.findTask("tenant-a", pending.taskId()).orElseThrow().assigneeId()
+        );
+        assertEquals("successor-user", engine.task(pending.engineTaskId()).assigneeId());
+        var oldDelegation = delegationAssignments.findByEngineTask(
+            "tenant-a",
+            pending.engineTaskId()
+        ).orElseThrow();
+        assertEquals(AssignmentStatus.SUPERSEDED, oldDelegation.status());
+        assertEquals("successor-user", oldDelegation.supersededAssigneeId());
+        var formalHandover = handovers.findAssignmentByEngineTask(
+            "tenant-a",
+            pending.engineTaskId()
+        ).orElseThrow();
+        assertEquals(
+            ApprovalHandoverStore.AssignmentStatus.ACTIVE,
+            formalHandover.status()
+        );
+        assertEquals("departing-user", formalHandover.principalAssigneeId());
+        assertEquals("successor-user", formalHandover.successorAssigneeId());
+    }
+
+    @Test
     void futureRevisionTasksAreAssignedAndManualTransferSupersedesEvidence() {
         service.create(createCommand("handover-future", "handover-future-key"));
         createInstanceWithoutTasks("engine-instance-future");
@@ -249,6 +347,15 @@ class JdbcApprovalHandoverIntegrationTest {
         assertEquals(ApprovalHandoverStore.AssignmentStatus.SUPERSEDED, superseded.status());
         assertEquals("manual-target", superseded.supersededAssigneeId());
         assertFalse(superseded.supersededAt().isAfter(NOW));
+    }
+
+    private JdbcIdempotencyGuard idempotencyGuard(ObjectMapper objectMapper, Clock clock) {
+        return new JdbcIdempotencyGuard(
+            dataSource,
+            objectMapper,
+            new JdbcTransactionManager(dataSource),
+            clock
+        );
     }
 
     private TaskProjection createPendingTask(
