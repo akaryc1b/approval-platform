@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue';
+import { nextTick, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { Page } from '@vben/common-ui';
 import {
   ElAlert,
@@ -23,7 +24,17 @@ import {
 import { useApprovalDesigner } from './use-approval-designer';
 
 const designer = useApprovalDesigner();
+const route = useRoute();
 const createVisible = ref(false);
+const nodeKinds = [
+  { label: '开始', value: 'START' },
+  { label: '审批', value: 'APPROVAL' },
+  { label: '处理', value: 'HANDLE' },
+  { label: '条件', value: 'CONDITION' },
+  { label: '并行拆分', value: 'PARALLEL_SPLIT' },
+  { label: '并行汇聚', value: 'PARALLEL_JOIN' },
+  { label: '结束', value: 'END' },
+] as const;
 const createForm = ref({
   definitionKey: 'expense-approval',
   definitionVersion: 1,
@@ -33,11 +44,17 @@ const createForm = ref({
   sourceDefinitionVersion: 1,
 });
 
-onMounted(designer.loadDrafts);
+onMounted(async () => {
+  await designer.loadDrafts();
+  const importedDraftId = typeof route.query.draftId === 'string'
+    ? route.query.draftId
+    : undefined;
+  if (importedDraftId) await designer.openDraft(importedDraftId);
+});
 
 async function submitCreate() {
-  await designer.createDraft(createForm.value);
-  createVisible.value = false;
+  const created = await designer.createDraft(createForm.value);
+  if (created) createVisible.value = false;
 }
 
 function statusType(status?: string) {
@@ -45,6 +62,15 @@ function statusType(status?: string) {
   if (status === 'ARCHIVED') return 'info';
   if (status === 'VALIDATED') return 'warning';
   return 'primary';
+}
+
+async function focusNode(subject?: string) {
+  if (!subject || !designer.focusNode(subject)) return;
+  await nextTick();
+  const element = [...document.querySelectorAll<HTMLElement>('[data-approval-node-id]')]
+    .find(candidate => candidate.dataset.approvalNodeId === designer.selectedNodeId.value);
+  element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  element?.focus({ preventScroll: true });
 }
 </script>
 
@@ -119,50 +145,161 @@ function statusType(status?: string) {
                 <ElTag v-if="designer.saveState.value === 'conflict'" type="danger">版本冲突</ElTag>
                 <ElTag v-else type="info">{{ designer.saveState.value }}</ElTag>
                 <ElButton :disabled="!designer.undoStack.value.length" @click="designer.undo">撤销</ElButton>
+                <ElButton :disabled="!designer.redoStack.value.length" @click="designer.redo">重做</ElButton>
                 <ElButton :disabled="!designer.editable.value" @click="designer.save()">保存</ElButton>
-                <ElButton v-if="designer.saveState.value === 'conflict'" type="warning" @click="designer.reload">安全重载</ElButton>
+                <ElButton v-if="designer.saveState.value === 'conflict'" type="warning" @click="designer.reloadServerVersion">加载服务端版本</ElButton>
                 <ElButton @click="designer.validate">服务端检查</ElButton>
                 <ElButton type="primary" :disabled="!designer.editable.value" @click="designer.publish">发布</ElButton>
               </ElSpace>
             </div>
           </template>
 
-          <ElAlert
-            v-if="designer.saveState.value === 'conflict'"
-            type="warning"
-            show-icon
-            title="服务器上的草稿已更新；请重载后继续编辑，避免覆盖他人修改。"
-          />
+          <div v-if="designer.saveState.value === 'conflict'" class="conflict-panel">
+            <ElAlert
+              type="warning"
+              show-icon
+              title="服务器上的草稿已更新；系统已生成本地、基线和服务端三方对比。"
+            />
+            <div v-if="designer.conflict.value" class="conflict-summary">
+              <span>本地基于 revision {{ designer.draft.value.revision }}</span>
+              <span>服务端 revision {{ designer.conflict.value.serverDraft.revision }}</span>
+            </div>
+            <div v-if="designer.conflict.value" class="conflict-columns">
+              <section>
+                <strong>本地修改</strong>
+                <div class="change-tags">
+                  <ElTag
+                    v-for="change in designer.conflict.value.analysis.localChanges"
+                    :key="`local-${change.path}`"
+                    size="small"
+                  >{{ change.type }} · {{ change.path }}</ElTag>
+                  <span v-if="!designer.conflict.value.analysis.localChanges.length" class="muted">无本地差异</span>
+                </div>
+              </section>
+              <section>
+                <strong>服务端修改</strong>
+                <div class="change-tags">
+                  <ElTag
+                    v-for="change in designer.conflict.value.analysis.serverChanges"
+                    :key="`server-${change.path}`"
+                    size="small"
+                    type="info"
+                  >{{ change.type }} · {{ change.path }}</ElTag>
+                  <span v-if="!designer.conflict.value.analysis.serverChanges.length" class="muted">无服务端差异</span>
+                </div>
+              </section>
+            </div>
+            <ElAlert
+              v-if="designer.conflict.value?.analysis.overlappingPaths.length"
+              type="error"
+              show-icon
+              :title="`检测到重叠修改：${designer.conflict.value.analysis.overlappingPaths.join('、')}`"
+              description="重叠字段不会自动合并，请加载服务端版本后手动重做。"
+            />
+            <ElSpace v-if="designer.conflict.value" wrap>
+              <ElButton
+                type="primary"
+                :disabled="!designer.conflict.value.analysis.canAutoMerge"
+                @click="designer.applySafeConflictMerge"
+              >安全合并非重叠修改</ElButton>
+              <ElButton type="warning" @click="designer.reloadServerVersion">放弃本地并加载服务端</ElButton>
+            </ElSpace>
+          </div>
+
+          <div class="node-tools">
+            <ElInput
+              v-model="designer.nodeSearch.value"
+              clearable
+              placeholder="搜索节点名称、标识或类型"
+            />
+            <ElSelect
+              v-model="designer.nodeKindFilter.value"
+              clearable
+              collapse-tags
+              multiple
+              placeholder="筛选节点类型"
+            >
+              <ElOption
+                v-for="kind in nodeKinds"
+                :key="kind.value"
+                :label="kind.label"
+                :value="kind.value"
+              />
+            </ElSelect>
+            <ElTag type="info">
+              显示 {{ designer.renderedNodes.value.length }} / {{ designer.visibleNodes.value.length }}，共 {{ designer.topology.value.orderedNodes.length }} 个节点
+            </ElTag>
+            <ElButton size="small" @click="designer.collapseAllBranches">折叠全部分支</ElButton>
+            <ElButton size="small" @click="designer.expandAllBranches">展开全部分支</ElButton>
+          </div>
 
           <div class="node-actions">
             <ElButton size="small" @click="designer.moveNode(-1)">上移</ElButton>
             <ElButton size="small" @click="designer.moveNode(1)">下移</ElButton>
             <ElButton size="small" @click="designer.copyNode">复制节点</ElButton>
             <ElButton size="small" type="danger" @click="designer.deleteNode">删除节点</ElButton>
+            <span class="shortcut-hint">⌘/Ctrl+S 保存 · ⌘/Ctrl+Z 撤销 · Shift+⌘/Ctrl+Z 重做 · Delete 删除</span>
           </div>
 
           <div class="tree-canvas">
-            <template v-for="node in designer.draft.value.definition.nodes" :key="node.id">
+            <ElEmpty v-if="!designer.visibleNodes.value.length" description="没有匹配的节点" />
+            <template v-for="node in designer.renderedNodes.value" :key="node.id">
               <button
                 class="flow-node"
                 :class="[
                   `kind-${node.kind.toLowerCase()}`,
                   { selected: designer.selectedNodeId.value === node.id },
                 ]"
-                @click="designer.selectedNodeId.value = node.id"
+                :data-approval-node-id="node.id"
+                @click="focusNode(node.id)"
               >
                 <span>{{ node.name }}</span>
                 <small>{{ node.kind }} · {{ node.id }}</small>
+                <small>
+                  入 {{ designer.topology.value.incomingById.get(node.id)?.length ?? 0 }} ·
+                  出 {{ designer.topology.value.outgoingById.get(node.id)?.length ?? 0 }}
+                </small>
               </button>
-              <div v-if="node.kind === 'PARALLEL_SPLIT'" class="branch-grid">
-                <div v-for="branch in node.branches" :key="branch.id" class="branch-card">
-                  <strong>{{ branch.name }}</strong>
-                  <small>入口：{{ branch.next }}</small>
-                  <small>汇聚：{{ node.joinNodeId }}</small>
+
+              <template v-if="node.kind === 'CONDITION'">
+                <button class="branch-toggle" @click="designer.toggleBranchCollapse(node.id)">
+                  条件分支 {{ node.routes.length + 1 }} 条 ·
+                  {{ designer.isBranchCollapsed(node.id) ? '展开' : '折叠' }}
+                </button>
+                <div v-if="!designer.isBranchCollapsed(node.id)" class="branch-grid">
+                  <div v-for="(route, index) in node.routes" :key="`${node.id}-${index}`" class="branch-card">
+                    <strong>条件 {{ index + 1 }}</strong>
+                    <small>{{ route.condition.field }} {{ route.condition.operator }} {{ route.condition.value }}</small>
+                    <small>目标：{{ route.next }}</small>
+                  </div>
+                  <div class="branch-card">
+                    <strong>默认路由</strong>
+                    <small>目标：{{ node.defaultNext }}</small>
+                  </div>
                 </div>
-              </div>
-              <div v-if="node.kind !== 'END'" class="connector">↓</div>
+              </template>
+
+              <template v-if="node.kind === 'PARALLEL_SPLIT'">
+                <button class="branch-toggle" @click="designer.toggleBranchCollapse(node.id)">
+                  并行分支 {{ node.branches.length }} 条 ·
+                  {{ designer.isBranchCollapsed(node.id) ? '展开' : '折叠' }}
+                </button>
+                <div v-if="!designer.isBranchCollapsed(node.id)" class="branch-grid">
+                  <div v-for="branch in node.branches" :key="branch.id" class="branch-card">
+                    <strong>{{ branch.name }}</strong>
+                    <small>入口：{{ branch.next }}</small>
+                    <small>汇聚：{{ node.joinNodeId }}</small>
+                  </div>
+                </div>
+              </template>
+
+              <div v-if="node.kind !== 'END' && !designer.filtersActive.value" class="connector">↓</div>
             </template>
+            <ElButton
+              v-if="designer.hasMoreVisibleNodes.value"
+              class="load-more"
+              @click="designer.showMoreNodes"
+            >加载更多节点（每次 120 个）</ElButton>
           </div>
         </ElCard>
         <ElEmpty v-else description="请选择或新建流程草稿" />
@@ -275,14 +412,23 @@ function statusType(status?: string) {
             <ElTabPane label="检查" name="validation">
               <ElSpace direction="vertical" fill class="full-width">
                 <ElButton @click="designer.validate">运行服务端检查</ElButton>
-                <ElAlert
+                <div
                   v-for="issue in designer.validation.value?.issues"
                   :key="`${issue.code}-${issue.subject}`"
-                  :title="`${issue.code} · ${issue.subject}`"
-                  :description="issue.message"
-                  :type="issue.severity === 'ERROR' ? 'error' : issue.severity === 'WARNING' ? 'warning' : 'info'"
-                  show-icon
-                />
+                  class="result-item"
+                >
+                  <ElAlert
+                    :title="`${issue.code} · ${issue.subject}`"
+                    :description="issue.message"
+                    :type="issue.severity === 'ERROR' ? 'error' : issue.severity === 'WARNING' ? 'warning' : 'info'"
+                    show-icon
+                  />
+                  <ElButton
+                    v-if="designer.resolveNodeId(issue.subject)"
+                    size="small"
+                    @click="focusNode(issue.subject)"
+                  >定位节点</ElButton>
+                </div>
               </ElSpace>
             </ElTabPane>
 
@@ -292,7 +438,7 @@ function statusType(status?: string) {
                   <ElInputNumber v-model="designer.amount.value" :min="0" />
                 </ElFormItem>
                 <ElFormItem
-                  v-for="node in designer.draft.value?.definition.nodes.filter(item => item.kind === 'APPROVAL')"
+                  v-for="node in designer.approvalNodes.value"
                   :key="node.id"
                   :label="node.name"
                 >
@@ -303,14 +449,38 @@ function statusType(status?: string) {
                 </ElFormItem>
                 <ElButton @click="designer.simulate">服务端模拟</ElButton>
               </ElForm>
-              <ElAlert
-                v-if="designer.simulation.value"
-                class="result-alert"
-                :title="designer.simulation.value.simulation.status"
-                :description="designer.simulation.value.pathSummary"
-                :type="designer.simulation.value.simulation.completed ? 'success' : 'warning'"
-                show-icon
-              />
+              <template v-if="designer.simulation.value">
+                <ElAlert
+                  class="result-alert"
+                  :title="designer.simulation.value.simulation.status"
+                  :description="designer.simulation.value.pathSummary"
+                  :type="designer.simulation.value.simulation.completed ? 'success' : 'warning'"
+                  show-icon
+                />
+                <div class="simulation-path">
+                  <ElButton
+                    v-for="step in designer.simulation.value.simulation.steps"
+                    :key="`${step.sequence}-${step.nodeId}`"
+                    size="small"
+                    @click="focusNode(step.nodeId)"
+                  >
+                    {{ step.sequence }}. {{ step.nodeName }} · {{ step.outcome }}
+                  </ElButton>
+                </div>
+                <div
+                  v-for="issue in designer.simulation.value.simulation.issues"
+                  :key="`${issue.code}-${issue.nodeId}`"
+                  class="result-item"
+                >
+                  <ElAlert
+                    :title="`${issue.code} · ${issue.nodeId}`"
+                    :description="issue.message"
+                    type="warning"
+                    show-icon
+                  />
+                  <ElButton size="small" @click="focusNode(issue.nodeId)">定位节点</ElButton>
+                </div>
+              </template>
             </ElTabPane>
 
             <ElTabPane label="DSL" name="dsl">
@@ -371,19 +541,30 @@ function statusType(status?: string) {
 .draft-item { background: transparent; border: 1px solid var(--el-border-color-light); border-radius: 8px; cursor: pointer; display: grid; gap: 4px; margin-bottom: 8px; padding: 10px; text-align: left; width: 100%; }
 .draft-item.active { border-color: var(--el-color-primary); background: var(--el-color-primary-light-9); }
 .draft-item small, .muted, .flow-node small, .branch-card small { color: var(--el-text-color-secondary); }
-.node-actions { display: flex; gap: 8px; margin: 12px 0; }
-.tree-canvas { align-items: center; display: flex; flex-direction: column; padding: 18px; }
+.node-tools { align-items: center; display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto auto auto; gap: 8px; margin: 12px 0; }
+.node-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.shortcut-hint { color: var(--el-text-color-secondary); font-size: 12px; margin-left: auto; }
+.tree-canvas { align-items: center; content-visibility: auto; display: flex; flex-direction: column; padding: 18px; }
 .flow-node { background: var(--el-bg-color); border: 2px solid var(--el-border-color); border-radius: 10px; cursor: pointer; display: grid; gap: 4px; min-width: 240px; padding: 12px 18px; }
 .flow-node.selected { border-color: var(--el-color-primary); box-shadow: 0 0 0 3px var(--el-color-primary-light-8); }
 .kind-start, .kind-end { border-radius: 24px; }
 .kind-condition { border-color: var(--el-color-warning); }
 .kind-parallel_split, .kind-parallel_join { border-color: var(--el-color-success); }
 .connector { color: var(--el-text-color-secondary); font-size: 22px; line-height: 28px; }
+.branch-toggle { background: var(--el-fill-color-light); border: 1px solid var(--el-border-color-light); border-radius: 999px; color: var(--el-text-color-regular); cursor: pointer; font-size: 12px; margin-top: 8px; padding: 5px 12px; }
 .branch-grid { display: grid; grid-template-columns: repeat(2, minmax(160px, 1fr)); gap: 8px; margin: 10px 0; width: 100%; }
 .branch-card, .route-box { border: 1px solid var(--el-border-color-light); border-radius: 8px; display: grid; gap: 8px; padding: 10px; }
 .route-box { margin-bottom: 10px; }
 .result-alert { margin-top: 12px; }
+.result-item { align-items: flex-start; display: grid; gap: 6px; grid-template-columns: 1fr auto; width: 100%; }
+.simulation-path { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.load-more { margin-top: 16px; }
+.conflict-panel { display: grid; gap: 12px; margin-bottom: 12px; }
+.conflict-summary { display: flex; flex-wrap: wrap; gap: 16px; color: var(--el-text-color-secondary); }
+.conflict-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.conflict-columns section { border: 1px solid var(--el-border-color-light); border-radius: 8px; display: grid; gap: 8px; padding: 10px; }
+.change-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 code { overflow-wrap: anywhere; }
-@media (max-width: 1280px) { .designer-shell { grid-template-columns: 240px 1fr; } .right-panel { grid-column: 1 / -1; } }
-@media (max-width: 820px) { .designer-shell { grid-template-columns: 1fr; } .right-panel { grid-column: auto; } }
+@media (max-width: 1280px) { .designer-shell { grid-template-columns: 240px 1fr; } .right-panel { grid-column: 1 / -1; } .node-tools { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 820px) { .designer-shell { grid-template-columns: 1fr; } .right-panel { grid-column: auto; } .conflict-columns, .node-tools, .result-item { grid-template-columns: 1fr; } .shortcut-hint { margin-left: 0; width: 100%; } }
 </style>

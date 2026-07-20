@@ -123,14 +123,22 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
             insert into ap_approval_instance (
                 instance_id, tenant_id, business_key, engine_instance_id,
                 definition_key, definition_version, form_key, form_version,
-                compiler_version, content_hash, initiator_id,
+                compiler_version, content_hash,
+                release_version, release_package_hash,
+                form_package_version, form_package_hash,
+                ui_schema_version, ui_schema_hash, engine_definition_id,
+                initiator_id,
                 amount, supplier, purchase_order_reference,
                 attachment_ids_json, assignee_snapshot_json, request_hash,
                 status, version, created_at, updated_at
             ) values (
                 :instanceId, :tenantId, :businessKey, :engineInstanceId,
                 :definitionKey, :definitionVersion, :formKey, :formVersion,
-                :compilerVersion, :contentHash, :initiatorId,
+                :compilerVersion, :contentHash,
+                :releaseVersion, :releasePackageHash,
+                :formPackageVersion, :formPackageHash,
+                :uiSchemaVersion, :uiSchemaHash, :engineDefinitionId,
+                :initiatorId,
                 :amount, :supplier, :purchaseOrderReference,
                 cast(:attachmentIdsJson as jsonb), cast(:assigneeSnapshotJson as jsonb),
                 :requestHash, :status, :version, :createdAt, :updatedAt
@@ -551,6 +559,13 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
             .addValue("formVersion", instance.formVersion())
             .addValue("compilerVersion", instance.compilerVersion())
             .addValue("contentHash", instance.contentHash())
+            .addValue("releaseVersion", instance.releaseVersion())
+            .addValue("releasePackageHash", instance.releasePackageHash())
+            .addValue("formPackageVersion", instance.formPackageVersion())
+            .addValue("formPackageHash", instance.formPackageHash())
+            .addValue("uiSchemaVersion", instance.uiSchemaVersion())
+            .addValue("uiSchemaHash", instance.uiSchemaHash())
+            .addValue("engineDefinitionId", instance.engineDefinitionId())
             .addValue("initiatorId", instance.initiatorId())
             .addValue("amount", instance.amount())
             .addValue("supplier", instance.supplier())
@@ -611,6 +626,13 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
             resultSet.getInt("form_version"),
             resultSet.getString("compiler_version"),
             resultSet.getString("content_hash"),
+            integer(resultSet, "release_version"),
+            resultSet.getString("release_package_hash"),
+            integer(resultSet, "form_package_version"),
+            resultSet.getString("form_package_hash"),
+            integer(resultSet, "ui_schema_version"),
+            resultSet.getString("ui_schema_hash"),
+            resultSet.getString("engine_definition_id"),
             resultSet.getString("initiator_id"),
             resultSet.getBigDecimal("amount"),
             resultSet.getString("supplier"),
@@ -677,5 +699,10 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
     private static Instant nullableInstant(ResultSet resultSet, String column) throws SQLException {
         OffsetDateTime value = resultSet.getObject(column, OffsetDateTime.class);
         return value == null ? null : value.toInstant();
+    }
+
+    private static Integer integer(ResultSet resultSet, String column) throws SQLException {
+        int value = resultSet.getInt(column);
+        return resultSet.wasNull() ? null : value;
     }
 }

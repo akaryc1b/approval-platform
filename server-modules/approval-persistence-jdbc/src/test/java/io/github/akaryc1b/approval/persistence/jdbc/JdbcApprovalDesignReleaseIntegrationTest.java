@@ -3,11 +3,13 @@ package io.github.akaryc1b.approval.persistence.jdbc;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService;
 import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;
 import io.github.akaryc1b.approval.application.ApprovalDesignCommands;
 import io.github.akaryc1b.approval.application.ApprovalDesignExceptions;
 import io.github.akaryc1b.approval.application.ApprovalDesignService;
 import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
+import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
 import io.github.akaryc1b.approval.application.FormPackageHasher;
 import io.github.akaryc1b.approval.application.FormSchemaHasher;
 import io.github.akaryc1b.approval.application.UiSchemaHasher;
@@ -36,11 +38,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import javax.sql.DataSource;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,6 +74,7 @@ class JdbcApprovalDesignReleaseIntegrationTest {
     private JdbcTemplate jdbc;
     private JdbcApprovalDesignDraftStore drafts;
     private ApprovalDesignService service;
+    private ApprovalReleasePreflightService preflight;
 
     @BeforeAll
     static void migrate() {
@@ -104,7 +109,10 @@ class JdbcApprovalDesignReleaseIntegrationTest {
             """);
         seedFormPackage(TENANT, 1);
         drafts = new JdbcApprovalDesignDraftStore(dataSource, objectMapper);
-        service = service(new JdbcApprovalReleasePackageStore(dataSource));
+        JdbcApprovalReleasePackageStore releaseStore =
+            new JdbcApprovalReleasePackageStore(dataSource);
+        service = service(releaseStore);
+        preflight = preflight(releaseStore);
     }
 
     @Test
@@ -207,26 +215,35 @@ class JdbcApprovalDesignReleaseIntegrationTest {
         ));
         assertTrue(validation.valid());
 
-        var published = service.publish(new ApprovalDesignCommands.Publish(
+        var report = publicationPreflight(
+            draft.draftId(),
+            validation.revision(),
+            PurchasePaymentTemplate.PROCESS_VERSION,
+            1
+        );
+        var published = service.publish(publishCommand(
             context(TENANT, "publish", "publish-key"),
             draft.draftId(),
             validation.revision(),
             PurchasePaymentTemplate.PROCESS_VERSION,
-            1
+            1,
+            report
         ));
-        var requestReplay = service.publish(new ApprovalDesignCommands.Publish(
+        var requestReplay = service.publish(publishCommand(
             context(TENANT, "publish-retry", "publish-key"),
             draft.draftId(),
             validation.revision(),
             PurchasePaymentTemplate.PROCESS_VERSION,
-            1
+            1,
+            report
         ));
-        var semanticReplay = service.publish(new ApprovalDesignCommands.Publish(
+        var semanticReplay = service.publish(publishCommand(
             context(TENANT, "publish-semantic", "publish-semantic-key"),
             draft.draftId(),
             validation.revision(),
             PurchasePaymentTemplate.PROCESS_VERSION,
-            1
+            1,
+            report
         ));
 
         assertFalse(published.replayedExistingRelease());
@@ -243,15 +260,41 @@ class JdbcApprovalDesignReleaseIntegrationTest {
             ApprovalDesignDraft.Status.PUBLISHED,
             drafts.find(TENANT, draft.draftId()).orElseThrow().status()
         );
+        assertEquals(
+            report.preflightHash(),
+            jdbc.queryForObject(
+                "select attributes_json ->> 'preflightHash' from ap_audit_event "
+                    + "where action = 'APPROVAL_RELEASE_PACKAGE_PUBLISHED'",
+                String.class
+            )
+        );
+        assertEquals(
+            String.join(",", report.warningCodes()),
+            jdbc.queryForObject(
+                "select attributes_json ->> 'acknowledgedWarningCodes' "
+                    + "from ap_audit_event "
+                    + "where action = 'APPROVAL_RELEASE_PACKAGE_PUBLISHED'",
+                String.class
+            )
+        );
+        assertEquals(
+            "default",
+            jdbc.queryForObject(
+                "select attributes_json ->> 'deploymentTarget' from ap_audit_event "
+                    + "where action = 'APPROVAL_RELEASE_PACKAGE_PUBLISHED'",
+                String.class
+            )
+        );
 
         assertThrows(
             ApprovalDesignExceptions.ReleaseVersionConflict.class,
-            () -> service.publish(new ApprovalDesignCommands.Publish(
+            () -> service.publish(publishCommand(
                 context(TENANT, "publish-conflict", "publish-conflict-key"),
                 draft.draftId(),
                 validation.revision(),
                 PurchasePaymentTemplate.PROCESS_VERSION,
-                2
+                2,
+                report
             ))
         );
 
@@ -260,6 +303,58 @@ class JdbcApprovalDesignReleaseIntegrationTest {
             DataIntegrityViolationException.class,
             () -> new JdbcApprovalReleasePackageStore(dataSource).save(changed)
         );
+    }
+
+    @Test
+    void requiresExactWarningAcknowledgementAndRejectsStalePreflightHash() {
+        ApprovalDesignDraft draft = createDraft("preflight-create", "preflight-create-key");
+        var report = publicationPreflight(
+            draft.draftId(),
+            draft.revision(),
+            PurchasePaymentTemplate.PROCESS_VERSION,
+            1
+        );
+        assertFalse(report.warningCodes().isEmpty());
+
+        assertThrows(
+            ApprovalDesignExceptions.WarningAcknowledgementRequired.class,
+            () -> service.publish(new ApprovalDesignCommands.Publish(
+                context(TENANT, "missing-warning", "missing-warning-key"),
+                draft.draftId(),
+                draft.revision(),
+                PurchasePaymentTemplate.PROCESS_VERSION,
+                1,
+                "default",
+                report.preflightHash(),
+                List.of(),
+                ApprovalDefinitionSimulator.Scenario.empty()
+            ))
+        );
+        assertEquals(0, count("ap_approval_release_package"));
+
+        ApprovalDesignDraft changed = service.update(new ApprovalDesignCommands.Update(
+            context(TENANT, "preflight-change", "preflight-change-key"),
+            draft.draftId(),
+            draft.revision(),
+            "Changed after preflight",
+            draft.definition(),
+            1,
+            ApprovalDesignCommands.SaveMode.EXPLICIT
+        ));
+        assertThrows(
+            ApprovalDesignExceptions.PreflightConflict.class,
+            () -> service.publish(publishCommand(
+                context(TENANT, "stale-preflight", "stale-preflight-key"),
+                changed.draftId(),
+                draft.revision(),
+                PurchasePaymentTemplate.PROCESS_VERSION,
+                1,
+                report
+            ))
+        );
+        assertEquals(0, count("ap_approval_definition"));
+        assertEquals(0, count("ap_approval_compiled_artifact"));
+        assertEquals(0, count("ap_approval_release_package"));
     }
 
     @Test
@@ -273,15 +368,22 @@ class JdbcApprovalDesignReleaseIntegrationTest {
         ApprovalReleasePackageStore delegate = new JdbcApprovalReleasePackageStore(dataSource);
         ApprovalReleasePackageStore failing = new FailingReleaseStore(delegate);
         ApprovalDesignService failingService = service(failing);
+        var report = publicationPreflight(
+            draft.draftId(),
+            validation.revision(),
+            PurchasePaymentTemplate.PROCESS_VERSION,
+            1
+        );
 
         assertThrows(
             IllegalStateException.class,
-            () -> failingService.publish(new ApprovalDesignCommands.Publish(
+            () -> failingService.publish(publishCommand(
                 context(TENANT, "rollback-publish", "rollback-publish-key"),
                 draft.draftId(),
                 validation.revision(),
                 PurchasePaymentTemplate.PROCESS_VERSION,
-                1
+                1,
+                report
             ))
         );
 
@@ -316,19 +418,158 @@ class JdbcApprovalDesignReleaseIntegrationTest {
             ApprovalDesignCommands.SaveMode.EXPLICIT
         ));
 
+        var report = publicationPreflight(
+            updated.draftId(),
+            updated.revision(),
+            PurchasePaymentTemplate.PROCESS_VERSION,
+            1
+        );
         assertThrows(
-            ApprovalDefinitionValidator.DefinitionValidationException.class,
-            () -> service.publish(new ApprovalDesignCommands.Publish(
+            ApprovalDesignExceptions.PreflightConflict.class,
+            () -> service.publish(publishCommand(
                 context(TENANT, "invalid-publish", "invalid-publish-key"),
                 updated.draftId(),
                 updated.revision(),
                 PurchasePaymentTemplate.PROCESS_VERSION,
-                1
+                1,
+                report
             ))
         );
         assertEquals(0, count("ap_approval_definition"));
         assertEquals(0, count("ap_approval_compiled_artifact"));
         assertEquals(0, count("ap_approval_release_package"));
+    }
+
+    @Test
+    void batchSimulationReadsExactTenantDraftWithoutRuntimeWrites() {
+        ApprovalDesignDraft draft = createDraft(
+            "batch-create",
+            "batch-create-key"
+        );
+        ApprovalDefinitionValidator validator = new ApprovalDefinitionValidator();
+        ApprovalBatchSimulationService batch = new ApprovalBatchSimulationService(
+            drafts,
+            new JdbcApprovalFormPackageStore(dataSource),
+            new JdbcApprovalFormStore(dataSource, objectMapper),
+            new JdbcApprovalUiSchemaStore(dataSource, objectMapper),
+            validator,
+            new ApprovalDefinitionSimulator(validator),
+            CLOCK
+        );
+        var scenario = new ApprovalBatchSimulationService.NamedScenario(
+            "postgres-high-value",
+            "PostgreSQL high value",
+            Map.of("amount", new BigDecimal("10000")),
+            Map.of(
+                "managerApproval", ApprovalDefinitionSimulator.Decision.APPROVE,
+                "financeReview", ApprovalDefinitionSimulator.Decision.APPROVE,
+                "financeCountersign", ApprovalDefinitionSimulator.Decision.APPROVE
+            ),
+            Map.of(),
+            ApprovalDefinitionSimulator.SimulationStatus.COMPLETED,
+            List.of("end"),
+            List.of("initiatorRevision"),
+            100
+        );
+        int draftRows = count("ap_approval_design_draft");
+        int auditRows = count("ap_audit_event");
+
+        var report = batch.simulate(new ApprovalBatchSimulationService.BatchCommand(
+            TENANT,
+            draft.draftId(),
+            draft.revision(),
+            List.of(scenario)
+        ));
+
+        assertEquals(draft.revision(), report.draftRevision());
+        assertEquals(1, report.scenarioCount());
+        assertEquals(
+            ApprovalBatchSimulationService.ScenarioRunStatus.PASSED,
+            report.scenarioResults().getFirst().runStatus()
+        );
+        assertEquals(draftRows, count("ap_approval_design_draft"));
+        assertEquals(auditRows, count("ap_audit_event"));
+        assertThrows(
+            ApprovalDesignExceptions.DraftRevisionConflict.class,
+            () -> batch.simulate(new ApprovalBatchSimulationService.BatchCommand(
+                TENANT,
+                draft.draftId(),
+                draft.revision() + 1,
+                List.of(scenario)
+            ))
+        );
+        assertThrows(
+            ApprovalDesignExceptions.DraftNotFound.class,
+            () -> batch.simulate(new ApprovalBatchSimulationService.BatchCommand(
+                OTHER_TENANT,
+                draft.draftId(),
+                draft.revision(),
+                List.of(scenario)
+            ))
+        );
+        assertEquals(draftRows, count("ap_approval_design_draft"));
+        assertEquals(auditRows, count("ap_audit_event"));
+    }
+
+    private ApprovalReleasePreflightService.PreflightReport publicationPreflight(
+        UUID draftId,
+        long revision,
+        int definitionVersion,
+        int releaseVersion
+    ) {
+        return preflight.preflightPublication(
+            new ApprovalReleasePreflightService.PublicationRequest(
+                TENANT,
+                draftId,
+                revision,
+                PurchasePaymentTemplate.DEFINITION_KEY,
+                definitionVersion,
+                releaseVersion,
+                "default",
+                ApprovalDefinitionSimulator.Scenario.empty()
+            )
+        );
+    }
+
+    private static ApprovalDesignCommands.Publish publishCommand(
+        RequestContext context,
+        UUID draftId,
+        long revision,
+        int definitionVersion,
+        int releaseVersion,
+        ApprovalReleasePreflightService.PreflightReport report
+    ) {
+        return new ApprovalDesignCommands.Publish(
+            context,
+            draftId,
+            revision,
+            definitionVersion,
+            releaseVersion,
+            "default",
+            report.preflightHash(),
+            report.warningCodes(),
+            ApprovalDefinitionSimulator.Scenario.empty()
+        );
+    }
+
+    private ApprovalReleasePreflightService preflight(
+        ApprovalReleasePackageStore releaseStore
+    ) {
+        ApprovalDefinitionValidator validator = new ApprovalDefinitionValidator();
+        return new ApprovalReleasePreflightService(
+            new JdbcApprovalDesignDraftStore(dataSource, objectMapper),
+            new JdbcApprovalDefinitionVersionStore(dataSource, objectMapper),
+            releaseStore,
+            new JdbcApprovalReleaseDeploymentStore(dataSource),
+            new JdbcApprovalFormPackageStore(dataSource),
+            new JdbcApprovalFormStore(dataSource, objectMapper),
+            new JdbcApprovalUiSchemaStore(dataSource, objectMapper),
+            validator,
+            new ApprovalDefinitionSimulator(validator),
+            new ApprovalDslCompiler(validator),
+            new ApprovalDefinitionHasher(),
+            new ApprovalReleasePackageHasher()
+        );
     }
 
     private ApprovalDesignDraft createDraft(String requestId, String idempotencyKey) {

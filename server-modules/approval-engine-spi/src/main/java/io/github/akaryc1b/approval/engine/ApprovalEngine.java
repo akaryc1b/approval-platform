@@ -15,6 +15,17 @@ public interface ApprovalEngine {
 
     StartResult start(StartCommand command);
 
+    /** Exact immutable release start. Engine adapters should override this method. */
+    default StartResult startExact(ExactStartCommand command) {
+        return start(new StartCommand(
+            command.tenantId(),
+            command.definitionKey(),
+            command.businessKey(),
+            command.initiatorId(),
+            command.variables()
+        ));
+    }
+
     List<TaskSnapshot> findActiveTasks(TaskQuery query);
 
     TaskResult complete(CompleteTaskCommand command);
@@ -88,6 +99,41 @@ public interface ApprovalEngine {
             definitionKey = requireText(definitionKey, "definitionKey");
             businessKey = requireText(businessKey, "businessKey");
             initiatorId = requireText(initiatorId, "initiatorId");
+            variables = variables == null ? Map.of() : Map.copyOf(variables);
+        }
+    }
+
+    record ExactStartCommand(
+        String tenantId,
+        String definitionKey,
+        String engineDeploymentId,
+        String engineDefinitionId,
+        String businessKey,
+        String initiatorId,
+        int releaseVersion,
+        String releasePackageHash,
+        int definitionVersion,
+        int formPackageVersion,
+        String compilerVersion,
+        Map<String, Object> variables
+    ) {
+        public ExactStartCommand {
+            tenantId = requireText(tenantId, "tenantId");
+            definitionKey = requireText(definitionKey, "definitionKey");
+            engineDeploymentId = requireText(engineDeploymentId, "engineDeploymentId");
+            engineDefinitionId = requireText(engineDefinitionId, "engineDefinitionId");
+            businessKey = requireText(businessKey, "businessKey");
+            initiatorId = requireText(initiatorId, "initiatorId");
+            if (releaseVersion < 1 || definitionVersion < 1 || formPackageVersion < 1) {
+                throw new IllegalArgumentException(
+                    "release, definition and Form Package versions must be positive"
+                );
+            }
+            releasePackageHash = requireHash(
+                releasePackageHash,
+                "releasePackageHash"
+            );
+            compilerVersion = requireText(compilerVersion, "compilerVersion");
             variables = variables == null ? Map.of() : Map.copyOf(variables);
         }
     }
@@ -215,6 +261,14 @@ public interface ApprovalEngine {
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value;
+    }
+
+    private static String requireHash(String value, String name) {
+        String normalized = requireText(value, name);
+        if (!normalized.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException(name + " must be a lowercase SHA-256 value");
+        }
+        return normalized;
     }
 
     private static String normalizeOptional(String value) {

@@ -32,22 +32,27 @@ public final class FlowableApprovalEngine implements ApprovalEngine {
             repositoryService,
             "repositoryService must not be null"
         );
-        this.runtimeService = Objects.requireNonNull(runtimeService, "runtimeService must not be null");
-        this.taskService = Objects.requireNonNull(taskService, "taskService must not be null");
+        this.runtimeService = Objects.requireNonNull(
+            runtimeService,
+            "runtimeService must not be null"
+        );
+        this.taskService = Objects.requireNonNull(
+            taskService,
+            "taskService must not be null"
+        );
     }
 
     @Override
     public DeploymentResult deploy(DeployCommand command) {
-        String deploymentName = command.definitionKey()
-            + ":dsl-v"
-            + command.definitionVersion()
-            + ":"
-            + command.contentHash();
-        Deployment deployment = repositoryService.createDeployment()
-            .tenantId(command.tenantId())
-            .name(deploymentName)
-            .addString(command.resourceName(), command.bpmnXml())
-            .deploy();
+        String deploymentName = deploymentName(command);
+        Deployment deployment = findExistingDeployment(command, deploymentName);
+        if (deployment == null) {
+            deployment = repositoryService.createDeployment()
+                .tenantId(command.tenantId())
+                .name(deploymentName)
+                .addString(command.resourceName(), command.bpmnXml())
+                .deploy();
+        }
         ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
             .deploymentId(deployment.getId())
             .singleResult();
@@ -87,6 +92,43 @@ public final class FlowableApprovalEngine implements ApprovalEngine {
     }
 
     @Override
+    public StartResult startExact(ExactStartCommand command) {
+        ProcessDefinition definition = repositoryService.createProcessDefinitionQuery()
+            .processDefinitionId(command.engineDefinitionId())
+            .singleResult();
+        if (definition == null) {
+            throw new EngineOperationException(
+                "PROCESS_DEFINITION_NOT_FOUND",
+                "the exact engine process definition was not found"
+            );
+        }
+        if (!command.tenantId().equals(definition.getTenantId())
+            || !command.definitionKey().equals(definition.getKey())
+            || !command.engineDeploymentId().equals(definition.getDeploymentId())) {
+            throw new EngineOperationException(
+                "PROCESS_DEFINITION_IDENTITY_MISMATCH",
+                "the exact engine process definition does not match the activated release"
+            );
+        }
+        Map<String, Object> variables = new LinkedHashMap<>(command.variables());
+        variables.putIfAbsent("approvalInitiatorId", command.initiatorId());
+        variables.putIfAbsent("initiatorAssignee", command.initiatorId());
+        variables.putIfAbsent("approvalDecision", "PENDING");
+        variables.putIfAbsent("releaseVersion", command.releaseVersion());
+        variables.putIfAbsent("releasePackageHash", command.releasePackageHash());
+        variables.putIfAbsent("definitionVersion", command.definitionVersion());
+        variables.putIfAbsent("formPackageVersion", command.formPackageVersion());
+        variables.putIfAbsent("compilerVersion", command.compilerVersion());
+        ProcessInstance instance = runtimeService.createProcessInstanceBuilder()
+            .processDefinitionId(command.engineDefinitionId())
+            .businessKey(command.businessKey())
+            .tenantId(command.tenantId())
+            .variables(Map.copyOf(variables))
+            .start();
+        return new StartResult(instance.getProcessInstanceId());
+    }
+
+    @Override
     public List<TaskSnapshot> findActiveTasks(TaskQuery query) {
         org.flowable.task.api.TaskQuery flowableQuery = taskService.createTaskQuery()
             .processInstanceId(query.processInstanceId())
@@ -97,7 +139,9 @@ public final class FlowableApprovalEngine implements ApprovalEngine {
         if (query.assigneeId() != null) {
             flowableQuery.taskAssignee(query.assigneeId());
         }
-        return flowableQuery.list().stream().map(FlowableApprovalEngine::snapshot).toList();
+        return flowableQuery.list().stream()
+            .map(FlowableApprovalEngine::snapshot)
+            .toList();
     }
 
     @Override
@@ -158,10 +202,34 @@ public final class FlowableApprovalEngine implements ApprovalEngine {
             .changeState();
     }
 
+    private Deployment findExistingDeployment(
+        DeployCommand command,
+        String deploymentName
+    ) {
+        return repositoryService.createDeploymentQuery()
+            .deploymentName(deploymentName)
+            .list()
+            .stream()
+            .filter(item -> command.tenantId().equals(item.getTenantId()))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private static String deploymentName(DeployCommand command) {
+        return command.definitionKey()
+            + ":dsl-v"
+            + command.definitionVersion()
+            + ':'
+            + command.contentHash();
+    }
+
     private Task requireTask(String tenantId, String taskId) {
         Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
         if (task == null || !tenantId.equals(task.getTenantId())) {
-            throw new EngineOperationException("TASK_NOT_FOUND", "task was not found for the tenant");
+            throw new EngineOperationException(
+                "TASK_NOT_FOUND",
+                "task was not found for the tenant"
+            );
         }
         return task;
     }

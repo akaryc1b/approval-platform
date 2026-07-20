@@ -15,6 +15,8 @@ export type ComparisonOperator =
   | 'LESS_THAN_OR_EQUAL'
   | 'NOT_EQUAL';
 export type ValidationSeverity = 'ERROR' | 'INFO' | 'WARNING';
+export type ApprovalPreflightScope = 'DEPLOYMENT' | 'PUBLICATION';
+export type ApprovalPreflightSeverity = 'ERROR' | 'INFO' | 'WARNING';
 
 interface BaseNode {
   id: string;
@@ -238,6 +240,88 @@ export interface ApprovalPublishResult {
   replayedExistingRelease: boolean;
 }
 
+export interface ApprovalPreflightIssue {
+  code: string;
+  message: string;
+  severity: ApprovalPreflightSeverity;
+  subject: string;
+}
+
+export interface ApprovalPreflightReport {
+  compiler: {
+    artifactBytes: number;
+    attempted: boolean;
+    compilerVersion?: string;
+    deterministic: boolean;
+    resourceName?: string;
+    successful: boolean;
+  };
+  deployable: boolean;
+  deploymentCompatibility: {
+    bpmnWellFormed: boolean;
+    existingDeploymentStatus?: string;
+    processDefinitionKey?: string;
+    processKeyMatches: boolean;
+    semanticReplay: boolean;
+    supported: boolean;
+    target: string;
+  };
+  deploymentTarget: string;
+  draftId: string;
+  draftRevision: number;
+  errors: ApprovalPreflightIssue[];
+  generatedHashes: {
+    bpmnHash?: string;
+    compiledArtifactHash?: string;
+    definitionHash?: string;
+    deploymentMetadataHash?: string;
+    formPackageHash?: string;
+    releasePackageHash?: string;
+  };
+  infos: ApprovalPreflightIssue[];
+  preflightHash: string;
+  publishable: boolean;
+  scope: ApprovalPreflightScope;
+  simulation: {
+    executed: boolean;
+    issueCodes: string[];
+    requested: boolean;
+    status?: string;
+    stepCount: number;
+    terminalNodeId?: string;
+  };
+  targetDefinitionVersion: number;
+  targetReleaseVersion: number;
+  tenantId: string;
+  warnings: ApprovalPreflightIssue[];
+}
+
+export interface ApprovalPreflightScenario {
+  decisions: Record<string, 'APPROVE' | 'REJECT'>;
+  formValues: Record<string, unknown>;
+  maxTransitions: number;
+}
+
+export interface ApprovalPublicationPreflightInput {
+  definitionKey: string;
+  deploymentTarget: string;
+  draftId: string;
+  expectedRevision: number;
+  scenario?: ApprovalPreflightScenario;
+  targetDefinitionVersion: number;
+  targetReleaseVersion: number;
+}
+
+export interface PublishApprovalDesignDraftInput {
+  acknowledgedWarningCodes: string[];
+  definitionVersion: number;
+  deploymentTarget: string;
+  expectedRevision: number;
+  preflightHash: string;
+  preflightScenario?: ApprovalPreflightScenario;
+  releaseVersion: number;
+}
+
 export interface CreateApprovalDesignDraftInput {
   definitionKey: string;
   definitionVersion: number;
@@ -259,6 +343,123 @@ export interface ApprovalSimulationInput {
   formValues: Record<string, unknown>;
   identityInputs?: Record<string, StableIdentitySnapshot[]>;
   maxTransitions?: number;
+}
+
+export type ApprovalFormValueDisclosure = 'FIELD_NAMES_ONLY' | 'FULL' | 'MASKED';
+export type ApprovalBatchRunStatus =
+  | 'BLOCKED'
+  | 'ERROR'
+  | 'EXPECTATION_FAILED'
+  | 'PASSED'
+  | 'TRANSITION_LIMIT_REACHED';
+
+export interface ApprovalBatchScenarioInput {
+  approvalDecisions: Record<string, 'APPROVE' | 'REJECT'>;
+  expectedSkippedNodeIds: string[];
+  expectedTerminalStatus?: SimulationResult['status'];
+  expectedVisitedNodeIds: string[];
+  formValues: Record<string, unknown>;
+  identitySnapshots: Record<string, StableIdentitySnapshot[]>;
+  maxTransitions: number;
+  name: string;
+  scenarioId: string;
+}
+
+export interface ApprovalCoverageMetric {
+  covered: number;
+  percentage: number;
+  total: number;
+}
+
+export interface ApprovalBatchIdentityResolution {
+  inputVariable: string;
+  nodeId: string;
+  resolvable: boolean;
+  resolver: AssigneeResolver;
+  snapshotHashes: string[];
+  subjectIds: string[];
+}
+
+export interface ApprovalBatchScenarioResult {
+  expectationFailures: string[];
+  formFieldNames: string[];
+  formValues: Record<string, unknown>;
+  identityResolutions: ApprovalBatchIdentityResolution[];
+  issueCodes: string[];
+  name: string;
+  pathSummary: string;
+  runStatus: ApprovalBatchRunStatus;
+  scenarioId: string;
+  simulationStatus?: SimulationResult['status'];
+  skippedNodeIds: string[];
+  steps: SimulationStep[];
+  terminalNodeId?: string;
+  visitedNodeIds: string[];
+}
+
+export interface ApprovalBatchCoverageReport {
+  approvalPassPaths: ApprovalCoverageMetric;
+  approvalRejectPaths: ApprovalCoverageMetric;
+  blockedObserved: boolean;
+  blockedScenarioIds: string[];
+  conditionRoutes: ApprovalCoverageMetric;
+  criticalPathCoverage: ApprovalCoverageMetric;
+  decisionCoverage: ApprovalCoverageMetric;
+  defaultRoutes: ApprovalCoverageMetric;
+  endNodes: ApprovalCoverageMetric;
+  handleRevisionLoops: ApprovalCoverageMetric;
+  nodes: ApprovalCoverageMetric;
+  parallelBranches: ApprovalCoverageMetric;
+  parallelJoins: ApprovalCoverageMetric;
+  parallelSplits: ApprovalCoverageMetric;
+  startNodes: ApprovalCoverageMetric;
+  structuralCoverage: ApprovalCoverageMetric;
+  transitionLimitObserved: boolean;
+  transitionLimitScenarioIds: string[];
+  uncoveredApprovalPassNodeIds: string[];
+  uncoveredApprovalRejectNodeIds: string[];
+  uncoveredConditionRouteIds: string[];
+  uncoveredDefaultRouteIds: string[];
+  uncoveredEndNodeIds: string[];
+  uncoveredHandleNodeIds: string[];
+  uncoveredNodeIds: string[];
+  uncoveredParallelBranchIds: string[];
+  uncoveredParallelJoinNodeIds: string[];
+  uncoveredParallelSplitNodeIds: string[];
+  uncoveredStartNodeIds: string[];
+}
+
+export interface ApprovalBatchUncoveredItem {
+  category: string;
+  stableId: string;
+}
+
+export interface ApprovalBatchSimulationReport {
+  coverage: ApprovalBatchCoverageReport;
+  definitionKey: string;
+  definitionVersion: number;
+  draftId: string;
+  draftRevision: number;
+  formPackageHash: string;
+  formPackageVersion: number;
+  formSchemaHash: string;
+  formSchemaVersion: number;
+  formValueDisclosure: ApprovalFormValueDisclosure;
+  generatedAt: string;
+  reportHash: string;
+  scenarioCount: number;
+  scenarioResults: ApprovalBatchScenarioResult[];
+  schemaVersion: string;
+  tenantId: string;
+  uiSchemaHash: string;
+  uiSchemaVersion: number;
+  uncoveredItems: ApprovalBatchUncoveredItem[];
+}
+
+export interface ApprovalBatchSimulationInput {
+  expectedRevision: number;
+  formValueDisclosure?: ApprovalFormValueDisclosure;
+  scenarios: ApprovalBatchScenarioInput[];
 }
 
 interface ApiErrorPayload {
@@ -412,6 +613,29 @@ export function simulateApprovalDesignDraft(
   );
 }
 
+export function simulateApprovalDesignDraftBatch(
+  draftId: string,
+  input: ApprovalBatchSimulationInput,
+) {
+  return request<ApprovalBatchSimulationReport>(
+    `/approval/process-design-drafts/${encodeURIComponent(draftId)}/batch-simulate`,
+    {
+      body: JSON.stringify(input),
+      method: 'POST',
+    },
+  );
+}
+
+export async function exportApprovalDesignDraftBatchReport(
+  draftId: string,
+  input: ApprovalBatchSimulationInput,
+) {
+  const report = await simulateApprovalDesignDraftBatch(draftId, input);
+  return new Blob([JSON.stringify(report, null, 2)], {
+    type: 'application/json;charset=utf-8',
+  });
+}
+
 export function archiveApprovalDesignDraft(draftId: string, expectedRevision: number) {
   return request<ApprovalDesignDraft>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/archive`,
@@ -423,16 +647,21 @@ export function archiveApprovalDesignDraft(draftId: string, expectedRevision: nu
   );
 }
 
+export function preflightApprovalPublication(input: ApprovalPublicationPreflightInput) {
+  return request<ApprovalPreflightReport>('/approval/preflight/publication', {
+    body: JSON.stringify(input),
+    method: 'POST',
+  });
+}
+
 export function publishApprovalDesignDraft(
   draftId: string,
-  expectedRevision: number,
-  definitionVersion: number,
-  releaseVersion: number,
+  input: PublishApprovalDesignDraftInput,
 ) {
   return request<ApprovalPublishResult>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/publish`,
     {
-      body: JSON.stringify({ definitionVersion, expectedRevision, releaseVersion }),
+      body: JSON.stringify(input),
       headers: writeHeaders('approval-release-publish'),
       method: 'POST',
     },

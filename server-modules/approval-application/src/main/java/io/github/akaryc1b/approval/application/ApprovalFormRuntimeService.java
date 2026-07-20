@@ -307,7 +307,7 @@ public final class ApprovalFormRuntimeService {
         return new UiSelection(schema.definition(), schema.contentHash(), false);
     }
 
-    private static RuntimePermissions permissions(
+    static RuntimePermissions permissions(
         FormDefinition form,
         UiSelection selection,
         String contextKey
@@ -342,7 +342,11 @@ public final class ApprovalFormRuntimeService {
                 required.put(field.key(), field.required());
             });
         }
-        return new RuntimePermissions(Map.copyOf(access), Map.copyOf(required));
+        Map<String, FieldAccess> effectiveAccess = UiSchemaDefinitionValidator.applySectionAccess(
+            selection.definition(),
+            access
+        );
+        return new RuntimePermissions(effectiveAccess, Map.copyOf(required));
     }
 
     private static RuntimeView view(
@@ -372,7 +376,7 @@ public final class ApprovalFormRuntimeService {
         );
     }
 
-    private static void rejectNonEditable(
+    static void rejectNonEditable(
         Map<String, Object> input,
         Map<String, FieldAccess> permissions,
         Set<String> serverDefaultedFields

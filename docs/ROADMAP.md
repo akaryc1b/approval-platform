@@ -23,7 +23,7 @@
 - 平台实例/任务投影、幂等、并发、审计与 Outbox；
 - PC、H5 和微信小程序真实接口工作台与协作页面。
 
-## M2 Designer and Forms — in progress
+## M2 Designer and Forms — complete
 
 ### 已完成
 
@@ -65,16 +65,63 @@
 - Approval DSL、Form Package、Form/UI Schema、BPMN、编译器版本和部署元数据精确绑定的不可变 Release Package；
 - Release Package 版本锁定、请求幂等、语义重放、版本冲突和单事务原子发布/失败回滚；
 - Flyway V10 Approval 草稿、DSL 版本、编译制品和 Release Package 表、租户边界、状态约束、精确外键和检索索引；
-- PC 服务端流程设计工作台、草稿刷新恢复、显式/自动保存、冲突安全重载、撤销、复制/删除、条件/并行分支、服务端检查/模拟和发布确认。
+- PC 服务端流程设计工作台、草稿刷新恢复、显式/自动保存、冲突安全重载、撤销、复制/删除、条件/并行分支、服务端检查/模拟和发布确认；
+- Release Package 到 Flowable 的显式幂等部署、平台部署投影、失败持久化、显式重试、部署审计和相同制品语义去重；
+- Approval DSL 与 Release Package 版本中心、稳定分页排序、完整制品关联、部署身份和确定性结构 Diff；
+- PC 版本管理页面、版本时间线、双版本比较、结构 Diff、Release Package/BPMN 只读详情和历史 DSL 新建草稿；
+- 平台拥有的当前生效 Release projection、revision CAS、激活历史、版本切换和历史版本回滚；
+- 新实例通过精确 Release Package、engineDefinitionId、DSL、Form Package 和编译器版本启动并持久化版本快照；
+- PC 版本生效页面、激活/回滚确认摘要、变更原因、expected revision、当前生效详情和激活历史；
+- Flyway V11–V13 部署、生效版本、激活历史、实例版本快照、租户边界、精确外键和 PostgreSQL 并发 CAS 约束；
+- 发布和部署前服务端权威 Preflight，统一输出 errors、warnings、infos、制品哈希、编译、模拟和部署兼容性摘要；
+- 确定性 preflight hash、事务内重新计算、草稿 revision/制品变化防陈旧提交和 warning 精确确认；
+- 发布与部署审计记录 Preflight Hash、目标环境、确认警告、确认人和确认时间；
+- BPMN 安全解析、process key 校验、Release Package 完整性复算以及编译制品精确字节保留；
+- PC 流程设计器和版本中心真实 Preflight、阻断项展示、warning 确认及同 Hash 发布/部署；
+- 服务端权威命名场景批量模拟，支持 1–100 个场景、稳定排序、草稿 revision/状态/租户边界检查且不部署或启动流程；
+- 场景输入深度、元素、文本、决策、身份快照、预期节点和迁移次数限制，以及 `MASKED`、`FIELD_NAMES_ONLY`、`FULL` 表单值披露模式；
+- 精确绑定 Approval DSL、Form Package、Form/UI Schema 版本与哈希的确定性模拟报告、稳定 `reportHash` 和可审计元数据；
+- 节点、Start/End、同意/驳回、条件路由/默认路由、并行 split/branch/join、Handle 回路、阻塞和迁移上限的路径覆盖率与未覆盖项；
+- PostgreSQL/Testcontainers 验证真实 JDBC 草稿/Form/UI 读取、过期 revision、跨租户隔离和模拟过程零草稿/审计写入；
+- PC 批量模拟工作台、采购付款预设、场景编辑/复制、路径详情、覆盖率、基线复制以及来自同一权威报告的 JSON 复制与下载；
+- PC 流程设计器基于上次服务端保存基线、本地状态和最新服务端 revision 的确定性三方 Diff、重叠路径识别和仅限非重叠修改的安全合并；
+- 流程设计器保存失败状态、Form Package 版本变更跟踪、撤销/重做历史以及条件路由操作历史；
+- 浏览器刷新、路由离开、草稿重新加载/切换、新建和归档操作的未保存修改或冲突保护，包含同草稿重新打开的数据丢失防护；
+- 流程节点 ID、顺序、入边、出边和类型统计的缓存拓扑索引，替代设计器热点路径中的重复全量扫描；
+- 100、300、500 节点拓扑构建与搜索基准门禁，以及首屏 120 节点的有界渲染和分批加载；
+- 大流程拓扑基准作为 PR 验证门禁持续执行并保存可追溯日志；
+- 条件与并行分支默认/手动折叠、节点名称/标识/类型搜索、多类型筛选和大流程自动折叠；
+- 保存、撤销、重做和删除快捷键，输入框、可编辑内容、按钮和链接的快捷键保护；
+- 服务端校验问题、模拟步骤和模拟问题的一键节点定位；
+- 删除节点前的引用、重连、驳回目标和并行汇聚影响摘要，以及不安全拓扑删除阻断；
+- 取消未保存修改确认时保留新建流程弹窗和用户输入；
+- `APPROVAL_DSL_EXPORT_V1` 与 `APPROVAL_RELEASE_PACKAGE_EXPORT_V1` 确定性跨租户传输协议；
+- DSL、BPMN、DMN、编译制品、部署元数据、Release Package、payload 与 envelope 的服务端重算和完整性拒绝；
+- 2 MiB 请求、JSON 深度/元素/字符串、500 节点、BPMN/DMN 字节数和安全资源名硬限制；
+- 重复 JSON key、未知字段、整数溢出、非法 Unicode、XXE/外部 DTD/schema 和非法 XML 防御；
+- 导入只创建目标租户 revision 1 的 DRAFT，精确重绑本地 Form Package，单事务幂等和低敏审计；
+- PostgreSQL/Testcontainers 证明导出零写入、跨租户隔离、失败零部分写入和成功仅新增草稿/审计；
+- PC 版本中心的 DSL/Release 导出、安全文件名、2 MiB 单 JSON 导入预览和只创建草稿确认；
+- 最多四层的递归 UI Section 树、全局唯一 Section Key、同级稳定顺序、1–4 列布局、折叠和递归字段唯一归属；
+- `ALWAYS`、`FIELD_EQUALS`、`FIELD_NOT_EMPTY` 受控可见性协议，不执行表达式、脚本、远程模块或动态 import；
+- 版本化白名单组件注册表以及 `BUSINESS_REFERENCE`、`USER_SELECTOR`、`DEPARTMENT_SELECTOR` 业务组件；
+- 组件与字段类型兼容校验、有界惰性属性、稳定属性哈希、未知组件/版本拒绝和只读 fallback；
+- PC、H5、微信小程序一致的递归区块顺序、隐藏、必填、只读摘要和安全 fallback 语义；
+- PC 表单设计器的子区块、复制、同级重排、跨嵌套区块字段移动、组件选择、属性编辑、撤销/重做和离开保护；
+- `readonlySummary` 在发布校验、设计预览、发起、任务运行时和重提中的服务端权威降级，不能提升 `HIDDEN`/`READONLY` 权限；
+- 递归区块与组件协议确定性哈希、PostgreSQL JSON 往返、跨端纯函数语义门禁和 committed-head 全矩阵验证；
+- 管理 API 的 `READ`、`DESIGN`、`PUBLISH`、`DEPLOY`、`ACTIVATE`、`TRANSFER` 封闭能力模型和显式 `ADMIN` 超级权限；
+- 默认基于已认证 Servlet Principal 的 fail-closed 权限边界，以及显式 opt-in 的可信网关 Header 模式；
+- 稳定 403 错误、权限集合不回显、拒绝事件低敏日志和管理端点反射覆盖门禁；
+- `approval.management.authorization` 与 `approval.management.request.duration` 低基数指标，不使用租户、用户、路径或制品作为时序标签；
+- Form/Release 发布、部署成功/失败、生效切换、回滚和安全导入的事务审计事件与运维核对表；
+- Java/Spring/Flowable/PostgreSQL/Node/PC/UniApp、协议版本、Renderer 和认证源兼容性矩阵；
+- 生产启动、Flyway、权限、健康探针、指标、发布/部署/激活/回滚、备份恢复和故障处置运维手册。
 
-### 下一优先级
+### 完成状态
 
-- Release Package 到 Flowable 的显式幂等部署、平台部署投影、失败重试和部署审计；
-- 流程版本列表、结构 Diff、当前生效版本、历史版本和发布前综合检查；
-- 批量模拟场景、主要路径覆盖率、边界值和可导出模拟报告；
-- 设计器大流程性能、分支折叠、快捷键、冲突对比和离开页面未保存提示；
-- Approval DSL 与 Release Package 安全导入导出；
-- 复合区块和可插拔自定义组件。
+- D10 已完成全量 Diff 审查、调试/临时载荷扫描、PR 专用 helper 与自提交工作流清扫、默认生产权限边界复核和最终 committed-head 验证；
+- M2 交付保持在 Draft PR 中，后续合并、发布和 M3 范围由维护者显式决定。
 
 ## M3 Collaboration
 

@@ -46,13 +46,13 @@ public record ApprovalReleasePackage(
         uiSchemaHash = requireHash(uiSchemaHash, "uiSchemaHash");
         compilerVersion = requireText(compilerVersion, "compilerVersion");
         bpmnResourceName = requireText(bpmnResourceName, "bpmnResourceName");
-        bpmnArtifact = requireText(bpmnArtifact, "bpmnArtifact");
+        bpmnArtifact = requireArtifact(bpmnArtifact, "bpmnArtifact");
         compiledArtifactHash = requireHash(
             compiledArtifactHash,
             "compiledArtifactHash"
         );
         bpmnHash = requireHash(bpmnHash, "bpmnHash");
-        dmnArtifact = normalizeOptional(dmnArtifact);
+        dmnArtifact = normalizeArtifact(dmnArtifact);
         dmnHash = normalizeOptional(dmnHash);
         if ((dmnArtifact == null) != (dmnHash == null)) {
             throw new IllegalArgumentException(
@@ -72,6 +72,14 @@ public record ApprovalReleasePackage(
         publishedAt = Objects.requireNonNull(publishedAt, "publishedAt must not be null");
     }
 
+    private static String requireArtifact(String value, String name) {
+        Objects.requireNonNull(value, name + " must not be null");
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return value;
+    }
+
     private static String requireText(String value, String name) {
         Objects.requireNonNull(value, name + " must not be null");
         String normalized = value.trim();
@@ -89,7 +97,11 @@ public record ApprovalReleasePackage(
         return normalized;
     }
 
-    private static String normalizeOptional(String value) {
+    private static String normalizeArtifact(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private static String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

@@ -13,8 +13,11 @@ import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 final class ApprovalReleasePublisher {
 
@@ -28,6 +31,7 @@ final class ApprovalReleasePublisher {
     private final ApprovalDslCompiler compiler;
     private final ApprovalDefinitionHasher definitionHasher;
     private final ApprovalReleasePackageHasher releaseHasher;
+    private final ApprovalReleasePreflightService preflight;
     private final Clock clock;
 
     ApprovalReleasePublisher(
@@ -41,6 +45,7 @@ final class ApprovalReleasePublisher {
         ApprovalDslCompiler compiler,
         ApprovalDefinitionHasher definitionHasher,
         ApprovalReleasePackageHasher releaseHasher,
+        ApprovalReleasePreflightService preflight,
         Clock clock
     ) {
         this.drafts = Objects.requireNonNull(drafts);
@@ -53,6 +58,7 @@ final class ApprovalReleasePublisher {
         this.compiler = Objects.requireNonNull(compiler);
         this.definitionHasher = Objects.requireNonNull(definitionHasher);
         this.releaseHasher = Objects.requireNonNull(releaseHasher);
+        this.preflight = Objects.requireNonNull(preflight);
         this.clock = Objects.requireNonNull(clock);
     }
 
@@ -66,6 +72,10 @@ final class ApprovalReleasePublisher {
         if (current.status() == ApprovalDesignDraft.Status.PUBLISHED) {
             return replay(command, current);
         }
+        ApprovalReleasePreflightService.PreflightReport preflightReport = requireFreshPreflight(
+            command,
+            current
+        );
         ApprovalDesignChecks.requireEditable(current);
         ApprovalDesignChecks.requireRevision(current, command.expectedRevision());
         if (current.definition().version() != command.definitionVersion()) {
@@ -193,9 +203,75 @@ final class ApprovalReleasePublisher {
             "APPROVAL_RELEASE_PACKAGE_PUBLISHED",
             published,
             now,
-            ApprovalDesignAuditor.releaseAttributes(release, published.revision())
+            publicationAuditAttributes(
+                command,
+                release,
+                published.revision(),
+                preflightReport,
+                now
+            )
         );
         return new ApprovalDesignResults.Publish(release, published.revision(), false);
+    }
+
+    private ApprovalReleasePreflightService.PreflightReport requireFreshPreflight(
+        ApprovalDesignCommands.Publish command,
+        ApprovalDesignDraft current
+    ) {
+        ApprovalReleasePreflightService.PreflightReport report = preflight.preflightPublication(
+            new ApprovalReleasePreflightService.PublicationRequest(
+                command.context().tenantId(),
+                command.draftId(),
+                command.expectedRevision(),
+                current.definitionKey(),
+                command.definitionVersion(),
+                command.releaseVersion(),
+                command.deploymentTarget(),
+                command.preflightScenario()
+            )
+        );
+        if (!report.preflightHash().equals(command.preflightHash())) {
+            throw new ApprovalDesignExceptions.PreflightConflict(
+                "publication preflight is stale and must be refreshed"
+            );
+        }
+        if (!report.publishable()) {
+            String codes = report.errors().stream()
+                .map(ApprovalReleasePreflightService.Issue::code)
+                .distinct()
+                .sorted()
+                .collect(Collectors.joining(", "));
+            throw new ApprovalDesignExceptions.PreflightConflict(
+                "publication preflight contains blocking errors: " + codes
+            );
+        }
+        if (!report.warningCodes().equals(command.acknowledgedWarningCodes())) {
+            throw new ApprovalDesignExceptions.WarningAcknowledgementRequired(
+                "all current preflight warnings must be acknowledged exactly"
+            );
+        }
+        return report;
+    }
+
+    private static Map<String, String> publicationAuditAttributes(
+        ApprovalDesignCommands.Publish command,
+        ApprovalReleasePackage release,
+        long draftRevision,
+        ApprovalReleasePreflightService.PreflightReport report,
+        Instant acknowledgedAt
+    ) {
+        Map<String, String> attributes = new LinkedHashMap<>(
+            ApprovalDesignAuditor.releaseAttributes(release, draftRevision)
+        );
+        attributes.put("deploymentTarget", command.deploymentTarget());
+        attributes.put("preflightHash", report.preflightHash());
+        attributes.put(
+            "acknowledgedWarningCodes",
+            String.join(",", command.acknowledgedWarningCodes())
+        );
+        attributes.put("acknowledgedBy", command.context().operatorId());
+        attributes.put("acknowledgedAt", acknowledgedAt.toString());
+        return Map.copyOf(attributes);
     }
 
     private ApprovalDesignResults.Publish replay(

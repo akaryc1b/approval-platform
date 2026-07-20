@@ -4,6 +4,7 @@ import type {
   ApprovalDesignDraftSummary,
   ApprovalDesignValidationResult,
   ApprovalNode,
+  ApprovalPreflightReport,
   ApprovalPublishResult,
   ApprovalSimulationResponse,
   ApprovalStep,
@@ -13,6 +14,7 @@ import type {
 } from '#/api/approval/process-design';
 
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 import {
@@ -22,18 +24,44 @@ import {
   createApprovalDesignDraft,
   findApprovalDesignDraft,
   findApprovalDesignDrafts,
+  preflightApprovalPublication,
   publishApprovalDesignDraft,
   simulateApprovalDesignDraft,
   updateApprovalDesignDraft,
   validateApprovalDesignDraft,
 } from '#/api/approval/process-design';
 
+import {
+  analyzeDesignerConflict,
+  mergeDesignerConflict,
+  snapshotApprovalDesignerDraft,
+} from './designer-conflict';
+import type {
+  ApprovalDesignerConflict,
+  ApprovalDesignerSnapshot,
+} from './designer-conflict';
+import {
+  buildApprovalDesignerTopologyIndex,
+  describeApprovalDesignerDeletion,
+  filterApprovalDesignerNodes,
+  resolveApprovalDesignerNodeId,
+} from './designer-topology.mjs';
+import type { ApprovalDesignerTopologyIndex } from './designer-topology.mjs';
+
 type Decision = 'APPROVE' | 'REJECT';
 type AddableNodeKind = 'APPROVAL' | 'CONDITION' | 'HANDLE' | 'PARALLEL';
 
-interface DraftSnapshot {
-  definition: ApprovalDesignDraft['definition'];
-  name: string;
+type DesignerSaveState =
+  | 'conflict'
+  | 'dirty'
+  | 'failed'
+  | 'idle'
+  | 'saved'
+  | 'saving';
+
+interface DesignerConflictState {
+  analysis: ApprovalDesignerConflict;
+  serverDraft: ApprovalDesignDraft;
 }
 
 export function useApprovalDesigner() {
@@ -43,21 +71,30 @@ export function useApprovalDesigner() {
   const keyword = ref('');
   const status = ref<ApprovalDesignDraftStatus>();
   const busy = ref(false);
-  const saveState = ref<'conflict' | 'dirty' | 'idle' | 'saved' | 'saving'>('idle');
+  const saveState = ref<DesignerSaveState>('idle');
   const validation = ref<ApprovalDesignValidationResult>();
   const simulation = ref<ApprovalSimulationResponse>();
   const published = ref<ApprovalPublishResult>();
+  const preflight = ref<ApprovalPreflightReport>();
   const decisions = ref<Record<string, Decision>>({});
   const amount = ref(1200);
-  const undoStack = ref<DraftSnapshot[]>([]);
+  const undoStack = ref<ApprovalDesignerSnapshot[]>([]);
+  const redoStack = ref<ApprovalDesignerSnapshot[]>([]);
+  const baseSnapshot = ref<ApprovalDesignerSnapshot>();
+  const conflict = ref<DesignerConflictState>();
+  const nodeSearch = ref('');
+  const nodeKindFilter = ref<ApprovalNode['kind'][]>([]);
+  const nodeRenderLimit = ref(120);
+  const collapsedBranchNodeIds = ref<Set<string>>(new Set());
 
   let suspended = true;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let sequence = 1;
 
-  const selectedNode = computed(() => draft.value?.definition.nodes.find(
-    node => node.id === selectedNodeId.value,
-  ));
+  const topology = computed<ApprovalDesignerTopologyIndex<ApprovalNode>>(() =>
+    buildApprovalDesignerTopologyIndex(draft.value?.definition.nodes ?? []),
+  );
+  const selectedNode = computed(() => topology.value.byId.get(selectedNodeId.value));
   const selectedApproval = computed<ApprovalStep | undefined>(() =>
     selectedNode.value?.kind === 'APPROVAL' ? selectedNode.value : undefined,
   );
@@ -72,10 +109,25 @@ export function useApprovalDesigner() {
   );
   const editable = computed(() => draft.value?.status === 'DRAFT'
     || draft.value?.status === 'VALIDATED');
-  const nodeOptions = computed(() => draft.value?.definition.nodes.map(node => ({
+  const nodeOptions = computed(() => topology.value.orderedNodes.map(node => ({
     label: `${node.name} · ${node.id}`,
     value: node.id,
-  })) ?? []);
+  })));
+  const approvalNodes = computed(() => topology.value.orderedNodes.filter(
+    (node): node is ApprovalStep => node.kind === 'APPROVAL',
+  ));
+  const visibleNodes = computed(() => filterApprovalDesignerNodes(
+    topology.value,
+    nodeSearch.value,
+    nodeKindFilter.value,
+  ));
+  const renderedNodes = computed(() => visibleNodes.value.slice(0, nodeRenderLimit.value));
+  const hasMoreVisibleNodes = computed(
+    () => renderedNodes.value.length < visibleNodes.value.length,
+  );
+  const filtersActive = computed(
+    () => Boolean(nodeSearch.value.trim()) || nodeKindFilter.value.length > 0,
+  );
   const errors = computed(() => validation.value?.issues.filter(
     issue => issue.severity === 'ERROR',
   ) ?? []);
@@ -83,11 +135,37 @@ export function useApprovalDesigner() {
     issue => issue.severity === 'WARNING',
   ) ?? []);
   const json = computed(() => JSON.stringify(draft.value?.definition ?? {}, null, 2));
+  const hasPendingChanges = computed(() => [
+    'conflict',
+    'dirty',
+    'failed',
+    'saving',
+  ].includes(saveState.value));
 
-  watch(() => draft.value?.definition, markChanged, { deep: true });
-  watch(() => draft.value?.name, markChanged);
+  watch(() => draft.value?.definition, () => markChanged(), {
+    deep: true,
+    flush: 'sync',
+  });
+  watch(() => draft.value?.name, () => markChanged(), { flush: 'sync' });
+  watch([nodeSearch, nodeKindFilter], () => {
+    nodeRenderLimit.value = 120;
+  }, { deep: true });
+  watch(
+    () => draft.value?.formPackage.packageVersion,
+    () => markChanged(),
+    { flush: 'sync' },
+  );
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('keydown', handleKeyboardShortcut);
+  }
+  onBeforeRouteLeave(() => confirmDiscardChanges('离开流程设计器'));
   onBeforeUnmount(() => {
     if (saveTimer) clearTimeout(saveTimer);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('keydown', handleKeyboardShortcut);
+    }
   });
 
   async function loadDrafts() {
@@ -103,17 +181,40 @@ export function useApprovalDesigner() {
     }
   }
 
-  async function openDraft(draftId: string) {
+  async function openDraft(
+    draftId: string,
+    options: { force?: boolean } = {},
+  ) {
+    if (!options.force && draft.value
+      && !(await confirmDiscardChanges('重新加载或切换流程草稿'))) {
+      return false;
+    }
     suspended = true;
     try {
-      draft.value = await findApprovalDesignDraft(draftId);
-      selectedNodeId.value = draft.value.definition.startNodeId;
+      const loaded = await findApprovalDesignDraft(draftId);
+      draft.value = loaded;
+      baseSnapshot.value = snapshotApprovalDesignerDraft(loaded);
+      conflict.value = undefined;
+      selectedNodeId.value = loaded.definition.startNodeId;
       clearResults();
       decisions.value = {};
       undoStack.value = [];
+      redoStack.value = [];
+      nodeSearch.value = '';
+      nodeKindFilter.value = [];
+      nodeRenderLimit.value = 120;
+      collapsedBranchNodeIds.value = new Set(
+        loaded.definition.nodes.length >= 100
+          ? loaded.definition.nodes
+              .filter(node => ['CONDITION', 'PARALLEL_SPLIT'].includes(node.kind))
+              .map(node => node.id)
+          : [],
+      );
       saveState.value = 'saved';
+      return true;
     } catch (error) {
       showError(error);
+      return false;
     } finally {
       suspended = false;
     }
@@ -127,6 +228,7 @@ export function useApprovalDesigner() {
     source: 'BLANK' | 'COPY' | 'PURCHASE_PAYMENT_TEMPLATE';
     sourceDefinitionVersion: number;
   }) {
+    if (!(await confirmDiscardChanges('新建流程草稿'))) return false;
     try {
       const created = input.source === 'COPY'
         ? await copyPublishedApprovalDesignDraft({
@@ -144,26 +246,34 @@ export function useApprovalDesigner() {
             source: input.source,
           });
       await loadDrafts();
-      await openDraft(created.draftId);
+      await openDraft(created.draftId, { force: true });
       ElMessage.success('流程草稿已创建');
+      return true;
     } catch (error) {
       showError(error);
+      return false;
     }
   }
 
   async function save(mode: 'AUTO_SAVE' | 'EXPLICIT' = 'EXPLICIT') {
     const current = draft.value;
-    if (!current || !editable.value || saveState.value === 'saving') return false;
+    if (!current || !editable.value || saveState.value === 'saving'
+      || saveState.value === 'conflict') return false;
     if (saveTimer) clearTimeout(saveTimer);
     saveState.value = 'saving';
     try {
-      draft.value = await updateApprovalDesignDraft(current.draftId, {
+      const saved = await updateApprovalDesignDraft(current.draftId, {
         definition: current.definition,
         expectedRevision: current.revision,
         formPackageVersion: current.formPackage.packageVersion,
         name: current.name,
         saveMode: mode,
       });
+      suspended = true;
+      draft.value = saved;
+      baseSnapshot.value = snapshotApprovalDesignerDraft(saved);
+      conflict.value = undefined;
+      suspended = false;
       saveState.value = 'saved';
       await loadDrafts();
       if (mode === 'EXPLICIT') ElMessage.success('流程草稿已保存');
@@ -171,23 +281,93 @@ export function useApprovalDesigner() {
     } catch (error) {
       if (error instanceof ApprovalDesignApiError
         && error.code === 'APPROVAL_DESIGN_REVISION_CONFLICT') {
-        saveState.value = 'conflict';
-        ElMessage.warning('草稿已被其他操作更新，请重新加载');
+        await captureConflict(current);
       } else {
-        saveState.value = 'dirty';
+        saveState.value = 'failed';
         showError(error);
       }
       return false;
+    } finally {
+      suspended = false;
     }
   }
 
   async function reload() {
-    if (draft.value) await openDraft(draft.value.draftId);
+    await reloadServerVersion();
+  }
+
+  async function reloadServerVersion() {
+    const current = draft.value;
+    if (!current || !(await confirmDiscardChanges('加载服务端版本'))) return false;
+    return openDraft(current.draftId, { force: true });
+  }
+
+  async function applySafeConflictMerge() {
+    const current = draft.value;
+    const state = conflict.value;
+    const base = baseSnapshot.value;
+    if (!current || !state || !base) return false;
+    if (!state.analysis.canAutoMerge) {
+      ElMessage.warning('本地与服务端存在重叠修改，请加载服务端版本后手动重做');
+      return false;
+    }
+    const serverBase = snapshotApprovalDesignerDraft(state.serverDraft);
+    const merged = mergeDesignerConflict(
+      base,
+      snapshotApprovalDesignerDraft(current),
+      serverBase,
+    );
+    suspended = true;
+    draft.value = structuredClone(state.serverDraft);
+    applySnapshot(merged);
+    baseSnapshot.value = serverBase;
+    conflict.value = undefined;
+    undoStack.value = [];
+    redoStack.value = [];
+    suspended = false;
+    markChanged(false);
+    ElMessage.success('非重叠修改已安全合并，请保存确认');
+    return true;
+  }
+
+  async function captureConflict(localDraft: ApprovalDesignDraft) {
+    saveState.value = 'conflict';
+    try {
+      const serverDraft = await findApprovalDesignDraft(localDraft.draftId);
+      const base = baseSnapshot.value ?? snapshotApprovalDesignerDraft(localDraft);
+      conflict.value = {
+        analysis: analyzeDesignerConflict(
+          base,
+          snapshotApprovalDesignerDraft(localDraft),
+          snapshotApprovalDesignerDraft(serverDraft),
+        ),
+        serverDraft,
+      };
+      ElMessage.warning('草稿已被其他操作更新，请比较本地与服务端修改');
+    } catch (error) {
+      conflict.value = undefined;
+      showError(error);
+    }
+  }
+
+  async function ensureSaved() {
+    if (saveState.value === 'conflict') {
+      ElMessage.warning('请先处理版本冲突');
+      return false;
+    }
+    if (saveState.value === 'saving') {
+      ElMessage.info('草稿正在保存，请稍后重试');
+      return false;
+    }
+    if (saveState.value === 'dirty' || saveState.value === 'failed') {
+      return save();
+    }
+    return true;
   }
 
   async function validate() {
     if (!draft.value) return undefined;
-    if (saveState.value === 'dirty' && !(await save())) return undefined;
+    if (!(await ensureSaved())) return undefined;
     const current = draft.value;
     try {
       const result = await validateApprovalDesignDraft(current.draftId, current.revision);
@@ -205,7 +385,7 @@ export function useApprovalDesigner() {
 
   async function simulate() {
     if (!draft.value) return;
-    if (saveState.value === 'dirty' && !(await save())) return;
+    if (!(await ensureSaved())) return;
     try {
       simulation.value = await simulateApprovalDesignDraft(
         draft.value.draftId,
@@ -219,21 +399,56 @@ export function useApprovalDesigner() {
 
   async function publish() {
     if (!draft.value) return;
-    const check = await validate();
-    if (!check || check.issues.some(issue => issue.severity === 'ERROR') || !draft.value) return;
-    const warningCount = check.issues.filter(issue => issue.severity === 'WARNING').length;
-    const warningText = warningCount
-      ? `存在 ${warningCount} 条警告，确认继续发布？`
-      : '确认发布不可变流程版本和 Release Package？';
-    await ElMessageBox.confirm(warningText, '发布确认', { type: 'warning' });
+    if (!(await ensureSaved())) return;
+    const current = draft.value;
+    const scenario = {
+      decisions: decisions.value,
+      formValues: { amount: amount.value },
+      maxTransitions: 200,
+    };
     try {
+      const report = await preflightApprovalPublication({
+        definitionKey: current.definitionKey,
+        deploymentTarget: 'default',
+        draftId: current.draftId,
+        expectedRevision: current.revision,
+        scenario,
+        targetDefinitionVersion: current.definition.version,
+        targetReleaseVersion: current.definition.version,
+      });
+      preflight.value = report;
+      if (!report.publishable || report.errors.length > 0) {
+        ElMessage.error(
+          `发布前检查存在阻断项：${report.errors.map(item => item.code).join('、')}`,
+        );
+        return;
+      }
+      const warningCodes = [...new Set(report.warnings.map(item => item.code))].sort();
+      const summary = [
+        `DSL v${report.targetDefinitionVersion} / Release v${report.targetReleaseVersion}`,
+        `Preflight ${report.preflightHash.slice(0, 12)}…`,
+        `BPMN ${report.generatedHashes.bpmnHash?.slice(0, 12) ?? '—'}…`,
+        warningCodes.length
+          ? `需确认警告：${warningCodes.join('、')}`
+          : '没有需要确认的警告',
+      ].join('\n');
+      await ElMessageBox.confirm(summary, '发布前综合检查', {
+        confirmButtonText: warningCodes.length ? '确认警告并发布' : '确认发布',
+        type: warningCodes.length ? 'warning' : 'info',
+      });
       const result = await publishApprovalDesignDraft(
-        draft.value.draftId,
-        draft.value.revision,
-        draft.value.definition.version,
-        draft.value.definition.version,
+        current.draftId,
+        {
+          acknowledgedWarningCodes: warningCodes,
+          definitionVersion: current.definition.version,
+          deploymentTarget: report.deploymentTarget,
+          expectedRevision: current.revision,
+          preflightHash: report.preflightHash,
+          preflightScenario: scenario,
+          releaseVersion: current.definition.version,
+        },
       );
-      await openDraft(draft.value.draftId);
+      await openDraft(current.draftId);
       published.value = result;
       ElMessage.success('Release Package 已发布');
     } catch (error) {
@@ -242,7 +457,7 @@ export function useApprovalDesigner() {
   }
 
   async function archive() {
-    if (!draft.value) return;
+    if (!draft.value || !(await confirmDiscardChanges('归档流程草稿'))) return;
     await ElMessageBox.confirm('确认归档当前流程草稿？', '归档草稿', { type: 'warning' });
     try {
       draft.value = await archiveApprovalDesignDraft(draft.value.draftId, draft.value.revision);
@@ -254,10 +469,13 @@ export function useApprovalDesigner() {
 
   function addNode(kind: AddableNodeKind) {
     if (!draft.value || !editable.value) return;
-    const end = draft.value.definition.nodes.find(node => node.kind === 'END');
-    const predecessor = end && draft.value.definition.nodes.find(
-      node => outgoing(node).includes(end.id),
-    );
+    const end = topology.value.orderedNodes.find(node => node.kind === 'END');
+    const predecessorId = end
+      ? topology.value.incomingById.get(end.id)?.[0]
+      : undefined;
+    const predecessor = predecessorId
+      ? topology.value.byId.get(predecessorId)
+      : undefined;
     if (!end || !predecessor) return;
     remember();
     if (kind === 'PARALLEL') {
@@ -349,7 +567,7 @@ export function useApprovalDesigner() {
     const split = selectedParallel.value;
     if (!draft.value || !split || split.branches.length <= 2) return;
     const branch = split.branches[index];
-    const entry = draft.value.definition.nodes.find(node => node.id === branch?.next);
+    const entry = branch ? topology.value.byId.get(branch.next) : undefined;
     if (!entry || !('next' in entry) || entry.next !== split.joinNodeId) {
       ElMessage.info('请先清空该分支中的复合节点');
       return;
@@ -379,18 +597,36 @@ export function useApprovalDesigner() {
     selectedNodeId.value = copy.id;
   }
 
-  function deleteNode() {
+  async function deleteNode() {
     const node = selectedNode.value;
-    if (!draft.value || !node) return;
-    if (node.kind === 'PARALLEL_SPLIT') {
-      ElMessage.info('请先删除并行分支中的节点');
+    if (!draft.value || !node || !editable.value) return;
+    const impact = describeApprovalDesignerDeletion(topology.value, node.id);
+    if (!impact.deletable) {
+      ElMessage.info(impact.reason ?? '当前节点不能安全删除');
       return;
     }
-    if (!('next' in node) || ['END', 'PARALLEL_JOIN', 'START'].includes(node.kind)) return;
-    const predecessor = draft.value.definition.nodes.find(
-      candidate => outgoing(candidate).includes(node.id),
-    );
-    if (!predecessor) return;
+    const predecessorId = impact.incomingNodeIds[0];
+    const predecessor = predecessorId
+      ? topology.value.byId.get(predecessorId)
+      : undefined;
+    if (!predecessor || !('next' in node)) return;
+    const details = [
+      `节点：${node.name}（${node.id}）`,
+      `前置引用：${predecessor.id}`,
+      `删除后重连到：${node.next}`,
+      impact.joinNodeId ? `该节点直接进入并行汇聚 ${impact.joinNodeId}` : '',
+      node.kind === 'APPROVAL' && node.rejectNext
+        ? `驳回目标 ${node.rejectNext} 将随节点一起移除`
+        : '',
+    ].filter(Boolean).join('\n');
+    try {
+      await ElMessageBox.confirm(details, '确认删除节点及重连影响', {
+        confirmButtonText: '确认删除',
+        type: impact.joinNodeId ? 'warning' : 'info',
+      });
+    } catch {
+      return;
+    }
     remember();
     replaceTarget(predecessor, node.id, node.next);
     draft.value.definition.nodes = draft.value.definition.nodes.filter(
@@ -412,6 +648,7 @@ export function useApprovalDesigner() {
   function addConditionRoute() {
     const condition = selectedCondition.value;
     if (!condition) return;
+    remember();
     condition.routes.push({
       condition: {
         field: 'amount',
@@ -424,41 +661,184 @@ export function useApprovalDesigner() {
 
   function removeConditionRoute(index: number) {
     const condition = selectedCondition.value;
-    if (condition && condition.routes.length > 1) condition.routes.splice(index, 1);
+    if (!condition || condition.routes.length <= 1) return;
+    remember();
+    condition.routes.splice(index, 1);
   }
 
   function undo() {
     if (!draft.value) return;
     const state = undoStack.value.pop();
     if (!state) return;
-    suspended = true;
-    draft.value.definition = state.definition;
-    draft.value.name = state.name;
-    suspended = false;
-    markChanged();
+    pushHistory(redoStack.value, snapshotApprovalDesignerDraft(draft.value));
+    applySnapshot(state);
+    markChanged(false);
   }
 
-  function markChanged() {
+  function redo() {
+    if (!draft.value) return;
+    const state = redoStack.value.pop();
+    if (!state) return;
+    pushHistory(undoStack.value, snapshotApprovalDesignerDraft(draft.value));
+    applySnapshot(state);
+    markChanged(false);
+  }
+
+  function markChanged(clearRedo = true) {
     if (suspended || !draft.value || !editable.value) return;
-    saveState.value = 'dirty';
     clearResults();
+    if (clearRedo) redoStack.value = [];
+    if (conflict.value && baseSnapshot.value) {
+      conflict.value.analysis = analyzeDesignerConflict(
+        baseSnapshot.value,
+        snapshotApprovalDesignerDraft(draft.value),
+        snapshotApprovalDesignerDraft(conflict.value.serverDraft),
+      );
+      saveState.value = 'conflict';
+      if (saveTimer) clearTimeout(saveTimer);
+      return;
+    }
+    saveState.value = 'dirty';
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => save('AUTO_SAVE'), 900);
   }
 
   function remember() {
     if (!draft.value) return;
-    undoStack.value.push({
-      definition: structuredClone(draft.value.definition),
-      name: draft.value.name,
-    });
-    if (undoStack.value.length > 30) undoStack.value.shift();
+    pushHistory(undoStack.value, snapshotApprovalDesignerDraft(draft.value));
+    redoStack.value = [];
+  }
+
+  function applySnapshot(snapshot: ApprovalDesignerSnapshot) {
+    if (!draft.value) return;
+    suspended = true;
+    draft.value.definition = structuredClone(snapshot.definition);
+    draft.value.formPackage.packageVersion = snapshot.formPackageVersion;
+    draft.value.name = snapshot.name;
+    if (!draft.value.definition.nodes.some(node => node.id === selectedNodeId.value)) {
+      selectedNodeId.value = draft.value.definition.startNodeId;
+    }
+    suspended = false;
+  }
+
+  function pushHistory(
+    stack: ApprovalDesignerSnapshot[],
+    snapshot: ApprovalDesignerSnapshot,
+  ) {
+    stack.push(snapshot);
+    if (stack.length > 30) stack.shift();
+  }
+
+  async function confirmDiscardChanges(action: string) {
+    if (!hasPendingChanges.value) return true;
+    try {
+      await ElMessageBox.confirm(
+        `当前草稿存在未保存修改或版本冲突，确认${action}并放弃本地状态？`,
+        '未保存修改',
+        {
+          cancelButtonText: '继续编辑',
+          confirmButtonText: '放弃并继续',
+          type: 'warning',
+        },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function handleBeforeUnload(event: BeforeUnloadEvent) {
+    if (!hasPendingChanges.value) return;
+    event.preventDefault();
+    event.returnValue = '';
+  }
+
+  function focusNode(subject: string) {
+    const nodeId = resolveNodeId(subject);
+    if (!nodeId) return false;
+    if (!visibleNodes.value.some(node => node.id === nodeId)) {
+      nodeSearch.value = '';
+      nodeKindFilter.value = [];
+    }
+    const order = topology.value.orderById.get(nodeId) ?? 0;
+    nodeRenderLimit.value = Math.max(
+      nodeRenderLimit.value,
+      Math.ceil((order + 1) / 120) * 120,
+    );
+    selectedNodeId.value = nodeId;
+    return true;
+  }
+
+  function resolveNodeId(subject?: string) {
+    return resolveApprovalDesignerNodeId(topology.value, subject);
+  }
+
+  function showMoreNodes() {
+    nodeRenderLimit.value += 120;
+  }
+
+  function toggleBranchCollapse(nodeId: string) {
+    const next = new Set(collapsedBranchNodeIds.value);
+    if (next.has(nodeId)) next.delete(nodeId);
+    else next.add(nodeId);
+    collapsedBranchNodeIds.value = next;
+  }
+
+  function isBranchCollapsed(nodeId: string) {
+    return collapsedBranchNodeIds.value.has(nodeId);
+  }
+
+  function collapseAllBranches() {
+    collapsedBranchNodeIds.value = new Set(
+      topology.value.orderedNodes
+        .filter(node => ['CONDITION', 'PARALLEL_SPLIT'].includes(node.kind))
+        .map(node => node.id),
+    );
+  }
+
+  function expandAllBranches() {
+    collapsedBranchNodeIds.value = new Set();
+  }
+
+  function handleKeyboardShortcut(event: KeyboardEvent) {
+    const key = event.key.toLocaleLowerCase();
+    const modifier = event.ctrlKey || event.metaKey;
+    if (modifier && key === 's') {
+      event.preventDefault();
+      void save();
+      return;
+    }
+    if (isEditableEventTarget(event.target)) return;
+    if (modifier && key === 'z') {
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (modifier && key === 'y') {
+      event.preventDefault();
+      redo();
+      return;
+    }
+    if (!modifier && !event.repeat && ['backspace', 'delete'].includes(key)) {
+      event.preventDefault();
+      void deleteNode();
+    }
+  }
+
+  function isEditableEventTarget(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.isContentEditable) return true;
+    return Boolean(target.closest(
+      'input, textarea, select, [contenteditable="true"], button, a, [role="button"]',
+    ));
   }
 
   function clearResults() {
     validation.value = undefined;
     simulation.value = undefined;
     published.value = undefined;
+    preflight.value = undefined;
   }
 
   function nextId(prefix: string) {
@@ -470,11 +850,16 @@ export function useApprovalDesigner() {
 
   return {
     addBranch,
+    applySafeConflictMerge,
     addConditionRoute,
     addNode,
+    approvalNodes,
     amount,
     archive,
     busy,
+    collapseAllBranches,
+    collapsedBranchNodeIds,
+    conflict,
     copyNode,
     createDraft,
     decisions,
@@ -482,20 +867,34 @@ export function useApprovalDesigner() {
     draft,
     drafts,
     editable,
+    expandAllBranches,
     errors,
+    filtersActive,
+    focusNode,
+    hasMoreVisibleNodes,
+    hasPendingChanges,
     json,
     keyword,
     loadDrafts,
     moveNode,
+    nodeKindFilter,
     nodeOptions,
+    nodeSearch,
     openDraft,
+    preflight,
     publish,
     published,
+    renderedNodes,
+    redo,
+    redoStack,
     reload,
+    reloadServerVersion,
+    resolveNodeId,
     removeBranch,
     removeConditionRoute,
     save,
     saveState,
+    showMoreNodes,
     selectedApproval,
     selectedCondition,
     selectedHandle,
@@ -505,11 +904,15 @@ export function useApprovalDesigner() {
     simulate,
     simulation,
     status,
+    toggleBranchCollapse,
+    topology,
     undo,
     undoStack,
     validate,
     validation,
+    visibleNodes,
     warnings,
+    isBranchCollapsed,
   };
 }
 
@@ -530,18 +933,6 @@ function assignee(variable: string) {
     resolver: 'VARIABLE_USER' as const,
     variable,
   };
-}
-
-function outgoing(node: ApprovalNode) {
-  if (node.kind === 'END') return [];
-  if (node.kind === 'CONDITION') {
-    return [...node.routes.map(route => route.next), node.defaultNext];
-  }
-  if (node.kind === 'PARALLEL_SPLIT') return node.branches.map(branch => branch.next);
-  return [
-    node.next,
-    ...(node.kind === 'APPROVAL' && node.rejectNext ? [node.rejectNext] : []),
-  ];
 }
 
 function replaceTarget(node: ApprovalNode, oldTarget: string, newTarget: string) {

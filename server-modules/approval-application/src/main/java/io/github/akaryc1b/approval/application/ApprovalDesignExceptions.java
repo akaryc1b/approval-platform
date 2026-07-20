@@ -59,4 +59,16 @@ public final class ApprovalDesignExceptions {
             super(message);
         }
     }
+
+    public static final class PreflightConflict extends RuntimeException {
+        public PreflightConflict(String message) {
+            super(message);
+        }
+    }
+
+    public static final class WarningAcknowledgementRequired extends RuntimeException {
+        public WarningAcknowledgementRequired(String message) {
+            super(message);
+        }
+    }
 }

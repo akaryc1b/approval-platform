@@ -4,3 +4,9 @@ flowable:
 logging:
   level:
     io.github.akaryc1b.approval: DEBUG
+
+
+approval:
+  security:
+    management-permissions:
+      enforced: false

@@ -1,14 +1,18 @@
 package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalArtifactTransferService;
+import io.github.akaryc1b.approval.application.ApprovalBatchSimulationService;
 import io.github.akaryc1b.approval.application.ApprovalDefinitionHasher;
 import io.github.akaryc1b.approval.application.ApprovalDesignService;
 import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
+import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
 import io.github.akaryc1b.approval.application.port.ApprovalCompiledArtifactStore;
 import io.github.akaryc1b.approval.application.port.ApprovalDefinitionVersionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalDesignDraftStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormPackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormStore;
+import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalUiSchemaStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
@@ -94,6 +98,92 @@ public class ApprovalDesignConfiguration {
     @Bean
     ApprovalReleasePackageStore approvalReleasePackageStore(DataSource dataSource) {
         return new JdbcApprovalReleasePackageStore(dataSource);
+    }
+
+    @Bean
+    ApprovalBatchSimulationService approvalBatchSimulationService(
+        ApprovalDesignDraftStore approvalDesignDraftStore,
+        ApprovalFormPackageStore approvalFormPackageStore,
+        ApprovalFormStore approvalFormStore,
+        ApprovalUiSchemaStore approvalUiSchemaStore,
+        ApprovalDefinitionValidator approvalDefinitionValidator,
+        ApprovalDefinitionSimulator approvalDefinitionSimulator,
+        Clock approvalClock
+    ) {
+        return new ApprovalBatchSimulationService(
+            approvalDesignDraftStore,
+            approvalFormPackageStore,
+            approvalFormStore,
+            approvalUiSchemaStore,
+            approvalDefinitionValidator,
+            approvalDefinitionSimulator,
+            approvalClock
+        );
+    }
+
+    @Bean
+    ApprovalReleasePreflightService approvalReleasePreflightService(
+        ApprovalDesignDraftStore approvalDesignDraftStore,
+        ApprovalDefinitionVersionStore approvalDefinitionVersionStore,
+        ApprovalReleasePackageStore approvalReleasePackageStore,
+        ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore,
+        ApprovalFormPackageStore approvalFormPackageStore,
+        ApprovalFormStore approvalFormStore,
+        ApprovalUiSchemaStore approvalUiSchemaStore,
+        ApprovalDefinitionValidator approvalDefinitionValidator,
+        ApprovalDefinitionSimulator approvalDefinitionSimulator,
+        ApprovalDslCompiler approvalDslCompiler,
+        ApprovalDefinitionHasher approvalDefinitionHasher,
+        ApprovalReleasePackageHasher approvalReleasePackageHasher
+    ) {
+        return new ApprovalReleasePreflightService(
+            approvalDesignDraftStore,
+            approvalDefinitionVersionStore,
+            approvalReleasePackageStore,
+            approvalReleaseDeploymentStore,
+            approvalFormPackageStore,
+            approvalFormStore,
+            approvalUiSchemaStore,
+            approvalDefinitionValidator,
+            approvalDefinitionSimulator,
+            approvalDslCompiler,
+            approvalDefinitionHasher,
+            approvalReleasePackageHasher
+        );
+    }
+
+    @Bean
+    ApprovalArtifactTransferService approvalArtifactTransferService(
+        IdempotencyGuard idempotencyGuard,
+        ApprovalDesignDraftStore approvalDesignDraftStore,
+        ApprovalDefinitionVersionStore approvalDefinitionVersionStore,
+        ApprovalReleasePackageStore approvalReleasePackageStore,
+        ApprovalFormPackageStore approvalFormPackageStore,
+        ApprovalFormStore approvalFormStore,
+        ApprovalUiSchemaStore approvalUiSchemaStore,
+        AuditEventSink auditEventSink,
+        ApprovalDefinitionValidator approvalDefinitionValidator,
+        ApprovalDslCompiler approvalDslCompiler,
+        ApprovalDefinitionHasher approvalDefinitionHasher,
+        ApprovalReleasePackageHasher approvalReleasePackageHasher,
+        Clock approvalClock
+    ) {
+        return new ApprovalArtifactTransferService(
+            idempotencyGuard,
+            approvalDesignDraftStore,
+            approvalDefinitionVersionStore,
+            approvalReleasePackageStore,
+            approvalFormPackageStore,
+            approvalFormStore,
+            approvalUiSchemaStore,
+            auditEventSink,
+            approvalDefinitionValidator,
+            approvalDslCompiler,
+            approvalDefinitionHasher,
+            approvalReleasePackageHasher,
+            approvalClock,
+            UUID::randomUUID
+        );
     }
 
     @Bean

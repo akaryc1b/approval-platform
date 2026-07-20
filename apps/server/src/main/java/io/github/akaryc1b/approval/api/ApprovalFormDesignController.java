@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+@ApprovalManagementPermission(ApprovalManagementPermission.Requirement.READ)
 @RestController
 @RequestMapping("/api/approval/form-design-drafts")
 public class ApprovalFormDesignController {
@@ -46,6 +47,7 @@ public class ApprovalFormDesignController {
         this.service = service;
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PostMapping
     public ResponseEntity<FormDesignDraft> create(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -75,6 +77,7 @@ public class ApprovalFormDesignController {
         return withRevision(draft);
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PostMapping("/from-published")
     public ResponseEntity<FormDesignDraft> createFromPublished(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -117,6 +120,7 @@ public class ApprovalFormDesignController {
             .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PutMapping("/{draftId}")
     public ResponseEntity<FormDesignDraft> update(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -139,6 +143,7 @@ public class ApprovalFormDesignController {
         return withRevision(draft);
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PostMapping("/{draftId}/validate")
     public ValidationReport validate(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -179,6 +184,7 @@ public class ApprovalFormDesignController {
         return service.contextKeys(tenantId, draftId);
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.PUBLISH)
     @PostMapping("/{draftId}/publish")
     public PublishResult publish(
         @RequestHeader(TENANT_ID) String tenantId,
@@ -197,6 +203,7 @@ public class ApprovalFormDesignController {
         ));
     }
 
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
     @PostMapping("/{draftId}/archive")
     public ResponseEntity<FormDesignDraft> archive(
         @RequestHeader(TENANT_ID) String tenantId,

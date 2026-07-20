@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalDefinitionVersionSto
 import io.github.akaryc1b.approval.application.port.ApprovalDesignDraftStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormPackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormStore;
+import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalUiSchemaStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
@@ -15,6 +16,7 @@ import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.definition.ApprovalDefinitionVersion;
 import io.github.akaryc1b.approval.domain.definition.ApprovalDesignDraft;
+import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseDeployment;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 
 import java.time.Clock;
@@ -89,6 +91,21 @@ public final class ApprovalDesignService {
             validator,
             simulator
         );
+        ApprovalReleasePreflightService publicationPreflight =
+            new ApprovalReleasePreflightService(
+                drafts,
+                definitions,
+                releases,
+                publicationOnlyDeploymentStore(),
+                formPackages,
+                forms,
+                uiSchemas,
+                validator,
+                simulator,
+                compiler,
+                definitionHasher,
+                releaseHasher
+            );
         this.publisher = new ApprovalReleasePublisher(
             drafts,
             definitions,
@@ -100,6 +117,7 @@ public final class ApprovalDesignService {
             compiler,
             definitionHasher,
             releaseHasher,
+            publicationPreflight,
             clock
         );
     }
@@ -244,6 +262,9 @@ public final class ApprovalDesignService {
             command.expectedRevision(),
             command.definitionVersion(),
             command.releaseVersion(),
+            command.deploymentTarget(),
+            command.preflightHash(),
+            String.join(",", command.acknowledgedWarningCodes()),
             definitionHasher.hash(draft.definition()),
             draft.formPackage().packageHash()
         );
@@ -321,5 +342,36 @@ public final class ApprovalDesignService {
             type,
             action
         );
+    }
+
+    private static ApprovalReleaseDeploymentStore publicationOnlyDeploymentStore() {
+        return new ApprovalReleaseDeploymentStore() {
+            @Override
+            public void lock(String tenantId, String definitionKey, int releaseVersion) {
+                throw new UnsupportedOperationException("publication preflight does not deploy");
+            }
+
+            @Override
+            public Optional<ApprovalReleaseDeployment> find(
+                String tenantId,
+                String definitionKey,
+                int releaseVersion
+            ) {
+                return Optional.empty();
+            }
+
+            @Override
+            public void save(ApprovalReleaseDeployment deployment) {
+                throw new UnsupportedOperationException("publication preflight does not deploy");
+            }
+
+            @Override
+            public boolean update(
+                ApprovalReleaseDeployment deployment,
+                int expectedAttemptCount
+            ) {
+                throw new UnsupportedOperationException("publication preflight does not deploy");
+            }
+        };
     }
 }

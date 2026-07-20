@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type {
   FieldAccess,
+  FormComponentType,
   FormDefinition,
   FormDesignDraft,
   FormDesignDraftPage,
@@ -16,6 +17,7 @@ import type {
 } from '#/api/approval/form-types';
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import {
@@ -31,6 +33,7 @@ import {
   ElInput,
   ElInputNumber,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElRow,
   ElSelect,
@@ -52,6 +55,15 @@ import {
   validateFormDesignDraft,
 } from '#/api/approval/form-design';
 import ApprovalFormRenderer from '#/components/approval/ApprovalFormRenderer.vue';
+import {
+  collectFormFieldOrder,
+  countSectionFields,
+  findFormSection,
+  flattenFormSections,
+  moveFormSection,
+  normalizeFormSections,
+  removeFormSection,
+} from './form-designer-sections.mjs';
 
 type Selection =
   | { kind: 'field'; fieldKey: string; sectionKey: string }
@@ -81,6 +93,22 @@ const palette: PaletteItem[] = [
   { description: '静态单选/多选', label: '下拉选择', type: 'SELECT' },
   { description: '一个或多个文件', label: '附件', type: 'ATTACHMENT' },
 ];
+
+const componentLabels: Record<string, string> = {
+  ATTACHMENT: '附件',
+  BOOLEAN: '布尔开关',
+  BUSINESS_REFERENCE: '业务对象引用',
+  DATE: '日期',
+  DATETIME: '日期时间',
+  DEPARTMENT_SELECTOR: '部门选择器',
+  MONEY: '金额',
+  NUMBER: '数字',
+  SELECT: '下拉选择',
+  TEXT: '文本',
+  TEXTAREA: '多行文本',
+  USER_SELECTOR: '用户选择器',
+};
+const registeredComponentTypes = new Set(Object.keys(componentLabels));
 
 const statusOptions: Array<{ label: string; value: FormDesignDraftStatus }> = [
   { label: '草稿', value: 'DRAFT' },
@@ -119,10 +147,10 @@ const createInput = ref({
   uiSchemaVersion: 1,
 });
 const undoStack = ref<string[]>([]);
+const redoStack = ref<string[]>([]);
 const lastSnapshot = ref('');
 const historyMuted = ref(false);
 const draggingField = ref<{ index: number; sectionKey: string }>();
-const draggingSection = ref<number>();
 let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 const editable = computed(() => Boolean(
@@ -130,10 +158,14 @@ const editable = computed(() => Boolean(
 ));
 const formDefinition = computed(() => working.value?.formDefinition);
 const uiSchemaDefinition = computed(() => working.value?.uiSchemaDefinition);
-const selectedSection = computed(() => {
+const sectionEntries = computed(() => flattenFormSections(
+  uiSchemaDefinition.value?.sections || [],
+));
+const selectedSectionEntry = computed(() => {
   if (!selection.value || !uiSchemaDefinition.value) return undefined;
-  return uiSchemaDefinition.value.sections.find(item => item.key === selection.value?.sectionKey);
+  return findFormSection(uiSchemaDefinition.value.sections, selection.value.sectionKey);
 });
+const selectedSection = computed(() => selectedSectionEntry.value?.section);
 const selectedField = computed(() => {
   const selected = selection.value;
   if (!selected || selected.kind !== 'field' || !formDefinition.value) return undefined;
@@ -234,8 +266,9 @@ function normalizeDocument(source: FormDesignDraft): DesignerDocument {
     }
   });
   if (ui.sections.length === 0) {
-    ui.sections.push({ collapsed: false, fields: [], key: 'default', title: '表单内容' });
+    ui.sections.push(newSection('表单内容', 'default'));
   }
+  normalizeFormSections(ui.sections);
   if (!ui.nodePermissions.some(item => item.contextKey === '$start')) {
     ui.nodePermissions.unshift({ contextKey: '$start', fields: [] });
   }
@@ -268,6 +301,7 @@ async function hydrate(source: FormDesignDraft) {
   conflictMessage.value = '';
   dirty.value = false;
   undoStack.value = [];
+  redoStack.value = [];
   lastSnapshot.value = serialize();
   await nextTick();
   historyMuted.value = false;
@@ -288,6 +322,7 @@ watch(working, (value) => {
     if (undoStack.value.length > 40) undoStack.value.shift();
   }
   lastSnapshot.value = snapshot;
+  redoStack.value = [];
   dirty.value = true;
   validation.value = undefined;
   serverPreview.value = undefined;
@@ -310,12 +345,31 @@ async function loadDrafts() {
   }
 }
 
-async function openDraft(draftId: string) {
+async function confirmDiscardChanges(action: string) {
+  if (!dirty.value && !saving.value && !conflictMessage.value) return true;
+  try {
+    await ElMessageBox.confirm(
+      `当前草稿有未保存、保存中或冲突状态。确认${action}并放弃本地状态吗？`,
+      '未保存修改保护',
+      { confirmButtonText: '确认继续', cancelButtonText: '留在当前草稿', type: 'warning' },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function openDraft(draftId: string, force = false) {
+  if (!force && draft.value?.draftId !== draftId && !(await confirmDiscardChanges('切换草稿'))) {
+    return false;
+  }
   try {
     const result = await findFormDesignDraft(draftId);
     await hydrate(result);
+    return true;
   } catch (error) {
     ElMessage.error(message(error));
+    return false;
   }
 }
 
@@ -325,7 +379,8 @@ async function reloadCurrent() {
   ElMessage.success('已重新加载服务端最新版本');
 }
 
-function openCreateDialog(source: 'BLANK' | 'PURCHASE_PAYMENT_TEMPLATE' = 'BLANK') {
+async function openCreateDialog(source: 'BLANK' | 'PURCHASE_PAYMENT_TEMPLATE' = 'BLANK') {
+  if (!(await confirmDiscardChanges('新建草稿'))) return;
   const suffix = Date.now().toString(36);
   createInput.value = {
     formKey: `approval-form-${suffix}`,
@@ -409,18 +464,33 @@ async function saveDraft(mode: 'AUTO_SAVE' | 'EXPLICIT', quiet = false) {
   }
 }
 
-async function undo() {
-  const snapshot = undoStack.value.pop();
-  if (!snapshot) return;
+async function restoreSnapshot(snapshot: string) {
   historyMuted.value = true;
   working.value = JSON.parse(snapshot) as DesignerDocument;
-  lastSnapshot.value = snapshot;
+  normalizeFormSections(working.value.uiSchemaDefinition.sections);
+  lastSnapshot.value = serialize();
   dirty.value = true;
   serverPreview.value = undefined;
   validation.value = undefined;
   await nextTick();
   historyMuted.value = false;
   scheduleAutosave();
+}
+
+async function undo() {
+  const snapshot = undoStack.value.pop();
+  if (!snapshot) return;
+  const current = serialize();
+  if (current) redoStack.value.push(current);
+  await restoreSnapshot(snapshot);
+}
+
+async function redo() {
+  const snapshot = redoStack.value.pop();
+  if (!snapshot) return;
+  const current = serialize();
+  if (current) undoStack.value.push(current);
+  await restoreSnapshot(snapshot);
 }
 
 function uniqueKey(prefix: string) {
@@ -465,34 +535,99 @@ function fieldTemplate(type: FormFieldType): FormField {
   return field;
 }
 
+function newSection(title = '新分组', requestedKey?: string): UiSection {
+  return {
+    children: [],
+    collapsed: false,
+    collapsible: true,
+    columns: 1,
+    fields: [],
+    key: requestedKey || uniqueSectionKey(),
+    order: 0,
+    readonlySummary: false,
+    title,
+    visibility: { mode: 'ALWAYS' },
+  };
+}
+
 function ensureSection() {
   if (!uiSchemaDefinition.value) return undefined;
   let section = selectedSection.value;
   if (!section) {
-    section = { collapsed: false, fields: [], key: uniqueSectionKey(), title: '新分组' };
+    section = newSection();
     uiSchemaDefinition.value.sections.push(section);
+    normalizeFormSections(uiSchemaDefinition.value.sections);
   }
   return section;
 }
 
-function uniqueSectionKey() {
-  const existing = new Set(uiSchemaDefinition.value?.sections.map(item => item.key));
+function uniqueSectionKey(prefix = 'section') {
+  const existing = new Set(sectionEntries.value.map(entry => entry.section.key));
+  const safePrefix = prefix.replace(/[^A-Za-z0-9_$.-]/g, '_') || 'section';
   let index = 1;
-  let candidate = `section_${index}`;
-  while (existing.has(candidate)) candidate = `section_${++index}`;
+  let candidate = `${safePrefix}_${index}`;
+  while (existing.has(candidate)) candidate = `${safePrefix}_${++index}`;
   return candidate;
 }
 
 function addSection() {
   if (!uiSchemaDefinition.value || !editable.value) return;
-  const section: UiSection = {
-    collapsed: false,
-    fields: [],
-    key: uniqueSectionKey(),
-    title: '新分组',
-  };
+  const section = newSection();
   uiSchemaDefinition.value.sections.push(section);
+  normalizeFormSections(uiSchemaDefinition.value.sections);
   selection.value = { kind: 'section', sectionKey: section.key };
+}
+
+function addChildSection() {
+  if (!selectedSection.value || !selectedSectionEntry.value || !uiSchemaDefinition.value || !editable.value) return;
+  if (selectedSectionEntry.value.depth >= 3) {
+    ElMessage.warning('区块最多支持 4 层嵌套');
+    return;
+  }
+  const child = newSection('子分组');
+  selectedSection.value.children ||= [];
+  selectedSection.value.children.push(child);
+  normalizeFormSections(uiSchemaDefinition.value.sections);
+  selection.value = { kind: 'section', sectionKey: child.key };
+}
+
+function cloneSectionTree(source: UiSection, reservedSectionKeys: Set<string>): UiSection {
+  if (!formDefinition.value || !uiSchemaDefinition.value) return deepClone(source);
+  const copy = deepClone(source);
+  const prefix = source.key.replace(/_\d+$/, '') || 'section';
+  let candidateIndex = 1;
+  let candidate = `${prefix}_${candidateIndex}`;
+  while (reservedSectionKeys.has(candidate)) candidate = `${prefix}_${++candidateIndex}`;
+  reservedSectionKeys.add(candidate);
+  copy.key = candidate;
+  copy.title = `${source.title} 副本`;
+  copy.fields = copy.fields.map((layout) => {
+    const sourceField = formDefinition.value?.fields.find(field => field.key === layout.fieldKey);
+    if (!sourceField) return layout;
+    const fieldCopy = deepClone(sourceField);
+    fieldCopy.key = uniqueKey(sourceField.key.replace(/_\d+$/, ''));
+    fieldCopy.label = `${sourceField.label} 副本`;
+    formDefinition.value?.fields.push(fieldCopy);
+    uiSchemaDefinition.value?.nodePermissions.forEach((context) => {
+      const permission = context.fields.find(item => item.fieldKey === sourceField.key);
+      context.fields.push(permission
+        ? { ...deepClone(permission), fieldKey: fieldCopy.key }
+        : { access: 'READONLY', fieldKey: fieldCopy.key, requiredOverride: 'INHERIT' });
+    });
+    return { ...layout, fieldKey: fieldCopy.key };
+  });
+  copy.children = (copy.children || []).map(child => cloneSectionTree(child, reservedSectionKeys));
+  return copy;
+}
+
+function copySelectedSection() {
+  if (!selectedSection.value || !selectedSectionEntry.value || !uiSchemaDefinition.value || !editable.value) return;
+  const reservedSectionKeys = new Set(sectionEntries.value.map(entry => entry.section.key));
+  const copy = cloneSectionTree(selectedSection.value, reservedSectionKeys);
+  selectedSectionEntry.value.siblings.splice(selectedSectionEntry.value.index + 1, 0, copy);
+  normalizeFormSections(uiSchemaDefinition.value.sections);
+  reorderDefinitionFields();
+  selection.value = { kind: 'section', sectionKey: copy.key };
 }
 
 function addField(type: FormFieldType) {
@@ -540,8 +675,8 @@ function deleteSelectedField() {
   if (!selectedField.value || !formDefinition.value || !uiSchemaDefinition.value || !editable.value) return;
   const key = selectedField.value.key;
   formDefinition.value.fields = formDefinition.value.fields.filter(item => item.key !== key);
-  uiSchemaDefinition.value.sections.forEach((section) => {
-    section.fields = section.fields.filter(item => item.fieldKey !== key);
+  sectionEntries.value.forEach((entry) => {
+    entry.section.fields = entry.section.fields.filter(item => item.fieldKey !== key);
   });
   uiSchemaDefinition.value.nodePermissions.forEach((context) => {
     context.fields = context.fields.filter(item => item.fieldKey !== key);
@@ -553,19 +688,22 @@ function deleteSelectedField() {
 
 function deleteSelectedSection() {
   if (!selectedSection.value || !uiSchemaDefinition.value || !editable.value) return;
-  if (selectedSection.value.fields.length > 0) {
-    ElMessage.warning('请先移动或删除分组内字段');
+  if (countSectionFields(selectedSection.value) > 0) {
+    ElMessage.warning('请先移动或删除分组及其子分组内字段');
     return;
   }
-  if (uiSchemaDefinition.value.sections.length === 1) {
+  if (sectionEntries.value.length === 1) {
     ElMessage.warning('至少保留一个分组');
     return;
   }
-  uiSchemaDefinition.value.sections = uiSchemaDefinition.value.sections.filter(
-    item => item.key !== selectedSection.value?.key,
-  );
-  const first = uiSchemaDefinition.value.sections[0];
+  removeFormSection(uiSchemaDefinition.value.sections, selectedSection.value.key);
+  const first = sectionEntries.value[0]?.section;
   selection.value = first ? { kind: 'section', sectionKey: first.key } : null;
+}
+
+function moveSelectedSection(direction: -1 | 1) {
+  if (!selectedSection.value || !uiSchemaDefinition.value || !editable.value) return;
+  moveFormSection(uiSchemaDefinition.value.sections, selectedSection.value.key, direction);
 }
 
 function addOption() {
@@ -606,10 +744,14 @@ function startFieldDrag(sectionKey: string, index: number, event: DragEvent) {
 
 function dropField(targetSectionKey: string, targetIndex: number) {
   if (!draggingField.value || !uiSchemaDefinition.value || !editable.value) return;
-  const sourceSection = uiSchemaDefinition.value.sections.find(
-    item => item.key === draggingField.value?.sectionKey,
-  );
-  const targetSection = uiSchemaDefinition.value.sections.find(item => item.key === targetSectionKey);
+  const sourceSection = findFormSection(
+    uiSchemaDefinition.value.sections,
+    draggingField.value.sectionKey,
+  )?.section;
+  const targetSection = findFormSection(
+    uiSchemaDefinition.value.sections,
+    targetSectionKey,
+  )?.section;
   if (!sourceSection || !targetSection) return;
   const [layout] = sourceSection.fields.splice(draggingField.value.index, 1);
   if (!layout) return;
@@ -624,7 +766,7 @@ function dropField(targetSectionKey: string, targetIndex: number) {
 
 function reorderDefinitionFields() {
   if (!formDefinition.value || !uiSchemaDefinition.value) return;
-  const order = uiSchemaDefinition.value.sections.flatMap(section => section.fields.map(item => item.fieldKey));
+  const order = collectFormFieldOrder(uiSchemaDefinition.value.sections);
   const byKey = new Map(formDefinition.value.fields.map(item => [item.key, item]));
   const ordered = order.map(key => byKey.get(key)).filter((item): item is FormField => Boolean(item));
   formDefinition.value.fields.forEach((field) => {
@@ -633,21 +775,51 @@ function reorderDefinitionFields() {
   formDefinition.value.fields = ordered;
 }
 
-function startSectionDrag(index: number, event: DragEvent) {
-  if (!editable.value) return;
-  draggingSection.value = index;
-  event.dataTransfer?.setData('text/plain', `section:${index}`);
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+function componentOptions(field: FormField) {
+  const types: FormComponentType[] = field.type === 'TEXT'
+    ? ['TEXT', 'USER_SELECTOR', 'DEPARTMENT_SELECTOR', 'BUSINESS_REFERENCE']
+    : [field.type];
+  return types.map(value => ({ label: componentLabels[value] || value, value }));
 }
 
-function dropSection(targetIndex: number) {
-  if (draggingSection.value == null || !uiSchemaDefinition.value || !editable.value) return;
-  const [section] = uiSchemaDefinition.value.sections.splice(draggingSection.value, 1);
-  if (!section) return;
-  const adjusted = draggingSection.value < targetIndex ? targetIndex - 1 : targetIndex;
-  uiSchemaDefinition.value.sections.splice(Math.max(0, adjusted), 0, section);
-  draggingSection.value = undefined;
-  reorderDefinitionFields();
+function selectedComponentType() {
+  if (!selectedField.value || !selectedLayout.value) return '';
+  return selectedLayout.value.component?.componentType || selectedField.value.type;
+}
+
+function setSelectedComponentType(value: string) {
+  if (!selectedField.value || !selectedLayout.value) return;
+  if (value === selectedField.value.type) {
+    selectedLayout.value.component = undefined;
+    return;
+  }
+  selectedLayout.value.component = {
+    componentType: value,
+    componentVersion: 1,
+    fallbackRenderer: 'READONLY_TEXT',
+    properties: {},
+  };
+}
+
+function selectedComponentSupported() {
+  if (!selectedField.value || !selectedLayout.value) return true;
+  const type = selectedComponentType();
+  return registeredComponentTypes.has(type)
+    && (selectedLayout.value.component?.componentVersion || 1) === 1
+    && componentOptions(selectedField.value).some(option => option.value === type);
+}
+
+function setSectionVisibilityMode(mode: 'ALWAYS' | 'FIELD_EQUALS' | 'FIELD_NOT_EMPTY') {
+  if (!selectedSection.value) return;
+  if (mode === 'ALWAYS') {
+    selectedSection.value.visibility = { mode: 'ALWAYS' };
+    return;
+  }
+  const fieldKey = selectedSection.value.visibility?.fieldKey
+    || formDefinition.value?.fields[0]?.key;
+  selectedSection.value.visibility = mode === 'FIELD_EQUALS'
+    ? { expectedValue: '', fieldKey, mode }
+    : { fieldKey, mode };
 }
 
 function addContext() {
@@ -743,14 +915,24 @@ async function confirmPublish() {
   }
 }
 
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (!dirty.value && !saving.value && !conflictMessage.value) return;
+  event.preventDefault();
+  event.returnValue = '';
+}
+
+onBeforeRouteLeave(() => confirmDiscardChanges('离开表单设计器'));
+
 onMounted(async () => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
   await loadDrafts();
   const first = draftPage.value.items[0];
-  if (first) await openDraft(first.draftId);
+  if (first) await openDraft(first.draftId, true);
 });
 
 onBeforeUnmount(() => {
   if (autosaveTimer) clearTimeout(autosaveTimer);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 </script>
 
@@ -766,6 +948,7 @@ onBeforeUnmount(() => {
           <ElTag v-if="draft" :type="statusType(draft.status)" effect="plain">{{ statusLabel(draft.status) }}</ElTag>
           <ElTag :type="conflictMessage ? 'danger' : dirty ? 'warning' : 'success'" effect="plain">{{ saveState }}</ElTag>
           <ElButton :disabled="undoStack.length === 0 || !editable" @click="undo">撤销</ElButton>
+          <ElButton :disabled="redoStack.length === 0 || !editable" @click="redo">重做</ElButton>
           <ElButton :disabled="!editable" :loading="saving" @click="saveDraft('EXPLICIT')">保存</ElButton>
           <ElButton :disabled="!draft" @click="openPreview">节点预览</ElButton>
           <ElButton :disabled="!editable" type="primary" @click="openPublishDialog">发布 Package</ElButton>
@@ -851,38 +1034,50 @@ onBeforeUnmount(() => {
           <ElEmpty v-if="!working" description="请从左侧创建或打开草稿" />
           <div v-else class="canvas">
             <div
-              v-for="(section, sectionIndex) in working.uiSchemaDefinition.sections"
-              :key="section.key"
+              v-for="entry in sectionEntries"
+              :key="entry.section.key"
               class="section-node"
-              :class="{ selected: selectedSection?.key === section.key && selection?.kind === 'section' }"
-              draggable="true"
-              @click="selectSection(section.key)"
-              @dragover.prevent
-              @dragstart="startSectionDrag(sectionIndex, $event)"
-              @drop.stop="dropSection(sectionIndex)"
+              :class="{ selected: selectedSection?.key === entry.section.key && selection?.kind === 'section' }"
+              :style="{ marginLeft: `${entry.depth * 18}px` }"
+              @click="selectSection(entry.section.key)"
             >
               <div class="section-node-header">
-                <div><span class="drag-handle">⋮⋮</span><strong>{{ section.title }}</strong><small>{{ section.key }}</small></div>
-                <ElTag effect="plain" size="small">{{ section.fields.length }} 字段</ElTag>
+                <div>
+                  <span class="section-depth">L{{ entry.depth + 1 }}</span>
+                  <strong>{{ entry.section.title }}</strong>
+                  <small>{{ entry.section.key }}</small>
+                </div>
+                <div class="section-node-actions">
+                  <ElTag effect="plain" size="small">{{ entry.section.fields.length }} 字段</ElTag>
+                  <ElButton size="small" text @click.stop="selectSection(entry.section.key); moveSelectedSection(-1)">上移</ElButton>
+                  <ElButton size="small" text @click.stop="selectSection(entry.section.key); moveSelectedSection(1)">下移</ElButton>
+                  <ElButton size="small" text @click.stop="selectSection(entry.section.key); copySelectedSection()">复制</ElButton>
+                  <ElButton size="small" text @click.stop="selectSection(entry.section.key); addChildSection()">添加子区块</ElButton>
+                </div>
               </div>
-              <p v-if="section.helpText" class="node-help">{{ section.helpText }}</p>
+              <p v-if="entry.section.helpText" class="node-help">{{ entry.section.helpText }}</p>
+              <div class="section-badges">
+                <ElTag size="small" type="info">{{ entry.section.columns || 1 }} 列</ElTag>
+                <ElTag v-if="entry.section.readonlySummary" size="small" type="warning">只读摘要</ElTag>
+                <ElTag v-if="entry.section.visibility?.mode !== 'ALWAYS'" size="small" type="success">条件显示</ElTag>
+              </div>
               <div class="field-grid">
                 <div
-                  v-for="(layout, fieldIndex) in section.fields"
+                  v-for="(layout, fieldIndex) in entry.section.fields"
                   :key="layout.fieldKey"
                   class="field-node"
                   :class="{ selected: selection?.kind === 'field' && selection.fieldKey === layout.fieldKey }"
                   :style="{ gridColumn: layout.span >= 24 ? '1 / -1' : 'auto' }"
                   draggable="true"
-                  @click.stop="selectField(section.key, layout.fieldKey)"
+                  @click.stop="selectField(entry.section.key, layout.fieldKey)"
                   @dragover.prevent
-                  @dragstart.stop="startFieldDrag(section.key, fieldIndex, $event)"
-                  @drop.stop="dropField(section.key, fieldIndex)"
+                  @dragstart.stop="startFieldDrag(entry.section.key, fieldIndex, $event)"
+                  @drop.stop="dropField(entry.section.key, fieldIndex)"
                 >
                   <div class="field-node-title">
                     <span class="drag-handle">⋮⋮</span>
                     <div><strong>{{ working.formDefinition.fields.find(item => item.key === layout.fieldKey)?.label }}</strong><small>{{ layout.fieldKey }}</small></div>
-                    <ElTag effect="plain" size="small">{{ fieldTypeLabel(working.formDefinition.fields.find(item => item.key === layout.fieldKey)?.type || 'TEXT') }}</ElTag>
+                    <ElTag effect="plain" size="small">{{ layout.component?.componentType || fieldTypeLabel(working.formDefinition.fields.find(item => item.key === layout.fieldKey)?.type || 'TEXT') }}</ElTag>
                   </div>
                   <span class="field-placeholder">{{ layout.placeholder || '未设置占位提示' }}</span>
                 </div>
@@ -890,7 +1085,7 @@ onBeforeUnmount(() => {
                   class="field-drop-zone"
                   type="button"
                   @dragover.prevent
-                  @drop.stop="dropField(section.key, section.fields.length)"
+                  @drop.stop="dropField(entry.section.key, entry.section.fields.length)"
                 >拖到此处追加字段</button>
               </div>
             </div>
@@ -905,11 +1100,49 @@ onBeforeUnmount(() => {
             <ElTabPane label="属性" name="properties">
               <ElEmpty v-if="!working || !selection" description="选择画布中的分组或字段" />
               <ElForm v-else-if="selectedSection && selection?.kind === 'section'" label-position="top">
+                <div class="property-actions">
+                  <ElButton :disabled="!editable" @click="copySelectedSection">复制区块</ElButton>
+                  <ElButton :disabled="!editable || (selectedSectionEntry?.depth || 0) >= 3" @click="addChildSection">添加子区块</ElButton>
+                  <ElButton :disabled="!editable" type="danger" plain @click="deleteSelectedSection">删除空区块</ElButton>
+                </div>
                 <ElFormItem label="分组标题"><ElInput v-model="selectedSection.title" :disabled="!editable" /></ElFormItem>
-                <ElFormItem label="分组 Key"><ElInput :model-value="selectedSection.key" disabled /></ElFormItem>
+                <ElFormItem label="稳定 Section ID"><ElInput :model-value="selectedSection.key" disabled /></ElFormItem>
                 <ElFormItem label="帮助说明"><ElInput v-model="selectedSection.helpText" :disabled="!editable" :rows="3" type="textarea" /></ElFormItem>
-                <ElFormItem label="默认折叠"><ElSwitch v-model="selectedSection.collapsed" :disabled="!editable" /></ElFormItem>
-                <ElButton :disabled="!editable" type="danger" plain @click="deleteSelectedSection">删除空分组</ElButton>
+                <ElFormItem label="列数">
+                  <ElSelect v-model="selectedSection.columns" :disabled="!editable">
+                    <ElOption label="单列" :value="1" /><ElOption label="双列" :value="2" />
+                    <ElOption label="三列" :value="3" /><ElOption label="四列" :value="4" />
+                  </ElSelect>
+                </ElFormItem>
+                <ElFormItem label="允许折叠"><ElSwitch v-model="selectedSection.collapsible" :disabled="!editable" /></ElFormItem>
+                <ElFormItem label="默认折叠"><ElSwitch v-model="selectedSection.collapsed" :disabled="!editable || selectedSection.collapsible === false" /></ElFormItem>
+                <ElFormItem label="只读摘要区块"><ElSwitch v-model="selectedSection.readonlySummary" :disabled="!editable" /></ElFormItem>
+                <ElDivider content-position="left">受控条件显示</ElDivider>
+                <ElFormItem label="显示规则">
+                  <ElSelect
+                    :model-value="selectedSection.visibility?.mode || 'ALWAYS'"
+                    :disabled="!editable"
+                    @update:model-value="setSectionVisibilityMode"
+                  >
+                    <ElOption label="始终显示" value="ALWAYS" />
+                    <ElOption label="字段等于固定值" value="FIELD_EQUALS" />
+                    <ElOption label="字段非空" value="FIELD_NOT_EMPTY" />
+                  </ElSelect>
+                </ElFormItem>
+                <template v-if="selectedSection.visibility?.mode !== 'ALWAYS'">
+                  <ElFormItem label="条件字段">
+                    <ElSelect v-model="selectedSection.visibility!.fieldKey" :disabled="!editable" filterable>
+                      <ElOption v-for="field in formDefinition?.fields || []" :key="field.key" :label="`${field.label} · ${field.key}`" :value="field.key" />
+                    </ElSelect>
+                  </ElFormItem>
+                  <ElFormItem v-if="selectedSection.visibility?.mode === 'FIELD_EQUALS'" label="期望值">
+                    <ElInput
+                      :model-value="String(selectedSection.visibility?.expectedValue ?? '')"
+                      :disabled="!editable"
+                      @update:model-value="selectedSection.visibility!.expectedValue = $event"
+                    />
+                  </ElFormItem>
+                </template>
               </ElForm>
               <ElForm v-else-if="selectedField && selectedLayout" label-position="top">
                 <div class="property-actions">
@@ -923,6 +1156,28 @@ onBeforeUnmount(() => {
                     <ElOption v-for="item in palette" :key="item.type" :label="item.label" :value="item.type" />
                   </ElSelect>
                 </ElFormItem>
+                <ElDivider content-position="left">白名单组件</ElDivider>
+                <ElFormItem label="组件类型">
+                  <ElSelect
+                    :model-value="selectedComponentType()"
+                    :disabled="!editable"
+                    @update:model-value="setSelectedComponentType"
+                  >
+                    <ElOption v-for="item in componentOptions(selectedField)" :key="item.value" :label="item.label" :value="item.value" />
+                  </ElSelect>
+                </ElFormItem>
+                <ElFormItem v-if="selectedLayout.component" label="历史版本安全 fallback">
+                  <ElSelect v-model="selectedLayout.component.fallbackRenderer" :disabled="!editable">
+                    <ElOption label="只读文本" value="READONLY_TEXT" /><ElOption label="只读 JSON" value="READONLY_JSON" />
+                  </ElSelect>
+                </ElFormItem>
+                <ElAlert
+                  v-if="!selectedComponentSupported()"
+                  :closable="false"
+                  show-icon
+                  title="当前组件或版本未在宿主白名单注册；发布前服务端将阻断，历史运行时仅使用安全只读 fallback。"
+                  type="error"
+                />
                 <ElFormItem label="必填"><ElSwitch v-model="selectedField.required" :disabled="!editable" /></ElFormItem>
                 <ElFormItem label="占位提示"><ElInput v-model="selectedLayout.placeholder" :disabled="!editable" /></ElFormItem>
                 <ElFormItem label="字段帮助"><ElInput v-model="selectedLayout.helpText" :disabled="!editable" /></ElFormItem>
@@ -1062,5 +1317,5 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.designer-toolbar,.conflict-alert{margin-bottom:14px}.toolbar-main,.toolbar-actions,.panel-header,.context-toolbar,.context-add,.preview-meta,.property-actions{display:flex;align-items:center;gap:10px}.toolbar-main,.panel-header{justify-content:space-between}.toolbar-main>div:first-child,.panel-header>div:first-child,.draft-item,.field-node-title>div,.permission-row>div{display:grid;gap:4px}.toolbar-main span,.panel-header span,.draft-item span,.field-node small,.section-node small,.permission-row small{color:var(--el-text-color-secondary);font-size:12px}.designer-grid{align-items:flex-start}.side-panel,.canvas-panel{min-height:720px}.draft-filters{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:8px;margin-bottom:12px}.draft-list{display:grid;gap:8px;max-height:260px;overflow:auto}.draft-item{width:100%;padding:12px;color:inherit;text-align:left;border:1px solid var(--el-border-color-lighter);border-radius:8px;background:var(--el-fill-color-blank);cursor:pointer}.draft-item>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.draft-item:hover,.draft-item.active{border-color:var(--el-color-primary-light-3);background:var(--el-color-primary-light-9)}.palette-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.palette-item{display:grid;gap:4px;padding:10px;color:inherit;text-align:left;border:1px solid var(--el-border-color-lighter);border-radius:8px;background:var(--el-fill-color-light);cursor:pointer}.palette-item span{color:var(--el-text-color-secondary);font-size:11px}.palette-item:disabled{cursor:not-allowed;opacity:.55}.template-button{width:100%;margin-top:12px}.canvas{display:grid;gap:14px}.section-node{padding:14px;border:1px solid var(--el-border-color);border-radius:10px;background:var(--el-bg-color);cursor:pointer}.section-node.selected,.field-node.selected{border-color:var(--el-color-primary);box-shadow:0 0 0 2px var(--el-color-primary-light-8)}.section-node-header,.field-node-title{display:flex;align-items:center;justify-content:space-between;gap:10px}.section-node-header>div,.field-node-title{display:flex;align-items:center;gap:8px}.field-node-title>div{flex:1}.drag-handle{color:var(--el-text-color-placeholder);cursor:grab}.node-help{margin:8px 0;color:var(--el-text-color-secondary);font-size:12px}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.field-node{min-width:0;padding:12px;border:1px solid var(--el-border-color-lighter);border-radius:8px;background:var(--el-fill-color-light);cursor:pointer}.field-placeholder{display:block;margin-top:10px;color:var(--el-text-color-placeholder);font-size:12px}.field-drop-zone{grid-column:1/-1;padding:10px;color:var(--el-text-color-placeholder);border:1px dashed var(--el-border-color);border-radius:8px;background:transparent}.property-actions{justify-content:flex-end;margin-bottom:12px}.option-row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:6px;margin-bottom:8px}.permission-panel{display:grid;gap:12px}.context-toolbar .el-select,.preview-meta .el-select{flex:1}.context-add{align-items:stretch}.permission-head,.permission-row{display:grid;grid-template-columns:minmax(100px,1fr) 112px 124px;align-items:center;gap:8px}.permission-head{padding:0 8px;color:var(--el-text-color-secondary);font-size:12px}.permission-row{padding:9px 8px;border:1px solid var(--el-border-color-lighter);border-radius:8px}.preview-meta{margin-bottom:16px}.publish-form{margin-top:16px}.publication-result{display:grid;gap:12px}.publication-result>div:not(.el-alert){display:grid;grid-template-columns:110px 1fr;gap:10px}.publication-result span{color:var(--el-text-color-secondary)}.publication-result code{overflow-wrap:anywhere;font-size:12px}.side-panel :deep(.el-input-number),.side-panel :deep(.el-select),.publish-form :deep(.el-input-number),.create-dialog :deep(.el-input-number){width:100%}@media(max-width:1200px){.side-panel,.canvas-panel{min-height:auto}.designer-grid>.el-col{margin-bottom:14px}}@media(max-width:768px){.toolbar-main,.panel-header{align-items:stretch;flex-direction:column}.toolbar-actions{flex-wrap:wrap}.field-grid{grid-template-columns:1fr}.field-node{grid-column:1/-1!important}.permission-head,.permission-row{grid-template-columns:1fr}.permission-head{display:none}.option-row{grid-template-columns:1fr 1fr}}
+.designer-toolbar,.conflict-alert{margin-bottom:14px}.toolbar-main,.toolbar-actions,.panel-header,.context-toolbar,.context-add,.preview-meta,.property-actions{display:flex;align-items:center;gap:10px}.toolbar-main,.panel-header{justify-content:space-between}.toolbar-main>div:first-child,.panel-header>div:first-child,.draft-item,.field-node-title>div,.permission-row>div{display:grid;gap:4px}.toolbar-main span,.panel-header span,.draft-item span,.field-node small,.section-node small,.permission-row small{color:var(--el-text-color-secondary);font-size:12px}.designer-grid{align-items:flex-start}.side-panel,.canvas-panel{min-height:720px}.draft-filters{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:8px;margin-bottom:12px}.draft-list{display:grid;gap:8px;max-height:260px;overflow:auto}.draft-item{width:100%;padding:12px;color:inherit;text-align:left;border:1px solid var(--el-border-color-lighter);border-radius:8px;background:var(--el-fill-color-blank);cursor:pointer}.draft-item>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.draft-item:hover,.draft-item.active{border-color:var(--el-color-primary-light-3);background:var(--el-color-primary-light-9)}.palette-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.palette-item{display:grid;gap:4px;padding:10px;color:inherit;text-align:left;border:1px solid var(--el-border-color-lighter);border-radius:8px;background:var(--el-fill-color-light);cursor:pointer}.palette-item span{color:var(--el-text-color-secondary);font-size:11px}.palette-item:disabled{cursor:not-allowed;opacity:.55}.template-button{width:100%;margin-top:12px}.canvas{display:grid;gap:14px}.section-node{padding:14px;border:1px solid var(--el-border-color);border-radius:10px;background:var(--el-bg-color);cursor:pointer}.section-node.selected,.field-node.selected{border-color:var(--el-color-primary);box-shadow:0 0 0 2px var(--el-color-primary-light-8)}.section-node-header,.field-node-title{display:flex;align-items:center;justify-content:space-between;gap:10px}.section-node-actions,.section-badges{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.section-depth{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:999px;background:var(--el-color-primary-light-9);color:var(--el-color-primary);font-size:11px;font-weight:700}.section-node-header>div,.field-node-title{display:flex;align-items:center;gap:8px}.field-node-title>div{flex:1}.drag-handle{color:var(--el-text-color-placeholder);cursor:grab}.node-help{margin:8px 0;color:var(--el-text-color-secondary);font-size:12px}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.field-node{min-width:0;padding:12px;border:1px solid var(--el-border-color-lighter);border-radius:8px;background:var(--el-fill-color-light);cursor:pointer}.field-placeholder{display:block;margin-top:10px;color:var(--el-text-color-placeholder);font-size:12px}.field-drop-zone{grid-column:1/-1;padding:10px;color:var(--el-text-color-placeholder);border:1px dashed var(--el-border-color);border-radius:8px;background:transparent}.property-actions{justify-content:flex-end;margin-bottom:12px}.option-row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:6px;margin-bottom:8px}.permission-panel{display:grid;gap:12px}.context-toolbar .el-select,.preview-meta .el-select{flex:1}.context-add{align-items:stretch}.permission-head,.permission-row{display:grid;grid-template-columns:minmax(100px,1fr) 112px 124px;align-items:center;gap:8px}.permission-head{padding:0 8px;color:var(--el-text-color-secondary);font-size:12px}.permission-row{padding:9px 8px;border:1px solid var(--el-border-color-lighter);border-radius:8px}.preview-meta{margin-bottom:16px}.publish-form{margin-top:16px}.publication-result{display:grid;gap:12px}.publication-result>div:not(.el-alert){display:grid;grid-template-columns:110px 1fr;gap:10px}.publication-result span{color:var(--el-text-color-secondary)}.publication-result code{overflow-wrap:anywhere;font-size:12px}.side-panel :deep(.el-input-number),.side-panel :deep(.el-select),.publish-form :deep(.el-input-number),.create-dialog :deep(.el-input-number){width:100%}@media(max-width:1200px){.side-panel,.canvas-panel{min-height:auto}.designer-grid>.el-col{margin-bottom:14px}}@media(max-width:768px){.toolbar-main,.panel-header{align-items:stretch;flex-direction:column}.toolbar-actions{flex-wrap:wrap}.field-grid{grid-template-columns:1fr}.field-node{grid-column:1/-1!important}.permission-head,.permission-row{grid-template-columns:1fr}.permission-head{display:none}.option-row{grid-template-columns:1fr 1fr}}
 </style>
