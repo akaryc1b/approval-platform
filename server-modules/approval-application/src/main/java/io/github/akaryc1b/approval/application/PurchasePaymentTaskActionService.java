@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.application.ApprovalFormRuntimeService.RevisionPlan;
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
+import io.github.akaryc1b.approval.application.port.ApprovalHandoverStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
@@ -46,6 +47,7 @@ public final class PurchasePaymentTaskActionService {
     private final AuditEventSink auditEvents;
     private final ApprovalBusinessEventOutbox businessEventOutbox;
     private final ApprovalFormRuntimeService formRuntimeService;
+    private final ApprovalHandoverStore handovers;
     private final Clock clock;
     private final Supplier<UUID> identifierGenerator;
 
@@ -65,6 +67,7 @@ public final class PurchasePaymentTaskActionService {
             auditEvents,
             businessEventOutbox,
             null,
+            null,
             clock,
             identifierGenerator
         );
@@ -80,6 +83,30 @@ public final class PurchasePaymentTaskActionService {
         Clock clock,
         Supplier<UUID> identifierGenerator
     ) {
+        this(
+            engine,
+            idempotencyGuard,
+            projections,
+            auditEvents,
+            businessEventOutbox,
+            formRuntimeService,
+            null,
+            clock,
+            identifierGenerator
+        );
+    }
+
+    public PurchasePaymentTaskActionService(
+        ApprovalEngine engine,
+        IdempotencyGuard idempotencyGuard,
+        ApprovalProjectionStore projections,
+        AuditEventSink auditEvents,
+        ApprovalBusinessEventOutbox businessEventOutbox,
+        ApprovalFormRuntimeService formRuntimeService,
+        ApprovalHandoverStore handovers,
+        Clock clock,
+        Supplier<UUID> identifierGenerator
+    ) {
         this.engine = Objects.requireNonNull(engine, "engine must not be null");
         this.idempotencyGuard = Objects.requireNonNull(
             idempotencyGuard,
@@ -92,6 +119,7 @@ public final class PurchasePaymentTaskActionService {
             "businessEventOutbox must not be null"
         );
         this.formRuntimeService = formRuntimeService;
+        this.handovers = handovers;
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.identifierGenerator = Objects.requireNonNull(
             identifierGenerator,
@@ -280,7 +308,7 @@ public final class PurchasePaymentTaskActionService {
         );
     }
 
-    private static void validateAction(
+    private void validateAction(
         RequestContext context,
         InstanceProjection instance,
         TaskProjection task,
@@ -306,11 +334,32 @@ public final class PurchasePaymentTaskActionService {
                 "the running definition does not support rejection"
             );
         }
-        if (revisionRequired && !instance.initiatorId().equals(context.operatorId())) {
+        if (revisionRequired && !canResubmit(context, instance, task)) {
             throw new ApprovalProjectionStore.ProjectionConflictException(
-                "only the process initiator can resubmit the request"
+                "only the process initiator or assigned handover successor can resubmit"
             );
         }
+    }
+
+    private boolean canResubmit(
+        RequestContext context,
+        InstanceProjection instance,
+        TaskProjection task
+    ) {
+        if (instance.initiatorId().equals(context.operatorId())) {
+            return true;
+        }
+        if (handovers == null) {
+            return false;
+        }
+        return handovers.findAssignmentByEngineTask(
+            context.tenantId(),
+            task.engineTaskId()
+        ).filter(assignment ->
+            assignment.status() == ApprovalHandoverStore.AssignmentStatus.ACTIVE
+                && instance.initiatorId().equals(assignment.principalAssigneeId())
+                && context.operatorId().equals(assignment.successorAssigneeId())
+        ).isPresent();
     }
 
     private List<TaskProjection> newTaskProjections(
