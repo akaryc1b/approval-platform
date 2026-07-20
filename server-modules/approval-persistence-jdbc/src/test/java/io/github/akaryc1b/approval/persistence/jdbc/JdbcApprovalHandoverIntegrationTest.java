@@ -284,7 +284,7 @@ class JdbcApprovalHandoverIntegrationTest {
             engineInstanceId,
             PurchasePaymentTemplate.DEFINITION_KEY,
             PurchasePaymentTemplate.PROCESS_VERSION,
-            PurchasePaymentTemplate.FORM_KEY,
+            PurchasePaymentTemplate.DEFINITION_KEY,
             PurchasePaymentTemplate.FORM_VERSION,
             "compiler-test",
             "a".repeat(64),
