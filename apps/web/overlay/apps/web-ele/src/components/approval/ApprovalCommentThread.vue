@@ -4,13 +4,17 @@ import type {
   ApprovalCommentItem,
   ApprovalCommentPage,
   CommentOptions,
+  CommentRevisionItem,
+  CommentUserOption,
+  CommentVisibility,
 } from '#/api/approval/comments';
 
-import { nextTick, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 import {
   ElAlert,
   ElButton,
+  ElDialog,
   ElEmpty,
   ElInput,
   ElMessage,
@@ -22,11 +26,15 @@ import {
 
 import {
   createApprovalComment,
+  deleteApprovalComment,
   downloadApprovalAttachment,
+  findApprovalCommentRevisions,
   findApprovalComments,
   findCommentOptions,
+  updateApprovalComment,
   uploadApprovalAttachment,
 } from '#/api/approval/comments';
+import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
 const props = defineProps<{
   focusCommentId?: string;
@@ -42,8 +50,18 @@ const options = ref<CommentOptions>();
 const body = ref('');
 const mentionIds = ref<string[]>([]);
 const attachments = ref<ApprovalAttachment[]>([]);
+const visibility = ref<CommentVisibility>('PARTICIPANTS');
 const replyingTo = ref<ApprovalCommentItem>();
+const editingItem = ref<ApprovalCommentItem>();
 const fileInput = ref<HTMLInputElement>();
+const deleteTarget = ref<ApprovalCommentItem>();
+const deleteReason = ref('');
+const deleting = ref(false);
+const revisionTarget = ref<ApprovalCommentItem>();
+const revisions = ref<CommentRevisionItem[]>([]);
+const revisionLoading = ref(false);
+
+const operatorId = getApprovalRuntimeConfig().operatorId;
 
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   day: '2-digit',
@@ -53,8 +71,34 @@ const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
 });
 
+const composerReadOnly = computed(
+  () => comments.value.readOnly || options.value?.readOnly === true,
+);
+
+const visibilityLocked = computed(
+  () => Boolean(replyingTo.value) || editingItem.value?.privateComment === true,
+);
+
+const mentionCandidates = computed(() => {
+  const candidates = options.value?.mentionCandidates || [];
+  const parent = replyingTo.value;
+  if (!parent?.privateComment) return candidates;
+  const allowed = new Set([
+    parent.authorId,
+    ...parent.mentionedUsers.map((user) => user.userId),
+  ]);
+  return candidates.filter((candidate) => allowed.has(candidate.userId));
+});
+
 function emptyPage(): ApprovalCommentPage {
-  return { hasMore: false, items: [], limit: 100, offset: 0, total: 0 };
+  return {
+    hasMore: false,
+    items: [],
+    limit: 100,
+    offset: 0,
+    readOnly: false,
+    total: 0,
+  };
 }
 
 function errorMessage(error: unknown) {
@@ -69,6 +113,15 @@ function formatSize(value: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
   return `${(value / 1024 / 1024).toFixed(1)} MiB`;
+}
+
+function identityDescription(user: CommentUserOption) {
+  return `${user.identitySource} · ${user.objectType} · ${user.externalIdentityValue}`;
+}
+
+function revisionLabel(revision: CommentRevisionItem) {
+  const labels = { CREATE: '创建', DELETE: '删除', EDIT: '编辑' } as const;
+  return labels[revision.revisionType];
 }
 
 async function focusComment() {
@@ -91,6 +144,7 @@ async function loadComments() {
     ]);
     comments.value = page;
     options.value = optionResult;
+    if (page.readOnly) resetComposer();
     await focusComment();
   } catch (error) {
     comments.value = emptyPage();
@@ -101,19 +155,39 @@ async function loadComments() {
   }
 }
 
+function resetComposer() {
+  body.value = '';
+  mentionIds.value = [];
+  attachments.value = [];
+  visibility.value = 'PARTICIPANTS';
+  replyingTo.value = undefined;
+  editingItem.value = undefined;
+}
+
 function startReply(item: ApprovalCommentItem) {
-  if (item.reply) return;
+  if (item.reply || item.deleted || composerReadOnly.value) return;
+  resetComposer();
   replyingTo.value = item;
-  const candidate = options.value?.mentionCandidates.find(
-    (user) => user.userId === item.authorId,
-  );
-  if (candidate && !mentionIds.value.includes(candidate.userId)) {
-    mentionIds.value = [...mentionIds.value, candidate.userId];
+  visibility.value = item.visibility;
+  if (item.privateComment) {
+    mentionIds.value = item.authorId === operatorId ? [] : [item.authorId];
+  } else if (item.authorId !== operatorId) {
+    mentionIds.value = [item.authorId];
   }
 }
 
-function cancelReply() {
-  replyingTo.value = undefined;
+function startEdit(item: ApprovalCommentItem) {
+  if (!item.canEdit || item.deleted || composerReadOnly.value) return;
+  resetComposer();
+  editingItem.value = item;
+  body.value = item.body;
+  mentionIds.value = item.mentionedUsers.map((user) => user.userId);
+  attachments.value = [...item.attachments];
+  visibility.value = item.visibility;
+}
+
+function cancelComposerMode() {
+  resetComposer();
 }
 
 function chooseFiles() {
@@ -161,30 +235,99 @@ async function downloadAttachment(item: ApprovalAttachment) {
 }
 
 async function submitComment() {
+  if (composerReadOnly.value) {
+    ElMessage.warning('审批已结束，评论区为只读状态');
+    return;
+  }
   const content = body.value.trim();
   if (!content) {
     ElMessage.warning('请填写评论内容');
     return;
   }
+  if (visibility.value === 'MENTIONED_ONLY' && mentionIds.value.length === 0) {
+    ElMessage.warning('私密评论必须至少提及一名审批参与人');
+    return;
+  }
   submitting.value = true;
   try {
-    await createApprovalComment(
-      props.instanceId,
-      replyingTo.value?.commentId,
-      content,
-      mentionIds.value,
-      attachments.value.map((item) => item.attachmentId),
-    );
-    body.value = '';
-    mentionIds.value = [];
-    attachments.value = [];
-    replyingTo.value = undefined;
-    ElMessage.success('评论已发布');
+    if (editingItem.value) {
+      await updateApprovalComment(
+        props.instanceId,
+        editingItem.value.commentId,
+        content,
+        mentionIds.value,
+        attachments.value.map((item) => item.attachmentId),
+        visibility.value,
+        editingItem.value.version,
+      );
+      ElMessage.success('评论已更新');
+    } else {
+      await createApprovalComment(
+        props.instanceId,
+        replyingTo.value?.commentId,
+        content,
+        mentionIds.value,
+        attachments.value.map((item) => item.attachmentId),
+        visibility.value,
+      );
+      ElMessage.success(replyingTo.value ? '回复已发布' : '评论已发布');
+    }
+    resetComposer();
     await loadComments();
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
     submitting.value = false;
+  }
+}
+
+function askDelete(item: ApprovalCommentItem) {
+  deleteTarget.value = item;
+  deleteReason.value = '';
+}
+
+async function confirmDelete() {
+  const target = deleteTarget.value;
+  const reason = deleteReason.value.trim();
+  if (!target) return;
+  if (!reason) {
+    ElMessage.warning('请填写删除原因');
+    return;
+  }
+  deleting.value = true;
+  try {
+    await deleteApprovalComment(
+      props.instanceId,
+      target.commentId,
+      target.version,
+      reason,
+    );
+    deleteTarget.value = undefined;
+    deleteReason.value = '';
+    if (editingItem.value?.commentId === target.commentId) resetComposer();
+    ElMessage.success('评论已删除并保留修订证据');
+    await loadComments();
+  } catch (error) {
+    ElMessage.error(errorMessage(error));
+  } finally {
+    deleting.value = false;
+  }
+}
+
+async function showRevisions(item: ApprovalCommentItem) {
+  revisionTarget.value = item;
+  revisions.value = [];
+  revisionLoading.value = true;
+  try {
+    revisions.value = await findApprovalCommentRevisions(
+      props.instanceId,
+      item.commentId,
+    );
+  } catch (error) {
+    revisionTarget.value = undefined;
+    ElMessage.error(errorMessage(error));
+  } finally {
+    revisionLoading.value = false;
   }
 }
 
@@ -205,6 +348,12 @@ watch(
       <ElButton :loading="loading" text @click="loadComments">刷新</ElButton>
     </div>
 
+    <ElAlert
+      v-if="composerReadOnly"
+      :closable="false"
+      title="审批实例已结束，历史评论和附件仍可查看，评论区为只读状态。"
+      type="warning"
+    />
     <ElSkeleton v-if="loading" :rows="4" animated />
     <ElAlert
       v-else-if="errorText"
@@ -224,27 +373,42 @@ watch(
         :key="item.commentId"
         class="comment-item"
         :class="{
+          'comment-item--deleted': item.deleted,
           'comment-item--focus': item.commentId === focusCommentId,
+          'comment-item--private': item.privateComment,
           'comment-item--reply': item.reply,
         }"
       >
         <div class="comment-meta">
-          <div>
+          <div class="comment-author">
             <strong>{{ item.authorDisplayName }}</strong>
             <span v-if="item.replyToAuthorDisplayName">
               回复 {{ item.replyToAuthorDisplayName }}
             </span>
+            <ElTag v-if="item.privateComment" effect="plain" size="small" type="warning">
+              私密评论
+            </ElTag>
+            <ElTag v-if="item.edited && !item.deleted" effect="plain" size="small" type="info">
+              已编辑
+            </ElTag>
+            <ElTag v-if="item.deleted" effect="plain" size="small" type="danger">
+              已删除
+            </ElTag>
           </div>
-          <span>{{ formatDate(item.createdAt) }}</span>
+          <span>{{ formatDate(item.updatedAt || item.createdAt) }}</span>
         </div>
-        <p>{{ item.body }}</p>
+        <p :class="{ tombstone: item.deleted }">{{ item.body }}</p>
+        <div v-if="item.deleteReason" class="delete-evidence">
+          删除原因：{{ item.deleteReason }}
+        </div>
         <div v-if="item.mentionedUsers.length" class="tag-row">
-          <span class="hint">提及</span>
+          <span class="hint">可见提及</span>
           <ElTag
             v-for="user in item.mentionedUsers"
             :key="user.userId"
             effect="plain"
             size="small"
+            :title="identityDescription(user)"
           >
             @{{ user.displayName }}
           </ElTag>
@@ -261,8 +425,38 @@ watch(
             {{ attachment.fileName }}（{{ formatSize(attachment.sizeBytes) }}）
           </ElButton>
         </div>
-        <div v-if="!item.reply" class="comment-actions">
-          <ElButton link type="primary" @click="startReply(item)">回复</ElButton>
+        <div class="comment-actions">
+          <ElButton
+            v-if="!item.reply && !item.deleted && !composerReadOnly"
+            link
+            type="primary"
+            @click="startReply(item)"
+          >
+            回复
+          </ElButton>
+          <ElButton
+            v-if="item.canEdit"
+            link
+            type="primary"
+            @click="startEdit(item)"
+          >
+            编辑
+          </ElButton>
+          <ElButton
+            v-if="item.canDelete"
+            link
+            type="danger"
+            @click="askDelete(item)"
+          >
+            删除
+          </ElButton>
+          <ElButton
+            v-if="item.authorId === operatorId || item.currentRevision > 1"
+            link
+            @click="showRevisions(item)"
+          >
+            修订历史（{{ item.currentRevision }}）
+          </ElButton>
         </div>
       </article>
     </div>
@@ -274,40 +468,66 @@ watch(
       type="info"
     />
 
-    <div class="composer">
+    <div v-if="!composerReadOnly" class="composer">
       <ElAlert
-        v-if="replyingTo"
+        v-if="replyingTo || editingItem"
         :closable="false"
         type="info"
       >
         <template #title>
-          正在回复 {{ replyingTo.authorDisplayName }}
-          <ElButton link type="primary" @click="cancelReply">取消回复</ElButton>
+          {{
+            editingItem
+              ? `正在编辑 ${editingItem.authorDisplayName} 的评论`
+              : `正在回复 ${replyingTo?.authorDisplayName}`
+          }}
+          <ElButton link type="primary" @click="cancelComposerMode">取消</ElButton>
         </template>
       </ElAlert>
-      <ElSelect
-        v-model="mentionIds"
-        collapse-tags
-        collapse-tags-tooltip
-        filterable
-        multiple
-        placeholder="@ 提及流程参与人（可选）"
-      >
-        <ElOption
-          v-for="user in options?.mentionCandidates || []"
-          :key="user.userId"
-          :label="user.displayName"
-          :value="user.userId"
+      <div class="composer-grid">
+        <ElSelect
+          v-model="visibility"
+          :disabled="visibilityLocked"
+          placeholder="评论可见范围"
         >
-          <span>{{ user.displayName }}</span>
-          <span class="candidate-id">{{ user.userId }}</span>
-        </ElOption>
-      </ElSelect>
+          <ElOption label="全部审批参与人可见" value="PARTICIPANTS" />
+          <ElOption label="仅作者和明确提及人可见" value="MENTIONED_ONLY" />
+        </ElSelect>
+        <ElSelect
+          v-model="mentionIds"
+          collapse-tags
+          collapse-tags-tooltip
+          filterable
+          multiple
+          placeholder="@ 精确提及审批参与人"
+        >
+          <ElOption
+            v-for="user in mentionCandidates"
+            :key="user.userId"
+            :label="user.displayName"
+            :value="user.userId"
+          >
+            <span>{{ user.displayName }}</span>
+            <span class="candidate-id">{{ identityDescription(user) }}</span>
+          </ElOption>
+        </ElSelect>
+      </div>
+      <ElAlert
+        v-if="visibility === 'MENTIONED_ONLY'"
+        :closable="false"
+        title="私密评论只对作者和明确提及人可见；私密回复不会扩大父评论接收范围。"
+        type="warning"
+      />
       <ElInput
         v-model="body"
         :maxlength="4000"
         :rows="4"
-        :placeholder="replyingTo ? `回复 ${replyingTo.authorDisplayName}` : '发表审批评论'"
+        :placeholder="
+          editingItem
+            ? '修改评论内容'
+            : replyingTo
+              ? `回复 ${replyingTo.authorDisplayName}`
+              : '发表审批评论'
+        "
         show-word-limit
         type="textarea"
       />
@@ -322,7 +542,7 @@ watch(
         <ElButton :loading="uploading" plain @click="chooseFiles">
           选择附件
         </ElButton>
-        <span>单文件不超过 10 MiB，最多 20 个</span>
+        <span>附件必须由当前作者上传并绑定当前审批；单文件不超过 10 MiB。</span>
       </div>
       <div v-if="attachments.length" class="pending-attachments">
         <ElTag
@@ -337,17 +557,78 @@ watch(
         </ElTag>
       </div>
       <div class="composer-footer">
-        <span>上传后的文件会在评论发布时绑定到当前审批。</span>
+        <span>作者可在发布后 {{ options?.editWindowMinutes || 15 }} 分钟内编辑或删除。</span>
         <ElButton
           :disabled="uploading"
           :loading="submitting"
           type="primary"
           @click="submitComment"
         >
-          {{ replyingTo ? '发布回复' : '发布评论' }}
+          {{ editingItem ? '保存修改' : replyingTo ? '发布回复' : '发布评论' }}
         </ElButton>
       </div>
     </div>
+
+    <ElDialog
+      :model-value="Boolean(deleteTarget)"
+      title="删除评论"
+      width="480px"
+      @close="deleteTarget = undefined"
+    >
+      <ElAlert
+        :closable="false"
+        title="删除后正文显示稳定墓碑，历史正文、提及和附件证据不会物理删除。"
+        type="warning"
+      />
+      <ElInput
+        v-model="deleteReason"
+        class="dialog-input"
+        :maxlength="2000"
+        :rows="4"
+        placeholder="填写删除原因"
+        show-word-limit
+        type="textarea"
+      />
+      <template #footer>
+        <ElButton @click="deleteTarget = undefined">取消</ElButton>
+        <ElButton :loading="deleting" type="danger" @click="confirmDelete">
+          确认删除
+        </ElButton>
+      </template>
+    </ElDialog>
+
+    <ElDialog
+      :model-value="Boolean(revisionTarget)"
+      :title="`评论修订历史 · ${revisionTarget?.authorDisplayName || ''}`"
+      width="680px"
+      @close="revisionTarget = undefined"
+    >
+      <ElSkeleton v-if="revisionLoading" :rows="4" animated />
+      <div v-else class="revision-list">
+        <article v-for="revision in revisions" :key="revision.revisionNumber">
+          <div class="revision-meta">
+            <strong>修订 {{ revision.revisionNumber }} · {{ revisionLabel(revision) }}</strong>
+            <span>{{ formatDate(revision.occurredAt) }}</span>
+          </div>
+          <p>{{ revision.body }}</p>
+          <div class="revision-detail">
+            <span>范围：{{ revision.visibility }}</span>
+            <span>操作人：{{ revision.operatorId }}</span>
+            <span v-if="revision.reason">原因：{{ revision.reason }}</span>
+          </div>
+          <div v-if="revision.mentionedUsers.length" class="tag-row">
+            <ElTag
+              v-for="user in revision.mentionedUsers"
+              :key="user.userId"
+              effect="plain"
+              size="small"
+            >
+              @{{ user.displayName }}
+            </ElTag>
+          </div>
+        </article>
+      </div>
+    </ElDialog>
   </section>
 </template>
 
@@ -363,7 +644,9 @@ watch(
 .tag-row,
 .attachment-row,
 .upload-row,
-.comment-actions {
+.comment-actions,
+.revision-meta,
+.revision-detail {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -371,13 +654,15 @@ watch(
 
 .comment-header,
 .comment-meta,
-.composer-footer {
+.composer-footer,
+.revision-meta {
   justify-content: space-between;
 }
 
-.comment-meta > div {
+.comment-author {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -387,25 +672,32 @@ watch(
 }
 
 .comment-header span,
-.comment-meta span,
+.comment-meta > span,
 .hint,
 .composer-footer span,
 .upload-row span,
-.candidate-id {
+.candidate-id,
+.revision-meta span,
+.revision-detail {
   color: var(--el-text-color-secondary);
   font-size: 13px;
 }
 
-.comment-list {
+.comment-list,
+.revision-list {
   display: grid;
   gap: 12px;
 }
 
-.comment-item {
+.comment-item,
+.revision-list article {
   padding: 14px;
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--el-border-radius-base);
   background: var(--el-fill-color-blank);
+}
+
+.comment-item {
   scroll-margin-top: 24px;
 }
 
@@ -414,22 +706,45 @@ watch(
   border-left: 3px solid var(--el-color-primary-light-5);
 }
 
+.comment-item--private {
+  border-color: var(--el-color-warning-light-5);
+}
+
+.comment-item--deleted {
+  background: var(--el-fill-color-light);
+}
+
 .comment-item--focus {
   border-color: var(--el-color-primary);
   background: var(--el-color-primary-light-9);
   box-shadow: 0 0 0 2px var(--el-color-primary-light-8);
 }
 
-.comment-item p {
+.comment-item p,
+.revision-list p {
   margin: 10px 0;
   color: var(--el-text-color-primary);
   line-height: 1.7;
   white-space: pre-wrap;
 }
 
+.tombstone {
+  color: var(--el-text-color-secondary) !important;
+  font-style: italic;
+}
+
+.delete-evidence {
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--el-color-danger-dark-2);
+  background: var(--el-color-danger-light-9);
+  font-size: 13px;
+}
+
 .tag-row,
 .attachment-row,
-.pending-attachments {
+.pending-attachments,
+.revision-detail {
   display: flex;
   flex-wrap: wrap;
   margin-top: 8px;
@@ -447,11 +762,31 @@ watch(
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
+.composer-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(320px, 1.3fr);
+  gap: 12px;
+}
+
 .pending-attachments {
   gap: 8px;
 }
 
 .candidate-id {
   margin-left: 12px;
+}
+
+.dialog-input {
+  margin-top: 16px;
+}
+
+@media (max-width: 800px) {
+  .composer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .comment-item--reply {
+    margin-left: 18px;
+  }
 }
 </style>
