@@ -10,7 +10,6 @@ import io.github.akaryc1b.approval.domain.context.RequestContext;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 /** Exact connector-identity boundary for delegation rule commands. */
 public final class ApprovalDelegationIdentityService {
