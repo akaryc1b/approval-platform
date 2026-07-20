@@ -25,7 +25,15 @@ public @interface ApprovalManagementPermission {
         AUDIT_EXPORT("approval.management.audit.export", "audit-export"),
         AUDIT_VERIFY("approval.management.audit.verify", "audit-verify"),
         CONSISTENCY_READ("approval.management.consistency.read", "consistency-read"),
-        CONSISTENCY_RUN("approval.management.consistency.run", "consistency-run");
+        CONSISTENCY_RUN("approval.management.consistency.run", "consistency-run"),
+        OPERATIONAL_FAILURE_READ(
+            "approval.management.operational-failure.read",
+            "operational-failure-read"
+        ),
+        OPERATIONAL_FAILURE_REPLAY(
+            "approval.management.operational-failure.replay",
+            "operational-failure-replay"
+        );
 
         private final String authority;
         private final String metricTag;
