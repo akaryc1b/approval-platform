@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore;
+import io.github.akaryc1b.approval.application.port.ApprovalIdentityDirectory;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +33,20 @@ public class ApprovalDelegationApiExceptionHandler {
             "APPROVAL_DELEGATION_INVALID_REQUEST",
             safeMessage(exception),
             false,
+            request
+        );
+    }
+
+    @ExceptionHandler(ApprovalIdentityDirectory.IdentityResolutionException.class)
+    ResponseEntity<ApiError> identityFailure(
+        ApprovalIdentityDirectory.IdentityResolutionException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            exception.retryable() ? 503 : 422,
+            exception.code(),
+            safeMessage(exception),
+            exception.retryable(),
             request
         );
     }
