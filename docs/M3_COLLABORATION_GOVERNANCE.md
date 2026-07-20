@@ -114,7 +114,38 @@ Implementation head `81e5b31ec20c816e13f2861546df8431a70a8532` passed permanent 
 - Vben TypeScript and production build: passed;
 - UniApp TypeScript, H5 and WeChat builds: passed.
 
-The next increment will continue M3 with governed add-sign/remove-sign and countersign collaboration policies before notification-channel preferences and delivery governance.
+## Increment D — governed dynamic add-sign and remove-sign
+
+The fourth increment attaches a platform-owned collaboration policy to an existing pending task while leaving the original Flowable task and responsibility owner unchanged.
+
+Completed capabilities:
+
+- exact active connector identities for every add-sign participant, with duplicate resolved-user and current-owner rejection;
+- `ALL` collaboration requiring every remaining participant to approve and `ANY` collaboration completing after the first approval;
+- any participant rejection placing the collaboration in `REJECTED` state and forcing the parent approval task to use its rejection action;
+- parent-task approval blocked until collaboration is satisfied, with task claim and collaboration creation serialized by the same PostgreSQL advisory lock;
+- transfer and retrieve blocked while collaboration is active;
+- process withdrawal canceling the active collaboration and all remaining participant work;
+- remove-sign allowed only for pending participants before any collaboration decision and never for the final pending participant;
+- initiator-revision tasks excluded from dynamic add-sign;
+- durable idempotency for collaboration creation, participant decision and remove-sign commands;
+- Flyway V17 policy and participant evidence with one active policy per tenant/task, exact identity evidence and constrained terminal metadata;
+- immutable `TASK_COLLABORATION_CREATED`, `TASK_COLLABORATOR_REMOVED` and `TASK_COLLABORATION_PARTICIPANT_DECIDED` audit evidence;
+- participant-authorized collaboration task queries and owner/initiator/participant policy visibility;
+- PC `加签协作` workspace for selecting a real pending task, exact organization identities, `ALL`/`ANY` mode, remove-sign and participant decisions;
+- shared H5/WeChat `加签协作` workspace and personal-center entry using the same server-authoritative APIs and semantics.
+
+Backend implementation head `8801c38984647a11287dd39f46842cd02e3be77b` passed permanent workflow run `29720189256`.
+
+Cross-platform head `6195341eea242651b783ddfdfc1a98d6065a0601` passed permanent workflow run `29720696299`:
+
+- repository hygiene: passed;
+- Java 21 / Maven / PostgreSQL: passed;
+- `JdbcApprovalTaskCollaborationIntegrationTest`: 3 tests, 0 failures, 0 errors, 0 skipped;
+- Vben TypeScript and production build: passed;
+- UniApp TypeScript, H5 and WeChat builds: passed.
+
+The next increment will continue M3 with governed vote and weighted approval policies, followed by notification-channel preferences and delivery governance.
 
 ## Initial validation baseline
 
