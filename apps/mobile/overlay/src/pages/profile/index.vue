@@ -19,6 +19,10 @@ function openTaskList() {
   uni.navigateTo({ url: '/pages/task/list' })
 }
 
+function openCollaboration() {
+  uni.navigateTo({ url: '/pages/collaboration/index' })
+}
+
 function openDiscussion() {
   uni.navigateTo({ url: '/pages/discussion/index' })
 }
@@ -61,6 +65,13 @@ onShow(loadUnreadMessages)
     <view class="entry-card">
       <view class="entry-row" @click="openTaskList">
         <text>审批工作台</text>
+        <text class="entry-row__value">›</text>
+      </view>
+      <view class="entry-row" @click="openCollaboration">
+        <view class="entry-row__content">
+          <text>加签协作</text>
+          <text class="entry-row__hint">发起加签、减签或处理协作待办</text>
+        </view>
         <text class="entry-row__value">›</text>
       </view>
       <view class="entry-row" @click="openDiscussion">
