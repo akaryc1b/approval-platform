@@ -62,6 +62,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ApprovalNotifications',
+        path: '/approval/notifications',
+        component: () => import('#/views/approval/notifications/index.vue'),
+        meta: {
+          authority: ['approval:message:view'],
+          icon: 'lucide:bell-cog',
+          title: '通知中心',
+        },
+      },
+      {
         name: 'ApprovalDelegations',
         path: '/approval/delegations',
         component: () => import('#/views/approval/delegations/index.vue'),
