@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.application.ApprovalConsistencyService;
 import io.github.akaryc1b.approval.application.ApprovalConsistencyService.RunCommand;
 import io.github.akaryc1b.approval.application.port.ApprovalConsistencyStore.CheckStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalConsistencyStore.CheckType;
+import io.github.akaryc1b.approval.application.port.ApprovalConsistencyStore.ConsistencyCheck;
 import io.github.akaryc1b.approval.application.port.ApprovalConsistencyStore.Severity;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
