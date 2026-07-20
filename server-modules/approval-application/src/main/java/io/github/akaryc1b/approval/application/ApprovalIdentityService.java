@@ -24,6 +24,7 @@ public final class ApprovalIdentityService {
         String requestId,
         String traceId,
         String keyword,
+        boolean activeOnly,
         int limit
     ) {
         return identities.search(new IdentitySearch(
@@ -32,6 +33,7 @@ public final class ApprovalIdentityService {
             requestId,
             traceId,
             keyword,
+            activeOnly,
             limit
         ));
     }
