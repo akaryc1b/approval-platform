@@ -30,6 +30,7 @@ public interface ApprovalIdentityDirectory {
         String requestId,
         String traceId,
         String keyword,
+        boolean activeOnly,
         int limit
     ) {
         public IdentitySearch {
