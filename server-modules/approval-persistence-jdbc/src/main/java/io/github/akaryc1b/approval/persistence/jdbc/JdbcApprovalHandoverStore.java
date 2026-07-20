@@ -218,7 +218,17 @@ public final class JdbcApprovalHandoverStore implements ApprovalHandoverStore {
               on instance.tenant_id = task.tenant_id
              and instance.instance_id = task.instance_id
             where task.tenant_id = :tenantId
-              and task.assignee_id = :principalId
+              and (
+                  task.assignee_id = :principalId
+                  or exists (
+                      select 1
+                      from ap_task_delegation_assignment delegated
+                      where delegated.tenant_id = task.tenant_id
+                        and delegated.engine_task_id = task.engine_task_id
+                        and delegated.principal_assignee_id = :principalId
+                        and delegated.status = 'ACTIVE'
+                  )
+              )
               and task.status = 'PENDING'
               and instance.status = 'RUNNING'
             order by task.created_at, task.task_id
