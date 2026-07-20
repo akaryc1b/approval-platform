@@ -4,6 +4,7 @@ import io.github.akaryc1b.approval.application.ApprovalDelegationService;
 import io.github.akaryc1b.approval.application.ApprovalTaskDelegationQueryService;
 import io.github.akaryc1b.approval.application.DelegatingApprovalEngine;
 import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore;
+import io.github.akaryc1b.approval.application.port.ApprovalHandoverStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskDelegationAssignmentStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
@@ -68,6 +69,7 @@ public class ApprovalDelegationConfiguration {
         @Qualifier("approvalEngine") ApprovalEngine approvalEngine,
         ApprovalDelegationStore approvalDelegationStore,
         ApprovalTaskDelegationAssignmentStore approvalTaskDelegationAssignmentStore,
+        ApprovalHandoverStore approvalHandoverStore,
         AuditEventSink auditEventSink,
         Clock approvalClock
     ) {
@@ -75,6 +77,7 @@ public class ApprovalDelegationConfiguration {
             approvalEngine,
             approvalDelegationStore,
             approvalTaskDelegationAssignmentStore,
+            approvalHandoverStore,
             auditEventSink,
             approvalClock,
             UUID::randomUUID
