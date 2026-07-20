@@ -23,7 +23,9 @@ public @interface ApprovalManagementPermission {
         TRANSFER("approval.management.transfer", "transfer"),
         AUDIT_READ("approval.management.audit.read", "audit-read"),
         AUDIT_EXPORT("approval.management.audit.export", "audit-export"),
-        AUDIT_VERIFY("approval.management.audit.verify", "audit-verify");
+        AUDIT_VERIFY("approval.management.audit.verify", "audit-verify"),
+        CONSISTENCY_READ("approval.management.consistency.read", "consistency-read"),
+        CONSISTENCY_RUN("approval.management.consistency.run", "consistency-run");
 
         private final String authority;
         private final String metricTag;
