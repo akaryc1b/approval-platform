@@ -25,6 +25,25 @@ public final class NotificationAwareAuditEventSink implements AuditEventSink {
     @Override
     public void append(AuditEvent event) {
         delegate.append(event);
-        notifications.enqueueFromAudit(event);
+        notifications.enqueueFromAudit(notificationEvent(event));
+    }
+
+    private static AuditEvent notificationEvent(AuditEvent event) {
+        if (!"INSTANCE_COMMENT_CREATED".equals(event.action())
+            && !"INSTANCE_COMMENT_EDITED".equals(event.action())) {
+            return event;
+        }
+        return new AuditEvent(
+            event.eventId(),
+            event.tenantId(),
+            event.operatorId(),
+            "INSTANCE_COMMENTED",
+            event.aggregateType(),
+            event.aggregateId(),
+            event.requestId(),
+            event.traceId(),
+            event.occurredAt(),
+            event.attributes()
+        );
     }
 }
