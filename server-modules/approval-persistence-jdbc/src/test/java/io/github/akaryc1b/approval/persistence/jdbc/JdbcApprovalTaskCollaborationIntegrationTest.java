@@ -230,9 +230,13 @@ class JdbcApprovalTaskCollaborationIntegrationTest {
 
         policy = decide(policy, "collaborator-one", ParticipantDecision.REJECTED);
         assertEquals(CollaborationStatus.ACTIVE, policy.status());
+        assertEquals(2, policy.progress().maximumReachableApprovalCount());
         policy = decide(policy, "collaborator-two", ParticipantDecision.REJECTED);
         assertEquals(CollaborationStatus.REJECTED, policy.status());
-        assertEquals(1, policy.progress().maximumReachableApprovalCount());
+        assertEquals(0, policy.progress().maximumReachableApprovalCount());
+        assertTrue(policy.participants().stream().anyMatch(item ->
+            item.status() == ParticipantStatus.CANCELED
+        ));
         assertEquals(1, auditCount("TASK_COLLABORATION_THRESHOLD_IMPOSSIBLE"));
     }
 
@@ -271,9 +275,15 @@ class JdbcApprovalTaskCollaborationIntegrationTest {
             weighted(USER_THREE, 1)
         ));
 
+        policy = decide(policy, "collaborator-three", ParticipantDecision.REJECTED);
+        assertEquals(CollaborationStatus.ACTIVE, policy.status());
+        assertEquals(5, policy.progress().maximumReachableApprovalWeight());
         policy = decide(policy, "collaborator-one", ParticipantDecision.REJECTED);
         assertEquals(CollaborationStatus.REJECTED, policy.status());
-        assertEquals(3, policy.progress().maximumReachableApprovalWeight());
+        assertEquals(0, policy.progress().maximumReachableApprovalWeight());
+        assertTrue(policy.participants().stream().anyMatch(item ->
+            item.status() == ParticipantStatus.CANCELED
+        ));
     }
 
     @Test
