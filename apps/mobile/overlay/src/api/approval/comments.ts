@@ -1,7 +1,14 @@
 import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
 
+export type CommentStatus = 'ACTIVE' | 'DELETED'
+export type CommentVisibility = 'MENTIONED_ONLY' | 'PARTICIPANTS'
+export type CommentRevisionType = 'CREATE' | 'DELETE' | 'EDIT'
+
 export interface CommentUserOption {
   displayName: string
+  externalIdentityValue: string
+  identitySource: string
+  objectType: string
   userId: string
 }
 
@@ -23,14 +30,27 @@ export interface ApprovalCommentItem {
   authorDisplayName: string
   authorId: string
   body: string
+  canDelete: boolean
+  canEdit: boolean
   commentId: string
   createdAt: string
+  currentRevision: number
+  deleteReason?: string
+  deleted: boolean
+  deletedAt?: string
+  deletedBy?: string
+  edited: boolean
   instanceId: string
   mentionedUsers: CommentUserOption[]
   parentCommentId?: string
+  privateComment: boolean
   reply: boolean
   replyToAuthorDisplayName?: string
   replyToAuthorId?: string
+  status: CommentStatus
+  updatedAt: string
+  version: number
+  visibility: CommentVisibility
 }
 
 export interface ApprovalCommentPage {
@@ -38,12 +58,27 @@ export interface ApprovalCommentPage {
   items: ApprovalCommentItem[]
   limit: number
   offset: number
+  readOnly: boolean
   total: number
 }
 
 export interface CommentOptions {
+  editWindowMinutes: number
   instanceId: string
   mentionCandidates: CommentUserOption[]
+  readOnly: boolean
+}
+
+export interface CommentRevisionItem {
+  attachmentIds: string[]
+  body: string
+  mentionedUsers: CommentUserOption[]
+  occurredAt: string
+  operatorId: string
+  reason?: string
+  revisionNumber: number
+  revisionType: CommentRevisionType
+  visibility: CommentVisibility
 }
 
 export interface CopiedInstanceItem {
@@ -77,7 +112,7 @@ export interface CopiedInstancePage {
 interface RequestOptions {
   data?: unknown
   header?: Record<string, string>
-  method?: 'GET' | 'POST'
+  method?: 'DELETE' | 'GET' | 'POST' | 'PUT'
 }
 
 interface ErrorPayload {
@@ -102,6 +137,15 @@ function runtimeHeaders(extra: Record<string, string> = {}): Record<string, stri
     'X-Operator-Id': runtime.operatorId,
     'X-Tenant-Id': runtime.tenantId,
     ...extra,
+  }
+}
+
+function mutationHeaders(prefix: string) {
+  const requestId = operationId(`${prefix}-request`)
+  return {
+    'Idempotency-Key': operationId(prefix),
+    'X-Request-Id': requestId,
+    'X-Trace-Id': requestId,
   }
 }
 
@@ -164,19 +208,20 @@ export function findApprovalComments(instanceId: string, limit = 100, offset = 0
   )
 }
 
+export function findApprovalCommentRevisions(instanceId: string, commentId: string) {
+  return request<CommentRevisionItem[]>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/comments/${encodeURIComponent(commentId)}/revisions`,
+  )
+}
+
 export function uploadApprovalAttachment(filePath: string) {
   const runtime = getApprovalRuntimeConfig()
-  const requestId = operationId('mobile-attachment-request')
   return new Promise<ApprovalAttachment>((resolve, reject) => {
     uni.uploadFile({
       url: joinUrl(runtime.apiBaseUrl, '/approval/attachments'),
       filePath,
       name: 'file',
-      header: runtimeHeaders({
-        'Idempotency-Key': operationId('mobile-attachment'),
-        'X-Request-Id': requestId,
-        'X-Trace-Id': requestId,
-      }),
+      header: runtimeHeaders(mutationHeaders('mobile-attachment')),
       success: (response) => {
         if (response.statusCode >= 200 && response.statusCode < 300) {
           try {
@@ -228,8 +273,8 @@ export function createApprovalComment(
   body: string,
   mentionIds: string[],
   attachmentIds: string[],
+  visibility: CommentVisibility = 'PARTICIPANTS',
 ) {
-  const requestId = operationId('mobile-comment-request')
   return request<ApprovalCommentItem>(
     `/approval/instances/${encodeURIComponent(instanceId)}/comments`,
     {
@@ -239,12 +284,52 @@ export function createApprovalComment(
         body: body.trim(),
         mentionIds,
         attachmentIds,
+        visibility,
       },
-      header: {
-        'Idempotency-Key': operationId('mobile-comment'),
-        'X-Request-Id': requestId,
-        'X-Trace-Id': requestId,
+      header: mutationHeaders('mobile-comment'),
+    },
+  )
+}
+
+export function updateApprovalComment(
+  instanceId: string,
+  commentId: string,
+  body: string,
+  mentionIds: string[],
+  attachmentIds: string[],
+  visibility: CommentVisibility,
+  expectedVersion: number,
+  reason?: string,
+) {
+  return request<ApprovalCommentItem>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      method: 'PUT',
+      data: {
+        body: body.trim(),
+        mentionIds,
+        attachmentIds,
+        visibility,
+        expectedVersion,
+        reason: reason?.trim() || null,
       },
+      header: mutationHeaders('mobile-comment-edit'),
+    },
+  )
+}
+
+export function deleteApprovalComment(
+  instanceId: string,
+  commentId: string,
+  expectedVersion: number,
+  reason: string,
+) {
+  return request<ApprovalCommentItem>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      method: 'DELETE',
+      data: { expectedVersion, reason: reason.trim() },
+      header: mutationHeaders('mobile-comment-delete'),
     },
   )
 }
