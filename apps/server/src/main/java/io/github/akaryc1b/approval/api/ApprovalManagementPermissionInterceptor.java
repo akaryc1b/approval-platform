@@ -30,6 +30,8 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
     private static final int MAX_HEADER_LENGTH = 2_048;
     private static final int MAX_AUTHORITIES = 32;
     private static final int MAX_LOG_VALUE_LENGTH = 128;
+    private static final String MANAGEMENT_PATH = "/api/approval/management";
+    private static final String UNDECLARED_REQUIREMENT = "undeclared";
     private static final String AUTHORIZATION_METRIC = "approval.management.authorization";
     private static final String REQUEST_TIMER = "approval.management.request.duration";
     private static final String START_ATTRIBUTE =
@@ -68,6 +70,9 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         }
         ApprovalManagementPermission permission = permission(handlerMethod);
         if (permission == null) {
+            if (isManagementRequest(request)) {
+                denyUndeclared(request);
+            }
             return true;
         }
         ApprovalManagementPermission.Requirement requirement = permission.value();
@@ -180,6 +185,22 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         throw new ApprovalManagementPermissionDeniedException(requirement, reason);
     }
 
+    private void denyUndeclared(HttpServletRequest request) {
+        recordAuthorization(UNDECLARED_REQUIREMENT, "denied");
+        LOGGER.error(
+            "event=APPROVAL_MANAGEMENT_PERMISSION_UNDECLARED tenantId={} operatorId={} "
+                + "requestId={} path={}",
+            safeLogValue(request.getHeader("X-Tenant-Id")),
+            operatorIdentity(request),
+            safeLogValue(request.getHeader("X-Request-Id")),
+            safeLogValue(requestPath(request))
+        );
+        throw new ApprovalManagementPermissionDeniedException(
+            ApprovalManagementPermission.Requirement.READ,
+            ApprovalManagementPermissionDeniedException.Reason.INSUFFICIENT_PERMISSION
+        );
+    }
+
     private String operatorIdentity(HttpServletRequest request) {
         if (authoritySource == AuthoritySource.PRINCIPAL
             && request.getUserPrincipal() != null) {
@@ -192,10 +213,14 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         ApprovalManagementPermission.Requirement requirement,
         String outcome
     ) {
+        recordAuthorization(requirement.metricTag(), outcome);
+    }
+
+    private void recordAuthorization(String requirement, String outcome) {
         meters.counter(
             AUTHORIZATION_METRIC,
             "requirement",
-            requirement.metricTag(),
+            requirement,
             "outcome",
             outcome
         ).increment();
@@ -213,6 +238,20 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
             handlerMethod.getBeanType(),
             ApprovalManagementPermission.class
         );
+    }
+
+    private static boolean isManagementRequest(HttpServletRequest request) {
+        String path = requestPath(request);
+        return path.equals(MANAGEMENT_PATH) || path.startsWith(MANAGEMENT_PATH + '/');
+    }
+
+    private static String requestPath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath)) {
+            return uri.substring(contextPath.length());
+        }
+        return uri;
     }
 
     private static Set<String> parseAuthorities(String header) {
