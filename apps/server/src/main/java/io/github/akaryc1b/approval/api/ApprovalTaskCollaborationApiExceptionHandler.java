@@ -17,8 +17,29 @@ import java.util.UUID;
 @RestControllerAdvice(assignableTypes = ApprovalTaskCollaborationController.class)
 public class ApprovalTaskCollaborationApiExceptionHandler {
 
+    @ExceptionHandler(ApprovalTaskCollaborationStore.CollaborationValidationException.class)
+    ResponseEntity<ApiError> governedValidation(
+        ApprovalTaskCollaborationStore.CollaborationValidationException exception,
+        HttpServletRequest request
+    ) {
+        return response(400, exception.code(), safeMessage(exception), false, request);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<ApiError> invalidModeOrPayload(
+        HttpMessageNotReadableException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            400,
+            "APPROVAL_TASK_COLLABORATION_INVALID_MODE_OR_PAYLOAD",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
     @ExceptionHandler({
-        HttpMessageNotReadableException.class,
         IllegalArgumentException.class,
         MethodArgumentNotValidException.class,
         MissingRequestHeaderException.class
@@ -47,6 +68,17 @@ public class ApprovalTaskCollaborationApiExceptionHandler {
         );
     }
 
+    @ExceptionHandler(ApprovalTaskCollaborationStore.CollaborationAuthorizationException.class)
+    ResponseEntity<ApiError> unauthorized(Exception exception, HttpServletRequest request) {
+        return response(
+            403,
+            "APPROVAL_TASK_COLLABORATION_UNAUTHORIZED",
+            safeMessage(exception),
+            false,
+            request
+        );
+    }
+
     @ExceptionHandler(ApprovalTaskCollaborationStore.CollaborationNotFoundException.class)
     ResponseEntity<ApiError> notFound(Exception exception, HttpServletRequest request) {
         return response(
@@ -58,14 +90,22 @@ public class ApprovalTaskCollaborationApiExceptionHandler {
         );
     }
 
-    @ExceptionHandler({
-        ApprovalTaskCollaborationStore.CollaborationConflictException.class,
-        IdempotencyGuard.IdempotencyConflictException.class
-    })
-    ResponseEntity<ApiError> conflict(Exception exception, HttpServletRequest request) {
+    @ExceptionHandler(ApprovalTaskCollaborationStore.CollaborationConflictException.class)
+    ResponseEntity<ApiError> governedConflict(
+        ApprovalTaskCollaborationStore.CollaborationConflictException exception,
+        HttpServletRequest request
+    ) {
+        return response(409, exception.code(), safeMessage(exception), false, request);
+    }
+
+    @ExceptionHandler(IdempotencyGuard.IdempotencyConflictException.class)
+    ResponseEntity<ApiError> idempotencyConflict(
+        IdempotencyGuard.IdempotencyConflictException exception,
+        HttpServletRequest request
+    ) {
         return response(
             409,
-            "APPROVAL_TASK_COLLABORATION_CONFLICT",
+            "APPROVAL_TASK_COLLABORATION_IDEMPOTENCY_CONFLICT",
             safeMessage(exception),
             false,
             request
