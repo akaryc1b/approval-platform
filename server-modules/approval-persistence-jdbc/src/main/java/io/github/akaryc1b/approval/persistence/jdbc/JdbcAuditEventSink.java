@@ -7,7 +7,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalAuditStore;
 import io.github.akaryc1b.approval.domain.audit.AuditEvent;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.datasource.JdbcTransactionManager;
+import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
