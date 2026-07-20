@@ -14,7 +14,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.UUID;
 
-@RestControllerAdvice(assignableTypes = ApprovalTaskCollaborationController.class)
+@RestControllerAdvice(assignableTypes = {
+    ApprovalTaskCollaborationController.class,
+    PurchasePaymentController.class
+})
 public class ApprovalTaskCollaborationApiExceptionHandler {
 
     @ExceptionHandler({
