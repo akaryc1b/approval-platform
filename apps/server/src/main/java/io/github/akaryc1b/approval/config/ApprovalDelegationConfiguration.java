@@ -1,8 +1,10 @@
 package io.github.akaryc1b.approval.config;
 
 import io.github.akaryc1b.approval.application.ApprovalDelegationService;
+import io.github.akaryc1b.approval.application.ApprovalTaskDelegationQueryService;
 import io.github.akaryc1b.approval.application.DelegatingApprovalEngine;
 import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskDelegationAssignmentStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
@@ -46,6 +48,17 @@ public class ApprovalDelegationConfiguration {
             auditEventSink,
             approvalClock,
             UUID::randomUUID
+        );
+    }
+
+    @Bean
+    ApprovalTaskDelegationQueryService approvalTaskDelegationQueryService(
+        ApprovalProjectionStore approvalProjectionStore,
+        ApprovalTaskDelegationAssignmentStore approvalTaskDelegationAssignmentStore
+    ) {
+        return new ApprovalTaskDelegationQueryService(
+            approvalProjectionStore,
+            approvalTaskDelegationAssignmentStore
         );
     }
 
