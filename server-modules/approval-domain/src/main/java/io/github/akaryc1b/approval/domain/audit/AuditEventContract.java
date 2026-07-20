@@ -99,12 +99,17 @@ public record AuditEventContract(
         return switch (action) {
             case "INSTANCE_COMMENT_CREATED",
                  "INSTANCE_COMMENT_EDITED",
-                 "INSTANCE_COMMENT_DELETED",
-                 "INSTANCE_COMMENTED" -> Set.of(
+                 "INSTANCE_COMMENT_DELETED" -> Set.of(
                      "commentId",
                      "commentRevision",
                      "visibility"
                  );
+            /*
+             * INSTANCE_COMMENTED is the pre-revision compatibility action used by the existing
+             * notification path. New persisted lifecycle events use the three versioned actions
+             * above, while legacy emitters remain readable and processable.
+             */
+            case "INSTANCE_COMMENTED" -> Set.of();
             case "AUDIT_EXPORTED" -> Set.of(
                 "format",
                 "recordCount",
