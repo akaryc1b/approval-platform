@@ -11,7 +11,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Projection decorator that serializes task completion with dynamic add-sign creation. */
+/** Projection decorator that serializes parent task actions with dynamic collaboration changes. */
 public final class CollaborationAwareApprovalProjectionStore implements ApprovalProjectionStore {
 
     private final ApprovalProjectionStore delegate;
@@ -89,10 +89,11 @@ public final class CollaborationAwareApprovalProjectionStore implements Approval
     ) {
         collaborations.lockTask(tenantId, taskId);
         collaborations.findByTask(tenantId, taskId).ifPresent(collaboration -> {
-            if (collaboration.status() == CollaborationStatus.ACTIVE) {
-                throw conflict("task collaboration decisions must finish before the parent task");
-            }
             TaskOutcome outcome = outcomes.current().orElse(null);
+            if (collaboration.status() == CollaborationStatus.ACTIVE
+                && outcome != TaskOutcome.REJECTED) {
+                throw conflict("task collaboration decisions must finish before parent approval");
+            }
             if (collaboration.status() == CollaborationStatus.REJECTED
                 && outcome != TaskOutcome.REJECTED) {
                 throw conflict(
