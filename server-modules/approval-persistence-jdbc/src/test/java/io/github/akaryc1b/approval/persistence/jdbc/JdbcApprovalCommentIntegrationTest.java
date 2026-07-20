@@ -22,9 +22,9 @@ import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.Publ
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.UserIdentitySnapshot;
+import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
-import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -703,20 +703,26 @@ class JdbcApprovalCommentIntegrationTest {
     }
 
     private void createInstance(String tenantId, UUID instanceId, String businessKey) {
-        projections.saveDefinition(new PublishedDefinition(
+        if (projections.findDefinition(
             tenantId,
             PurchasePaymentTemplate.DEFINITION_KEY,
-            PurchasePaymentTemplate.PROCESS_VERSION,
-            PurchasePaymentTemplate.DEFINITION_KEY,
-            PurchasePaymentTemplate.FORM_VERSION,
-            ApprovalDslCompiler.COMPILER_VERSION,
-            "a".repeat(64),
-            "deployment-comment-" + tenantId + '-' + instanceId,
-            "engine-definition-comment-" + tenantId + '-' + instanceId,
-            1,
-            "publisher",
-            clock.instant()
-        ));
+            PurchasePaymentTemplate.PROCESS_VERSION
+        ).isEmpty()) {
+            projections.saveDefinition(new PublishedDefinition(
+                tenantId,
+                PurchasePaymentTemplate.DEFINITION_KEY,
+                PurchasePaymentTemplate.PROCESS_VERSION,
+                PurchasePaymentTemplate.DEFINITION_KEY,
+                PurchasePaymentTemplate.FORM_VERSION,
+                ApprovalDslCompiler.COMPILER_VERSION,
+                "a".repeat(64),
+                "deployment-comment-" + tenantId,
+                "engine-definition-comment-" + tenantId,
+                1,
+                "publisher",
+                clock.instant()
+            ));
+        }
         Map<String, UserIdentitySnapshot> identities = Map.of(
             "initiator-1", identity("initiator-1", "申请人"),
             "manager-1", identity("manager-1", "部门负责人"),
