@@ -1,5 +1,6 @@
 export interface ApprovalRuntimeConfig {
   apiBaseUrl: string;
+  connector: string;
   operatorId: string;
   tenantId: string;
 }
@@ -31,6 +32,7 @@ export function getApprovalRuntimeConfig(): ApprovalRuntimeConfig {
 
   return {
     apiBaseUrl,
+    connector: import.meta.env.VITE_APPROVAL_CONNECTOR_KEY?.trim() || 'generic-rest',
     operatorId: requireValue(
       import.meta.env.VITE_APPROVAL_OPERATOR_ID,
       'VITE_APPROVAL_OPERATOR_ID',
