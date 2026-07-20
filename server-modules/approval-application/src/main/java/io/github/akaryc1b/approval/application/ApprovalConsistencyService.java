@@ -16,8 +16,12 @@ import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.domain.audit.AuditEvent;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -27,6 +31,7 @@ import java.util.function.Supplier;
 public final class ApprovalConsistencyService {
 
     private static final String RUN_OPERATION = "approval.consistency.check.run.v1";
+    private static final String TENANT_SCOPE_HASH = sha256(CheckScope.TENANT.name());
 
     private final IdempotencyGuard idempotencyGuard;
     private final ApprovalConsistencyStore store;
@@ -59,7 +64,7 @@ public final class ApprovalConsistencyService {
         return idempotencyGuard.execute(
             command.context(),
             RUN_OPERATION,
-            "TENANT",
+            TENANT_SCOPE_HASH,
             ConsistencyCheck.class,
             () -> executeRun(command.context())
         );
@@ -127,6 +132,17 @@ public final class ApprovalConsistencyService {
             )
         ));
         return check;
+    }
+
+    private static String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(
+                value.getBytes(StandardCharsets.UTF_8)
+            ));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
     }
 
     public record RunCommand(RequestContext context) {
