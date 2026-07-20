@@ -48,12 +48,12 @@ public final class ConnectorApprovalIdentityDirectory implements ApprovalIdentit
                     null,
                     null,
                     null,
-                    true
+                    search.activeOnly() ? true : null
                 ),
                 PageRequest.first(search.limit())
             ).items().stream()
                 .filter(Objects::nonNull)
-                .filter(UserSnapshot::active)
+                .filter(user -> !search.activeOnly() || user.active())
                 .sorted(Comparator.comparing(user -> user.id().canonicalValue()))
                 .map(ConnectorApprovalIdentityDirectory::candidate)
                 .forEach(item -> distinct.putIfAbsent(
