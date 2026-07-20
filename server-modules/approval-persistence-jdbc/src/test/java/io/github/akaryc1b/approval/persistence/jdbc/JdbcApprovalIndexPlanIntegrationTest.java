@@ -52,6 +52,8 @@ class JdbcApprovalIndexPlanIntegrationTest {
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
             .load().migrate();
         jdbc = new JdbcTemplate(dataSource);
+        seedAuditDistribution();
+        jdbc.execute("analyze ap_audit_event");
     }
 
     @Test
@@ -80,13 +82,14 @@ class JdbcApprovalIndexPlanIntegrationTest {
     void auditManagementAndTimelinePlansUseAuditIndexes() {
         assertPlanUses(
             "select count(*) from ap_audit_event where tenant_id = 'tenant-a' "
-                + "and action = 'TASK_APPROVED' and occurred_at >= now() - interval '1 day' "
-                + "and occurred_at < now()",
+                + "and action = 'TASK_APPROVED' "
+                + "and occurred_at >= timestamptz '2026-07-19 00:00:00+00' "
+                + "and occurred_at < timestamptz '2026-07-21 00:00:00+00'",
             "idx_audit_event_tenant_action_time"
         );
         assertPlanUses(
             "select event_id from ap_audit_event where tenant_id = 'tenant-a' "
-                + "and aggregate_type = 'APPROVAL_INSTANCE' and aggregate_id = 'instance-a' "
+                + "and aggregate_type = 'APPROVAL_INSTANCE' and aggregate_id = 'instance-42' "
                 + "order by occurred_at desc, tenant_sequence desc limit 100",
             "idx_audit_event_tenant_aggregate"
         );
@@ -136,6 +139,35 @@ class JdbcApprovalIndexPlanIntegrationTest {
                 + "order by updated_at desc, id limit 50",
             "idx_outbox_failure_queue"
         );
+    }
+
+    private static void seedAuditDistribution() {
+        jdbc.execute("""
+            insert into ap_audit_event (
+                event_id, tenant_id, operator_id, action,
+                aggregate_type, aggregate_id, request_id, trace_id,
+                occurred_at, attributes_json, schema_name, schema_version,
+                tenant_sequence, previous_hash, payload_hash, current_hash
+            )
+            select
+                gen_random_uuid(),
+                'tenant-a',
+                'operator-' || (sample % 20),
+                case when sample % 4 = 0 then 'TASK_APPROVED' else 'INSTANCE_STARTED' end,
+                'APPROVAL_INSTANCE',
+                'instance-' || (sample % 100),
+                'audit-request-' || sample,
+                'audit-trace-' || (sample % 100),
+                timestamptz '2026-07-20 12:00:00+00' - sample * interval '1 second',
+                '{}'::jsonb,
+                'approval.generic',
+                1,
+                sample,
+                repeat('0', 64),
+                encode(digest('payload-' || sample, 'sha256'), 'hex'),
+                encode(digest('current-' || sample, 'sha256'), 'hex')
+            from generate_series(1, 4000) sample
+            """);
     }
 
     private static void assertPlanUses(String query, String indexName) {
