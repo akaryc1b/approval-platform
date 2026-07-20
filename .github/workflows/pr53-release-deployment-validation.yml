@@ -30,8 +30,8 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          if [ -f .github/scripts/apply-pr53-d9-docs.sh ]; then
-            bash .github/scripts/apply-pr53-d9-docs.sh
+          if [ -f .github/scripts/apply-pr53-d10-cleanup.sh ]; then
+            bash .github/scripts/apply-pr53-d10-cleanup.sh
           fi
           git diff --check
       - uses: actions/setup-java@v4
@@ -68,8 +68,8 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          if [ -f .github/scripts/apply-pr53-d9-docs.sh ]; then
-            bash .github/scripts/apply-pr53-d9-docs.sh
+          if [ -f .github/scripts/apply-pr53-d10-cleanup.sh ]; then
+            bash .github/scripts/apply-pr53-d10-cleanup.sh
           fi
           git diff --check
       - uses: actions/setup-node@v4
@@ -124,8 +124,8 @@ jobs:
       - name: Apply queued product patch
         shell: bash
         run: |
-          if [ -f .github/scripts/apply-pr53-d9-docs.sh ]; then
-            bash .github/scripts/apply-pr53-d9-docs.sh
+          if [ -f .github/scripts/apply-pr53-d10-cleanup.sh ]; then
+            bash .github/scripts/apply-pr53-d10-cleanup.sh
           fi
           git diff --check
       - uses: actions/setup-node@v4
@@ -180,14 +180,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f .github/scripts/apply-pr53-d9-docs.sh ]; then
+          if [ ! -f .github/scripts/apply-pr53-d10-cleanup.sh ]; then
             echo 'No queued product patch found.'
             exit 0
           fi
-          bash .github/scripts/apply-pr53-d9-docs.sh
+          bash .github/scripts/apply-pr53-d10-cleanup.sh
           git diff --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'docs: complete D9 operations hardening'
+          git commit -m 'chore: complete M2 final cleanup'
           git push origin HEAD:${{ github.head_ref || github.ref_name }}
