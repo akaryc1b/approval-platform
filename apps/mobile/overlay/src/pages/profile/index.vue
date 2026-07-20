@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { findUnreadMessageCount } from '@/api/approval'
+import { findNotificationUnreadCount } from '@/api/approval/notifications'
 import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
 
 defineOptions({
@@ -14,6 +15,7 @@ definePage({
 
 const runtime = getApprovalRuntimeConfig()
 const unreadMessages = ref(0)
+const unreadNotifications = ref(0)
 
 function openTaskList() {
   uni.navigateTo({ url: '/pages/task/list' })
@@ -31,6 +33,10 @@ function openMessages() {
   uni.navigateTo({ url: '/pages/message/index' })
 }
 
+function openNotifications() {
+  uni.navigateTo({ url: '/pages/notification/index' })
+}
+
 function openDelegations() {
   uni.navigateTo({ url: '/pages/delegation/index' })
 }
@@ -40,12 +46,14 @@ function openInitiate() {
 }
 
 async function loadUnreadMessages() {
-  try {
-    unreadMessages.value = (await findUnreadMessageCount()).unread
-  }
-  catch {
-    unreadMessages.value = 0
-  }
+  const [messages, notifications] = await Promise.allSettled([
+    findUnreadMessageCount(),
+    findNotificationUnreadCount(),
+  ])
+  unreadMessages.value = messages.status === 'fulfilled' ? messages.value.unread : 0
+  unreadNotifications.value = notifications.status === 'fulfilled'
+    ? notifications.value.unread
+    : 0
 }
 
 onShow(loadUnreadMessages)
@@ -83,6 +91,18 @@ onShow(loadUnreadMessages)
         <view class="entry-row__right">
           <wd-tag v-if="unreadMessages" type="danger" plain>
             {{ unreadMessages }} 未读
+          </wd-tag>
+          <text class="entry-row__value">›</text>
+        </view>
+      </view>
+      <view class="entry-row" @click="openNotifications">
+        <view class="entry-row__content">
+          <text>通知中心</text>
+          <text class="entry-row__hint">通知偏好、投递状态与失败重投</text>
+        </view>
+        <view class="entry-row__right">
+          <wd-tag v-if="unreadNotifications" type="danger" plain>
+            {{ unreadNotifications }} 未读
           </wd-tag>
           <text class="entry-row__value">›</text>
         </view>
@@ -216,15 +236,5 @@ onShow(loadUnreadMessages)
 .runtime-card {
   padding-top: 26rpx;
   padding-bottom: 26rpx;
-}
-
-.runtime-card__title {
-  margin-bottom: 12rpx;
-}
-
-.runtime-row text:last-child {
-  max-width: 470rpx;
-  overflow-wrap: anywhere;
-  text-align: right;
 }
 </style>
