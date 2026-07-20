@@ -31,6 +31,7 @@ import java.util.function.Supplier;
 /** Detect-only consistency administration over platform-owned approval evidence. */
 public final class ApprovalConsistencyService {
 
+    private static final long POSTGRES_MICROSECOND_NANOS = 1_000L;
     private static final String RUN_OPERATION = "approval.consistency.check.run.v1";
     private static final String TENANT_SCOPE_HASH = sha256(CheckScope.TENANT.name());
 
@@ -137,14 +138,25 @@ public final class ApprovalConsistencyService {
     }
 
     private Instant nextStartedAt() {
-        Instant observed = clock.instant();
+        Instant observed = postgresPrecision(clock.instant());
         while (true) {
             Instant previous = lastStartedAt.get();
-            Instant next = observed.isAfter(previous) ? observed : previous.plusNanos(1);
+            Instant next = observed.isAfter(previous)
+                ? observed
+                : previous.plusNanos(POSTGRES_MICROSECOND_NANOS);
             if (lastStartedAt.compareAndSet(previous, next)) {
                 return next;
             }
         }
+    }
+
+    private static Instant postgresPrecision(Instant value) {
+        long nanos = value.getNano();
+        long micros = nanos / POSTGRES_MICROSECOND_NANOS;
+        return Instant.ofEpochSecond(
+            value.getEpochSecond(),
+            micros * POSTGRES_MICROSECOND_NANOS
+        );
     }
 
     private static String sha256(String value) {
