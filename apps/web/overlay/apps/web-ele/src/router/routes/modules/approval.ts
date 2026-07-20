@@ -22,6 +22,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ApprovalTaskCollaboration',
+        path: '/approval/collaboration',
+        component: () => import('#/views/approval/collaboration/index.vue'),
+        meta: {
+          authority: ['approval:workbench:view'],
+          icon: 'lucide:user-round-plus',
+          title: '加签协作',
+        },
+      },
+      {
         name: 'ApprovalDiscussion',
         path: '/approval/discussion',
         component: () => import('#/views/approval/discussion/index.vue'),
