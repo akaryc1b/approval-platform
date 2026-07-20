@@ -155,6 +155,7 @@ class JdbcApprovalIndexPlanIntegrationTest {
                 }
             }
         });
-        return assertNotNull(result);
+        assertNotNull(result);
+        return result;
     }
 }
