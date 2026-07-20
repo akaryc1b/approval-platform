@@ -90,14 +90,12 @@ public final class CollaborationAwareApprovalProjectionStore implements Approval
         collaborations.lockTask(tenantId, taskId);
         collaborations.findByTask(tenantId, taskId).ifPresent(collaboration -> {
             if (collaboration.status() == CollaborationStatus.ACTIVE) {
-                throw new ApprovalTaskCollaborationStore.CollaborationConflictException(
-                    "task collaboration decisions must finish before the parent task"
-                );
+                throw conflict("task collaboration decisions must finish before the parent task");
             }
             TaskOutcome outcome = outcomes.current().orElse(null);
             if (collaboration.status() == CollaborationStatus.REJECTED
                 && outcome != TaskOutcome.REJECTED) {
-                throw new ApprovalTaskCollaborationStore.CollaborationConflictException(
+                throw conflict(
                     "a rejected task collaboration requires the parent task to be rejected"
                 );
             }
@@ -111,6 +109,11 @@ public final class CollaborationAwareApprovalProjectionStore implements Approval
         UUID taskId,
         Instant claimedAt
     ) {
+        requireNoActiveCollaboration(
+            tenantId,
+            taskId,
+            "an active task collaboration cannot be retrieved"
+        );
         return delegate.claimPendingTaskForControl(tenantId, taskId, claimedAt);
     }
 
@@ -122,6 +125,11 @@ public final class CollaborationAwareApprovalProjectionStore implements Approval
         String targetAssigneeId,
         Instant transferredAt
     ) {
+        requireNoActiveCollaboration(
+            tenantId,
+            taskId,
+            "an active task collaboration cannot be transferred"
+        );
         return delegate.transferPendingTask(
             tenantId,
             taskId,
@@ -178,6 +186,34 @@ public final class CollaborationAwareApprovalProjectionStore implements Approval
         String initiatorId,
         Instant withdrawnAt
     ) {
+        for (TaskProjection task : delegate.findTasks(tenantId, instanceId)) {
+            collaborations.cancelActiveByTask(
+                tenantId,
+                task.taskId(),
+                initiatorId,
+                "approval instance was withdrawn",
+                withdrawnAt
+            );
+        }
         delegate.withdrawRunningInstance(tenantId, instanceId, initiatorId, withdrawnAt);
+    }
+
+    private void requireNoActiveCollaboration(
+        String tenantId,
+        UUID taskId,
+        String message
+    ) {
+        collaborations.lockTask(tenantId, taskId);
+        if (collaborations.findByTask(tenantId, taskId)
+            .filter(item -> item.status() == CollaborationStatus.ACTIVE)
+            .isPresent()) {
+            throw conflict(message);
+        }
+    }
+
+    private static ApprovalTaskCollaborationStore.CollaborationConflictException conflict(
+        String message
+    ) {
+        return new ApprovalTaskCollaborationStore.CollaborationConflictException(message);
     }
 }
