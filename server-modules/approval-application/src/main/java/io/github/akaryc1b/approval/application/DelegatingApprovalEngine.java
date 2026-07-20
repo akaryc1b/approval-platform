@@ -2,6 +2,9 @@ package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore.DelegationRule;
+import io.github.akaryc1b.approval.application.port.ApprovalHandoverStore;
+import io.github.akaryc1b.approval.application.port.ApprovalHandoverStore.HandoverTaskAssignment;
+import io.github.akaryc1b.approval.application.port.ApprovalHandoverStore.PrincipalHandover;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskDelegationAssignmentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskDelegationAssignmentStore.AssignmentStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskDelegationAssignmentStore.DelegatedTaskAssignment;
@@ -23,15 +26,16 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
 /**
- * Approval-engine decorator that applies active proxy rules when a new user task becomes
- * visible. The raw engine remains responsible only for workflow mechanics; delegation
- * policy and immutable responsibility evidence remain platform-owned.
+ * Approval-engine decorator that applies durable employee handovers and active proxy rules
+ * whenever a new user task becomes visible. The raw engine remains responsible only for
+ * workflow mechanics; responsibility evidence remains platform-owned.
  */
 public final class DelegatingApprovalEngine implements ApprovalEngine {
 
     private final ApprovalEngine delegate;
     private final ApprovalDelegationStore delegations;
     private final ApprovalTaskDelegationAssignmentStore assignments;
+    private final ApprovalHandoverStore handovers;
     private final AuditEventSink auditEvents;
     private final Clock clock;
     private final Supplier<UUID> identifierGenerator;
@@ -45,6 +49,26 @@ public final class DelegatingApprovalEngine implements ApprovalEngine {
         Clock clock,
         Supplier<UUID> identifierGenerator
     ) {
+        this(
+            delegate,
+            delegations,
+            assignments,
+            null,
+            auditEvents,
+            clock,
+            identifierGenerator
+        );
+    }
+
+    public DelegatingApprovalEngine(
+        ApprovalEngine delegate,
+        ApprovalDelegationStore delegations,
+        ApprovalTaskDelegationAssignmentStore assignments,
+        ApprovalHandoverStore handovers,
+        AuditEventSink auditEvents,
+        Clock clock,
+        Supplier<UUID> identifierGenerator
+    ) {
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
         this.delegations = Objects.requireNonNull(
             delegations,
@@ -54,6 +78,7 @@ public final class DelegatingApprovalEngine implements ApprovalEngine {
             assignments,
             "assignments must not be null"
         );
+        this.handovers = handovers;
         this.auditEvents = Objects.requireNonNull(
             auditEvents,
             "auditEvents must not be null"
@@ -106,12 +131,21 @@ public final class DelegatingApprovalEngine implements ApprovalEngine {
     @Override
     public TaskResult complete(CompleteTaskCommand command) {
         TaskResult result = delegate.complete(command);
+        Instant now = clock.instant();
         assignments.markCompleted(
             command.tenantId(),
             command.taskId(),
             command.operatorId(),
-            clock.instant()
+            now
         );
+        if (handovers != null) {
+            handovers.markCompleted(
+                command.tenantId(),
+                command.taskId(),
+                command.operatorId(),
+                now
+            );
+        }
         return result;
     }
 
@@ -124,29 +158,53 @@ public final class DelegatingApprovalEngine implements ApprovalEngine {
             command.processInstanceId(),
             now
         );
+        if (handovers != null) {
+            handovers.cancelActiveByEngineInstance(
+                command.tenantId(),
+                command.processInstanceId(),
+                now
+            );
+        }
         startedDefinitions.remove(instanceKey(command.tenantId(), command.processInstanceId()));
     }
 
     @Override
     public TaskSnapshot transfer(TransferTaskCommand command) {
         TaskSnapshot transferred = delegate.transfer(command);
+        Instant now = clock.instant();
         assignments.markSuperseded(
             command.tenantId(),
             command.taskId(),
             command.targetAssigneeId(),
-            clock.instant()
+            now
         );
+        if (handovers != null) {
+            handovers.markSuperseded(
+                command.tenantId(),
+                command.taskId(),
+                command.targetAssigneeId(),
+                now
+            );
+        }
         return transferred;
     }
 
     @Override
     public void retrieve(RetrieveTaskCommand command) {
         delegate.retrieve(command);
+        Instant now = clock.instant();
         assignments.markCanceled(
             command.tenantId(),
             command.currentTaskId(),
-            clock.instant()
+            now
         );
+        if (handovers != null) {
+            handovers.markCanceled(
+                command.tenantId(),
+                command.currentTaskId(),
+                now
+            );
+        }
     }
 
     private TaskSnapshot resolveTask(
@@ -156,17 +214,124 @@ public final class DelegatingApprovalEngine implements ApprovalEngine {
         Instant effectiveAt
     ) {
         String principalId = normalizeAssignee(task.assigneeId());
-        if (principalId == null
-            || PurchasePaymentTemplate.REVISION_TASK_KEY.equals(task.taskDefinitionKey())) {
+        if (principalId == null) {
             return task;
         }
+        TaskSnapshot handoverResolved = resolveHandover(
+            tenantId,
+            definitionKey,
+            task,
+            principalId,
+            effectiveAt
+        );
+        if (!Objects.equals(handoverResolved.assigneeId(), task.assigneeId())) {
+            return handoverResolved;
+        }
+        if (PurchasePaymentTemplate.REVISION_TASK_KEY.equals(task.taskDefinitionKey())) {
+            return task;
+        }
+        return resolveDelegation(tenantId, definitionKey, task, principalId, effectiveAt);
+    }
+
+    private TaskSnapshot resolveHandover(
+        String tenantId,
+        String definitionKey,
+        TaskSnapshot task,
+        String principalId,
+        Instant effectiveAt
+    ) {
+        if (handovers == null) {
+            return task;
+        }
+        handovers.lockEngineTask(tenantId, task.taskId());
+        Optional<HandoverTaskAssignment> existing = handovers.findAssignmentByEngineTask(
+            tenantId,
+            task.taskId()
+        );
+        if (existing.isPresent()) {
+            return reconcileExistingHandover(tenantId, task, existing.get());
+        }
+        Optional<PrincipalHandover> handover = handovers.findActiveByPrincipal(
+            tenantId,
+            principalId
+        );
+        if (handover.isEmpty()) {
+            return task;
+        }
+        PrincipalHandover active = handover.get();
+        TaskSnapshot transferred = delegate.transfer(new TransferTaskCommand(
+            tenantId,
+            task.taskId(),
+            principalId,
+            active.successorId()
+        ));
+        HandoverTaskAssignment assignment = handovers.createAssignment(
+            new HandoverTaskAssignment(
+                identifierGenerator.get(),
+                tenantId,
+                task.taskId(),
+                task.processInstanceId(),
+                definitionKey,
+                task.taskDefinitionKey(),
+                principalId,
+                active.successorId(),
+                active.handoverId(),
+                ApprovalHandoverStore.AssignmentStatus.ACTIVE,
+                effectiveAt,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1
+            )
+        );
+        appendHandoverAudit(assignment, effectiveAt);
+        return transferred;
+    }
+
+    private TaskSnapshot reconcileExistingHandover(
+        String tenantId,
+        TaskSnapshot task,
+        HandoverTaskAssignment existing
+    ) {
+        if (existing.status() != ApprovalHandoverStore.AssignmentStatus.ACTIVE) {
+            return task;
+        }
+        if (existing.successorAssigneeId().equals(task.assigneeId())) {
+            return task;
+        }
+        if (existing.principalAssigneeId().equals(task.assigneeId())) {
+            return delegate.transfer(new TransferTaskCommand(
+                tenantId,
+                task.taskId(),
+                existing.principalAssigneeId(),
+                existing.successorAssigneeId()
+            ));
+        }
+        handovers.markSuperseded(
+            tenantId,
+            task.taskId(),
+            requireAssignee(task.assigneeId()),
+            clock.instant()
+        );
+        return task;
+    }
+
+    private TaskSnapshot resolveDelegation(
+        String tenantId,
+        String definitionKey,
+        TaskSnapshot task,
+        String principalId,
+        Instant effectiveAt
+    ) {
         assignments.lockEngineTask(tenantId, task.taskId());
         Optional<DelegatedTaskAssignment> existing = assignments.findByEngineTask(
             tenantId,
             task.taskId()
         );
         if (existing.isPresent()) {
-            return reconcileExisting(tenantId, task, existing.get());
+            return reconcileExistingDelegation(tenantId, task, existing.get());
         }
         Optional<DelegationRule> rule = delegations.resolveEffective(
             tenantId,
@@ -208,7 +373,7 @@ public final class DelegatingApprovalEngine implements ApprovalEngine {
         return transferred;
     }
 
-    private TaskSnapshot reconcileExisting(
+    private TaskSnapshot reconcileExistingDelegation(
         String tenantId,
         TaskSnapshot task,
         DelegatedTaskAssignment existing
@@ -271,6 +436,30 @@ public final class DelegatingApprovalEngine implements ApprovalEngine {
                 "delegateAssigneeId", assignment.delegateAssigneeId(),
                 "delegationRuleId", assignment.delegationRuleId().toString(),
                 "delegationScope", assignment.delegationScope().name()
+            )
+        ));
+    }
+
+    private void appendHandoverAudit(
+        HandoverTaskAssignment assignment,
+        Instant occurredAt
+    ) {
+        auditEvents.append(new AuditEvent(
+            identifierGenerator.get(),
+            assignment.tenantId(),
+            assignment.principalAssigneeId(),
+            "TASK_HANDOVER_ASSIGNED",
+            "APPROVAL_TASK",
+            assignment.engineTaskId(),
+            "handover-assignment-" + assignment.assignmentId(),
+            null,
+            occurredAt,
+            Map.of(
+                "definitionKey", assignment.definitionKey(),
+                "taskDefinitionKey", assignment.taskDefinitionKey(),
+                "principalAssigneeId", assignment.principalAssigneeId(),
+                "successorAssigneeId", assignment.successorAssigneeId(),
+                "handoverId", assignment.handoverId().toString()
             )
         ));
     }
