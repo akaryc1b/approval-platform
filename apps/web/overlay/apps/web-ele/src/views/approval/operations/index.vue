@@ -135,7 +135,7 @@ async function loadChecks(targetPage = checkPageNumber.value) {
     );
     checkPageNumber.value = targetPage;
     if (!selectedCheck.value && checks.value.items.length) {
-      await selectCheck(checks.value.items[0]);
+      await selectCheck(checks.value.items[0]!);
     }
   } catch (error) {
     checks.value = emptyCheckPage();
