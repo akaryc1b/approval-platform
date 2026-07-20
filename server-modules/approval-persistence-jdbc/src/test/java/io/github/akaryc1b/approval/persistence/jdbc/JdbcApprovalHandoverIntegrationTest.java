@@ -12,6 +12,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalIdentityDirectory.Id
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.PublishedDefinition;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
@@ -100,6 +101,7 @@ class JdbcApprovalHandoverIntegrationTest {
                 ap_delegation_rule,
                 ap_approval_task,
                 ap_approval_instance,
+                ap_definition_version,
                 ap_audit_event,
                 ap_command_idempotency
             cascade
@@ -107,6 +109,20 @@ class JdbcApprovalHandoverIntegrationTest {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         projections = new JdbcApprovalProjectionStore(dataSource, objectMapper);
+        projections.saveDefinition(new PublishedDefinition(
+            "tenant-a",
+            PurchasePaymentTemplate.DEFINITION_KEY,
+            PurchasePaymentTemplate.PROCESS_VERSION,
+            PurchasePaymentTemplate.DEFINITION_KEY,
+            PurchasePaymentTemplate.FORM_VERSION,
+            "compiler-test",
+            "a".repeat(64),
+            "deployment-test",
+            "engine-definition-test",
+            1,
+            "test-publisher",
+            NOW
+        ));
         handovers = new JdbcApprovalHandoverStore(dataSource);
         delegations = new JdbcApprovalDelegationStore(dataSource);
         delegationAssignments = new JdbcApprovalTaskDelegationAssignmentStore(dataSource);
