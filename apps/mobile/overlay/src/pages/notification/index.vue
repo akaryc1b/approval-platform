@@ -103,6 +103,18 @@ function setPreference(eventType: NotificationEventType, channel: NotificationCh
   if (item) item.enabled = switchValue(event)
 }
 
+function setQuietHours(event: unknown) {
+  if (preferences.value) preferences.value.quietHoursEnabled = switchValue(event)
+}
+
+function setEmergencyBypass(event: unknown) {
+  if (preferences.value) preferences.value.emergencyBypass = switchValue(event)
+}
+
+function setDigestEnabled(event: unknown) {
+  if (preferences.value) preferences.value.digestEnabled = switchValue(event)
+}
+
 async function loadHistory() {
   loading.value = true
   try {
@@ -308,7 +320,7 @@ onShow(loadHistory)
           </view>
           <view class="switch-row">
             <view><text>安静时间</text><text class="hint">非紧急通知延后投递</text></view>
-            <switch v-model="preferences.quietHoursEnabled" color="#2563eb" />
+            <switch :checked="preferences.quietHoursEnabled" color="#2563eb" @change="setQuietHours" />
           </view>
           <view v-if="preferences.quietHoursEnabled" class="time-grid">
             <input v-model="preferences.quietHoursStart" class="field-input" placeholder="22:00">
@@ -316,11 +328,11 @@ onShow(loadHistory)
           </view>
           <view class="switch-row">
             <view><text>紧急事项立即通知</text><text class="hint">绕过安静时间</text></view>
-            <switch v-model="preferences.emergencyBypass" color="#2563eb" />
+            <switch :checked="preferences.emergencyBypass" color="#2563eb" @change="setEmergencyBypass" />
           </view>
           <view class="switch-row">
             <view><text>允许摘要</text><text class="hint">合并非紧急通知</text></view>
-            <switch v-model="preferences.digestEnabled" color="#2563eb" />
+            <switch :checked="preferences.digestEnabled" color="#2563eb" @change="setDigestEnabled" />
           </view>
         </view>
 
