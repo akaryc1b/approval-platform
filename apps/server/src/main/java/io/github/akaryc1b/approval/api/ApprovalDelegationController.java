@@ -1,8 +1,10 @@
 package io.github.akaryc1b.approval.api;
 
+import io.github.akaryc1b.approval.application.ApprovalDelegationIdentityService;
 import io.github.akaryc1b.approval.application.ApprovalDelegationService;
 import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore.DelegationRule;
 import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore.DelegationScope;
+import io.github.akaryc1b.approval.application.port.ApprovalIdentityDirectory.IdentityReference;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -31,9 +33,9 @@ public class ApprovalDelegationController {
     private static final String IDEMPOTENCY_KEY = "Idempotency-Key";
     private static final String TRACE_ID = "X-Trace-Id";
 
-    private final ApprovalDelegationService service;
+    private final ApprovalDelegationIdentityService service;
 
-    public ApprovalDelegationController(ApprovalDelegationService service) {
+    public ApprovalDelegationController(ApprovalDelegationIdentityService service) {
         this.service = service;
     }
 
@@ -46,15 +48,18 @@ public class ApprovalDelegationController {
         @RequestHeader(value = TRACE_ID, required = false) String traceId,
         @Valid @RequestBody CreateDelegationRequest request
     ) {
-        return service.create(new ApprovalDelegationService.CreateDelegationCommand(
-            context(tenantId, operatorId, requestId, idempotencyKey, traceId),
-            request.delegateId(),
-            request.scope(),
-            request.definitionKey(),
-            request.validFrom(),
-            request.validUntil(),
-            request.reason()
-        ));
+        return service.create(
+            new ApprovalDelegationIdentityService.CreateGovernedDelegationCommand(
+                context(tenantId, operatorId, requestId, idempotencyKey, traceId),
+                request.connectorKey(),
+                reference(request.delegateIdentity()),
+                request.scope(),
+                request.definitionKey(),
+                request.validFrom(),
+                request.validUntil(),
+                request.reason()
+            )
+        );
     }
 
     @GetMapping
@@ -83,6 +88,14 @@ public class ApprovalDelegationController {
         ));
     }
 
+    private static IdentityReference reference(IdentityReferenceRequest request) {
+        return new IdentityReference(
+            request.source(),
+            request.objectType(),
+            request.value()
+        );
+    }
+
     private static RequestContext context(
         String tenantId,
         String operatorId,
@@ -99,8 +112,16 @@ public class ApprovalDelegationController {
         );
     }
 
+    public record IdentityReferenceRequest(
+        @NotBlank @Size(max = 128) String source,
+        @NotBlank @Size(max = 128) String objectType,
+        @NotBlank @Size(max = 256) String value
+    ) {
+    }
+
     public record CreateDelegationRequest(
-        @NotBlank @Size(max = 256) String delegateId,
+        @NotBlank @Size(max = 128) String connectorKey,
+        @NotNull @Valid IdentityReferenceRequest delegateIdentity,
         @NotNull DelegationScope scope,
         @Size(max = 256) String definitionKey,
         @NotNull Instant validFrom,
