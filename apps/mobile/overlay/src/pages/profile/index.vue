@@ -27,6 +27,10 @@ function openMessages() {
   uni.navigateTo({ url: '/pages/message/index' })
 }
 
+function openDelegations() {
+  uni.navigateTo({ url: '/pages/delegation/index' })
+}
+
 function openInitiate() {
   uni.switchTab({ url: '/pages/initiate/index' })
 }
@@ -71,6 +75,13 @@ onShow(loadUnreadMessages)
           </wd-tag>
           <text class="entry-row__value">›</text>
         </view>
+      </view>
+      <view class="entry-row" @click="openDelegations">
+        <view class="entry-row__content">
+          <text>代理规则</text>
+          <text class="entry-row__hint">请假或出差期间自动分派新任务</text>
+        </view>
+        <text class="entry-row__value">›</text>
       </view>
       <view class="entry-row" @click="openInitiate">
         <text>发起审批</text>
@@ -135,7 +146,8 @@ onShow(loadUnreadMessages)
   font-weight: 700;
 }
 
-.profile-card__main {
+.profile-card__main,
+.entry-row__content {
   display: grid;
   flex: 1;
   gap: 10rpx;
@@ -150,9 +162,14 @@ onShow(loadUnreadMessages)
 
 .profile-card__meta,
 .runtime-row text:first-child,
-.entry-row__value {
+.entry-row__value,
+.entry-row__hint {
   color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
   font-size: 24rpx;
+}
+
+.entry-row__hint {
+  font-size: 22rpx;
 }
 
 .entry-card,
