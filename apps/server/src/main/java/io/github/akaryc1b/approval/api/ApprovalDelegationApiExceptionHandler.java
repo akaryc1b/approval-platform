@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.port.ApprovalDelegationStore;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +14,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.UUID;
 
-@RestControllerAdvice(assignableTypes = ApprovalDelegationController.class)
+@RestControllerAdvice(assignableTypes = {
+    ApprovalDelegationController.class,
+    ApprovalTaskDelegationController.class
+})
 public class ApprovalDelegationApiExceptionHandler {
 
     @ExceptionHandler({
@@ -45,6 +49,7 @@ public class ApprovalDelegationApiExceptionHandler {
 
     @ExceptionHandler({
         ApprovalDelegationStore.DelegationConflictException.class,
+        ApprovalProjectionStore.ProjectionConflictException.class,
         IdempotencyGuard.IdempotencyConflictException.class
     })
     ResponseEntity<ApiError> conflict(Exception exception, HttpServletRequest request) {
