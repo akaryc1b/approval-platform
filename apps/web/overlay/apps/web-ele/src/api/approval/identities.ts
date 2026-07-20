@@ -46,10 +46,15 @@ async function parseError(response: Response) {
     `请求失败（${response.status}）`;
 }
 
-export async function findApprovalIdentityCandidates(keyword = '', limit = 20) {
+export async function findApprovalIdentityCandidates(
+  keyword = '',
+  limit = 20,
+  activeOnly = true,
+) {
   const runtime = getApprovalRuntimeConfig();
   const requestId = operationId('web-identity-candidates');
   const query = new URLSearchParams({
+    activeOnly: String(activeOnly),
     connectorKey: runtime.connector,
     limit: String(limit),
   });
