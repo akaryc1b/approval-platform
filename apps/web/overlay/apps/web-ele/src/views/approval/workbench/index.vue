@@ -139,15 +139,6 @@ function instanceStatusType(status: StartedInstanceItem['status']): TagType {
   if (status === 'WITHDRAWN' || status === 'REJECTED') return 'info';
   return 'primary';
 }
-function timelineTitle(item: ApprovalTimelineItem) {
-  const labels: Record<string, string> = {
-    INSTANCE_STARTED: '发起审批', INSTANCE_WITHDRAWN: '发起人撤回',
-    TASK_APPROVED: '同意审批', TASK_DELEGATED: '任务自动代理',
-    TASK_REJECTED: '驳回到发起人', TASK_RESUBMITTED: '修改并重新提交',
-    TASK_RETRIEVED: '审批人拿回', TASK_TRANSFERRED: '任务转办',
-  };
-  return labels[item.action] || item.action;
-}
 function timelineType(item: ApprovalTimelineItem): TagType {
   if (item.action === 'TASK_APPROVED') return 'success';
   if (item.action === 'TASK_REJECTED' || item.action === 'INSTANCE_WITHDRAWN') return 'danger';
@@ -386,7 +377,24 @@ onMounted(refreshWorkbench);
           <div class="section-header"><h3>申请表单</h3><ElTag effect="plain">{{ formRuntime.defaultedUiSchema ? '安全默认' : `UI v${formRuntime.uiSchema.version}` }}</ElTag></div>
           <ApprovalFormRenderer v-model="formValues" :field-permissions="formRuntime.fieldPermissions" :required-fields="formRuntime.requiredFields" :readonly="!revisionTask" :schema="formRuntime.definition" :ui-schema="formRuntime.uiSchema"/>
         </section>
-        <section class="detail-section"><h3>审批进度</h3><ElTimeline v-if="timeline?.items.length"><ElTimelineItem v-for="item in timeline.items" :key="item.eventId" :timestamp="formatDate(item.occurredAt)" :type="timelineType(item)"><strong>{{ timelineTitle(item) }}</strong><div>{{ item.operatorId }}</div><div v-if="item.action === 'TASK_DELEGATED'">{{ item.attributes.principalAssigneeId }} → {{ item.attributes.delegateAssigneeId }}</div><div v-if="item.attributes.comment">{{ item.attributes.comment }}</div></ElTimelineItem></ElTimeline><ElEmpty v-else description="暂无审批记录"/></section>
+        <section class="detail-section">
+          <h3>审批进度</h3>
+          <ElTimeline v-if="timeline?.items.length">
+            <ElTimelineItem
+              v-for="item in timeline.items"
+              :key="item.eventId"
+              :timestamp="formatDate(item.occurredAt)"
+              :type="timelineType(item)"
+            >
+              <strong>{{ item.summary }}</strong>
+              <div>{{ item.operatorId }}</div>
+              <ElTag effect="plain" size="small">
+                {{ item.schemaName }} v{{ item.schemaVersion }}
+              </ElTag>
+            </ElTimelineItem>
+          </ElTimeline>
+          <ElEmpty v-else description="暂无审批记录"/>
+        </section>
         <section v-if="!revisionTask && selectedTask.transferCandidates?.length" class="detail-section"><h3>转办人员</h3><ElSelect v-model="transferTargetId" class="full-width" placeholder="从审批人快照中选择"><ElOption v-for="candidate in selectedTask.transferCandidates" :key="candidate.userId" :label="candidate.displayName" :value="candidate.userId"/></ElSelect></section>
         <section class="detail-section"><h3>{{ revisionTask ? '修改说明' : '审批意见' }}</h3><ElInput v-model="approvalComment" :maxlength="2000" :rows="4" show-word-limit type="textarea"/></section>
       </div>
