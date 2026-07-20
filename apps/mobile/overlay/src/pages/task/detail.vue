@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import type {
   ApprovalTimeline,
-  ApprovalTimelineItem,
   PendingTaskDetails,
 } from '@/api/approval'
 import type { DelegatedTaskAssignment } from '@/api/approval/delegations'
@@ -53,20 +52,6 @@ function taskStage(task: PendingTaskDetails) {
     managerApproval: '部门负责人审批',
   }
   return labels[task.taskDefinitionKey] || task.taskName
-}
-
-function timelineTitle(item: ApprovalTimelineItem) {
-  const labels: Record<string, string> = {
-    INSTANCE_STARTED: '发起审批',
-    INSTANCE_WITHDRAWN: '发起人撤回',
-    TASK_APPROVED: '同意审批',
-    TASK_DELEGATED: '任务自动代理',
-    TASK_REJECTED: '驳回到发起人',
-    TASK_RESUBMITTED: '修改并重新提交',
-    TASK_RETRIEVED: '审批人拿回',
-    TASK_TRANSFERRED: '任务转办',
-  }
-  return labels[item.action] || item.action
 }
 
 function formatMoney(value: number) {
@@ -277,12 +262,9 @@ onLoad((query) => {
         <view class="section-title">审批进度</view>
         <view v-if="timeline?.items.length" class="timeline-list">
           <view v-for="item in timeline.items" :key="item.eventId" class="timeline-item">
-            <strong>{{ timelineTitle(item) }}</strong>
+            <strong>{{ item.summary }}</strong>
             <text>{{ item.operatorId }} · {{ formatDate(item.occurredAt) }}</text>
-            <text v-if="item.action === 'TASK_DELEGATED'">
-              {{ item.attributes.principalAssigneeId }} → {{ item.attributes.delegateAssigneeId }}
-            </text>
-            <text v-if="item.attributes.comment">{{ item.attributes.comment }}</text>
+            <text>{{ item.schemaName }} v{{ item.schemaVersion }}</text>
           </view>
         </view>
         <text v-else class="muted">暂无审批记录</text>
