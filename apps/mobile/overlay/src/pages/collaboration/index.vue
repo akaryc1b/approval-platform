@@ -575,7 +575,7 @@ onShow(loadData)
             <input
               class="weight-input"
               type="number"
-              :value="participantWeight(candidate)"
+              :value="String(participantWeight(candidate))"
               @input="setParticipantWeight(candidate, $event)"
             >
           </view>
@@ -585,7 +585,7 @@ onShow(loadData)
           <input
             class="field-input"
             type="number"
-            :value="approvalThreshold || ''"
+            :value="approvalThreshold ? String(approvalThreshold) : ''"
             @input="setApprovalThreshold"
           >
         </view>
@@ -594,7 +594,7 @@ onShow(loadData)
           <input
             class="field-input"
             type="number"
-            :value="approvalWeightThreshold || ''"
+            :value="approvalWeightThreshold ? String(approvalWeightThreshold) : ''"
             @input="setApprovalWeightThreshold"
           >
         </view>
