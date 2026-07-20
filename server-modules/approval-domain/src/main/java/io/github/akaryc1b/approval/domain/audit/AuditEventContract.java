@@ -65,6 +65,9 @@ public record AuditEventContract(
         if (action.startsWith("AUDIT_")) {
             return "approval.audit.operation";
         }
+        if (action.contains("CONSISTENCY")) {
+            return "approval.consistency";
+        }
         if (action.contains("DELEGATION")) {
             return "approval.delegation";
         }
@@ -121,6 +124,13 @@ public record AuditEventContract(
                 "checkedCount",
                 "rangeStart",
                 "rangeEnd"
+            );
+            case "CONSISTENCY_CHECK_EXECUTED" -> Set.of(
+                "checkId",
+                "scope",
+                "status",
+                "findingCount",
+                "detectOnly"
             );
             default -> Set.of();
         };
