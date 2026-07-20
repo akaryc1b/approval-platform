@@ -84,7 +84,37 @@ Cross-platform head `c4cd5e235d65c49f2a258ba949e94b0522406b8c` passed permanent 
 - Vben TypeScript and production build: passed;
 - UniApp TypeScript, H5 and WeChat builds: passed.
 
-The next increment will harden delegation candidate identity selection and add employee-departure/process-handover governance without weakening the immutable original-principal boundary.
+## Increment C — governed identities and employee handover
+
+The third increment removes free-text identity entry from delegation commands and adds durable employee-departure handover across current and future approval tasks.
+
+Completed capabilities:
+
+- a connector-backed approval identity directory using exact `source`, `objectType` and external identity values;
+- deterministic identity mismatch, missing-user, inactive-user and connector-unavailable failures;
+- separate candidate searches for active delegates/successors and inactive-or-active departing principals;
+- PC, H5 and WeChat delegation creation using selected organization identities instead of raw user ID text;
+- delegation creation rejecting identities that no longer exist or are inactive;
+- management-protected employee handover create, list and revoke APIs using `approval.management.transfer`;
+- Flyway V16 principal-handover and task-handover evidence with one active handover per tenant/principal;
+- immediate transfer of all current pending tasks to the successor;
+- existing tasks already handled by a temporary delegate included in formal handover and their old delegation evidence marked `SUPERSEDED`;
+- formal employee handover taking precedence over temporary delegation for future tasks;
+- future initiator-revision tasks assigned to the successor while preserving task-specific resubmit authority only;
+- completion, manual transfer, retrieve and process termination synchronizing handover assignment terminal states;
+- immutable `EMPLOYEE_HANDOVER_CREATED`, `EMPLOYEE_HANDOVER_REVOKED` and `TASK_HANDOVER_ASSIGNED` audit evidence;
+- timeline reads supporting platform task IDs and engine task IDs for responsibility events;
+- a PC employee-handover governance page with exact departing-user and active-successor selection, immediate-transfer confirmation, history and revoke actions.
+
+Implementation head `81e5b31ec20c816e13f2861546df8431a70a8532` passed permanent workflow run `29718536112`:
+
+- repository hygiene: passed;
+- Java 21 / Maven / PostgreSQL: passed;
+- `JdbcApprovalHandoverIntegrationTest`: 4 tests, 0 failures, 0 errors, 0 skipped;
+- Vben TypeScript and production build: passed;
+- UniApp TypeScript, H5 and WeChat builds: passed.
+
+The next increment will continue M3 with governed add-sign/remove-sign and countersign collaboration policies before notification-channel preferences and delivery governance.
 
 ## Initial validation baseline
 
