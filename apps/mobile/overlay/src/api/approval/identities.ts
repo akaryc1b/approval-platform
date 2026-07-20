@@ -43,10 +43,15 @@ function errorMessage(payload: unknown, statusCode: number) {
   return `请求失败（${statusCode}）`
 }
 
-export function findApprovalIdentityCandidates(keyword = '', limit = 30) {
+export function findApprovalIdentityCandidates(
+  keyword = '',
+  limit = 30,
+  activeOnly = true,
+) {
   const runtime = getApprovalRuntimeConfig()
   const requestId = operationId('mobile-identity-candidates')
   const query = [
+    `activeOnly=${encodeURIComponent(String(activeOnly))}`,
     `connectorKey=${encodeURIComponent(runtime.connectorKey)}`,
     `limit=${encodeURIComponent(String(limit))}`,
   ]
