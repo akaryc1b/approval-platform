@@ -91,14 +91,25 @@ class JdbcApprovalAuditIntegrationTest {
     @Test
     void assignsVersionedSchemasAndIsolatesTenantChains() {
         fixture.store().append(event(
-            "tenant-a", "TASK_APPROVED", "request-a-1", START, Map.of("reason", "approved")
+            "tenant-a",
+            "TASK_APPROVED",
+            "request-a-1",
+            START,
+            Map.of("reason", "approved")
         ));
         fixture.store().append(event(
-            "tenant-a", "TASK_REJECTED", "request-a-2", START.plusSeconds(1),
+            "tenant-a",
+            "TASK_REJECTED",
+            "request-a-2",
+            START.plusSeconds(1),
             Map.of("reason", "missing receipt")
         ));
         fixture.store().append(event(
-            "tenant-b", "INSTANCE_STARTED", "request-b-1", START, Map.of()
+            "tenant-b",
+            "INSTANCE_STARTED",
+            "request-b-1",
+            START,
+            Map.of()
         ));
 
         var tenantA = fixture.store().find(criteria("tenant-a", null, 20, 0));
@@ -129,7 +140,7 @@ class JdbcApprovalAuditIntegrationTest {
     @Test
     void serializesConcurrentTenantAppendsWithoutGaps() throws Exception {
         int eventCount = 24;
-        ExecutorService executor = Executors.newFixedThreadPool(8);
+        ExecutorService executor = Executors.newFixedThreadPool(eventCount);
         CountDownLatch ready = new CountDownLatch(eventCount);
         CountDownLatch start = new CountDownLatch(1);
         List<Future<?>> futures = new ArrayList<>();
@@ -159,16 +170,20 @@ class JdbcApprovalAuditIntegrationTest {
         }
 
         var page = fixture.store().find(criteria("tenant-concurrent", null, 100, 0));
-        assertEquals(eventCount, page.total());
-        assertEquals(eventCount, page.items().getFirst().tenantSequence());
-        assertEquals(1, page.items().getLast().tenantSequence());
+        assertEquals((long) eventCount, page.total());
+        assertEquals((long) eventCount, page.items().getFirst().tenantSequence());
+        assertEquals(1L, page.items().getLast().tenantSequence());
         assertTrue(fixture.store().verify(integrity("tenant-concurrent")).valid());
     }
 
     @Test
     void detectsPayloadTampering() {
         fixture.store().append(event(
-            "tenant-a", "TASK_APPROVED", "tamper-1", START, Map.of("reason", "approved")
+            "tenant-a",
+            "TASK_APPROVED",
+            "tamper-1",
+            START,
+            Map.of("reason", "approved")
         ));
         jdbc.update(
             """
@@ -176,7 +191,7 @@ class JdbcApprovalAuditIntegrationTest {
             set attributes_json = jsonb_set(
                 attributes_json,
                 '{reason}',
-                to_jsonb(?::text)
+                to_jsonb(cast(? as text))
             )
             where tenant_id = ?
             """,
@@ -187,19 +202,27 @@ class JdbcApprovalAuditIntegrationTest {
         var result = fixture.store().verify(integrity("tenant-a"));
         assertFalse(result.valid());
         assertEquals("PAYLOAD_HASH_MISMATCH", result.failureCode());
-        assertEquals(1, result.firstInvalidSequence());
+        assertEquals(1L, result.firstInvalidSequence());
         assertNotNull(result.firstInvalidEventId());
     }
 
     @Test
     void duplicateFailureDoesNotAdvanceChainStateOrLeaveHalfWrite() {
         AuditEvent first = event(
-            "tenant-a", "TASK_APPROVED", "duplicate-1", START, Map.of()
+            "tenant-a",
+            "TASK_APPROVED",
+            "duplicate-1",
+            START,
+            Map.of()
         );
         fixture.store().append(first);
         assertThrows(DataIntegrityViolationException.class, () -> fixture.store().append(first));
         fixture.store().append(event(
-            "tenant-a", "TASK_REJECTED", "duplicate-2", START.plusSeconds(1), Map.of()
+            "tenant-a",
+            "TASK_REJECTED",
+            "duplicate-2",
+            START.plusSeconds(1),
+            Map.of()
         ));
 
         var page = fixture.store().find(criteria("tenant-a", null, 20, 0));
@@ -207,7 +230,7 @@ class JdbcApprovalAuditIntegrationTest {
         assertEquals(List.of(2L, 1L), page.items().stream()
             .map(item -> item.tenantSequence())
             .toList());
-        assertEquals(2, jdbc.queryForObject(
+        assertEquals(2L, jdbc.queryForObject(
             "select last_sequence from ap_audit_chain_state where tenant_id = ?",
             Long.class,
             "tenant-a"
@@ -218,13 +241,25 @@ class JdbcApprovalAuditIntegrationTest {
     @Test
     void queryFiltersRemainTenantBoundedAndPaginated() {
         fixture.store().append(event(
-            "tenant-a", "TASK_APPROVED", "query-1", START, Map.of()
+            "tenant-a",
+            "TASK_APPROVED",
+            "query-1",
+            START,
+            Map.of()
         ));
         fixture.store().append(event(
-            "tenant-a", "TASK_REJECTED", "query-2", START.plusSeconds(1), Map.of()
+            "tenant-a",
+            "TASK_REJECTED",
+            "query-2",
+            START.plusSeconds(1),
+            Map.of()
         ));
         fixture.store().append(event(
-            "tenant-b", "TASK_APPROVED", "query-3", START.plusSeconds(2), Map.of()
+            "tenant-b",
+            "TASK_APPROVED",
+            "query-3",
+            START.plusSeconds(2),
+            Map.of()
         ));
 
         var approved = fixture.store().find(new AuditCriteria(
@@ -270,8 +305,11 @@ class JdbcApprovalAuditIntegrationTest {
             )
         ));
 
-        var page = fixture.service().find(query("tenant-a", START.minusSeconds(1),
-            START.plus(Duration.ofDays(1))));
+        var page = fixture.service().find(query(
+            "tenant-a",
+            START.minusSeconds(1),
+            START.plus(Duration.ofDays(1))
+        ));
         Map<String, String> attributes = page.items().getFirst().attributes();
         assertEquals("[REDACTED]", attributes.get("body"));
         assertEquals("[REDACTED]", attributes.get("secretToken"));
@@ -291,7 +329,11 @@ class JdbcApprovalAuditIntegrationTest {
     @Test
     void exportAndIntegrityVerificationAreIdempotentAndAudited() {
         fixture.store().append(event(
-            "tenant-a", "TASK_APPROVED", "admin-1", START, Map.of("plain", "visible")
+            "tenant-a",
+            "TASK_APPROVED",
+            "admin-1",
+            START,
+            Map.of("plain", "visible")
         ));
         AuditQuery query = query(
             "tenant-a",
@@ -316,7 +358,9 @@ class JdbcApprovalAuditIntegrationTest {
         );
         var report = fixture.service().verify(verifyCommand);
         assertTrue(report.valid());
-        assertTrue(report.assuranceStatement().contains("not a claim of legal non-repudiation"));
+        assertTrue(report.assuranceStatement().contains(
+            "not a claim of legal non-repudiation"
+        ));
         assertEquals(report, fixture.service().verify(verifyCommand));
         assertEquals(1, countAction("tenant-a", "AUDIT_INTEGRITY_VERIFIED"));
         assertTrue(fixture.store().verify(integrity("tenant-a")).valid());
@@ -339,7 +383,7 @@ class JdbcApprovalAuditIntegrationTest {
                 Map.of("commentId", UUID.randomUUID().toString())
             )
         );
-        assertTrue(error.getMessage().contains("commentRevision"));
+        assertTrue(error.getMessage().contains("audit attribute is required"));
     }
 
     private int countAction(String tenantId, String action) {
