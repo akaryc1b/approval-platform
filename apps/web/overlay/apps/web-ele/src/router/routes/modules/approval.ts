@@ -161,6 +161,16 @@ const routes: RouteRecordRaw[] = [
           title: '运维控制台',
         },
       },
+      {
+        name: 'ApprovalOperationalFailures',
+        path: '/approval/operations/failures',
+        component: () => import('#/views/approval/operational-failures/index.vue'),
+        meta: {
+          authority: ['approval:ops:view'],
+          icon: 'lucide:triangle-alert',
+          title: '运维失败队列',
+        },
+      },
     ],
   },
 ];
