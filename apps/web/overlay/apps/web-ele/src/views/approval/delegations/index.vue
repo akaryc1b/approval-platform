@@ -4,6 +4,7 @@ import type {
   DelegationRule,
   DelegationScope,
 } from '#/api/approval/delegations';
+import type { ApprovalIdentityCandidate } from '#/api/approval/identities';
 
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 
@@ -34,10 +35,12 @@ import {
   findDelegationRules,
   revokeDelegationRule,
 } from '#/api/approval/delegations';
+import { findApprovalIdentityCandidates } from '#/api/approval/identities';
+import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
 interface DelegationForm {
   definitionKey: string;
-  delegateId: string;
+  delegateIdentityKey: string;
   reason: string;
   scope: DelegationScope;
   validFrom: Date | null;
@@ -46,10 +49,13 @@ interface DelegationForm {
 
 type TagType = 'danger' | 'info' | 'primary' | 'success' | 'warning';
 
+const runtime = getApprovalRuntimeConfig();
 const loading = ref(false);
 const saving = ref(false);
 const dialogOpen = ref(false);
 const includeRevoked = ref(false);
+const candidateLoading = ref(false);
+const candidates = ref<ApprovalIdentityCandidate[]>([]);
 const rules = ref<DelegationRule[]>([]);
 const form = reactive<DelegationForm>(emptyForm());
 
@@ -62,6 +68,9 @@ const definitionCount = computed(
 const globalCount = computed(
   () => rules.value.filter(item => item.scope === 'ALL' && item.status === 'ACTIVE').length,
 );
+const selectedCandidate = computed(
+  () => candidates.value.find(item => identityKey(item) === form.delegateIdentityKey),
+);
 
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   day: '2-digit',
@@ -71,12 +80,21 @@ const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
 });
 
+function identityKey(candidate: ApprovalIdentityCandidate) {
+  const reference = candidate.reference;
+  return `${reference.source}:${reference.objectType}:${reference.value}`;
+}
+
+function candidateLabel(candidate: ApprovalIdentityCandidate) {
+  return `${candidate.displayName}（${candidate.userId}）`;
+}
+
 function emptyForm(): DelegationForm {
   const validFrom = new Date();
   const validUntil = new Date(validFrom.getTime() + 8 * 60 * 60 * 1000);
   return {
     definitionKey: 'purchase-payment',
-    delegateId: '',
+    delegateIdentityKey: '',
     reason: '',
     scope: 'ALL',
     validFrom,
@@ -115,6 +133,18 @@ function statusType(rule: DelegationRule): TagType {
   return 'info';
 }
 
+async function loadCandidates(keyword = '') {
+  candidateLoading.value = true;
+  try {
+    candidates.value = await findApprovalIdentityCandidates(keyword, 30);
+  } catch (error) {
+    candidates.value = [];
+    ElMessage.error(errorMessage(error));
+  } finally {
+    candidateLoading.value = false;
+  }
+}
+
 async function loadRules() {
   loading.value = true;
   try {
@@ -127,15 +157,16 @@ async function loadRules() {
   }
 }
 
-function openCreateDialog() {
+async function openCreateDialog() {
   resetForm();
   dialogOpen.value = true;
+  await loadCandidates();
 }
 
 function validateForm() {
-  const delegateId = form.delegateId.trim();
+  const delegate = selectedCandidate.value;
   const reason = form.reason.trim();
-  if (!delegateId) throw new Error('请输入代理人用户 ID');
+  if (!delegate) throw new Error('请从组织身份目录选择代理人');
   if (!reason) throw new Error('请输入代理原因');
   if (!form.validFrom || !form.validUntil) throw new Error('请选择代理有效期');
   if (form.validUntil.getTime() <= form.validFrom.getTime()) {
@@ -145,7 +176,8 @@ function validateForm() {
     throw new Error('指定流程代理必须填写流程标识');
   }
   const payload: CreateDelegationPayload = {
-    delegateId,
+    connectorKey: runtime.connector,
+    delegateIdentity: delegate.reference,
     reason,
     scope: form.scope,
     validFrom: form.validFrom.toISOString(),
@@ -210,81 +242,37 @@ onMounted(() => void loadRules());
 </script>
 
 <template>
-  <Page title="代理规则" description="管理个人审批代理。代理仅影响新产生的审批任务，原责任人和代理依据会被永久记录。">
+  <Page title="代理规则" description="管理个人审批代理。代理人必须来自组织连接器的精确身份，原责任人和代理依据会被永久记录。">
     <div class="delegation-page">
       <ElAlert
         :closable="false"
         show-icon
-        title="指定流程规则优先于全部审批规则；发起人修改任务不会被代理。"
+        title="指定流程规则优先于全部审批规则；发起人修改任务不会被临时代理。"
         type="info"
       />
 
       <div class="summary-grid">
-        <ElCard shadow="never">
-          <div class="summary-label">有效规则</div>
-          <div class="summary-value">{{ activeCount }}</div>
-        </ElCard>
-        <ElCard shadow="never">
-          <div class="summary-label">全部审批代理</div>
-          <div class="summary-value">{{ globalCount }}</div>
-        </ElCard>
-        <ElCard shadow="never">
-          <div class="summary-label">指定流程代理</div>
-          <div class="summary-value">{{ definitionCount }}</div>
-        </ElCard>
+        <ElCard shadow="never"><div class="summary-label">有效规则</div><div class="summary-value">{{ activeCount }}</div></ElCard>
+        <ElCard shadow="never"><div class="summary-label">全部审批代理</div><div class="summary-value">{{ globalCount }}</div></ElCard>
+        <ElCard shadow="never"><div class="summary-label">指定流程代理</div><div class="summary-value">{{ definitionCount }}</div></ElCard>
       </div>
 
       <ElCard shadow="never">
         <template #header>
           <div class="card-header">
-            <div>
-              <div class="card-title">我的代理规则</div>
-              <div class="card-description">每个相同作用域的有效时间段不能重叠。</div>
-            </div>
-            <div class="header-actions">
-              <span class="switch-label">显示已撤销</span>
-              <ElSwitch v-model="includeRevoked" />
-              <ElButton type="primary" @click="openCreateDialog">新建代理</ElButton>
-            </div>
+            <div><div class="card-title">我的代理规则</div><div class="card-description">每个相同作用域的有效时间段不能重叠。</div></div>
+            <div class="header-actions"><span class="switch-label">显示已撤销</span><ElSwitch v-model="includeRevoked" /><ElButton type="primary" @click="openCreateDialog">新建代理</ElButton></div>
           </div>
         </template>
-
         <ElSkeleton :loading="loading" :rows="5" animated>
           <ElEmpty v-if="rules.length === 0" description="暂无代理规则" />
           <ElTable v-else :data="rules" row-key="ruleId">
             <ElTableColumn label="代理人" min-width="150" prop="delegateId" />
-            <ElTableColumn label="范围" min-width="160">
-              <template #default="{ row }">
-                <div class="scope-cell">
-                  <ElTag effect="plain" type="primary">{{ scopeLabel(row.scope) }}</ElTag>
-                  <span v-if="row.definitionKey" class="definition-key">{{ row.definitionKey }}</span>
-                </div>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn label="有效期" min-width="260">
-              <template #default="{ row }">
-                {{ formatDate(row.validFrom) }} — {{ formatDate(row.validUntil) }}
-              </template>
-            </ElTableColumn>
+            <ElTableColumn label="范围" min-width="160"><template #default="{ row }"><div class="scope-cell"><ElTag effect="plain" type="primary">{{ scopeLabel(row.scope) }}</ElTag><span v-if="row.definitionKey" class="definition-key">{{ row.definitionKey }}</span></div></template></ElTableColumn>
+            <ElTableColumn label="有效期" min-width="260"><template #default="{ row }">{{ formatDate(row.validFrom) }} — {{ formatDate(row.validUntil) }}</template></ElTableColumn>
             <ElTableColumn label="原因" min-width="220" prop="reason" show-overflow-tooltip />
-            <ElTableColumn label="状态" width="100">
-              <template #default="{ row }">
-                <ElTag :type="statusType(row)">{{ statusLabel(row) }}</ElTag>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn fixed="right" label="操作" width="100">
-              <template #default="{ row }">
-                <ElButton
-                  v-if="row.status === 'ACTIVE'"
-                  link
-                  type="danger"
-                  @click="revoke(row)"
-                >
-                  撤销
-                </ElButton>
-                <span v-else class="muted">—</span>
-              </template>
-            </ElTableColumn>
+            <ElTableColumn label="状态" width="100"><template #default="{ row }"><ElTag :type="statusType(row)">{{ statusLabel(row) }}</ElTag></template></ElTableColumn>
+            <ElTableColumn fixed="right" label="操作" width="100"><template #default="{ row }"><ElButton v-if="row.status === 'ACTIVE'" link type="danger" @click="revoke(row)">撤销</ElButton><span v-else class="muted">—</span></template></ElTableColumn>
           </ElTable>
         </ElSkeleton>
       </ElCard>
@@ -292,131 +280,33 @@ onMounted(() => void loadRules());
 
     <ElDialog v-model="dialogOpen" title="新建代理规则" width="560px">
       <ElForm label-position="top">
-        <ElFormItem label="代理人用户 ID" required>
-          <ElInput v-model="form.delegateId" maxlength="256" placeholder="例如 user-1002" />
-        </ElFormItem>
-        <ElFormItem label="代理范围" required>
-          <ElSelect v-model="form.scope" class="full-width">
-            <ElOption label="全部审批" value="ALL" />
-            <ElOption label="指定流程" value="DEFINITION" />
+        <ElFormItem label="代理人" required>
+          <ElSelect
+            v-model="form.delegateIdentityKey"
+            class="full-width"
+            filterable
+            remote
+            reserve-keyword
+            :loading="candidateLoading"
+            placeholder="搜索姓名、账号或手机号"
+            :remote-method="loadCandidates"
+          >
+            <ElOption v-for="candidate in candidates" :key="identityKey(candidate)" :label="candidateLabel(candidate)" :value="identityKey(candidate)" />
           </ElSelect>
         </ElFormItem>
-        <ElFormItem v-if="form.scope === 'DEFINITION'" label="流程标识" required>
-          <ElInput
-            v-model="form.definitionKey"
-            maxlength="256"
-            placeholder="例如 purchase-payment"
-          />
-        </ElFormItem>
+        <ElFormItem label="代理范围" required><ElSelect v-model="form.scope" class="full-width"><ElOption label="全部审批" value="ALL" /><ElOption label="指定流程" value="DEFINITION" /></ElSelect></ElFormItem>
+        <ElFormItem v-if="form.scope === 'DEFINITION'" label="流程标识" required><ElInput v-model="form.definitionKey" maxlength="256" placeholder="例如 purchase-payment" /></ElFormItem>
         <div class="date-grid">
-          <ElFormItem label="开始时间" required>
-            <ElDatePicker
-              v-model="form.validFrom"
-              class="full-width"
-              type="datetime"
-              placeholder="选择开始时间"
-            />
-          </ElFormItem>
-          <ElFormItem label="结束时间" required>
-            <ElDatePicker
-              v-model="form.validUntil"
-              class="full-width"
-              type="datetime"
-              placeholder="选择结束时间"
-            />
-          </ElFormItem>
+          <ElFormItem label="开始时间" required><ElDatePicker v-model="form.validFrom" class="full-width" type="datetime" placeholder="选择开始时间" /></ElFormItem>
+          <ElFormItem label="结束时间" required><ElDatePicker v-model="form.validUntil" class="full-width" type="datetime" placeholder="选择结束时间" /></ElFormItem>
         </div>
-        <ElFormItem label="代理原因" required>
-          <ElInput
-            v-model="form.reason"
-            :rows="3"
-            maxlength="2000"
-            placeholder="说明请假、出差或临时职责安排"
-            show-word-limit
-            type="textarea"
-          />
-        </ElFormItem>
+        <ElFormItem label="代理原因" required><ElInput v-model="form.reason" :rows="3" maxlength="2000" placeholder="说明请假、出差或临时职责安排" show-word-limit type="textarea" /></ElFormItem>
       </ElForm>
-      <template #footer>
-        <ElButton @click="dialogOpen = false">取消</ElButton>
-        <ElButton :loading="saving" type="primary" @click="submitCreate">创建代理</ElButton>
-      </template>
+      <template #footer><ElButton @click="dialogOpen = false">取消</ElButton><ElButton :loading="saving" type="primary" @click="submitCreate">创建代理</ElButton></template>
     </ElDialog>
   </Page>
 </template>
 
 <style scoped>
-.delegation-page {
-  display: grid;
-  gap: 16px;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.summary-label,
-.card-description,
-.muted,
-.switch-label,
-.definition-key {
-  color: var(--el-text-color-secondary);
-}
-
-.summary-value {
-  margin-top: 8px;
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.card-header,
-.header-actions,
-.scope-cell {
-  display: flex;
-  align-items: center;
-}
-
-.card-header {
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.header-actions,
-.scope-cell {
-  gap: 10px;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.card-description {
-  margin-top: 4px;
-  font-size: 13px;
-}
-
-.date-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.full-width {
-  width: 100%;
-}
-
-@media (max-width: 900px) {
-  .summary-grid,
-  .date-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .card-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
+.delegation-page{display:grid;gap:16px}.summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.summary-label,.card-description,.muted,.switch-label,.definition-key{color:var(--el-text-color-secondary)}.summary-value{margin-top:8px;font-size:28px;font-weight:700}.card-header,.header-actions,.scope-cell{display:flex;align-items:center}.card-header{justify-content:space-between;gap:16px}.header-actions,.scope-cell{gap:10px}.card-title{font-size:16px;font-weight:600}.card-description{margin-top:4px;font-size:13px}.date-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.full-width{width:100%}@media(max-width:900px){.summary-grid,.date-grid{grid-template-columns:1fr}.card-header{align-items:flex-start;flex-direction:column}}
 </style>
