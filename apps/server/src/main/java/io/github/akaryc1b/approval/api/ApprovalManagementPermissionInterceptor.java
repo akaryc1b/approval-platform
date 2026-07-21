@@ -1,6 +1,9 @@
 package io.github.akaryc1b.approval.api;
 
+import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
+import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.security.ApprovalAuthorizationDecision;
+import io.github.akaryc1b.approval.security.ApprovalManagementGovernanceRecorder;
 import io.github.akaryc1b.approval.security.ApprovalPrincipal;
 import io.github.akaryc1b.approval.security.ApprovalResource;
 import io.github.akaryc1b.approval.security.ApprovalResponsibilityResolver;
@@ -15,6 +18,7 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 
+import java.text.Normalizer;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
@@ -23,11 +27,20 @@ import java.util.regex.Pattern;
 /** Fail-closed management authorization with enterprise responsibility scope. */
 public final class ApprovalManagementPermissionInterceptor implements HandlerInterceptor {
 
+    public static final String OPERATION_REASON_HEADER = "X-Approval-Operation-Reason";
+    public static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(
         ApprovalManagementPermissionInterceptor.class
     );
     private static final Pattern SAFE_LOG_VALUE = Pattern.compile("[^A-Za-z0-9_.:@-]");
     private static final int MAX_LOG_VALUE_LENGTH = 128;
+    private static final int MIN_REASON_CODE_POINTS = 8;
+    private static final int MAX_REASON_CODE_POINTS = 512;
+    private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+    private static final Pattern IDEMPOTENCY_KEY = Pattern.compile(
+        "[A-Za-z0-9][A-Za-z0-9._:@/-]{0,199}"
+    );
     private static final String MANAGEMENT_PATH = "/api/approval/management";
     private static final String UNDECLARED_REQUIREMENT = "undeclared";
     private static final String AUTHORIZATION_METRIC = "approval.management.authorization";
@@ -39,6 +52,7 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
 
     private final boolean enforced;
     private final ApprovalResponsibilityResolver responsibilities;
+    private final ApprovalManagementGovernanceRecorder governance;
     private final MeterRegistry meters;
 
     public ApprovalManagementPermissionInterceptor(
@@ -46,11 +60,26 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         ApprovalResponsibilityResolver responsibilities,
         MeterRegistry meters
     ) {
+        this(
+            enforced,
+            responsibilities,
+            ApprovalManagementGovernanceRecorder.noOp(),
+            meters
+        );
+    }
+
+    public ApprovalManagementPermissionInterceptor(
+        boolean enforced,
+        ApprovalResponsibilityResolver responsibilities,
+        ApprovalManagementGovernanceRecorder governance,
+        MeterRegistry meters
+    ) {
         this.enforced = enforced;
         this.responsibilities = Objects.requireNonNull(
             responsibilities,
             "responsibilities must not be null"
         );
+        this.governance = Objects.requireNonNull(governance, "governance must not be null");
         this.meters = Objects.requireNonNull(meters, "meters must not be null");
     }
 
@@ -125,6 +154,9 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
             );
             return false;
         }
+        if (requirement.requiresReason()) {
+            governHighRisk(request, principal, requirement, resource, decision);
+        }
         recordAuthorization(
             requirement.metricTag(),
             "allowed",
@@ -163,6 +195,70 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
             .tag("outcome", outcome)
             .register(meters)
             .record(Duration.ofNanos(Math.max(0L, System.nanoTime() - start)));
+    }
+
+    private void governHighRisk(
+        HttpServletRequest request,
+        ApprovalPrincipal principal,
+        ApprovalManagementPermission.Requirement requirement,
+        ApprovalResource resource,
+        ApprovalAuthorizationDecision decision
+    ) {
+        try {
+            String reason = operationReason(request.getHeader(OPERATION_REASON_HEADER));
+            RequestContext context = new RequestContext(
+                principal.tenantId(),
+                principal.operatorId(),
+                requireHeader(request, "X-Request-Id", "APPROVAL_REQUEST_ID_INVALID"),
+                idempotencyKey(request.getHeader(IDEMPOTENCY_KEY_HEADER)),
+                request.getHeader("X-Trace-Id")
+            );
+            governance.recordAuthorized(
+                principal,
+                requirement,
+                resource,
+                decision,
+                reason,
+                context
+            );
+        } catch (ApprovalManagementGovernanceException exception) {
+            recordAuthorization(
+                requirement.metricTag(),
+                "denied",
+                governanceMetric(exception.code()),
+                decision.roleMetricTag(),
+                resource.level().metricTag()
+            );
+            throw exception;
+        } catch (IdempotencyGuard.IdempotencyConflictException exception) {
+            recordAuthorization(
+                requirement.metricTag(),
+                "denied",
+                "idempotency-conflict",
+                decision.roleMetricTag(),
+                resource.level().metricTag()
+            );
+            throw new ApprovalManagementGovernanceException(
+                409,
+                "APPROVAL_IDEMPOTENCY_CONFLICT",
+                "idempotency key was already used for different management evidence",
+                false
+            );
+        } catch (RuntimeException exception) {
+            recordAuthorization(
+                requirement.metricTag(),
+                "denied",
+                "audit-unavailable",
+                decision.roleMetricTag(),
+                resource.level().metricTag()
+            );
+            throw new ApprovalManagementGovernanceException(
+                503,
+                "APPROVAL_MANAGEMENT_AUDIT_UNAVAILABLE",
+                "management authorization evidence could not be recorded",
+                true
+            );
+        }
     }
 
     private void deny(
@@ -289,6 +385,95 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
                 ApprovalManagementPermissionDeniedException.Reason.INSUFFICIENT_PERMISSION;
             case ALLOWED_DIRECT_AUTHORITY, ALLOWED_RESPONSIBILITY ->
                 throw new IllegalArgumentException("allowed decision cannot be denied");
+        };
+    }
+
+    static String operationReason(String supplied) {
+        if (supplied == null || supplied.isBlank()) {
+            throw new ApprovalManagementGovernanceException(
+                400,
+                "APPROVAL_OPERATION_REASON_REQUIRED",
+                "a reason is required for this management operation",
+                false
+            );
+        }
+        String normalized = Normalizer.normalize(
+            supplied.trim(),
+            Normalizer.Form.NFKC
+        );
+        int length = normalized.codePointCount(0, normalized.length());
+        if (length < MIN_REASON_CODE_POINTS || length > MAX_REASON_CODE_POINTS) {
+            throw invalidReason();
+        }
+        for (int index = 0; index < normalized.length(); index++) {
+            char value = normalized.charAt(index);
+            int type = Character.getType(value);
+            if (Character.isISOControl(value)
+                || type == Character.LINE_SEPARATOR
+                || type == Character.PARAGRAPH_SEPARATOR
+                || type == Character.SURROGATE) {
+                throw invalidReason();
+            }
+        }
+        return normalized;
+    }
+
+    static String idempotencyKey(String supplied) {
+        if (supplied == null || supplied.isBlank()) {
+            throw new ApprovalManagementGovernanceException(
+                400,
+                "APPROVAL_IDEMPOTENCY_KEY_REQUIRED",
+                "an idempotency key is required for this management operation",
+                false
+            );
+        }
+        String normalized = supplied.trim();
+        if (normalized.length() > MAX_IDEMPOTENCY_KEY_LENGTH
+            || !IDEMPOTENCY_KEY.matcher(normalized).matches()) {
+            throw new ApprovalManagementGovernanceException(
+                400,
+                "APPROVAL_IDEMPOTENCY_KEY_INVALID",
+                "idempotency key is malformed",
+                false
+            );
+        }
+        return normalized;
+    }
+
+    private static String requireHeader(
+        HttpServletRequest request,
+        String header,
+        String code
+    ) {
+        String value = request.getHeader(header);
+        if (value == null || value.isBlank()) {
+            throw new ApprovalManagementGovernanceException(
+                400,
+                code,
+                header + " is required",
+                false
+            );
+        }
+        return value;
+    }
+
+    private static ApprovalManagementGovernanceException invalidReason() {
+        return new ApprovalManagementGovernanceException(
+            400,
+            "APPROVAL_OPERATION_REASON_INVALID",
+            "management operation reason is malformed",
+            false
+        );
+    }
+
+    private static String governanceMetric(String code) {
+        return switch (code) {
+            case "APPROVAL_OPERATION_REASON_REQUIRED" -> "reason-required";
+            case "APPROVAL_OPERATION_REASON_INVALID" -> "reason-invalid";
+            case "APPROVAL_IDEMPOTENCY_KEY_REQUIRED" -> "idempotency-required";
+            case "APPROVAL_IDEMPOTENCY_KEY_INVALID" -> "idempotency-invalid";
+            case "APPROVAL_REQUEST_ID_INVALID" -> "request-id-invalid";
+            default -> "governance-invalid";
         };
     }
 

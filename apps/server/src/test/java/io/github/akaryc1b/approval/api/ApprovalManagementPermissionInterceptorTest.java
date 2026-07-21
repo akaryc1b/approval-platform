@@ -2,8 +2,12 @@ package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.api.ApprovalManagementPermission.Requirement;
 import io.github.akaryc1b.approval.api.ApprovalManagementPermission.ResourceScope;
+import io.github.akaryc1b.approval.domain.context.RequestContext;
+import io.github.akaryc1b.approval.security.ApprovalAuthorizationDecision;
 import io.github.akaryc1b.approval.security.ApprovalEnterpriseRole;
+import io.github.akaryc1b.approval.security.ApprovalManagementGovernanceRecorder;
 import io.github.akaryc1b.approval.security.ApprovalPrincipal;
+import io.github.akaryc1b.approval.security.ApprovalResource;
 import io.github.akaryc1b.approval.security.ApprovalResourceScope;
 import io.github.akaryc1b.approval.security.ApprovalResponsibilityAssignment;
 import io.github.akaryc1b.approval.security.ApprovalResponsibilitySourceType;
@@ -20,6 +24,8 @@ import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,18 +37,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ApprovalManagementPermissionInterceptorTest {
 
     private static final Instant NOW = Instant.parse("2026-07-21T06:00:00Z");
+    private static final String REASON = "Publish the reviewed enterprise release";
 
     private SimpleMeterRegistry meters;
+    private List<GovernanceCall> governanceCalls;
     private ApprovalManagementPermissionInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
         meters = new SimpleMeterRegistry();
+        governanceCalls = new ArrayList<>();
+        ApprovalManagementGovernanceRecorder governance = (
+            principal,
+            requirement,
+            resource,
+            decision,
+            reason,
+            context
+        ) -> governanceCalls.add(new GovernanceCall(
+            principal,
+            requirement,
+            resource,
+            decision,
+            reason,
+            context
+        ));
         interceptor = new ApprovalManagementPermissionInterceptor(
             true,
             new DefaultApprovalResponsibilityResolver(
                 Clock.fixed(NOW, ZoneOffset.UTC)
             ),
+            governance,
             meters
         );
     }
@@ -73,11 +98,13 @@ class ApprovalManagementPermissionInterceptorTest {
                 .timer()
                 .count()
         );
+        assertTrue(governanceCalls.isEmpty());
     }
 
     @Test
-    void tenantAdministratorResponsibilityAllowsTenantCapability() throws Exception {
-        MockHttpServletRequest request = request(principal(
+    void tenantAdministratorResponsibilityAllowsAndAuditsHighRiskCapability()
+        throws Exception {
+        MockHttpServletRequest request = highRiskRequest(principal(
             ApprovalEnterpriseRole.TENANT_ADMIN,
             ApprovalResourceScope.tenant()
         ));
@@ -97,6 +124,13 @@ class ApprovalManagementPermissionInterceptorTest {
                 "tenant"
             )
         );
+        assertEquals(1, governanceCalls.size());
+        GovernanceCall call = governanceCalls.getFirst();
+        assertEquals(Requirement.PUBLISH, call.requirement());
+        assertEquals(REASON, call.reason());
+        assertEquals("idempotency-a", call.context().idempotencyKey());
+        assertEquals("request-a", call.context().requestId());
+        assertEquals("trace-a", call.context().traceId());
     }
 
     @Test
@@ -106,7 +140,7 @@ class ApprovalManagementPermissionInterceptorTest {
             ApprovalEnterpriseRole.DEPARTMENT_APPROVAL_ADMIN,
             ApprovalResourceScope.departments(Set.of("department-a"))
         );
-        MockHttpServletRequest matching = request(principal);
+        MockHttpServletRequest matching = highRiskRequest(principal);
         matching.setAttribute(
             HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
             Map.of("departmentId", "department-a")
@@ -116,6 +150,7 @@ class ApprovalManagementPermissionInterceptorTest {
             new MockHttpServletResponse(),
             handler("departmentTransfer")
         ));
+        assertEquals("department-a", governanceCalls.getFirst().resource().departmentId());
 
         MockHttpServletRequest wrongDepartment = request(principal);
         wrongDepartment.setAttribute(
@@ -149,6 +184,56 @@ class ApprovalManagementPermissionInterceptorTest {
             ApprovalManagementPermissionDeniedException.Reason.RESOURCE_SCOPE_DENIED,
             tenantWideException.reason()
         );
+    }
+
+    @Test
+    void highRiskOperationRequiresSafeReasonAndIdempotency() throws Exception {
+        ApprovalPrincipal principal = directPrincipal(Requirement.PUBLISH);
+
+        ApprovalManagementGovernanceException missingReason = assertThrows(
+            ApprovalManagementGovernanceException.class,
+            () -> interceptor.preHandle(
+                request(principal),
+                new MockHttpServletResponse(),
+                handler("publish")
+            )
+        );
+        assertEquals("APPROVAL_OPERATION_REASON_REQUIRED", missingReason.code());
+
+        MockHttpServletRequest invalidReason = request(principal);
+        invalidReason.addHeader(
+            ApprovalManagementPermissionInterceptor.OPERATION_REASON_HEADER,
+            "invalid\nreason"
+        );
+        invalidReason.addHeader(
+            ApprovalManagementPermissionInterceptor.IDEMPOTENCY_KEY_HEADER,
+            "idempotency-a"
+        );
+        ApprovalManagementGovernanceException malformedReason = assertThrows(
+            ApprovalManagementGovernanceException.class,
+            () -> interceptor.preHandle(
+                invalidReason,
+                new MockHttpServletResponse(),
+                handler("publish")
+            )
+        );
+        assertEquals("APPROVAL_OPERATION_REASON_INVALID", malformedReason.code());
+
+        MockHttpServletRequest missingIdempotency = request(principal);
+        missingIdempotency.addHeader(
+            ApprovalManagementPermissionInterceptor.OPERATION_REASON_HEADER,
+            REASON
+        );
+        ApprovalManagementGovernanceException missingKey = assertThrows(
+            ApprovalManagementGovernanceException.class,
+            () -> interceptor.preHandle(
+                missingIdempotency,
+                new MockHttpServletResponse(),
+                handler("publish")
+            )
+        );
+        assertEquals("APPROVAL_IDEMPOTENCY_KEY_REQUIRED", missingKey.code());
+        assertTrue(governanceCalls.isEmpty());
     }
 
     @Test
@@ -289,12 +374,26 @@ class ApprovalManagementPermissionInterceptorTest {
             .count();
     }
 
+    private static MockHttpServletRequest highRiskRequest(ApprovalPrincipal principal) {
+        MockHttpServletRequest request = request(principal);
+        request.addHeader(
+            ApprovalManagementPermissionInterceptor.OPERATION_REASON_HEADER,
+            REASON
+        );
+        request.addHeader(
+            ApprovalManagementPermissionInterceptor.IDEMPOTENCY_KEY_HEADER,
+            "idempotency-a"
+        );
+        return request;
+    }
+
     private static MockHttpServletRequest request(ApprovalPrincipal principal) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRequestURI("/api/approval/management/test");
         request.addHeader("X-Tenant-Id", "tenant-a");
         request.addHeader("X-Operator-Id", "operator-a");
         request.addHeader("X-Request-Id", "request-a");
+        request.addHeader("X-Trace-Id", "trace-a");
         if (principal != null) {
             request.setUserPrincipal(principal);
         }
@@ -336,6 +435,16 @@ class ApprovalManagementPermissionInterceptorTest {
     private static HandlerMethod runtimeHandler() throws NoSuchMethodException {
         Method method = RuntimeController.class.getDeclaredMethod("start");
         return new HandlerMethod(new RuntimeController(), method);
+    }
+
+    private record GovernanceCall(
+        ApprovalPrincipal principal,
+        Requirement requirement,
+        ApprovalResource resource,
+        ApprovalAuthorizationDecision decision,
+        String reason,
+        RequestContext context
+    ) {
     }
 
     @ApprovalManagementPermission(Requirement.READ)

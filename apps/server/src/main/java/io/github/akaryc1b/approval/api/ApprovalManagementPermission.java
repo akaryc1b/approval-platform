@@ -26,30 +26,37 @@ public @interface ApprovalManagementPermission {
     enum Requirement {
         READ("approval.management.read", "read"),
         DESIGN("approval.management.design", "design"),
-        PUBLISH("approval.management.publish", "publish"),
-        DEPLOY("approval.management.deploy", "deploy"),
-        ACTIVATE("approval.management.activate", "activate"),
-        TRANSFER("approval.management.transfer", "transfer"),
+        PUBLISH("approval.management.publish", "publish", true),
+        DEPLOY("approval.management.deploy", "deploy", true),
+        ACTIVATE("approval.management.activate", "activate", true),
+        TRANSFER("approval.management.transfer", "transfer", true),
         AUDIT_READ("approval.management.audit.read", "audit-read"),
-        AUDIT_EXPORT("approval.management.audit.export", "audit-export"),
-        AUDIT_VERIFY("approval.management.audit.verify", "audit-verify"),
+        AUDIT_EXPORT("approval.management.audit.export", "audit-export", true),
+        AUDIT_VERIFY("approval.management.audit.verify", "audit-verify", true),
         CONSISTENCY_READ("approval.management.consistency.read", "consistency-read"),
-        CONSISTENCY_RUN("approval.management.consistency.run", "consistency-run"),
+        CONSISTENCY_RUN("approval.management.consistency.run", "consistency-run", true),
         OPERATIONAL_FAILURE_READ(
             "approval.management.operational-failure.read",
             "operational-failure-read"
         ),
         OPERATIONAL_FAILURE_REPLAY(
             "approval.management.operational-failure.replay",
-            "operational-failure-replay"
+            "operational-failure-replay",
+            true
         );
 
         private final String authority;
         private final String metricTag;
+        private final boolean reasonRequired;
 
         Requirement(String authority, String metricTag) {
+            this(authority, metricTag, false);
+        }
+
+        Requirement(String authority, String metricTag, boolean reasonRequired) {
             this.authority = authority;
             this.metricTag = metricTag;
+            this.reasonRequired = reasonRequired;
         }
 
         public String authority() {
@@ -58,6 +65,10 @@ public @interface ApprovalManagementPermission {
 
         public String metricTag() {
             return metricTag;
+        }
+
+        public boolean requiresReason() {
+            return reasonRequired;
         }
     }
 }

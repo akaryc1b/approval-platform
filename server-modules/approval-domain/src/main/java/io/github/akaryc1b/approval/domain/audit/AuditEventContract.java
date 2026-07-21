@@ -4,9 +4,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * Stable schema assignment and required-field validation for platform audit events.
- */
+/** Stable schema assignment and required-field validation for platform audit events. */
 public record AuditEventContract(
     String schemaName,
     int schemaVersion,
@@ -27,9 +25,8 @@ public record AuditEventContract(
 
     public static AuditEventContract resolve(String action) {
         String normalized = requireText(action, "action");
-        String schemaName = schemaName(normalized);
         return new AuditEventContract(
-            schemaName,
+            schemaName(normalized),
             CURRENT_VERSION,
             requiredAttributes(normalized)
         );
@@ -62,6 +59,9 @@ public record AuditEventContract(
     }
 
     private static String schemaName(String action) {
+        if (action.startsWith("MANAGEMENT_")) {
+            return "approval.management-security";
+        }
         if (action.startsWith("AUDIT_")) {
             return "approval.audit.operation";
         }
@@ -103,6 +103,13 @@ public record AuditEventContract(
 
     private static Set<String> requiredAttributes(String action) {
         return switch (action) {
+            case "MANAGEMENT_HIGH_RISK_AUTHORIZED" -> Set.of(
+                "requirement",
+                "reason",
+                "resourceScope",
+                "authorizationDecision",
+                "matchedRole"
+            );
             case "INSTANCE_COMMENT_CREATED",
                  "INSTANCE_COMMENT_EDITED",
                  "INSTANCE_COMMENT_DELETED" -> Set.of(

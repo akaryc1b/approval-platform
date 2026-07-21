@@ -37,4 +37,50 @@ class AuditEventTest {
             () -> event.attributes().put("new", "value")
         );
     }
+
+    @Test
+    void managementAuthorizationRequiresVersionedGovernanceEvidence() {
+        Map<String, String> attributes = Map.of(
+            "requirement", "publish",
+            "reason", "Publish the reviewed enterprise release",
+            "resourceScope", "tenant",
+            "authorizationDecision", "responsibility",
+            "matchedRole", "tenant-admin"
+        );
+        AuditEvent event = new AuditEvent(
+            UUID.randomUUID(),
+            "tenant-a",
+            "operator-a",
+            "MANAGEMENT_HIGH_RISK_AUTHORIZED",
+            "MANAGEMENT_AUTHORIZATION",
+            "tenant-a",
+            "request-a",
+            "trace-a",
+            Instant.parse("2026-07-21T06:30:00Z"),
+            attributes
+        );
+
+        assertEquals("approval.management-security", event.schemaName());
+        assertEquals(1, event.schemaVersion());
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new AuditEvent(
+                UUID.randomUUID(),
+                "tenant-a",
+                "operator-a",
+                "MANAGEMENT_HIGH_RISK_AUTHORIZED",
+                "MANAGEMENT_AUTHORIZATION",
+                "tenant-a",
+                "request-a",
+                "trace-a",
+                Instant.parse("2026-07-21T06:30:00Z"),
+                Map.of(
+                    "requirement", "publish",
+                    "resourceScope", "tenant",
+                    "authorizationDecision", "responsibility",
+                    "matchedRole", "tenant-admin"
+                )
+            )
+        );
+    }
 }
