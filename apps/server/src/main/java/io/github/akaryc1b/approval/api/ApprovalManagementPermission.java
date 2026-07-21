@@ -26,6 +26,10 @@ public @interface ApprovalManagementPermission {
     enum Requirement {
         READ("approval.management.read", "read"),
         DESIGN("approval.management.design", "design"),
+        SLA_READ("approval.management.sla.read", "sla-read", false),
+        SLA_DESIGN("approval.management.sla.design", "sla-design", true),
+        SLA_PUBLISH("approval.management.sla.publish", "sla-publish", true),
+        SLA_ACTIVATE("approval.management.sla.activate", "sla-activate", true),
         PUBLISH("approval.management.publish", "publish", true),
         DEPLOY("approval.management.deploy", "deploy", true),
         ACTIVATE("approval.management.activate", "activate", true),
