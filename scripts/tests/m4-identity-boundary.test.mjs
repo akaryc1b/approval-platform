@@ -4,19 +4,24 @@ import path from 'node:path';
 import test from 'node:test';
 
 const root = process.cwd();
+const clientRoots = [
+  'apps/web/overlay/apps/web-ele/src',
+  'apps/mobile/overlay/src',
+];
+const clientExtensions = new Set(['.js', '.mjs', '.ts', '.tsx', '.vue']);
 
 async function text(relativePath) {
   return readFile(path.join(root, relativePath), 'utf8');
 }
 
-async function filesUnder(relativePath) {
+async function filesUnder(relativePath, acceptedExtensions = null) {
   const result = [];
   async function visit(current) {
     for (const entry of await readdir(path.join(root, current), { withFileTypes: true })) {
       const next = path.join(current, entry.name);
       if (entry.isDirectory()) {
         await visit(next);
-      } else {
+      } else if (!acceptedExtensions || acceptedExtensions.has(path.extname(entry.name))) {
         result.push(next);
       }
     }
@@ -58,21 +63,8 @@ test('trusted request wrapper owns tenant operator permissions and correlation',
 
 test('browser and mobile production sources cannot manufacture trusted permissions', async () => {
   const trustedHeader = 'X-Approval-Trusted-Permissions';
-  const allowed = new Set([
-    '.github/workflows/approval-platform-validation.yml',
-    'apps/server/src/main/java/io/github/akaryc1b/approval/api/'
-      + 'ApprovalManagementPermissionInterceptor.java',
-    'apps/server/src/main/java/io/github/akaryc1b/approval/config/'
-      + 'ApprovalIdentitySecurityConfiguration.java',
-    'apps/server/src/main/java/io/github/akaryc1b/approval/config/'
-      + 'ApprovalManagementPermissionConfiguration.java',
-    'apps/server/src/main/resources/application.yml',
-  ]);
-  const roots = ['apps', 'web-overlays', 'mobile-overlays'];
-  for (const sourceRoot of roots) {
-    for (const file of await filesUnder(sourceRoot)) {
-      if (file.includes(`${path.sep}src${path.sep}test${path.sep}`)) continue;
-      if (allowed.has(file)) continue;
+  for (const clientRoot of clientRoots) {
+    for (const file of await filesUnder(clientRoot, clientExtensions)) {
       const content = await text(file);
       assert.equal(
         content.includes(trustedHeader),
