@@ -1,4 +1,7 @@
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
+import {
+  approvalCommandHeaders,
+  approvalRequest,
+} from '#/api/approval/transport';
 
 export type FailureCategory =
   | 'BUSINESS_OUTBOX'
@@ -69,70 +72,6 @@ export interface BatchReplayResult {
   replayed: number;
 }
 
-interface ApiErrorPayload {
-  code?: string;
-  error?: string;
-  message?: string;
-}
-
-function operationId(prefix: string) {
-  const randomId = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${randomId}`;
-}
-
-function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-async function parseError(response: Response) {
-  let payload: ApiErrorPayload | undefined;
-  try {
-    payload = (await response.json()) as ApiErrorPayload;
-  } catch {
-    payload = undefined;
-  }
-  return payload?.message || payload?.error || payload?.code ||
-    `请求失败（${response.status}）`;
-}
-
-function runtimeHeaders(init?: HeadersInit) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init);
-  headers.set('Accept', 'application/json');
-  headers.set(
-    'X-Approval-Trusted-Permissions',
-    [
-      'approval.management.operational-failure.read',
-      'approval.management.operational-failure.replay',
-    ].join(','),
-  );
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  return headers;
-}
-
-async function request<T>(path: string, init: RequestInit = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
-    ...init,
-    credentials: 'same-origin',
-    headers: runtimeHeaders(init.headers),
-  });
-  if (!response.ok) throw new Error(await parseError(response));
-  return (await response.json()) as T;
-}
-
-function commandHeaders(prefix: string) {
-  const requestId = operationId(`${prefix}-request`);
-  return {
-    'Content-Type': 'application/json',
-    'Idempotency-Key': operationId(prefix),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  };
-}
-
 export function findOperationalFailures(
   category: FailureCategory | undefined,
   failureKind: FailureKind | undefined,
@@ -144,7 +83,7 @@ export function findOperationalFailures(
   if (category) query.set('category', category);
   if (failureKind) query.set('failureKind', failureKind);
   if (connectorKey.trim()) query.set('connectorKey', connectorKey.trim());
-  return request<OperationalFailurePage>(
+  return approvalRequest<OperationalFailurePage>(
     `/approval/management/operational-failures?${query.toString()}`,
   );
 }
@@ -153,24 +92,27 @@ export function findOperationalFailureAttempts(
   category: FailureCategory,
   sourceId: string,
 ) {
-  return request<OperationalFailureAttempt[]>(
+  return approvalRequest<OperationalFailureAttempt[]>(
     `/approval/management/operational-failures/${category}/${encodeURIComponent(sourceId)}/attempts`,
   );
 }
 
 export function replayOperationalFailure(item: ReplayItem) {
-  return request<ReplayItemResult>(
+  return approvalRequest<ReplayItemResult>(
     `/approval/management/operational-failures/${item.category}/${encodeURIComponent(item.sourceId)}/replay`,
-    { headers: commandHeaders('web-operational-replay'), method: 'POST' },
+    {
+      headers: approvalCommandHeaders('web-operational-replay'),
+      method: 'POST',
+    },
   );
 }
 
 export function replayOperationalFailureBatch(items: ReplayItem[]) {
-  return request<BatchReplayResult>(
+  return approvalRequest<BatchReplayResult>(
     '/approval/management/operational-failures/replay-batch',
     {
       body: JSON.stringify({ items }),
-      headers: commandHeaders('web-operational-replay-batch'),
+      headers: approvalCommandHeaders('web-operational-replay-batch'),
       method: 'POST',
     },
   );
