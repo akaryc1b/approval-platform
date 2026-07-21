@@ -315,6 +315,18 @@ class JdbcApprovalM3FinalAcceptanceIntegrationTest {
         );
         assertEquals("APPROVAL_COMMENT_INSTANCE_READ_ONLY", commentError.code());
 
+        CommentOperationException deleteError = assertThrows(
+            CommentOperationException.class,
+            () -> commentService.delete(new DeleteCommentCommand(
+                context("delegate-1", "terminal-delete", "terminal-delete-key"),
+                INSTANCE_ID,
+                evidence.comment().commentId(),
+                evidence.comment().version(),
+                "terminal deletion"
+            ))
+        );
+        assertEquals("APPROVAL_COMMENT_INSTANCE_READ_ONLY", deleteError.code());
+
         CollaborationConflictException addError = assertThrows(
             CollaborationConflictException.class,
             () -> collaborationService.add(new AddParticipantsCommand(
