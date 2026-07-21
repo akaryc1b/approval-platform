@@ -126,6 +126,17 @@ function pageQuery(keyword: string, limit: number, offset: number) {
   return query.join('&')
 }
 
+function fileErrorPayload(payload: unknown, requestId: string) {
+  if (payload && typeof payload === 'object') {
+    const value = payload as Record<string, unknown>
+    return { ...value, requestId: value.requestId || requestId }
+  }
+  if (typeof payload === 'string' && payload.trim()) {
+    return { message: payload, requestId }
+  }
+  return { requestId }
+}
+
 export function findCopiedInstances(keyword: string, limit: number, offset: number) {
   return mobileApprovalRequest<CopiedInstancePage>(
     `/approval/instances/copied?${pageQuery(keyword, limit, offset)}`,
@@ -152,6 +163,7 @@ export function findApprovalCommentRevisions(instanceId: string, commentId: stri
 
 export function uploadApprovalAttachment(filePath: string) {
   const header = mobileApprovalHeaders(mobileApprovalMutationHeaders('mobile-attachment'))
+  const requestId = header['X-Request-Id']
   return new Promise<ApprovalAttachment>((resolve, reject) => {
     uni.uploadFile({
       url: mobileApprovalUrl('/approval/attachments'),
@@ -167,8 +179,8 @@ export function uploadApprovalAttachment(filePath: string) {
             reject(mobileApprovalError({
               code: 'APPROVAL_ATTACHMENT_RESPONSE_INVALID',
               message: '附件响应解析失败',
-              requestId: header['X-Request-Id'],
-            }, 502, response.header))
+              requestId,
+            }, 502))
           }
           return
         }
@@ -179,12 +191,15 @@ export function uploadApprovalAttachment(filePath: string) {
         catch {
           payload = response.data
         }
-        reject(mobileApprovalError(payload, response.statusCode, response.header))
+        reject(mobileApprovalError(
+          fileErrorPayload(payload, requestId),
+          response.statusCode,
+        ))
       },
       fail: error => reject(mobileApprovalError({
         code: 'APPROVAL_ATTACHMENT_UPLOAD_NETWORK_ERROR',
         message: error.errMsg || '附件上传失败',
-        requestId: header['X-Request-Id'],
+        requestId,
         retryable: true,
       }, 0)),
     })
@@ -212,7 +227,7 @@ export function downloadApprovalAttachment(attachment: ApprovalAttachment) {
           code: 'APPROVAL_ATTACHMENT_DOWNLOAD_FAILED',
           message: `附件下载失败（${response.statusCode}）`,
           requestId,
-        }, response.statusCode, response.header))
+        }, response.statusCode))
       },
       fail: error => reject(mobileApprovalError({
         code: 'APPROVAL_ATTACHMENT_DOWNLOAD_NETWORK_ERROR',
