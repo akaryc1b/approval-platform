@@ -153,8 +153,8 @@ class JdbcApprovalM3FinalAcceptanceIntegrationTest {
         projections = new JdbcApprovalProjectionStore(dataSource, objectMapper);
         JdbcIdempotencyGuard idempotency = new JdbcIdempotencyGuard(
             dataSource,
-            transactions,
             objectMapper,
+            transactions,
             clock
         );
         JdbcApprovalNotificationStore notificationStore = new JdbcApprovalNotificationStore(
