@@ -1,6 +1,7 @@
 import {
   approvalCommandHeaders,
   approvalRequest,
+  approvalRequestWithTrace,
 } from '#/api/approval/transport';
 
 export type FailureCategory =
@@ -63,6 +64,7 @@ export interface ReplayItemResult extends ReplayItem {
   occurredAt: string;
   outcome: ReplayOutcome;
   replacementSourceId?: string;
+  requestId?: string;
 }
 
 export interface BatchReplayResult {
@@ -70,6 +72,7 @@ export interface BatchReplayResult {
   items: ReplayItemResult[];
   rejected: number;
   replayed: number;
+  requestId: string;
 }
 
 export function findOperationalFailures(
@@ -97,18 +100,23 @@ export function findOperationalFailureAttempts(
   );
 }
 
-export function replayOperationalFailure(item: ReplayItem) {
-  return approvalRequest<ReplayItemResult>(
+export async function replayOperationalFailure(item: ReplayItem) {
+  const result = await approvalRequestWithTrace<ReplayItemResult>(
     `/approval/management/operational-failures/${item.category}/${encodeURIComponent(item.sourceId)}/replay`,
     {
       headers: approvalCommandHeaders('web-operational-replay'),
       method: 'POST',
     },
   );
+  return {
+    ...result.data,
+    message: `${result.data.message} · requestId=${result.requestId}`,
+    requestId: result.requestId,
+  };
 }
 
-export function replayOperationalFailureBatch(items: ReplayItem[]) {
-  return approvalRequest<BatchReplayResult>(
+export async function replayOperationalFailureBatch(items: ReplayItem[]) {
+  const result = await approvalRequestWithTrace<Omit<BatchReplayResult, 'requestId'>>(
     '/approval/management/operational-failures/replay-batch',
     {
       body: JSON.stringify({ items }),
@@ -116,4 +124,5 @@ export function replayOperationalFailureBatch(items: ReplayItem[]) {
       method: 'POST',
     },
   );
+  return { ...result.data, requestId: result.requestId };
 }
