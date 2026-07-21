@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
-import { dirname, extname, join, relative } from 'node:path';
+import { extname, join, relative } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -65,13 +65,12 @@ test('web management API modules use the governed approval transport', async () 
     );
   }
 
-  const protectedModules = [
+  for (const modulePath of [
     'api/approval/audit.ts',
     'api/approval/consistency.ts',
     'api/approval/handovers.ts',
     'api/approval/operational-failures.ts',
-  ];
-  for (const modulePath of protectedModules) {
+  ]) {
     const content = await readFile(join(webRoot, modulePath), 'utf8');
     assert.match(content, /#\/api\/approval\/transport/);
   }
@@ -89,7 +88,9 @@ test('mobile participant API modules use the governed approval transport', async
   for (const modulePath of [
     'comments.ts',
     'delegations.ts',
+    'forms.ts',
     'identities.ts',
+    'index.ts',
     'notifications.ts',
     'task-collaboration.ts',
   ]) {
@@ -109,6 +110,8 @@ test('governed transports preserve structured error and request tracing fields',
   }
   assert.match(webTransport, /response\.headers\.get\('X-Request-Id'\)/);
   assert.match(webTransport, /credentials: 'same-origin'/);
+  assert.match(webTransport, /approvalRequestWithTrace/);
+  assert.match(webTransport, /APPROVAL_NETWORK_ERROR/);
   assert.doesNotMatch(webTransport, /Trusted-Permissions/);
 
   const mobileTransport = await readFile(join(mobileRoot, 'api/approval/transport.ts'), 'utf8');
@@ -119,6 +122,18 @@ test('governed transports preserve structured error and request tracing fields',
   assert.match(mobileTransport, /allowNotFound/);
   assert.match(mobileTransport, /X-Request-Id/);
   assert.doesNotMatch(mobileTransport, /Trusted-Permissions/);
+});
+
+test('management mutations surface success request tracing', async () => {
+  const audit = await readFile(join(webRoot, 'api/approval/audit.ts'), 'utf8');
+  const failures = await readFile(
+    join(webRoot, 'api/approval/operational-failures.ts'),
+    'utf8',
+  );
+  assert.match(audit, /approvalRequestWithTrace/);
+  assert.match(audit, /operationRequestId/);
+  assert.match(failures, /approvalRequestWithTrace/);
+  assert.match(failures, /requestId/);
 });
 
 test('management routes declare host-side capability hints', async () => {
