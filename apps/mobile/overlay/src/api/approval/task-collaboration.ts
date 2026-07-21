@@ -1,5 +1,9 @@
 import type { IdentityReference } from '@/api/approval/identities'
 
+import {
+  mobileApprovalMutationHeaders,
+  mobileApprovalRequest,
+} from '@/api/approval/transport'
 import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
 
 export type CollaborationMode = 'ALL' | 'ANY' | 'VOTE' | 'WEIGHTED'
@@ -92,87 +96,15 @@ export interface PendingCollaborationTask {
   taskName: string
 }
 
-interface RequestOptions {
-  data?: unknown
-  header?: Record<string, string>
-  method?: 'GET' | 'POST'
-}
-
-interface ApiErrorPayload {
-  code?: string
-  error?: string
-  message?: string
-}
-
-function joinUrl(baseUrl: string, path: string) {
-  const normalized = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
-  return `${normalized}${path.startsWith('/') ? path : `/${path}`}`
-}
-
-function operationId(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`
-}
-
-function errorMessage(payload: unknown, statusCode: number) {
-  if (payload && typeof payload === 'object') {
-    const error = payload as ApiErrorPayload
-    return error.message || error.error || error.code || `请求失败（${statusCode}）`
-  }
-  return typeof payload === 'string' && payload.trim()
-    ? payload
-    : `请求失败（${statusCode}）`
-}
-
-function request<T>(path: string, options: RequestOptions = {}, allowNotFound = false) {
-  const runtime = getApprovalRuntimeConfig()
-  const header: Record<string, string> = {
-    Accept: 'application/json',
-    'X-Operator-Id': runtime.operatorId,
-    'X-Tenant-Id': runtime.tenantId,
-    ...options.header,
-  }
-  if (options.data !== undefined) header['Content-Type'] = 'application/json'
-  return new Promise<T>((resolve, reject) => {
-    uni.request({
-      url: joinUrl(runtime.apiBaseUrl, path),
-      method: options.method || 'GET',
-      data: options.data,
-      header,
-      success: (response) => {
-        if (allowNotFound && response.statusCode === 404) {
-          resolve(undefined as T)
-          return
-        }
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          resolve(response.data as T)
-          return
-        }
-        reject(new Error(errorMessage(response.data, response.statusCode)))
-      },
-      fail: error => reject(new Error(error.errMsg || '网络请求失败')),
-    })
-  })
-}
-
-function commandHeaders(prefix: string) {
-  const requestId = operationId(`${prefix}-request`)
-  return {
-    'Idempotency-Key': operationId(prefix),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  }
-}
-
 export function findTaskCollaboration(taskId: string) {
-  return request<TaskCollaboration | undefined>(
+  return mobileApprovalRequest<TaskCollaboration | undefined>(
     `/approval/tasks/${encodeURIComponent(taskId)}/collaboration`,
-    {},
-    true,
+    { allowNotFound: true },
   )
 }
 
 export function findPendingCollaborationTasks(limit = 100) {
-  return request<PendingCollaborationTask[]>(
+  return mobileApprovalRequest<PendingCollaborationTask[]>(
     `/approval/collaboration/tasks/pending?limit=${encodeURIComponent(String(limit))}`,
   )
 }
@@ -186,7 +118,7 @@ export function createTaskCollaboration(
   approvalWeightThreshold?: number,
 ) {
   const runtime = getApprovalRuntimeConfig()
-  return request<TaskCollaboration>(
+  return mobileApprovalRequest<TaskCollaboration>(
     `/approval/tasks/${encodeURIComponent(taskId)}/collaboration`,
     {
       data: {
@@ -197,7 +129,7 @@ export function createTaskCollaboration(
         participants,
         reason: reason.trim(),
       },
-      header: commandHeaders('mobile-task-collaboration-create'),
+      header: mobileApprovalMutationHeaders('mobile-task-collaboration-create'),
       method: 'POST',
     },
   )
@@ -209,7 +141,7 @@ export function addTaskCollaborators(
   reason: string,
 ) {
   const runtime = getApprovalRuntimeConfig()
-  return request<TaskCollaboration>(
+  return mobileApprovalRequest<TaskCollaboration>(
     `/approval/tasks/${encodeURIComponent(taskId)}/collaboration/participants`,
     {
       data: {
@@ -217,18 +149,18 @@ export function addTaskCollaborators(
         participants,
         reason: reason.trim(),
       },
-      header: commandHeaders('mobile-task-collaboration-add'),
+      header: mobileApprovalMutationHeaders('mobile-task-collaboration-add'),
       method: 'POST',
     },
   )
 }
 
 export function removeTaskCollaborator(participantId: string, reason: string) {
-  return request<TaskCollaboration>(
+  return mobileApprovalRequest<TaskCollaboration>(
     `/approval/collaboration/participants/${encodeURIComponent(participantId)}/remove`,
     {
       data: { reason: reason.trim() },
-      header: commandHeaders('mobile-task-collaboration-remove'),
+      header: mobileApprovalMutationHeaders('mobile-task-collaboration-remove'),
       method: 'POST',
     },
   )
@@ -239,11 +171,11 @@ export function decideTaskCollaboration(
   decision: ParticipantDecision,
   comment: string,
 ) {
-  return request<TaskCollaboration>(
+  return mobileApprovalRequest<TaskCollaboration>(
     `/approval/collaboration/participants/${encodeURIComponent(participantId)}/decide`,
     {
       data: { comment: comment.trim(), decision },
-      header: commandHeaders('mobile-task-collaboration-decide'),
+      header: mobileApprovalMutationHeaders('mobile-task-collaboration-decide'),
       method: 'POST',
     },
   )
