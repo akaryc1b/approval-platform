@@ -2,6 +2,7 @@ import {
   approvalCommandHeaders,
   approvalFetch,
   approvalRequest,
+  approvalRequestWithTrace,
 } from '#/api/approval/transport';
 
 export interface AuditRecord {
@@ -86,11 +87,14 @@ export function findAuditEvents(filters: AuditFilters, limit: number, offset: nu
 }
 
 export function verifyAuditIntegrity(filters: Pick<AuditFilters, 'occurredFrom' | 'occurredTo'>) {
-  return approvalRequest<AuditIntegrityReport>('/approval/management/audit/integrity/verify', {
-    body: JSON.stringify(filters),
-    headers: approvalCommandHeaders('web-audit-verify'),
-    method: 'POST',
-  });
+  return approvalRequestWithTrace<AuditIntegrityReport>(
+    '/approval/management/audit/integrity/verify',
+    {
+      body: JSON.stringify(filters),
+      headers: approvalCommandHeaders('web-audit-verify'),
+      method: 'POST',
+    },
+  );
 }
 
 export async function exportAuditEvents(
@@ -98,9 +102,10 @@ export async function exportAuditEvents(
   format: AuditExportFormat,
   maxRecords: number,
 ) {
+  const headers = approvalCommandHeaders('web-audit-export');
   const response = await approvalFetch('/approval/management/audit/export', {
     body: JSON.stringify({ ...filters, format, maxRecords }),
-    headers: approvalCommandHeaders('web-audit-export'),
+    headers,
     method: 'POST',
   });
   const blob = await response.blob();
@@ -113,4 +118,5 @@ export async function exportAuditEvents(
   anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
+  return response.headers.get('X-Request-Id') || headers['X-Request-Id'];
 }
