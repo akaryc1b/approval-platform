@@ -38,6 +38,9 @@ class ApprovalManagementRequirementMatrixTest {
         );
         assertEquals(
             EnumSet.of(
+                ApprovalManagementPermission.Requirement.SLA_DESIGN,
+                ApprovalManagementPermission.Requirement.SLA_PUBLISH,
+                ApprovalManagementPermission.Requirement.SLA_ACTIVATE,
                 ApprovalManagementPermission.Requirement.PUBLISH,
                 ApprovalManagementPermission.Requirement.DEPLOY,
                 ApprovalManagementPermission.Requirement.ACTIVATE,
