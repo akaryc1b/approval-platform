@@ -22,6 +22,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ApprovalTaskCollaboration',
+        path: '/approval/collaboration',
+        component: () => import('#/views/approval/collaboration/index.vue'),
+        meta: {
+          authority: ['approval:workbench:view'],
+          icon: 'lucide:user-round-plus',
+          title: '加签协作',
+        },
+      },
+      {
         name: 'ApprovalDiscussion',
         path: '/approval/discussion',
         component: () => import('#/views/approval/discussion/index.vue'),
@@ -49,6 +59,36 @@ const routes: RouteRecordRaw[] = [
           authority: ['approval:message:view'],
           icon: 'lucide:bell-ring',
           title: '消息与协作',
+        },
+      },
+      {
+        name: 'ApprovalNotifications',
+        path: '/approval/notifications',
+        component: () => import('#/views/approval/notifications/index.vue'),
+        meta: {
+          authority: ['approval:message:view'],
+          icon: 'lucide:bell-cog',
+          title: '通知中心',
+        },
+      },
+      {
+        name: 'ApprovalDelegations',
+        path: '/approval/delegations',
+        component: () => import('#/views/approval/delegations/index.vue'),
+        meta: {
+          authority: ['approval:workbench:view'],
+          icon: 'lucide:user-round-cog',
+          title: '代理规则',
+        },
+      },
+      {
+        name: 'ApprovalHandovers',
+        path: '/approval/handovers',
+        component: () => import('#/views/approval/handovers/index.vue'),
+        meta: {
+          authority: ['approval:ops:view'],
+          icon: 'lucide:users-round',
+          title: '离职交接',
         },
       },
       {
@@ -119,6 +159,16 @@ const routes: RouteRecordRaw[] = [
           authority: ['approval:ops:view'],
           icon: 'lucide:activity',
           title: '运维控制台',
+        },
+      },
+      {
+        name: 'ApprovalOperationalFailures',
+        path: '/approval/operations/failures',
+        component: () => import('#/views/approval/operational-failures/index.vue'),
+        meta: {
+          authority: ['approval:ops:view'],
+          icon: 'lucide:triangle-alert',
+          title: '运维失败队列',
         },
       },
     ],

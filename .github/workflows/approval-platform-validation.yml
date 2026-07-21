@@ -48,6 +48,8 @@ jobs:
             echo 'Base configuration must not activate the local profile.'
             exit 1
           fi
+      - name: Verify final tracked-tree hygiene
+        run: node --test scripts/tests/m3-repository-hygiene.test.mjs
 
   backend:
     name: Java 21 / Maven / PostgreSQL
@@ -98,6 +100,9 @@ jobs:
       - name: Install root tooling
         shell: bash
         run: pnpm install --no-frozen-lockfile >root-install.log 2>&1 || { tail -n 160 root-install.log; exit 1; }
+      - name: Verify client management boundaries
+        shell: bash
+        run: pnpm web:test:client-boundary >client-boundary-test.log 2>&1 || { cat client-boundary-test.log; exit 1; }
       - name: Verify form renderer semantics
         shell: bash
         run: pnpm web:test:form-renderer >form-renderer-test.log 2>&1 || { cat form-renderer-test.log; exit 1; }
@@ -123,6 +128,7 @@ jobs:
           name: approval-vben-${{ github.run_id }}
           path: |
             root-install.log
+            client-boundary-test.log
             form-renderer-test.log
             form-designer-test.log
             designer-benchmark.log

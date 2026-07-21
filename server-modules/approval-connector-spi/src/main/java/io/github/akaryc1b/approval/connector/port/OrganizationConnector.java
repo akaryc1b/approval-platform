@@ -10,6 +10,8 @@ import io.github.akaryc1b.approval.connector.model.RoleSnapshot;
 import io.github.akaryc1b.approval.connector.model.UserSnapshot;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public interface OrganizationConnector {
@@ -41,6 +43,19 @@ public interface OrganizationConnector {
         int maximumLevels
     );
 
+    default NotificationDeliveryResult sendNotification(
+        ConnectorContext context,
+        UserNotification notification
+    ) {
+        Objects.requireNonNull(context, "context must not be null");
+        Objects.requireNonNull(notification, "notification must not be null");
+        return NotificationDeliveryResult.failed(
+            false,
+            "CONNECTOR_NOTIFICATION_UNSUPPORTED",
+            "organization connector does not support notification delivery"
+        );
+    }
+
     record UserQuery(
         String keyword,
         ExternalId departmentId,
@@ -57,5 +72,58 @@ public interface OrganizationConnector {
         private static String normalize(String value) {
             return value == null || value.isBlank() ? null : value;
         }
+    }
+
+    record UserNotification(
+        String recipientUserId,
+        String eventType,
+        String title,
+        String body,
+        Map<String, String> metadata,
+        String deduplicationKey
+    ) {
+        public UserNotification {
+            recipientUserId = requireText(recipientUserId, "recipientUserId");
+            eventType = requireText(eventType, "eventType");
+            title = requireText(title, "title");
+            body = requireText(body, "body");
+            metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+            deduplicationKey = requireText(deduplicationKey, "deduplicationKey");
+        }
+    }
+
+    record NotificationDeliveryResult(
+        boolean successful,
+        boolean retryable,
+        String providerMessageId,
+        String errorCode,
+        String errorMessage
+    ) {
+        public static NotificationDeliveryResult delivered(String providerMessageId) {
+            return new NotificationDeliveryResult(true, false, providerMessageId, null, null);
+        }
+
+        public static NotificationDeliveryResult failed(
+            boolean retryable,
+            String errorCode,
+            String errorMessage
+        ) {
+            return new NotificationDeliveryResult(
+                false,
+                retryable,
+                null,
+                requireText(errorCode, "errorCode"),
+                requireText(errorMessage, "errorMessage")
+            );
+        }
+    }
+
+    private static String requireText(String value, String name) {
+        Objects.requireNonNull(value, name + " must not be null");
+        String normalized = value.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return normalized;
     }
 }

@@ -142,7 +142,7 @@ class ApprovalManagementPermissionInterceptorTest {
     }
 
     @Test
-    void disabledBoundaryIsObservableAndUnannotatedRuntimeHandlerIsIgnored()
+    void disabledBoundaryIsObservableAndUnannotatedParticipantHandlerIsIgnored()
         throws Exception {
         ApprovalManagementPermissionInterceptor interceptor = interceptor(
             false,
@@ -159,11 +159,34 @@ class ApprovalManagementPermissionInterceptorTest {
             true,
             AuthoritySource.PRINCIPAL
         );
+        MockHttpServletRequest participant = request();
+        participant.setRequestURI("/api/approval/instances/instance-a");
         assertTrue(enforced.preHandle(
-            request(),
+            participant,
             new MockHttpServletResponse(),
             runtimeHandler()
         ));
+    }
+
+    @Test
+    void undeclaredManagementHandlerIsDeniedEvenWhenBoundaryIsDisabled() throws Exception {
+        for (boolean enforced : new boolean[] {true, false}) {
+            ApprovalManagementPermissionInterceptor interceptor = interceptor(
+                enforced,
+                AuthoritySource.PRINCIPAL
+            );
+            MockHttpServletRequest management = request();
+            management.setRequestURI("/api/approval/management/undeclared");
+            assertThrows(
+                ApprovalManagementPermissionDeniedException.class,
+                () -> interceptor.preHandle(
+                    management,
+                    new MockHttpServletResponse(),
+                    runtimeHandler()
+                )
+            );
+        }
+        assertEquals(2.0, authorizationCount("undeclared", "denied"));
     }
 
     private ApprovalManagementPermissionInterceptor interceptor(

@@ -1,0 +1,92 @@
+package io.github.akaryc1b.approval.api;
+
+import io.github.akaryc1b.approval.application.ApprovalAuditService.AuditOperationException;
+import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/** Stable audit-management errors without changing unrelated approval endpoints. */
+@RestControllerAdvice(assignableTypes = ApprovalAuditController.class)
+public class ApprovalAuditApiExceptionHandler {
+
+    @ExceptionHandler({
+        IllegalArgumentException.class,
+        MethodArgumentNotValidException.class,
+        MissingRequestHeaderException.class
+    })
+    ResponseEntity<ApiError> invalidRequest(Exception exception, HttpServletRequest request) {
+        return response(400, "INVALID_REQUEST", safeMessage(exception), false, request);
+    }
+
+    @ExceptionHandler(AuditOperationException.class)
+    ResponseEntity<ApiError> auditOperation(
+        AuditOperationException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            exception.status(),
+            exception.code(),
+            exception.getMessage(),
+            false,
+            request
+        );
+    }
+
+    @ExceptionHandler(IdempotencyGuard.IdempotencyConflictException.class)
+    ResponseEntity<ApiError> idempotencyConflict(
+        IdempotencyGuard.IdempotencyConflictException exception,
+        HttpServletRequest request
+    ) {
+        return response(409, "IDEMPOTENCY_CONFLICT", exception.getMessage(), false, request);
+    }
+
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ApiError> unexpected(Exception exception, HttpServletRequest request) {
+        return response(
+            500,
+            "APPROVAL_AUDIT_OPERATION_FAILED",
+            "approval audit operation failed",
+            true,
+            request
+        );
+    }
+
+    private static ResponseEntity<ApiError> response(
+        int status,
+        String code,
+        String message,
+        boolean retryable,
+        HttpServletRequest request
+    ) {
+        String requestId = requestId(request);
+        return ResponseEntity.status(status)
+            .header("X-Request-Id", requestId)
+            .body(new ApiError(code, message, retryable, requestId, Instant.now()));
+    }
+
+    private static String safeMessage(Exception exception) {
+        String message = exception.getMessage();
+        return message == null || message.isBlank() ? "request is invalid" : message;
+    }
+
+    private static String requestId(HttpServletRequest request) {
+        String value = request.getHeader("X-Request-Id");
+        return value == null || value.isBlank() ? UUID.randomUUID().toString() : value;
+    }
+
+    public record ApiError(
+        String code,
+        String message,
+        boolean retryable,
+        String requestId,
+        Instant occurredAt
+    ) {
+    }
+}

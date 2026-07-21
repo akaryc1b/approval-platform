@@ -27,6 +27,7 @@
     "web:typecheck": "pnpm web:bootstrap && pnpm --dir .upstream/vben --filter @vben/web-ele typecheck",
     "web:build": "pnpm web:bootstrap && pnpm --dir .upstream/vben build:ele",
     "web:benchmark:designer": "node scripts/benchmarks/approval-designer-topology-benchmark.mjs",
+    "web:test:client-boundary": "node --test scripts/tests/approval-client-boundary.test.mjs",
     "web:test:form-renderer": "node --test scripts/tests/approval-form-renderer-protocol.test.mjs",
     "web:test:form-designer": "node --test scripts/tests/form-designer-sections.test.mjs",
     "mobile:bootstrap": "node scripts/upstream/bootstrap-unibest.mjs",

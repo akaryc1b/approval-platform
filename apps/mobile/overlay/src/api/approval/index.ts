@@ -1,4 +1,7 @@
-import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
+import {
+  mobileApprovalMutationHeaders,
+  mobileApprovalRequest,
+} from '@/api/approval/transport'
 
 export interface PendingTaskItem {
   amount: number
@@ -211,80 +214,7 @@ interface PageParameters {
   offset: number
 }
 
-interface ApprovalRequestOptions {
-  data?: unknown
-  header?: Record<string, string>
-  method?: 'GET' | 'POST'
-}
-
-interface ApiErrorPayload {
-  code?: string
-  error?: string
-  message?: string
-}
-
 type TaskAction = 'approve' | 'reject' | 'resubmit'
-
-function joinUrl(baseUrl: string, path: string) {
-  const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
-  return `${normalizedBase}${path.startsWith('/') ? path : `/${path}`}`
-}
-
-function operationId(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`
-}
-
-function errorMessage(payload: unknown, statusCode: number) {
-  if (payload && typeof payload === 'object') {
-    const error = payload as ApiErrorPayload
-    return error.message || error.error || error.code || `请求失败（${statusCode}）`
-  }
-  if (typeof payload === 'string' && payload.trim()) {
-    return payload
-  }
-  return `请求失败（${statusCode}）`
-}
-
-function approvalRequest<T>(path: string, options: ApprovalRequestOptions = {}) {
-  const runtime = getApprovalRuntimeConfig()
-  const header: Record<string, string> = {
-    Accept: 'application/json',
-    'X-Operator-Id': runtime.operatorId,
-    'X-Tenant-Id': runtime.tenantId,
-    ...options.header,
-  }
-  if (options.data !== undefined && !header['Content-Type']) {
-    header['Content-Type'] = 'application/json'
-  }
-
-  return new Promise<T>((resolve, reject) => {
-    uni.request({
-      url: joinUrl(runtime.apiBaseUrl, path),
-      method: options.method || 'GET',
-      data: options.data,
-      header,
-      success: (response) => {
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          resolve(response.data as T)
-          return
-        }
-        reject(new Error(errorMessage(response.data, response.statusCode)))
-      },
-      fail: (error) => {
-        reject(new Error(error.errMsg || '网络请求失败'))
-      },
-    })
-  })
-}
-
-function collaborationHeaders(action: string) {
-  const requestId = operationId(`mobile-${action}-request`)
-  return {
-    'Idempotency-Key': operationId(`mobile-${action}`),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  }
-}
 
 function pageQuery(parameters: PageParameters) {
   const query: string[] = [
@@ -292,49 +222,47 @@ function pageQuery(parameters: PageParameters) {
     `offset=${encodeURIComponent(String(parameters.offset))}`,
   ]
   const keyword = parameters.keyword?.trim()
-  if (keyword) {
-    query.push(`keyword=${encodeURIComponent(keyword)}`)
-  }
+  if (keyword) query.push(`keyword=${encodeURIComponent(keyword)}`)
   return query.join('&')
 }
 
 export function findPendingTasks(parameters: PageParameters) {
-  return approvalRequest<PendingTaskPage>(
+  return mobileApprovalRequest<PendingTaskPage>(
     `/approval/tasks/pending?${pageQuery(parameters)}`,
   )
 }
 
 export function findStartedInstances(parameters: PageParameters) {
-  return approvalRequest<StartedInstancePage>(
+  return mobileApprovalRequest<StartedInstancePage>(
     `/approval/instances/started?${pageQuery(parameters)}`,
   )
 }
 
 export function findProcessedTasks(parameters: PageParameters) {
-  return approvalRequest<ProcessedTaskPage>(
+  return mobileApprovalRequest<ProcessedTaskPage>(
     `/approval/tasks/processed?${pageQuery(parameters)}`,
   )
 }
 
 export function findPendingTask(taskId: string) {
-  return approvalRequest<PendingTaskDetails>(
+  return mobileApprovalRequest<PendingTaskDetails>(
     `/approval/tasks/pending/${encodeURIComponent(taskId)}`,
   )
 }
 
 export function findApprovalTimeline(instanceId: string) {
-  return approvalRequest<ApprovalTimeline>(
+  return mobileApprovalRequest<ApprovalTimeline>(
     `/approval/instances/${encodeURIComponent(instanceId)}/timeline`,
   )
 }
 
 function submitTaskAction(taskId: string, action: TaskAction, comment: string) {
-  return approvalRequest<TaskActionResult>(
+  return mobileApprovalRequest<TaskActionResult>(
     `/approval/tasks/${encodeURIComponent(taskId)}/${action}`,
     {
       method: 'POST',
       data: { comment: comment.trim() || null },
-      header: collaborationHeaders(action),
+      header: mobileApprovalMutationHeaders(`mobile-${action}`),
     },
   )
 }
@@ -356,54 +284,51 @@ export function transferTask(
   targetUserId: string,
   comment: string,
 ) {
-  return approvalRequest<TransferResult>(
+  return mobileApprovalRequest<TransferResult>(
     `/approval/tasks/${encodeURIComponent(taskId)}/transfer`,
     {
       method: 'POST',
-      data: {
-        comment: comment.trim(),
-        targetUserId,
-      },
-      header: collaborationHeaders('transfer'),
+      data: { comment: comment.trim(), targetUserId },
+      header: mobileApprovalMutationHeaders('mobile-transfer'),
     },
   )
 }
 
 export function withdrawInstance(instanceId: string, comment: string) {
-  return approvalRequest<WithdrawResult>(
+  return mobileApprovalRequest<WithdrawResult>(
     `/approval/instances/${encodeURIComponent(instanceId)}/withdraw`,
     {
       method: 'POST',
       data: { comment: comment.trim() || null },
-      header: collaborationHeaders('withdraw'),
+      header: mobileApprovalMutationHeaders('mobile-withdraw'),
     },
   )
 }
 
 export function retrieveTask(taskId: string, comment: string) {
-  return approvalRequest<RetrieveResult>(
+  return mobileApprovalRequest<RetrieveResult>(
     `/approval/tasks/${encodeURIComponent(taskId)}/retrieve`,
     {
       method: 'POST',
       data: { comment: comment.trim() || null },
-      header: collaborationHeaders('retrieve'),
+      header: mobileApprovalMutationHeaders('mobile-retrieve'),
     },
   )
 }
 
 export function findCollaborationOptions(instanceId: string) {
-  return approvalRequest<CollaborationOptions>(
+  return mobileApprovalRequest<CollaborationOptions>(
     `/approval/instances/${encodeURIComponent(instanceId)}/collaboration-options`,
   )
 }
 
 export function urgeInstance(instanceId: string, comment: string) {
-  return approvalRequest<MessageActionResult>(
+  return mobileApprovalRequest<MessageActionResult>(
     `/approval/instances/${encodeURIComponent(instanceId)}/urge`,
     {
       method: 'POST',
       data: { comment: comment.trim() || null },
-      header: collaborationHeaders('urge'),
+      header: mobileApprovalMutationHeaders('mobile-urge'),
     },
   )
 }
@@ -413,21 +338,18 @@ export function copyInstance(
   recipientIds: string[],
   comment: string,
 ) {
-  return approvalRequest<MessageActionResult>(
+  return mobileApprovalRequest<MessageActionResult>(
     `/approval/instances/${encodeURIComponent(instanceId)}/copy`,
     {
       method: 'POST',
-      data: {
-        comment: comment.trim() || null,
-        recipientIds,
-      },
-      header: collaborationHeaders('copy'),
+      data: { comment: comment.trim() || null, recipientIds },
+      header: mobileApprovalMutationHeaders('mobile-copy'),
     },
   )
 }
 
 export function findMessageReceipts(instanceId: string) {
-  return approvalRequest<MessageReceipt[]>(
+  return mobileApprovalRequest<MessageReceipt[]>(
     `/approval/instances/${encodeURIComponent(instanceId)}/receipts`,
   )
 }
@@ -438,23 +360,29 @@ export function findMessages(unreadOnly: boolean, limit: number, offset: number)
     `limit=${encodeURIComponent(String(limit))}`,
     `offset=${encodeURIComponent(String(offset))}`,
   ].join('&')
-  return approvalRequest<ApprovalMessagePage>(`/approval/messages?${query}`)
+  return mobileApprovalRequest<ApprovalMessagePage>(`/approval/messages?${query}`)
 }
 
 export function findUnreadMessageCount() {
-  return approvalRequest<{ unread: number }>('/approval/messages/unread-count')
+  return mobileApprovalRequest<{ unread: number }>('/approval/messages/unread-count')
 }
 
 export function markMessageRead(messageId: string) {
-  return approvalRequest<{ firstRead: boolean, messageId: string, readAt: string }>(
+  return mobileApprovalRequest<{ firstRead: boolean, messageId: string, readAt: string }>(
     `/approval/messages/${encodeURIComponent(messageId)}/read`,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      header: mobileApprovalMutationHeaders('mobile-message-read'),
+    },
   )
 }
 
 export function markAllMessagesRead() {
-  return approvalRequest<{ readAt: string, updatedMessages: number }>(
+  return mobileApprovalRequest<{ readAt: string, updatedMessages: number }>(
     '/approval/messages/read-all',
-    { method: 'POST' },
+    {
+      method: 'POST',
+      header: mobileApprovalMutationHeaders('mobile-message-read-all'),
+    },
   )
 }

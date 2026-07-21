@@ -270,6 +270,7 @@ public class ApprovalPlatformConfiguration {
         ApprovalAttachmentStore approvalAttachmentStore,
         ApprovalProjectionStore approvalProjectionStore,
         ApprovalMessageStore approvalMessageStore,
+        ApprovalCommentStore approvalCommentStore,
         Clock approvalClock
     ) {
         return new ApprovalAttachmentService(
@@ -277,6 +278,7 @@ public class ApprovalPlatformConfiguration {
             approvalAttachmentStore,
             approvalProjectionStore,
             approvalMessageStore,
+            approvalCommentStore,
             approvalClock,
             UUID::randomUUID
         );

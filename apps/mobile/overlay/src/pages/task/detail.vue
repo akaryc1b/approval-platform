@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import type {
   ApprovalTimeline,
-  ApprovalTimelineItem,
   PendingTaskDetails,
 } from '@/api/approval'
+import type { DelegatedTaskAssignment } from '@/api/approval/delegations'
 import type { FormRuntimeView } from '@/api/approval/form-types'
 
 import {
@@ -13,6 +13,7 @@ import {
   rejectTask,
   transferTask,
 } from '@/api/approval'
+import { findTaskDelegation } from '@/api/approval/delegations'
 import { findTaskFormRuntime, resubmitFormTask } from '@/api/approval/forms'
 import ApprovalFormRenderer from '@/components/approval/ApprovalFormRenderer.vue'
 
@@ -26,6 +27,7 @@ const loading = ref(false)
 const loadError = ref('')
 const submitting = ref(false)
 const details = ref<PendingTaskDetails>()
+const delegation = ref<DelegatedTaskAssignment>()
 const timeline = ref<ApprovalTimeline>()
 const formRuntime = ref<FormRuntimeView>()
 const formValues = ref<Record<string, unknown>>({})
@@ -52,19 +54,6 @@ function taskStage(task: PendingTaskDetails) {
   return labels[task.taskDefinitionKey] || task.taskName
 }
 
-function timelineTitle(item: ApprovalTimelineItem) {
-  const labels: Record<string, string> = {
-    INSTANCE_STARTED: '发起审批',
-    INSTANCE_WITHDRAWN: '发起人撤回',
-    TASK_APPROVED: '同意审批',
-    TASK_REJECTED: '驳回到发起人',
-    TASK_RESUBMITTED: '修改并重新提交',
-    TASK_RETRIEVED: '审批人拿回',
-    TASK_TRANSFERRED: '任务转办',
-  }
-  return labels[item.action] || item.action
-}
-
 function formatMoney(value: number) {
   return `¥${Number(value).toFixed(2)}`
 }
@@ -85,13 +74,16 @@ async function loadDetails() {
   }
   loading.value = true
   loadError.value = ''
+  delegation.value = undefined
   try {
     const task = await findPendingTask(taskId.value)
-    const [progress, runtime] = await Promise.all([
+    const [progress, runtime, responsibility] = await Promise.all([
       findApprovalTimeline(task.instanceId),
       findTaskFormRuntime(task.taskId),
+      findTaskDelegation(task.taskId),
     ])
     details.value = task
+    delegation.value = responsibility
     timeline.value = progress
     formRuntime.value = runtime
     formValues.value = { ...runtime.values }
@@ -218,6 +210,10 @@ onLoad((query) => {
         <strong>申请已被驳回</strong>
         <text>仅可修改当前节点允许编辑的字段，保存后重新进入审批。</text>
       </view>
+      <view v-else-if="delegation" class="delegation-notice">
+        <strong>该任务由代理人处理</strong>
+        <text>{{ delegation.principalAssigneeId }} 委托给 {{ delegation.delegateAssigneeId }}</text>
+      </view>
 
       <view class="summary-card">
         <view class="summary-header">
@@ -232,6 +228,12 @@ onLoad((query) => {
           <view><text>金额</text><strong>{{ formatMoney(details.amount) }}</strong></view>
           <view><text>采购订单</text><strong>{{ details.purchaseOrderReference }}</strong></view>
           <view><text>表单版本</text><strong>v{{ details.formVersion }}</strong></view>
+          <template v-if="delegation">
+            <view><text>原责任人</text><strong>{{ delegation.principalAssigneeId }}</strong></view>
+            <view><text>实际处理人</text><strong>{{ delegation.delegateAssigneeId }}</strong></view>
+            <view><text>代理范围</text><strong>{{ delegation.delegationScope === 'ALL' ? '全部审批' : delegation.definitionKey }}</strong></view>
+            <view><text>代理状态</text><strong>{{ delegation.status }}</strong></view>
+          </template>
         </view>
       </view>
 
@@ -260,9 +262,9 @@ onLoad((query) => {
         <view class="section-title">审批进度</view>
         <view v-if="timeline?.items.length" class="timeline-list">
           <view v-for="item in timeline.items" :key="item.eventId" class="timeline-item">
-            <strong>{{ timelineTitle(item) }}</strong>
+            <strong>{{ item.summary }}</strong>
             <text>{{ item.operatorId }} · {{ formatDate(item.occurredAt) }}</text>
-            <text v-if="item.attributes.comment">{{ item.attributes.comment }}</text>
+            <text>{{ item.schemaName }} v{{ item.schemaVersion }}</text>
           </view>
         </view>
         <text v-else class="muted">暂无审批记录</text>
@@ -333,5 +335,124 @@ onLoad((query) => {
 </template>
 
 <style scoped>
-.page{min-height:100vh;padding:24rpx 24rpx 180rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.summary-card,.form-card,.timeline-card,.action-card,.state-card,.revision-notice{margin-bottom:20rpx;padding:28rpx;border-radius:24rpx;background:var(--wot-color-white,var(--uni-bg-color))}.summary-header,.card-title-row,.action-bar,.action-group,.picker-field{display:flex;align-items:center;justify-content:space-between;gap:20rpx}.title{margin-top:8rpx;color:var(--wot-color-content,var(--uni-text-color));font-size:34rpx;font-weight:700}.muted,.summary-grid text,.timeline-item text,.state-card{color:var(--wot-color-content-secondary,var(--uni-text-color-grey));font-size:24rpx}.summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24rpx;margin-top:28rpx}.summary-grid>view,.timeline-item{display:grid;gap:8rpx}.section-title{margin-bottom:18rpx;color:var(--wot-color-content,var(--uni-text-color));font-size:28rpx;font-weight:700}.card-title-row .section-title{margin-bottom:6rpx}.form-card :deep(.renderer){margin-top:20rpx}.timeline-list{display:grid;gap:18rpx}.timeline-item{padding-bottom:18rpx;border-bottom:1rpx solid var(--wot-color-border-light,var(--uni-border-color))}.picker-field{min-height:84rpx;padding:0 22rpx;border:1rpx solid var(--wot-color-border-light,var(--uni-border-color));border-radius:16rpx}.revision-notice{display:grid;gap:8rpx;color:var(--wot-color-warning,#d97706);background:var(--wot-color-warning-light,#fff7ed)}.state-card{display:grid;justify-items:center;gap:18rpx;padding:60rpx 24rpx}.state-card--error{color:var(--wot-color-danger,var(--uni-color-error))}.action-bar{position:fixed;right:0;bottom:0;left:0;padding:20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));background:var(--wot-color-white,var(--uni-bg-color));box-shadow:0 -8rpx 24rpx rgb(15 23 42 / 8%)}
+.page {
+  min-height: 100vh;
+  padding: 24rpx 24rpx 180rpx;
+  background: var(--wot-color-bg, var(--uni-bg-color-grey));
+}
+
+.summary-card,
+.form-card,
+.timeline-card,
+.action-card,
+.state-card,
+.revision-notice,
+.delegation-notice {
+  margin-bottom: 20rpx;
+  padding: 28rpx;
+  border-radius: 24rpx;
+  background: var(--wot-color-white, var(--uni-bg-color));
+  box-shadow: 0 8rpx 24rpx rgb(15 23 42 / 5%);
+}
+
+.revision-notice,
+.delegation-notice {
+  display: grid;
+  gap: 10rpx;
+  border: 1rpx solid var(--wot-color-warning, var(--uni-color-warning));
+  color: var(--wot-color-warning, var(--uni-color-warning));
+}
+
+.revision-notice text,
+.delegation-notice text {
+  color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
+  font-size: 24rpx;
+}
+
+.summary-header,
+.card-title-row,
+.action-bar,
+.action-group,
+.picker-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.title {
+  margin-top: 8rpx;
+  color: var(--wot-color-content, var(--uni-text-color));
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.muted,
+.summary-grid text,
+.timeline-item text,
+.state-card {
+  color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
+  font-size: 24rpx;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24rpx;
+  margin-top: 28rpx;
+}
+
+.summary-grid > view {
+  display: grid;
+  gap: 8rpx;
+}
+
+.summary-grid strong,
+.section-title,
+.timeline-item strong {
+  color: var(--wot-color-content, var(--uni-text-color));
+  font-weight: 700;
+}
+
+.card-title-row,
+.section-title {
+  margin-bottom: 20rpx;
+}
+
+.timeline-list,
+.timeline-item {
+  display: grid;
+  gap: 10rpx;
+}
+
+.timeline-list {
+  gap: 20rpx;
+}
+
+.timeline-item {
+  padding-left: 20rpx;
+  border-left: 4rpx solid var(--wot-color-theme, var(--uni-color-primary));
+}
+
+.picker-field {
+  padding: 22rpx;
+  border: 1rpx solid var(--wot-color-border-light, var(--uni-border-color));
+  border-radius: 14rpx;
+  color: var(--wot-color-content, var(--uni-text-color));
+}
+
+.action-bar {
+  position: fixed;
+  z-index: 20;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--wot-color-white, var(--uni-bg-color));
+  box-shadow: 0 -8rpx 24rpx rgb(15 23 42 / 8%);
+}
+
+.action-group {
+  justify-content: flex-end;
+}
 </style>

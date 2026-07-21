@@ -1,7 +1,14 @@
 import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
+export type CommentStatus = 'ACTIVE' | 'DELETED';
+export type CommentVisibility = 'MENTIONED_ONLY' | 'PARTICIPANTS';
+export type CommentRevisionType = 'CREATE' | 'DELETE' | 'EDIT';
+
 export interface CommentUserOption {
   displayName: string;
+  externalIdentityValue: string;
+  identitySource: string;
+  objectType: string;
   userId: string;
 }
 
@@ -23,14 +30,27 @@ export interface ApprovalCommentItem {
   authorDisplayName: string;
   authorId: string;
   body: string;
+  canDelete: boolean;
+  canEdit: boolean;
   commentId: string;
   createdAt: string;
+  currentRevision: number;
+  deleteReason?: string;
+  deleted: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  edited: boolean;
   instanceId: string;
   mentionedUsers: CommentUserOption[];
   parentCommentId?: string;
+  privateComment: boolean;
   reply: boolean;
   replyToAuthorDisplayName?: string;
   replyToAuthorId?: string;
+  status: CommentStatus;
+  updatedAt: string;
+  version: number;
+  visibility: CommentVisibility;
 }
 
 export interface ApprovalCommentPage {
@@ -38,12 +58,27 @@ export interface ApprovalCommentPage {
   items: ApprovalCommentItem[];
   limit: number;
   offset: number;
+  readOnly: boolean;
   total: number;
 }
 
 export interface CommentOptions {
+  editWindowMinutes: number;
   instanceId: string;
   mentionCandidates: CommentUserOption[];
+  readOnly: boolean;
+}
+
+export interface CommentRevisionItem {
+  attachmentIds: string[];
+  body: string;
+  mentionedUsers: CommentUserOption[];
+  occurredAt: string;
+  operatorId: string;
+  reason?: string;
+  revisionNumber: number;
+  revisionType: CommentRevisionType;
+  visibility: CommentVisibility;
 }
 
 export interface CopiedInstanceItem {
@@ -145,6 +180,15 @@ async function requestBlob(path: string) {
   return response.blob();
 }
 
+function mutationHeaders(prefix: string) {
+  const requestId = operationId(`${prefix}-request`);
+  return {
+    'Idempotency-Key': operationId(prefix),
+    'X-Request-Id': requestId,
+    'X-Trace-Id': requestId,
+  };
+}
+
 function pageQuery(parameters: PageParameters) {
   const query = new URLSearchParams({
     limit: String(parameters.limit),
@@ -174,17 +218,18 @@ export function findApprovalComments(instanceId: string, limit = 100, offset = 0
   );
 }
 
+export function findApprovalCommentRevisions(instanceId: string, commentId: string) {
+  return request<CommentRevisionItem[]>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/comments/${encodeURIComponent(commentId)}/revisions`,
+  );
+}
+
 export function uploadApprovalAttachment(file: File) {
-  const requestId = operationId('web-attachment-request');
   const body = new FormData();
   body.append('file', file, file.name);
   return request<ApprovalAttachment>('/approval/attachments', {
     body,
-    headers: {
-      'Idempotency-Key': operationId('web-attachment'),
-      'X-Request-Id': requestId,
-      'X-Trace-Id': requestId,
-    },
+    headers: mutationHeaders('web-attachment'),
     method: 'POST',
   });
 }
@@ -207,8 +252,8 @@ export function createApprovalComment(
   body: string,
   mentionIds: string[],
   attachmentIds: string[],
+  visibility: CommentVisibility = 'PARTICIPANTS',
 ) {
-  const requestId = operationId('web-comment-request');
   return request<ApprovalCommentItem>(
     `/approval/instances/${encodeURIComponent(instanceId)}/comments`,
     {
@@ -217,13 +262,53 @@ export function createApprovalComment(
         body: body.trim(),
         mentionIds,
         parentCommentId: parentCommentId || null,
+        visibility,
       }),
-      headers: {
-        'Idempotency-Key': operationId('web-comment'),
-        'X-Request-Id': requestId,
-        'X-Trace-Id': requestId,
-      },
+      headers: mutationHeaders('web-comment'),
       method: 'POST',
+    },
+  );
+}
+
+export function updateApprovalComment(
+  instanceId: string,
+  commentId: string,
+  body: string,
+  mentionIds: string[],
+  attachmentIds: string[],
+  visibility: CommentVisibility,
+  expectedVersion: number,
+  reason?: string,
+) {
+  return request<ApprovalCommentItem>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      body: JSON.stringify({
+        attachmentIds,
+        body: body.trim(),
+        expectedVersion,
+        mentionIds,
+        reason: reason?.trim() || null,
+        visibility,
+      }),
+      headers: mutationHeaders('web-comment-edit'),
+      method: 'PUT',
+    },
+  );
+}
+
+export function deleteApprovalComment(
+  instanceId: string,
+  commentId: string,
+  expectedVersion: number,
+  reason: string,
+) {
+  return request<ApprovalCommentItem>(
+    `/approval/instances/${encodeURIComponent(instanceId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      body: JSON.stringify({ expectedVersion, reason: reason.trim() }),
+      headers: mutationHeaders('web-comment-delete'),
+      method: 'DELETE',
     },
   );
 }

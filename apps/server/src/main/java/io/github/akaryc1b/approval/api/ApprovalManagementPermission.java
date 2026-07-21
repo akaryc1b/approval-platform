@@ -20,7 +20,20 @@ public @interface ApprovalManagementPermission {
         PUBLISH("approval.management.publish", "publish"),
         DEPLOY("approval.management.deploy", "deploy"),
         ACTIVATE("approval.management.activate", "activate"),
-        TRANSFER("approval.management.transfer", "transfer");
+        TRANSFER("approval.management.transfer", "transfer"),
+        AUDIT_READ("approval.management.audit.read", "audit-read"),
+        AUDIT_EXPORT("approval.management.audit.export", "audit-export"),
+        AUDIT_VERIFY("approval.management.audit.verify", "audit-verify"),
+        CONSISTENCY_READ("approval.management.consistency.read", "consistency-read"),
+        CONSISTENCY_RUN("approval.management.consistency.run", "consistency-run"),
+        OPERATIONAL_FAILURE_READ(
+            "approval.management.operational-failure.read",
+            "operational-failure-read"
+        ),
+        OPERATIONAL_FAILURE_REPLAY(
+            "approval.management.operational-failure.replay",
+            "operational-failure-replay"
+        );
 
         private final String authority;
         private final String metricTag;

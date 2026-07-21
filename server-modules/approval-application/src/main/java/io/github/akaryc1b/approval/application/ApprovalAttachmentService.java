@@ -3,6 +3,9 @@ package io.github.akaryc1b.approval.application;
 import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore.ApprovalAttachment;
 import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore.AttachmentSummary;
+import io.github.akaryc1b.approval.application.port.ApprovalCommentStore;
+import io.github.akaryc1b.approval.application.port.ApprovalCommentStore.CommentAttachmentAccess;
+import io.github.akaryc1b.approval.application.port.ApprovalCommentStore.CommentParticipantIdentity;
 import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
@@ -20,9 +23,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-/**
- * Uploads and serves approval attachments with participant-scoped authorization.
- */
+/** Uploads and serves approval attachments with comment-audience-aware authorization. */
 public final class ApprovalAttachmentService {
 
     public static final long MAX_FILE_SIZE = 10L * 1024L * 1024L;
@@ -34,6 +35,7 @@ public final class ApprovalAttachmentService {
     private final ApprovalAttachmentStore attachments;
     private final ApprovalProjectionStore projections;
     private final ApprovalMessageStore messages;
+    private final ApprovalCommentStore comments;
     private final Clock clock;
     private final Supplier<UUID> identifierGenerator;
 
@@ -42,6 +44,7 @@ public final class ApprovalAttachmentService {
         ApprovalAttachmentStore attachments,
         ApprovalProjectionStore projections,
         ApprovalMessageStore messages,
+        ApprovalCommentStore comments,
         Clock clock,
         Supplier<UUID> identifierGenerator
     ) {
@@ -52,6 +55,7 @@ public final class ApprovalAttachmentService {
         this.attachments = Objects.requireNonNull(attachments, "attachments must not be null");
         this.projections = Objects.requireNonNull(projections, "projections must not be null");
         this.messages = Objects.requireNonNull(messages, "messages must not be null");
+        this.comments = Objects.requireNonNull(comments, "comments must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.identifierGenerator = Objects.requireNonNull(
             identifierGenerator,
@@ -128,6 +132,15 @@ public final class ApprovalAttachmentService {
             if (attachment.instanceId() == null) {
                 return attachment.uploaderId().equals(operatorId);
             }
+            CommentAttachmentAccess access = comments.findAttachmentAccess(
+                tenantId,
+                attachment.instanceId(),
+                attachment.attachmentId(),
+                operatorId
+            );
+            if (access.referenced()) {
+                return access.readable();
+            }
             return isParticipant(tenantId, operatorId, attachment.instanceId());
         });
     }
@@ -142,7 +155,13 @@ public final class ApprovalAttachmentService {
         }
         boolean taskParticipant = projections.findTasks(tenantId, instanceId).stream()
             .anyMatch(task -> task.assigneeId().equals(operatorId));
-        return taskParticipant || messages.isRecipient(tenantId, operatorId, instanceId);
+        boolean additionalParticipant = comments.findAdditionalParticipants(tenantId, instanceId)
+            .stream()
+            .map(CommentParticipantIdentity::userId)
+            .anyMatch(operatorId::equals);
+        return taskParticipant
+            || additionalParticipant
+            || messages.isRecipient(tenantId, operatorId, instanceId);
     }
 
     private static void validateContent(byte[] content) {

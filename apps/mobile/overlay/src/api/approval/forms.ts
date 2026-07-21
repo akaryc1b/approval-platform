@@ -6,77 +6,10 @@ import type {
   PublishedForm,
 } from './form-types'
 
-import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
-
-interface ApiErrorPayload {
-  code?: string
-  error?: string
-  message?: string
-}
-
-interface RequestOptions {
-  allowNotFound?: boolean
-  data?: unknown
-  header?: Record<string, string>
-  method?: 'GET' | 'POST'
-}
-
-function operationId(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`
-}
-
-function joinUrl(baseUrl: string, path: string) {
-  const normalized = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
-  return `${normalized}${path.startsWith('/') ? path : `/${path}`}`
-}
-
-function errorMessage(payload: unknown, statusCode: number) {
-  if (payload && typeof payload === 'object') {
-    const error = payload as ApiErrorPayload
-    return error.message || error.error || error.code || `请求失败（${statusCode}）`
-  }
-  return `请求失败（${statusCode}）`
-}
-
-function request<T>(path: string, options: RequestOptions = {}) {
-  const runtime = getApprovalRuntimeConfig()
-  const header: Record<string, string> = {
-    Accept: 'application/json',
-    'X-Operator-Id': runtime.operatorId,
-    'X-Tenant-Id': runtime.tenantId,
-    ...options.header,
-  }
-  if (options.data !== undefined) header['Content-Type'] = 'application/json'
-  return new Promise<T>((resolve, reject) => {
-    uni.request({
-      url: joinUrl(runtime.apiBaseUrl, path),
-      method: options.method || 'GET',
-      data: options.data,
-      header,
-      success: (response) => {
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          resolve(response.data as T)
-          return
-        }
-        if (options.allowNotFound && response.statusCode === 404) {
-          resolve(undefined as T)
-          return
-        }
-        reject(new Error(errorMessage(response.data, response.statusCode)))
-      },
-      fail: error => reject(new Error(error.errMsg || '网络请求失败')),
-    })
-  })
-}
-
-function writeHeaders(action: string) {
-  const requestId = operationId(`mobile-${action}-request`)
-  return {
-    'Idempotency-Key': operationId(`mobile-${action}`),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  }
-}
+import {
+  mobileApprovalMutationHeaders,
+  mobileApprovalRequest,
+} from '@/api/approval/transport'
 
 export function findForms(keyword = '', limit = 50, offset = 0) {
   const query = [
@@ -84,29 +17,29 @@ export function findForms(keyword = '', limit = 50, offset = 0) {
     `offset=${encodeURIComponent(String(offset))}`,
   ]
   if (keyword.trim()) query.push(`keyword=${encodeURIComponent(keyword.trim())}`)
-  return request<FormPage>(`/approval/forms?${query.join('&')}`)
+  return mobileApprovalRequest<FormPage>(`/approval/forms?${query.join('&')}`)
 }
 
 export function findForm(formKey: string, version: number) {
-  return request<PublishedForm>(
+  return mobileApprovalRequest<PublishedForm>(
     `/approval/forms/${encodeURIComponent(formKey)}/versions/${version}`,
   )
 }
 
 export function findStartFormRuntime(formKey: string, version: number) {
-  return request<FormRuntimeView>(
+  return mobileApprovalRequest<FormRuntimeView>(
     `/approval/forms/${encodeURIComponent(formKey)}/versions/${version}/runtime`,
   )
 }
 
 export function findTaskFormRuntime(taskId: string) {
-  return request<FormRuntimeView>(
+  return mobileApprovalRequest<FormRuntimeView>(
     `/approval/tasks/${encodeURIComponent(taskId)}/form-runtime`,
   )
 }
 
 export function findFormSnapshot(instanceId: string) {
-  return request<FormSubmissionSnapshot | undefined>(
+  return mobileApprovalRequest<FormSubmissionSnapshot | undefined>(
     `/approval/instances/${encodeURIComponent(instanceId)}/form-snapshot`,
     { allowNotFound: true },
   )
@@ -119,12 +52,12 @@ export function submitForm(
   values: Record<string, unknown>,
   startParameters: Record<string, unknown>,
 ) {
-  return request<FormSubmissionResult>(
+  return mobileApprovalRequest<FormSubmissionResult>(
     `/approval/forms/${encodeURIComponent(formKey)}/versions/${version}/submissions`,
     {
       method: 'POST',
       data: { businessKey, values, startParameters },
-      header: writeHeaders('form-submit'),
+      header: mobileApprovalMutationHeaders('mobile-form-submit'),
     },
   )
 }
@@ -134,9 +67,12 @@ export function resubmitFormTask(
   comment: string,
   values: Record<string, unknown>,
 ) {
-  return request<unknown>(`/approval/tasks/${encodeURIComponent(taskId)}/resubmit`, {
-    method: 'POST',
-    data: { comment: comment.trim() || null, values },
-    header: writeHeaders('resubmit'),
-  })
+  return mobileApprovalRequest<unknown>(
+    `/approval/tasks/${encodeURIComponent(taskId)}/resubmit`,
+    {
+      method: 'POST',
+      data: { comment: comment.trim() || null, values },
+      header: mobileApprovalMutationHeaders('mobile-resubmit'),
+    },
+  )
 }

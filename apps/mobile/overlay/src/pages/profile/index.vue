@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { findUnreadMessageCount } from '@/api/approval'
+import { findNotificationUnreadCount } from '@/api/approval/notifications'
 import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
 
 defineOptions({
@@ -14,9 +15,14 @@ definePage({
 
 const runtime = getApprovalRuntimeConfig()
 const unreadMessages = ref(0)
+const unreadNotifications = ref(0)
 
 function openTaskList() {
   uni.navigateTo({ url: '/pages/task/list' })
+}
+
+function openCollaboration() {
+  uni.navigateTo({ url: '/pages/collaboration/index' })
 }
 
 function openDiscussion() {
@@ -27,17 +33,27 @@ function openMessages() {
   uni.navigateTo({ url: '/pages/message/index' })
 }
 
+function openNotifications() {
+  uni.navigateTo({ url: '/pages/notification/index' })
+}
+
+function openDelegations() {
+  uni.navigateTo({ url: '/pages/delegation/index' })
+}
+
 function openInitiate() {
   uni.switchTab({ url: '/pages/initiate/index' })
 }
 
 async function loadUnreadMessages() {
-  try {
-    unreadMessages.value = (await findUnreadMessageCount()).unread
-  }
-  catch {
-    unreadMessages.value = 0
-  }
+  const [messages, notifications] = await Promise.allSettled([
+    findUnreadMessageCount(),
+    findNotificationUnreadCount(),
+  ])
+  unreadMessages.value = messages.status === 'fulfilled' ? messages.value.unread : 0
+  unreadNotifications.value = notifications.status === 'fulfilled'
+    ? notifications.value.unread
+    : 0
 }
 
 onShow(loadUnreadMessages)
@@ -59,6 +75,13 @@ onShow(loadUnreadMessages)
         <text>审批工作台</text>
         <text class="entry-row__value">›</text>
       </view>
+      <view class="entry-row" @click="openCollaboration">
+        <view class="entry-row__content">
+          <text>加签协作</text>
+          <text class="entry-row__hint">发起加签、减签或处理协作待办</text>
+        </view>
+        <text class="entry-row__value">›</text>
+      </view>
       <view class="entry-row" @click="openDiscussion">
         <text>审批讨论</text>
         <text class="entry-row__value">›</text>
@@ -71,6 +94,25 @@ onShow(loadUnreadMessages)
           </wd-tag>
           <text class="entry-row__value">›</text>
         </view>
+      </view>
+      <view class="entry-row" @click="openNotifications">
+        <view class="entry-row__content">
+          <text>通知中心</text>
+          <text class="entry-row__hint">通知偏好、投递状态与失败重投</text>
+        </view>
+        <view class="entry-row__right">
+          <wd-tag v-if="unreadNotifications" type="danger" plain>
+            {{ unreadNotifications }} 未读
+          </wd-tag>
+          <text class="entry-row__value">›</text>
+        </view>
+      </view>
+      <view class="entry-row" @click="openDelegations">
+        <view class="entry-row__content">
+          <text>代理规则</text>
+          <text class="entry-row__hint">请假或出差期间自动分派新任务</text>
+        </view>
+        <text class="entry-row__value">›</text>
       </view>
       <view class="entry-row" @click="openInitiate">
         <text>发起审批</text>
@@ -135,7 +177,8 @@ onShow(loadUnreadMessages)
   font-weight: 700;
 }
 
-.profile-card__main {
+.profile-card__main,
+.entry-row__content {
   display: grid;
   flex: 1;
   gap: 10rpx;
@@ -150,9 +193,14 @@ onShow(loadUnreadMessages)
 
 .profile-card__meta,
 .runtime-row text:first-child,
-.entry-row__value {
+.entry-row__value,
+.entry-row__hint {
   color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
   font-size: 24rpx;
+}
+
+.entry-row__hint {
+  font-size: 22rpx;
 }
 
 .entry-card,
@@ -188,15 +236,5 @@ onShow(loadUnreadMessages)
 .runtime-card {
   padding-top: 26rpx;
   padding-bottom: 26rpx;
-}
-
-.runtime-card__title {
-  margin-bottom: 12rpx;
-}
-
-.runtime-row text:last-child {
-  max-width: 470rpx;
-  overflow-wrap: anywhere;
-  text-align: right;
 }
 </style>

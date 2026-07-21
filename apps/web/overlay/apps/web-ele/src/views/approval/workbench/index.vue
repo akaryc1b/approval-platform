@@ -10,6 +10,7 @@ import type {
   StartedInstanceItem,
   StartedInstancePage,
 } from '#/api/approval';
+import type { DelegatedTaskAssignment } from '#/api/approval/delegations';
 import type { FormRuntimeView } from '#/api/approval/form-types';
 
 import { computed, onMounted, ref, watch } from 'vue';
@@ -50,6 +51,7 @@ import {
   transferTask,
   withdrawInstance,
 } from '#/api/approval';
+import { findTaskDelegation } from '#/api/approval/delegations';
 import { findTaskFormRuntime, resubmitFormTask } from '#/api/approval/forms';
 import ApprovalFormRenderer from '#/components/approval/ApprovalFormRenderer.vue';
 
@@ -74,6 +76,7 @@ const drawerOpen = ref(false);
 const detailLoading = ref(false);
 const detailError = ref('');
 const selectedTask = ref<PendingTaskDetails>();
+const taskDelegation = ref<DelegatedTaskAssignment>();
 const timeline = ref<ApprovalTimeline>();
 const formRuntime = ref<FormRuntimeView>();
 const formValues = ref<Record<string, unknown>>({});
@@ -136,19 +139,10 @@ function instanceStatusType(status: StartedInstanceItem['status']): TagType {
   if (status === 'WITHDRAWN' || status === 'REJECTED') return 'info';
   return 'primary';
 }
-function timelineTitle(item: ApprovalTimelineItem) {
-  const labels: Record<string, string> = {
-    INSTANCE_STARTED: '发起审批', INSTANCE_WITHDRAWN: '发起人撤回',
-    TASK_APPROVED: '同意审批', TASK_REJECTED: '驳回到发起人',
-    TASK_RESUBMITTED: '修改并重新提交', TASK_RETRIEVED: '审批人拿回',
-    TASK_TRANSFERRED: '任务转办',
-  };
-  return labels[item.action] || item.action;
-}
 function timelineType(item: ApprovalTimelineItem): TagType {
   if (item.action === 'TASK_APPROVED') return 'success';
   if (item.action === 'TASK_REJECTED' || item.action === 'INSTANCE_WITHDRAWN') return 'danger';
-  if (['TASK_RESUBMITTED', 'TASK_RETRIEVED', 'TASK_TRANSFERRED'].includes(item.action)) return 'warning';
+  if (['TASK_DELEGATED', 'TASK_RESUBMITTED', 'TASK_RETRIEVED', 'TASK_TRANSFERRED'].includes(item.action)) return 'warning';
   return 'primary';
 }
 
@@ -193,17 +187,21 @@ async function openTask(task: PendingTaskItem) {
   detailLoading.value = true;
   detailError.value = '';
   selectedTask.value = undefined;
+  taskDelegation.value = undefined;
   timeline.value = undefined;
   formRuntime.value = undefined;
   formValues.value = {};
   approvalComment.value = '';
   transferTargetId.value = '';
   try {
-    const [details, progress] = await Promise.all([
-      findPendingTask(task.taskId), findApprovalTimeline(task.instanceId),
+    const [details, progress, delegation] = await Promise.all([
+      findPendingTask(task.taskId),
+      findApprovalTimeline(task.instanceId),
+      findTaskDelegation(task.taskId),
     ]);
     selectedTask.value = details;
     timeline.value = progress;
+    taskDelegation.value = delegation;
     try {
       const runtime = await findTaskFormRuntime(task.taskId);
       formRuntime.value = runtime;
@@ -359,14 +357,44 @@ onMounted(refreshWorkbench);
       <ElAlert v-else-if="detailError" :closable="false" :title="detailError" type="error"/>
       <div v-else-if="selectedTask" class="detail-content">
         <ElAlert v-if="revisionTask" :closable="false" title="仅可修改当前节点允许编辑的字段。" type="warning"/>
+        <ElAlert
+          v-else-if="taskDelegation"
+          :closable="false"
+          show-icon
+          type="warning"
+          :title="`该任务由 ${taskDelegation.principalAssigneeId} 委托给 ${taskDelegation.delegateAssigneeId} 处理`"
+        />
         <ElDescriptions :column="2" border title="申请信息">
           <ElDescriptionsItem label="业务编号">{{ selectedTask.businessKey }}</ElDescriptionsItem><ElDescriptionsItem label="当前环节">{{ taskStage(selectedTask) }}</ElDescriptionsItem><ElDescriptionsItem label="发起人">{{ selectedTask.initiatorId }}</ElDescriptionsItem><ElDescriptionsItem label="付款金额">{{ formatMoney(selectedTask.amount) }}</ElDescriptionsItem>
+          <template v-if="taskDelegation">
+            <ElDescriptionsItem label="原责任人">{{ taskDelegation.principalAssigneeId }}</ElDescriptionsItem>
+            <ElDescriptionsItem label="实际处理人">{{ taskDelegation.delegateAssigneeId }}</ElDescriptionsItem>
+            <ElDescriptionsItem label="代理范围">{{ taskDelegation.delegationScope === 'ALL' ? '全部审批' : taskDelegation.definitionKey }}</ElDescriptionsItem>
+            <ElDescriptionsItem label="代理规则">{{ taskDelegation.delegationRuleId }}</ElDescriptionsItem>
+          </template>
         </ElDescriptions>
         <section v-if="formRuntime" class="detail-section">
           <div class="section-header"><h3>申请表单</h3><ElTag effect="plain">{{ formRuntime.defaultedUiSchema ? '安全默认' : `UI v${formRuntime.uiSchema.version}` }}</ElTag></div>
           <ApprovalFormRenderer v-model="formValues" :field-permissions="formRuntime.fieldPermissions" :required-fields="formRuntime.requiredFields" :readonly="!revisionTask" :schema="formRuntime.definition" :ui-schema="formRuntime.uiSchema"/>
         </section>
-        <section class="detail-section"><h3>审批进度</h3><ElTimeline v-if="timeline?.items.length"><ElTimelineItem v-for="item in timeline.items" :key="item.eventId" :timestamp="formatDate(item.occurredAt)" :type="timelineType(item)"><strong>{{ timelineTitle(item) }}</strong><div>{{ item.operatorId }}</div><div v-if="item.attributes.comment">{{ item.attributes.comment }}</div></ElTimelineItem></ElTimeline><ElEmpty v-else description="暂无审批记录"/></section>
+        <section class="detail-section">
+          <h3>审批进度</h3>
+          <ElTimeline v-if="timeline?.items.length">
+            <ElTimelineItem
+              v-for="item in timeline.items"
+              :key="item.eventId"
+              :timestamp="formatDate(item.occurredAt)"
+              :type="timelineType(item)"
+            >
+              <strong>{{ item.summary }}</strong>
+              <div>{{ item.operatorId }}</div>
+              <ElTag effect="plain" size="small">
+                {{ item.schemaName }} v{{ item.schemaVersion }}
+              </ElTag>
+            </ElTimelineItem>
+          </ElTimeline>
+          <ElEmpty v-else description="暂无审批记录"/>
+        </section>
         <section v-if="!revisionTask && selectedTask.transferCandidates?.length" class="detail-section"><h3>转办人员</h3><ElSelect v-model="transferTargetId" class="full-width" placeholder="从审批人快照中选择"><ElOption v-for="candidate in selectedTask.transferCandidates" :key="candidate.userId" :label="candidate.displayName" :value="candidate.userId"/></ElSelect></section>
         <section class="detail-section"><h3>{{ revisionTask ? '修改说明' : '审批意见' }}</h3><ElInput v-model="approvalComment" :maxlength="2000" :rows="4" show-word-limit type="textarea"/></section>
       </div>

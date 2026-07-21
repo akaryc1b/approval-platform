@@ -39,6 +39,9 @@ public interface ApprovalTimelineQuery {
     record TimelineItem(
         UUID eventId,
         String action,
+        String schemaName,
+        int schemaVersion,
+        String summary,
         String operatorId,
         String aggregateType,
         String aggregateId,
@@ -50,6 +53,11 @@ public interface ApprovalTimelineQuery {
         public TimelineItem {
             eventId = Objects.requireNonNull(eventId, "eventId must not be null");
             action = requireText(action, "action");
+            schemaName = requireText(schemaName, "schemaName");
+            if (schemaVersion < 0) {
+                throw new IllegalArgumentException("schemaVersion must not be negative");
+            }
+            summary = requireText(summary, "summary");
             operatorId = requireText(operatorId, "operatorId");
             aggregateType = requireText(aggregateType, "aggregateType");
             aggregateId = requireText(aggregateId, "aggregateId");
