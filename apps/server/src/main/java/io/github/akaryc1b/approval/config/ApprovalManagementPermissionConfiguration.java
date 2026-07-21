@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.config;
 
 import io.github.akaryc1b.approval.api.ApprovalManagementPermissionInterceptor;
+import io.github.akaryc1b.approval.security.ApprovalResponsibilityResolver;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -14,17 +15,12 @@ public class ApprovalManagementPermissionConfiguration implements WebMvcConfigur
 
     public ApprovalManagementPermissionConfiguration(
         @Value("${approval.security.management-permissions.enforced:true}") boolean enforced,
-        @Value("${approval.security.management-permissions.source:principal}") String source,
-        @Value(
-            "${approval.security.management-permissions.trusted-header-name:"
-                + "X-Approval-Trusted-Permissions}"
-        ) String trustedHeaderName,
+        ApprovalResponsibilityResolver responsibilityResolver,
         MeterRegistry meterRegistry
     ) {
         interceptor = new ApprovalManagementPermissionInterceptor(
             enforced,
-            ApprovalManagementPermissionInterceptor.AuthoritySource.parse(source),
-            trustedHeaderName,
+            responsibilityResolver,
             meterRegistry
         );
     }

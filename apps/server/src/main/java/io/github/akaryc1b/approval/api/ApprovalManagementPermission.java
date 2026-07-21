@@ -5,7 +5,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Declares the closed management capability required by an Approval administration API. */
+/** Declares the closed management capability and server-resolved resource scope. */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ApprovalManagementPermission {
@@ -13,6 +13,15 @@ public @interface ApprovalManagementPermission {
     String ADMIN_AUTHORITY = "approval.management.admin";
 
     Requirement value();
+
+    ResourceScope resourceScope() default ResourceScope.TENANT;
+
+    String departmentPathVariable() default "";
+
+    enum ResourceScope {
+        TENANT,
+        DEPARTMENT
+    }
 
     enum Requirement {
         READ("approval.management.read", "read"),

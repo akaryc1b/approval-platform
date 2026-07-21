@@ -12,6 +12,7 @@ public record ApprovalPrincipal(
     String tenantId,
     String operatorId,
     Set<String> authorities,
+    Set<ApprovalResponsibilityAssignment> responsibilities,
     AccountStatus accountStatus,
     Instant sessionExpiresAt
 ) implements Principal {
@@ -21,6 +22,24 @@ public record ApprovalPrincipal(
     );
     private static final Pattern AUTHORITY = Pattern.compile("[a-z][a-z0-9.-]{2,127}");
     private static final int MAX_AUTHORITIES = 64;
+    private static final int MAX_RESPONSIBILITIES = 128;
+
+    public ApprovalPrincipal(
+        String tenantId,
+        String operatorId,
+        Set<String> authorities,
+        AccountStatus accountStatus,
+        Instant sessionExpiresAt
+    ) {
+        this(
+            tenantId,
+            operatorId,
+            authorities,
+            Set.of(),
+            accountStatus,
+            sessionExpiresAt
+        );
+    }
 
     public ApprovalPrincipal {
         tenantId = requireIdentifier(tenantId, "tenantId");
@@ -30,6 +49,7 @@ public record ApprovalPrincipal(
             "accountStatus must not be null"
         );
         authorities = normalizeAuthorities(authorities);
+        responsibilities = normalizeResponsibilities(responsibilities);
     }
 
     public static ApprovalPrincipal active(
@@ -38,10 +58,27 @@ public record ApprovalPrincipal(
         Set<String> authorities,
         Instant sessionExpiresAt
     ) {
+        return active(
+            tenantId,
+            operatorId,
+            authorities,
+            Set.of(),
+            sessionExpiresAt
+        );
+    }
+
+    public static ApprovalPrincipal active(
+        String tenantId,
+        String operatorId,
+        Set<String> authorities,
+        Set<ApprovalResponsibilityAssignment> responsibilities,
+        Instant sessionExpiresAt
+    ) {
         return new ApprovalPrincipal(
             tenantId,
             operatorId,
             authorities,
+            responsibilities,
             AccountStatus.ACTIVE,
             sessionExpiresAt
         );
@@ -54,6 +91,11 @@ public record ApprovalPrincipal(
 
     public boolean hasAuthority(String authority) {
         return authorities.contains(authority);
+    }
+
+    public boolean hasEnterpriseRole(ApprovalEnterpriseRole role) {
+        Objects.requireNonNull(role, "role must not be null");
+        return responsibilities.stream().anyMatch(assignment -> assignment.role() == role);
     }
 
     public boolean isExpiredAt(Instant instant) {
@@ -76,6 +118,27 @@ public record ApprovalPrincipal(
                 throw new IllegalArgumentException("authority is malformed");
             }
             normalized.add(authority);
+        }
+        return Set.copyOf(normalized);
+    }
+
+    private static Set<ApprovalResponsibilityAssignment> normalizeResponsibilities(
+        Set<ApprovalResponsibilityAssignment> values
+    ) {
+        if (values == null || values.isEmpty()) {
+            return Set.of();
+        }
+        if (values.size() > MAX_RESPONSIBILITIES) {
+            throw new IllegalArgumentException(
+                "responsibilities must not exceed " + MAX_RESPONSIBILITIES
+            );
+        }
+        Set<ApprovalResponsibilityAssignment> normalized = new LinkedHashSet<>();
+        for (ApprovalResponsibilityAssignment value : values) {
+            normalized.add(Objects.requireNonNull(
+                value,
+                "responsibility must not be null"
+            ));
         }
         return Set.copyOf(normalized);
     }

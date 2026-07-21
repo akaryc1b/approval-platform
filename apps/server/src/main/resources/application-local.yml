@@ -11,4 +11,3 @@ approval:
       mode: local-headers
     management-permissions:
       enforced: true
-      source: principal
