@@ -185,9 +185,11 @@ async function replaySelected() {
       sourceId: item.sourceId,
     })));
     if (result.rejected) {
-      ElMessage.warning(`已接受 ${result.replayed} 项，拒绝 ${result.rejected} 项`);
+      ElMessage.warning(
+        `已接受 ${result.replayed} 项，拒绝 ${result.rejected} 项 · requestId=${result.requestId}`,
+      );
     } else {
-      ElMessage.success(`已接受 ${result.replayed} 项重放`);
+      ElMessage.success(`已接受 ${result.replayed} 项重放 · requestId=${result.requestId}`);
     }
     await loadFailures(pageNumber.value);
   } catch (error) {
