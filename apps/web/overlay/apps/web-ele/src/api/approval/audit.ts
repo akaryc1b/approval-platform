@@ -53,6 +53,7 @@ export interface AuditIntegrityReport {
   firstInvalidSequence?: number;
   occurredFrom: string;
   occurredTo: string;
+  operationRequestId?: string;
   valid: boolean;
   verifiedAt: string;
 }
@@ -86,8 +87,10 @@ export function findAuditEvents(filters: AuditFilters, limit: number, offset: nu
   return approvalRequest<AuditPage>(`/approval/management/audit?${query.toString()}`);
 }
 
-export function verifyAuditIntegrity(filters: Pick<AuditFilters, 'occurredFrom' | 'occurredTo'>) {
-  return approvalRequestWithTrace<AuditIntegrityReport>(
+export async function verifyAuditIntegrity(
+  filters: Pick<AuditFilters, 'occurredFrom' | 'occurredTo'>,
+) {
+  const result = await approvalRequestWithTrace<AuditIntegrityReport>(
     '/approval/management/audit/integrity/verify',
     {
       body: JSON.stringify(filters),
@@ -95,6 +98,11 @@ export function verifyAuditIntegrity(filters: Pick<AuditFilters, 'occurredFrom' 
       method: 'POST',
     },
   );
+  return {
+    ...result.data,
+    assuranceStatement: `${result.data.assuranceStatement} · requestId=${result.requestId}`,
+    operationRequestId: result.requestId,
+  };
 }
 
 export async function exportAuditEvents(
@@ -108,15 +116,17 @@ export async function exportAuditEvents(
     headers,
     method: 'POST',
   });
+  const requestId = response.headers.get('X-Request-Id') || headers['X-Request-Id'];
   const blob = await response.blob();
   const contentDisposition = response.headers.get('Content-Disposition');
   const match = contentDisposition?.match(/filename="?([^";]+)"?/i);
-  const fileName = match?.[1] || `approval-audit.${format.toLowerCase()}`;
+  const fallbackName = `approval-audit-${requestId}.${format.toLowerCase()}`;
+  const fileName = match?.[1] || fallbackName;
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
-  return response.headers.get('X-Request-Id') || headers['X-Request-Id'];
+  return requestId;
 }
