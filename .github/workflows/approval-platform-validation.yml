@@ -50,6 +50,8 @@ jobs:
           fi
       - name: Verify final tracked-tree hygiene
         run: node --test scripts/tests/m3-repository-hygiene.test.mjs
+      - name: Verify M4 identity and Flowable boundaries
+        run: node --test scripts/tests/m4-identity-boundary.test.mjs
 
   backend:
     name: Java 21 / Maven / PostgreSQL
