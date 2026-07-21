@@ -106,7 +106,12 @@ public final class DefaultApprovalResponsibilityResolver
         matrix.put(ApprovalEnterpriseRole.TENANT_ADMIN, all);
         matrix.put(
             ApprovalEnterpriseRole.PROCESS_DESIGNER,
-            immutable(Requirement.READ, Requirement.DESIGN)
+            immutable(
+                Requirement.READ,
+                Requirement.DESIGN,
+                Requirement.SLA_READ,
+                Requirement.SLA_DESIGN
+            )
         );
         matrix.put(
             ApprovalEnterpriseRole.PROCESS_PUBLISHER,
@@ -114,7 +119,10 @@ public final class DefaultApprovalResponsibilityResolver
                 Requirement.READ,
                 Requirement.PUBLISH,
                 Requirement.DEPLOY,
-                Requirement.ACTIVATE
+                Requirement.ACTIVATE,
+                Requirement.SLA_READ,
+                Requirement.SLA_PUBLISH,
+                Requirement.SLA_ACTIVATE
             )
         );
         matrix.put(
@@ -123,7 +131,8 @@ public final class DefaultApprovalResponsibilityResolver
                 Requirement.READ,
                 Requirement.AUDIT_READ,
                 Requirement.AUDIT_EXPORT,
-                Requirement.AUDIT_VERIFY
+                Requirement.AUDIT_VERIFY,
+                Requirement.SLA_READ
             )
         );
         matrix.put(
@@ -133,12 +142,13 @@ public final class DefaultApprovalResponsibilityResolver
                 Requirement.CONSISTENCY_READ,
                 Requirement.CONSISTENCY_RUN,
                 Requirement.OPERATIONAL_FAILURE_READ,
-                Requirement.OPERATIONAL_FAILURE_REPLAY
+                Requirement.OPERATIONAL_FAILURE_REPLAY,
+                Requirement.SLA_READ
             )
         );
         matrix.put(
             ApprovalEnterpriseRole.DEPARTMENT_APPROVAL_ADMIN,
-            immutable(Requirement.READ, Requirement.TRANSFER)
+            immutable(Requirement.READ, Requirement.TRANSFER, Requirement.SLA_READ)
         );
         matrix.put(
             ApprovalEnterpriseRole.DATA_ARCHIVE_ADMIN,
