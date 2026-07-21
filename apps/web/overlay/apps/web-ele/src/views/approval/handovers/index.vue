@@ -168,7 +168,9 @@ async function submitCreate() {
       successor,
       normalizedReason,
     );
-    ElMessage.success(`交接已创建，已转移 ${result.transferredTaskCount} 个待办`);
+    ElMessage.success(
+      `交接已创建，已转移 ${result.transferredTaskCount} 个待办 · requestId=${result.operationRequestId}`,
+    );
     successorKey.value = '';
     reason.value = '';
     await loadHandovers();
@@ -198,8 +200,8 @@ async function revoke(handover: PrincipalHandover) {
     return;
   }
   try {
-    await revokeEmployeeHandover(handover.handoverId, revokeReason);
-    ElMessage.success('离职交接已撤销');
+    const result = await revokeEmployeeHandover(handover.handoverId, revokeReason);
+    ElMessage.success(`离职交接已撤销 · requestId=${result.operationRequestId}`);
     await loadHandovers();
   } catch (error) {
     ElMessage.error(errorMessage(error));
