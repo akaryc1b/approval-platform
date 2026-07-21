@@ -20,6 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalMigrationUpgradeIntegrationTest {
 
+    private static final String FRESH_DATABASE = "approval_h8_fresh";
+    private static final String UPGRADE_DATABASE = "approval_h8_upgrade";
+
     private static final Set<String> H8_INDEXES = Set.of(
         "idx_approval_task_pending_assignee_page",
         "idx_approval_task_completed_assignee_page",
@@ -38,62 +41,71 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         .withUsername("approval")
         .withPassword("approval");
 
-    private static DataSource dataSource;
-    private static JdbcTemplate jdbc;
-
     @BeforeAll
-    static void configureDataSource() {
-        dataSource = new DriverManagerDataSource(
+    static void createIsolatedDatabases() {
+        JdbcTemplate admin = new JdbcTemplate(new DriverManagerDataSource(
             POSTGRES.getJdbcUrl(),
             POSTGRES.getUsername(),
             POSTGRES.getPassword()
-        );
-        jdbc = new JdbcTemplate(dataSource);
+        ));
+        admin.execute("create database " + FRESH_DATABASE);
+        admin.execute("create database " + UPGRADE_DATABASE);
     }
 
     @Test
     void upgradesPreH8SchemaFromV23ToV27() {
-        Flyway preH8 = flyway("upgrade_h8", MigrationVersion.fromVersion("23"));
+        DataSource dataSource = dataSource(UPGRADE_DATABASE);
+        Flyway preH8 = flyway(dataSource, MigrationVersion.fromVersion("23"));
         preH8.migrate();
         assertEquals("23", preH8.info().current().getVersion().getVersion());
 
-        Flyway latest = flyway("upgrade_h8", null);
+        Flyway latest = flyway(dataSource, null);
         latest.migrate();
 
         assertEquals("27", latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
-        assertH8Indexes("upgrade_h8");
+        assertH8Indexes(dataSource);
     }
 
     @Test
     void freshInstallReachesV27WithTheSameIndexContract() {
-        Flyway latest = flyway("fresh_h8", null);
+        DataSource dataSource = dataSource(FRESH_DATABASE);
+        Flyway latest = flyway(dataSource, null);
         latest.migrate();
 
         assertEquals("27", latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
-        assertH8Indexes("fresh_h8");
+        assertH8Indexes(dataSource);
     }
 
-    private static Flyway flyway(String schema, MigrationVersion target) {
+    private static DataSource dataSource(String databaseName) {
+        String url = "jdbc:postgresql://" + POSTGRES.getHost()
+            + ":" + POSTGRES.getMappedPort(5432)
+            + "/" + databaseName;
+        return new DriverManagerDataSource(
+            url,
+            POSTGRES.getUsername(),
+            POSTGRES.getPassword()
+        );
+    }
+
+    private static Flyway flyway(DataSource dataSource, MigrationVersion target) {
         var configuration = Flyway.configure()
             .dataSource(dataSource)
-            .locations("classpath:db/migration")
-            .schemas(schema)
-            .defaultSchema(schema)
-            .createSchemas(true);
+            .locations("classpath:db/migration");
         if (target != null) {
             configuration.target(target);
         }
         return configuration.load();
     }
 
-    private static void assertH8Indexes(String schema) {
+    private static void assertH8Indexes(DataSource dataSource) {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         List<String> names = jdbc.queryForList(
             """
             select indexname
             from pg_indexes
-            where schemaname = ?
+            where schemaname = current_schema()
               and indexname = any (array[
                 'idx_approval_task_pending_assignee_page',
                 'idx_approval_task_completed_assignee_page',
@@ -106,8 +118,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
                 'idx_outbox_failure_queue'
               ])
             """,
-            String.class,
-            schema
+            String.class
         );
         assertEquals(H8_INDEXES, Set.copyOf(names));
 
@@ -115,11 +126,10 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
             """
             select count(*)
             from pg_indexes
-            where schemaname = ?
+            where schemaname = current_schema()
               and indexname = 'ap_approval_task_assignee_idx'
             """,
-            Integer.class,
-            schema
+            Integer.class
         );
         assertEquals(0, legacyCount);
     }
