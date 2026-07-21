@@ -6,6 +6,7 @@ import type {
 import {
   approvalCommandHeaders,
   approvalRequest,
+  approvalRequestWithTrace,
 } from '#/api/approval/transport';
 import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
@@ -16,6 +17,7 @@ export interface PrincipalHandover {
   createdAt: string;
   createdBy: string;
   handoverId: string;
+  operationRequestId?: string;
   principalId: string;
   principalIdentity: IdentityReference;
   reason: string;
@@ -31,26 +33,31 @@ export interface PrincipalHandover {
 
 export interface CreateHandoverResult {
   handover: PrincipalHandover;
+  operationRequestId: string;
   transferredTaskCount: number;
   transferredTaskIds: string[];
 }
 
-export function createEmployeeHandover(
+export async function createEmployeeHandover(
   principal: ApprovalIdentityCandidate,
   successor: ApprovalIdentityCandidate,
   reason: string,
 ) {
   const runtime = getApprovalRuntimeConfig();
-  return approvalRequest<CreateHandoverResult>('/approval/handovers', {
-    body: JSON.stringify({
-      connectorKey: runtime.connector,
-      principalIdentity: principal.reference,
-      reason: reason.trim(),
-      successorIdentity: successor.reference,
-    }),
-    headers: approvalCommandHeaders('web-handover-create'),
-    method: 'POST',
-  });
+  const result = await approvalRequestWithTrace<Omit<CreateHandoverResult, 'operationRequestId'>>(
+    '/approval/handovers',
+    {
+      body: JSON.stringify({
+        connectorKey: runtime.connector,
+        principalIdentity: principal.reference,
+        reason: reason.trim(),
+        successorIdentity: successor.reference,
+      }),
+      headers: approvalCommandHeaders('web-handover-create'),
+      method: 'POST',
+    },
+  );
+  return { ...result.data, operationRequestId: result.requestId };
 }
 
 export function findEmployeeHandovers(
@@ -64,8 +71,8 @@ export function findEmployeeHandovers(
   return approvalRequest<PrincipalHandover[]>(`/approval/handovers?${query.toString()}`);
 }
 
-export function revokeEmployeeHandover(handoverId: string, reason: string) {
-  return approvalRequest<PrincipalHandover>(
+export async function revokeEmployeeHandover(handoverId: string, reason: string) {
+  const result = await approvalRequestWithTrace<PrincipalHandover>(
     `/approval/handovers/${encodeURIComponent(handoverId)}/revoke`,
     {
       body: JSON.stringify({ reason: reason.trim() }),
@@ -73,4 +80,5 @@ export function revokeEmployeeHandover(handoverId: string, reason: string) {
       method: 'POST',
     },
   );
+  return { ...result.data, operationRequestId: result.requestId };
 }
