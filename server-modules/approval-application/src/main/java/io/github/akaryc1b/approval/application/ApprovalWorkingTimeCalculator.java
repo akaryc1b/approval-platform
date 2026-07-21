@@ -16,24 +16,26 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
-/** Bounded, deterministic work-calendar calculations based on Java Time zone rules. */
+/** Bounded work-calendar calculations based exclusively on Java Time zone rules. */
 public final class ApprovalWorkingTimeCalculator {
 
     private static final int MAX_INTERVALS_PER_DAY = 16;
     private static final int MAX_OVERRIDES = 20_000;
     private static final int MAX_SCAN_DAYS = 36_600;
-    private static final Duration MAX_CALCULATION_DURATION = Duration.ofDays(36_600);
+    private static final Duration MAX_CALCULATION_DURATION = Duration.ofDays(MAX_SCAN_DAYS);
 
     public boolean isWorkingInstant(CalendarSnapshot calendar, Instant instant) {
         CalendarSnapshot snapshot = Objects.requireNonNull(calendar, "calendar must not be null");
         Instant value = Objects.requireNonNull(instant, "instant must not be null");
-        LocalDate date = value.atZone(snapshot.zoneId()).toLocalDate();
-        for (ResolvedInterval interval : resolvedIntervals(snapshot, date)) {
+        LocalDate localDate = value.atZone(snapshot.zoneId()).toLocalDate();
+        for (ResolvedInterval interval : intervalsTouchingDate(snapshot, localDate)) {
             if (!value.isBefore(interval.start()) && value.isBefore(interval.end())) {
                 return true;
             }
@@ -44,20 +46,53 @@ public final class ApprovalWorkingTimeCalculator {
     public Instant nextWorkingInstant(CalendarSnapshot calendar, Instant instant) {
         CalendarSnapshot snapshot = Objects.requireNonNull(calendar, "calendar must not be null");
         Instant candidate = Objects.requireNonNull(instant, "instant must not be null");
-        LocalDate firstDate = candidate.atZone(snapshot.zoneId()).toLocalDate();
-        for (int day = 0; day <= MAX_SCAN_DAYS; day++) {
-            LocalDate date = firstDate.plusDays(day);
-            for (ResolvedInterval interval : resolvedIntervals(snapshot, date)) {
+        LocalDate firstAnchor = candidate.atZone(snapshot.zoneId()).toLocalDate().minusDays(1);
+        for (int scanned = 0; scanned <= MAX_SCAN_DAYS + 1; scanned++) {
+            LocalDate anchorDate = firstAnchor.plusDays(scanned);
+            validateAdjacentResolvedIntervals(snapshot, anchorDate);
+            for (ResolvedInterval interval : intervalsStartingOn(snapshot, anchorDate)) {
                 Instant normalized = candidate.isAfter(interval.start()) ? candidate : interval.start();
                 if (normalized.isBefore(interval.end())) {
                     return normalized;
                 }
             }
-            candidate = startOfDay(snapshot.zoneId(), date.plusDays(1));
         }
-        throw new WorkingTimeUnavailableException(
-            "no working interval is available within the bounded calendar horizon"
-        );
+        throw unavailable("no working interval is available within the bounded calendar horizon");
+    }
+
+    public Instant addDuration(
+        CalendarSnapshot calendar,
+        Instant startedAt,
+        Duration duration,
+        DurationMode mode
+    ) {
+        Objects.requireNonNull(mode, "mode must not be null");
+        Duration value = validateDuration(duration, "duration");
+        Instant start = Objects.requireNonNull(startedAt, "startedAt must not be null");
+        if (mode == DurationMode.NATURAL_TIME) {
+            return start.plus(value);
+        }
+        return addWorkingDuration(calendar, start, value);
+    }
+
+    public Duration elapsedDuration(
+        CalendarSnapshot calendar,
+        Instant startedAt,
+        Instant endedAt,
+        DurationMode mode
+    ) {
+        Objects.requireNonNull(mode, "mode must not be null");
+        Instant start = Objects.requireNonNull(startedAt, "startedAt must not be null");
+        Instant end = Objects.requireNonNull(endedAt, "endedAt must not be null");
+        if (end.isBefore(start)) {
+            throw new IllegalArgumentException("endedAt must not be before startedAt");
+        }
+        if (mode == DurationMode.NATURAL_TIME) {
+            Duration value = Duration.between(start, end);
+            validateDuration(value, "elapsed duration");
+            return value;
+        }
+        return workingDurationBetween(calendar, start, end);
     }
 
     public Instant addWorkingDuration(
@@ -71,16 +106,17 @@ public final class ApprovalWorkingTimeCalculator {
         if (remaining.isZero()) {
             return isWorkingInstant(snapshot, start) ? start : nextWorkingInstant(snapshot, start);
         }
+
         Instant cursor = nextWorkingInstant(snapshot, start);
-        for (int day = 0; day <= MAX_SCAN_DAYS; day++) {
-            LocalDate date = cursor.atZone(snapshot.zoneId()).toLocalDate();
-            boolean consumedInterval = false;
-            for (ResolvedInterval interval : resolvedIntervals(snapshot, date)) {
+        LocalDate firstAnchor = cursor.atZone(snapshot.zoneId()).toLocalDate().minusDays(1);
+        for (int scanned = 0; scanned <= MAX_SCAN_DAYS + 1; scanned++) {
+            LocalDate anchorDate = firstAnchor.plusDays(scanned);
+            validateAdjacentResolvedIntervals(snapshot, anchorDate);
+            for (ResolvedInterval interval : intervalsStartingOn(snapshot, anchorDate)) {
                 Instant intervalCursor = cursor.isAfter(interval.start()) ? cursor : interval.start();
                 if (!intervalCursor.isBefore(interval.end())) {
                     continue;
                 }
-                consumedInterval = true;
                 Duration available = Duration.between(intervalCursor, interval.end());
                 if (remaining.compareTo(available) <= 0) {
                     return intervalCursor.plus(remaining);
@@ -88,15 +124,8 @@ public final class ApprovalWorkingTimeCalculator {
                 remaining = remaining.minus(available);
                 cursor = interval.end();
             }
-            LocalDate nextDate = date.plusDays(1);
-            cursor = startOfDay(snapshot.zoneId(), nextDate);
-            if (!consumedInterval || remaining.isPositive()) {
-                cursor = nextWorkingInstant(snapshot, cursor);
-            }
         }
-        throw new WorkingTimeUnavailableException(
-            "working duration exceeds the bounded calendar horizon"
-        );
+        throw unavailable("working duration exceeds the bounded calendar horizon");
     }
 
     public Duration workingDurationBetween(
@@ -113,19 +142,23 @@ public final class ApprovalWorkingTimeCalculator {
         if (start.equals(end)) {
             return Duration.ZERO;
         }
-        if (Duration.between(start, end).compareTo(MAX_CALCULATION_DURATION) > 0) {
+        Duration wallRange = Duration.between(start, end);
+        if (wallRange.compareTo(MAX_CALCULATION_DURATION.plusDays(2)) > 0) {
             throw new IllegalArgumentException("calculation range exceeds the bounded horizon");
         }
-        LocalDate firstDate = start.atZone(snapshot.zoneId()).toLocalDate();
-        LocalDate lastDate = end.atZone(snapshot.zoneId()).toLocalDate();
-        long days = lastDate.toEpochDay() - firstDate.toEpochDay();
-        if (days > MAX_SCAN_DAYS) {
+
+        LocalDate firstAnchor = start.atZone(snapshot.zoneId()).toLocalDate().minusDays(1);
+        LocalDate lastAnchor = end.atZone(snapshot.zoneId()).toLocalDate();
+        long anchorDays = lastAnchor.toEpochDay() - firstAnchor.toEpochDay();
+        if (anchorDays > MAX_SCAN_DAYS + 1L) {
             throw new IllegalArgumentException("calculation range exceeds the bounded horizon");
         }
+
         Duration total = Duration.ZERO;
-        for (long day = 0; day <= days; day++) {
-            LocalDate date = firstDate.plusDays(day);
-            for (ResolvedInterval interval : resolvedIntervals(snapshot, date)) {
+        for (long scanned = 0; scanned <= anchorDays; scanned++) {
+            LocalDate anchorDate = firstAnchor.plusDays(scanned);
+            validateAdjacentResolvedIntervals(snapshot, anchorDate);
+            for (ResolvedInterval interval : intervalsStartingOn(snapshot, anchorDate)) {
                 Instant overlapStart = start.isAfter(interval.start()) ? start : interval.start();
                 Instant overlapEnd = end.isBefore(interval.end()) ? end : interval.end();
                 if (overlapStart.isBefore(overlapEnd)) {
@@ -134,6 +167,73 @@ public final class ApprovalWorkingTimeCalculator {
             }
         }
         return total;
+    }
+
+    private static List<ResolvedInterval> intervalsTouchingDate(
+        CalendarSnapshot calendar,
+        LocalDate localDate
+    ) {
+        List<ResolvedInterval> intervals = new ArrayList<>(MAX_INTERVALS_PER_DAY * 2);
+        intervals.addAll(intervalsStartingOn(calendar, localDate.minusDays(1)));
+        intervals.addAll(intervalsStartingOn(calendar, localDate));
+        intervals.sort(Comparator.comparing(ResolvedInterval::start));
+        rejectResolvedOverlap(intervals);
+        return List.copyOf(intervals);
+    }
+
+    private static List<ResolvedInterval> intervalsStartingOn(
+        CalendarSnapshot calendar,
+        LocalDate anchorDate
+    ) {
+        List<WorkingInterval> localIntervals = effectiveIntervals(calendar, anchorDate);
+        if (localIntervals.isEmpty()) {
+            return List.of();
+        }
+        List<ResolvedInterval> result = new ArrayList<>(localIntervals.size());
+        for (WorkingInterval interval : localIntervals) {
+            LocalDate endDate = interval.crossesMidnight() ? anchorDate.plusDays(1) : anchorDate;
+            Instant start = resolveBoundary(calendar.zoneId(), anchorDate, interval.start(), true);
+            Instant end = resolveBoundary(calendar.zoneId(), endDate, interval.end(), false);
+            if (!start.isBefore(end)) {
+                throw unavailable("calendar interval resolves to a non-positive instant range");
+            }
+            result.add(new ResolvedInterval(start, end));
+        }
+        result.sort(Comparator.comparing(ResolvedInterval::start));
+        rejectResolvedOverlap(result);
+        return List.copyOf(result);
+    }
+
+    private static List<WorkingInterval> effectiveIntervals(
+        CalendarSnapshot calendar,
+        LocalDate date
+    ) {
+        DayOverride override = calendar.overrides().get(date);
+        if (override == null) {
+            return calendar.weeklySchedule().getOrDefault(date.getDayOfWeek(), List.of());
+        }
+        return override.working() ? override.intervals() : List.of();
+    }
+
+    private static void validateAdjacentResolvedIntervals(
+        CalendarSnapshot calendar,
+        LocalDate anchorDate
+    ) {
+        List<ResolvedInterval> adjacent = new ArrayList<>(MAX_INTERVALS_PER_DAY * 2);
+        adjacent.addAll(intervalsStartingOn(calendar, anchorDate.minusDays(1)));
+        adjacent.addAll(intervalsStartingOn(calendar, anchorDate));
+        adjacent.sort(Comparator.comparing(ResolvedInterval::start));
+        rejectResolvedOverlap(adjacent);
+    }
+
+    private static void rejectResolvedOverlap(List<ResolvedInterval> intervals) {
+        for (int index = 1; index < intervals.size(); index++) {
+            ResolvedInterval previous = intervals.get(index - 1);
+            ResolvedInterval current = intervals.get(index);
+            if (current.start().isBefore(previous.end())) {
+                throw unavailable("calendar intervals overlap after time-zone resolution");
+            }
+        }
     }
 
     private static Duration validateDuration(Duration duration, String name) {
@@ -145,35 +245,6 @@ public final class ApprovalWorkingTimeCalculator {
             throw new IllegalArgumentException(name + " exceeds the bounded horizon");
         }
         return value;
-    }
-
-    private static List<ResolvedInterval> resolvedIntervals(
-        CalendarSnapshot calendar,
-        LocalDate date
-    ) {
-        DayOverride override = calendar.overrides().get(date);
-        List<WorkingInterval> intervals = override == null
-            ? calendar.weeklySchedule().getOrDefault(date.getDayOfWeek(), List.of())
-            : override.working() ? override.intervals() : List.of();
-        if (intervals.isEmpty()) {
-            return List.of();
-        }
-        List<ResolvedInterval> result = new ArrayList<>(intervals.size());
-        for (WorkingInterval interval : intervals) {
-            Instant start = resolveBoundary(calendar.zoneId(), date, interval.start(), true);
-            Instant end = resolveBoundary(calendar.zoneId(), date, interval.end(), false);
-            if (!start.isBefore(end)) {
-                throw new WorkingTimeUnavailableException(
-                    "calendar interval resolves to a non-positive instant range"
-                );
-            }
-            result.add(new ResolvedInterval(start, end));
-        }
-        return List.copyOf(result);
-    }
-
-    private static Instant startOfDay(ZoneId zoneId, LocalDate date) {
-        return date.atStartOfDay(zoneId).toInstant();
     }
 
     private static Instant resolveBoundary(
@@ -194,7 +265,7 @@ public final class ApprovalWorkingTimeCalculator {
         }
         ZoneOffsetTransition transition = rules.getTransition(localDateTime);
         if (transition == null || !transition.isGap()) {
-            throw new WorkingTimeUnavailableException("unable to resolve calendar time-zone boundary");
+            throw unavailable("unable to resolve calendar time-zone boundary");
         }
         return transition.getInstant();
     }
@@ -218,6 +289,7 @@ public final class ApprovalWorkingTimeCalculator {
             contentHash = requireText(contentHash, "contentHash");
             weeklySchedule = normalizeWeeklySchedule(weeklySchedule);
             overrides = normalizeOverrides(overrides);
+            validateCalendarRelationships(weeklySchedule, overrides);
         }
 
         public static CalendarSnapshot of(
@@ -249,9 +321,22 @@ public final class ApprovalWorkingTimeCalculator {
         public WorkingInterval {
             start = Objects.requireNonNull(start, "start must not be null");
             end = Objects.requireNonNull(end, "end must not be null");
-            if (!start.isBefore(end)) {
-                throw new IllegalArgumentException("working interval start must be before end");
+            if (start.equals(end)) {
+                throw new IllegalArgumentException("working interval must not be zero length");
             }
+        }
+
+        public boolean crossesMidnight() {
+            return start.isAfter(end);
+        }
+
+        private int startMinute() {
+            return start.getHour() * 60 + start.getMinute();
+        }
+
+        private int endMinuteFromAnchor() {
+            int endMinute = end.getHour() * 60 + end.getMinute();
+            return crossesMidnight() ? endMinute + 1440 : endMinute;
         }
     }
 
@@ -275,6 +360,11 @@ public final class ApprovalWorkingTimeCalculator {
         }
     }
 
+    public enum DurationMode {
+        NATURAL_TIME,
+        WORKING_TIME
+    }
+
     public static final class WorkingTimeUnavailableException extends RuntimeException {
         public WorkingTimeUnavailableException(String message) {
             super(message);
@@ -282,6 +372,9 @@ public final class ApprovalWorkingTimeCalculator {
     }
 
     private record ResolvedInterval(Instant start, Instant end) {
+    }
+
+    private record LocalMinuteRange(long start, long end) {
     }
 
     private static Map<DayOfWeek, List<WorkingInterval>> normalizeWeeklySchedule(
@@ -335,16 +428,92 @@ public final class ApprovalWorkingTimeCalculator {
         }
         List<WorkingInterval> normalized = source.stream()
             .map(interval -> Objects.requireNonNull(interval, name + " must not contain null"))
-            .sorted(Comparator.comparing(WorkingInterval::start))
+            .sorted(Comparator.comparingInt(WorkingInterval::startMinute))
             .toList();
         for (int index = 1; index < normalized.size(); index++) {
             WorkingInterval previous = normalized.get(index - 1);
             WorkingInterval current = normalized.get(index);
-            if (current.start().isBefore(previous.end())) {
+            if (current.startMinute() < previous.endMinuteFromAnchor()) {
                 throw new IllegalArgumentException(name + " must not overlap");
             }
         }
         return List.copyOf(normalized);
+    }
+
+    private static void validateCalendarRelationships(
+        Map<DayOfWeek, List<WorkingInterval>> weekly,
+        Map<LocalDate, DayOverride> overrides
+    ) {
+        List<LocalMinuteRange> weeklyRanges = new ArrayList<>();
+        for (DayOfWeek day : DayOfWeek.values()) {
+            long dayStart = (long) (day.getValue() - 1) * 1440;
+            for (WorkingInterval interval : weekly.getOrDefault(day, List.of())) {
+                weeklyRanges.add(new LocalMinuteRange(
+                    dayStart + interval.startMinute(),
+                    dayStart + interval.endMinuteFromAnchor()
+                ));
+            }
+        }
+        for (WorkingInterval monday : weekly.getOrDefault(DayOfWeek.MONDAY, List.of())) {
+            weeklyRanges.add(new LocalMinuteRange(
+                10080L + monday.startMinute(),
+                10080L + monday.endMinuteFromAnchor()
+            ));
+        }
+        rejectLocalOverlap(weeklyRanges, "weekly intervals must not overlap across midnight");
+
+        Set<LocalDate> affectedDates = new LinkedHashSet<>();
+        for (LocalDate date : overrides.keySet()) {
+            affectedDates.add(date.minusDays(1));
+            affectedDates.add(date);
+            affectedDates.add(date.plusDays(1));
+        }
+        for (LocalDate date : affectedDates) {
+            List<LocalMinuteRange> adjacent = new ArrayList<>();
+            appendLocalRanges(adjacent, effectiveLocalIntervals(weekly, overrides, date.minusDays(1)), 0);
+            appendLocalRanges(adjacent, effectiveLocalIntervals(weekly, overrides, date), 1440);
+            rejectLocalOverlap(adjacent, "date override conflicts with an adjacent working interval");
+        }
+    }
+
+    private static List<WorkingInterval> effectiveLocalIntervals(
+        Map<DayOfWeek, List<WorkingInterval>> weekly,
+        Map<LocalDate, DayOverride> overrides,
+        LocalDate date
+    ) {
+        DayOverride override = overrides.get(date);
+        if (override == null) {
+            return weekly.getOrDefault(date.getDayOfWeek(), List.of());
+        }
+        return override.working() ? override.intervals() : List.of();
+    }
+
+    private static void appendLocalRanges(
+        List<LocalMinuteRange> target,
+        List<WorkingInterval> intervals,
+        long dayOffset
+    ) {
+        for (WorkingInterval interval : intervals) {
+            target.add(new LocalMinuteRange(
+                dayOffset + interval.startMinute(),
+                dayOffset + interval.endMinuteFromAnchor()
+            ));
+        }
+    }
+
+    private static void rejectLocalOverlap(List<LocalMinuteRange> ranges, String message) {
+        ranges.sort(Comparator.comparingLong(LocalMinuteRange::start));
+        for (int index = 1; index < ranges.size(); index++) {
+            LocalMinuteRange previous = ranges.get(index - 1);
+            LocalMinuteRange current = ranges.get(index);
+            if (current.start() < previous.end()) {
+                throw new IllegalArgumentException(message);
+            }
+        }
+    }
+
+    private static WorkingTimeUnavailableException unavailable(String message) {
+        return new WorkingTimeUnavailableException(message);
     }
 
     private static String requireText(String value, String name) {
