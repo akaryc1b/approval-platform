@@ -5,8 +5,10 @@ logging:
   level:
     io.github.akaryc1b.approval: DEBUG
 
-
 approval:
   security:
+    identity:
+      mode: local-headers
     management-permissions:
-      enforced: false
+      enforced: true
+      source: principal
