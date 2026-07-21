@@ -77,14 +77,48 @@ test('web management API modules use the governed approval transport', async () 
   }
 });
 
-test('governed transport preserves structured error and request tracing fields', async () => {
-  const content = await readFile(join(webRoot, 'api/approval/transport.ts'), 'utf8');
-  for (const field of ['code', 'requestId', 'retryable', 'status']) {
-    assert.match(content, new RegExp(`readonly ${field}`));
+test('mobile participant API modules use the governed approval transport', async () => {
+  const apiRoot = join(mobileRoot, 'api/approval');
+  const apiSources = await sources(apiRoot);
+  const directRequestOffenders = apiSources
+    .filter(file => !file.path.endsWith('transport.ts'))
+    .filter(file => file.content.includes('uni.request('))
+    .map(file => displayPath(file.path));
+  assert.deepEqual(directRequestOffenders, []);
+
+  for (const modulePath of [
+    'comments.ts',
+    'delegations.ts',
+    'identities.ts',
+    'notifications.ts',
+    'task-collaboration.ts',
+  ]) {
+    const content = await readFile(join(apiRoot, modulePath), 'utf8');
+    assert.match(
+      content,
+      /@\/api\/approval\/transport/,
+      `${modulePath} bypasses governed mobile transport`,
+    );
   }
-  assert.match(content, /response\.headers\.get\('X-Request-Id'\)/);
-  assert.match(content, /credentials: 'same-origin'/);
-  assert.doesNotMatch(content, /Trusted-Permissions/);
+});
+
+test('governed transports preserve structured error and request tracing fields', async () => {
+  const webTransport = await readFile(join(webRoot, 'api/approval/transport.ts'), 'utf8');
+  for (const field of ['code', 'requestId', 'retryable', 'status']) {
+    assert.match(webTransport, new RegExp(`readonly ${field}`));
+  }
+  assert.match(webTransport, /response\.headers\.get\('X-Request-Id'\)/);
+  assert.match(webTransport, /credentials: 'same-origin'/);
+  assert.doesNotMatch(webTransport, /Trusted-Permissions/);
+
+  const mobileTransport = await readFile(join(mobileRoot, 'api/approval/transport.ts'), 'utf8');
+  for (const field of ['code', 'requestId', 'retryable', 'status']) {
+    assert.match(mobileTransport, new RegExp(`readonly ${field}`));
+  }
+  assert.match(mobileTransport, /APPROVAL_NETWORK_ERROR/);
+  assert.match(mobileTransport, /allowNotFound/);
+  assert.match(mobileTransport, /X-Request-Id/);
+  assert.doesNotMatch(mobileTransport, /Trusted-Permissions/);
 });
 
 test('management routes declare host-side capability hints', async () => {
