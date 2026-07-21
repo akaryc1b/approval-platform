@@ -130,6 +130,21 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
     private static void seedV27Data(JdbcTemplate jdbc) {
         jdbc.update(
             """
+            insert into ap_definition_version (
+                tenant_id, definition_key, definition_version,
+                form_key, form_version, compiler_version, content_hash,
+                deployment_id, engine_definition_id, engine_version,
+                published_by, published_at
+            ) values (
+                'tenant-upgrade', 'purchasePayment', 1,
+                'purchasePayment', 1, 'compiler-v1', repeat('a', 64),
+                'deployment-upgrade', 'engine-definition-upgrade', 1,
+                'upgrade-test', timestamptz '2025-12-31 00:00:00+00'
+            )
+            """
+        );
+        jdbc.update(
+            """
             insert into ap_approval_instance (
                 instance_id, tenant_id, business_key, engine_instance_id,
                 definition_key, definition_version, form_key, form_version,
