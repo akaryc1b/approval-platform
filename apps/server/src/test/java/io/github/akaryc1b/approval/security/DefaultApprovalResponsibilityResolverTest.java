@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.security;
 import io.github.akaryc1b.approval.api.ApprovalManagementPermission;
 import io.github.akaryc1b.approval.api.ApprovalManagementPermission.Requirement;
 import io.github.akaryc1b.approval.security.ApprovalAuthorizationDecision.Code;
+
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -38,8 +39,24 @@ class DefaultApprovalResponsibilityResolverTest {
             matrix.get(ApprovalEnterpriseRole.TENANT_ADMIN)
         );
         assertEquals(
-            Set.of(Requirement.READ, Requirement.DESIGN),
+            Set.of(
+                Requirement.READ,
+                Requirement.DESIGN,
+                Requirement.SLA_READ,
+                Requirement.SLA_DESIGN
+            ),
             matrix.get(ApprovalEnterpriseRole.PROCESS_DESIGNER)
+        );
+        assertTrue(
+            matrix.get(ApprovalEnterpriseRole.PROCESS_PUBLISHER)
+                .containsAll(Set.of(
+                    Requirement.SLA_READ,
+                    Requirement.SLA_PUBLISH,
+                    Requirement.SLA_ACTIVATE
+                ))
+        );
+        assertTrue(
+            matrix.get(ApprovalEnterpriseRole.OPERATIONS).contains(Requirement.SLA_READ)
         );
         assertTrue(matrix.get(ApprovalEnterpriseRole.PARTICIPANT).isEmpty());
         matrix.forEach((role, requirements) -> {
