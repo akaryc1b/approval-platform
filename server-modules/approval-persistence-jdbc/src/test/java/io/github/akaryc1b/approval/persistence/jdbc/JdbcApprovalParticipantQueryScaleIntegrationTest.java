@@ -99,7 +99,7 @@ class JdbcApprovalParticipantQueryScaleIntegrationTest {
                 + "where task.tenant_id = 'tenant-a' "
                 + "and task.assignee_id = 'assignee-target' "
                 + "and task.status = 'PENDING' and instance.status = 'RUNNING' "
-                + "order by task.created_at, task.task_id limit 20 offset 40",
+                + "order by task.created_at, task.task_id limit 20 offset 1000",
             "idx_approval_task_pending_assignee_page"
         );
         assertPlanUses(
@@ -146,9 +146,9 @@ class JdbcApprovalParticipantQueryScaleIntegrationTest {
     @Test
     void normalAndDeepPagesRemainStableAndTenantScoped() {
         List<UUID> firstTasks = taskPage("tenant-a", 0);
-        List<UUID> deepTasks = taskPage("tenant-a", 80);
-        List<UUID> repeatedTasks = taskPage("tenant-a", 80);
-        List<UUID> otherTasks = taskPage("tenant-b", 80);
+        List<UUID> deepTasks = taskPage("tenant-a", 1000);
+        List<UUID> repeatedTasks = taskPage("tenant-a", 1000);
+        List<UUID> otherTasks = taskPage("tenant-b", 1000);
 
         assertEquals(20, firstTasks.size());
         assertEquals(20, deepTasks.size());
@@ -258,7 +258,7 @@ class JdbcApprovalParticipantQueryScaleIntegrationTest {
                 tenant_id,
                 'engine-task-' || tenant_id || '-' || sample,
                 'managerApproval', 'Manager approval',
-                case when sample % 50 = 0 then 'assignee-target'
+                case when sample % 5 = 0 then 'assignee-target'
                      else 'assignee-' || (sample % 200) end,
                 case when sample % 97 = 0 then 'COMPLETED' else 'PENDING' end,
                 1,
