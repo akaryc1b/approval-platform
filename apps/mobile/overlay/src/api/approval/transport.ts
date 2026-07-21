@@ -10,6 +10,7 @@ export interface MobileApprovalApiErrorPayload {
 }
 
 export interface MobileApprovalRequestOptions {
+  allowNotFound?: boolean
   data?: unknown
   header?: Record<string, string>
   method?: 'DELETE' | 'GET' | 'POST' | 'PUT'
@@ -100,7 +101,14 @@ export function mobileApprovalRequest<T>(
   path: string,
   options: MobileApprovalRequestOptions = {},
 ) {
-  const header = mobileApprovalHeaders(options.header)
+  const suppliedHeaders = options.header || {}
+  const requestId = suppliedHeaders['X-Request-Id']
+    || mobileApprovalOperationId('mobile-approval-request')
+  const header = mobileApprovalHeaders({
+    'X-Request-Id': requestId,
+    'X-Trace-Id': suppliedHeaders['X-Trace-Id'] || requestId,
+    ...suppliedHeaders,
+  })
   if (options.data !== undefined && !header['Content-Type']) {
     header['Content-Type'] = 'application/json'
   }
@@ -111,13 +119,22 @@ export function mobileApprovalRequest<T>(
       data: options.data,
       header,
       success: (response) => {
+        if (options.allowNotFound && response.statusCode === 404) {
+          resolve(undefined as T)
+          return
+        }
         if (response.statusCode >= 200 && response.statusCode < 300) {
           resolve(response.data as T)
           return
         }
         reject(mobileApprovalError(response.data, response.statusCode, response.header))
       },
-      fail: error => reject(new Error(error.errMsg || '网络请求失败')),
+      fail: error => reject(new MobileApprovalApiError(0, {
+        code: 'APPROVAL_NETWORK_ERROR',
+        message: error.errMsg || '网络请求失败',
+        requestId,
+        retryable: true,
+      })),
     })
   })
 }
