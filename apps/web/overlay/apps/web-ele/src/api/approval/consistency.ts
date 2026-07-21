@@ -1,4 +1,7 @@
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
+import {
+  approvalCommandHeaders,
+  approvalRequest,
+} from '#/api/approval/transport';
 
 export type ConsistencyCheckStatus = 'COMPLETED' | 'FAILED' | 'RUNNING';
 export type ConsistencyCheckType =
@@ -56,69 +59,9 @@ export interface ConsistencyFindingPage {
   total: number;
 }
 
-interface ApiErrorPayload {
-  code?: string;
-  error?: string;
-  message?: string;
-}
-
-function operationId(prefix: string) {
-  const randomId = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${randomId}`;
-}
-
-function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-async function parseError(response: Response) {
-  let payload: ApiErrorPayload | undefined;
-  try {
-    payload = (await response.json()) as ApiErrorPayload;
-  } catch {
-    payload = undefined;
-  }
-  return payload?.message || payload?.error || payload?.code ||
-    `请求失败（${response.status}）`;
-}
-
-function runtimeHeaders(init?: HeadersInit) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init);
-  headers.set('Accept', 'application/json');
-  headers.set(
-    'X-Approval-Trusted-Permissions',
-    'approval.management.consistency.read,approval.management.consistency.run',
-  );
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  return headers;
-}
-
-async function request<T>(path: string, init: RequestInit = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
-    ...init,
-    credentials: 'same-origin',
-    headers: runtimeHeaders(init.headers),
-  });
-  if (!response.ok) throw new Error(await parseError(response));
-  return (await response.json()) as T;
-}
-
-function commandHeaders(prefix: string) {
-  const requestId = operationId(`${prefix}-request`);
-  return {
-    'Idempotency-Key': operationId(prefix),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  };
-}
-
 export function runConsistencyCheck() {
-  return request<ConsistencyCheck>('/approval/management/consistency/checks', {
-    headers: commandHeaders('web-consistency-check'),
+  return approvalRequest<ConsistencyCheck>('/approval/management/consistency/checks', {
+    headers: approvalCommandHeaders('web-consistency-check'),
     method: 'POST',
   });
 }
@@ -130,7 +73,7 @@ export function findConsistencyChecks(
 ) {
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (status) query.set('status', status);
-  return request<ConsistencyCheckPage>(
+  return approvalRequest<ConsistencyCheckPage>(
     `/approval/management/consistency/checks?${query.toString()}`,
   );
 }
@@ -145,7 +88,7 @@ export function findConsistencyFindings(
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (checkType) query.set('checkType', checkType);
   if (severity) query.set('severity', severity);
-  return request<ConsistencyFindingPage>(
+  return approvalRequest<ConsistencyFindingPage>(
     `/approval/management/consistency/checks/${encodeURIComponent(checkId)}/findings?${query.toString()}`,
   );
 }
