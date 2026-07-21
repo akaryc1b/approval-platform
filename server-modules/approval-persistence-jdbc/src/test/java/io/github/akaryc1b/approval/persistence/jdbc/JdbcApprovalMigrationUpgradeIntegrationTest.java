@@ -21,7 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JdbcApprovalMigrationUpgradeIntegrationTest {
 
     private static final String FRESH_DATABASE = "approval_h8_fresh";
-    private static final String UPGRADE_DATABASE = "approval_h8_upgrade";
+    private static final String M2_UPGRADE_DATABASE = "approval_m2_upgrade";
+    private static final String PRE_H8_UPGRADE_DATABASE = "approval_h8_upgrade";
 
     private static final Set<String> H8_INDEXES = Set.of(
         "idx_approval_task_pending_assignee_page",
@@ -33,6 +34,22 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         "idx_notification_dead_management",
         "idx_consistency_failed_management",
         "idx_outbox_failure_queue"
+    );
+
+    private static final Set<String> M3_TABLES = Set.of(
+        "ap_delegation_rule",
+        "ap_task_delegation_assignment",
+        "ap_principal_handover",
+        "ap_task_handover_assignment",
+        "ap_task_collaboration_policy",
+        "ap_task_collaboration_participant",
+        "ap_notification_intent",
+        "ap_notification_delivery_attempt",
+        "ap_approval_comment_revision",
+        "ap_audit_chain_state",
+        "ap_consistency_check",
+        "ap_consistency_finding",
+        "ap_outbox_delivery_attempt"
     );
 
     @Container
@@ -49,12 +66,29 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
             POSTGRES.getPassword()
         ));
         admin.execute("create database " + FRESH_DATABASE);
-        admin.execute("create database " + UPGRADE_DATABASE);
+        admin.execute("create database " + M2_UPGRADE_DATABASE);
+        admin.execute("create database " + PRE_H8_UPGRADE_DATABASE);
+    }
+
+    @Test
+    void upgradesM2SchemaFromV13ToV27() {
+        DataSource dataSource = dataSource(M2_UPGRADE_DATABASE);
+        Flyway m2 = flyway(dataSource, MigrationVersion.fromVersion("13"));
+        m2.migrate();
+        assertEquals("13", m2.info().current().getVersion().getVersion());
+
+        Flyway latest = flyway(dataSource, null);
+        latest.migrate();
+
+        assertEquals("27", latest.info().current().getVersion().getVersion());
+        assertTrue(latest.validateWithResult().validationSuccessful);
+        assertM3Tables(dataSource);
+        assertH8Indexes(dataSource);
     }
 
     @Test
     void upgradesPreH8SchemaFromV23ToV27() {
-        DataSource dataSource = dataSource(UPGRADE_DATABASE);
+        DataSource dataSource = dataSource(PRE_H8_UPGRADE_DATABASE);
         Flyway preH8 = flyway(dataSource, MigrationVersion.fromVersion("23"));
         preH8.migrate();
         assertEquals("23", preH8.info().current().getVersion().getVersion());
@@ -64,17 +98,19 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
 
         assertEquals("27", latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
+        assertM3Tables(dataSource);
         assertH8Indexes(dataSource);
     }
 
     @Test
-    void freshInstallReachesV27WithTheSameIndexContract() {
+    void freshInstallReachesV27WithTheSameContract() {
         DataSource dataSource = dataSource(FRESH_DATABASE);
         Flyway latest = flyway(dataSource, null);
         latest.migrate();
 
         assertEquals("27", latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
+        assertM3Tables(dataSource);
         assertH8Indexes(dataSource);
     }
 
@@ -97,6 +133,34 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
             configuration.target(target);
         }
         return configuration.load();
+    }
+
+    private static void assertM3Tables(DataSource dataSource) {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        List<String> names = jdbc.queryForList(
+            """
+            select table_name
+            from information_schema.tables
+            where table_schema = current_schema()
+              and table_name = any (array[
+                'ap_delegation_rule',
+                'ap_task_delegation_assignment',
+                'ap_principal_handover',
+                'ap_task_handover_assignment',
+                'ap_task_collaboration_policy',
+                'ap_task_collaboration_participant',
+                'ap_notification_intent',
+                'ap_notification_delivery_attempt',
+                'ap_approval_comment_revision',
+                'ap_audit_chain_state',
+                'ap_consistency_check',
+                'ap_consistency_finding',
+                'ap_outbox_delivery_attempt'
+              ])
+            """,
+            String.class
+        );
+        assertEquals(M3_TABLES, Set.copyOf(names));
     }
 
     private static void assertH8Indexes(DataSource dataSource) {
