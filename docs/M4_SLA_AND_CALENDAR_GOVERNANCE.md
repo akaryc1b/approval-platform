@@ -1,6 +1,6 @@
 # M4 SLA and Calendar Governance
 
-Status: M4-C code evidence accepted on 2026-07-22; document-head validation is pending the permanent workflow evidence recorded below.
+Status: M4-C code and document evidence accepted on 2026-07-22; the metadata-head permanent validation is required before PR-body acceptance.
 
 This is the single M4-C governance record. It was created only after the code head passed the permanent repository workflow and all four code-head artifacts were downloaded, SHA-256 checked, expanded, and read. It does not mark PR `#55` ready, enable auto-merge, merge the branch, or close Issues `#13` or `#14`.
 
@@ -353,26 +353,35 @@ Raw logs confirmed type-checks, Vben 11/11 production build tasks, H5 and WeChat
 
 ## 36. Document HEAD
 
-Document evidence HEAD: `PENDING_DOCUMENT_EVIDENCE_HEAD`.
+Validated document evidence HEAD: `e1365cf0796c8f06f6d934cc2d2ec06aa958c6d5`.
 
-This value is filled once after the permanent workflow validates a complete document head. A commit cannot contain its own SHA before Git creates it, so the successful evidence head is recorded by a metadata-only update to this same file. No alternate or temporary governance document is created.
+This is the first complete governance-content head that passed the permanent workflow. The current metadata-only commit records that immutable evidence. Its own resulting head and second permanent run are recorded in PR `#55` after that run is independently verified, avoiding an impossible self-referential commit SHA while preserving one governance file.
 
 ## 37. Document run ID
 
-Document evidence permanent run: `PENDING_DOCUMENT_EVIDENCE_RUN`.
+Document evidence permanent workflow run: `29897533424`, run number `330`, status `completed`, conclusion `success`.
 
-Its run status, conclusion, actual Job/Step evidence, and artifacts are filled only after the permanent workflow validates the complete document head.
+Jobs and every actual step were inspected:
+
+- Java 21 / Maven / PostgreSQL: job `88850773697`, success;
+- Repository hygiene: job `88850773706`, success;
+- UniApp TypeScript / H5 / WeChat: job `88850773725`, success;
+- Vben TypeScript / production build: job `88850773762`, success.
+
+The Maven reactor reported 16 modules and `BUILD SUCCESS` in 03:50. The document completeness boundary passed 10/10.
 
 ## 38. Document artifacts and SHA-256 digests
 
-| Artifact | ID | Digest |
-| --- | ---: | --- |
-| Maven | `PENDING_DOCUMENT_MAVEN_ARTIFACT` | `PENDING_DOCUMENT_MAVEN_SHA256` |
-| Vben | `PENDING_DOCUMENT_VBEN_ARTIFACT` | `PENDING_DOCUMENT_VBEN_SHA256` |
-| Mobile | `PENDING_DOCUMENT_MOBILE_ARTIFACT` | `PENDING_DOCUMENT_MOBILE_SHA256` |
-| Hygiene | `PENDING_DOCUMENT_HYGIENE_ARTIFACT` | `PENDING_DOCUMENT_HYGIENE_SHA256` |
+All four document-evidence artifacts were downloaded locally, SHA-256 checked against GitHub, expanded, and read.
 
-These placeholders are not acceptance claims. They are resolved only from downloaded artifacts produced by the permanent successful document-evidence run.
+| Artifact | ID | GitHub digest / local ZIP SHA-256 |
+| --- | ---: | --- |
+| `approval-maven-29897533424` | `8520622302` | `sha256:bef92e46fbab85056cd26f9b7f0b2e46517129457cd07eaf167c025241807c1a` |
+| `approval-vben-29897533424` | `8520576365` | `sha256:e75b0f4cf93f757770430afd628fd0ffbc705caa3c938babb8be1f0edb183943` |
+| `approval-mobile-29897533424` | `8520561961` | `sha256:13bf68fcda626bb6763e77818b8d18bd43686ddf762ddc25dec70a0f7b119df9` |
+| `approval-hygiene-29897533424` | `8520545879` | `sha256:acded015bf92d92498b330744e5e29b569d9ff71caa855cefd09a707c74d4e5d` |
+
+Raw evidence reconfirmed application 78 tests, persistence 161 tests, server 44 tests, PostgreSQL EXPLAIN 9/9, migration upgrade 5/5, SLA store 3/3, focused SLA security 6/6, Vben 11/11, mobile type-check, H5 and WeChat production builds, and M4-C boundary 10/10.
 
 ## 39. Remaining risks
 
