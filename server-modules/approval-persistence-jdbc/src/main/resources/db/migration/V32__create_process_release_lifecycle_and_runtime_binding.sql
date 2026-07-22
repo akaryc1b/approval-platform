@@ -235,7 +235,7 @@ with ranked_release_events as (
             order by event.event_sequence, event.event_order, event.happened_at,
                 event.source_identity
         ) as lifecycle_revision,
-        max(case when event.to_state = 'ACTIVE' then event.happened_at end) over (
+        min(case when event.to_state = 'ACTIVE' then event.happened_at end) over (
             partition by event.tenant_id, event.definition_key, event.release_version
         ) as activated_at,
         max(case when event.to_state = 'DEPRECATED' then event.happened_at end) over (
