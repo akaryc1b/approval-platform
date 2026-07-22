@@ -52,6 +52,8 @@ jobs:
         run: node --test scripts/tests/m3-repository-hygiene.test.mjs
       - name: Verify M4 identity and Flowable boundaries
         run: node --test scripts/tests/m4-identity-boundary.test.mjs
+      - name: Verify M4 SLA and calendar boundaries
+        run: node --test scripts/tests/m4-sla-calendar-boundary.test.mjs
 
   backend:
     name: Java 21 / Maven / PostgreSQL
