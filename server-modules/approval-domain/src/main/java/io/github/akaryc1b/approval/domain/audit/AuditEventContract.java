@@ -110,6 +110,14 @@ public record AuditEventContract(
                 "authorizationDecision",
                 "matchedRole"
             );
+            case "PROCESS_RELEASE_PUBLISH_AUTHORIZED" -> Set.of(
+                "draftId",
+                "definitionKey",
+                "targetDefinitionVersion",
+                "targetReleaseVersion",
+                "preflightHash",
+                "reason"
+            );
             case "INSTANCE_COMMENT_CREATED",
                  "INSTANCE_COMMENT_EDITED",
                  "INSTANCE_COMMENT_DELETED" -> Set.of(
