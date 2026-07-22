@@ -94,7 +94,7 @@ class JdbcApprovalSlaStoreIntegrationTest {
         CalendarIdentity created = store.createCalendar(calendarIdentity());
         assertEquals(1, created.version());
 
-        CalendarVersion savedV1 = store.saveCalendarVersion(calendarVersion(1, "calendar-hash-v1"), 1);
+        CalendarVersion savedV1 = store.saveCalendarVersion(calendarVersion(1, "a".repeat(64)), 1);
         assertEquals(CalendarStatus.DRAFT, savedV1.status());
         CalendarVersion publishedV1 = store.publishCalendarVersion(
             TENANT_ID,
@@ -118,11 +118,11 @@ class JdbcApprovalSlaStoreIntegrationTest {
 
         assertThrows(
             SlaConflictException.class,
-            () -> store.saveCalendarVersion(calendarVersion(1, "calendar-hash-mutated"), 4)
+            () -> store.saveCalendarVersion(calendarVersion(1, "b".repeat(64)), 4)
         );
         assertTrue(store.findCalendar(OTHER_TENANT_ID, CALENDAR_ID).isEmpty());
 
-        store.saveCalendarVersion(calendarVersion(2, "calendar-hash-v2"), 4);
+        store.saveCalendarVersion(calendarVersion(2, "c".repeat(64)), 4);
         store.publishCalendarVersion(
             TENANT_ID,
             CALENDAR_ID,
@@ -173,7 +173,7 @@ class JdbcApprovalSlaStoreIntegrationTest {
         activateCalendarVersionOne();
 
         SlaPolicyIdentity first = store.createPolicy(policyIdentity(POLICY_ID, "policy-primary"));
-        store.savePolicyVersion(workingPolicy(POLICY_ID, 1, "policy-hash-primary"), first.version());
+        store.savePolicyVersion(workingPolicy(POLICY_ID, 1, "d".repeat(64)), first.version());
         store.publishPolicyVersion(
             TENANT_ID,
             POLICY_ID,
@@ -201,7 +201,7 @@ class JdbcApprovalSlaStoreIntegrationTest {
         assertThrows(
             SlaConflictException.class,
             () -> store.savePolicyVersion(
-                workingPolicy(POLICY_ID, 1, "policy-hash-mutated"),
+                workingPolicy(POLICY_ID, 1, "e".repeat(64)),
                 4
             )
         );
@@ -210,7 +210,7 @@ class JdbcApprovalSlaStoreIntegrationTest {
             policyIdentity(SECOND_POLICY_ID, "policy-secondary")
         );
         store.savePolicyVersion(
-            workingPolicy(SECOND_POLICY_ID, 1, "policy-hash-secondary"),
+            workingPolicy(SECOND_POLICY_ID, 1, "f".repeat(64)),
             second.version()
         );
         store.publishPolicyVersion(
@@ -361,7 +361,7 @@ class JdbcApprovalSlaStoreIntegrationTest {
 
     private CalendarIdentity activateCalendarVersionOne() {
         store.createCalendar(calendarIdentity());
-        store.saveCalendarVersion(calendarVersion(1, "calendar-hash-v1"), 1);
+        store.saveCalendarVersion(calendarVersion(1, "a".repeat(64)), 1);
         store.publishCalendarVersion(
             TENANT_ID,
             CALENDAR_ID,
@@ -568,7 +568,7 @@ class JdbcApprovalSlaStoreIntegrationTest {
             null,
             AutomaticAction.NONE,
             true,
-            "policy-instance-hash",
+            "1".repeat(64),
             PolicyStatus.DRAFT,
             false,
             null,
