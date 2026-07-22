@@ -1,35 +1,24 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
-import io.github.akaryc1b.approval.application.ApprovalWorkingTimeCalculator.CalendarSnapshot;
-import io.github.akaryc1b.approval.application.ApprovalWorkingTimeCalculator.DayOverride;
-import io.github.akaryc1b.approval.application.ApprovalWorkingTimeCalculator.WorkingInterval;
-import io.github.akaryc1b.approval.application.port.ApprovalParticipantSlaQuery;
-import io.github.akaryc1b.approval.application.port.ApprovalSlaManagementQuery;
-import io.github.akaryc1b.approval.application.port.ApprovalSlaStore;
-import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.*;
-import org.springframework.jdbc.core.RowMapper;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.ResponsibilityChange;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaInstance;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaInstanceCriteria;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaInstancePage;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaTerminalReason;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.*;
+import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.instanceParameters;
+import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.offset;
+import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.params;
+import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.responsibilityChangeMapper;
+import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.responsibilityChangeParameters;
 
 final class JdbcApprovalSlaInstanceStore extends JdbcApprovalSlaStoreSupport {
 
