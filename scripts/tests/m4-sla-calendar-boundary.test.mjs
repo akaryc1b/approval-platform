@@ -193,6 +193,7 @@ test('accepted governance documents remain byte-for-byte frozen', async () => {
     ['docs/M4_IDENTITY_AND_TENANT_GOVERNANCE.md', '716ecf6503aeaea7a6dbfa5980964a5c4b983619'],
     ['docs/M4_AUTHORIZATION_AND_RESPONSIBILITY_GOVERNANCE.md', '888f07df905726cfb3507d2ae495db3247d6c4fe'],
     ['docs/M4_SLA_AND_CALENDAR_GOVERNANCE.md', 'beb098bc6b4ee68c6ca11da0678a76780b72a049'],
+    ['docs/M4_SLA_EXECUTION_AND_REPLAY_GOVERNANCE.md', 'dc687d073e0352e0b88d96bd8df0f4ee36775b6e'],
   ]);
   for (const [file, expected] of frozen) {
     assert.equal(await git('hash-object', file), expected, `${file} is frozen`);
