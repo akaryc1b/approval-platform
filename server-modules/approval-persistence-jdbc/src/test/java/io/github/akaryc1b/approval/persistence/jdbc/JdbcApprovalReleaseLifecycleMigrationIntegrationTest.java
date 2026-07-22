@@ -11,6 +11,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -126,7 +127,7 @@ class JdbcApprovalReleaseLifecycleMigrationIntegrationTest {
         String bpmnHashCharacter,
         String metadataHashCharacter,
         String draftSuffix
-    ) throws Exception {
+    ) throws SQLException {
         String definitionHash = definitionHashCharacter.repeat(64);
         String formPackageHash = "b".repeat(64);
         String formHash = "c".repeat(64);
@@ -181,7 +182,7 @@ class JdbcApprovalReleaseLifecycleMigrationIntegrationTest {
         long revision,
         String activatedAt,
         String requestId
-    ) throws Exception {
+    ) throws SQLException {
         String previous = previousReleaseVersion == null
             ? "null"
             : previousReleaseVersion.toString();
@@ -220,7 +221,7 @@ class JdbcApprovalReleaseLifecycleMigrationIntegrationTest {
             ));
     }
 
-    private static void insertEffectiveRelease(Statement statement) throws Exception {
+    private static void insertEffectiveRelease(Statement statement) throws SQLException {
         statement.execute("""
             insert into ap_approval_effective_release (
                 tenant_id, definition_key, effective_release_version,
