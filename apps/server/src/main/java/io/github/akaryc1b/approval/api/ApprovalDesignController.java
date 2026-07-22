@@ -10,6 +10,7 @@ import io.github.akaryc1b.approval.application.ApprovalDesignCommands.StableIden
 import io.github.akaryc1b.approval.application.ApprovalDesignCommands.Update;
 import io.github.akaryc1b.approval.application.ApprovalDesignResults;
 import io.github.akaryc1b.approval.application.ApprovalDesignService;
+import io.github.akaryc1b.approval.application.ApprovalProcessReleaseLifecycleService;
 import io.github.akaryc1b.approval.application.port.ApprovalDesignDraftStore.DraftPage;
 import io.github.akaryc1b.approval.compiler.ApprovalDefinitionSimulator;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
@@ -42,9 +43,14 @@ public class ApprovalDesignController {
     private static final String TRACE_ID = "X-Trace-Id";
 
     private final ApprovalDesignService service;
+    private final ApprovalProcessReleaseLifecycleService releaseLifecycle;
 
-    public ApprovalDesignController(ApprovalDesignService service) {
+    public ApprovalDesignController(
+        ApprovalDesignService service,
+        ApprovalProcessReleaseLifecycleService releaseLifecycle
+    ) {
         this.service = service;
+        this.releaseLifecycle = releaseLifecycle;
     }
 
     @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.DESIGN)
@@ -195,21 +201,28 @@ public class ApprovalDesignController {
         @RequestHeader(OPERATOR_ID) String operatorId,
         @RequestHeader(REQUEST_ID) String requestId,
         @RequestHeader(IDEMPOTENCY_KEY) String idempotencyKey,
+        @RequestHeader(ApprovalManagementPermissionInterceptor.OPERATION_REASON_HEADER)
+        String reason,
         @RequestHeader(value = TRACE_ID, required = false) String traceId,
         @PathVariable UUID draftId,
         @RequestBody PublishRequest request
     ) {
-        return service.publish(new Publish(
-            context(tenantId, operatorId, requestId, idempotencyKey, traceId),
-            draftId,
-            request.expectedRevision(),
-            request.definitionVersion(),
-            request.releaseVersion(),
-            request.deploymentTarget(),
-            request.preflightHash(),
-            request.acknowledgedWarningCodes(),
-            request.preflightScenario()
-        ));
+        return releaseLifecycle.publish(
+            new ApprovalProcessReleaseLifecycleService.PublishCommand(
+                new Publish(
+                    context(tenantId, operatorId, requestId, idempotencyKey, traceId),
+                    draftId,
+                    request.expectedRevision(),
+                    request.definitionVersion(),
+                    request.releaseVersion(),
+                    request.deploymentTarget(),
+                    request.preflightHash(),
+                    request.acknowledgedWarningCodes(),
+                    request.preflightScenario()
+                ),
+                reason
+            )
+        ).publication();
     }
 
     private static RequestContext context(
