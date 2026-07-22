@@ -100,6 +100,11 @@ public final class ApprovalProcessReleaseActivationService {
         if (target.lifecycleState() == State.ACTIVE) {
             ActivationResult effective = effectiveReleases.execute(command, operation);
             requireExactTarget(effective.effectiveRelease(), target);
+            if (!effective.replayedExistingActivation()) {
+                throw new ActivationEvidenceConflictException(
+                    "ACTIVE lifecycle is missing matching effective replay evidence"
+                );
+            }
             return new ActivationOutcome(effective, target, null, true);
         }
         requireTargetState(operation, target);
