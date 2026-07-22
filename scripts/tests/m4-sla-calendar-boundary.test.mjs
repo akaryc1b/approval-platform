@@ -47,20 +47,21 @@ async function git(...args) {
   return (await exec('git', args, { cwd: root })).stdout.trim();
 }
 
-test('M4 calendar and SLA migrations are contiguous and stop at V30', async () => {
+test('M4 calendar SLA and execution migrations are contiguous through V31', async () => {
   const migrationFiles = (await readdir(path.join(root, migrationsRoot)))
     .filter((name) => /^V\d+__.*\.sql$/.test(name));
   const versions = migrationFiles
     .map((name) => Number(name.match(/^V(\d+)__/)?.[1]))
     .sort((left, right) => left - right);
 
-  assert.equal(Math.max(...versions), 30, 'highest Flyway migration must be V30 before M4-D');
+  assert.equal(Math.max(...versions), 31, 'highest Flyway migration must be V31 in M4-D');
   assert.ok(migrationFiles.includes('V28__create_versioned_work_calendars.sql'));
   assert.ok(migrationFiles.includes('V29__create_immutable_sla_policies.sql'));
   assert.ok(migrationFiles.includes('V30__create_sla_instances_and_responsibility_history.sql'));
+  assert.ok(migrationFiles.includes('V31__create_sla_execution_intents_attempts_and_replay.sql'));
 });
 
-test('only permanent workflows remain and M4-C boundary is wired permanently', async () => {
+test('only permanent workflows remain and the M4 boundary is wired permanently', async () => {
   const workflows = await readdir(path.join(root, '.github/workflows'));
   assert.ok(workflows.includes('approval-platform-validation.yml'));
   for (const workflow of workflows) {
@@ -70,11 +71,12 @@ test('only permanent workflows remain and M4-C boundary is wired permanently', a
   assert.match(validation, /node --test scripts\/tests\/m4-sla-calendar-boundary\.test\.mjs/);
 });
 
-test('browser and mobile never manufacture trusted tenant operator or permission identity', async () => {
+test('browser and mobile never manufacture trusted tenant operator permission or worker identity', async () => {
   const forbidden = [
     'X-Tenant-Id',
     'X-Operator-Id',
     'X-Approval-Trusted-Permissions',
+    'X-Approval-Worker-Id',
   ];
   const violations = [];
   for (const clientRoot of clientRoots) {
@@ -104,6 +106,16 @@ test('client sources display server SLA evidence but never manufacture authorita
   }
 });
 
+test('client replay requests never nominate tenant worker or arbitrary target identity', async () => {
+  for (const clientRoot of clientRoots) {
+    for (const file of await filesUnder(clientRoot, textExtensions)) {
+      const content = await text(file);
+      assert.doesNotMatch(content, /replay[\s\S]{0,500}(?:tenantId|workerId|leaseOwner)\s*:/i);
+      assert.doesNotMatch(content, /(?:tenantId|workerId)\s*:[\s\S]{0,500}replay/i);
+    }
+  }
+});
+
 test('SLA management controllers remain capability governed and principal-scoped', async () => {
   const identityFilter = await text(
     'apps/server/src/main/java/io/github/akaryc1b/approval/security/ApprovalIdentityContextFilter.java',
@@ -117,6 +129,9 @@ test('SLA management controllers remain capability governed and principal-scoped
     'ApprovalSlaPolicyManagementController.java',
     'ApprovalSlaInstanceManagementController.java',
   ];
+  if (await exists('apps/server/src/main/java/io/github/akaryc1b/approval/api/ApprovalSlaExecutionManagementController.java')) {
+    controllers.push('ApprovalSlaExecutionManagementController.java');
+  }
   for (const name of controllers) {
     const content = await text(`apps/server/src/main/java/io/github/akaryc1b/approval/api/${name}`);
     const mappings = [...content.matchAll(/@(Get|Post|Put|Delete|Patch)Mapping\b/g)].length;
@@ -165,6 +180,7 @@ test('accepted governance documents remain byte-for-byte frozen', async () => {
     ['docs/M3_FINAL_ACCEPTANCE.md', '459c684027e4a08f08655bff3e31721912dc35bc'],
     ['docs/M4_IDENTITY_AND_TENANT_GOVERNANCE.md', '716ecf6503aeaea7a6dbfa5980964a5c4b983619'],
     ['docs/M4_AUTHORIZATION_AND_RESPONSIBILITY_GOVERNANCE.md', '888f07df905726cfb3507d2ae495db3247d6c4fe'],
+    ['docs/M4_SLA_AND_CALENDAR_GOVERNANCE.md', 'beb098bc6b4ee68c6ca11da0678a76780b72a049'],
   ]);
   for (const [file, expected] of frozen) {
     assert.equal(await git('hash-object', file), expected, `${file} is frozen`);
@@ -195,9 +211,9 @@ test('tracked tree excludes generated artifacts credentials and temporary payloa
   assert.equal(credentialMatches, '', `credential-like content detected:\n${credentialMatches}`);
 });
 
-test('M4-C governance record is absent before acceptance or complete when present', async () => {
+test('M4-C governance record remains complete', async () => {
   const governance = 'docs/M4_SLA_AND_CALENDAR_GOVERNANCE.md';
-  if (!await exists(governance)) return;
+  assert.ok(await exists(governance));
   assert.ok((await stat(path.join(root, governance))).size > 0);
   const content = await text(governance);
   for (const field of [
@@ -210,6 +226,29 @@ test('M4-C governance record is absent before acceptance or complete when presen
     'Artifact',
     'SHA-256',
     'M4-D handoff',
+  ]) {
+    assert.match(content, new RegExp(field, 'i'));
+  }
+});
+
+test('M4-D governance record is absent before acceptance or complete when present', async () => {
+  const governance = 'docs/M4_SLA_EXECUTION_AND_REPLAY_GOVERNANCE.md';
+  if (!await exists(governance)) return;
+  assert.ok((await stat(path.join(root, governance))).size > 0);
+  const content = await text(governance);
+  for (const field of [
+    'Scope',
+    'Intent lifecycle',
+    'Claim and lease',
+    'Retry',
+    'Dead',
+    'Replay',
+    'Tenant isolation',
+    'Transaction boundaries',
+    'EXPLAIN',
+    'Artifact',
+    'SHA-256',
+    'M4-E/F handoff',
   ]) {
     assert.match(content, new RegExp(field, 'i'));
   }
