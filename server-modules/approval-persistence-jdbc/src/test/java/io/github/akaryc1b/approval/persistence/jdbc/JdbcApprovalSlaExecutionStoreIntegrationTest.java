@@ -245,8 +245,7 @@ class JdbcApprovalSlaExecutionStoreIntegrationTest {
     @Test
     void retryableFailureBacksOffThenMaxAttemptsAndPermanentFailureBecomeDead() {
         ExecutionIntent retrying = intent(1, 2, ActionType.REMINDER);
-        ExecutionIntent permanent = intent(2, 3, ActionType.AUTOMATIC_ACTION);
-        assertEquals(2, store.enqueue(List.of(retrying, permanent)));
+        assertEquals(1, store.enqueue(List.of(retrying)));
 
         ExecutionIntent firstClaim = claimSpecific(retrying.intentId(), "worker-retry", NOW);
         ExecutionIntent waiting = store.markFailed(
@@ -270,10 +269,10 @@ class JdbcApprovalSlaExecutionStoreIntegrationTest {
         assertTrue(store.claimDue(
             TENANT_ID,
             NOW.plusSeconds(30),
-            10,
+            1,
             "worker-too-early",
             NOW.plus(Duration.ofMinutes(2))
-        ).stream().noneMatch(value -> value.intentId().equals(retrying.intentId())));
+        ).isEmpty());
 
         Instant retryTime = NOW.plus(Duration.ofMinutes(2));
         ExecutionIntent secondClaim = claimSpecific(
@@ -306,6 +305,8 @@ class JdbcApprovalSlaExecutionStoreIntegrationTest {
                 .toList()
         );
 
+        ExecutionIntent permanent = intent(2, 3, ActionType.AUTOMATIC_ACTION);
+        assertEquals(1, store.enqueue(List.of(permanent)));
         ExecutionIntent permanentClaim = claimSpecific(
             permanent.intentId(),
             "worker-permanent",
@@ -528,7 +529,7 @@ class JdbcApprovalSlaExecutionStoreIntegrationTest {
         return store.claimDue(
             TENANT_ID,
             now,
-            20,
+            1,
             workerId,
             now.plus(Duration.ofMinutes(5))
         ).stream().filter(value -> value.intentId().equals(intentId)).findFirst().orElseThrow();
@@ -633,8 +634,8 @@ class JdbcApprovalSlaExecutionStoreIntegrationTest {
             insert into ap_sla_policy (
                 policy_id, tenant_id, policy_key, display_name, status,
                 active_version, created_by, created_at, updated_at, version
-            ) values (?, ?, 'executionPolicy', 'Execution policy', 'ACTIVE',
-                1, 'execution-test', timestamptz '2026-07-22 07:00:00+00',
+            ) values (?, ?, 'executionPolicy', 'Execution policy', 'DRAFT',
+                null, 'execution-test', timestamptz '2026-07-22 07:00:00+00',
                 timestamptz '2026-07-22 07:00:00+00', 1)
             """,
             POLICY_ID,
@@ -661,6 +662,16 @@ class JdbcApprovalSlaExecutionStoreIntegrationTest {
             """,
             POLICY_ID,
             TENANT_ID
+        );
+        jdbc.update(
+            """
+            update ap_sla_policy
+            set status='ACTIVE', active_version=1,
+                updated_at=timestamptz '2026-07-22 07:00:01+00', version=2
+            where tenant_id=? and policy_id=?
+            """,
+            TENANT_ID,
+            POLICY_ID
         );
         jdbc.update(
             """
