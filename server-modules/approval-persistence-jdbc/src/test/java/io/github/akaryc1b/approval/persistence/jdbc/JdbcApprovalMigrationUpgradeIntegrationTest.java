@@ -34,7 +34,10 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         "ap_sla_policy",
         "ap_sla_policy_version",
         "ap_sla_instance",
-        "ap_sla_responsibility_change"
+        "ap_sla_responsibility_change",
+        "ap_sla_execution_intent",
+        "ap_sla_execution_attempt",
+        "ap_sla_execution_replay"
     );
 
     private static final Set<String> M4_INDEXES = Set.of(
@@ -44,7 +47,14 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         "idx_sla_instance_active_due",
         "idx_sla_instance_approval_instance",
         "idx_sla_instance_task",
-        "idx_sla_instance_request_id"
+        "idx_sla_instance_request_id",
+        "idx_sla_execution_intent_ready_poll",
+        "idx_sla_execution_intent_expired_lease",
+        "idx_sla_execution_intent_dead_management",
+        "idx_sla_execution_intent_sla_history",
+        "idx_sla_execution_intent_request",
+        "idx_sla_execution_attempt_history",
+        "idx_sla_execution_replay_original"
     );
 
     @Container
@@ -72,22 +82,22 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
     }
 
     @Test
-    void freshInstallReachesV30() {
+    void freshInstallReachesV31() {
         assertUpgrade(FRESH_DATABASE, null);
     }
 
     @Test
-    void upgradesV1SchemaToV30() {
+    void upgradesV1SchemaToV31() {
         assertUpgrade(V1_DATABASE, MigrationVersion.fromVersion("1"));
     }
 
     @Test
-    void upgradesV13SchemaToV30() {
+    void upgradesV13SchemaToV31() {
         assertUpgrade(V13_DATABASE, MigrationVersion.fromVersion("13"));
     }
 
     @Test
-    void upgradesV23SchemaToV30() {
+    void upgradesV23SchemaToV31() {
         assertUpgrade(V23_DATABASE, MigrationVersion.fromVersion("23"));
     }
 
@@ -105,7 +115,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         Flyway latest = flyway(dataSource, null);
         latest.migrate();
 
-        assertEquals("30", latest.info().current().getVersion().getVersion());
+        assertEquals("31", latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
         assertProjectionEvidence(jdbc, 5_000);
         assertM4Schema(dataSource);
@@ -122,7 +132,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         Flyway latest = flyway(dataSource, null);
         latest.migrate();
 
-        assertEquals("30", latest.info().current().getVersion().getVersion());
+        assertEquals("31", latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
         assertM4Schema(dataSource);
     }
@@ -252,7 +262,10 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
                 'ap_sla_policy',
                 'ap_sla_policy_version',
                 'ap_sla_instance',
-                'ap_sla_responsibility_change'
+                'ap_sla_responsibility_change',
+                'ap_sla_execution_intent',
+                'ap_sla_execution_attempt',
+                'ap_sla_execution_replay'
               ])
             """,
             String.class
@@ -271,7 +284,14 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
                 'idx_sla_instance_active_due',
                 'idx_sla_instance_approval_instance',
                 'idx_sla_instance_task',
-                'idx_sla_instance_request_id'
+                'idx_sla_instance_request_id',
+                'idx_sla_execution_intent_ready_poll',
+                'idx_sla_execution_intent_expired_lease',
+                'idx_sla_execution_intent_dead_management',
+                'idx_sla_execution_intent_sla_history',
+                'idx_sla_execution_intent_request',
+                'idx_sla_execution_attempt_history',
+                'idx_sla_execution_replay_original'
               ])
             """,
             String.class
