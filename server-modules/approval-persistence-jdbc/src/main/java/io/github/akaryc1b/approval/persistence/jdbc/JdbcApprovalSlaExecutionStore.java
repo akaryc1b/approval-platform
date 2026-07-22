@@ -766,7 +766,7 @@ public final class JdbcApprovalSlaExecutionStore implements ApprovalSlaExecution
             where.append(" and responsible_user_id = :responsibleUserId");
             parameters.addValue("responsibleUserId", criteria.responsibleUserId());
         }
-        return where.toString();
+        return where.append(' ').toString();
     }
 
     private MapSqlParameterSource intentParameters(ExecutionIntent intent) {
