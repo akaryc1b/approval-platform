@@ -1,7 +1,6 @@
 package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.port.ApprovalParticipantSlaQuery;
-import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.ResponsibilityChange;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaInstance;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaNotFoundException;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaStatus;
@@ -15,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -48,11 +46,6 @@ public class ApprovalParticipantSlaController {
                 "approval SLA was not found"
             ));
         Instant observedAt = clock.instant();
-        List<ResponsibilityChange> history = query.findResponsibilityChanges(
-            tenantId,
-            instance.slaInstanceId(),
-            1
-        );
         return new ParticipantTaskSlaResponse(
             instance.slaInstanceId(),
             instance.taskId(),
@@ -66,7 +59,6 @@ public class ApprovalParticipantSlaController {
             instance.responsibleUserId(),
             instance.originalResponsibleUserId(),
             !instance.responsibleUserId().equals(instance.originalResponsibleUserId()),
-            history.isEmpty() ? null : history.getFirst(),
             observedAt
         );
     }
@@ -118,7 +110,6 @@ public class ApprovalParticipantSlaController {
         String responsibleUserId,
         String originalResponsibleUserId,
         boolean responsibilityChanged,
-        ResponsibilityChange latestResponsibilityChange,
         Instant observedAt
     ) {
     }
