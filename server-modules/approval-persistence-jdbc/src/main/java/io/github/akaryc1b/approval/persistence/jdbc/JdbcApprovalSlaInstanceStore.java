@@ -55,12 +55,12 @@ final class JdbcApprovalSlaInstanceStore extends JdbcApprovalSlaStoreSupport {
                     select 1 from ap_approval_instance
                     where tenant_id=:tenantId and instance_id=:approvalInstanceId and status='RUNNING'
                 ) and (
-                    :taskId is null or exists (
+                    cast(:taskId as uuid) is null or exists (
                         select 1 from ap_approval_task
                         where tenant_id=:tenantId and task_id=:taskId and status='PENDING'
                     )
                 ) and (
-                    :collaborationParticipantId is null or exists (
+                    cast(:collaborationParticipantId as uuid) is null or exists (
                         select 1 from ap_task_collaboration_participant
                         where tenant_id=:tenantId and participant_id=:collaborationParticipantId
                           and status='PENDING'
