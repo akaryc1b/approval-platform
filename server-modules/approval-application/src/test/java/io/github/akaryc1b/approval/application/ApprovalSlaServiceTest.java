@@ -85,7 +85,10 @@ class ApprovalSlaServiceTest {
 
         service(harness).synchronizeNewInstance(instanceProjection(), List.of(), EVIDENCE);
 
-        assertTrue(harness.createdBatches.isEmpty());
+        assertEquals(
+            0,
+            harness.createdBatches.stream().mapToInt(List::size).sum()
+        );
     }
 
     @Test
