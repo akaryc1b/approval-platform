@@ -44,6 +44,7 @@ class ApprovalManagementRequirementMatrixTest {
                 ApprovalManagementPermission.Requirement.PUBLISH,
                 ApprovalManagementPermission.Requirement.DEPLOY,
                 ApprovalManagementPermission.Requirement.ACTIVATE,
+                ApprovalManagementPermission.Requirement.RELEASE_LIFECYCLE,
                 ApprovalManagementPermission.Requirement.TRANSFER,
                 ApprovalManagementPermission.Requirement.AUDIT_EXPORT,
                 ApprovalManagementPermission.Requirement.AUDIT_VERIFY,

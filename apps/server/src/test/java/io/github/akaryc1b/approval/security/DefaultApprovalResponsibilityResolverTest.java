@@ -50,10 +50,15 @@ class DefaultApprovalResponsibilityResolverTest {
         assertTrue(
             matrix.get(ApprovalEnterpriseRole.PROCESS_PUBLISHER)
                 .containsAll(Set.of(
+                    Requirement.RELEASE_LIFECYCLE,
                     Requirement.SLA_READ,
                     Requirement.SLA_PUBLISH,
                     Requirement.SLA_ACTIVATE
                 ))
+        );
+        assertFalse(
+            matrix.get(ApprovalEnterpriseRole.OPERATIONS)
+                .contains(Requirement.RELEASE_LIFECYCLE)
         );
         assertTrue(
             matrix.get(ApprovalEnterpriseRole.OPERATIONS).contains(Requirement.SLA_READ)

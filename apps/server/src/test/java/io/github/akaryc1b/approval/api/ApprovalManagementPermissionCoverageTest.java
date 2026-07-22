@@ -56,6 +56,16 @@ class ApprovalManagementPermissionCoverageTest {
             Requirement.ACTIVATE
         );
         assertPermission(
+            ApprovalProcessReleaseDispositionController.class,
+            "deprecate",
+            Requirement.RELEASE_LIFECYCLE
+        );
+        assertPermission(
+            ApprovalProcessReleaseDispositionController.class,
+            "retire",
+            Requirement.RELEASE_LIFECYCLE
+        );
+        assertPermission(
             ApprovalArtifactTransferController.class,
             "importArtifact",
             Requirement.TRANSFER

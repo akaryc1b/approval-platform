@@ -33,6 +33,11 @@ public @interface ApprovalManagementPermission {
         PUBLISH("approval.management.publish", "publish", true),
         DEPLOY("approval.management.deploy", "deploy", true),
         ACTIVATE("approval.management.activate", "activate", true),
+        RELEASE_LIFECYCLE(
+            "approval.management.release.lifecycle",
+            "release-lifecycle",
+            true
+        ),
         TRANSFER("approval.management.transfer", "transfer", true),
         AUDIT_READ("approval.management.audit.read", "audit-read"),
         AUDIT_EXPORT("approval.management.audit.export", "audit-export", true),

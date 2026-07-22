@@ -127,6 +127,17 @@ public record AuditEventContract(
                      "targetLifecycleState",
                      "reason"
                  );
+            case "PROCESS_RELEASE_DEPRECATION_AUTHORIZED",
+                 "PROCESS_RELEASE_RETIREMENT_AUTHORIZED" -> Set.of(
+                     "operation",
+                     "definitionKey",
+                     "releaseVersion",
+                     "releasePackageHash",
+                     "fromLifecycleState",
+                     "toLifecycleState",
+                     "runtimeUsageCount",
+                     "reason"
+                 );
             case "INSTANCE_COMMENT_CREATED",
                  "INSTANCE_COMMENT_EDITED",
                  "INSTANCE_COMMENT_DELETED" -> Set.of(
