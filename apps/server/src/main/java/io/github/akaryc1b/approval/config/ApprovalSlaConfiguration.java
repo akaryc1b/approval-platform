@@ -7,8 +7,11 @@ import io.github.akaryc1b.approval.application.ApprovalWorkingTimeCalculator;
 import io.github.akaryc1b.approval.application.SlaAwareApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalRequestEvidenceProvider;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaActiveTaskQuery;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaStore;
+import io.github.akaryc1b.approval.persistence.jdbc.ApprovalSlaExecutionCancellationGuard;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaActiveTaskQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaExecutionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaStore;
 import io.github.akaryc1b.approval.persistence.jdbc.TransactionalApprovalSlaStore;
@@ -36,6 +39,14 @@ public class ApprovalSlaConfiguration {
     }
 
     @Bean
+    ApprovalSlaActiveTaskQuery approvalSlaActiveTaskQuery(
+        DataSource dataSource,
+        PlatformTransactionManager transactionManager
+    ) {
+        return new JdbcApprovalSlaActiveTaskQuery(dataSource, transactionManager);
+    }
+
+    @Bean
     ApprovalSlaExecutionStore approvalSlaExecutionStore(
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper,
@@ -56,7 +67,6 @@ public class ApprovalSlaConfiguration {
     }
 
     @Bean
-    @Primary
     ApprovalSlaStore transactionalApprovalSlaStore(
         JdbcApprovalSlaStore approvalSlaStore,
         ApprovalSlaExecutionStore approvalSlaExecutionStore,
@@ -67,6 +77,22 @@ public class ApprovalSlaConfiguration {
             approvalSlaStore,
             approvalSlaExecutionStore,
             approvalSlaExecutionPlanner,
+            transactionManager
+        );
+    }
+
+    @Bean
+    @Primary
+    ApprovalSlaStore cancellationSafeApprovalSlaStore(
+        @Qualifier("transactionalApprovalSlaStore") ApprovalSlaStore delegate,
+        ApprovalSlaActiveTaskQuery activeTasks,
+        ApprovalSlaExecutionStore executions,
+        PlatformTransactionManager transactionManager
+    ) {
+        return ApprovalSlaExecutionCancellationGuard.wrap(
+            delegate,
+            activeTasks,
+            executions,
             transactionManager
         );
     }
