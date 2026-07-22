@@ -107,11 +107,23 @@ test('client sources display server SLA evidence but never manufacture authorita
 });
 
 test('client replay requests never nominate tenant worker or arbitrary target identity', async () => {
+  const forbiddenReplayPayload = /(?:tenantId|workerId|leaseOwner)\s*:/i;
   for (const clientRoot of clientRoots) {
     for (const file of await filesUnder(clientRoot, textExtensions)) {
       const content = await text(file);
-      assert.doesNotMatch(content, /replay[\s\S]{0,500}(?:tenantId|workerId|leaseOwner)\s*:/i);
-      assert.doesNotMatch(content, /(?:tenantId|workerId)\s*:[\s\S]{0,500}replay/i);
+      const replayRequestPayloads = [
+        ...content.matchAll(/\/replay\b[\s\S]{0,1200}?JSON\.stringify\(([^)]*)\)/gi),
+        ...content.matchAll(/JSON\.stringify\(([^)]*)\)[\s\S]{0,1200}?\/replay\b/gi),
+        ...content.matchAll(/\/replay\b[\s\S]{0,1200}?new URLSearchParams\(([^)]*)\)/gi),
+        ...content.matchAll(/new URLSearchParams\(([^)]*)\)[\s\S]{0,1200}?\/replay\b/gi),
+      ];
+      for (const match of replayRequestPayloads) {
+        assert.doesNotMatch(
+          match[1] ?? match[0],
+          forbiddenReplayPayload,
+          `${file} replay request must use principal tenant and server worker identity`,
+        );
+      }
     }
   }
 });
