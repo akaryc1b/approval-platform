@@ -1,6 +1,9 @@
 import type { IdentityReference } from '#/api/approval/identities';
 
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
+import {
+  approvalCommandHeaders,
+  approvalRequest,
+} from '#/api/approval/transport';
 
 export type DelegationScope = 'ALL' | 'DEFINITION';
 export type DelegationStatus = 'ACTIVE' | 'REVOKED';
@@ -56,90 +59,33 @@ export interface CreateDelegationPayload {
   validUntil: string;
 }
 
-interface ApiErrorPayload {
-  code?: string;
-  error?: string;
-  message?: string;
-}
-
-function operationId(prefix: string) {
-  const randomId = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${randomId}`;
-}
-
-function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-async function parseError(response: Response) {
-  let payload: ApiErrorPayload | undefined;
-  try {
-    payload = (await response.json()) as ApiErrorPayload;
-  } catch {
-    payload = undefined;
-  }
-  return payload?.message || payload?.error || payload?.code ||
-    `请求失败（${response.status}）`;
-}
-
-async function request<T>(path: string, init: RequestInit = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init.headers);
-  headers.set('Accept', 'application/json');
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  if (init.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
-    ...init,
-    credentials: 'same-origin',
-    headers,
-  });
-  if (!response.ok) {
-    throw new Error(await parseError(response));
-  }
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
-}
-
-function commandHeaders(prefix: string) {
-  const requestId = operationId(`${prefix}-request`);
-  return {
-    'Idempotency-Key': operationId(prefix),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  };
-}
-
 export function findDelegationRules(includeRevoked = false) {
-  return request<DelegationRule[]>(
+  return approvalRequest<DelegationRule[]>(
     `/approval/delegations?includeRevoked=${includeRevoked}`,
   );
 }
 
 export function createDelegationRule(payload: CreateDelegationPayload) {
-  return request<DelegationRule>('/approval/delegations', {
+  return approvalRequest<DelegationRule>('/approval/delegations', {
     body: JSON.stringify(payload),
-    headers: commandHeaders('web-delegation-create'),
+    headers: approvalCommandHeaders('web-delegation-create'),
     method: 'POST',
   });
 }
 
 export function revokeDelegationRule(ruleId: string, reason: string) {
-  return request<DelegationRule>(
+  return approvalRequest<DelegationRule>(
     `/approval/delegations/${encodeURIComponent(ruleId)}/revoke`,
     {
       body: JSON.stringify({ reason: reason.trim() }),
-      headers: commandHeaders('web-delegation-revoke'),
+      headers: approvalCommandHeaders('web-delegation-revoke'),
       method: 'POST',
     },
   );
 }
 
 export function findTaskDelegation(taskId: string) {
-  return request<DelegatedTaskAssignment | undefined>(
+  return approvalRequest<DelegatedTaskAssignment | undefined>(
     `/approval/tasks/${encodeURIComponent(taskId)}/delegation`,
   );
 }
