@@ -233,3 +233,22 @@ create index idx_sla_execution_replay_original
         requested_at desc,
         replay_id
     );
+
+create function ap_reject_sla_execution_evidence_mutation()
+returns trigger
+language plpgsql
+as $$
+begin
+    raise exception using
+        errcode = '55000',
+        message = 'SLA execution attempts and replay evidence are append-only';
+end;
+$$;
+
+create trigger trg_sla_execution_attempt_append_only
+before update or delete on ap_sla_execution_attempt
+for each row execute function ap_reject_sla_execution_evidence_mutation();
+
+create trigger trg_sla_execution_replay_append_only
+before update or delete on ap_sla_execution_replay
+for each row execute function ap_reject_sla_execution_evidence_mutation();
