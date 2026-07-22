@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseDispositionService;
+import io.github.akaryc1b.approval.application.ApprovalProcessReleaseQueryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.annotation.RequestHeader;
 
@@ -25,6 +26,11 @@ class ApprovalProcessReleaseDispositionEndpointContractTest {
         );
         assertEquals(ApprovalProcessReleaseDispositionService.class, service.getType());
 
+        Field query = ApprovalProcessReleaseDispositionController.class.getDeclaredField(
+            "query"
+        );
+        assertEquals(ApprovalProcessReleaseQueryService.class, query.getType());
+
         for (String methodName : Set.of("deprecate", "retire")) {
             Method method = Arrays.stream(
                 ApprovalProcessReleaseDispositionController.class.getDeclaredMethods()
@@ -41,6 +47,24 @@ class ApprovalProcessReleaseDispositionEndpointContractTest {
             );
             assertTrue(permission.value().requiresReason());
             assertTrue(hasRequiredReasonHeader(method));
+        }
+
+        for (String methodName : Set.of("findReleases", "findRelease", "findHistory")) {
+            Method method = Arrays.stream(
+                ApprovalProcessReleaseDispositionController.class.getDeclaredMethods()
+            ).filter(candidate -> candidate.getName().equals(methodName))
+                .findFirst()
+                .orElseThrow();
+            ApprovalManagementPermission permission = method.getAnnotation(
+                ApprovalManagementPermission.class
+            );
+            if (permission == null) {
+                permission = ApprovalProcessReleaseDispositionController.class.getAnnotation(
+                    ApprovalManagementPermission.class
+                );
+            }
+            assertNotNull(permission);
+            assertEquals(ApprovalManagementPermission.Requirement.READ, permission.value());
         }
 
         Set<String> requestFields = Arrays.stream(

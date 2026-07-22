@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseActivationService;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseDispositionService;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseLifecycleService;
+import io.github.akaryc1b.approval.application.ApprovalProcessReleaseQueryService;
 import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
 import io.github.akaryc1b.approval.application.port.ApprovalDesignDraftStore;
 import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseDeactivationPort;
@@ -34,6 +35,13 @@ public class ApprovalProcessReleaseLifecycleConfiguration {
     @Bean
     ApprovalRuntimeBindingStore approvalRuntimeBindingStore(DataSource dataSource) {
         return new JdbcApprovalRuntimeBindingStore(dataSource);
+    }
+
+    @Bean
+    ApprovalProcessReleaseQueryService approvalProcessReleaseQueryService(
+        ApprovalProcessReleaseStore approvalProcessReleaseStore
+    ) {
+        return new ApprovalProcessReleaseQueryService(approvalProcessReleaseStore);
     }
 
     @Bean
