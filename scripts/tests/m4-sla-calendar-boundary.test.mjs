@@ -106,7 +106,7 @@ test('SLA management controllers remain capability governed and principal-scoped
   );
   assert.match(identityFilter, /return principal\.tenantId\(\)/);
   assert.match(identityFilter, /return principal\.operatorId\(\)/);
-  assert.match(identityFilter, /new TrustedIdentityRequestWrapper/);
+  assert.match(identityFilter, /new TrustedApprovalRequest/);
 
   const controllers = [
     'ApprovalCalendarManagementController.java',
