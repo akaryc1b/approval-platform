@@ -2,7 +2,6 @@ package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService.ActivationCommand;
 import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService.ActivationResult;
-import io.github.akaryc1b.approval.application.ApprovalProcessReleaseActivationService.Operation;
 import io.github.akaryc1b.approval.application.port.ApprovalProcessReleaseStore;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
