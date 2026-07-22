@@ -1,15 +1,22 @@
 package io.github.akaryc1b.approval.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalSlaExecutionPlanner;
 import io.github.akaryc1b.approval.application.ApprovalSlaService;
 import io.github.akaryc1b.approval.application.ApprovalWorkingTimeCalculator;
 import io.github.akaryc1b.approval.application.SlaAwareApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalRequestEvidenceProvider;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaExecutionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaStore;
-
+import io.github.akaryc1b.approval.persistence.jdbc.TransactionalApprovalSlaStore;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -29,13 +36,49 @@ public class ApprovalSlaConfiguration {
     }
 
     @Bean
+    ApprovalSlaExecutionStore approvalSlaExecutionStore(
+        DataSource dataSource,
+        ObjectMapper approvalPersistenceObjectMapper,
+        PlatformTransactionManager transactionManager
+    ) {
+        return new JdbcApprovalSlaExecutionStore(
+            dataSource,
+            approvalPersistenceObjectMapper,
+            transactionManager
+        );
+    }
+
+    @Bean
+    ApprovalSlaExecutionPlanner approvalSlaExecutionPlanner(
+        @Value("${approval.sla.execution.max-attempts:5}") int maxAttempts
+    ) {
+        return new ApprovalSlaExecutionPlanner(maxAttempts, UUID::randomUUID);
+    }
+
+    @Bean
+    @Primary
+    ApprovalSlaStore transactionalApprovalSlaStore(
+        JdbcApprovalSlaStore approvalSlaStore,
+        ApprovalSlaExecutionStore approvalSlaExecutionStore,
+        ApprovalSlaExecutionPlanner approvalSlaExecutionPlanner,
+        PlatformTransactionManager transactionManager
+    ) {
+        return new TransactionalApprovalSlaStore(
+            approvalSlaStore,
+            approvalSlaExecutionStore,
+            approvalSlaExecutionPlanner,
+            transactionManager
+        );
+    }
+
+    @Bean
     ApprovalWorkingTimeCalculator approvalWorkingTimeCalculator() {
         return new ApprovalWorkingTimeCalculator();
     }
 
     @Bean
     ApprovalSlaService approvalSlaService(
-        JdbcApprovalSlaStore approvalSlaStore,
+        ApprovalSlaStore approvalSlaStore,
         ApprovalWorkingTimeCalculator approvalWorkingTimeCalculator,
         Clock approvalClock
     ) {
