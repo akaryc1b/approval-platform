@@ -20,11 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalMigrationUpgradeIntegrationTest {
 
+    private static final String LATEST_VERSION = "32";
     private static final String FRESH_DATABASE = "approval_m4_fresh";
     private static final String V1_DATABASE = "approval_m4_v1";
     private static final String V13_DATABASE = "approval_m4_v13";
     private static final String V23_DATABASE = "approval_m4_v23";
     private static final String V27_DATABASE = "approval_m4_v27_heavy";
+    private static final String V31_DATABASE = "approval_m4_v31";
 
     private static final Set<String> M4_TABLES = Set.of(
         "ap_work_calendar",
@@ -37,7 +39,10 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         "ap_sla_responsibility_change",
         "ap_sla_execution_intent",
         "ap_sla_execution_attempt",
-        "ap_sla_execution_replay"
+        "ap_sla_execution_replay",
+        "ap_process_release_lifecycle",
+        "ap_process_release_lifecycle_history",
+        "ap_process_runtime_binding"
     );
 
     private static final Set<String> M4_INDEXES = Set.of(
@@ -54,7 +59,14 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         "idx_sla_execution_intent_sla_history",
         "idx_sla_execution_intent_request",
         "idx_sla_execution_attempt_history",
-        "idx_sla_execution_replay_original"
+        "idx_sla_execution_replay_original",
+        "uk_process_release_single_active",
+        "idx_process_release_lifecycle_list",
+        "idx_process_release_lifecycle_state",
+        "idx_process_release_history_timeline",
+        "idx_process_release_history_request",
+        "idx_process_runtime_binding_release_usage",
+        "idx_process_runtime_binding_business_key"
     );
 
     @Container
@@ -75,30 +87,36 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
             V1_DATABASE,
             V13_DATABASE,
             V23_DATABASE,
-            V27_DATABASE
+            V27_DATABASE,
+            V31_DATABASE
         )) {
             admin.execute("create database " + database);
         }
     }
 
     @Test
-    void freshInstallReachesV31() {
+    void freshInstallReachesV32() {
         assertUpgrade(FRESH_DATABASE, null);
     }
 
     @Test
-    void upgradesV1SchemaToV31() {
+    void upgradesV1SchemaToV32() {
         assertUpgrade(V1_DATABASE, MigrationVersion.fromVersion("1"));
     }
 
     @Test
-    void upgradesV13SchemaToV31() {
+    void upgradesV13SchemaToV32() {
         assertUpgrade(V13_DATABASE, MigrationVersion.fromVersion("13"));
     }
 
     @Test
-    void upgradesV23SchemaToV31() {
+    void upgradesV23SchemaToV32() {
         assertUpgrade(V23_DATABASE, MigrationVersion.fromVersion("23"));
+    }
+
+    @Test
+    void upgradesV31SchemaToV32() {
+        assertUpgrade(V31_DATABASE, MigrationVersion.fromVersion("31"));
     }
 
     @Test
@@ -115,7 +133,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         Flyway latest = flyway(dataSource, null);
         latest.migrate();
 
-        assertEquals("31", latest.info().current().getVersion().getVersion());
+        assertEquals(LATEST_VERSION, latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
         assertProjectionEvidence(jdbc, 5_000);
         assertM4Schema(dataSource);
@@ -132,7 +150,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         Flyway latest = flyway(dataSource, null);
         latest.migrate();
 
-        assertEquals("31", latest.info().current().getVersion().getVersion());
+        assertEquals(LATEST_VERSION, latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
         assertM4Schema(dataSource);
     }
@@ -265,7 +283,10 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
                 'ap_sla_responsibility_change',
                 'ap_sla_execution_intent',
                 'ap_sla_execution_attempt',
-                'ap_sla_execution_replay'
+                'ap_sla_execution_replay',
+                'ap_process_release_lifecycle',
+                'ap_process_release_lifecycle_history',
+                'ap_process_runtime_binding'
               ])
             """,
             String.class
@@ -291,7 +312,14 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
                 'idx_sla_execution_intent_sla_history',
                 'idx_sla_execution_intent_request',
                 'idx_sla_execution_attempt_history',
-                'idx_sla_execution_replay_original'
+                'idx_sla_execution_replay_original',
+                'uk_process_release_single_active',
+                'idx_process_release_lifecycle_list',
+                'idx_process_release_lifecycle_state',
+                'idx_process_release_history_timeline',
+                'idx_process_release_history_request',
+                'idx_process_runtime_binding_release_usage',
+                'idx_process_runtime_binding_business_key'
               ])
             """,
             String.class

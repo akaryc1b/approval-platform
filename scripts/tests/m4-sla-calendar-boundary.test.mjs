@@ -47,18 +47,40 @@ async function git(...args) {
   return (await exec('git', args, { cwd: root })).stdout.trim();
 }
 
-test('M4 calendar SLA and execution migrations are contiguous through V31', async () => {
+test('M4 migrations are contiguous through V32', async () => {
   const migrationFiles = (await readdir(path.join(root, migrationsRoot)))
     .filter((name) => /^V\d+__.*\.sql$/.test(name));
   const versions = migrationFiles
     .map((name) => Number(name.match(/^V(\d+)__/)?.[1]))
     .sort((left, right) => left - right);
 
-  assert.equal(Math.max(...versions), 31, 'highest Flyway migration must be V31 in M4-D');
+  assert.equal(Math.max(...versions), 32, 'highest Flyway migration must be V32 in M4-E');
   assert.ok(migrationFiles.includes('V28__create_versioned_work_calendars.sql'));
   assert.ok(migrationFiles.includes('V29__create_immutable_sla_policies.sql'));
   assert.ok(migrationFiles.includes('V30__create_sla_instances_and_responsibility_history.sql'));
   assert.ok(migrationFiles.includes('V31__create_sla_execution_intents_attempts_and_replay.sql'));
+  assert.ok(migrationFiles.includes('V32__create_process_release_lifecycle_and_runtime_binding.sql'));
+});
+
+test('V32 establishes immutable tenant-scoped release lifecycle and runtime binding evidence', async () => {
+  const migration = await text(
+    `${migrationsRoot}/V32__create_process_release_lifecycle_and_runtime_binding.sql`,
+  );
+  for (const table of [
+    'ap_process_release_lifecycle',
+    'ap_process_release_lifecycle_history',
+    'ap_process_runtime_binding',
+  ]) {
+    assert.match(migration, new RegExp(`create table ${table}\\b`));
+  }
+  assert.match(migration, /lifecycle_state in \('PUBLISHED', 'ACTIVE', 'DEPRECATED', 'RETIRED'\)/);
+  assert.match(migration, /create unique index uk_process_release_single_active[\s\S]*where lifecycle_state = 'ACTIVE'/);
+  assert.match(migration, /foreign key \([\s\n]*tenant_id, definition_key, release_version, release_package_hash/);
+  assert.match(migration, /trg_process_release_lifecycle_guard/);
+  assert.match(migration, /trg_process_release_history_append_only/);
+  assert.match(migration, /trg_process_runtime_binding_immutable/);
+  assert.match(migration, /trg_approval_release_package_immutable/);
+  assert.doesNotMatch(migration, /\b(?:ACT_[A-Z0-9_]+|act_[a-z0-9_]+)\b/);
 });
 
 test('only permanent workflows remain and the M4 boundary is wired permanently', async () => {
