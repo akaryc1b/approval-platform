@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.api;
 import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService;
 import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService.ActivationCommand;
 import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService.ActivationResult;
+import io.github.akaryc1b.approval.application.ApprovalProcessReleaseActivationService;
 import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore.ActivationPage;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.definition.ApprovalEffectiveRelease;
@@ -29,9 +30,14 @@ public class ApprovalEffectiveReleaseController {
     private static final String TRACE_ID = "X-Trace-Id";
 
     private final ApprovalEffectiveReleaseService service;
+    private final ApprovalProcessReleaseActivationService releaseActivation;
 
-    public ApprovalEffectiveReleaseController(ApprovalEffectiveReleaseService service) {
+    public ApprovalEffectiveReleaseController(
+        ApprovalEffectiveReleaseService service,
+        ApprovalProcessReleaseActivationService releaseActivation
+    ) {
         this.service = service;
+        this.releaseActivation = releaseActivation;
     }
 
     @GetMapping("/{definitionKey}/effective")
@@ -61,12 +67,14 @@ public class ApprovalEffectiveReleaseController {
         @RequestHeader(OPERATOR_ID) String operatorId,
         @RequestHeader(REQUEST_ID) String requestId,
         @RequestHeader(IDEMPOTENCY_KEY) String idempotencyKey,
+        @RequestHeader(ApprovalManagementPermissionInterceptor.OPERATION_REASON_HEADER)
+        String reason,
         @RequestHeader(value = TRACE_ID, required = false) String traceId,
         @PathVariable String definitionKey,
         @PathVariable int releaseVersion,
         @RequestBody ActivationRequest request
     ) {
-        return service.activate(command(
+        return releaseActivation.activate(command(
             tenantId,
             operatorId,
             requestId,
@@ -74,8 +82,9 @@ public class ApprovalEffectiveReleaseController {
             traceId,
             definitionKey,
             releaseVersion,
-            request
-        ));
+            request,
+            reason
+        )).effective();
     }
 
     @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.ACTIVATE)
@@ -85,12 +94,14 @@ public class ApprovalEffectiveReleaseController {
         @RequestHeader(OPERATOR_ID) String operatorId,
         @RequestHeader(REQUEST_ID) String requestId,
         @RequestHeader(IDEMPOTENCY_KEY) String idempotencyKey,
+        @RequestHeader(ApprovalManagementPermissionInterceptor.OPERATION_REASON_HEADER)
+        String reason,
         @RequestHeader(value = TRACE_ID, required = false) String traceId,
         @PathVariable String definitionKey,
         @PathVariable int releaseVersion,
         @RequestBody ActivationRequest request
     ) {
-        return service.rollback(command(
+        return releaseActivation.rollback(command(
             tenantId,
             operatorId,
             requestId,
@@ -98,8 +109,9 @@ public class ApprovalEffectiveReleaseController {
             traceId,
             definitionKey,
             releaseVersion,
-            request
-        ));
+            request,
+            reason
+        )).effective();
     }
 
     private static ActivationCommand command(
@@ -110,7 +122,8 @@ public class ApprovalEffectiveReleaseController {
         String traceId,
         String definitionKey,
         int releaseVersion,
-        ActivationRequest request
+        ActivationRequest request,
+        String reason
     ) {
         return new ActivationCommand(
             new RequestContext(
@@ -123,10 +136,10 @@ public class ApprovalEffectiveReleaseController {
             definitionKey,
             releaseVersion,
             request.expectedRevision(),
-            request.reason()
+            reason
         );
     }
 
-    public record ActivationRequest(Long expectedRevision, String reason) {
+    public record ActivationRequest(Long expectedRevision) {
     }
 }

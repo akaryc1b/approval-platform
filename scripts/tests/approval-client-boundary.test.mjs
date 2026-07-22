@@ -150,3 +150,21 @@ test('management routes declare host-side capability hints', async () => {
   assert.match(approvalRoutes, /name: 'ApprovalOperations'[\s\S]*authority: \['approval:ops:view'\]/);
   assert.match(approvalRoutes, /name: 'ApprovalOperationalFailures'[\s\S]*authority: \['approval:ops:view'\]/);
 });
+
+test('process release mutations require explicit bounded reason headers', async () => {
+  const design = await readFile(join(webRoot, 'api/approval/process-design.ts'), 'utf8');
+  const effective = await readFile(join(webRoot, 'api/approval/effective-release.ts'), 'utf8');
+
+  assert.match(design, /globalThis\.prompt/);
+  assert.match(design, /X-Approval-Operation-Reason/);
+  assert.match(design, /length < 8 \|\| length > 512/);
+  assert.match(effective, /X-Approval-Operation-Reason/);
+  assert.match(effective, /length < 8 \|\| length > 512/);
+  assert.match(effective, /JSON\.stringify\(\{ expectedRevision \}\)/);
+  assert.doesNotMatch(effective, /JSON\.stringify\(\{ expectedRevision, reason \}\)/);
+
+  for (const content of [design, effective]) {
+    assert.doesNotMatch(content, /X-(?:Tenant|Operator)-Id/);
+    assert.doesNotMatch(content, /audit(?:Chain)?Reference\s*:/i);
+  }
+});

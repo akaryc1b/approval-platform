@@ -100,11 +100,15 @@ function changeApprovalEffectiveRelease(
   expectedRevision: number,
   reason: string,
 ) {
+  const operationReason = approvalOperationReason(reason);
   return approvalRequest<ApprovalEffectiveReleaseActivationResult>(
     `/approval/version-management/${encodeURIComponent(definitionKey)}/releases/${releaseVersion}/${action}`,
     {
-      body: JSON.stringify({ expectedRevision, reason }),
-      headers: approvalCommandHeaders(`approval-release-${action}`),
+      body: JSON.stringify({ expectedRevision }),
+      headers: {
+        ...approvalCommandHeaders(`approval-release-${action}`),
+        'X-Approval-Operation-Reason': operationReason,
+      },
       method: 'POST',
     },
   );
@@ -138,4 +142,16 @@ export function rollbackApprovalRelease(
     expectedRevision,
     reason,
   );
+}
+
+function approvalOperationReason(reason: string) {
+  const normalized = reason.normalize('NFKC').trim();
+  const length = Array.from(normalized).length;
+  if (length < 8 || length > 512) {
+    throw new Error('操作原因必须包含 8–512 个字符');
+  }
+  if (/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/u.test(normalized)) {
+    throw new Error('操作原因包含不支持的控制字符');
+  }
+  return normalized;
 }

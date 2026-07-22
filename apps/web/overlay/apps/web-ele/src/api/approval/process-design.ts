@@ -600,13 +600,34 @@ export function preflightApprovalPublication(input: ApprovalPublicationPreflight
 export function publishApprovalDesignDraft(
   draftId: string,
   input: PublishApprovalDesignDraftInput,
+  reason?: string,
 ) {
+  const operationReason = approvalPublicationReason(reason);
   return approvalRequest<ApprovalPublishResult>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/publish`,
     {
       body: JSON.stringify(input),
-      headers: approvalCommandHeaders('approval-release-publish'),
+      headers: {
+        ...approvalCommandHeaders('approval-release-publish'),
+        'X-Approval-Operation-Reason': operationReason,
+      },
       method: 'POST',
     },
   );
+}
+
+function approvalPublicationReason(supplied?: string) {
+  const prompted = supplied ?? globalThis.prompt?.(
+    '请输入本次发布原因（8–512 个字符）。该原因将写入不可变审计与流程版本生命周期证据。',
+  );
+  if (prompted == null) throw new Error('已取消发布');
+  const normalized = prompted.normalize('NFKC').trim();
+  const length = Array.from(normalized).length;
+  if (length < 8 || length > 512) {
+    throw new Error('发布原因必须包含 8–512 个字符');
+  }
+  if (/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/u.test(normalized)) {
+    throw new Error('发布原因包含不支持的控制字符');
+  }
+  return normalized;
 }

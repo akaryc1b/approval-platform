@@ -1,6 +1,8 @@
 package io.github.akaryc1b.approval.config;
 
 import io.github.akaryc1b.approval.application.ApprovalDesignService;
+import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService;
+import io.github.akaryc1b.approval.application.ApprovalProcessReleaseActivationService;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseLifecycleService;
 import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
 import io.github.akaryc1b.approval.application.port.ApprovalDesignDraftStore;
@@ -38,6 +40,29 @@ public class ApprovalProcessReleaseLifecycleConfiguration {
             approvalDesignDraftStore,
             approvalDesignService::publish,
             approvalProcessReleaseStore,
+            auditEventSink,
+            approvalReleasePackageHasher,
+            approvalClock,
+            UUID::randomUUID
+        );
+    }
+
+    @Bean
+    ApprovalProcessReleaseActivationService approvalProcessReleaseActivationService(
+        IdempotencyGuard idempotencyGuard,
+        ApprovalProcessReleaseStore approvalProcessReleaseStore,
+        ApprovalEffectiveReleaseService approvalEffectiveReleaseService,
+        AuditEventSink auditEventSink,
+        ApprovalReleasePackageHasher approvalReleasePackageHasher,
+        Clock approvalClock
+    ) {
+        return new ApprovalProcessReleaseActivationService(
+            idempotencyGuard,
+            approvalProcessReleaseStore,
+            (command, operation) -> switch (operation) {
+                case ACTIVATE -> approvalEffectiveReleaseService.activate(command);
+                case ROLLBACK -> approvalEffectiveReleaseService.rollback(command);
+            },
             auditEventSink,
             approvalReleasePackageHasher,
             approvalClock,
