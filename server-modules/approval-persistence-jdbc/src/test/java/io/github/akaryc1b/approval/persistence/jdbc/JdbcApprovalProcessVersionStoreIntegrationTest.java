@@ -20,7 +20,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
