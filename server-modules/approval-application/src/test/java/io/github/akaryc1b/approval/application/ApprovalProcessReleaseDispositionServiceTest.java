@@ -311,7 +311,7 @@ class ApprovalProcessReleaseDispositionServiceTest {
             revision,
             "Lifecycle reason " + suffix,
             "idempotency-" + suffix,
-            "operator-disposition",
+            from == State.DRAFT ? release.publishedBy() : "operator-disposition",
             "request-" + suffix,
             "trace-disposition",
             "audit-event:" + suffix,
