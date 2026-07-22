@@ -100,7 +100,14 @@ test('client sources display server SLA evidence but never manufacture authorita
   }
 });
 
-test('SLA management controllers remain capability governed and tenant-scoped', async () => {
+test('SLA management controllers remain capability governed and principal-scoped', async () => {
+  const identityFilter = await text(
+    'apps/server/src/main/java/io/github/akaryc1b/approval/security/ApprovalIdentityContextFilter.java',
+  );
+  assert.match(identityFilter, /return principal\.tenantId\(\)/);
+  assert.match(identityFilter, /return principal\.operatorId\(\)/);
+  assert.match(identityFilter, /new TrustedIdentityRequestWrapper/);
+
   const controllers = [
     'ApprovalCalendarManagementController.java',
     'ApprovalSlaPolicyManagementController.java',
@@ -112,7 +119,8 @@ test('SLA management controllers remain capability governed and tenant-scoped', 
     const permissions = [...content.matchAll(/@ApprovalManagementPermission\b/g)].length;
     assert.ok(mappings > 0, `${name} must expose management mappings`);
     assert.ok(permissions >= mappings, `${name} mappings must declare capabilities`);
-    assert.doesNotMatch(content, /@RequestHeader\([^)]*(?:TENANT|OPERATOR)/);
+    assert.doesNotMatch(content, /@RequestParam[^\n]*(?:tenantId|operatorId)/i);
+    assert.doesNotMatch(content, /@RequestBody[^\n]*(?:tenantId|operatorId)/i);
   }
   const capability = await text(
     'apps/server/src/main/java/io/github/akaryc1b/approval/api/ApprovalManagementPermission.java',
