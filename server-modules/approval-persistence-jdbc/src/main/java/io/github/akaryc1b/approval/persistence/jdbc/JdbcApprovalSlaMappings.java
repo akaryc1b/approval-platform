@@ -1,33 +1,34 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
 import io.github.akaryc1b.approval.application.ApprovalWorkingTimeCalculator.CalendarSnapshot;
-import io.github.akaryc1b.approval.application.ApprovalWorkingTimeCalculator.DayOverride;
-import io.github.akaryc1b.approval.application.ApprovalWorkingTimeCalculator.WorkingInterval;
-import io.github.akaryc1b.approval.application.port.ApprovalParticipantSlaQuery;
-import io.github.akaryc1b.approval.application.port.ApprovalSlaManagementQuery;
-import io.github.akaryc1b.approval.application.port.ApprovalSlaStore;
-import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.*;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.AutomaticAction;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.CalendarIdentity;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.CalendarStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.CalendarVersion;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.EscalationTargetType;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.PolicyStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.ResponsibilityChange;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.ResponsibilityChangeSource;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaConflictException;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaDurationMode;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaInstance;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaNotFoundException;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaPolicyIdentity;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaPolicyVersion;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaTargetType;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaTerminalReason;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
-import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 
 final class JdbcApprovalSlaMappings {
