@@ -1,104 +1,194 @@
-# Approval Platform
+# 🚀 Approval Platform
 
 [中文](#项目定位) | [English](#english-summary)
 
-生产级、可独立部署、面向中国式审批场景的通用审批平台。项目以 Flowable 为流程执行内核，提供仿钉钉/飞书的审批设计体验、动态表单、审批工作台、复杂任务协作、流程运维、AI 辅助审批和可插拔连接器。
+## 📌 项目简介
 
-> 当前状态：M2 设计器与动态表单里程碑已完成。版本发布、部署、生效版本、服务端 Preflight、批量模拟、冲突保护、安全导入导出、复合表单协议、管理权限边界、审计可观测性、兼容性矩阵、运维文档和最终 committed-head 验证均已形成闭环；M3 协作能力由后续计划显式启动。
+生产级、可独立部署的通用审批与流程协作平台。
 
-## 项目定位
+基于 Flowable 流程执行内核，提供类似钉钉 / 飞书审批体验的流程设计器、动态表单、审批工作台、任务协作、流程运维、AI 辅助能力以及可插拔连接器。
 
-本项目不是 RuoYi-Vue-Plus 的附属模块，也不让业务系统直接依赖 Flowable API。平台以独立服务运行，通过 REST、Webhook、SDK 和 Connector 接入：
+> 🎯 当前状态：M2 Designer & Forms、M3 Collaboration Governance 已完成。平台已具备流程设计、动态表单、版本治理、审批协作、委派治理、通知治理和生产级运维能力。
 
-- RuoYi-Vue-Plus 5.X / 6.X
-- 普通 Spring Boot 项目
-- 微服务与非 Java 系统
-- 钉钉、飞书及其他第三方办公平台
+---
 
-目标是对齐钉钉、飞书审批领域公开可验证的通用能力，但不复制其商标、图标、源码或像素级视觉设计。
+## 🏢 项目定位
 
-## 技术基线
+Approval Platform 不是业务系统内的审批模块，也不是 Flowable 的简单封装。
 
-- 后端：Java 21、Spring Boot 4、Flowable 8
-- PC：Vue 3、TypeScript、Vben Admin `web-ele`、Element Plus
-- 移动端：UniApp Vue 3、Unibest、Wot UI
-- 流程：自研 Approval DSL，编译为 BPMN / DMN
-- 表单：自研 Form Schema，多端独立 Renderer
-- 数据库：PostgreSQL 作为标准主库；MySQL 8 为后续兼容目标
-- 构建：Maven 多模块 + pnpm workspace
-- 许可：Apache License 2.0
+### 💡 设计原则
 
-## Monorepo 结构
+- 🔌 业务系统不直接依赖 Flowable API
+- 🗄️ 不直接操作 Flowable ACT_* 表
+- 🧩 审批领域模型与流程引擎解耦
+- ⚙️ Approval DSL 是产品模型，BPMN 是执行产物
+- 📝 表单 Schema 独立于前端组件
+
+### 🔗 支持接入
+
+- RuoYi-Vue-Plus 5.x / 6.x
+- Spring Boot 项目
+- 微服务系统
+- 非 Java 系统
+- 钉钉、飞书等第三方平台
+
+---
+
+## 🛠️ 技术基线
+
+- ☕ 后端：Java 21、Spring Boot 4、Flowable 8
+- 🖥️ PC：Vue 3、TypeScript、Vben Admin、Element Plus
+- 📱 移动端：UniApp Vue 3、Unibest、Wot UI
+- 🔄 流程：Approval DSL 编译 BPMN / DMN
+- 📋 表单：Form Schema + 多端 Renderer
+- 🐘 数据库：PostgreSQL
+- 📦 构建：Maven 多模块 + pnpm workspace
+- 📄 License：Apache License 2.0
+
+---
+
+# ⭐ 核心能力
+
+## 🔄 流程设计
+
+- 🎨 可视化审批设计器
+- DSL 流程模型
+- BPMN / DMN 编译
+- 📌 流程版本管理
+- 🚀 发布与生效版本控制
+- 📸 实例绑定流程快照
+
+## 📝 动态表单
+
+- Schema 驱动表单
+- 🌐 PC / H5 / 微信多端 Renderer
+- 🔗 字段联动
+- 🔐 节点字段权限
+- 🧱 复合表单区块
+
+## 🤝 M3 协作治理
+
+已完成：
+
+- 💬 审批评论
+- ↩️ 回复与讨论
+- 👤 @人员
+- 📎 附件协作
+- 📝 评论编辑与删除审计
+- 👁️ 可见范围控制
+- 🛡️ 协作权限治理
+
+## 🔁 委派治理
+
+支持：
+
+- 📤 审批任务委派
+- 🌍 全局委派
+- 🎯 指定流程委派
+- 🔄 委派生命周期管理
+- 📚 委派关系审计
+
+## 🔔 通知治理
+
+支持：
+
+- 📢 审批事件通知
+- ⚙️ 通知策略管理
+- 🔄 消息一致性治理
+- 🧯 失败处理机制
+- 🔌 可扩展通知渠道
+
+---
+
+## 📦 Monorepo 结构
 
 ```text
 approval-platform/
 ├── apps/
-│   ├── server/                 # 后端启动应用
-│   ├── web/                    # PC 管理端
-│   ├── mobile/                 # UniApp 移动端
-│   └── docs-site/              # 文档站
-├── server-modules/             # Java 领域与基础设施模块
-├── packages/                   # PC、移动端共享 TypeScript 包
-├── connectors/                 # 通用与宿主系统连接器
-├── deploy/                     # Docker、Compose、Kubernetes、Helm
-├── examples/                   # 接入示例
-├── docs/                       # 产品与架构文档
-└── scripts/                    # 工程脚本
+│   ├── server/
+│   ├── web/
+│   ├── mobile/
+│   └── docs-site/
+├── server-modules/
+├── packages/
+├── connectors/
+├── deploy/
+├── examples/
+├── docs/
+└── scripts/
 ```
 
-## 核心原则
+---
 
-1. 业务系统不得直接访问 Flowable `ACT_*` 表或调用 Flowable Service。
-2. 领域层不得依赖 Flowable、RuoYi、Sa-Token 或具体 UI 框架。
-3. 设计器保存 Approval DSL，BPMN 是编译产物而不是产品主模型。
-4. 表单保存平台自有 Schema，Element Plus 与 Wot UI 只是渲染器。
-5. 所有外部写请求必须支持租户上下文、幂等键、请求 ID 和审计。
-6. 流程发布后形成不可变版本，运行实例必须绑定流程和表单快照。
-7. 通用能力进入开源核心，公司和客户专用逻辑通过私有扩展实现。
+## 🏁 当前里程碑
 
-## 计划能力
+### ✅ M2 Designer & Forms
 
-- 仿钉钉/飞书树状审批设计器
-- 动态表单、字段联动、节点字段权限
-- 顺序会签、并行会签、或签、票签和权重审批
-- 任意驳回、撤回、拿回、转办、委派、协办
-- 前加签、后加签、减签、代理和离职转办
-- 抄送、催办、评论、@、附件和已阅
-- 工作日历、SLA、超时提醒和自动处理
-- 流程版本、迁移、异常恢复和运维控制台
-- AI 材料检查、风险分析、审批建议和意见生成
-- RuoYi 5/6、钉钉、飞书和通用 REST 连接器
+- Approval DSL
+- 动态表单
+- Form Package
+- 流程发布
+- 生效版本管理
+- Preflight 校验
+- 冲突保护
+- 安全导入导出
+- 节点字段权限
+- 多端 Renderer
 
-## 当前里程碑
+### ✅ M3 Collaboration Governance
 
-`M2 Designer and Forms` 已完成：
+- 💬 评论协作体系
+- 📎 附件协作
+- 🔁 委派治理
+- 🔔 通知治理
+- 📒 审计一致性
+- 🔐 权限边界治理
+- ⚡ 性能门禁
+- ✅ 生产验收体系
 
-- Approval DSL 与 Form Package 的不可变版本、发布、部署和生效版本管理
-- 服务端权威 Preflight、批量模拟、路径覆盖和制品完整性校验
-- 大流程设计器冲突保护、三方合并、性能门禁和安全删除
-- 安全跨租户导入导出，只创建目标租户草稿
-- 递归复合表单区块、白名单组件协议和 PC/H5/微信一致 Renderer
-- 服务端权威节点字段权限、只读摘要和必填约束
-- 管理权限边界、低基数可观测性和事务审计核对
-- 兼容性矩阵、生产运维、备份恢复和故障处置文档
-- 最终全量 Diff 审查、临时内容清扫与 committed-head 验证
+---
 
-详细规划见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。运维与升级边界见 [`docs/OPERATIONS.md`](docs/OPERATIONS.md) 和 [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md)。
+# 🗺️ Roadmap
 
-## 贡献
+## 🤖 M4 Intelligence
 
-提交代码前请先阅读：
+规划：
 
-- [`docs/PRODUCT_CHARTER.md`](docs/PRODUCT_CHARTER.md)
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- [`docs/PROCESS_DSL.md`](docs/PROCESS_DSL.md)
-- [`docs/FORM_SCHEMA.md`](docs/FORM_SCHEMA.md)
-- [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- AI 审批助手
+- 材料检查
+- 风险分析
+- 智能审批建议
 
-## English summary
+## 🌍 M5 Ecosystem
 
-Approval Platform is a production-oriented, standalone approval and workflow product built on Flowable. It provides a DingTalk/Feishu-inspired approval designer, dynamic forms, workbench, Chinese-style task collaboration, operations tooling, AI-assisted review, and pluggable connectors. The product model remains independent from Flowable and host frameworks.
+规划：
 
-## License
+- 更多连接器
+- SDK
+- 流程模板中心
 
-Apache License 2.0. See [`LICENSE`](LICENSE).
+---
+
+## 📚 文档
+
+- `docs/PRODUCT_CHARTER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/PROCESS_DSL.md`
+- `docs/FORM_SCHEMA.md`
+- `docs/OPERATIONS.md`
+
+---
+
+## 🌎 English Summary
+
+Approval Platform is a production-oriented standalone approval and workflow platform built on Flowable.
+
+It provides workflow designer, dynamic forms, approval workspace, collaboration, delegation, notification governance, audit management and extensible connectors.
+
+The platform keeps business models independent from Flowable and supports integration through REST API, Webhook, SDK and connectors.
+
+---
+
+## 📄 License
+
+Apache License 2.0
