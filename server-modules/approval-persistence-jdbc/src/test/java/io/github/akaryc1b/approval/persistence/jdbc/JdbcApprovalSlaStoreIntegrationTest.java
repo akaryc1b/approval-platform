@@ -414,7 +414,7 @@ class JdbcApprovalSlaStoreIntegrationTest {
                 'test-publisher', ?)
             """,
             TENANT_ID,
-            NOW
+            java.sql.Timestamp.from(NOW)
         );
         jdbc.update(
             """
@@ -432,8 +432,8 @@ class JdbcApprovalSlaStoreIntegrationTest {
             """,
             APPROVAL_INSTANCE_ID,
             TENANT_ID,
-            NOW,
-            NOW
+            java.sql.Timestamp.from(NOW),
+            java.sql.Timestamp.from(NOW)
         );
         jdbc.update(
             """
@@ -448,8 +448,8 @@ class JdbcApprovalSlaStoreIntegrationTest {
             TASK_ID,
             APPROVAL_INSTANCE_ID,
             TENANT_ID,
-            NOW,
-            NOW
+            java.sql.Timestamp.from(NOW),
+            java.sql.Timestamp.from(NOW)
         );
     }
 
