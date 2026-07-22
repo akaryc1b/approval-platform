@@ -4,7 +4,6 @@ import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.CalendarIde
 import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.CalendarPage;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.CalendarStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.CalendarVersion;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.CalendarVersionRow;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -15,8 +14,12 @@ import java.util.Optional;
 import java.util.UUID;
 import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.calendarIdentityMapper;
 import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.calendarVersionRowMapper;
+import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.conflict;
+import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.notFound;
 import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.offset;
+import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.page;
 import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.params;
+import static io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaMappings.required;
 
 final class JdbcApprovalCalendarStore extends JdbcApprovalSlaStoreSupport {
 
