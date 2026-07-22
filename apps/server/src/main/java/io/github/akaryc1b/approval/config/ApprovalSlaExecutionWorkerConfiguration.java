@@ -1,7 +1,6 @@
 package io.github.akaryc1b.approval.config;
 
 import io.github.akaryc1b.approval.application.ApprovalSlaExecutionWorker;
-import io.github.akaryc1b.approval.application.ApprovalSlaExecutionWorker.Configuration;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaActionDispatcher;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaActionDispatcher.DispatchResult;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore;
@@ -95,7 +94,7 @@ public class ApprovalSlaExecutionWorkerConfiguration {
             dispatcher,
             ApprovalSlaExecutionWorker.WorkerMetrics.noop(),
             approvalClock,
-            new Configuration(
+            new ApprovalSlaExecutionWorker.Configuration(
                 enabled,
                 workerId,
                 batchSize,
