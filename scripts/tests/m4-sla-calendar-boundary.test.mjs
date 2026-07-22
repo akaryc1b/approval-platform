@@ -76,14 +76,18 @@ test('browser and mobile never manufacture trusted tenant operator or permission
     'X-Operator-Id',
     'X-Approval-Trusted-Permissions',
   ];
+  const violations = [];
   for (const clientRoot of clientRoots) {
     for (const file of await filesUnder(clientRoot, textExtensions)) {
       const content = await text(file);
       for (const header of forbidden) {
-        assert.equal(content.includes(header), false, `${file} must not send ${header}`);
+        if (content.includes(header)) {
+          violations.push(`${file}: ${header}`);
+        }
       }
     }
   }
+  assert.deepEqual(violations, [], `trusted client identity remains:\n${violations.join('\n')}`);
 });
 
 test('client sources display server SLA evidence but never manufacture authoritative dueAt', async () => {
@@ -173,15 +177,22 @@ test('tracked tree excludes generated artifacts credentials and temporary payloa
     assert.doesNotMatch(file, /(?:^|\/)(?:node_modules|target|dist|coverage)(?:\/|$)/);
     assert.doesNotMatch(file, /\.(?:class|log|tmp|tgz|zip)$/i);
   }
+
+  const credentialPattern = [
+    'g' + 'hp_',
+    'github' + '_pat_',
+    'AKIA' + '[0-9A-Z]{16}',
+    '-----BEGIN ' + '(RSA |EC |OPENSSH )?PRIVATE KEY-----',
+  ].join('|');
+  let credentialMatches = '';
   try {
-    const result = await exec('git', [
-      'grep', '-I', '-n', '-E',
-      'ghp_|github_pat_|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----',
-    ], { cwd: root });
-    assert.fail(`credential-like content detected:\n${result.stdout}`);
+    credentialMatches = (await exec('git', [
+      'grep', '-I', '-n', '-E', credentialPattern,
+    ], { cwd: root })).stdout;
   } catch (error) {
-    assert.equal(error.code, 1, `credential scan failed unexpectedly: ${error.message}`);
+    if (error.code !== 1) throw error;
   }
+  assert.equal(credentialMatches, '', `credential-like content detected:\n${credentialMatches}`);
 });
 
 test('M4-C governance record is absent before acceptance or complete when present', async () => {
