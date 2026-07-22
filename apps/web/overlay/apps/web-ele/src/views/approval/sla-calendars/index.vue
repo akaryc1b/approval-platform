@@ -21,8 +21,6 @@ import {
   ElInputNumber,
   ElMessage,
   ElMessageBox,
-  ElOption,
-  ElSelect,
   ElSwitch,
   ElTable,
   ElTableColumn,
