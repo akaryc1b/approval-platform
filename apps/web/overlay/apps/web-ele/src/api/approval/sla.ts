@@ -1,4 +1,8 @@
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
+import {
+  approvalCommandHeaders,
+  approvalOperationId,
+  approvalRequest,
+} from '#/api/approval/transport';
 
 export type CalendarStatus = 'ACTIVE' | 'ARCHIVED' | 'DRAFT' | 'INACTIVE' | 'PUBLISHED';
 export type PolicyStatus = CalendarStatus;
@@ -211,66 +215,17 @@ export interface SlaInstanceFilters {
   status?: SlaStatus;
 }
 
-interface ApiErrorPayload {
-  code?: string;
-  message?: string;
-  requestId?: string;
-  retryable?: boolean;
-}
-
-function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-function operationId(prefix: string) {
-  const value = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${value}`;
-}
-
-async function parseError(response: Response) {
-  let payload: ApiErrorPayload | undefined;
-  try {
-    payload = (await response.json()) as ApiErrorPayload;
-  } catch {
-    payload = undefined;
-  }
-  const suffix = payload?.requestId ? ` · requestId=${payload.requestId}` : '';
-  return `${payload?.message || payload?.code || `请求失败（${response.status}）`}${suffix}`;
-}
-
-async function slaRequest<T>(path: string, init: RequestInit = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init.headers);
-  headers.set('Accept', 'application/json');
-  if (init.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
-    ...init,
-    credentials: 'same-origin',
-    headers,
-  });
-  if (!response.ok) {
-    throw new Error(await parseError(response));
-  }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await response.json()) as T;
-}
-
 function governedHeaders(operation: GovernedOperation, prefix: string) {
   const reason = operation.reason.trim();
   if (reason.length < 8 || reason.length > 512) {
     throw new Error('操作原因需为 8–512 个字符');
   }
-  const requestId = operationId(`web-sla-${prefix}-request`);
+  const headers = approvalCommandHeaders(`web-sla-${prefix}`);
+  headers['Idempotency-Key'] = operation.idempotencyKey?.trim()
+    || approvalOperationId(`web-sla-${prefix}`);
   return {
-    'Idempotency-Key': operation.idempotencyKey?.trim() || operationId(`web-sla-${prefix}`),
+    ...headers,
     'X-Approval-Operation-Reason': reason,
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
   };
 }
 
@@ -279,13 +234,13 @@ function pageQuery(limit = 50, offset = 0) {
 }
 
 export function findCalendars(limit = 50, offset = 0) {
-  return slaRequest<CalendarPage>(
+  return approvalRequest<CalendarPage>(
     `/approval/management/sla/calendars?${pageQuery(limit, offset)}`,
   );
 }
 
 export function findCalendarVersion(calendarId: string, version: number) {
-  return slaRequest<CalendarVersion>(
+  return approvalRequest<CalendarVersion>(
     `/approval/management/sla/calendars/${encodeURIComponent(calendarId)}/versions/${version}`,
   );
 }
@@ -294,7 +249,7 @@ export function createCalendar(
   input: { calendarKey: string; displayName: string; timeZone: string },
   governance: GovernedOperation,
 ) {
-  return slaRequest<CalendarIdentity>('/approval/management/sla/calendars', {
+  return approvalRequest<CalendarIdentity>('/approval/management/sla/calendars', {
     body: JSON.stringify(input),
     headers: governedHeaders(governance, 'calendar-create'),
     method: 'POST',
@@ -307,7 +262,7 @@ export function saveCalendarVersion(
   input: CalendarVersionInput,
   governance: GovernedOperation,
 ) {
-  return slaRequest<CalendarVersion>(
+  return approvalRequest<CalendarVersion>(
     `/approval/management/sla/calendars/${encodeURIComponent(calendarId)}/versions/${version}`,
     {
       body: JSON.stringify(input),
@@ -322,7 +277,7 @@ export function publishCalendarVersion(
   version: number,
   governance: GovernedOperation,
 ) {
-  return slaRequest<CalendarVersion>(
+  return approvalRequest<CalendarVersion>(
     `/approval/management/sla/calendars/${encodeURIComponent(calendar.calendarId)}/versions/${version}/publish`,
     {
       body: JSON.stringify({ expectedIdentityVersion: calendar.version }),
@@ -337,7 +292,7 @@ export function activateCalendarVersion(
   version: number,
   governance: GovernedOperation,
 ) {
-  return slaRequest<CalendarIdentity>(
+  return approvalRequest<CalendarIdentity>(
     `/approval/management/sla/calendars/${encodeURIComponent(calendar.calendarId)}/versions/${version}/activate`,
     {
       body: JSON.stringify({ expectedIdentityVersion: calendar.version }),
@@ -348,13 +303,13 @@ export function activateCalendarVersion(
 }
 
 export function findPolicies(limit = 50, offset = 0) {
-  return slaRequest<SlaPolicyPage>(
+  return approvalRequest<SlaPolicyPage>(
     `/approval/management/sla/policies?${pageQuery(limit, offset)}`,
   );
 }
 
 export function findPolicyVersion(policyId: string, version: number) {
-  return slaRequest<SlaPolicyVersion>(
+  return approvalRequest<SlaPolicyVersion>(
     `/approval/management/sla/policies/${encodeURIComponent(policyId)}/versions/${version}`,
   );
 }
@@ -363,7 +318,7 @@ export function createPolicy(
   input: { displayName: string; policyKey: string },
   governance: GovernedOperation,
 ) {
-  return slaRequest<SlaPolicyIdentity>('/approval/management/sla/policies', {
+  return approvalRequest<SlaPolicyIdentity>('/approval/management/sla/policies', {
     body: JSON.stringify(input),
     headers: governedHeaders(governance, 'policy-create'),
     method: 'POST',
@@ -376,7 +331,7 @@ export function savePolicyVersion(
   input: SlaPolicyVersionInput,
   governance: GovernedOperation,
 ) {
-  return slaRequest<SlaPolicyVersion>(
+  return approvalRequest<SlaPolicyVersion>(
     `/approval/management/sla/policies/${encodeURIComponent(policyId)}/versions/${version}`,
     {
       body: JSON.stringify(input),
@@ -391,7 +346,7 @@ export function publishPolicyVersion(
   version: number,
   governance: GovernedOperation,
 ) {
-  return slaRequest<SlaPolicyVersion>(
+  return approvalRequest<SlaPolicyVersion>(
     `/approval/management/sla/policies/${encodeURIComponent(policy.policyId)}/versions/${version}/publish`,
     {
       body: JSON.stringify({ expectedIdentityVersion: policy.version }),
@@ -406,7 +361,7 @@ export function activatePolicyVersion(
   version: number,
   governance: GovernedOperation,
 ) {
-  return slaRequest<SlaPolicyIdentity>(
+  return approvalRequest<SlaPolicyIdentity>(
     `/approval/management/sla/policies/${encodeURIComponent(policy.policyId)}/versions/${version}/activate`,
     {
       body: JSON.stringify({ expectedIdentityVersion: policy.version }),
@@ -428,7 +383,7 @@ export function findSlaInstances(filters: SlaInstanceFilters = {}) {
   if (filters.requestId?.trim()) query.set('requestId', filters.requestId.trim());
   if (filters.dueBefore) query.set('dueBefore', filters.dueBefore);
   if (filters.dueAfter) query.set('dueAfter', filters.dueAfter);
-  return slaRequest<SlaInstancePage>(
+  return approvalRequest<SlaInstancePage>(
     `/approval/management/sla/instances?${query.toString()}`,
   );
 }
@@ -439,42 +394,39 @@ export function findUpcomingSla(dueBefore: string, limit = 50, offset = 0) {
     limit: String(limit),
     offset: String(offset),
   });
-  return slaRequest<SlaInstancePage>(
+  return approvalRequest<SlaInstancePage>(
     `/approval/management/sla/instances/upcoming?${query.toString()}`,
   );
 }
 
 export function findOverdueSla(limit = 50, offset = 0) {
-  return slaRequest<SlaInstancePage>(
+  return approvalRequest<SlaInstancePage>(
     `/approval/management/sla/instances/overdue?${pageQuery(limit, offset)}`,
   );
 }
 
 export function findResponsibilityChanges(slaInstanceId: string, limit = 50) {
-  return slaRequest<ResponsibilityChange[]>(
+  return approvalRequest<ResponsibilityChange[]>(
     `/approval/management/sla/instances/${encodeURIComponent(slaInstanceId)}/responsibility-changes?limit=${limit}`,
   );
 }
 
-export function pauseSla(
-  instance: SlaInstance,
-  governance: GovernedOperation,
-) {
-  return slaRequest<SlaInstance>(
+export function pauseSla(instance: SlaInstance, governance: GovernedOperation) {
+  return approvalRequest<SlaInstance>(
     `/approval/management/sla/instances/${encodeURIComponent(instance.slaInstanceId)}/pause`,
     {
-      body: JSON.stringify({ expectedVersion: instance.version, reason: governance.reason.trim() }),
+      body: JSON.stringify({
+        expectedVersion: instance.version,
+        reason: governance.reason.trim(),
+      }),
       headers: governedHeaders(governance, 'instance-pause'),
       method: 'POST',
     },
   );
 }
 
-export function resumeSla(
-  instance: SlaInstance,
-  governance: GovernedOperation,
-) {
-  return slaRequest<SlaInstance>(
+export function resumeSla(instance: SlaInstance, governance: GovernedOperation) {
+  return approvalRequest<SlaInstance>(
     `/approval/management/sla/instances/${encodeURIComponent(instance.slaInstanceId)}/resume`,
     {
       body: JSON.stringify({ expectedVersion: instance.version }),
