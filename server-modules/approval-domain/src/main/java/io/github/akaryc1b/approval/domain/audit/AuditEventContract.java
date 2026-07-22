@@ -118,6 +118,15 @@ public record AuditEventContract(
                 "preflightHash",
                 "reason"
             );
+            case "PROCESS_RELEASE_ACTIVATION_AUTHORIZED",
+                 "PROCESS_RELEASE_ROLLBACK_AUTHORIZED" -> Set.of(
+                     "operation",
+                     "definitionKey",
+                     "targetReleaseVersion",
+                     "targetReleasePackageHash",
+                     "targetLifecycleState",
+                     "reason"
+                 );
             case "INSTANCE_COMMENT_CREATED",
                  "INSTANCE_COMMENT_EDITED",
                  "INSTANCE_COMMENT_DELETED" -> Set.of(
