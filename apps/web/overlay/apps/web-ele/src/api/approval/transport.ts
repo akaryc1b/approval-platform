@@ -68,13 +68,10 @@ async function errorPayload(response: Response): Promise<ApprovalApiErrorPayload
 }
 
 function prepareHeaders(init: RequestInit) {
-  const runtime = getApprovalRuntimeConfig();
   const headers = new Headers(init.headers);
   const requestId = headers.get('X-Request-Id') || approvalOperationId('web-approval-request');
   headers.set('Accept', 'application/json');
-  headers.set('X-Operator-Id', runtime.operatorId);
   headers.set('X-Request-Id', requestId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
   if (!headers.has('X-Trace-Id')) headers.set('X-Trace-Id', requestId);
   if (init.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');

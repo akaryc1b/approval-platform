@@ -62,11 +62,8 @@ export function mobileApprovalUrl(path: string) {
 export function mobileApprovalHeaders(
   extra: Record<string, string> = {},
 ): Record<string, string> {
-  const runtime = getApprovalRuntimeConfig()
   return {
     Accept: 'application/json',
-    'X-Operator-Id': runtime.operatorId,
-    'X-Tenant-Id': runtime.tenantId,
     ...extra,
   }
 }
