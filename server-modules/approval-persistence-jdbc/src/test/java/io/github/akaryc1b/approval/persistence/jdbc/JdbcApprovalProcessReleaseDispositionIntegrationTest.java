@@ -6,7 +6,9 @@ import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
 import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseDeactivationPort;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
+import io.github.akaryc1b.approval.domain.definition.ApprovalProcessRelease;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseLifecycle.State;
+import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +39,8 @@ class JdbcApprovalProcessReleaseDispositionIntegrationTest {
     private static final String TENANT = "tenant-disposition-transaction";
     private static final String DEFINITION_KEY = "purchasePayment";
     private static final String PACKAGE_HASH = "8".repeat(64);
+    private static final Instant PUBLISHED_AT = Instant.parse("2026-07-22T08:00:00Z");
+    private static final Instant ACTIVATED_AT = Instant.parse("2026-07-22T08:30:00Z");
     private static final Instant NOW = Instant.parse("2026-07-22T09:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
@@ -93,7 +97,11 @@ class JdbcApprovalProcessReleaseDispositionIntegrationTest {
             new JdbcApprovalEffectiveReleaseDeactivationPort(dataSource),
             auditSink()
         );
-        var command = command("deprecate-key", "Stop new starts after release review");
+        var command = command(
+            "deprecate-key",
+            2,
+            "Stop new starts after release review"
+        );
 
         var result = service.deprecate(command);
         var replay = service.deprecate(command);
@@ -101,7 +109,7 @@ class JdbcApprovalProcessReleaseDispositionIntegrationTest {
         assertEquals(State.DEPRECATED, result.lifecycle().lifecycleState());
         assertEquals(result, replay);
         assertEquals(0, count("ap_approval_effective_release"));
-        assertEquals(1, count("ap_process_release_lifecycle_history"));
+        assertEquals(3, count("ap_process_release_lifecycle_history"));
         assertEquals(1, count("ap_audit_event"));
         assertEquals(1, count("ap_command_idempotency"));
         assertEquals(
@@ -128,12 +136,13 @@ class JdbcApprovalProcessReleaseDispositionIntegrationTest {
             ApprovalProcessReleaseDispositionService.DispositionEvidenceConflictException.class,
             () -> service.deprecate(command(
                 "deprecate-conflict-key",
+                2,
                 "Reject concurrent effective release change"
             ))
         );
 
         assertEquals(1, count("ap_approval_effective_release"));
-        assertEquals(0, count("ap_process_release_lifecycle_history"));
+        assertEquals(2, count("ap_process_release_lifecycle_history"));
         assertEquals(0, count("ap_audit_event"));
         assertEquals(0, count("ap_command_idempotency"));
         assertEquals(
@@ -156,13 +165,17 @@ class JdbcApprovalProcessReleaseDispositionIntegrationTest {
             auditSink()
         );
 
-        var result = service.retire(command("retire-key", "Retire superseded release safely"));
+        var result = service.retire(command(
+            "retire-key",
+            1,
+            "Retire superseded release safely"
+        ));
 
         assertEquals(State.RETIRED, result.lifecycle().lifecycleState());
         assertEquals(0, result.runtimeUsageCount());
         assertEquals(1, count("ap_approval_release_package"));
         assertEquals(0, count("ap_approval_effective_release"));
-        assertEquals(1, count("ap_process_release_lifecycle_history"));
+        assertEquals(2, count("ap_process_release_lifecycle_history"));
         assertEquals(1, count("ap_audit_event"));
         assertTrue(jdbc.queryForObject(
             "select retired_at is not null from ap_process_release_lifecycle "
@@ -201,6 +214,7 @@ class JdbcApprovalProcessReleaseDispositionIntegrationTest {
 
     private static ApprovalProcessReleaseDispositionService.DispositionCommand command(
         String idempotencyKey,
+        long expectedRevision,
         String reason
     ) {
         return new ApprovalProcessReleaseDispositionService.DispositionCommand(
@@ -213,7 +227,7 @@ class JdbcApprovalProcessReleaseDispositionIntegrationTest {
             ),
             DEFINITION_KEY,
             1,
-            2,
+            expectedRevision,
             reason
         );
     }
@@ -259,43 +273,80 @@ class JdbcApprovalProcessReleaseDispositionIntegrationTest {
     }
 
     private void seedPublishedLifecycle() {
-        seedLifecycle("PUBLISHED", null, null);
-    }
-
-    private void seedActiveLifecycle() {
-        seedLifecycle(
-            "ACTIVE",
-            "timestamptz '2026-07-22 08:30:00+00'",
-            null
+        ApprovalReleasePackage release = releasePackage();
+        ApprovalProcessRelease.Transition publish = new ApprovalProcessRelease.Transition(
+            UUID.fromString("92000000-0000-0000-0000-000000000001"),
+            TENANT,
+            DEFINITION_KEY,
+            1,
+            PACKAGE_HASH,
+            State.DRAFT,
+            State.PUBLISHED,
+            1,
+            "Publish reviewed release package",
+            "publish-lifecycle-key",
+            release.publishedBy(),
+            "request-publish-lifecycle",
+            "trace-publish-lifecycle",
+            "audit-event:publish-lifecycle",
+            PUBLISHED_AT
+        );
+        new JdbcApprovalProcessReleaseStore(dataSource).savePublished(
+            ApprovalProcessRelease.published(release, publish),
+            publish
         );
     }
 
-    private void seedLifecycle(String state, String activatedAt, String deprecatedAt) {
-        String activated = activatedAt == null ? "null" : activatedAt;
-        String deprecated = deprecatedAt == null ? "null" : deprecatedAt;
-        jdbc.execute("""
-            insert into ap_process_release_lifecycle (
-                tenant_id, definition_key, release_version, release_package_hash,
-                lifecycle_state, revision, published_by, published_at,
-                activated_at, deprecated_at, retired_at,
-                last_transition_by, last_transition_at, last_transition_reason,
-                last_idempotency_key, last_request_id, last_trace_id,
-                last_audit_chain_reference
-            ) values (
-                '%s', '%s', 1, '%s', '%s', 2, 'publisher',
-                timestamptz '2026-07-22 08:00:00+00', %s, %s, null,
-                'operator-activation', timestamptz '2026-07-22 08:30:00+00',
-                'Activate reviewed release', 'activation-key',
-                'request-activation', 'trace-activation', 'audit-event:activation'
-            )
-            """.formatted(
-                TENANT,
-                DEFINITION_KEY,
-                PACKAGE_HASH,
-                state,
-                activated,
-                deprecated
-            ));
+    private void seedActiveLifecycle() {
+        seedPublishedLifecycle();
+        JdbcApprovalProcessReleaseStore store = new JdbcApprovalProcessReleaseStore(dataSource);
+        ApprovalProcessRelease published = store.find(TENANT, DEFINITION_KEY, 1).orElseThrow();
+        ApprovalProcessRelease.Transition activate = new ApprovalProcessRelease.Transition(
+            UUID.fromString("92000000-0000-0000-0000-000000000002"),
+            TENANT,
+            DEFINITION_KEY,
+            1,
+            PACKAGE_HASH,
+            State.PUBLISHED,
+            State.ACTIVE,
+            2,
+            "Activate reviewed release",
+            "activation-lifecycle-key",
+            "operator-activation",
+            "request-activation",
+            "trace-activation",
+            "audit-event:activation",
+            ACTIVATED_AT
+        );
+        assertTrue(store.transition(published.transitioned(activate), 1, activate));
+    }
+
+    private static ApprovalReleasePackage releasePackage() {
+        return new ApprovalReleasePackage(
+            TENANT,
+            DEFINITION_KEY,
+            1,
+            1,
+            "1".repeat(64),
+            1,
+            "2".repeat(64),
+            1,
+            "3".repeat(64),
+            1,
+            "4".repeat(64),
+            "compiler-v1",
+            "process.bpmn20.xml",
+            "<definitions/>",
+            "5".repeat(64),
+            "6".repeat(64),
+            null,
+            null,
+            "7".repeat(64),
+            PACKAGE_HASH,
+            UUID.fromString("91000000-0000-0000-0000-000000000001"),
+            "publisher",
+            PUBLISHED_AT
+        );
     }
 
     private void seedEffectiveRelease() {
