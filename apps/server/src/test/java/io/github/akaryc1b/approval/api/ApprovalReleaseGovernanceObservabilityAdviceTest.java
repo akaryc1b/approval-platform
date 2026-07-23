@@ -175,14 +175,21 @@ class ApprovalReleaseGovernanceObservabilityAdviceTest {
         MockHttpServletRequest servletRequest = new MockHttpServletRequest("POST", path);
         servletRequest.addHeader("X-Request-Id", "header-request");
         servletRequest.addHeader("X-Trace-Id", "header-trace");
-        return advice.beforeBodyWrite(
+        ServletServerHttpResponse serverResponse = new ServletServerHttpResponse(servletResponse);
+        Object result = advice.beforeBodyWrite(
             body,
             null,
             MediaType.APPLICATION_JSON,
             MappingJackson2HttpMessageConverter.class,
             new ServletServerHttpRequest(servletRequest),
-            new ServletServerHttpResponse(servletResponse)
+            serverResponse
         );
+        try {
+            serverResponse.close();
+        } catch (Exception exception) {
+            throw new IllegalStateException("failed to flush governed response headers", exception);
+        }
+        return result;
     }
 
     private static void assertLowCardinalityTagKeys(SimpleMeterRegistry meters) {
