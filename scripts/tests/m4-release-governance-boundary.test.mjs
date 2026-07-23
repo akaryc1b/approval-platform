@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -12,9 +12,29 @@ const transportPath = path.join(
   root,
   'apps/web/overlay/apps/web-ele/src/api/approval/transport.ts',
 );
+const protocolPath = path.join(
+  root,
+  'docs/M4_RELEASE_MIGRATION_EXECUTION_PROTOCOL_DRAFT.md',
+);
 
 async function text(file) {
   return readFile(file, 'utf8');
+}
+
+async function filesUnder(directory, extensions) {
+  const result = [];
+  async function visit(current) {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        await visit(next);
+      } else if (extensions.has(path.extname(entry.name))) {
+        result.push(next);
+      }
+    }
+  }
+  await visit(directory);
+  return result;
 }
 
 test('release governance errors preserve bounded trace evidence', async () => {
@@ -97,4 +117,95 @@ test('release observability never exposes a migration execution route', async ()
     advice,
     /execute-migration|migration-execution|force-migration|rollback-migration/i,
   );
+});
+
+test('future release migration protocol remains design-only unavailable and fail-closed', async () => {
+  const protocol = await text(protocolPath);
+
+  for (const status of [
+    'UNAVAILABLE',
+    'DISABLED',
+    'FAIL CLOSED',
+    'NOT EXPOSED TO BROWSER',
+  ]) {
+    assert.match(protocol, new RegExp(status, 'i'));
+  }
+  for (const phase of [
+    'Assessment',
+    'Immutable migration plan',
+    'Approval and authorization',
+    'Execution intent',
+    'Per-instance migration attempt',
+    'Verification',
+    'Reconciliation',
+    'Immutable completion evidence',
+  ]) {
+    assert.match(protocol, new RegExp(`#{3} .*${phase}`, 'i'));
+  }
+  for (const binding of [
+    'tenantId',
+    'definitionKey',
+    'sourceReleaseVersion',
+    'sourcePackageHash',
+    'targetReleaseVersion',
+    'targetPackageHash',
+    'assessmentReportHash',
+    'selectedInstanceIds',
+    'expectedBindingEvidenceHashes',
+    'operationReason',
+    'requestedBy',
+    'authorizationEvidenceHash',
+    'expiresAt',
+    'planHash',
+  ]) {
+    assert.ok(protocol.includes(`\`${binding}\``), `protocol omits immutable binding ${binding}`);
+  }
+  for (const staleCheck of [
+    'assessment report exists and is not expired',
+    'source release identity and source package hash are unchanged',
+    'target release identity and target package hash are unchanged',
+    'active task definition keys exactly match',
+    'runtime-binding evidence hash exactly matches',
+    'require a new detect-only assessment',
+  ]) {
+    assert.match(protocol, new RegExp(staleCheck, 'i'));
+  }
+  assert.match(protocol, /each instance has an independent intent\/attempt boundary/i);
+  assert.match(protocol, /external engine calls occur after claim commit/i);
+  assert.match(protocol, /official supported public runtime\/service API/i);
+  assert.match(protocol, /Unknown outcomes must enter reconciliation/i);
+  assert.match(protocol, /No public or internal execution port exists/i);
+  assert.match(protocol, /No UI or API execution surface exists/i);
+
+  const serverApi = path.join(root, 'apps/server/src/main/java/io/github/akaryc1b/approval/api');
+  const clientRoots = [
+    path.join(root, 'apps/web/overlay/apps/web-ele/src'),
+    path.join(root, 'apps/mobile/overlay/src'),
+  ];
+  const productionFiles = [
+    ...(await filesUnder(serverApi, new Set(['.java']))),
+  ];
+  for (const clientRoot of clientRoots) {
+    productionFiles.push(...await filesUnder(clientRoot, new Set(['.ts', '.vue'])));
+  }
+
+  const mutationMapping = /@(?:Post|Put|Patch|Delete)Mapping\s*\(\s*"([^"]*migration[^"]*)"/gi;
+  const clientApiPath = /[\`'"]([^\`'"]*\/api\/approval\/[^\`'"]*migration[^\`'"]*)[\`'"]/gi;
+  for (const file of productionFiles) {
+    const content = await text(file);
+    for (const match of content.matchAll(mutationMapping)) {
+      assert.match(
+        match[1],
+        /migration-dry-run$/,
+        `${path.relative(root, file)} exposes a migration mutation route: ${match[1]}`,
+      );
+    }
+    for (const match of content.matchAll(clientApiPath)) {
+      assert.match(
+        match[1],
+        /migration-dry-run/,
+        `${path.relative(root, file)} calls a migration execution API: ${match[1]}`,
+      );
+    }
+  }
 });
