@@ -5,12 +5,10 @@ import io.github.akaryc1b.approval.application.ApprovalArtifactTransferService.D
 import io.github.akaryc1b.approval.application.ApprovalArtifactTransferService.ImportCommand;
 import io.github.akaryc1b.approval.application.ApprovalArtifactTransferService.ImportResult;
 import io.github.akaryc1b.approval.application.ApprovalArtifactTransferService.TransferEnvelope;
-import io.github.akaryc1b.approval.application.ProcessTemplateContracts.BindingKind;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.ImportPlan;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.IncludedArtifactReference;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.PreviewRequest;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TemplatePackage;
-import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TenantBinding;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TenantRegistrySnapshot;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.definition.ApprovalDefinition;
