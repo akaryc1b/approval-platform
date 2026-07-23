@@ -20,6 +20,22 @@ const staleValidationCapabilityPath = path.join(
   root,
   'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationStaleValidationCapabilityTest.java',
 );
+const subprocessEvidencePath = path.join(
+  root,
+  'docs/M5_PROCESS_INSTANCE_MIGRATION_SUBPROCESS_EVIDENCE.md',
+);
+const embeddedCapabilityPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationEmbeddedSubprocessCapabilityTest.java',
+);
+const calledChildCapabilityPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationCalledChildCapabilityTest.java',
+);
+const callExitCapabilityPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationCallActivityExitCapabilityTest.java',
+);
 
 async function text(file) {
   return readFile(file, 'utf8');
@@ -83,6 +99,71 @@ test('parallel capability uses public mappings and public runtime evidence only'
   assert.match(mappingCapability, /"singleReview",\s*List\.of\("leftReview", "rightReview"\)/s);
   assert.match(mappingCapability, /List\.of\("leftReview", "rightReview"\),\s*"mergedReview"/s);
   for (const capability of [mappingCapability, completedBranchCapability, staleValidationCapability]) {
+    assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+/);
+    assert.doesNotMatch(
+      capability,
+      /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/,
+    );
+  }
+});
+
+test('subprocess evidence remains isolated M5-A capability validation', async () => {
+  const evidence = await text(subprocessEvidencePath);
+
+  assert.match(evidence, /M5-A SUBPROCESS SLICE: `CAPABILITY_VALIDATION_ONLY`/);
+  assert.match(evidence, /Overall conclusion remains: `SUPPORTED_WITH_LIMITATIONS`/);
+  assert.match(evidence, /Current M5-A decision remains `SUPPORTED_WITH_LIMITATIONS`/);
+  assert.match(evidence, /adds no `V33`/);
+
+  for (const scenario of [7, 8]) {
+    assert.match(
+      evidence,
+      new RegExp('\\| ' + scenario + ' \\|[^\\n]*\\| `SUPPORTED_WITH_LIMITATIONS` \\|'),
+      `subprocess evidence does not classify scenario ${scenario}`,
+    );
+  }
+
+  for (const boundary of [
+    'parent-to-child Call Activity migration: `UNSUPPORTED`',
+    'automatic recursive migration of a parent and all children: `UNSUPPORTED`',
+    'does not authorize M5-B',
+    'No code may query or modify Flowable `ACT_*` tables',
+  ]) {
+    assert.ok(evidence.includes(boundary), `subprocess evidence omits ${boundary}`);
+  }
+});
+
+test('subprocess capability uses public scope and call-tree APIs only', async () => {
+  const embedded = await text(embeddedCapabilityPath);
+  const child = await text(calledChildCapabilityPath);
+  const exit = await text(callExitCapabilityPath);
+
+  for (const operation of [
+    'ActivityMigrationMapping.createMappingFor("rootReview", "nestedReview")',
+    'ActivityMigrationMapping.createMappingFor("nestedReview", "rootReview")',
+    '<subProcess id="reviewScope">',
+    'getActiveActivityIds',
+  ]) {
+    assert.ok(embedded.includes(operation), `embedded capability omits ${operation}`);
+  }
+
+  for (const operation of [
+    'superProcessInstanceId(parentInstance.getId())',
+    'migrate(childInstance.getId())',
+    '<callActivity id="callChild"',
+  ]) {
+    assert.ok(child.includes(operation), `called-child capability omits ${operation}`);
+  }
+
+  for (const operation of [
+    '.inParentProcessOfCallActivityId("callChild")',
+    'superProcessInstanceId(parent.getId())',
+    'processInstanceId(child.getId())',
+  ]) {
+    assert.ok(exit.includes(operation), `call-exit capability omits ${operation}`);
+  }
+
+  for (const capability of [embedded, child, exit]) {
     assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+/);
     assert.doesNotMatch(
       capability,
