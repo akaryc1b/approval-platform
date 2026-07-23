@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./dist/public.js",
+    "./adapter-binding": "./dist/adapter-binding.js",
     "./compatibility": "./dist/compatibility.js",
     "./transport-policy": "./dist/transport-policy.js"
   },

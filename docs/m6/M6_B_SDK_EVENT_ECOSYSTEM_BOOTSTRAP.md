@@ -1,6 +1,6 @@
 # M6-B SDK and Event Ecosystem Bootstrap
 
-Status: `SAFE_SLICE_3_IMPLEMENTED`
+Status: `SAFE_SLICE_4_IMPLEMENTED`
 
 Tracking:
 
@@ -15,84 +15,69 @@ Tracking:
 
 M6-B develops in parallel with M5 and remains independent from Issue #56 and Draft PR #58. Public SDK contracts expose neither Flowable internals nor unaccepted M5 migration execution commands. Main drift is incorporated by merge commit only; rebase and force push remain prohibited.
 
-## Safe slice 1 — event and SDK foundation
+## Safe slices 1–3
 
-The first safe slice established:
+The accepted foundation already provides:
 
-- versioned `EventEnvelopeV1` and canonical cross-language JSON;
-- payload SHA-256 and deterministic Java/TypeScript fixture bytes;
-- at-least-once delivery, ordering-key, replay, deduplication and idempotent-consumer semantics;
-- signed Webhook timestamp, nonce, algorithm, key-reference and replay verification;
-- Java and TypeScript client, structured error, correlation, idempotency and mock-transport abstractions;
-- permanent tests proving no Flowable API, M5 command, real network, persistence, worker, V33 or second automatic workflow.
+- versioned event envelope, canonical JSON, payload hash and signed Webhook verification;
+- at-least-once, ordering-key, replay, deduplication and idempotent-consumer semantics;
+- Java/TypeScript clients, structured errors, correlation, idempotency and mock transport;
+- compatibility, capability, deprecation, sunset and support-window governance;
+- bounded transport budgets, deterministic retry decisions, structured response mapping and virtual-time conformance adapters;
+- permanent boundaries for Flowable, M5 commands, network, persistence, worker, V33 and workflow count.
 
-## Safe slice 2 — compatibility governance
+## Safe slice 4 — adapter contract and security binding
 
-The second safe slice established:
+The fourth safe slice adds pure logical endpoint and server-side security binding without resolving an address or usable credential.
 
-- compatibility manifest version `1` and strict semantic versions;
-- minimum-client and support-window enforcement;
-- server-preference schema and Webhook protocol selection;
-- required/optional capability negotiation;
-- deprecation, sunset and replacement governance;
-- credential-free Generic REST and RuoYi binding blueprints.
+### Logical endpoint descriptor
 
-## Safe slice 3 — transport policy abstraction
+- binding version `1`; unknown versions fail closed;
+- logical endpoint ID, adapter kind and audience;
+- explicit supported-operation allowlist;
+- reference-only credential provider ID, credential ID and credential kind;
+- no URL, URI, host, address, route, header or production endpoint value.
 
-The third safe slice adds deterministic Java and TypeScript request-budget, response-mapping and adapter-conformance semantics without introducing a real transport.
+### Server-derived authentication context
 
-### Bounded request budget
+- resolver input contains endpoint ID, operation, request ID and trace ID only;
+- nominal context is issued server-side;
+- tenant, operator, permission-snapshot hash and audit reference are not accepted from an SDK request;
+- authenticated-at and expires-at form a bounded active interval;
+- expired contexts fail before credential acquisition.
 
-- transport policy version `1`; unknown versions fail closed;
-- policy is bound to exactly one SDK operation;
-- maximum attempts are limited to 10;
-- total request budget is limited to 300000 milliseconds;
-- per-attempt timeout must fit inside the total budget;
-- exponential backoff is deterministic and capped;
-- retry-after hints cannot exceed the remaining total budget.
+### Credential lease binding
 
-### Retry safety
+- credential providers issue nominal leases with references and binding evidence only;
+- no bearer value, private key, certificate bytes, password or credential header enters the contract;
+- endpoint, context, operation, provider, credential ID and kind must match;
+- deterministic binding ID is shared by Java and TypeScript;
+- issued leases are released with completed, binding-failed or adapter-failed reason;
+- expired or mismatched leases fail closed before adapter open.
 
-- `never` disables retries;
-- `idempotent` requires the existing SDK idempotency key;
-- retryable failures stop at the attempt limit;
-- attempt timeout is retryable;
-- budget exhaustion and attempts exhaustion are explicit terminal execution results;
-- request, request ID, trace ID and idempotency identity remain unchanged across attempts.
+### Adapter lifecycle
 
-### Structured response mapping
-
-- success: `200–299`;
-- policy-declared retryable status values;
-- unauthorized: `401` and `403`;
-- conflict: `409`;
-- expired: `410`;
-- unsupported version: `426`;
-- other supported status values are permanent failures;
-- status outside `100–599` is malformed and fails closed.
-
-Every failure maps to the existing structured SDK error model with the originating request ID.
-
-### Adapter conformance boundary
-
-Java `ScriptedAdapter` and TypeScript `ScriptedConformanceAdapter` use deterministic in-memory scripts and virtual elapsed time. They never sleep, schedule, resolve an endpoint or perform network I/O. Generic REST and RuoYi examples describe policy binding only.
-
-Transport policy and adapter metadata cannot manufacture tenant, operator, permission, authority or audit evidence.
+- lifecycle is `created -> open -> closed`;
+- exchange is prohibited outside open state;
+- every attempt preserves the same request, correlation, endpoint, authentication context and lease identity;
+- context/lease expiry before an attempt maps to a terminal unauthorized response;
+- scripted adapters use no clock, sleep, scheduler, endpoint lookup or network I/O.
 
 ## Tests and permanent validation
 
-The shared `transport-policy-v1.json` fixture validates identical Java and TypeScript attempt traces, response categories, delays, timeouts, total elapsed time and request identity. Additional tests cover unsupported policy versions, duplicate retry statuses, budget bounds, unauthorized/conflict/version mapping, retry disabled, missing idempotency, retry-after exhaustion, attempt timeout, max attempts and operation mismatch.
+The shared `adapter-binding-v1.json` fixture validates identical Java and TypeScript endpoint binding, context/lease identity, lifecycle, release reason, transport result and request preservation. Additional tests cover unsupported versions, duplicate operations, unsupported operations, expired context, expired lease, binding mismatch and private/nominal server-issued evidence.
 
-The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor executes Java tests. The permanent workflow remains `.github/workflows/approval-platform-validation.yml`.
+The root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor executes Java tests. The permanent workflow remains `.github/workflows/approval-platform-validation.yml`.
 
 ## Still blocked
 
+- real HTTP or other network transport;
+- endpoint address or DNS resolution;
+- production authentication execution and usable credential material;
+- production clock, scheduler or sleep implementation;
 - subscription persistence or delivery tables;
 - production event store or Outbox ownership changes;
 - production delivery/retry worker;
-- real HTTP transport or customer endpoint;
-- production clock, scheduler or sleep implementation;
-- production key/secret resolution implementation;
 - SDK migration execution commands before M5 acceptance;
 - any Flyway migration, including `V33`;
 - a second permanent workflow;
@@ -100,4 +85,4 @@ The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor
 
 ## Next gate
 
-The next M6-B gate requires explicit acceptance of transport policy abstraction before adding a real transport adapter. Production endpoint resolution, authentication, scheduling, persistence, subscription and delivery runtime remain separate coordinated gates.
+The next M6-B gate requires explicit acceptance of logical endpoint and security binding before any real endpoint address, authentication executor or network adapter is introduced. Diagnostic redaction, configuration provenance and audit-event contracts should be accepted before production credential material or network execution.

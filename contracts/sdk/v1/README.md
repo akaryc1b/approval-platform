@@ -12,6 +12,8 @@ SDK, event-schema, Webhook-protocol, capability, deprecation and support-window 
 
 Request budgets, timeout classification, retry policy, response mapping and adapter conformance are defined in [TRANSPORT_POLICY.md](TRANSPORT_POLICY.md). Transport policy version `1` is deterministic, bounded and transport-free.
 
+Logical endpoints, server-issued authentication contexts, reference-only credential leases and adapter lifecycle are defined in [ADAPTER_BINDING.md](ADAPTER_BINDING.md). Binding version `1` performs no endpoint resolution or network I/O.
+
 ## Event delivery semantics
 
 Delivery is at least once. Ordering is guaranteed only within the same optional `orderingKey`; consumers must not infer global ordering. Consumers deduplicate by `eventId`, retain terminal decisions, and retry only `RETRYABLE_REJECTION`. `PERMANENT_REJECTION`, `EXPIRED_EVENT`, and `UNSUPPORTED_SCHEMA_VERSION` are terminal. Replay uses the original event identity and requires the same idempotent consumer behavior.
@@ -34,4 +36,4 @@ Verification checks algorithm, bounded clock skew, key resolution, canonical pay
 
 ## Trust boundary
 
-Event tenant context and producer identity are server-produced inbound evidence. Public client requests, compatibility profiles and transport policies cannot provide trusted tenant, operator, permission, authority or audit evidence. Host authentication continues to be resolved by the server and connector boundary.
+Event tenant context and producer identity are server-produced inbound evidence. Public client requests, compatibility profiles, transport policies and logical endpoint descriptors cannot provide trusted tenant, operator, permission, authority or audit evidence. Host authentication continues to be resolved by the server and connector boundary.

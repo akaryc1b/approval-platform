@@ -62,7 +62,7 @@ test('public client requests cannot manufacture trusted server evidence', async 
   const typescript = await readFile(join(sdkRoots[1], 'src/index.ts'), 'utf8');
   const javaRequest = java.slice(java.indexOf('public record Request('), java.indexOf('public record Correlation('));
   const tsRequest = typescript.slice(typescript.indexOf('export interface ApprovalRequest'), typescript.indexOf('export interface ApprovalTransport'));
-  for (const forbidden of ['tenantId', 'operator', 'permission', 'authority', 'auditEvidence']) {
+  for (const forbidden of ['tenantId', 'operatorId', 'permission', 'authority', 'auditEvidence', 'credentialLease']) {
     assert.doesNotMatch(javaRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
     assert.doesNotMatch(tsRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
   }
@@ -77,6 +77,40 @@ test('transport policy uses virtual time and scripted adapters only', async () =
   assert.match(typescript, /totalBudgetMillis/);
   assert.doesNotMatch(java, /\b(?:Thread\.sleep|ScheduledExecutorService|CompletableFuture|URI|URL)\b/);
   assert.doesNotMatch(typescript, /\b(?:setTimeout|setInterval|AbortController|WebSocket|EventSource)\b/);
+});
+
+test('adapter binding uses logical endpoints and reference-only credential leases', async () => {
+  const java = await readFile(join(sdkRoots[0], 'SdkAdapterBindingV1.java'), 'utf8');
+  const typescript = await readFile(join(sdkRoots[1], 'src/adapter-binding.ts'), 'utf8');
+  assert.match(java, /class AuthenticationContext/);
+  assert.match(java, /private AuthenticationContext\(/);
+  assert.match(java, /private CredentialLease\(/);
+  assert.match(java, /class ScriptedSecurityBoundAdapter/);
+  assert.match(typescript, /const SERVER_AUTH_CONTEXT: unique symbol/);
+  assert.match(typescript, /const CREDENTIAL_LEASE: unique symbol/);
+  assert.match(typescript, /class ScriptedSecurityBoundAdapter/);
+
+  const javaEndpoint = java.slice(java.indexOf('public record EndpointDescriptor('), java.indexOf('public record AuthenticationContextRequest('));
+  const tsEndpoint = typescript.slice(typescript.indexOf('export interface LogicalEndpointDescriptor'), typescript.indexOf('export interface AuthenticationContextRequest'));
+  const javaContextRequest = java.slice(java.indexOf('public record AuthenticationContextRequest('), java.indexOf('public record AuthenticationContextFields('));
+  const tsContextRequest = typescript.slice(typescript.indexOf('export interface AuthenticationContextRequest'), typescript.indexOf('export interface ServerAuthenticationContextFields'));
+  const javaCredential = java.slice(java.indexOf('public record CredentialReference('), java.indexOf('public record EndpointDescriptor('));
+  const tsCredential = typescript.slice(typescript.indexOf('export interface CredentialReference'), typescript.indexOf('export interface LogicalEndpointDescriptor'));
+
+  for (const forbidden of ['url', 'uri', 'host', 'address', 'baseUrl', 'route']) {
+    assert.doesNotMatch(javaEndpoint, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(tsEndpoint, new RegExp(`\\b${forbidden}\\b`, 'i'));
+  }
+  for (const forbidden of ['tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialLease']) {
+    assert.doesNotMatch(javaContextRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(tsContextRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
+  }
+  for (const forbidden of ['secret', 'password', 'privateKey', 'headerValue', 'credentialMaterial']) {
+    assert.doesNotMatch(javaCredential, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(tsCredential, new RegExp(`\\b${forbidden}\\b`, 'i'));
+  }
+  assert.doesNotMatch(java, /\b(?:System\.currentTimeMillis|Instant\.now|Thread\.sleep|URI|URL|Socket)\b/);
+  assert.doesNotMatch(typescript, /\b(?:Date\.now|setTimeout|setInterval|AbortController|WebSocket|EventSource)\b/);
 });
 
 test('Flyway remains frozen through V32', async () => {
