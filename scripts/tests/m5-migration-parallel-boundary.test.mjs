@@ -52,6 +52,18 @@ const pendingAsyncCapabilityPath = path.join(
   root,
   'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationPendingAsyncJobCapabilityTest.java',
 );
+const duplicateReconciliationEvidencePath = path.join(
+  root,
+  'docs/M5_PROCESS_INSTANCE_MIGRATION_DUPLICATE_RECONCILIATION_EVIDENCE.md',
+);
+const duplicateCapabilityPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationDuplicateInvocationCapabilityTest.java',
+);
+const unknownOutcomeCapabilityPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationUnknownOutcomeCapabilityTest.java',
+);
 
 async function text(file) {
   return readFile(file, 'utf8');
@@ -254,6 +266,59 @@ test('timer and pending-job capability uses public service evidence only', async
   }
 
   for (const capability of [timerCatch, boundaryTimer, pendingAsync]) {
+    assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+/);
+    assert.doesNotMatch(
+      capability,
+      /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/,
+    );
+    assert.doesNotMatch(capability, /executeJob|deleteJob|setJobRetries|moveJobToDeadLetter/);
+  }
+});
+
+test('duplicate and reconciliation evidence remains isolated M5-A validation', async () => {
+  const evidence = await text(duplicateReconciliationEvidencePath);
+
+  assert.match(evidence, /M5-A DUPLICATE\/RECONCILIATION SLICE: `CAPABILITY_VALIDATION_ONLY`/);
+  assert.match(evidence, /Overall conclusion remains: `SUPPORTED_WITH_LIMITATIONS`/);
+  assert.match(evidence, /Current M5-A decision remains `SUPPORTED_WITH_LIMITATIONS`/);
+  assert.match(evidence, /adds no `V33`/);
+
+  for (const boundary of [
+    'must not invoke the engine again',
+    'must never be retried merely because',
+    '`UNKNOWN` is an explicit durable outcome',
+    'Mixed evidence must remain `RECONCILIATION_REQUIRED`',
+    'does not authorize M5-B',
+  ]) {
+    assert.ok(evidence.includes(boundary), `duplicate/reconciliation evidence omits ${boundary}`);
+  }
+});
+
+test('duplicate and unknown-outcome capability uses public evidence only', async () => {
+  const duplicate = await text(duplicateCapabilityPath);
+  const unknown = await text(unknownOutcomeCapabilityPath);
+
+  for (const operation of [
+    'getProcessInstanceMigrationDocument',
+    'fromProcessInstanceMigrationDocument',
+    'duplicateBuilder.validateMigration',
+    'assertDoesNotThrow',
+  ]) {
+    assert.ok(duplicate.includes(operation), `duplicate capability omits ${operation}`);
+  }
+
+  for (const operation of [
+    'TARGET_STATE_CONFIRMED',
+    'SOURCE_STATE_CONFIRMED',
+    'RECONCILIATION_REQUIRED',
+    'createJobQuery',
+    'getActiveActivityIds',
+    'SimulatedResponseLoss',
+  ]) {
+    assert.ok(unknown.includes(operation), `unknown-outcome capability omits ${operation}`);
+  }
+
+  for (const capability of [duplicate, unknown]) {
     assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+/);
     assert.doesNotMatch(
       capability,
