@@ -1,6 +1,6 @@
-# M6-D AI Foundation — First Safe Slice
+# M6-D AI Foundation — Governed Routing and Usage Evidence
 
-Status: `FIRST_SAFE_SLICE_IMPLEMENTED`
+Status: `SECOND_SAFE_SLICE_IMPLEMENTED`
 
 Tracking:
 
@@ -13,164 +13,210 @@ Tracking:
 - Flyway remains V1–V32
 - automatic PR/main validation remains `.github/workflows/approval-platform-validation.yml`
 
-## Repository analysis
+## Repository boundary
 
-The implementation follows the existing repository boundaries:
+M6-D remains independent from M5 Issue #56 / Draft PR #58. The AI modules remain framework neutral and are not wired to participant endpoints, management endpoints, task completion, process migration, persistence or a production provider adapter.
 
-- Domain and SPI contracts remain framework neutral;
-- application-style orchestration depends only on exact contracts and server-owned evidence;
-- `ApprovalPrincipal` and request context remain the authority for tenant, operator, requestId and traceId;
-- Form Schema `FieldType` and UI Schema `FieldAccess` are reused instead of creating parallel permission semantics;
-- `HIDDEN` and invisible fields are omitted before provider invocation;
-- sensitive `READONLY` fields are omitted unless an explicit policy masks them;
-- metrics use only closed low-cardinality dimensions;
-- audit is defined as a contract only, with no persistence table in this slice.
+Trusted identity and authorization continue to come from server-owned request context and authorized resource evidence. Browser and Mobile input cannot select a provider, model, tenant, operator, permission, credential, prompt, knowledge source or audit identity.
 
-## Implemented contracts
+## First safe slice retained
 
-### Provider-neutral SPI
+The first slice continues to provide:
 
-`approval-ai-spi` defines:
+- provider-neutral SPI and closed advisory capabilities;
+- independent provider, model, prompt-template, knowledge-source, policy and output-schema versions;
+- server-owned request construction;
+- Form Schema and UI Schema field-permission enforcement;
+- masking and bounded data minimization;
+- advisory-only structured results;
+- exact provider failure classifications;
+- timeout and cancellation boundaries;
+- audit and low-cardinality metrics contracts;
+- deterministic test-only provider and leakage/security tests.
 
-- provider identifier, provider type and exact provider version;
-- closed capability descriptors and authorized model versions;
-- structured provider request and cancellation boundary;
-- structured advisory result;
-- exact failure classification;
-- audit linkage contract.
+Every result remains `ADVISORY`, `UNVERIFIED_ADVISORY` and `needsHumanReview = true`. No result or orchestration type can express an approval command or authoritative approval status.
 
-No concrete production provider adapter exists. The only provider implementation is the deterministic test fixture under `src/test`.
+## Second safe slice
 
-### Exact version evidence
+### Exact provider registry
 
-One advisory attempt carries separate typed references for:
+`AiProviderRegistry` registers providers by exact provider ID and provider version. It rejects duplicate exact registrations and resolves no provider from untrusted request input.
 
-- provider version;
-- model version;
-- prompt-template version and content hash;
-- knowledge-source version and content hash;
-- input/masking policy version and content hash;
-- output-schema version.
+A route is usable only when:
 
-These values cannot be collapsed into one opaque version string. Customer knowledge data is explicitly blocked by the first-slice execution preflight.
+- the exact provider version is registered;
+- the descriptor supports the exact model version;
+- all route capabilities are enabled by the descriptor;
+- the route input-character budget does not exceed the provider capability descriptor limit.
 
-### Trusted request construction
+There is still no production provider implementation. The only `AiAdvisoryProvider` implementation remains the deterministic fixture under `src/test`.
 
-`approval-ai-core` builds provider requests from:
+### Server-owned routing policy
 
-- server-owned tenant and operator context;
-- server-owned requestId and traceId;
-- an already authorized task or instance resource;
-- the server-resolved allowed field set;
-- the requested advisory capability;
-- exact policy and version evidence;
-- a bounded timeout.
+`AiProviderRoutingPolicy` and `AiProviderRoute` define deterministic candidate order using bounded priority and stable route ID ordering.
 
-The untrusted intent contract contains only capability and resource identity. It has no tenant, operator, authority, audit identity, credential, model authorization or knowledge authorization field.
+Each route binds:
 
-### Data minimization and masking
+- route identity;
+- exact provider and model versions;
+- exact prompt-template version and hash;
+- exact knowledge-source version and hash;
+- exact input policy version and hash;
+- exact output-schema version;
+- allowed capabilities;
+- timeout, input-character, field-count and minimum-confidence budgets.
 
-Before provider invocation the core:
+All candidates in one routing policy must use the same input/masking policy version. Customer knowledge data remains rejected at route construction.
 
-- rejects cross-tenant or forged resource identity;
-- intersects inputs with the authorized field set;
-- removes `HIDDEN`, invisible and null fields;
-- omits sensitive `READONLY` values by default;
-- masks sensitive editable values by default;
-- applies versioned include, mask and omit rules;
-- blocks prompt-injection markers;
-- limits field count, text length, total text, collection size and nesting depth;
-- rejects binary data and unsupported object types;
-- permits attachment metadata only and rejects raw attachment content.
+Routing is disabled unless server configuration explicitly supplies an enabled policy. The untrusted advisory intent still contains only capability and resource ID.
 
-### Advisory-only output
+### Fallback safety
 
-The result contract separates:
+The coordinator may skip a candidate before invocation when:
 
-- summary;
-- observations;
-- risk signals;
-- missing materials;
-- recommendations;
-- evidence references;
-- confidence;
-- limitations;
-- human-review requirement;
-- complete version evidence.
+- its exact provider version is not registered;
+- its descriptor does not authorize the route;
+- its provider-health circuit is open.
 
-Every result is typed as `ADVISORY` and `UNVERIFIED_ADVISORY`. The result has no decision, command or authoritative approval-status field. Validation rejects command language, missing or unauthorized evidence, version mismatch, malformed output and attempts to remove human review.
+Pre-invocation candidate fallback is explicit and configurable. It performs no provider call on a skipped candidate.
 
-### Failure, audit and metrics boundaries
+After one provider invocation starts, the coordinator returns that result and never invokes another provider. `TIMEOUT`, `PROVIDER_UNAVAILABLE`, `INVALID_OUTPUT` and `UNKNOWN` do not trigger automatic fallback or retry. The policy and result constructors reject `allowPostInvocationFallback = true` and `postInvocationFallbackAttempted = true`.
 
-The closed provider outcome model is:
+This preserves one advisory attempt, one exact version lineage and one audit interpretation.
 
-- `SUCCESS`;
-- `DISABLED`;
-- `UNSUPPORTED`;
-- `REJECTED`;
+### Circuit-breaker boundary
+
+`AiProviderCircuitBreaker` provides an in-memory health gate with:
+
+- `CLOSED`;
+- `OPEN`;
+- `HALF_OPEN`;
+- bounded consecutive-failure threshold;
+- bounded open duration;
+- exactly one in-flight half-open probe.
+
+Only provider-health outcomes affect the circuit:
+
 - `TIMEOUT`;
 - `PROVIDER_UNAVAILABLE`;
 - `INVALID_OUTPUT`;
-- `POLICY_BLOCKED`;
-- `LOW_CONFIDENCE`;
 - `UNKNOWN`.
 
-The execution service performs no automatic retry and returns a structured outcome. It is not connected to task completion or any approval command path.
+`SUCCESS` and `LOW_CONFIDENCE` close the circuit. Policy, authorization and unsupported-capability outcomes do not count as provider-health failures. The breaker does not retry, schedule work or persist state.
 
-The audit contract links requestId/traceId, tenant, operator, resource, capability, policy version, all provider/model/prompt/knowledge/output versions, result classification and an optional later human-decision reference.
+### Invocation budgets
 
-Metrics expose only:
+`AiInvocationBudget` authorizes:
+
+- maximum timeout;
+- maximum minimized input characters;
+- maximum minimized field count;
+- minimum accepted confidence.
+
+The budget is checked after field permission, masking and minimization, but before provider invocation. An exceeded budget returns `POLICY_BLOCKED`; it does not call the provider or open the provider-health circuit.
+
+### Usage evidence
+
+`AiUsageEvidence` records bounded evidence for:
+
+- minimized input characters;
+- optional provider-reported input tokens;
+- optional provider-reported output tokens;
+- optional total tokens;
+- optional provider latency;
+- platform-observed latency;
+- optional estimated cost and currency;
+- evidence source: unavailable, platform-observed, provider-reported or mixed.
+
+The current coordinator records only facts it can observe: minimized input characters and elapsed platform time. It does not invent token counts, provider latency or cost. Provider token/cost reporting remains unavailable until a later provider-adapter gate.
+
+Usage values are evidence fields, not metric tags, and contain no prompt or response content.
+
+### Coordinated audit evidence
+
+`AiAdvisoryExecutionEvidence` can link:
+
+- requestId and traceId;
+- tenant and operator;
+- resource type, resource ID and authorization reference;
+- capability;
+- selected route and exact versions;
+- result classification;
+- usage evidence;
+- circuit state before and after;
+- skipped pre-invocation candidates;
+- whether a provider invocation started;
+- proof that post-invocation fallback was not attempted.
+
+This is a contract-only sink. M6-D still creates no database table or durable AI execution record.
+
+### Routing metrics
+
+Provider-routing metrics use only closed low-cardinality dimensions:
 
 - capability;
-- result;
+- routing result;
 - failure class;
-- provider type;
-- policy result.
+- circuit state.
 
-Tenant, user, task, instance, request, trace, prompt, response and arbitrary error content are not metric dimensions.
+They do not contain tenantId, operatorId, userId, instanceId, taskId, requestId, traceId, route ID, provider ID, prompt content, model response or arbitrary error text.
 
-## Deterministic evaluation coverage
+## Evaluation coverage
 
-The test-only provider:
+The second slice adds deterministic tests for:
 
-- performs no network access;
-- consumes no key or credential;
-- uses no production prompt or customer knowledge data;
-- deterministically produces structured summary, observation, risk and recommendation output;
-- deterministically simulates low confidence, disabled, unsupported, rejected, timeout, provider unavailable, invalid output, policy blocked, unknown and exception outcomes;
-- can fail a test if a forbidden field reaches the provider boundary.
+- exact provider-version lookup;
+- duplicate provider registration rejection;
+- route/provider/model/capability matching;
+- disabled routing;
+- circuit-open pre-invocation candidate skip;
+- one half-open probe under concurrent selection;
+- success closing a half-open circuit;
+- policy outcomes not poisoning provider health;
+- timeout opening the provider circuit;
+- timeout and unknown results never invoking a backup provider;
+- route-budget rejection before invocation;
+- platform-observed usage evidence without invented tokens or cost;
+- inconsistent token/cost evidence rejection;
+- post-invocation fallback configuration rejection;
+- low-cardinality routing metric structure.
 
-Tests cover hidden-field leakage, cross-tenant resources, forged resource identity, prompt injection, oversized input, raw attachment content, low confidence, disabled provider, timeout fallback, provider exception, malformed output, unknown model version, customer-knowledge blocking and prohibited approval-command output.
+The permanent Node boundary now also verifies that production source contains exactly one coordinator call site for `advisoryService.advise`, that post-invocation fallback is structurally prohibited, and that routing metrics contain no high-cardinality identity or business-content dimensions.
 
-## Permanent boundary
+## Permanent safety boundary
 
-The permanent Node boundary test and ArchUnit rule prove that this slice contains:
+The combined M6-D slices still contain:
 
-- no production provider implementation or network client;
-- no production credential loading;
-- no production prompt asset;
+- no real provider network call or network client;
+- no production provider adapter;
+- no production credential or API key loading;
+- no production Prompt asset;
 - no customer knowledge data;
+- no attachment-content extraction;
 - no JDBC, SQL, Flyway or persistence dependency;
 - no `V33`;
-- no approval, rejection, return, transfer, withdrawal, termination or migration command call;
+- no task/instance approval-state command;
+- no automatic retry after provider invocation;
+- no post-invocation provider fallback;
 - no production deterministic mock;
 - no second automatic workflow;
-- no M5 migration, runtime-binding or frozen M3/M4 governance change on the M6-D branch.
+- no M5 migration, runtime-binding or frozen M3/M4 governance modification.
 
 ## Still blocked
 
 This slice does not add:
 
-- real model network calls;
-- production provider configuration or credentials;
-- production prompts;
-- retrieval from customer knowledge sources;
-- attachment-content extraction;
-- database persistence;
-- retries, circuit-breaker implementation or provider routing;
-- participant or management API endpoints;
+- production provider configuration or Spring wiring;
+- a concrete model-network adapter;
+- production credentials;
+- production prompt templates;
+- customer knowledge retrieval or embeddings;
+- provider-reported token, latency or cost integration;
+- durable circuit state or AI audit persistence;
+- provider retries or background workers;
+- participant or management AI endpoints;
 - Web or Mobile AI controls;
 - approval-state automation;
 - M6-E or M6-F behavior.
 
-Any future controlled automation requires a separate accepted gate with explicit human confirmation, server-side reauthorization, bounded reason, idempotency, audit and risk validation.
+A production adapter requires a separate gate covering secret management, network egress, exact model authorization, provider-specific output validation, budget enforcement, operational disablement and failure drills. Any controlled automation remains a later independent gate requiring human confirmation, server-side reauthorization, bounded reason, idempotency, audit and risk acceptance.

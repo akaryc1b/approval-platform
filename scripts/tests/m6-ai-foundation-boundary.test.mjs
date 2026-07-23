@@ -117,6 +117,48 @@ test('AI contracts cannot execute approval, transfer, termination or migration c
   assert.doesNotMatch(resultContract, /\bApprovalDecision\b|\bApprovalCommand\b/);
 });
 
+test('AI routing invokes at most one provider and forbids post-invocation fallback', () => {
+  const coreSource = path.join(
+    root,
+    'server-modules/approval-ai-core/src/main/java/io/github/akaryc1b/approval/ai/core',
+  );
+  const coordinator = text(path.join(coreSource, 'AiAdvisoryCoordinator.java'));
+  const routingPolicy = text(path.join(coreSource, 'AiProviderRoutingPolicy.java'));
+  const executionOutcome = text(path.join(coreSource, 'AiCoordinatedAdvisoryOutcome.java'));
+  const routingMetrics = text(path.join(coreSource, 'AiProviderRoutingMetrics.java'));
+  const usageEvidence = text(path.join(
+    root,
+    'server-modules/approval-ai-spi/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/spi/AiUsageEvidence.java',
+  ));
+
+  assert.equal((coordinator.match(/advisoryService\.advise\s*\(/g) || []).length, 1);
+  assert.match(routingPolicy, /allowPreInvocationCandidateFallback/);
+  assert.match(routingPolicy, /allowPostInvocationFallback/);
+  assert.match(routingPolicy, /post-invocation provider fallback is prohibited/);
+  assert.match(executionOutcome, /postInvocationFallbackAttempted/);
+  assert.match(executionOutcome, /post-invocation fallback is prohibited/);
+  assert.match(usageEvidence, /inputTokens/);
+  assert.match(usageEvidence, /outputTokens/);
+  assert.match(usageEvidence, /estimatedCost/);
+  assert.match(usageEvidence, /observedLatencyMillis/);
+
+  for (const highCardinality of [
+    /tenantId/,
+    /operatorId/,
+    /userId/,
+    /instanceId/,
+    /taskId/,
+    /requestId/,
+    /traceId/,
+    /promptContent/,
+    /modelResponse/,
+    /errorMessage/,
+  ]) {
+    assert.doesNotMatch(routingMetrics, highCardinality);
+  }
+});
+
 test('only the permanent validation workflow is automatic', () => {
   const workflowRoot = path.join(root, '.github/workflows');
   const workflows = filesUnder(workflowRoot)

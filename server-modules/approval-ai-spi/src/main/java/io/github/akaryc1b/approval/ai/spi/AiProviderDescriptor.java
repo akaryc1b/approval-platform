@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.ai.spi;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -47,9 +48,17 @@ public record AiProviderDescriptor(
         }
     }
 
-    public boolean supports(AiCapability capability) {
+    public Optional<CapabilityDescriptor> capabilityDescriptor(AiCapability capability) {
+        Objects.requireNonNull(capability, "capability must not be null");
         return capabilities.stream()
-            .anyMatch(descriptor -> descriptor.capability() == capability && descriptor.enabled());
+            .filter(descriptor -> descriptor.capability() == capability)
+            .findFirst();
+    }
+
+    public boolean supports(AiCapability capability) {
+        return capabilityDescriptor(capability)
+            .map(CapabilityDescriptor::enabled)
+            .orElse(false);
     }
 
     public boolean supports(AiVersionReferences.ModelVersion model) {
