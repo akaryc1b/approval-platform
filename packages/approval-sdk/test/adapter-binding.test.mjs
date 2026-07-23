@@ -11,7 +11,7 @@ import {
   validateLogicalEndpointDescriptor,
 } from '../dist/adapter-binding.js';
 
-const fixture = JSON.parse(await readFile(new URL('../fixture.json', import.meta.url), 'utf8'));
+const fixture = JSON.parse(await readFile(new URL('../../../contracts/sdk/v1/fixtures/adapter-binding-v1.json', import.meta.url), 'utf8'));
 function setup(overrides = {}) {
   const resolver = new StaticAuthenticationContextResolver(overrides.authenticationContext ?? fixture.authenticationContext);
   const provider = new StaticCredentialLeaseProvider(overrides.credentialLease ?? fixture.credentialLease);
