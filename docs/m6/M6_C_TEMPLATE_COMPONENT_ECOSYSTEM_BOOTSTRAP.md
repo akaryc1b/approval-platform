@@ -1,6 +1,6 @@
 # M6-C Template and Component Ecosystem Bootstrap
 
-Status: `FIRST_SAFE_SLICE_IMPLEMENTED`
+Status: `SECOND_SAFE_SLICE_IMPLEMENTED`
 
 Tracking:
 
@@ -31,6 +31,23 @@ The first implementation slice establishes deterministic, tenant-safe contracts 
 - strict JSON duplicate-key detection, unknown-field rejection and bounded decoding.
 
 The preview service is intentionally side-effect free. It has no store, marketplace, publish, deployment, activation or engine port and creates no release or runtime state.
+
+## Implemented second safe slice
+
+The second implementation slice adds `ProcessTemplateDraftCreationService` as a narrow server-side gate from an immutable preview plan to one existing Approval design draft:
+
+- recomputes package validation, dependency resolution, compatibility and tenant-local bindings at execution time;
+- requires the caller-supplied expected plan hash to match the recomputed deterministic plan hash;
+- rejects stale plans before any draft importer invocation;
+- requires the write `RequestContext` tenant to equal the preview target tenant;
+- requires exactly one immutable tenant-local Form Package binding;
+- requires the target Form Package key to match the target Approval DSL definition key and to declare a positive version;
+- requires exactly one matching Approval DSL or Release Package artifact reference;
+- binds the package artifact reference to the supplied secure Artifact Transfer envelope hash;
+- delegates DSL/release integrity verification, target Form Package validation, compilation, idempotency, audit and design-draft persistence to the existing `ApprovalArtifactTransferService`;
+- accepts only a returned `DRAFT` with the exact target definition identity, Form Package version, payload hash and envelope hash.
+
+This slice creates only an editable tenant-local design draft. It exposes no publish, deploy, activate, marketplace, remote download or component-loader operation. A failed or stale plan never invokes the draft importer.
 
 ## Security limits and rejection behavior
 
@@ -69,7 +86,7 @@ Fixtures cover:
 - unknown tenant field;
 - malformed Unicode.
 
-Application and API tests cover deterministic package and plan hashes, compatibility, dependency resolution, tenant rebinding, safe fallback, strict JSON and preview-only behavior. The boundary test verifies that no `V33` migration or second permanent workflow exists and that the slice has no marketplace/download/class-loader/persistence/release-mutation dependency.
+Application and API tests cover deterministic package and plan hashes, compatibility, dependency resolution, tenant rebinding, safe fallback, strict JSON and preview-only behavior. Draft-creation tests cover stale-plan rejection, non-importable plans, cross-tenant write contexts, artifact-envelope mismatch, missing source artifacts, exact Form Package selection, immutable target versions, idempotency-context propagation and DRAFT-only results. The boundary test verifies that no `V33` migration or second permanent workflow exists and that the slice has no marketplace/download/class-loader/release-mutation dependency.
 
 ## Blocked until a later gate
 

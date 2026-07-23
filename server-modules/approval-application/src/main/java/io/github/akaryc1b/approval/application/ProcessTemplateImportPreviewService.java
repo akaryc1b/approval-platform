@@ -57,7 +57,7 @@ public final class ProcessTemplateImportPreviewService {
         for (Dependency dependency : templatePackage.dependencyManifest().dependencies()) {
             resolve(dependency, templatePackage, registry, bindings, findings, requirements);
         }
-        requireFormPackage(bindings, requirements);
+        requireFormPackage(bindings, request.targetDefinitionKey(), findings, requirements);
         DraftTarget target = new DraftTarget(
             request.targetTenantId(),
             key(request.targetDefinitionKey(), "targetDefinitionKey"),
@@ -223,11 +223,32 @@ public final class ProcessTemplateImportPreviewService {
 
     private static void requireFormPackage(
         Map<String, TenantBinding> bindings,
+        String targetDefinitionKey,
+        List<Finding> findings,
         List<RebindingRequirement> requirements
     ) {
-        if (bindings.values().stream().noneMatch(binding -> binding.kind() == BindingKind.FORM_PACKAGE)) {
+        List<TenantBinding> formPackages = bindings.values().stream()
+            .filter(binding -> binding.kind() == BindingKind.FORM_PACKAGE)
+            .toList();
+        if (formPackages.size() != 1) {
+            findings.add(error("FORM_PACKAGE_BINDING_REQUIRED", "form-package",
+                "exactly one tenant-local Form Package binding is required"));
             requirements.add(new RebindingRequirement(BindingKind.FORM_PACKAGE, "form-package", true,
-                "target tenant must select an immutable local Form Package"));
+                "target tenant must select exactly one immutable local Form Package"));
+            return;
+        }
+        TenantBinding formPackage = formPackages.get(0);
+        if (formPackage.targetVersion() == null || formPackage.targetVersion() < 1) {
+            findings.add(error("FORM_PACKAGE_VERSION_REQUIRED", formPackage.identity(),
+                "tenant-local Form Package binding requires a positive immutable version"));
+            requirements.add(new RebindingRequirement(BindingKind.FORM_PACKAGE,
+                formPackage.sourceKey(), true, "target tenant must select an immutable Form Package version"));
+        }
+        if (!formPackage.targetResourceKey().equals(targetDefinitionKey)) {
+            findings.add(error("FORM_PACKAGE_KEY_MISMATCH", formPackage.identity(),
+                "target Form Package key must match the target Approval DSL definition key"));
+            requirements.add(new RebindingRequirement(BindingKind.FORM_PACKAGE,
+                formPackage.sourceKey(), true, "target Form Package key must match target definition key"));
         }
     }
 

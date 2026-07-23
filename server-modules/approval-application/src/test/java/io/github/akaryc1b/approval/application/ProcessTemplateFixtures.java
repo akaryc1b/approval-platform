@@ -83,6 +83,19 @@ final class ProcessTemplateFixtures {
                 base.artifacts(), base.componentDescriptors()));
     }
 
+    static TemplatePackage withSourceArtifactHash(String artifactKind, String contentHash) {
+        TemplatePackage base = validPackage();
+        List<IncludedArtifactReference> artifacts = base.artifacts().stream()
+            .map(artifact -> artifact.kind().equals(artifactKind)
+                ? new IncludedArtifactReference(artifact.kind(), artifact.resourceName(), contentHash)
+                : artifact)
+            .toList();
+        ProcessTemplateCanonicalHasher hasher = new ProcessTemplateCanonicalHasher();
+        return new TemplatePackage(base.manifest(), base.dependencyManifest(), artifacts,
+            base.componentDescriptors(), hasher.packageHash(base.manifest(), base.dependencyManifest(),
+                artifacts, base.componentDescriptors()));
+    }
+
     static TenantRegistrySnapshot completeRegistry() {
         return new TenantRegistrySnapshot(
             "tenant-a", "1.4.0", Set.of("amount"), Set.of("finance.submit.local"),
@@ -94,7 +107,7 @@ final class ProcessTemplateFixtures {
 
     static PreviewRequest completeRequest() {
         return new PreviewRequest("tenant-a", "expenseImported", 1, "Expense imported draft", List.of(
-            binding(BindingKind.FORM_PACKAGE, "form-package", "expense-form", 3),
+            binding(BindingKind.FORM_PACKAGE, "form-package", "expenseImported", 3),
             binding(BindingKind.CONNECTOR, "finance.submit", "finance.submit.local", 1),
             binding(BindingKind.BUSINESS_REFERENCE, "invoice", "invoice.local", 1),
             binding(BindingKind.ORGANIZATION_IDENTITY, "financeDepartment", "finance.local", null),

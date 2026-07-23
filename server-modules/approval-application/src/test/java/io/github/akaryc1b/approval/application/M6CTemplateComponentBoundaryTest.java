@@ -51,6 +51,8 @@ class M6CTemplateComponentBoundaryTest {
         assertFalse(source.contains("ApprovalProcessReleaseActivationService"));
         assertFalse(source.contains("approval.persistence"));
         assertTrue(source.contains("ProcessTemplateImportPreviewService"));
+        assertTrue(source.contains("ProcessTemplateDraftCreationService"));
+        assertTrue(source.contains("ApprovalArtifactTransferService"));
         assertTrue(source.contains("READONLY_FALLBACK"));
     }
 

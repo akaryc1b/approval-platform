@@ -131,6 +131,38 @@ class ProcessTemplateEcosystemTest {
     }
 
     @Test
+    void formPackageBindingMustMatchTargetDefinitionKey() {
+        PreviewRequest request = ProcessTemplateFixtures.completeRequest();
+        List<TenantBinding> bindings = request.bindings().stream()
+            .map(binding -> binding.kind() == BindingKind.FORM_PACKAGE
+                ? new TenantBinding(binding.kind(), binding.sourceKey(), binding.targetTenantId(),
+                    "otherForm", binding.targetVersion())
+                : binding)
+            .toList();
+        ImportPlan plan = preview.preview(ProcessTemplateFixtures.validPackage(), 4096,
+            ProcessTemplateFixtures.requestWithBindings(bindings), ProcessTemplateFixtures.completeRegistry());
+        assertFalse(plan.importable());
+        assertTrue(plan.findings().stream().anyMatch(finding ->
+            finding.code().equals("FORM_PACKAGE_KEY_MISMATCH")));
+    }
+
+    @Test
+    void formPackageBindingRequiresImmutableVersion() {
+        PreviewRequest request = ProcessTemplateFixtures.completeRequest();
+        List<TenantBinding> bindings = request.bindings().stream()
+            .map(binding -> binding.kind() == BindingKind.FORM_PACKAGE
+                ? new TenantBinding(binding.kind(), binding.sourceKey(), binding.targetTenantId(),
+                    binding.targetResourceKey(), null)
+                : binding)
+            .toList();
+        ImportPlan plan = preview.preview(ProcessTemplateFixtures.validPackage(), 4096,
+            ProcessTemplateFixtures.requestWithBindings(bindings), ProcessTemplateFixtures.completeRegistry());
+        assertFalse(plan.importable());
+        assertTrue(plan.findings().stream().anyMatch(finding ->
+            finding.code().equals("FORM_PACKAGE_VERSION_REQUIRED")));
+    }
+
+    @Test
     void previewHasNoPublishDeployOrActivateMethod() {
         List<String> methods = java.util.Arrays.stream(ProcessTemplateImportPreviewService.class
             .getDeclaredMethods()).map(java.lang.reflect.Method::getName).toList();
