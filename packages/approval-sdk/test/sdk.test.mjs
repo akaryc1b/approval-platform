@@ -102,6 +102,17 @@ test('clock skew and payload tampering are rejected before replay reservation', 
   }), 'verified');
 });
 
+test('expired and permanent delivery outcomes are terminal', async () => {
+  const event = await parseEventEnvelope(rawEvent);
+  const expiredStore = new InMemoryDeduplicationStore();
+  assert.equal(consumeIdempotently(event, expiredStore, () => 'expired_event'), 'expired_event');
+  assert.equal(consumeIdempotently(event, expiredStore, () => 'accepted'), 'duplicate');
+
+  const permanentStore = new InMemoryDeduplicationStore();
+  assert.equal(consumeIdempotently(event, permanentStore, () => 'permanent_rejection'), 'permanent_rejection');
+  assert.equal(consumeIdempotently(event, permanentStore, () => 'accepted'), 'duplicate');
+});
+
 test('mock transport, structured error and idempotent consumer are deterministic', async () => {
   const request = {
     operation: 'approval.task.read',
