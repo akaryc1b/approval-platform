@@ -1,7 +1,9 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProcessReleaseStore;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.PublishedDefinition;
 import io.github.akaryc1b.approval.domain.definition.ApprovalEffectiveRelease;
 import io.github.akaryc1b.approval.domain.definition.ApprovalProcessRelease;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseDeployment;
@@ -55,6 +57,7 @@ final class JdbcRuntimeBindingStartTestFixture {
                 ap_approval_release_activation_history,
                 ap_approval_release_deployment,
                 ap_approval_release_package,
+                ap_definition_version,
                 ap_audit_event,
                 ap_audit_chain_state,
                 ap_approval_task,
@@ -66,6 +69,12 @@ final class JdbcRuntimeBindingStartTestFixture {
 
     static ApprovalReleasePackage seedReleaseEvidence(DataSource dataSource) {
         ApprovalReleasePackage releasePackage = releasePackage();
+        new JdbcApprovalProjectionStore(
+            dataSource,
+            new ObjectMapper().findAndRegisterModules()
+        ).saveDefinition(
+            publishedDefinition()
+        );
         insertPackage(dataSource, releasePackage);
 
         ApprovalProcessReleaseStore lifecycle = new JdbcApprovalProcessReleaseStore(dataSource);
@@ -119,6 +128,23 @@ final class JdbcRuntimeBindingStartTestFixture {
             NOW.minusSeconds(110),
             NOW.minusSeconds(100),
             NOW.minusSeconds(100)
+        );
+    }
+
+    private static PublishedDefinition publishedDefinition() {
+        return new PublishedDefinition(
+            TENANT,
+            DEFINITION_KEY,
+            DEFINITION_VERSION,
+            DEFINITION_KEY,
+            FORM_VERSION,
+            COMPILER_VERSION,
+            DEFINITION_HASH,
+            ENGINE_DEPLOYMENT_ID,
+            ENGINE_DEFINITION_ID,
+            ENGINE_VERSION,
+            "publisher-runtime",
+            NOW.minusSeconds(120)
         );
     }
 
