@@ -30,7 +30,8 @@ class M6CTemplateComponentBoundaryTest {
     }
 
     @Test
-    void previewSliceHasNoMarketplaceDownloadLoaderOrReleaseMutationDependency() throws IOException {
+    void templateSlicesHaveNoMarketplaceDownloadLoaderOrReleaseMutationDependency()
+        throws IOException {
         Path sourceRoot = repositoryRoot().resolve(
             "server-modules/approval-application/src/main/java/"
                 + "io/github/akaryc1b/approval/application");
@@ -52,6 +53,8 @@ class M6CTemplateComponentBoundaryTest {
         assertFalse(source.contains("approval.persistence"));
         assertTrue(source.contains("ProcessTemplateImportPreviewService"));
         assertTrue(source.contains("ProcessTemplateDraftCreationService"));
+        assertTrue(source.contains("ProcessTemplateImportCoordinator"));
+        assertTrue(source.contains("ProcessTemplateTenantRegistryResolver"));
         assertTrue(source.contains("ApprovalArtifactTransferService"));
         assertTrue(source.contains("READONLY_FALLBACK"));
     }

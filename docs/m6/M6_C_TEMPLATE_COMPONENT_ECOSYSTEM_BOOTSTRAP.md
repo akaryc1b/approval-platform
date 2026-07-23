@@ -1,6 +1,6 @@
 # M6-C Template and Component Ecosystem Bootstrap
 
-Status: `SECOND_SAFE_SLICE_IMPLEMENTED`
+Status: `THIRD_SAFE_SLICE_IMPLEMENTED`
 
 Tracking:
 
@@ -49,6 +49,23 @@ The second implementation slice adds `ProcessTemplateDraftCreationService` as a 
 
 This slice creates only an editable tenant-local design draft. It exposes no publish, deploy, activate, marketplace, remote download or component-loader operation. A failed or stale plan never invokes the draft importer.
 
+## Implemented third safe slice
+
+The third implementation slice adds `ProcessTemplateImportCoordinator` and the server-owned `ProcessTemplateTenantRegistryResolver` port:
+
+- preview and draft-creation commands no longer accept `TenantRegistrySnapshot` from a caller;
+- the coordinator resolves the current target-tenant registry only through the server-owned resolver;
+- the resolver receives the immutable package requirements and preview target but cannot be selected by package content;
+- preview resolves one current registry snapshot and remains side-effect free;
+- draft creation resolves the registry again immediately before plan revalidation and draft creation;
+- relevant registry drift changes the deterministic plan and is rejected as `StalePlan` before the draft importer;
+- a resolver-returned null snapshot or infrastructure failure is converted to a safe `RegistryResolutionFailed` error;
+- a resolver-returned snapshot for another tenant is rejected as cross-tenant authority;
+- a cross-tenant write `RequestContext` is rejected before registry resolution;
+- coordinator public commands contain no trusted registry field and expose only `preview` and `createDraft` operations.
+
+This slice establishes a server-authoritative capability-resolution boundary without introducing a marketplace registry, database persistence, remote lookup or dynamic component loading.
+
 ## Security limits and rejection behavior
 
 The package and decoder enforce:
@@ -67,7 +84,7 @@ The package and decoder enforce:
 - path traversal and unsafe resource-name rejection;
 - content-hash recomputation and tamper rejection;
 - JavaScript, script tags, expressions, remote modules, dynamic imports, executable URLs and HTML data URL rejection;
-- cross-tenant binding rejection.
+- cross-tenant binding and registry-authority rejection.
 
 ## Fixtures and tests
 
@@ -86,14 +103,14 @@ Fixtures cover:
 - unknown tenant field;
 - malformed Unicode.
 
-Application and API tests cover deterministic package and plan hashes, compatibility, dependency resolution, tenant rebinding, safe fallback, strict JSON and preview-only behavior. Draft-creation tests cover stale-plan rejection, non-importable plans, cross-tenant write contexts, artifact-envelope mismatch, missing source artifacts, exact Form Package selection, immutable target versions, idempotency-context propagation and DRAFT-only results. The boundary test verifies that no `V33` migration or second permanent workflow exists and that the slice has no marketplace/download/class-loader/release-mutation dependency.
+Application and API tests cover deterministic package and plan hashes, compatibility, dependency resolution, tenant rebinding, safe fallback, strict JSON and preview-only behavior. Draft-creation tests cover stale-plan rejection, non-importable plans, cross-tenant write contexts, artifact-envelope mismatch, missing source artifacts, exact Form Package selection, immutable target versions, idempotency-context propagation and DRAFT-only results. Coordinator tests cover server-only registry resolution, independent re-resolution for draft creation, registry drift, cross-tenant resolver output, cross-tenant write contexts, null snapshots, resolver-error redaction and command-contract exclusion of caller-supplied registries. The boundary test verifies that no `V33` migration or second permanent workflow exists and that the slices have no marketplace/download/class-loader/release-mutation dependency.
 
 ## Blocked until a later gate
 
 - marketplace persistence;
-- remote package download;
+- remote package download or remote registry lookup;
 - dynamic component loading or remote modules;
-- trusted package-supplied target bindings;
+- trusted package-supplied target bindings or registry snapshots;
 - direct publication, deployment or activation during import;
 - database persistence or any `V33` migration;
 - changes to M5 migration source or PR #58;
