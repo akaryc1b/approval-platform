@@ -4,9 +4,9 @@ M5-A DUPLICATE/RECONCILIATION SLICE: `CAPABILITY_VALIDATION_ONLY`
 
 Overall conclusion remains: `SUPPORTED_WITH_LIMITATIONS`
 
-This addendum records duplicate invocation and response-loss experiments. It does not authorize
-M5-B, production execution, a persistence protocol, a migration worker, automatic retry, or any
-browser or mobile execution control.
+This addendum records duplicate invocation and response-loss experiments. It does not authorize M5-B,
+production execution, a persistence protocol, a migration worker, automatic retry, or any browser
+or mobile execution control.
 
 ## 1. Baseline and public API boundary
 
