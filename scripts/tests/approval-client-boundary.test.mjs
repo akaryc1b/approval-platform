@@ -186,3 +186,64 @@ test('release lifecycle UI uses server revisions and preserves immutable runtime
   assert.doesNotMatch(effectiveView, /operatorId\s*:/);
   assert.doesNotMatch(effectiveView, /audit(?:Chain)?Reference\s*:/i);
 });
+
+test('web release migration assessment remains detect-only and governed', async () => {
+  const api = await readFile(
+    join(webRoot, 'api/approval/release-migration-assessment.ts'),
+    'utf8',
+  );
+  const view = await readFile(
+    join(webRoot, 'views/approval/versions/migration-dry-run.vue'),
+    'utf8',
+  );
+  const routes = await readFile(
+    join(webRoot, 'router/routes/modules/approval-release-migration.ts'),
+    'utf8',
+  );
+
+  assert.match(api, /approvalRequest<ReleaseMigrationAssessmentWireResponse>/);
+  assert.match(api, /approvalCommandHeaders\('approval-release-migration-assessment'\)/);
+  assert.match(api, /\/migration-dry-run/);
+  assert.match(api, /encodeURIComponent\(normalizedDefinitionKey\)/);
+
+  const bodyBoundary = api.slice(
+    api.indexOf('function requestBody'),
+    api.indexOf('function normalizeResponse'),
+  );
+  for (const field of ['targetReleaseVersion', 'limit', 'offset']) {
+    assert.match(bodyBoundary, new RegExp(`\\b${field}\\b`));
+  }
+  for (const forbidden of [
+    'tenantId',
+    'operatorId',
+    'userId',
+    'auditChainReference',
+    'releasePackageHash',
+    'engineIdentity',
+    'migrationCommand',
+  ]) {
+    assert.doesNotMatch(bodyBoundary, new RegExp(`\\b${forbidden}\\b`, 'i'));
+  }
+
+  assert.match(api, /'X-Approval-Operation-Reason': normalizeReason\(reason\)/);
+  assert.match(api, /normalize\('NFKC'\)/);
+  assert.match(api, /codePoints\.length < 8 \|\| codePoints\.length > 512/);
+  assert.match(api, /isControl \|\| isUnsupportedSeparator \|\| isSurrogate/);
+  assert.doesNotMatch(api, /X-(?:Tenant|Operator)-Id/);
+  assert.doesNotMatch(api, /Trusted-Permissions/);
+
+  assert.match(view, /仅生成评估证据，不执行实例迁移/);
+  assert.match(view, /detect-only/);
+  assert.match(view, /report\.reportHash/);
+  assert.match(view, /bindingEvidenceHash/);
+  assert.doesNotMatch(
+    view,
+    />\s*(?:执行迁移|确认迁移|开始迁移|强制迁移|应用变更|跳过阻断|修改实例|重新绑定实例)\s*</,
+  );
+  assert.doesNotMatch(view, /\/(?:execute|migration-execution|force-migration|rollback-migration)/i);
+  assert.match(view, /runReleaseMigrationDryRun/);
+
+  assert.match(routes, /path: '\/approval\/versions\/migration-dry-run'/);
+  assert.match(routes, /authority: \['approval:definition:design'\]/);
+  assert.match(routes, /ApprovalReleaseMigrationDryRun/);
+});
