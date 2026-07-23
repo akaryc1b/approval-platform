@@ -55,16 +55,16 @@ class M6CTemplateComponentBoundaryTest {
 
     private static Path repositoryRoot() {
         String configured = System.getProperty("maven.multiModuleProjectDirectory");
-        if (configured != null && !configured.isBlank()) {
-            return Path.of(configured).toAbsolutePath().normalize();
-        }
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.exists(current.resolve("pom.xml"))) {
+        Path current = configured == null || configured.isBlank()
+            ? Path.of("").toAbsolutePath().normalize()
+            : Path.of(configured).toAbsolutePath().normalize();
+        while (current != null) {
+            if (Files.isDirectory(current.resolve(".github/workflows"))
+                && Files.isDirectory(current.resolve("server-modules"))) {
+                return current;
+            }
             current = current.getParent();
         }
-        if (current == null) {
-            throw new IllegalStateException("repository root could not be resolved");
-        }
-        return current;
+        throw new IllegalStateException("repository root could not be resolved");
     }
 }
