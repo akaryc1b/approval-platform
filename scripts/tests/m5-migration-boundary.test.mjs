@@ -216,18 +216,28 @@ test('M5-A introduces no V33, production worker, or execution surface', async ()
   }
 });
 
-test('the permanent workflow remains singular and runs the M5-A boundary', async () => {
+test('M5 uses the accepted automatic validation workflow and no second M5 workflow', async () => {
   const workflowFiles = (await readdir(workflowDirectory))
     .filter((file) => /\.ya?ml$/i.test(file))
     .sort();
-  assert.deepEqual(workflowFiles, ['approval-platform-validation.yml']);
+  assert.ok(workflowFiles.includes('approval-platform-validation.yml'));
 
-  const workflow = await text(
-    path.join(workflowDirectory, 'approval-platform-validation.yml'),
-  );
-  assert.match(workflow, /node --test scripts\/tests\/m5-migration-boundary\.test\.mjs/);
-  assert.match(workflow, /m5-migration-boundary\.log/);
-  assert.doesNotMatch(workflow, /pr5[0-9].*workflow|temporary.*workflow/i);
+  const forbiddenWorkflowFiles = workflowFiles.filter((file) =>
+    /(?:temporary|temp|pr\d+|m5[-_].*validation)/i.test(file));
+  assert.deepEqual(forbiddenWorkflowFiles, []);
+
+  for (const file of workflowFiles) {
+    const workflow = await text(path.join(workflowDirectory, file));
+    if (file === 'approval-platform-validation.yml') {
+      assert.match(workflow, /^\s*pull_request:/m);
+      assert.match(workflow, /^\s*push:/m);
+      assert.match(workflow, /node --test scripts\/tests\/m5-migration-boundary\.test\.mjs/);
+      assert.match(workflow, /m5-migration-boundary\.log/);
+      continue;
+    }
+    assert.doesNotMatch(workflow, /^\s*(?:pull_request|push):/m);
+    assert.doesNotMatch(workflow, /m5-migration-boundary|M5 migration capability/i);
+  }
 });
 
 test('accepted M3 and M4 governance documents remain byte-for-byte frozen', async () => {
