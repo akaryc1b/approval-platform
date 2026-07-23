@@ -91,7 +91,10 @@ test('M5-A remains capability validation only with a complete status matrix', as
     'UNSUPPORTED',
     'UNKNOWN_REQUIRES_MORE_EVIDENCE',
   ]) {
-    assert.ok(feasibility.includes('`' + status + '`'));
+    assert.ok(
+      feasibility.includes('`' + status + '`'),
+      `M5-A capability matrix omits status ${status}`,
+    );
   }
 
   for (const requiredAnswer of [
