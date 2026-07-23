@@ -14,6 +14,7 @@ This directory contains two different kinds of documentation:
 - Final permanent validation run: `29986751894` — `success`
 - Highest Flyway migration: `V32`
 - Permanent validation workflow: `.github/workflows/approval-platform-validation.yml`
+- Post-merge documentation reconciliation: Issue `#57`, Draft PR `#59`
 
 The M4 baseline supports process release lifecycle and detect-only migration assessment. It does **not** support real process-instance migration execution.
 
