@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
@@ -20,9 +21,19 @@ const protocolPath = path.join(
   root,
   'docs/M4_RELEASE_MIGRATION_EXECUTION_PROTOCOL_DRAFT.md',
 );
+const governancePath = path.join(
+  root,
+  'docs/M4_PROCESS_RELEASE_AND_MIGRATION_ASSESSMENT_GOVERNANCE.md',
+);
 
 async function text(file) {
   return readFile(file, 'utf8');
+}
+
+async function gitBlobSha(file) {
+  const content = await readFile(file);
+  const header = Buffer.from(`blob ${content.length}\0`, 'utf8');
+  return createHash('sha1').update(header).update(content).digest('hex');
 }
 
 async function filesUnder(directory, extensions) {
@@ -230,4 +241,12 @@ test('future release migration protocol remains design-only unavailable and fail
       );
     }
   }
+});
+
+test('accepted process release governance document remains byte-for-byte frozen', async () => {
+  assert.equal(
+    await gitBlobSha(governancePath),
+    '3c78cee75ed1ec3536fc8e26d440592e2038c6f2',
+    'M4 process release and migration assessment governance document is frozen',
+  );
 });
