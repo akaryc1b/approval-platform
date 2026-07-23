@@ -190,7 +190,7 @@ test('future release migration protocol remains design-only unavailable and fail
   }
 
   const mutationMapping = /@(?:Post|Put|Patch|Delete)Mapping\s*\(\s*"([^"]*migration[^"]*)"/gi;
-  const clientApiPath = /[\`'"]([^\`'"]*\/api\/approval\/[^\`'"]*migration[^\`'"]*)[\`'"]/gi;
+  const clientApiPath = /[\`'"](\/api\/approval\/[^\`'"]*migration[^\`'"]*)[\`'"]/gi;
   for (const file of productionFiles) {
     const content = await text(file);
     for (const match of content.matchAll(mutationMapping)) {
