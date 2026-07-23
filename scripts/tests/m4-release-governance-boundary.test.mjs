@@ -8,6 +8,10 @@ const advicePath = path.join(
   root,
   'apps/server/src/main/java/io/github/akaryc1b/approval/api/ApprovalReleaseGovernanceObservabilityAdvice.java',
 );
+const runtimeBindingConfigPath = path.join(
+  root,
+  'apps/server/src/main/java/io/github/akaryc1b/approval/config/ApprovalRuntimeBindingEvidenceConfiguration.java',
+);
 const transportPath = path.join(
   root,
   'apps/web/overlay/apps/web-ele/src/api/approval/transport.ts',
@@ -67,12 +71,23 @@ test('release governance errors preserve bounded trace evidence', async () => {
 
 test('release governance metrics use closed low-cardinality tags only', async () => {
   const advice = await text(advicePath);
+  const runtimeBindingConfig = await text(runtimeBindingConfigPath);
   assert.match(advice, /approval\.release\.lifecycle\.operation/);
   assert.match(advice, /approval\.release\.migration\.assessment/);
+  assert.match(runtimeBindingConfig, /approval\.runtime\.binding\.validation/);
 
-  const counterBlocks = [...advice.matchAll(/meters\.counter\(([\s\S]*?)\)\.increment\(\)/g)]
-    .map((match) => match[1]);
-  assert.equal(counterBlocks.length, 4, 'expected two success and two failure counter paths');
+  const adviceCounterBlocks = [
+    ...advice.matchAll(/meters\.counter\(([\s\S]*?)\)\.increment\(\)/g),
+  ].map((match) => match[1]);
+  assert.equal(
+    adviceCounterBlocks.length,
+    4,
+    'expected two success and two failure release counter paths',
+  );
+  const runtimeBindingCounter = runtimeBindingConfig.match(
+    /meters\.counter\(([\s\S]*?)\)\.increment\(\)/,
+  );
+  assert.ok(runtimeBindingCounter, 'runtime binding validation counter is missing');
 
   const allowedTagKeys = new Set([
     'operation',
@@ -94,20 +109,27 @@ test('release governance metrics use closed low-cardinality tags only', async ()
     'traceId',
     'reason',
   ]);
-  for (const block of counterBlocks) {
+  for (const block of [...adviceCounterBlocks, runtimeBindingCounter[1]]) {
     const tagKeys = [...block.matchAll(/^\s*"([a-z_]+)"\s*,/gm)]
       .map((match) => match[1]);
-    assert.ok(tagKeys.length >= 3, `metric block has too few tags: ${block}`);
+    assert.ok(tagKeys.length >= 2, `metric block has too few tags: ${block}`);
     for (const key of tagKeys) {
       assert.ok(allowedTagKeys.has(key), `unbounded metric tag key: ${key}`);
       assert.ok(!forbiddenTagKeys.has(key), `forbidden metric tag key: ${key}`);
     }
   }
 
+  assert.match(runtimeBindingConfig, /"result", metric\(result\)/);
+  assert.match(runtimeBindingConfig, /"failure_class", metric\(failureClass\)/);
   for (const operation of ['publish', 'activate', 'rollback', 'deprecate', 'retire']) {
     assert.match(advice, new RegExp(`\\b${operation.toUpperCase()}\\(\\"${operation}\\"\\)`));
   }
-  assert.doesNotMatch(advice, /"tenantId"\s*,|"operatorId"\s*,|"definitionKey"\s*,/);
+  for (const content of [advice, runtimeBindingConfig]) {
+    assert.doesNotMatch(
+      content,
+      /"tenantId"\s*,|"operatorId"\s*,|"definitionKey"\s*,|"releaseVersion"\s*,|"instanceId"\s*,|"packageHash"\s*,|"requestId"\s*,|"traceId"\s*,|"reason"\s*,/,
+    );
+  }
 });
 
 test('release observability never exposes a migration execution route', async () => {

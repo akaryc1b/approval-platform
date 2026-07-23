@@ -18,16 +18,26 @@ public final class RuntimeBindingEnforcingProjectionStore implements ApprovalPro
 
     private final ApprovalProjectionStore delegate;
     private final ApprovalRuntimeBindingStore runtimeBindings;
+    private final BindingValidationMetrics metrics;
 
     public RuntimeBindingEnforcingProjectionStore(
         ApprovalProjectionStore delegate,
         ApprovalRuntimeBindingStore runtimeBindings
+    ) {
+        this(delegate, runtimeBindings, BindingValidationMetrics.NOOP);
+    }
+
+    public RuntimeBindingEnforcingProjectionStore(
+        ApprovalProjectionStore delegate,
+        ApprovalRuntimeBindingStore runtimeBindings,
+        BindingValidationMetrics metrics
     ) {
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
         this.runtimeBindings = Objects.requireNonNull(
             runtimeBindings,
             "runtimeBindings must not be null"
         );
+        this.metrics = Objects.requireNonNull(metrics, "metrics must not be null");
     }
 
     @Override
@@ -172,33 +182,67 @@ public final class RuntimeBindingEnforcingProjectionStore implements ApprovalPro
 
     private void requireBinding(InstanceProjection instance) {
         if (instance.releaseVersion() == null) {
+            metrics.record(ValidationResult.NOT_REQUIRED, ValidationFailureClass.NONE);
             return;
         }
         ApprovalRuntimeBinding binding = runtimeBindings.find(
             instance.tenantId(),
             instance.instanceId()
-        ).orElseThrow(() -> new ProjectionConflictException(
-            "release-bound instance is missing immutable runtime binding evidence"
-        ));
-        if (!binding.tenantId().equals(instance.tenantId())
-            || !binding.approvalInstanceId().equals(instance.instanceId())
-            || !binding.businessKey().equals(instance.businessKey())
-            || !binding.engineInstanceId().equals(instance.engineInstanceId())
-            || !binding.definitionKey().equals(instance.definitionKey())
-            || binding.releaseVersion() != instance.releaseVersion()
-            || !binding.releasePackageHash().equals(instance.releasePackageHash())
-            || binding.definitionVersion() != instance.definitionVersion()
-            || !binding.definitionHash().equals(instance.contentHash())
-            || binding.formPackageVersion() != instance.formPackageVersion()
-            || !binding.formPackageHash().equals(instance.formPackageHash())
-            || binding.formVersion() != instance.formVersion()
-            || binding.uiSchemaVersion() != instance.uiSchemaVersion()
-            || !binding.uiSchemaHash().equals(instance.uiSchemaHash())
-            || !binding.compilerVersion().equals(instance.compilerVersion())
-            || !binding.engineDefinitionId().equals(instance.engineDefinitionId())) {
+        ).orElse(null);
+        if (binding == null) {
+            metrics.record(ValidationResult.FAILURE, ValidationFailureClass.MISSING_BINDING);
+            throw new ProjectionConflictException(
+                "release-bound instance is missing immutable runtime binding evidence"
+            );
+        }
+        if (!matches(binding, instance)) {
+            metrics.record(ValidationResult.FAILURE, ValidationFailureClass.EVIDENCE_MISMATCH);
             throw new ProjectionConflictException(
                 "runtime binding does not match release-bound instance projection"
             );
         }
+        metrics.record(ValidationResult.SUCCESS, ValidationFailureClass.NONE);
+    }
+
+    private static boolean matches(
+        ApprovalRuntimeBinding binding,
+        InstanceProjection instance
+    ) {
+        return binding.tenantId().equals(instance.tenantId())
+            && binding.approvalInstanceId().equals(instance.instanceId())
+            && binding.businessKey().equals(instance.businessKey())
+            && binding.engineInstanceId().equals(instance.engineInstanceId())
+            && binding.definitionKey().equals(instance.definitionKey())
+            && binding.releaseVersion() == instance.releaseVersion()
+            && binding.releasePackageHash().equals(instance.releasePackageHash())
+            && binding.definitionVersion() == instance.definitionVersion()
+            && binding.definitionHash().equals(instance.contentHash())
+            && binding.formPackageVersion() == instance.formPackageVersion()
+            && binding.formPackageHash().equals(instance.formPackageHash())
+            && binding.formVersion() == instance.formVersion()
+            && binding.uiSchemaVersion() == instance.uiSchemaVersion()
+            && binding.uiSchemaHash().equals(instance.uiSchemaHash())
+            && binding.compilerVersion().equals(instance.compilerVersion())
+            && binding.engineDefinitionId().equals(instance.engineDefinitionId());
+    }
+
+    @FunctionalInterface
+    public interface BindingValidationMetrics {
+        BindingValidationMetrics NOOP = (result, failureClass) -> {
+        };
+
+        void record(ValidationResult result, ValidationFailureClass failureClass);
+    }
+
+    public enum ValidationResult {
+        SUCCESS,
+        FAILURE,
+        NOT_REQUIRED
+    }
+
+    public enum ValidationFailureClass {
+        NONE,
+        MISSING_BINDING,
+        EVIDENCE_MISMATCH
     }
 }

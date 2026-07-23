@@ -8,10 +8,14 @@ import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentSto
 import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalRuntimeBindingStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+
+import java.util.Locale;
+import java.util.Objects;
 
 /** Production-wide immutable runtime binding enforcement for release-bound instances. */
 @Configuration(proxyBeanMethods = false)
@@ -21,11 +25,18 @@ public class ApprovalRuntimeBindingEvidenceConfiguration {
     @Primary
     ApprovalProjectionStore runtimeBindingEnforcingProjectionStore(
         @Qualifier("approvalProjectionStore") ApprovalProjectionStore delegate,
-        ApprovalRuntimeBindingStore approvalRuntimeBindingStore
+        ApprovalRuntimeBindingStore approvalRuntimeBindingStore,
+        MeterRegistry meters
     ) {
+        Objects.requireNonNull(meters, "meters must not be null");
         return new RuntimeBindingEnforcingProjectionStore(
             delegate,
-            approvalRuntimeBindingStore
+            approvalRuntimeBindingStore,
+            (result, failureClass) -> meters.counter(
+                "approval.runtime.binding.validation",
+                "result", metric(result),
+                "failure_class", metric(failureClass)
+            ).increment()
         );
     }
 
@@ -47,5 +58,11 @@ public class ApprovalRuntimeBindingEvidenceConfiguration {
             approvalRuntimeBindingStore,
             approvalReleasePackageHasher
         );
+    }
+
+    private static String metric(Enum<?> value) {
+        return Objects.requireNonNull(value, "metric value must not be null")
+            .name()
+            .toLowerCase(Locale.ROOT);
     }
 }

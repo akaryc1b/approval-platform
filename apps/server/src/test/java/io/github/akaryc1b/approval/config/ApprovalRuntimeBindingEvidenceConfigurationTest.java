@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.config;
 
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +25,7 @@ class ApprovalRuntimeBindingEvidenceConfigurationTest {
         assertBean(projection, ApprovalProjectionStore.class);
         assertBean(audit, AuditEventSink.class);
         assertQualifier(projection.getParameters()[0], "approvalProjectionStore");
+        assertEquals(MeterRegistry.class, projection.getParameterTypes()[2]);
         assertQualifier(audit.getParameters()[0], "auditEventSink");
         assertQualifier(audit.getParameters()[1], "approvalProjectionStore");
     }
