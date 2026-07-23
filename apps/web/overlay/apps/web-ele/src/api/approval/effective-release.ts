@@ -6,6 +6,15 @@ import {
 export { ApprovalApiError as ApprovalEffectiveReleaseApiError } from '#/api/approval/transport';
 
 export type ApprovalEffectiveReleaseAction = 'ACTIVATE' | 'ROLLBACK';
+export type ApprovalProcessReleaseLifecycleState =
+  | 'ACTIVE'
+  | 'DEPRECATED'
+  | 'PUBLISHED'
+  | 'RETIRED';
+export type ApprovalReleaseLifecycleAction =
+  | ApprovalEffectiveReleaseAction
+  | 'DEPRECATE'
+  | 'RETIRE';
 
 export interface ApprovalEffectiveRelease {
   activatedAt: string;
@@ -73,6 +82,36 @@ export interface ApprovalEffectiveReleaseActivationResult {
   replayedExistingActivation: boolean;
 }
 
+export interface ApprovalProcessReleaseLifecycle {
+  activatedAt?: null | string;
+  definitionKey: string;
+  deprecatedAt?: null | string;
+  lastTransitionAt: string;
+  lastTransitionBy: string;
+  lastTransitionReason: string;
+  lifecycleState: ApprovalProcessReleaseLifecycleState;
+  publishedAt: string;
+  publishedBy: string;
+  releasePackageHash: string;
+  releaseVersion: number;
+  retiredAt?: null | string;
+  revision: number;
+}
+
+export interface ApprovalProcessReleaseLifecyclePage {
+  hasMore: boolean;
+  items: ApprovalProcessReleaseLifecycle[];
+  limit: number;
+  offset: number;
+  total: number;
+}
+
+export interface ApprovalProcessReleaseDispositionResult {
+  lifecycle: ApprovalProcessReleaseLifecycle;
+  replayedExistingDisposition: boolean;
+  runtimeUsageCount: number;
+}
+
 export function findApprovalEffectiveRelease(definitionKey: string) {
   return approvalRequest<ApprovalEffectiveRelease>(
     `/approval/version-management/${encodeURIComponent(definitionKey)}/effective`,
@@ -93,6 +132,20 @@ export function findApprovalEffectiveReleaseHistory(
   );
 }
 
+export function findApprovalProcessReleaseLifecycles(
+  definitionKey: string,
+  limit = 100,
+  offset = 0,
+) {
+  const query = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  return approvalRequest<ApprovalProcessReleaseLifecyclePage>(
+    `/approval/version-management/${encodeURIComponent(definitionKey)}/release-lifecycle?${query}`,
+  );
+}
+
 function changeApprovalEffectiveRelease(
   action: 'activate' | 'rollback',
   definitionKey: string,
@@ -102,6 +155,27 @@ function changeApprovalEffectiveRelease(
 ) {
   const operationReason = approvalOperationReason(reason);
   return approvalRequest<ApprovalEffectiveReleaseActivationResult>(
+    `/approval/version-management/${encodeURIComponent(definitionKey)}/releases/${releaseVersion}/${action}`,
+    {
+      body: JSON.stringify({ expectedRevision }),
+      headers: {
+        ...approvalCommandHeaders(`approval-release-${action}`),
+        'X-Approval-Operation-Reason': operationReason,
+      },
+      method: 'POST',
+    },
+  );
+}
+
+function changeApprovalProcessReleaseDisposition(
+  action: 'deprecate' | 'retire',
+  definitionKey: string,
+  releaseVersion: number,
+  expectedRevision: number,
+  reason: string,
+) {
+  const operationReason = approvalOperationReason(reason);
+  return approvalRequest<ApprovalProcessReleaseDispositionResult>(
     `/approval/version-management/${encodeURIComponent(definitionKey)}/releases/${releaseVersion}/${action}`,
     {
       body: JSON.stringify({ expectedRevision }),
@@ -137,6 +211,36 @@ export function rollbackApprovalRelease(
 ) {
   return changeApprovalEffectiveRelease(
     'rollback',
+    definitionKey,
+    releaseVersion,
+    expectedRevision,
+    reason,
+  );
+}
+
+export function deprecateApprovalRelease(
+  definitionKey: string,
+  releaseVersion: number,
+  expectedRevision: number,
+  reason: string,
+) {
+  return changeApprovalProcessReleaseDisposition(
+    'deprecate',
+    definitionKey,
+    releaseVersion,
+    expectedRevision,
+    reason,
+  );
+}
+
+export function retireApprovalRelease(
+  definitionKey: string,
+  releaseVersion: number,
+  expectedRevision: number,
+  reason: string,
+) {
+  return changeApprovalProcessReleaseDisposition(
+    'retire',
     definitionKey,
     releaseVersion,
     expectedRevision,

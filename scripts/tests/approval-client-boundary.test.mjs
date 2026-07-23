@@ -162,9 +162,27 @@ test('process release mutations require explicit bounded reason headers', async 
   assert.match(effective, /length < 8 \|\| length > 512/);
   assert.match(effective, /JSON\.stringify\(\{ expectedRevision \}\)/);
   assert.doesNotMatch(effective, /JSON\.stringify\(\{ expectedRevision, reason \}\)/);
+  assert.match(effective, /\/release-lifecycle\?\$\{query\}/);
+  assert.match(effective, /changeApprovalProcessReleaseDisposition\(\s*'deprecate'/);
+  assert.match(effective, /changeApprovalProcessReleaseDisposition\(\s*'retire'/);
+  assert.match(effective, /approvalCommandHeaders\(`approval-release-\$\{action\}`\)/);
 
   for (const content of [design, effective]) {
     assert.doesNotMatch(content, /X-(?:Tenant|Operator)-Id/);
     assert.doesNotMatch(content, /audit(?:Chain)?Reference\s*:/i);
   }
+});
+
+test('release lifecycle UI uses server revisions and preserves immutable runtime evidence', async () => {
+  const effectiveView = await readFile(
+    join(webRoot, 'views/approval/versions/effective.vue'),
+    'utf8',
+  );
+  assert.match(effectiveView, /findApprovalProcessReleaseLifecycles/);
+  assert.match(effectiveView, /evidence\.revision/);
+  assert.match(effectiveView, /runtimeUsageCount/);
+  assert.match(effectiveView, /已有实例、Release Package 和审计证据不会删除/);
+  assert.doesNotMatch(effectiveView, /tenantId\s*:/);
+  assert.doesNotMatch(effectiveView, /operatorId\s*:/);
+  assert.doesNotMatch(effectiveView, /audit(?:Chain)?Reference\s*:/i);
 });
