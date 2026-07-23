@@ -64,7 +64,7 @@ export function canonicalPayloadBytes(rawJson: string): Uint8Array {
 }
 
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  return bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)));
+  return bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', bufferSource(bytes))));
 }
 
 export async function parseEventEnvelope(rawJson: string): Promise<EventEnvelopeV1> {
@@ -202,8 +202,8 @@ export async function signatureInputBytes(rawPayload: string, headers: Signature
 }
 
 export async function signWebhookHex(secret: Uint8Array, rawPayload: string, headers: SignatureHeaders): Promise<string> {
-  const key = await crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', key, await signatureInputBytes(rawPayload, headers));
+  const key = await crypto.subtle.importKey('raw', bufferSource(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, bufferSource(await signatureInputBytes(rawPayload, headers)));
   return bytesToHex(new Uint8Array(signature));
 }
 
@@ -285,6 +285,9 @@ function requireSafeInteger(value: unknown, field: string): number {
 }
 function requireJson(value: unknown, field: string): asserts value is JsonValue {
   try { canonicalJson(value as JsonValue); } catch (error) { throw new TypeError(`${field} is not contract JSON`, { cause: error }); }
+}
+function bufferSource(bytes: Uint8Array): ArrayBuffer {
+  return Uint8Array.from(bytes).buffer;
 }
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
