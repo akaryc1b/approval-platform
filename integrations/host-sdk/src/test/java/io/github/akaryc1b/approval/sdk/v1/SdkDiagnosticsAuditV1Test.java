@@ -56,7 +56,10 @@ class SdkDiagnosticsAuditV1Test {
             DiagnosticsAuditFixtureSupport.object(fixture, "expectations"),
             "safeDiagnostic"
         );
-        assertEquals(expected, diagnosticMap(diagnostic));
+        assertEquals(
+            CanonicalJson.canonicalizeValue(expected),
+            CanonicalJson.canonicalizeValue(diagnosticMap(diagnostic))
+        );
         assertFalse(CanonicalJson.canonicalizeValue(diagnosticMap(diagnostic)).contains("DO-NOT-LEAK"));
     }
 
