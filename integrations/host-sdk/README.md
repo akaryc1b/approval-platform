@@ -56,19 +56,20 @@ The independent `io.github.akaryc1b.approval.sdk.v1` package provides:
 - SDK/schema/protocol/capability compatibility governance;
 - deprecation, sunset and support-window enforcement;
 - bounded request budgets, structured response mapping and deterministic adapter conformance;
-- logical endpoint descriptors without addresses;
-- nominal server-issued authentication contexts and reference-only credential leases;
-- deterministic adapter open/exchange/close lifecycle and lease release.
+- logical endpoints, server-issued authentication context and reference-only credential leases;
+- deterministic adapter lifecycle with no endpoint address or network execution;
+- fake configuration provenance, diagnostic redaction and reference-only adapter audit events;
+- in-memory audit sink with no production persistence.
 
-Public requests, compatibility profiles, transport policies and logical endpoint descriptors have no tenant, operator, permission, authority or audit-evidence fields. The package has no network client, endpoint address, usable credential material, production clock, Flowable type, migration command, persistence or delivery worker.
+Public requests, compatibility profiles, transport policies, logical endpoints, diagnostics and audit events cannot manufacture trusted identity, permission or raw audit evidence. The package has no network client, production endpoint, production clock, Flowable type, migration command, persistence or delivery worker.
 
 ## Deployment rules
 
-- In-memory guards, static resolvers/providers and scripted adapters are only for tests and single-node development.
+- `InMemoryReplayGuard`, M6-B in-memory guards, scripted adapters and `InMemoryAdapterAuditSink` are only for tests and single-node development.
 - Production starters must provide a distributed replay guard, normally backed by Redis `SET NX EX` semantics.
-- Signing secrets and adapter credentials must be resolved outside the public SDK from encrypted configuration or a secret manager.
-- Secrets, bearer tokens and raw authentication payloads must never be logged.
-- Real endpoint resolution, authentication execution, clock, scheduling and network execution require separate accepted gates.
+- Signing secrets must be resolved from encrypted configuration or a secret manager.
+- Secrets, bearer tokens, raw authentication payloads, exception messages and stack traces must never be logged.
+- Real configuration sources, diagnostic logging, audit persistence, endpoint resolution, authentication, clock, scheduling and network execution require separate accepted gates.
 - No Flowable, approval database, Spring, Sa-Token or RuoYi dependency is allowed in this module.
 
 ## Planned implementations

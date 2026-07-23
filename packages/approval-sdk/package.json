@@ -7,6 +7,7 @@
     ".": "./dist/public.js",
     "./adapter-binding": "./dist/adapter-binding.js",
     "./compatibility": "./dist/compatibility.js",
+    "./diagnostics-audit": "./dist/diagnostics-audit.js",
     "./transport-policy": "./dist/transport-policy.js"
   },
   "types": "./dist/public.d.ts",

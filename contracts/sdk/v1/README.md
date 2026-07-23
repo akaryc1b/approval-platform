@@ -12,7 +12,9 @@ SDK, event-schema, Webhook-protocol, capability, deprecation and support-window 
 
 Request budgets, timeout classification, retry policy, response mapping and adapter conformance are defined in [TRANSPORT_POLICY.md](TRANSPORT_POLICY.md). Transport policy version `1` is deterministic, bounded and transport-free.
 
-Logical endpoints, server-issued authentication contexts, reference-only credential leases and adapter lifecycle are defined in [ADAPTER_BINDING.md](ADAPTER_BINDING.md). Binding version `1` performs no endpoint resolution or network I/O.
+Logical endpoints, server-issued authentication context, reference-only credential leases and adapter lifecycle are defined in [ADAPTER_BINDING.md](ADAPTER_BINDING.md). Adapter binding version `1` contains no endpoint address or usable credential material.
+
+Configuration provenance, diagnostic redaction and reference-only adapter audit events are defined in [DIAGNOSTICS_AUDIT.md](DIAGNOSTICS_AUDIT.md). Diagnostics/audit version `1` uses fake sources and an in-memory sink only.
 
 ## Event delivery semantics
 
@@ -36,4 +38,4 @@ Verification checks algorithm, bounded clock skew, key resolution, canonical pay
 
 ## Trust boundary
 
-Event tenant context and producer identity are server-produced inbound evidence. Public client requests, compatibility profiles, transport policies and logical endpoint descriptors cannot provide trusted tenant, operator, permission, authority or audit evidence. Host authentication continues to be resolved by the server and connector boundary.
+Event tenant context and producer identity are server-produced inbound evidence. Public client requests, compatibility profiles, transport policies, logical endpoint descriptors, diagnostics and audit events cannot provide trusted tenant, operator, permission, authority or raw audit evidence. Host authentication and production observability remain server-owned boundaries.

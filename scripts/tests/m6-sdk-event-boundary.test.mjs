@@ -113,6 +113,30 @@ test('adapter binding uses logical endpoints and reference-only credential lease
   assert.doesNotMatch(typescript, /\b(?:Date\.now|setTimeout|setInterval|AbortController|WebSocket|EventSource)\b/);
 });
 
+test('diagnostics and audit use fake configuration, redaction and memory sink only', async () => {
+  const java = await readFile(join(sdkRoots[0], 'SdkDiagnosticsAuditV1.java'), 'utf8');
+  const typescript = await readFile(join(sdkRoots[1], 'src/diagnostics-audit.ts'), 'utf8');
+  assert.match(java, /class FakeConfigurationSource/);
+  assert.match(java, /class InMemoryAdapterAuditSink/);
+  assert.match(java, /\[REDACTED\]/);
+  assert.match(typescript, /class FakeConfigurationSource/);
+  assert.match(typescript, /class InMemoryAdapterAuditSink/);
+  assert.match(typescript, /\[REDACTED\]/);
+  assert.doesNotMatch(java, /\b(?:System\.getenv|System\.getProperty|Files\.|Path\.|Vault|SecretManager|Logger|printStackTrace|System\.out)\b/);
+  assert.doesNotMatch(typescript, /\b(?:process\.env|Deno\.env|Bun\.env|readFile|writeFile|console\.|localStorage|sessionStorage)\b/);
+
+  const javaProvenance = java.slice(java.indexOf('public record ConfigurationProvenance('), java.indexOf('public static final class ResolvedConfiguration'));
+  const tsProvenance = typescript.slice(typescript.indexOf('export interface ConfigurationProvenance'), typescript.indexOf('export interface RawDiagnostic'));
+  const javaAudit = java.slice(java.indexOf('public record AdapterAuditEvent('), java.indexOf('public static final class InMemoryAdapterAuditSink'));
+  const tsAudit = typescript.slice(typescript.indexOf('export interface AdapterAuditEvent'), typescript.indexOf('export interface ExceptionDiagnosticInput'));
+  for (const forbidden of ['value', 'tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialReference', 'credentialLease', 'secret', 'password', 'privateKey', 'bearerToken']) {
+    assert.doesNotMatch(javaProvenance, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(tsProvenance, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(javaAudit, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(tsAudit, new RegExp(`\\b${forbidden}\\b`, 'i'));
+  }
+});
+
 test('Flyway remains frozen through V32', async () => {
   const migrationRoots = [
     join(repositoryRoot, 'apps/server/src/main/resources/db/migration'),
