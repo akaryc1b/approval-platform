@@ -4,7 +4,7 @@
 
 生产级、可独立部署的通用审批与流程协作平台。平台以 Approval DSL、Form Schema 和平台自有治理证据为产品模型，通过正式 Engine SPI 使用 Flowable 作为流程执行内核。
 
-> **当前产品基线**：M4 已通过 PR #55 正式验收并合并；M4.1 living documentation 已通过 PR #59 完成同步。M4 产品 Merge commit 为 `58efb4255394fe3911700719669c4423a3ab212e`，M4.1 文档 Merge commit 为 `9ce91f0fb71e12cd4eff04597aef3d612133d539`，Flyway 连续至 `V32`。
+> **当前产品基线**：M4 已通过 PR #55 正式验收并合并；M4.1 living documentation 已通过 PR #59 完成同步，权威 Roadmap 已通过 PR #60 对齐。Flyway 连续至 `V32`。M5 正在 Issue #56 / Draft PR #58 中开发，M6 规划为 Ecosystem and AI。
 
 ## 项目定位
 
@@ -64,7 +64,7 @@ M4 只有 detect-only 迁移评估。真实运行实例迁移执行正在 M5 中
 | M2 | 已完成 | Approval DSL、设计器、动态表单、发布与版本治理 |
 | M3 | 已验收并合并 | 协作、委派、通知、审计、一致性与运维恢复治理 |
 | M4 | 已验收并合并 | Operations、企业治理、SLA、执行 replay、Release Lifecycle 与迁移评估 |
-| M4.1 | 已完成并合并 | living documentation 与 M4 基线对齐，PR #59 |
+| M4.1 | 已完成并合并 | living documentation 与权威 Roadmap 对齐，PR #59 / #60 |
 | M5 | 开发中 | Governed Process Instance Migration and Release Operations，Issue #56 / Draft PR #58 |
 | M6 | 规划中 | Ecosystem and AI：连接器、SDK、模板生态与受治理 AI 审批能力 |
 
@@ -88,11 +88,11 @@ M5 已在 Issue #56、Draft PR #58 中开发：
 
 M5-A 当前结论为 `SUPPORTED_WITH_LIMITATIONS`。这不等于批准生产执行。
 
-### M6 — Ecosystem and AI 
+### M6 — Ecosystem and AI
 
-M6 廷续原始 Roadmap 的 Ecosystem and AI 方向：
+M6 延续原始 Roadmap 的 Ecosystem and AI 方向：
 
-- 钒钒、飞书孉等翞接器与第三方彅务义同；
+- 钉钉、飞书等连接器与第三方任务协同；
 - Java、TypeScript SDK，事件订阅和签名 Webhook；
 - 流程模板中心、模板版本、受控导入导出和第三方组件注册；
 - AI 材料完整性检查、审批摘要、风险识别和意见建议；
