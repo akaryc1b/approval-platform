@@ -1,0 +1,33 @@
+# Approval SDK and Event Contract v1
+
+## Compatibility
+
+- `schemaVersion` is `1.0`; readers reject every unknown schema version fail-closed.
+- Unknown fields on a supported version are accepted, covered by the Webhook signature, and ignored by v1 typed readers.
+- JSON numbers must be integers in `[-9007199254740991, 9007199254740991]`. Decimal and larger integer values use strings.
+- Object keys are lexicographically sorted, arrays preserve order, strings use JSON escaping, and UTF-8 bytes are hashed.
+- RFC 3339 UTC timestamps are serialized as strings and never converted to local time.
+
+## Event delivery semantics
+
+Delivery is at least once. Ordering is guaranteed only within the same optional `orderingKey`; consumers must not infer global ordering. Consumers deduplicate by `eventId`, retain terminal decisions, and retry only `RETRYABLE_REJECTION`. `PERMANENT_REJECTION`, `EXPIRED_EVENT`, and `UNSUPPORTED_SCHEMA_VERSION` are terminal. Replay uses the original event identity and requires the same idempotent consumer behavior.
+
+## Signed Webhook protocol
+
+Headers carry timestamp epoch seconds, nonce, `hmac-sha256`, key reference, and lowercase hexadecimal signature. The signature input is:
+
+```text
+approval-webhook-v1\n
+<timestamp>\n
+<nonce>\n
+<hmac-sha256>\n
+<key-reference>\n
+<sha256(canonical-payload)>\n
+<canonical-payload-bytes>
+```
+
+Verification checks algorithm, bounded clock skew, key resolution, canonical payload, signature, then reserves the nonce. Invalid signatures do not consume nonces.
+
+## Trust boundary
+
+Event tenant context and producer identity are server-produced inbound evidence. Public client requests cannot provide trusted tenant, operator, permission, authority or audit evidence. Host authentication continues to be resolved by the server and connector boundary.

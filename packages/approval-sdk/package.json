@@ -1,0 +1,14 @@
+{
+  "name": "@approval-platform/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && node --test test/*.test.mjs ../../scripts/tests/m6-sdk-event-boundary.test.mjs"
+  }
+}

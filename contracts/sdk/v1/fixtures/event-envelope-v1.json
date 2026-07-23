@@ -1,0 +1,59 @@
+{
+  "fixtureVersion": "1",
+  "event": {
+    "schemaVersion": "1.0",
+    "eventId": "evt_01JZSDK000000000000000001",
+    "eventType": "approval.task.completed",
+    "occurredAt": "2026-07-23T12:34:56.789Z",
+    "tenant": {
+      "tenantId": "tenant_server_001"
+    },
+    "resource": {
+      "resourceType": "approvalTask",
+      "resourceId": "task_9001",
+      "version": 9007199254740991
+    },
+    "requestId": "req_01JZSDK000000000000000001",
+    "traceId": "trace_01JZSDK0000000000000001",
+    "payload": {
+      "amountMinor": 9007199254740991,
+      "currency": "CNY",
+      "decision": "APPROVED",
+      "note": "审批✅ Café",
+      "ratio": "0.125",
+      "tags": [
+        "研发",
+        "M6-B"
+      ]
+    },
+    "payloadHash": "d4607082ae7bbc1cb21bdcc5278b78930c1d0eee5c5a68803d0b7d86462a4bc0",
+    "producer": {
+      "service": "approval-server",
+      "instance": "server-a"
+    },
+    "orderingKey": "process:instance-42",
+    "causationId": "cmd_complete_42",
+    "correlationId": "business_order_20260723",
+    "futureField": {
+      "policy": "unknown fields are signature-covered and ignored by v1 readers"
+    }
+  },
+  "webhook": {
+    "timestampEpochSeconds": 1784810096,
+    "nonce": "nonce_01JZSDK0000000000000001",
+    "algorithm": "hmac-sha256",
+    "keyReference": "webhook-key-2026-07",
+    "secretUtf8": "fixture-secret-仅用于测试",
+    "signature": "4d52f755ae8a7d4aa9cce3b4b4f54e3ba838405e02643562c7bb60898470fec7"
+  },
+  "expectations": {
+    "canonicalPayloadJson": "{\"amountMinor\":9007199254740991,\"currency\":\"CNY\",\"decision\":\"APPROVED\",\"note\":\"审批✅ Café\",\"ratio\":\"0.125\",\"tags\":[\"研发\",\"M6-B\"]}",
+    "payloadSha256": "d4607082ae7bbc1cb21bdcc5278b78930c1d0eee5c5a68803d0b7d86462a4bc0",
+    "canonicalEventJson": "{\"causationId\":\"cmd_complete_42\",\"correlationId\":\"business_order_20260723\",\"eventId\":\"evt_01JZSDK000000000000000001\",\"eventType\":\"approval.task.completed\",\"futureField\":{\"policy\":\"unknown fields are signature-covered and ignored by v1 readers\"},\"occurredAt\":\"2026-07-23T12:34:56.789Z\",\"orderingKey\":\"process:instance-42\",\"payload\":{\"amountMinor\":9007199254740991,\"currency\":\"CNY\",\"decision\":\"APPROVED\",\"note\":\"审批✅ Café\",\"ratio\":\"0.125\",\"tags\":[\"研发\",\"M6-B\"]},\"payloadHash\":\"d4607082ae7bbc1cb21bdcc5278b78930c1d0eee5c5a68803d0b7d86462a4bc0\",\"producer\":{\"instance\":\"server-a\",\"service\":\"approval-server\"},\"requestId\":\"req_01JZSDK000000000000000001\",\"resource\":{\"resourceId\":\"task_9001\",\"resourceType\":\"approvalTask\",\"version\":9007199254740991},\"schemaVersion\":\"1.0\",\"tenant\":{\"tenantId\":\"tenant_server_001\"},\"traceId\":\"trace_01JZSDK0000000000000001\"}",
+    "canonicalEventSha256": "7ee7bf7ff696d181ad278221762842c488dde933dcf3be6fdeea45e5f0c043d4",
+    "signatureInputHex": "617070726f76616c2d776562686f6f6b2d76310a313738343831303039360a6e6f6e63655f30314a5a53444b303030303030303030303030303030310a686d61632d7368613235360a776562686f6f6b2d6b65792d323032362d30370a376565376266376666363936643138316164323738323231373632383432633438386464653933336463663362653666646565613435653566306330343364340a7b22636175736174696f6e4964223a22636d645f636f6d706c6574655f3432222c22636f7272656c6174696f6e4964223a22627573696e6573735f6f726465725f3230323630373233222c226576656e744964223a226576745f30314a5a53444b303030303030303030303030303030303031222c226576656e7454797065223a22617070726f76616c2e7461736b2e636f6d706c65746564222c226675747572654669656c64223a7b22706f6c696379223a22756e6b6e6f776e206669656c647320617265207369676e61747572652d636f766572656420616e642069676e6f7265642062792076312072656164657273227d2c226f636375727265644174223a22323032362d30372d32335431323a33343a35362e3738395a222c226f72646572696e674b6579223a2270726f636573733a696e7374616e63652d3432222c227061796c6f6164223a7b22616d6f756e744d696e6f72223a393030373139393235343734303939312c2263757272656e6379223a22434e59222c226465636973696f6e223a22415050524f564544222c226e6f7465223a22e5aea1e689b9e29c8520436166c3a9222c22726174696f223a22302e313235222c2274616773223a5b22e7a094e58f91222c224d362d42225d7d2c227061796c6f616448617368223a2264343630373038326165376262633163623231626463633532373862373839333063316430656565356335613638383033643062376438363436326134626330222c2270726f6475636572223a7b22696e7374616e6365223a227365727665722d61222c2273657276696365223a22617070726f76616c2d736572766572227d2c22726571756573744964223a227265715f30314a5a53444b303030303030303030303030303030303031222c227265736f75726365223a7b227265736f757263654964223a227461736b5f39303031222c227265736f7572636554797065223a22617070726f76616c5461736b222c2276657273696f6e223a393030373139393235343734303939317d2c22736368656d6156657273696f6e223a22312e30222c2274656e616e74223a7b2274656e616e744964223a2274656e616e745f7365727665725f303031227d2c2274726163654964223a2274726163655f30314a5a53444b30303030303030303030303030303031227d",
+    "signatureInputSha256": "dd841ec9abc277e91dcee1a425d15187acb9ff40a221231ca3a4511dd7fdf330",
+    "hmacSha256Hex": "4d52f755ae8a7d4aa9cce3b4b4f54e3ba838405e02643562c7bb60898470fec7",
+    "canonicalKnownEventJson": "{\"causationId\":\"cmd_complete_42\",\"correlationId\":\"business_order_20260723\",\"eventId\":\"evt_01JZSDK000000000000000001\",\"eventType\":\"approval.task.completed\",\"occurredAt\":\"2026-07-23T12:34:56.789Z\",\"orderingKey\":\"process:instance-42\",\"payload\":{\"amountMinor\":9007199254740991,\"currency\":\"CNY\",\"decision\":\"APPROVED\",\"note\":\"审批✅ Café\",\"ratio\":\"0.125\",\"tags\":[\"研发\",\"M6-B\"]},\"payloadHash\":\"d4607082ae7bbc1cb21bdcc5278b78930c1d0eee5c5a68803d0b7d86462a4bc0\",\"producer\":{\"instance\":\"server-a\",\"service\":\"approval-server\"},\"requestId\":\"req_01JZSDK000000000000000001\",\"resource\":{\"resourceId\":\"task_9001\",\"resourceType\":\"approvalTask\",\"version\":9007199254740991},\"schemaVersion\":\"1.0\",\"tenant\":{\"tenantId\":\"tenant_server_001\"},\"traceId\":\"trace_01JZSDK0000000000000001\"}"
+  }
+}

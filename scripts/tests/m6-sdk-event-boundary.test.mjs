@@ -1,0 +1,90 @@
+import assert from 'node:assert/strict';
+import { access, readdir, readFile } from 'node:fs/promises';
+import { extname, join, relative } from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+const sdkRoots = [
+  join(repositoryRoot, 'integrations/host-sdk/src/main/java/io/github/akaryc1b/approval/sdk/v1'),
+  join(repositoryRoot, 'packages/approval-sdk'),
+  join(repositoryRoot, 'contracts/sdk/v1'),
+];
+
+async function exists(path) {
+  try { await access(path); return true; } catch { return false; }
+}
+
+async function files(root) {
+  if (!await exists(root)) return [];
+  const entries = await readdir(root, { withFileTypes: true });
+  const output = [];
+  for (const entry of entries) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) output.push(...await files(path));
+    else output.push(path);
+  }
+  return output;
+}
+
+async function sdkSources() {
+  const paths = (await Promise.all(sdkRoots.map(files))).flat()
+    .filter((path) => ['.java', '.ts', '.mjs'].includes(extname(path)));
+  return Promise.all(paths.map(async (path) => ({ path, content: await readFile(path, 'utf8') })));
+}
+
+function display(path) { return relative(repositoryRoot, path); }
+
+test('SDK source exposes no Flowable or M5 migration execution API', async () => {
+  const offenders = (await sdkSources()).filter(({ content }) =>
+    /\b(?:RuntimeService|TaskService|ProcessMigrationService|ACT_[A-Z_]+|migration(?:Execute|Force|Rollback)|forceMigration|rollbackMigration)\b/i.test(content),
+  ).map(({ path }) => display(path));
+  assert.deepEqual(offenders, []);
+});
+
+test('SDK source contains only abstractions and mock transport, never real network calls', async () => {
+  const offenders = (await sdkSources()).filter(({ content }) =>
+    /\b(?:java\.net\.http|HttpClient|HttpURLConnection|XMLHttpRequest|axios|undici)\b|\bfetch\s*\(/.test(content),
+  ).map(({ path }) => display(path));
+  assert.deepEqual(offenders, []);
+});
+
+test('SDK source contains no subscription persistence or delivery worker', async () => {
+  const offenders = (await sdkSources()).filter(({ path, content }) =>
+    /(?:subscription|delivery)[-_]?(?:repository|store|entity|table|worker)/i.test(path)
+      || /@(?:Entity|Table)|CREATE\s+TABLE|JdbcTemplate|EntityManager|delivery\s+worker/i.test(content),
+  ).map(({ path }) => display(path));
+  assert.deepEqual(offenders, []);
+});
+
+test('public client requests cannot manufacture trusted server evidence', async () => {
+  const java = await readFile(join(sdkRoots[0], 'ApprovalSdk.java'), 'utf8');
+  const typescript = await readFile(join(sdkRoots[1], 'src/index.ts'), 'utf8');
+  const javaRequest = java.slice(java.indexOf('public record Request('), java.indexOf('public record Correlation('));
+  const tsRequest = typescript.slice(typescript.indexOf('export interface ApprovalRequest'), typescript.indexOf('export interface ApprovalTransport'));
+  for (const forbidden of ['tenantId', 'operator', 'permission', 'authority', 'auditEvidence']) {
+    assert.doesNotMatch(javaRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(tsRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
+  }
+});
+
+test('Flyway remains frozen through V32', async () => {
+  const migrationRoots = [
+    join(repositoryRoot, 'apps/server/src/main/resources/db/migration'),
+    join(repositoryRoot, 'server-modules'),
+  ];
+  const migrationFiles = (await Promise.all(migrationRoots.map(files))).flat();
+  assert.deepEqual(migrationFiles.filter((path) => /(?:^|[/\\])V33__/.test(path)).map(display), []);
+});
+
+test('there is exactly one automatic PR/main validation workflow', async () => {
+  const workflowRoot = join(repositoryRoot, '.github/workflows');
+  if (!await exists(workflowRoot)) return;
+  const workflows = (await files(workflowRoot)).filter((path) => /\.ya?ml$/.test(path));
+  const automatic = [];
+  for (const path of workflows) {
+    const content = await readFile(path, 'utf8');
+    if (/\bpull_request:\s*[\s\S]*?branches:\s*[\s\S]*?-\s*main\b/.test(content)) automatic.push(display(path));
+  }
+  assert.deepEqual(automatic, ['.github/workflows/approval-platform-validation.yml']);
+});

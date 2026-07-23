@@ -43,9 +43,22 @@ The signature header format is:
 v1=<lowercase-hex-hmac-sha256>
 ```
 
+## M6-B public SDK v1
+
+The independent `io.github.akaryc1b.approval.sdk.v1` package adds the first public event and client slice:
+
+- inbound-only `EventEnvelopeV1` with server-produced tenant context;
+- deterministic canonical JSON restricted to cross-language safe integers;
+- HMAC-SHA256 signed Webhook verification with timestamp, key reference and nonce replay guard;
+- structured client result/error contracts and request correlation;
+- deterministic idempotency keys and in-memory mock transport;
+- at-least-once delivery decisions and an idempotent consumer helper.
+
+The public client request deliberately has no tenant, operator, permission, authority or audit-evidence fields. The package has no network client, Flowable type, migration command, persistence or delivery worker.
+
 ## Deployment rules
 
-- `InMemoryReplayGuard` is only for tests and single-node development.
+- `InMemoryReplayGuard` and the M6-B in-memory guards are only for tests and single-node development.
 - Production starters must provide a distributed replay guard, normally backed by Redis `SET NX EX` semantics.
 - Signing secrets must be resolved from encrypted configuration or a secret manager.
 - Secrets, bearer tokens and raw authentication payloads must never be logged.
