@@ -5,6 +5,7 @@ import type {
 } from '@/api/approval'
 import type { DelegatedTaskAssignment } from '@/api/approval/delegations'
 import type { FormRuntimeView } from '@/api/approval/form-types'
+import type { ParticipantTaskSla } from '@/api/approval/sla'
 
 import {
   approveTask,
@@ -15,6 +16,7 @@ import {
 } from '@/api/approval'
 import { findTaskDelegation } from '@/api/approval/delegations'
 import { findTaskFormRuntime, resubmitFormTask } from '@/api/approval/forms'
+import { findParticipantTaskSla } from '@/api/approval/sla'
 import ApprovalFormRenderer from '@/components/approval/ApprovalFormRenderer.vue'
 
 defineOptions({ name: 'ApprovalTaskDetail' })
@@ -30,6 +32,7 @@ const details = ref<PendingTaskDetails>()
 const delegation = ref<DelegatedTaskAssignment>()
 const timeline = ref<ApprovalTimeline>()
 const formRuntime = ref<FormRuntimeView>()
+const taskSla = ref<ParticipantTaskSla>()
 const formValues = ref<Record<string, unknown>>({})
 const transferIndex = ref(-1)
 const renderer = ref<{
@@ -63,6 +66,39 @@ function formatDate(value: string) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+function formatDuration(value: number) {
+  const totalMinutes = Math.max(0, Math.floor(value / 60_000))
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  if (days > 0) return `${days}天${hours}小时`
+  if (hours > 0) return `${hours}小时${minutes}分钟`
+  return `${Math.max(1, minutes)}分钟`
+}
+
+function slaTagType(value: ParticipantTaskSla): 'primary' | 'success' | 'warning' {
+  if (value.status === 'PAUSED' || value.timingStatus === 'OVERDUE') return 'warning'
+  if (value.status === 'TERMINAL') return 'primary'
+  return 'success'
+}
+
+function slaStatusText(value: ParticipantTaskSla) {
+  if (value.status === 'PAUSED') return '已暂停'
+  if (value.status === 'TERMINAL') return '已终止'
+  if (value.timingStatus === 'OVERDUE') return '已逾期'
+  if (value.timingStatus === 'DUE') return '已到期'
+  if (value.timingStatus === 'UPCOMING') return '即将到期'
+  return '进行中'
+}
+
+function slaRemainingText(value: ParticipantTaskSla) {
+  if (value.status === 'PAUSED') return '计时暂停中'
+  if (value.status === 'TERMINAL') return 'SLA 生命周期已结束'
+  if (value.timingStatus === 'OVERDUE') return '已超过服务端截止时间'
+  if (value.timingStatus === 'DUE') return '已到服务端截止时间'
+  return `剩余 ${formatDuration(value.remainingMillis)}`
+}
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : '审批详情加载失败'
 }
@@ -75,17 +111,20 @@ async function loadDetails() {
   loading.value = true
   loadError.value = ''
   delegation.value = undefined
+  taskSla.value = undefined
   try {
     const task = await findPendingTask(taskId.value)
-    const [progress, runtime, responsibility] = await Promise.all([
+    const [progress, runtime, responsibility, sla] = await Promise.all([
       findApprovalTimeline(task.instanceId),
       findTaskFormRuntime(task.taskId),
       findTaskDelegation(task.taskId),
+      findParticipantTaskSla(task.taskId),
     ])
     details.value = task
     delegation.value = responsibility
     timeline.value = progress
     formRuntime.value = runtime
+    taskSla.value = sla
     formValues.value = { ...runtime.values }
     opinion.value = ''
     transferIndex.value = -1
@@ -237,6 +276,29 @@ onLoad((query) => {
         </view>
       </view>
 
+      <view class="sla-card">
+        <view class="card-title-row">
+          <view>
+            <view class="section-title">SLA 状态</view>
+            <text class="muted">仅展示当前参与人可见的服务端时间证据</text>
+          </view>
+          <wd-tag v-if="taskSla" :type="slaTagType(taskSla)">{{ slaStatusText(taskSla) }}</wd-tag>
+        </view>
+        <template v-if="taskSla">
+          <view class="sla-highlight">{{ slaRemainingText(taskSla) }}</view>
+          <view class="sla-grid">
+            <view><text>截止时间</text><strong>{{ formatDate(taskSla.dueAt) }}</strong></view>
+            <view><text>逾期时间</text><strong>{{ formatDate(taskSla.overdueAt) }}</strong></view>
+            <view><text>当前责任人</text><strong>{{ taskSla.responsibleUserId }}</strong></view>
+            <view><text>时区</text><strong>{{ taskSla.timeZone }}</strong></view>
+          </view>
+          <view v-if="taskSla.responsibilityChanged" class="responsibility-notice">
+            责任人已由 {{ taskSla.originalResponsibleUserId }} 更新为 {{ taskSla.responsibleUserId }}
+          </view>
+        </template>
+        <text v-else class="muted">当前任务没有可见 SLA 信息</text>
+      </view>
+
       <view v-if="formRuntime" class="form-card">
         <view class="card-title-row">
           <view>
@@ -342,6 +404,7 @@ onLoad((query) => {
 }
 
 .summary-card,
+.sla-card,
 .form-card,
 .timeline-card,
 .action-card,
@@ -389,25 +452,29 @@ onLoad((query) => {
 
 .muted,
 .summary-grid text,
+.sla-grid text,
 .timeline-item text,
 .state-card {
   color: var(--wot-color-content-secondary, var(--uni-text-color-grey));
   font-size: 24rpx;
 }
 
-.summary-grid {
+.summary-grid,
+.sla-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24rpx;
   margin-top: 28rpx;
 }
 
-.summary-grid > view {
+.summary-grid > view,
+.sla-grid > view {
   display: grid;
   gap: 8rpx;
 }
 
 .summary-grid strong,
+.sla-grid strong,
 .section-title,
 .timeline-item strong {
   color: var(--wot-color-content, var(--uni-text-color));
@@ -417,6 +484,22 @@ onLoad((query) => {
 .card-title-row,
 .section-title {
   margin-bottom: 20rpx;
+}
+
+.sla-highlight {
+  margin: 8rpx 0 20rpx;
+  color: var(--wot-color-theme, var(--uni-color-primary));
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.responsibility-notice {
+  margin-top: 20rpx;
+  padding: 18rpx;
+  border-radius: 14rpx;
+  background: var(--wot-color-warning-light, rgb(245 158 11 / 10%));
+  color: var(--wot-color-warning, var(--uni-color-warning));
+  font-size: 24rpx;
 }
 
 .timeline-list,

@@ -27,6 +27,8 @@ public final class ApprovalManagementPermissionDeniedException extends RuntimeEx
         UNAUTHENTICATED,
         MISSING_TRUSTED_HEADER,
         MALFORMED_TRUSTED_HEADER,
-        INSUFFICIENT_PERMISSION
+        INSUFFICIENT_PERMISSION,
+        RESOURCE_CONTEXT_INVALID,
+        RESOURCE_SCOPE_DENIED
     }
 }

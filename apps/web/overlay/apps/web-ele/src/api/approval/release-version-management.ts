@@ -4,7 +4,12 @@ import type {
   ApprovalPreflightReport,
 } from './process-design';
 
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
+import {
+  approvalCommandHeaders,
+  approvalRequest,
+} from '#/api/approval/transport';
+
+export { ApprovalApiError as ApprovalVersionManagementApiError } from '#/api/approval/transport';
 
 export const APPROVAL_TRANSFER_MAX_FILE_BYTES = 2 * 1024 * 1024;
 
@@ -240,68 +245,6 @@ export interface ApprovalReleaseDeploymentInput {
   preflightHash: string;
 }
 
-interface ApiErrorPayload {
-  code?: string;
-  error?: string;
-  message?: string;
-}
-
-export class ApprovalVersionManagementApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code?: string,
-  ) {
-    super(message);
-    this.name = 'ApprovalVersionManagementApiError';
-  }
-}
-
-function operationId(prefix: string) {
-  const value = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${value}`;
-}
-
-function writeHeaders(action: string) {
-  const requestId = operationId(`web-${action}-request`);
-  return {
-    'Idempotency-Key': operationId(`web-${action}`),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  };
-}
-
-async function request<T>(path: string, init: RequestInit = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init.headers);
-  headers.set('Accept', 'application/json');
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  if (init.body) headers.set('Content-Type', 'application/json');
-  const response = await fetch(`${runtime.apiBaseUrl}${path}`, {
-    ...init,
-    credentials: 'same-origin',
-    headers,
-  });
-  if (!response.ok) {
-    let payload: ApiErrorPayload | undefined;
-    try {
-      payload = (await response.json()) as ApiErrorPayload;
-    } catch {
-      payload = undefined;
-    }
-    throw new ApprovalVersionManagementApiError(
-      payload?.message || payload?.error || payload?.code ||
-        `请求失败（${response.status}）`,
-      response.status,
-      payload?.code,
-    );
-  }
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
-}
-
 export function findApprovalVersionCenter(
   definitionKey: string,
   limit = 50,
@@ -311,7 +254,7 @@ export function findApprovalVersionCenter(
     limit: String(limit),
     offset: String(offset),
   });
-  return request<ApprovalVersionCenter>(
+  return approvalRequest<ApprovalVersionCenter>(
     `/approval/version-management/${encodeURIComponent(definitionKey)}?${query}`,
   );
 }
@@ -320,7 +263,7 @@ export function findApprovalDefinitionVersion(
   definitionKey: string,
   definitionVersion: number,
 ) {
-  return request<ApprovalDefinitionVersionDetail>(
+  return approvalRequest<ApprovalDefinitionVersionDetail>(
     `/approval/definition-versions/${encodeURIComponent(definitionKey)}/${definitionVersion}`,
   );
 }
@@ -329,7 +272,7 @@ export function findApprovalReleasePackage(
   definitionKey: string,
   releaseVersion: number,
 ) {
-  return request<ApprovalReleasePackageDetail>(
+  return approvalRequest<ApprovalReleasePackageDetail>(
     `/approval/release-packages/${encodeURIComponent(definitionKey)}/${releaseVersion}`,
   );
 }
@@ -338,7 +281,7 @@ export function exportApprovalDefinitionVersion(
   definitionKey: string,
   definitionVersion: number,
 ) {
-  return request<ApprovalArtifactTransferEnvelope>(
+  return approvalRequest<ApprovalArtifactTransferEnvelope>(
     `/approval/artifact-transfer/definition-exports/${encodeURIComponent(definitionKey)}/${definitionVersion}`,
   );
 }
@@ -347,15 +290,15 @@ export function exportApprovalReleaseVersion(
   definitionKey: string,
   releaseVersion: number,
 ) {
-  return request<ApprovalArtifactTransferEnvelope>(
+  return approvalRequest<ApprovalArtifactTransferEnvelope>(
     `/approval/artifact-transfer/release-exports/${encodeURIComponent(definitionKey)}/${releaseVersion}`,
   );
 }
 
 export function importApprovalArtifact(input: ApprovalArtifactImportInput) {
-  return request<ApprovalArtifactImportResult>('/approval/artifact-transfer/imports', {
+  return approvalRequest<ApprovalArtifactImportResult>('/approval/artifact-transfer/imports', {
     body: JSON.stringify(input),
-    headers: writeHeaders('approval-artifact-import'),
+    headers: approvalCommandHeaders('approval-artifact-import'),
     method: 'POST',
   });
 }
@@ -369,7 +312,7 @@ export function diffApprovalDefinitionVersions(
     fromVersion: String(fromVersion),
     toVersion: String(toVersion),
   });
-  return request<ApprovalStructuralDiffResult>(
+  return approvalRequest<ApprovalStructuralDiffResult>(
     `/approval/version-management/${encodeURIComponent(definitionKey)}/definition-diff?${query}`,
   );
 }
@@ -383,13 +326,13 @@ export function diffApprovalReleaseVersions(
     fromReleaseVersion: String(fromReleaseVersion),
     toReleaseVersion: String(toReleaseVersion),
   });
-  return request<ApprovalStructuralDiffResult>(
+  return approvalRequest<ApprovalStructuralDiffResult>(
     `/approval/version-management/${encodeURIComponent(definitionKey)}/release-diff?${query}`,
   );
 }
 
 export function preflightApprovalDeployment(input: ApprovalDeploymentPreflightInput) {
-  return request<ApprovalPreflightReport>('/approval/preflight/deployment', {
+  return approvalRequest<ApprovalPreflightReport>('/approval/preflight/deployment', {
     body: JSON.stringify(input),
     method: 'POST',
   });
@@ -400,11 +343,11 @@ export function deployApprovalReleasePackage(
   releaseVersion: number,
   input: ApprovalReleaseDeploymentInput,
 ) {
-  return request<ApprovalDeploymentResult>(
+  return approvalRequest<ApprovalDeploymentResult>(
     `/approval/release-packages/${encodeURIComponent(definitionKey)}/${releaseVersion}/deployment`,
     {
       body: JSON.stringify(input),
-      headers: writeHeaders('approval-release-deploy'),
+      headers: approvalCommandHeaders('approval-release-deploy'),
       method: 'POST',
     },
   );

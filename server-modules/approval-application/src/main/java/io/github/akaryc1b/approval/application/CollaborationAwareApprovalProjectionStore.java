@@ -150,6 +150,13 @@ public final class CollaborationAwareApprovalProjectionStore implements Approval
         InstanceStatus instanceStatus,
         Instant completedAt
     ) {
+        TaskOutcome outcome = outcomes.current().orElse(null);
+        String terminalOperator = outcome == TaskOutcome.REJECTED
+            ? collaborations.findByTask(tenantId, completedTaskId)
+                .filter(item -> item.status() == CollaborationStatus.ACTIVE)
+                .map(ApprovalTaskCollaborationStore.TaskCollaboration::ownerAssigneeId)
+                .orElse(null)
+            : null;
         delegate.completeTaskAndSynchronize(
             tenantId,
             instanceId,
@@ -159,6 +166,15 @@ public final class CollaborationAwareApprovalProjectionStore implements Approval
             instanceStatus,
             completedAt
         );
+        if (terminalOperator != null) {
+            collaborations.cancelActiveByTask(
+                tenantId,
+                completedTaskId,
+                terminalOperator,
+                "parent task completed with outcome " + outcome.name(),
+                completedAt
+            );
+        }
     }
 
     @Override

@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService;
+import io.github.akaryc1b.approval.application.ApprovalProcessReleaseActivationService;
 import io.github.akaryc1b.approval.application.ApprovalReleaseDeploymentService;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,7 +38,8 @@ public class ApprovalReleaseDeploymentApiExceptionHandler {
     @ExceptionHandler({
         ApprovalReleaseDeploymentService.ReleasePackageNotFoundException.class,
         ApprovalEffectiveReleaseService.ReleasePackageNotFoundException.class,
-        ApprovalEffectiveReleaseService.EffectiveReleaseNotFoundException.class
+        ApprovalEffectiveReleaseService.EffectiveReleaseNotFoundException.class,
+        ApprovalProcessReleaseActivationService.ProcessReleaseNotFoundException.class
     })
     ResponseEntity<ApiError> notFound(
         Exception exception,
@@ -71,6 +73,7 @@ public class ApprovalReleaseDeploymentApiExceptionHandler {
         ApprovalReleaseDeploymentService.ReleaseDeploymentPreflightConflict.class,
         ApprovalEffectiveReleaseService.DeploymentNotReadyException.class,
         ApprovalEffectiveReleaseService.ActivationConflictException.class,
+        ApprovalProcessReleaseActivationService.ActivationEvidenceConflictException.class,
         IdempotencyGuard.IdempotencyConflictException.class
     })
     ResponseEntity<ApiError> conflict(

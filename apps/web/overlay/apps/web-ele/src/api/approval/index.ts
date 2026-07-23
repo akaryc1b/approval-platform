@@ -1,4 +1,7 @@
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
+import {
+  approvalCommandHeaders,
+  approvalRequest,
+} from '#/api/approval/transport';
 
 export interface PendingTaskItem {
   amount: number;
@@ -215,67 +218,7 @@ interface PageParameters {
   offset: number;
 }
 
-interface ApiErrorPayload {
-  code?: string;
-  error?: string;
-  message?: string;
-}
-
 type TaskAction = 'approve' | 'reject' | 'resubmit';
-
-function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-function operationId(prefix: string) {
-  const randomId = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${randomId}`;
-}
-
-async function parseError(response: Response) {
-  let payload: ApiErrorPayload | undefined;
-  try {
-    payload = (await response.json()) as ApiErrorPayload;
-  } catch {
-    payload = undefined;
-  }
-  return payload?.message || payload?.error || payload?.code ||
-    `请求失败（${response.status}）`;
-}
-
-async function approvalRequest<T>(path: string, init: RequestInit = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init.headers);
-  headers.set('Accept', 'application/json');
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  if (init.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-
-  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
-    ...init,
-    credentials: 'same-origin',
-    headers,
-  });
-  if (!response.ok) {
-    throw new Error(await parseError(response));
-  }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await response.json()) as T;
-}
-
-function collaborationHeaders(action: string) {
-  const requestId = operationId(`web-${action}-request`);
-  return {
-    'Idempotency-Key': operationId(`web-${action}`),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  };
-}
 
 function pageQuery(parameters: PageParameters) {
   const query = new URLSearchParams({
@@ -283,9 +226,7 @@ function pageQuery(parameters: PageParameters) {
     offset: String(parameters.offset),
   });
   const keyword = parameters.keyword?.trim();
-  if (keyword) {
-    query.set('keyword', keyword);
-  }
+  if (keyword) query.set('keyword', keyword);
   return query.toString();
 }
 
@@ -324,7 +265,7 @@ function submitTaskAction(taskId: string, action: TaskAction, comment: string) {
     `/approval/tasks/${encodeURIComponent(taskId)}/${action}`,
     {
       body: JSON.stringify({ comment: comment.trim() || null }),
-      headers: collaborationHeaders(action),
+      headers: approvalCommandHeaders(`web-${action}`),
       method: 'POST',
     },
   );
@@ -354,7 +295,7 @@ export function transferTask(
         comment: comment.trim(),
         targetUserId,
       }),
-      headers: collaborationHeaders('transfer'),
+      headers: approvalCommandHeaders('web-transfer'),
       method: 'POST',
     },
   );
@@ -365,7 +306,7 @@ export function withdrawInstance(instanceId: string, comment: string) {
     `/approval/instances/${encodeURIComponent(instanceId)}/withdraw`,
     {
       body: JSON.stringify({ comment: comment.trim() || null }),
-      headers: collaborationHeaders('withdraw'),
+      headers: approvalCommandHeaders('web-withdraw'),
       method: 'POST',
     },
   );
@@ -376,7 +317,7 @@ export function retrieveTask(taskId: string, comment: string) {
     `/approval/tasks/${encodeURIComponent(taskId)}/retrieve`,
     {
       body: JSON.stringify({ comment: comment.trim() || null }),
-      headers: collaborationHeaders('retrieve'),
+      headers: approvalCommandHeaders('web-retrieve'),
       method: 'POST',
     },
   );
@@ -393,7 +334,7 @@ export function urgeInstance(instanceId: string, comment: string) {
     `/approval/instances/${encodeURIComponent(instanceId)}/urge`,
     {
       body: JSON.stringify({ comment: comment.trim() || null }),
-      headers: collaborationHeaders('urge'),
+      headers: approvalCommandHeaders('web-urge'),
       method: 'POST',
     },
   );
@@ -411,7 +352,7 @@ export function copyInstance(
         comment: comment.trim() || null,
         recipientIds,
       }),
-      headers: collaborationHeaders('copy'),
+      headers: approvalCommandHeaders('web-copy'),
       method: 'POST',
     },
   );

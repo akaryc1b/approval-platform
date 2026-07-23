@@ -17,9 +17,10 @@ flowable:
 
 approval:
   security:
+    identity:
+      mode: ${APPROVAL_IDENTITY_MODE:principal}
     management-permissions:
       enforced: ${APPROVAL_MANAGEMENT_PERMISSIONS_ENFORCED:true}
-      source: ${APPROVAL_MANAGEMENT_PERMISSION_SOURCE:principal}
       trusted-header-name: ${APPROVAL_MANAGEMENT_TRUSTED_HEADER:X-Approval-Trusted-Permissions}
   connector:
     generic:

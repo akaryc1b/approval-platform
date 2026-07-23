@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,6 +17,11 @@ public final class ApprovalTaskOutcomeInterceptor implements HandlerInterceptor 
 
     private static final Pattern TASK_ACTION = Pattern.compile(
         ".*/api/approval/tasks/[0-9a-fA-F-]{36}/(approve|reject|resubmit)$"
+    );
+    private static final Map<String, TaskOutcome> OUTCOMES = Map.of(
+        "approve", TaskOutcome.APPROVED,
+        "reject", TaskOutcome.REJECTED,
+        "resubmit", TaskOutcome.RESUBMITTED
     );
 
     private final ApprovalTaskOutcomeContext outcomes;
@@ -38,11 +44,12 @@ public final class ApprovalTaskOutcomeInterceptor implements HandlerInterceptor 
         if (!matcher.matches()) {
             return true;
         }
-        outcomes.set(TaskOutcome.valueOf(
-            matcher.group(1).toUpperCase(Locale.ROOT) + ("resubmit".equals(matcher.group(1))
-                ? "TED"
-                : "D")
-        ));
+        String action = matcher.group(1).toLowerCase(Locale.ROOT);
+        TaskOutcome outcome = OUTCOMES.get(action);
+        if (outcome == null) {
+            throw new IllegalStateException("unsupported approval task action");
+        }
+        outcomes.set(outcome);
         return true;
     }
 

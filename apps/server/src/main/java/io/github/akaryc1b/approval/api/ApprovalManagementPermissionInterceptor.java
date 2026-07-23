@@ -1,5 +1,12 @@
 package io.github.akaryc1b.approval.api;
 
+import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
+import io.github.akaryc1b.approval.domain.context.RequestContext;
+import io.github.akaryc1b.approval.security.ApprovalAuthorizationDecision;
+import io.github.akaryc1b.approval.security.ApprovalManagementGovernanceRecorder;
+import io.github.akaryc1b.approval.security.ApprovalPrincipal;
+import io.github.akaryc1b.approval.security.ApprovalResource;
+import io.github.akaryc1b.approval.security.ApprovalResponsibilityResolver;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,27 +16,31 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.HandlerMapping;
 
+import java.text.Normalizer;
 import java.time.Duration;
-import java.util.LinkedHashSet;
-import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.regex.Pattern;
 
-/** Fail-closed management authorization with low-cardinality observability. */
+/** Fail-closed management authorization with enterprise responsibility scope. */
 public final class ApprovalManagementPermissionInterceptor implements HandlerInterceptor {
 
-    static final String TRUSTED_PERMISSION_HEADER = "X-Approval-Trusted-Permissions";
+    public static final String OPERATION_REASON_HEADER = "X-Approval-Operation-Reason";
+    public static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(
         ApprovalManagementPermissionInterceptor.class
     );
-    private static final Pattern AUTHORITY = Pattern.compile("[a-z][a-z0-9.-]{2,63}");
     private static final Pattern SAFE_LOG_VALUE = Pattern.compile("[^A-Za-z0-9_.:@-]");
-    private static final int MAX_HEADER_LENGTH = 2_048;
-    private static final int MAX_AUTHORITIES = 32;
     private static final int MAX_LOG_VALUE_LENGTH = 128;
+    private static final int MIN_REASON_CODE_POINTS = 8;
+    private static final int MAX_REASON_CODE_POINTS = 512;
+    private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+    private static final Pattern IDEMPOTENCY_KEY = Pattern.compile(
+        "[A-Za-z0-9][A-Za-z0-9._:@/-]{0,199}"
+    );
     private static final String MANAGEMENT_PATH = "/api/approval/management";
     private static final String UNDECLARED_REQUIREMENT = "undeclared";
     private static final String AUTHORIZATION_METRIC = "approval.management.authorization";
@@ -40,23 +51,36 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         ApprovalManagementPermissionInterceptor.class.getName() + ".requirement";
 
     private final boolean enforced;
-    private final AuthoritySource authoritySource;
-    private final String trustedPermissionHeader;
+    private final ApprovalResponsibilityResolver responsibilities;
+    private final ApprovalManagementGovernanceRecorder governance;
     private final MeterRegistry meters;
 
     public ApprovalManagementPermissionInterceptor(
         boolean enforced,
-        AuthoritySource authoritySource,
-        String trustedPermissionHeader,
+        ApprovalResponsibilityResolver responsibilities,
+        MeterRegistry meters
+    ) {
+        this(
+            enforced,
+            responsibilities,
+            ApprovalManagementGovernanceRecorder.noOp(),
+            meters
+        );
+    }
+
+    public ApprovalManagementPermissionInterceptor(
+        boolean enforced,
+        ApprovalResponsibilityResolver responsibilities,
+        ApprovalManagementGovernanceRecorder governance,
         MeterRegistry meters
     ) {
         this.enforced = enforced;
-        this.authoritySource = Objects.requireNonNull(authoritySource);
-        this.trustedPermissionHeader = requireText(
-            trustedPermissionHeader,
-            "trustedPermissionHeader"
+        this.responsibilities = Objects.requireNonNull(
+            responsibilities,
+            "responsibilities must not be null"
         );
-        this.meters = Objects.requireNonNull(meters);
+        this.governance = Objects.requireNonNull(governance, "governance must not be null");
+        this.meters = Objects.requireNonNull(meters, "meters must not be null");
     }
 
     @Override
@@ -77,22 +101,69 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         }
         ApprovalManagementPermission.Requirement requirement = permission.value();
         if (!enforced) {
-            recordAuthorization(requirement, "bypassed");
+            recordAuthorization(
+                requirement.metricTag(),
+                "bypassed",
+                "bypassed",
+                "none",
+                resourceMetricTag(permission)
+            );
             startObservation(request, requirement);
             return true;
         }
-        boolean allowed = switch (authoritySource) {
-            case PRINCIPAL -> principalAllows(request, requirement);
-            case TRUSTED_HEADER -> trustedHeaderAllows(request, requirement);
-        };
-        if (!allowed) {
+        if (!(request.getUserPrincipal() instanceof ApprovalPrincipal principal)) {
             deny(
                 request,
                 requirement,
-                ApprovalManagementPermissionDeniedException.Reason.INSUFFICIENT_PERMISSION
+                ApprovalManagementPermissionDeniedException.Reason.UNAUTHENTICATED,
+                "unauthenticated",
+                "none",
+                resourceMetricTag(permission)
             );
+            return false;
         }
-        recordAuthorization(requirement, "allowed");
+
+        ApprovalResource resource;
+        try {
+            resource = resource(request, permission, principal);
+        } catch (IllegalArgumentException exception) {
+            deny(
+                request,
+                requirement,
+                ApprovalManagementPermissionDeniedException.Reason.RESOURCE_CONTEXT_INVALID,
+                "resource-context",
+                "none",
+                resourceMetricTag(permission)
+            );
+            return false;
+        }
+
+        ApprovalAuthorizationDecision decision = responsibilities.resolve(
+            principal,
+            requirement,
+            resource
+        );
+        if (!decision.allowed()) {
+            deny(
+                request,
+                requirement,
+                reason(decision),
+                decision.code().metricTag(),
+                decision.roleMetricTag(),
+                resource.level().metricTag()
+            );
+            return false;
+        }
+        if (requirement.requiresReason()) {
+            governHighRisk(request, principal, requirement, resource, decision);
+        }
+        recordAuthorization(
+            requirement.metricTag(),
+            "allowed",
+            decision.code().metricTag(),
+            decision.roleMetricTag(),
+            resource.level().metricTag()
+        );
         startObservation(request, requirement);
         return true;
     }
@@ -107,7 +178,8 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         Object startValue = request.getAttribute(START_ATTRIBUTE);
         Object requirementValue = request.getAttribute(REQUIREMENT_ATTRIBUTE);
         if (!(startValue instanceof Long start)
-            || !(requirementValue instanceof ApprovalManagementPermission.Requirement requirement)) {
+            || !(requirementValue
+                instanceof ApprovalManagementPermission.Requirement requirement)) {
             return;
         }
         String outcome;
@@ -125,68 +197,108 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
             .record(Duration.ofNanos(Math.max(0L, System.nanoTime() - start)));
     }
 
-    private boolean principalAllows(
+    private void governHighRisk(
         HttpServletRequest request,
-        ApprovalManagementPermission.Requirement requirement
+        ApprovalPrincipal principal,
+        ApprovalManagementPermission.Requirement requirement,
+        ApprovalResource resource,
+        ApprovalAuthorizationDecision decision
     ) {
-        if (request.getUserPrincipal() == null) {
-            deny(
-                request,
-                requirement,
-                ApprovalManagementPermissionDeniedException.Reason.UNAUTHENTICATED
-            );
-        }
-        return request.isUserInRole(ApprovalManagementPermission.ADMIN_AUTHORITY)
-            || request.isUserInRole(requirement.authority());
-    }
-
-    private boolean trustedHeaderAllows(
-        HttpServletRequest request,
-        ApprovalManagementPermission.Requirement requirement
-    ) {
-        String header = request.getHeader(trustedPermissionHeader);
-        if (header == null || header.isBlank()) {
-            deny(
-                request,
-                requirement,
-                ApprovalManagementPermissionDeniedException.Reason.MISSING_TRUSTED_HEADER
-            );
-        }
-        Set<String> authorities;
         try {
-            authorities = parseAuthorities(header);
-        } catch (IllegalArgumentException exception) {
-            deny(
-                request,
-                requirement,
-                ApprovalManagementPermissionDeniedException.Reason.MALFORMED_TRUSTED_HEADER
+            String reason = operationReason(request.getHeader(OPERATION_REASON_HEADER));
+            RequestContext context = new RequestContext(
+                principal.tenantId(),
+                principal.operatorId(),
+                requireHeader(request, "X-Request-Id", "APPROVAL_REQUEST_ID_INVALID"),
+                idempotencyKey(request.getHeader(IDEMPOTENCY_KEY_HEADER)),
+                request.getHeader("X-Trace-Id")
             );
-            return false;
+            governance.recordAuthorized(
+                principal,
+                requirement,
+                resource,
+                decision,
+                reason,
+                context
+            );
+        } catch (ApprovalManagementGovernanceException exception) {
+            recordAuthorization(
+                requirement.metricTag(),
+                "denied",
+                governanceMetric(exception.code()),
+                decision.roleMetricTag(),
+                resource.level().metricTag()
+            );
+            throw exception;
+        } catch (IdempotencyGuard.IdempotencyConflictException exception) {
+            recordAuthorization(
+                requirement.metricTag(),
+                "denied",
+                "idempotency-conflict",
+                decision.roleMetricTag(),
+                resource.level().metricTag()
+            );
+            throw new ApprovalManagementGovernanceException(
+                409,
+                "APPROVAL_IDEMPOTENCY_CONFLICT",
+                "idempotency key was already used for different management evidence",
+                false
+            );
+        } catch (RuntimeException exception) {
+            recordAuthorization(
+                requirement.metricTag(),
+                "denied",
+                "audit-unavailable",
+                decision.roleMetricTag(),
+                resource.level().metricTag()
+            );
+            throw new ApprovalManagementGovernanceException(
+                503,
+                "APPROVAL_MANAGEMENT_AUDIT_UNAVAILABLE",
+                "management authorization evidence could not be recorded",
+                true
+            );
         }
-        return authorities.contains(ApprovalManagementPermission.ADMIN_AUTHORITY)
-            || authorities.contains(requirement.authority());
     }
 
     private void deny(
         HttpServletRequest request,
         ApprovalManagementPermission.Requirement requirement,
-        ApprovalManagementPermissionDeniedException.Reason reason
+        ApprovalManagementPermissionDeniedException.Reason reason,
+        String decision,
+        String role,
+        String resourceScope
     ) {
-        recordAuthorization(requirement, "denied");
+        recordAuthorization(
+            requirement.metricTag(),
+            "denied",
+            decision,
+            role,
+            resourceScope
+        );
         LOGGER.warn(
             "event=APPROVAL_MANAGEMENT_ACCESS_DENIED tenantId={} operatorId={} "
-                + "requestId={} requiredAuthority={} reason={}",
+                + "requestId={} requiredAuthority={} reason={} decision={} role={} scope={}",
             safeLogValue(request.getHeader("X-Tenant-Id")),
             operatorIdentity(request),
             safeLogValue(request.getHeader("X-Request-Id")),
             requirement.authority(),
-            reason
+            reason,
+            decision,
+            role,
+            resourceScope
         );
         throw new ApprovalManagementPermissionDeniedException(requirement, reason);
     }
 
     private void denyUndeclared(HttpServletRequest request) {
-        recordAuthorization(UNDECLARED_REQUIREMENT, "denied");
+        recordAuthorization(
+            UNDECLARED_REQUIREMENT,
+            "denied",
+            "undeclared",
+            "none",
+            "undeclared"
+        );
         LOGGER.error(
             "event=APPROVAL_MANAGEMENT_PERMISSION_UNDECLARED tenantId={} operatorId={} "
                 + "requestId={} path={}",
@@ -201,28 +313,25 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         );
     }
 
-    private String operatorIdentity(HttpServletRequest request) {
-        if (authoritySource == AuthoritySource.PRINCIPAL
-            && request.getUserPrincipal() != null) {
-            return safeLogValue(request.getUserPrincipal().getName());
-        }
-        return safeLogValue(request.getHeader("X-Operator-Id"));
-    }
-
     private void recordAuthorization(
-        ApprovalManagementPermission.Requirement requirement,
-        String outcome
+        String requirement,
+        String outcome,
+        String decision,
+        String role,
+        String resourceScope
     ) {
-        recordAuthorization(requirement.metricTag(), outcome);
-    }
-
-    private void recordAuthorization(String requirement, String outcome) {
         meters.counter(
             AUTHORIZATION_METRIC,
             "requirement",
             requirement,
             "outcome",
-            outcome
+            outcome,
+            "decision",
+            decision,
+            "role",
+            role,
+            "resource_scope",
+            resourceScope
         ).increment();
     }
 
@@ -240,6 +349,134 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         );
     }
 
+    private static ApprovalResource resource(
+        HttpServletRequest request,
+        ApprovalManagementPermission permission,
+        ApprovalPrincipal principal
+    ) {
+        if (permission.resourceScope()
+            == ApprovalManagementPermission.ResourceScope.TENANT) {
+            return ApprovalResource.tenant(principal.tenantId());
+        }
+        String variableName = permission.departmentPathVariable().trim();
+        if (variableName.isEmpty()) {
+            throw new IllegalArgumentException(
+                "department resource requires departmentPathVariable"
+            );
+        }
+        Object value = request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+        if (!(value instanceof Map<?, ?> variables)) {
+            throw new IllegalArgumentException("department path variables are unavailable");
+        }
+        Object departmentId = variables.get(variableName);
+        if (!(departmentId instanceof String identifier) || identifier.isBlank()) {
+            throw new IllegalArgumentException("department path variable is missing");
+        }
+        return ApprovalResource.department(principal.tenantId(), identifier);
+    }
+
+    private static ApprovalManagementPermissionDeniedException.Reason reason(
+        ApprovalAuthorizationDecision decision
+    ) {
+        return switch (decision.code()) {
+            case DENIED_TENANT_MISMATCH, DENIED_RESOURCE_SCOPE ->
+                ApprovalManagementPermissionDeniedException.Reason.RESOURCE_SCOPE_DENIED;
+            case DENIED_INSUFFICIENT_PERMISSION ->
+                ApprovalManagementPermissionDeniedException.Reason.INSUFFICIENT_PERMISSION;
+            case ALLOWED_DIRECT_AUTHORITY, ALLOWED_RESPONSIBILITY ->
+                throw new IllegalArgumentException("allowed decision cannot be denied");
+        };
+    }
+
+    static String operationReason(String supplied) {
+        if (supplied == null || supplied.isBlank()) {
+            throw new ApprovalManagementGovernanceException(
+                400,
+                "APPROVAL_OPERATION_REASON_REQUIRED",
+                "a reason is required for this management operation",
+                false
+            );
+        }
+        String normalized = Normalizer.normalize(
+            supplied.trim(),
+            Normalizer.Form.NFKC
+        );
+        int length = normalized.codePointCount(0, normalized.length());
+        if (length < MIN_REASON_CODE_POINTS || length > MAX_REASON_CODE_POINTS) {
+            throw invalidReason();
+        }
+        for (int index = 0; index < normalized.length(); index++) {
+            char value = normalized.charAt(index);
+            int type = Character.getType(value);
+            if (Character.isISOControl(value)
+                || type == Character.LINE_SEPARATOR
+                || type == Character.PARAGRAPH_SEPARATOR
+                || type == Character.SURROGATE) {
+                throw invalidReason();
+            }
+        }
+        return normalized;
+    }
+
+    static String idempotencyKey(String supplied) {
+        if (supplied == null || supplied.isBlank()) {
+            throw new ApprovalManagementGovernanceException(
+                400,
+                "APPROVAL_IDEMPOTENCY_KEY_REQUIRED",
+                "an idempotency key is required for this management operation",
+                false
+            );
+        }
+        String normalized = supplied.trim();
+        if (normalized.length() > MAX_IDEMPOTENCY_KEY_LENGTH
+            || !IDEMPOTENCY_KEY.matcher(normalized).matches()) {
+            throw new ApprovalManagementGovernanceException(
+                400,
+                "APPROVAL_IDEMPOTENCY_KEY_INVALID",
+                "idempotency key is malformed",
+                false
+            );
+        }
+        return normalized;
+    }
+
+    private static String requireHeader(
+        HttpServletRequest request,
+        String header,
+        String code
+    ) {
+        String value = request.getHeader(header);
+        if (value == null || value.isBlank()) {
+            throw new ApprovalManagementGovernanceException(
+                400,
+                code,
+                header + " is required",
+                false
+            );
+        }
+        return value;
+    }
+
+    private static ApprovalManagementGovernanceException invalidReason() {
+        return new ApprovalManagementGovernanceException(
+            400,
+            "APPROVAL_OPERATION_REASON_INVALID",
+            "management operation reason is malformed",
+            false
+        );
+    }
+
+    private static String governanceMetric(String code) {
+        return switch (code) {
+            case "APPROVAL_OPERATION_REASON_REQUIRED" -> "reason-required";
+            case "APPROVAL_OPERATION_REASON_INVALID" -> "reason-invalid";
+            case "APPROVAL_IDEMPOTENCY_KEY_REQUIRED" -> "idempotency-required";
+            case "APPROVAL_IDEMPOTENCY_KEY_INVALID" -> "idempotency-invalid";
+            case "APPROVAL_REQUEST_ID_INVALID" -> "request-id-invalid";
+            default -> "governance-invalid";
+        };
+    }
+
     private static boolean isManagementRequest(HttpServletRequest request) {
         String path = requestPath(request);
         return path.equals(MANAGEMENT_PATH) || path.startsWith(MANAGEMENT_PATH + '/');
@@ -254,23 +491,15 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         return uri;
     }
 
-    private static Set<String> parseAuthorities(String header) {
-        if (header.length() > MAX_HEADER_LENGTH) {
-            throw new IllegalArgumentException("permission header is too long");
+    private static String operatorIdentity(HttpServletRequest request) {
+        if (request.getUserPrincipal() != null) {
+            return safeLogValue(request.getUserPrincipal().getName());
         }
-        String[] values = header.split(",", -1);
-        if (values.length > MAX_AUTHORITIES) {
-            throw new IllegalArgumentException("too many permissions");
-        }
-        Set<String> authorities = new LinkedHashSet<>();
-        for (String value : values) {
-            String authority = value.trim();
-            if (!AUTHORITY.matcher(authority).matches()) {
-                throw new IllegalArgumentException("malformed permission");
-            }
-            authorities.add(authority);
-        }
-        return Set.copyOf(authorities);
+        return "missing";
+    }
+
+    private static String resourceMetricTag(ApprovalManagementPermission permission) {
+        return permission.resourceScope().name().toLowerCase(java.util.Locale.ROOT);
     }
 
     private static void startObservation(
@@ -289,25 +518,5 @@ public final class ApprovalManagementPermissionInterceptor implements HandlerInt
         return safe.length() > MAX_LOG_VALUE_LENGTH
             ? safe.substring(0, MAX_LOG_VALUE_LENGTH)
             : safe;
-    }
-
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name + " must not be null");
-        String normalized = value.trim();
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return normalized;
-    }
-
-    public enum AuthoritySource {
-        PRINCIPAL,
-        TRUSTED_HEADER;
-
-        public static AuthoritySource parse(String value) {
-            return valueOf(requireText(value, "authoritySource")
-                .replace('-', '_')
-                .toUpperCase(Locale.ROOT));
-        }
     }
 }

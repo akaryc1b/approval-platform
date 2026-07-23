@@ -18,12 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ApprovalManagementEndpointContractTest {
 
     @Test
-    void allManagementHandlersHaveCapabilities() throws ClassNotFoundException {
+    void allManagementHandlersHaveCapabilitiesAndValidResourceDeclarations()
+        throws ClassNotFoundException {
         ClassPathScanningCandidateComponentProvider scanner =
             new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
 
         List<String> missing = new ArrayList<>();
+        List<String> invalidScopes = new ArrayList<>();
         int handlers = 0;
         for (BeanDefinition bean : scanner.findCandidateComponents(
             "io.github.akaryc1b.approval.api"
@@ -45,25 +47,52 @@ class ApprovalManagementEndpointContractTest {
                     continue;
                 }
                 handlers++;
-                ApprovalManagementPermission capability =
-                    AnnotatedElementUtils.findMergedAnnotation(
-                        method,
-                        ApprovalManagementPermission.class
-                    );
+                ApprovalManagementPermission capability = capability(controller, method);
+                String handler = controller.getSimpleName() + '.' + method.getName();
                 if (capability == null) {
-                    capability = AnnotatedElementUtils.findMergedAnnotation(
-                        controller,
-                        ApprovalManagementPermission.class
-                    );
-                }
-                if (capability == null) {
-                    missing.add(controller.getSimpleName() + '.' + method.getName());
+                    missing.add(handler);
+                } else if (!validResourceDeclaration(capability)) {
+                    invalidScopes.add(handler);
                 }
             }
         }
 
         assertTrue(handlers > 0, "management endpoint scan unexpectedly empty");
         assertEquals(List.of(), missing, "management endpoints without capabilities");
+        assertEquals(
+            List.of(),
+            invalidScopes,
+            "management endpoints with invalid resource declarations"
+        );
+    }
+
+    private static ApprovalManagementPermission capability(
+        Class<?> controller,
+        Method method
+    ) {
+        ApprovalManagementPermission capability =
+            AnnotatedElementUtils.findMergedAnnotation(
+                method,
+                ApprovalManagementPermission.class
+            );
+        if (capability != null) {
+            return capability;
+        }
+        return AnnotatedElementUtils.findMergedAnnotation(
+            controller,
+            ApprovalManagementPermission.class
+        );
+    }
+
+    private static boolean validResourceDeclaration(
+        ApprovalManagementPermission capability
+    ) {
+        boolean departmentVariableDeclared =
+            !capability.departmentPathVariable().trim().isEmpty();
+        return switch (capability.resourceScope()) {
+            case TENANT -> !departmentVariableDeclared;
+            case DEPARTMENT -> departmentVariableDeclared;
+        };
     }
 
     private static boolean managementRoot(RequestMapping mapping) {

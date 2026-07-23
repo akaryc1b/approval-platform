@@ -50,6 +50,31 @@ jobs:
           fi
       - name: Verify final tracked-tree hygiene
         run: node --test scripts/tests/m3-repository-hygiene.test.mjs
+      - name: Verify M4 identity and Flowable boundaries
+        run: node --test scripts/tests/m4-identity-boundary.test.mjs
+      - name: Verify M4 SLA and calendar boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m4-sla-calendar-boundary.test.mjs \
+            >m4-sla-calendar-boundary.log 2>&1 \
+            || { cat m4-sla-calendar-boundary.log; exit 1; }
+          cat m4-sla-calendar-boundary.log
+      - name: Verify M4 release governance observability boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m4-release-governance-boundary.test.mjs \
+            >m4-release-governance-boundary.log 2>&1 \
+            || { cat m4-release-governance-boundary.log; exit 1; }
+          cat m4-release-governance-boundary.log
+      - name: Upload repository governance logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: approval-hygiene-${{ github.run_id }}
+          path: |
+            m4-sla-calendar-boundary.log
+            m4-release-governance-boundary.log
+          if-no-files-found: ignore
 
   backend:
     name: Java 21 / Maven / PostgreSQL

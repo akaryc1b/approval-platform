@@ -152,6 +152,36 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ApprovalSlaCalendars',
+        path: '/approval/sla/calendars',
+        component: () => import('#/views/approval/sla-calendars/index.vue'),
+        meta: {
+          authority: ['approval:definition:design'],
+          icon: 'lucide:calendar-clock',
+          title: '工作日历',
+        },
+      },
+      {
+        name: 'ApprovalSlaPolicies',
+        path: '/approval/sla/policies',
+        component: () => import('#/views/approval/sla-policies/index.vue'),
+        meta: {
+          authority: ['approval:definition:design'],
+          icon: 'lucide:timer-reset',
+          title: 'SLA 策略',
+        },
+      },
+      {
+        name: 'ApprovalSlaOperations',
+        path: '/approval/sla/operations',
+        component: () => import('#/views/approval/sla-operations/index.vue'),
+        meta: {
+          authority: ['approval:ops:view'],
+          icon: 'lucide:alarm-clock-check',
+          title: 'SLA 运维',
+        },
+      },
+      {
         name: 'ApprovalOperations',
         path: '/approval/operations',
         component: () => import('#/views/approval/operations/index.vue'),

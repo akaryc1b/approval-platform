@@ -11,77 +11,31 @@ import type {
   ValidationResult,
 } from './form-types';
 
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
-
-interface ApiErrorPayload {
-  code?: string;
-  error?: string;
-  message?: string;
-}
-
-function operationId(prefix: string) {
-  const value = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${value}`;
-}
-
-async function request<T>(path: string, init: RequestInit = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init.headers);
-  headers.set('Accept', 'application/json');
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  if (init.body) headers.set('Content-Type', 'application/json');
-  const response = await fetch(`${runtime.apiBaseUrl}${path}`, {
-    ...init,
-    credentials: 'same-origin',
-    headers,
-  });
-  if (!response.ok) {
-    let payload: ApiErrorPayload | undefined;
-    try {
-      payload = (await response.json()) as ApiErrorPayload;
-    } catch {
-      payload = undefined;
-    }
-    throw new Error(
-      payload?.message || payload?.error || payload?.code ||
-      `请求失败（${response.status}）`,
-    );
-  }
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
-}
-
-function writeHeaders(action: string) {
-  const requestId = operationId(`web-${action}-request`);
-  return {
-    'Idempotency-Key': operationId(`web-${action}`),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  };
-}
+import {
+  approvalCommandHeaders,
+  approvalRequest,
+} from '#/api/approval/transport';
 
 export function findForms(keyword = '', limit = 20, offset = 0) {
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (keyword.trim()) query.set('keyword', keyword.trim());
-  return request<FormPage>(`/approval/forms?${query.toString()}`);
+  return approvalRequest<FormPage>(`/approval/forms?${query.toString()}`);
 }
 
 export function findForm(formKey: string, version: number) {
-  return request<PublishedForm>(
+  return approvalRequest<PublishedForm>(
     `/approval/forms/${encodeURIComponent(formKey)}/versions/${version}`,
   );
 }
 
 export function findStartFormRuntime(formKey: string, version: number) {
-  return request<FormRuntimeView>(
+  return approvalRequest<FormRuntimeView>(
     `/approval/forms/${encodeURIComponent(formKey)}/versions/${version}/runtime`,
   );
 }
 
 export function findTaskFormRuntime(taskId: string) {
-  return request<FormRuntimeView>(
+  return approvalRequest<FormRuntimeView>(
     `/approval/tasks/${encodeURIComponent(taskId)}/form-runtime`,
   );
 }
@@ -91,53 +45,53 @@ export function resubmitFormTask(
   comment: string,
   values: Record<string, unknown>,
 ) {
-  return request<unknown>(`/approval/tasks/${encodeURIComponent(taskId)}/resubmit`, {
+  return approvalRequest<unknown>(`/approval/tasks/${encodeURIComponent(taskId)}/resubmit`, {
     body: JSON.stringify({ comment: comment.trim() || null, values }),
-    headers: writeHeaders('resubmit'),
+    headers: approvalCommandHeaders('resubmit'),
     method: 'POST',
   });
 }
 
 export function findPurchasePaymentTemplate() {
-  return request<FormDefinition>('/approval/forms/templates/purchase-payment');
+  return approvalRequest<FormDefinition>('/approval/forms/templates/purchase-payment');
 }
 
 export function validateForm(definition: FormDefinition) {
-  return request<ValidationResult>('/approval/forms/validate', {
+  return approvalRequest<ValidationResult>('/approval/forms/validate', {
     body: JSON.stringify(definition),
     method: 'POST',
   });
 }
 
 export function publishForm(definition: FormDefinition) {
-  return request<PublishResult>('/approval/forms/publish', {
+  return approvalRequest<PublishResult>('/approval/forms/publish', {
     body: JSON.stringify(definition),
-    headers: writeHeaders('form-publish'),
+    headers: approvalCommandHeaders('form-publish'),
     method: 'POST',
   });
 }
 
 export function findPurchasePaymentUiSchemaTemplate() {
-  return request<UiSchemaDefinition>('/approval/ui-schemas/templates/purchase-payment');
+  return approvalRequest<UiSchemaDefinition>('/approval/ui-schemas/templates/purchase-payment');
 }
 
 export function findLatestUiSchema(formKey: string, formVersion: number) {
-  return request<PublishedUiSchema>(
+  return approvalRequest<PublishedUiSchema>(
     `/approval/ui-schemas/forms/${encodeURIComponent(formKey)}/versions/${formVersion}/latest`,
   );
 }
 
 export function validateUiSchema(definition: UiSchemaDefinition) {
-  return request<UiSchemaValidationResult>('/approval/ui-schemas/validate', {
+  return approvalRequest<UiSchemaValidationResult>('/approval/ui-schemas/validate', {
     body: JSON.stringify(definition),
     method: 'POST',
   });
 }
 
 export function publishUiSchema(definition: UiSchemaDefinition) {
-  return request<UiSchemaPublishResult>('/approval/ui-schemas/publish', {
+  return approvalRequest<UiSchemaPublishResult>('/approval/ui-schemas/publish', {
     body: JSON.stringify(definition),
-    headers: writeHeaders('ui-schema-publish'),
+    headers: approvalCommandHeaders('ui-schema-publish'),
     method: 'POST',
   });
 }

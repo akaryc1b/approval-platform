@@ -1,4 +1,4 @@
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
+import { approvalRequest } from '#/api/approval/transport';
 
 export type NotificationChannel = 'CONNECTOR' | 'EMAIL' | 'IN_APP';
 export type NotificationEventType =
@@ -88,50 +88,12 @@ export interface NotificationDeliveryAttempt {
   tenantId: string;
 }
 
-interface RequestOptions extends RequestInit {
-  body?: string;
-}
-
-interface ApiErrorPayload {
-  code?: string;
-  message?: string;
-}
-
-function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-async function parseError(response: Response) {
-  try {
-    const payload = (await response.json()) as ApiErrorPayload;
-    return payload.message || payload.code || `请求失败（${response.status}）`;
-  } catch {
-    return `请求失败（${response.status}）`;
-  }
-}
-
-async function request<T>(path: string, options: RequestOptions = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(options.headers);
-  headers.set('Accept', 'application/json');
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  if (options.body) headers.set('Content-Type', 'application/json');
-  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
-    ...options,
-    credentials: 'same-origin',
-    headers,
-  });
-  if (!response.ok) throw new Error(await parseError(response));
-  return (await response.json()) as T;
-}
-
 export function findNotificationPreferences() {
-  return request<NotificationPreferenceBundle>('/approval/notifications/preferences');
+  return approvalRequest<NotificationPreferenceBundle>('/approval/notifications/preferences');
 }
 
 export function updateNotificationPreferences(bundle: NotificationPreferenceBundle) {
-  return request<NotificationPreferenceBundle>('/approval/notifications/preferences', {
+  return approvalRequest<NotificationPreferenceBundle>('/approval/notifications/preferences', {
     body: JSON.stringify({
       digestEnabled: bundle.digestEnabled,
       emergencyBypass: bundle.emergencyBypass,
@@ -152,35 +114,37 @@ export function findNotificationHistory(unreadOnly: boolean, limit: number, offs
     offset: String(offset),
     unreadOnly: String(unreadOnly),
   });
-  return request<NotificationHistoryPage>(`/approval/notifications?${query.toString()}`);
+  return approvalRequest<NotificationHistoryPage>(
+    `/approval/notifications?${query.toString()}`,
+  );
 }
 
 export function findNotificationUnreadCount() {
-  return request<{ unread: number }>('/approval/notifications/unread-count');
+  return approvalRequest<{ unread: number }>('/approval/notifications/unread-count');
 }
 
 export function markNotificationRead(intentId: string) {
-  return request<NotificationIntent>(
+  return approvalRequest<NotificationIntent>(
     `/approval/notifications/${encodeURIComponent(intentId)}/read`,
     { method: 'POST' },
   );
 }
 
 export function markAllNotificationsRead() {
-  return request<{ readAt: string; updatedNotifications: number }>(
+  return approvalRequest<{ readAt: string; updatedNotifications: number }>(
     '/approval/notifications/read-all',
     { method: 'POST' },
   );
 }
 
 export function findNotificationAttempts(intentId: string) {
-  return request<NotificationDeliveryAttempt[]>(
+  return approvalRequest<NotificationDeliveryAttempt[]>(
     `/approval/notifications/${encodeURIComponent(intentId)}/attempts`,
   );
 }
 
 export function replayNotification(intentId: string) {
-  return request<NotificationIntent>(
+  return approvalRequest<NotificationIntent>(
     `/approval/notifications/${encodeURIComponent(intentId)}/replay`,
     { method: 'POST' },
   );

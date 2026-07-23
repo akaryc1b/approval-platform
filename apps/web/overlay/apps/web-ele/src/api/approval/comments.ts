@@ -1,4 +1,8 @@
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
+import {
+  approvalCommandHeaders,
+  approvalFetch,
+  approvalRequest,
+} from '#/api/approval/transport';
 
 export type CommentStatus = 'ACTIVE' | 'DELETED';
 export type CommentVisibility = 'MENTIONED_ONLY' | 'PARTICIPANTS';
@@ -115,80 +119,6 @@ interface PageParameters {
   offset: number;
 }
 
-interface ApiErrorPayload {
-  code?: string;
-  error?: string;
-  message?: string;
-}
-
-function operationId(prefix: string) {
-  const randomId = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${randomId}`;
-}
-
-function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-async function parseError(response: Response) {
-  let payload: ApiErrorPayload | undefined;
-  try {
-    payload = (await response.json()) as ApiErrorPayload;
-  } catch {
-    payload = undefined;
-  }
-  return payload?.message || payload?.error || payload?.code ||
-    `请求失败（${response.status}）`;
-}
-
-function runtimeHeaders(init?: HeadersInit) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init);
-  headers.set('Accept', 'application/json');
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  return headers;
-}
-
-async function request<T>(path: string, init: RequestInit = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = runtimeHeaders(init.headers);
-  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
-    ...init,
-    credentials: 'same-origin',
-    headers,
-  });
-  if (!response.ok) {
-    throw new Error(await parseError(response));
-  }
-  return (await response.json()) as T;
-}
-
-async function requestBlob(path: string) {
-  const runtime = getApprovalRuntimeConfig();
-  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
-    credentials: 'same-origin',
-    headers: runtimeHeaders(),
-  });
-  if (!response.ok) {
-    throw new Error(await parseError(response));
-  }
-  return response.blob();
-}
-
-function mutationHeaders(prefix: string) {
-  const requestId = operationId(`${prefix}-request`);
-  return {
-    'Idempotency-Key': operationId(prefix),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  };
-}
-
 function pageQuery(parameters: PageParameters) {
   const query = new URLSearchParams({
     limit: String(parameters.limit),
@@ -200,26 +130,26 @@ function pageQuery(parameters: PageParameters) {
 }
 
 export function findCopiedInstances(parameters: PageParameters) {
-  return request<CopiedInstancePage>(
+  return approvalRequest<CopiedInstancePage>(
     `/approval/instances/copied?${pageQuery(parameters)}`,
   );
 }
 
 export function findCommentOptions(instanceId: string) {
-  return request<CommentOptions>(
+  return approvalRequest<CommentOptions>(
     `/approval/instances/${encodeURIComponent(instanceId)}/comments/options`,
   );
 }
 
 export function findApprovalComments(instanceId: string, limit = 100, offset = 0) {
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  return request<ApprovalCommentPage>(
+  return approvalRequest<ApprovalCommentPage>(
     `/approval/instances/${encodeURIComponent(instanceId)}/comments?${query.toString()}`,
   );
 }
 
 export function findApprovalCommentRevisions(instanceId: string, commentId: string) {
-  return request<CommentRevisionItem[]>(
+  return approvalRequest<CommentRevisionItem[]>(
     `/approval/instances/${encodeURIComponent(instanceId)}/comments/${encodeURIComponent(commentId)}/revisions`,
   );
 }
@@ -227,17 +157,18 @@ export function findApprovalCommentRevisions(instanceId: string, commentId: stri
 export function uploadApprovalAttachment(file: File) {
   const body = new FormData();
   body.append('file', file, file.name);
-  return request<ApprovalAttachment>('/approval/attachments', {
+  return approvalRequest<ApprovalAttachment>('/approval/attachments', {
     body,
-    headers: mutationHeaders('web-attachment'),
+    headers: approvalCommandHeaders('web-attachment'),
     method: 'POST',
   });
 }
 
 export async function downloadApprovalAttachment(attachment: ApprovalAttachment) {
-  const blob = await requestBlob(
+  const response = await approvalFetch(
     `/approval/attachments/${encodeURIComponent(attachment.attachmentId)}/content`,
   );
+  const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -254,7 +185,7 @@ export function createApprovalComment(
   attachmentIds: string[],
   visibility: CommentVisibility = 'PARTICIPANTS',
 ) {
-  return request<ApprovalCommentItem>(
+  return approvalRequest<ApprovalCommentItem>(
     `/approval/instances/${encodeURIComponent(instanceId)}/comments`,
     {
       body: JSON.stringify({
@@ -264,7 +195,7 @@ export function createApprovalComment(
         parentCommentId: parentCommentId || null,
         visibility,
       }),
-      headers: mutationHeaders('web-comment'),
+      headers: approvalCommandHeaders('web-comment'),
       method: 'POST',
     },
   );
@@ -280,7 +211,7 @@ export function updateApprovalComment(
   expectedVersion: number,
   reason?: string,
 ) {
-  return request<ApprovalCommentItem>(
+  return approvalRequest<ApprovalCommentItem>(
     `/approval/instances/${encodeURIComponent(instanceId)}/comments/${encodeURIComponent(commentId)}`,
     {
       body: JSON.stringify({
@@ -291,7 +222,7 @@ export function updateApprovalComment(
         reason: reason?.trim() || null,
         visibility,
       }),
-      headers: mutationHeaders('web-comment-edit'),
+      headers: approvalCommandHeaders('web-comment-edit'),
       method: 'PUT',
     },
   );
@@ -303,11 +234,11 @@ export function deleteApprovalComment(
   expectedVersion: number,
   reason: string,
 ) {
-  return request<ApprovalCommentItem>(
+  return approvalRequest<ApprovalCommentItem>(
     `/approval/instances/${encodeURIComponent(instanceId)}/comments/${encodeURIComponent(commentId)}`,
     {
       body: JSON.stringify({ expectedVersion, reason: reason.trim() }),
-      headers: mutationHeaders('web-comment-delete'),
+      headers: approvalCommandHeaders('web-comment-delete'),
       method: 'DELETE',
     },
   );

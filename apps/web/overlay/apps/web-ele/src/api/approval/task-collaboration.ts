@@ -1,5 +1,10 @@
 import type { IdentityReference } from '#/api/approval/identities';
 
+import {
+  ApprovalApiError,
+  approvalCommandHeaders,
+  approvalRequest,
+} from '#/api/approval/transport';
 import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
 export type CollaborationMode = 'ALL' | 'ANY' | 'VOTE' | 'WEIGHTED';
@@ -92,71 +97,19 @@ export interface PendingCollaborationTask {
   taskName: string;
 }
 
-interface ApiErrorPayload {
-  code?: string;
-  error?: string;
-  message?: string;
-}
-
-function operationId(prefix: string) {
-  const randomId = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${randomId}`;
-}
-
-function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-async function parseError(response: Response) {
-  let payload: ApiErrorPayload | undefined;
+export async function findTaskCollaboration(taskId: string) {
   try {
-    payload = (await response.json()) as ApiErrorPayload;
-  } catch {
-    payload = undefined;
+    return await approvalRequest<TaskCollaboration>(
+      `/approval/tasks/${encodeURIComponent(taskId)}/collaboration`,
+    );
+  } catch (error) {
+    if (error instanceof ApprovalApiError && error.status === 404) return undefined;
+    throw error;
   }
-  return payload?.message || payload?.error || payload?.code ||
-    `请求失败（${response.status}）`;
-}
-
-async function request<T>(path: string, init: RequestInit = {}, allowNotFound = false) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init.headers);
-  headers.set('Accept', 'application/json');
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  if (init.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-  const response = await fetch(joinUrl(runtime.apiBaseUrl, path), {
-    ...init,
-    credentials: 'same-origin',
-    headers,
-  });
-  if (allowNotFound && response.status === 404) return undefined as T;
-  if (!response.ok) throw new Error(await parseError(response));
-  return (await response.json()) as T;
-}
-
-function commandHeaders(prefix: string) {
-  const requestId = operationId(`${prefix}-request`);
-  return {
-    'Idempotency-Key': operationId(prefix),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  };
-}
-
-export function findTaskCollaboration(taskId: string) {
-  return request<TaskCollaboration | undefined>(
-    `/approval/tasks/${encodeURIComponent(taskId)}/collaboration`,
-    {},
-    true,
-  );
 }
 
 export function findPendingCollaborationTasks(limit = 100) {
-  return request<PendingCollaborationTask[]>(
+  return approvalRequest<PendingCollaborationTask[]>(
     `/approval/collaboration/tasks/pending?limit=${encodeURIComponent(String(limit))}`,
   );
 }
@@ -170,7 +123,7 @@ export function createTaskCollaboration(
   approvalWeightThreshold?: number,
 ) {
   const runtime = getApprovalRuntimeConfig();
-  return request<TaskCollaboration>(
+  return approvalRequest<TaskCollaboration>(
     `/approval/tasks/${encodeURIComponent(taskId)}/collaboration`,
     {
       body: JSON.stringify({
@@ -181,7 +134,7 @@ export function createTaskCollaboration(
         participants,
         reason: reason.trim(),
       }),
-      headers: commandHeaders('web-task-collaboration-create'),
+      headers: approvalCommandHeaders('web-task-collaboration-create'),
       method: 'POST',
     },
   );
@@ -193,7 +146,7 @@ export function addTaskCollaborators(
   reason: string,
 ) {
   const runtime = getApprovalRuntimeConfig();
-  return request<TaskCollaboration>(
+  return approvalRequest<TaskCollaboration>(
     `/approval/tasks/${encodeURIComponent(taskId)}/collaboration/participants`,
     {
       body: JSON.stringify({
@@ -201,18 +154,18 @@ export function addTaskCollaborators(
         participants,
         reason: reason.trim(),
       }),
-      headers: commandHeaders('web-task-collaboration-add'),
+      headers: approvalCommandHeaders('web-task-collaboration-add'),
       method: 'POST',
     },
   );
 }
 
 export function removeTaskCollaborator(participantId: string, reason: string) {
-  return request<TaskCollaboration>(
+  return approvalRequest<TaskCollaboration>(
     `/approval/collaboration/participants/${encodeURIComponent(participantId)}/remove`,
     {
       body: JSON.stringify({ reason: reason.trim() }),
-      headers: commandHeaders('web-task-collaboration-remove'),
+      headers: approvalCommandHeaders('web-task-collaboration-remove'),
       method: 'POST',
     },
   );
@@ -223,11 +176,11 @@ export function decideTaskCollaboration(
   decision: ParticipantDecision,
   comment: string,
 ) {
-  return request<TaskCollaboration>(
+  return approvalRequest<TaskCollaboration>(
     `/approval/collaboration/participants/${encodeURIComponent(participantId)}/decide`,
     {
       body: JSON.stringify({ comment: comment.trim(), decision }),
-      headers: commandHeaders('web-task-collaboration-decide'),
+      headers: approvalCommandHeaders('web-task-collaboration-decide'),
       method: 'POST',
     },
   );

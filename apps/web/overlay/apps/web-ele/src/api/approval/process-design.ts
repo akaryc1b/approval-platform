@@ -1,4 +1,9 @@
-import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
+import {
+  approvalCommandHeaders,
+  approvalRequest,
+} from '#/api/approval/transport';
+
+export { ApprovalApiError as ApprovalDesignApiError } from '#/api/approval/transport';
 
 export type ApprovalMode = 'ALL' | 'ANY' | 'SINGLE';
 export type ApprovalDesignDraftStatus = 'ARCHIVED' | 'DRAFT' | 'PUBLISHED' | 'VALIDATED';
@@ -462,68 +467,6 @@ export interface ApprovalBatchSimulationInput {
   scenarios: ApprovalBatchScenarioInput[];
 }
 
-interface ApiErrorPayload {
-  code?: string;
-  error?: string;
-  message?: string;
-}
-
-export class ApprovalDesignApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code?: string,
-  ) {
-    super(message);
-    this.name = 'ApprovalDesignApiError';
-  }
-}
-
-function operationId(prefix: string) {
-  const value = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${value}`;
-}
-
-function writeHeaders(action: string) {
-  const requestId = operationId(`web-${action}-request`);
-  return {
-    'Idempotency-Key': operationId(`web-${action}`),
-    'X-Request-Id': requestId,
-    'X-Trace-Id': requestId,
-  };
-}
-
-async function request<T>(path: string, init: RequestInit = {}) {
-  const runtime = getApprovalRuntimeConfig();
-  const headers = new Headers(init.headers);
-  headers.set('Accept', 'application/json');
-  headers.set('X-Operator-Id', runtime.operatorId);
-  headers.set('X-Tenant-Id', runtime.tenantId);
-  if (init.body) headers.set('Content-Type', 'application/json');
-  const response = await fetch(`${runtime.apiBaseUrl}${path}`, {
-    ...init,
-    credentials: 'same-origin',
-    headers,
-  });
-  if (!response.ok) {
-    let payload: ApiErrorPayload | undefined;
-    try {
-      payload = (await response.json()) as ApiErrorPayload;
-    } catch {
-      payload = undefined;
-    }
-    throw new ApprovalDesignApiError(
-      payload?.message || payload?.error || payload?.code ||
-        `请求失败（${response.status}）`,
-      response.status,
-      payload?.code,
-    );
-  }
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
-}
-
 export function findApprovalDesignDrafts(
   keyword = '',
   status?: ApprovalDesignDraftStatus,
@@ -533,21 +476,21 @@ export function findApprovalDesignDrafts(
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (keyword.trim()) query.set('keyword', keyword.trim());
   if (status) query.set('status', status);
-  return request<ApprovalDesignDraftPage>(
+  return approvalRequest<ApprovalDesignDraftPage>(
     `/approval/process-design-drafts?${query.toString()}`,
   );
 }
 
 export function findApprovalDesignDraft(draftId: string) {
-  return request<ApprovalDesignDraft>(
+  return approvalRequest<ApprovalDesignDraft>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}`,
   );
 }
 
 export function createApprovalDesignDraft(input: CreateApprovalDesignDraftInput) {
-  return request<ApprovalDesignDraft>('/approval/process-design-drafts', {
+  return approvalRequest<ApprovalDesignDraft>('/approval/process-design-drafts', {
     body: JSON.stringify(input),
-    headers: writeHeaders('approval-design-create'),
+    headers: approvalCommandHeaders('approval-design-create'),
     method: 'POST',
   });
 }
@@ -559,9 +502,9 @@ export function copyPublishedApprovalDesignDraft(input: {
   sourceDefinitionVersion: number;
   targetDefinitionVersion: number;
 }) {
-  return request<ApprovalDesignDraft>('/approval/process-design-drafts/from-published', {
+  return approvalRequest<ApprovalDesignDraft>('/approval/process-design-drafts/from-published', {
     body: JSON.stringify(input),
-    headers: writeHeaders('approval-design-copy'),
+    headers: approvalCommandHeaders('approval-design-copy'),
     method: 'POST',
   });
 }
@@ -570,22 +513,22 @@ export function updateApprovalDesignDraft(
   draftId: string,
   input: UpdateApprovalDesignDraftInput,
 ) {
-  return request<ApprovalDesignDraft>(
+  return approvalRequest<ApprovalDesignDraft>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}`,
     {
       body: JSON.stringify(input),
-      headers: writeHeaders('approval-design-save'),
+      headers: approvalCommandHeaders('approval-design-save'),
       method: 'PUT',
     },
   );
 }
 
 export function validateApprovalDesignDraft(draftId: string, expectedRevision: number) {
-  return request<ApprovalDesignValidationResult>(
+  return approvalRequest<ApprovalDesignValidationResult>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/validate`,
     {
       body: JSON.stringify({ expectedRevision }),
-      headers: writeHeaders('approval-design-validate'),
+      headers: approvalCommandHeaders('approval-design-validate'),
       method: 'POST',
     },
   );
@@ -596,7 +539,7 @@ export function simulateApprovalDesignDraft(
   expectedRevision: number,
   input: ApprovalSimulationInput,
 ) {
-  return request<ApprovalSimulationResponse>(
+  return approvalRequest<ApprovalSimulationResponse>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/simulate`,
     {
       body: JSON.stringify({
@@ -617,7 +560,7 @@ export function simulateApprovalDesignDraftBatch(
   draftId: string,
   input: ApprovalBatchSimulationInput,
 ) {
-  return request<ApprovalBatchSimulationReport>(
+  return approvalRequest<ApprovalBatchSimulationReport>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/batch-simulate`,
     {
       body: JSON.stringify(input),
@@ -637,18 +580,18 @@ export async function exportApprovalDesignDraftBatchReport(
 }
 
 export function archiveApprovalDesignDraft(draftId: string, expectedRevision: number) {
-  return request<ApprovalDesignDraft>(
+  return approvalRequest<ApprovalDesignDraft>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/archive`,
     {
       body: JSON.stringify({ expectedRevision }),
-      headers: writeHeaders('approval-design-archive'),
+      headers: approvalCommandHeaders('approval-design-archive'),
       method: 'POST',
     },
   );
 }
 
 export function preflightApprovalPublication(input: ApprovalPublicationPreflightInput) {
-  return request<ApprovalPreflightReport>('/approval/preflight/publication', {
+  return approvalRequest<ApprovalPreflightReport>('/approval/preflight/publication', {
     body: JSON.stringify(input),
     method: 'POST',
   });
@@ -657,13 +600,34 @@ export function preflightApprovalPublication(input: ApprovalPublicationPreflight
 export function publishApprovalDesignDraft(
   draftId: string,
   input: PublishApprovalDesignDraftInput,
+  reason?: string,
 ) {
-  return request<ApprovalPublishResult>(
+  const operationReason = approvalPublicationReason(reason);
+  return approvalRequest<ApprovalPublishResult>(
     `/approval/process-design-drafts/${encodeURIComponent(draftId)}/publish`,
     {
       body: JSON.stringify(input),
-      headers: writeHeaders('approval-release-publish'),
+      headers: {
+        ...approvalCommandHeaders('approval-release-publish'),
+        'X-Approval-Operation-Reason': operationReason,
+      },
       method: 'POST',
     },
   );
+}
+
+function approvalPublicationReason(supplied?: string) {
+  const prompted = supplied ?? globalThis.prompt?.(
+    '请输入本次发布原因（8–512 个字符）。该原因将写入不可变审计与流程版本生命周期证据。',
+  );
+  if (prompted == null) throw new Error('已取消发布');
+  const normalized = prompted.normalize('NFKC').trim();
+  const length = Array.from(normalized).length;
+  if (length < 8 || length > 512) {
+    throw new Error('发布原因必须包含 8–512 个字符');
+  }
+  if (/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/u.test(normalized)) {
+    throw new Error('发布原因包含不支持的控制字符');
+  }
+  return normalized;
 }
