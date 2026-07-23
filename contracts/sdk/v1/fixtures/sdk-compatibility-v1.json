@@ -1,0 +1,54 @@
+{
+  "fixtureVersion": "1",
+  "fixtureOnly": true,
+  "evaluatedAt": "2026-07-23T12:00:00Z",
+  "client": {
+    "manifestVersion": "1",
+    "sdkVersion": "1.2.0",
+    "eventSchemaVersions": ["1.0"],
+    "webhookProtocolVersions": ["approval-webhook-v1"],
+    "capabilities": [
+      {"name": "event-envelope.v1", "required": true},
+      {"name": "signed-webhook.hmac-sha256.v1", "required": true},
+      {"name": "fixture.legacy-error-shape.v1", "required": false},
+      {"name": "future-optional.capability", "required": false}
+    ]
+  },
+  "server": {
+    "manifestVersion": "1",
+    "contractVersion": "1.1.0",
+    "minimumClientVersion": "1.0.0",
+    "supportedUntil": "2027-07-23T00:00:00Z",
+    "eventSchemaVersions": ["1.0"],
+    "webhookProtocolVersions": ["approval-webhook-v1"],
+    "capabilities": [
+      "event-envelope.v1",
+      "signed-webhook.hmac-sha256.v1",
+      "fixture.legacy-error-shape.v1",
+      "mock-transport.v1"
+    ],
+    "deprecations": [
+      {
+        "capability": "fixture.legacy-error-shape.v1",
+        "deprecatedSince": "2026-01-01T00:00:00Z",
+        "sunsetAt": "2026-12-31T23:59:59Z",
+        "replacement": "structured-error.v1"
+      }
+    ]
+  },
+  "expectations": {
+    "status": "compatible",
+    "contractVersion": "1.1.0",
+    "eventSchemaVersion": "1.0",
+    "webhookProtocolVersion": "approval-webhook-v1",
+    "enabledCapabilities": [
+      "event-envelope.v1",
+      "signed-webhook.hmac-sha256.v1",
+      "fixture.legacy-error-shape.v1"
+    ],
+    "warnings": [
+      "deprecated capability fixture.legacy-error-shape.v1; sunsetAt=2026-12-31T23:59:59Z; replacement=structured-error.v1",
+      "optional capability unavailable: future-optional.capability"
+    ]
+  }
+}

@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/public.js",
+    "./compatibility": "./dist/compatibility.js"
   },
-  "types": "./dist/index.d.ts",
+  "types": "./dist/public.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "pnpm build && node --test test/*.test.mjs ../../scripts/tests/m6-sdk-event-boundary.test.mjs"
