@@ -196,11 +196,18 @@ test('timer and job evidence remains isolated M5-A capability validation', async
   assert.match(evidence, /Current M5-A decision remains `SUPPORTED_WITH_LIMITATIONS`/);
   assert.match(evidence, /adds no `V33`/);
 
-  for (const scenario of [9, 10, 11, 12, 28]) {
+  for (const scenario of [9, 10, 28]) {
     assert.match(
       evidence,
       new RegExp('\\| ' + scenario + ' \\|[^\\n]*\\| `SUPPORTED_WITH_LIMITATIONS` \\|'),
       `timer/job evidence does not classify scenario ${scenario}`,
+    );
+  }
+  for (const scenario of [11, 12]) {
+    assert.match(
+      evidence,
+      new RegExp('\\| ' + scenario + ' \\|[^\\n]*\\| `UNSUPPORTED` \\|'),
+      `timer/job evidence does not prohibit scenario ${scenario}`,
     );
   }
   assert.match(evidence, /\| 27 \|[^\n]*\| `UNKNOWN_REQUIRES_MORE_EVIDENCE` \|/);
@@ -208,7 +215,7 @@ test('timer and job evidence remains isolated M5-A capability validation', async
   for (const boundary of [
     'does not authorize M5-B',
     'Timeout remains `UNKNOWN`',
-    'must reject locked, executing, suspended, dead-letter and',
+    'must reject every executable async or pending-job instance',
     'must not be the only equality condition',
   ]) {
     assert.ok(evidence.includes(boundary), `timer/job evidence omits ${boundary}`);
@@ -240,7 +247,7 @@ test('timer and pending-job capability uses public service evidence only', async
   for (const operation of [
     'createJobQuery',
     'flowable:async="true"',
-    'migratesDirectAsyncServiceTaskWhileItsJobRemainsPending',
+    'detectsPendingAsyncJobDefinitionMismatchAfterMigration',
     'getActiveActivityIds',
   ]) {
     assert.ok(pendingAsync.includes(operation), `pending async capability omits ${operation}`);

@@ -56,13 +56,16 @@ The fifth slice adds three test-only classes and four exact tests:
 3. The same class migrates an active user task from a definition with a boundary timer to one
    without it. The target user task remains active and the timer job is removed.
 4. `FlowableProcessInstanceMigrationPendingAsyncJobCapabilityTest` migrates a direct async service
-   task while its executable job remains pending because the async executor is disabled. Exactly one
-   job remains and public readback references the target definition, process instance and activity.
+   task while its executable job remains pending because the async executor is disabled. The process
+   instance changes to the target definition, but the remaining public job readback still references
+   the source definition. This is a deterministic verification mismatch and is unsafe for the
+   platform candidate scope.
 
-These tests prove semantic readback for exact simple shapes. They do not prove safe migration of
-executing or locked jobs, jobs already acquired by another node, retries, dead-letter jobs,
-suspended jobs, async-leave jobs, nested scopes, timer races, job execution after migration, or
-external timeout and duplicate-invocation behavior.
+The timer tests prove semantic readback for exact simple shapes. The pending-async test instead proves
+that a migration can return normally while public post-verification detects a source/target definition
+mismatch. It does not prove safe migration of executing or locked jobs, jobs already acquired by
+another node, retries, dead-letter jobs, suspended jobs, async-leave jobs, nested scopes, timer races,
+job execution after migration, or external timeout and duplicate-invocation behavior.
 
 ## 4. Capability matrix delta
 
@@ -72,8 +75,8 @@ This table supersedes the corresponding rows in the initial feasibility matrix.
 |---:|---|---|---|
 | 9 | Boundary Event | `SUPPORTED_WITH_LIMITATIONS` | Adding and removing one non-interrupting boundary timer on a direct user-task wait state is verified. Signal/message boundaries, interrupting execution, nested scopes and fired events remain unproven. |
 | 10 | Timer | `SUPPORTED_WITH_LIMITATIONS` | A same-ID intermediate timer catch event and a fixed semantic due date are verified through one target timer job. Timer firing and concurrent due-date races remain unproven. |
-| 11 | Async Job | `SUPPORTED_WITH_LIMITATIONS` | A direct async service task with one unexecuted job is migrated to the same activity ID. Locked, executing, async-leave and failed jobs remain blocked. |
-| 12 | Pending job | `SUPPORTED_WITH_LIMITATIONS` | Public job readback verifies exactly one pending target-definition job for the tested direct async service-task shape. Retry, lock and dead-letter semantics remain unproven. |
+| 11 | Async Job | `UNSUPPORTED` | Flowable accepts the tested direct async-service migration, but the pending job remains bound to the source process definition while the process instance points to the target. This split binding is unsafe. |
+| 12 | Pending job | `UNSUPPORTED` | Public readback proves a deterministic verification mismatch for the tested pending async job. Job-bearing instances must be rejected from the initial safe scope. |
 | 27 | Timeout although engine migration completed | `UNKNOWN_REQUIRES_MORE_EVIDENCE` | Timer and job state can be read publicly, but no invocation receipt or idempotency contract proves whether a timed-out call completed. |
 | 28 | Engine returns success but post-verification differs | `SUPPORTED_WITH_LIMITATIONS` | Timer/job count, definition, element and due-date evidence can detect mismatch for these shapes; mismatch must enter reconciliation rather than completion. |
 
@@ -90,8 +93,9 @@ This table supersedes the corresponding rows in the initial feasibility matrix.
   invocation.
 - A job becoming executable, locked, moved, retried or removed after validation invalidates the
   execution authorization.
-- The initial production candidate scope must reject locked, executing, suspended, dead-letter and
-  multi-job instances until dedicated evidence exists.
+- The initial production candidate scope must reject every executable async or pending-job instance,
+  including unlocked single-job shapes, because the tested job retained the source definition binding.
+- Locked, executing, suspended, dead-letter and multi-job instances remain independently prohibited.
 - Timeout remains `UNKNOWN`; it must never trigger a blind retry.
 
 ## 6. Still prohibited

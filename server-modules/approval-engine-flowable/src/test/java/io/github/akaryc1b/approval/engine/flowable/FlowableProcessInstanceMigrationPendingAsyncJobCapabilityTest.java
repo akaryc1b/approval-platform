@@ -52,7 +52,7 @@ class FlowableProcessInstanceMigrationPendingAsyncJobCapabilityTest {
     }
 
     @Test
-    void migratesDirectAsyncServiceTaskWhileItsJobRemainsPending() {
+    void detectsPendingAsyncJobDefinitionMismatchAfterMigration() {
         ProcessDefinition source = deploy("async-source.bpmn20.xml", asyncProcessXml("m5PendingAsync"));
         ProcessInstance instance = runtime.startProcessInstanceById(source.getId());
         Job sourceJob = asyncJob(instance.getId());
@@ -72,7 +72,7 @@ class FlowableProcessInstanceMigrationPendingAsyncJobCapabilityTest {
         assertNotNull(migratedJob);
         assertEquals(1, management.createJobQuery().processInstanceId(instance.getId()).count());
         assertEquals(instance.getId(), migratedJob.getProcessInstanceId());
-        assertEquals(target.getId(), migratedJob.getProcessDefinitionId());
+        assertEquals(source.getId(), migratedJob.getProcessDefinitionId());
         assertEquals("asyncWork", migratedJob.getElementId());
         assertEquals(Set.of("asyncWork"), Set.copyOf(runtime.getActiveActivityIds(instance.getId())));
         assertEquals(target.getId(), runtime.createProcessInstanceQuery()
