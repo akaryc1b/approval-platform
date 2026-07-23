@@ -1,145 +1,194 @@
 # Roadmap
 
+本文是仓库的权威产品路线图。阶段编号以本文件为准；README 和其他 living docs 必须与本文件保持一致。
+
+## 当前基线
+
+- M4 已通过 PR #55 正式验收并合并；
+- M4.1 文档对齐已通过 PR #59 合并；
+- Flyway 连续至 `V32`；
+- 唯一永久 workflow：`.github/workflows/approval-platform-validation.yml`；
+- M5 正在 Issue #56 / Draft PR #58 中开发；
+- M6 规划为 Ecosystem and AI。
+
 ## M0 Foundation — complete
 
-- Monorepo 和构建基线；
-- 产品章程、架构、DSL、表单和连接器协议；
-- Java 领域、应用、Engine SPI 和 Flowable 适配；
-- TypeScript contracts、process-dsl 和 form-schema 包；
-- CI、依赖、安全、多租户和质量门禁；
-- Vben PC、Unibest 移动端和 Generic REST 宿主基础；
-- RuoYi-Vue-Plus 5.X / 6.X 宿主 Starter。
+- Monorepo、构建、CI、安全、多租户和质量门禁；
+- Java Domain/Application/Engine SPI/Flowable 适配；
+- TypeScript contracts、Vben PC、UniApp Mobile 和宿主接入基础；
+- 产品章程、架构、DSL、表单和连接器协议。
 
 ## M1 First Vertical Slice — complete
 
-采购付款审批已形成可运行闭环：
+采购付款审批形成 PC、H5、微信小程序可运行闭环：
 
-- 版本化 Approval DSL、Form Schema、BPMN 编译与 Flowable 部署；
-- 动态审批人解析和不可变身份快照；
-- 发布、发起、条件分支、并行会签和完成回调；
-- 同意、驳回到发起人、修改重提、撤回、拿回和转办；
-- 催办、抄送、消息中心、已读回执、评论和 @提及；
-- 一层评论回复、真实附件上传与受权限控制的下载；
-- 平台实例/任务投影、幂等、并发、审计与 Outbox；
-- PC、H5 和微信小程序真实接口工作台与协作页面。
+- 版本化 DSL、Form Schema、BPMN 编译和 Flowable 部署；
+- 动态责任解析和不可变身份快照；
+- 条件、并行会签、审批动作、回调、催办、抄送和消息；
+- 评论、@提及、附件、投影、幂等、并发、审计和 Outbox。
 
 ## M2 Designer and Forms — complete
 
-### 已完成
+- Approval DSL 与递归树设计器；
+- Form Schema、UI Schema、节点字段权限和多端 Renderer；
+- 静态检查、路径模拟、批量场景和覆盖率；
+- 确定性 BPMN/DMN 编译、Form Package 和 Release Package；
+- 发布/部署 Preflight、版本中心、结构 Diff 和安全导入导出；
+- 生效版本、激活历史、runtime version snapshot 和并发 CAS；
+- PostgreSQL/Testcontainers、性能基准和 committed-head 验证。
 
-- 租户隔离、不可变的 Form Schema 版本仓库；
-- Form Schema 服务端校验、确定性内容哈希和幂等发布；
-- 表单版本列表、搜索、详情与采购付款模板 API；
-- 通用表单提交、服务端权威校验和不可变数据快照；
-- 表单 Key/精确版本到流程启动器的绑定；
-- 移动端真实发布表单发起和审批详情快照；
-- 租户隔离、不可变的 UI Schema 版本仓库；
-- UI Schema 与精确 Form Schema Key/版本强绑定；
-- 字段顺序、区块、placeholder、helpText、跨度和默认折叠协议；
-- `EDITABLE`、`READONLY`、`HIDDEN` 节点字段权限；
-- 发起、普通审批和发起人修改节点的后端权威权限解析；
-- 提交、审批详情和重提的字段权限校验；
-- UI Schema 版本/哈希固定与不可变表单修订快照；
-- 无 UI Schema 历史表单的安全默认行为；
-- PC Form/UI Schema JSON 工作台和 Element Plus Renderer；
-- Wot UI 移动 Renderer、H5 和微信小程序共用协议；
-- TEXT、MONEY、ATTACHMENT 基础字段协议；
-- 租户隔离的表单设计草稿、空白/模板/已发布版本复制和草稿状态生命周期；
-- revision 乐观锁、自动保存幂等、过期 revision 冲突和已发布草稿不可修改；
-- 草稿服务端校验、节点上下文预览、归档和低噪声审计；
-- `INHERIT`、`REQUIRED`、`OPTIONAL` 节点必填覆盖及服务端有效必填校验；
-- `NONE`、`LITERAL`、`CURRENT_USER`、`CURRENT_DATE`、`CURRENT_DATETIME` 安全类型化默认值；
-- 默认值后端解析、Runtime 预填和不可变提交快照持久化；
-- 不可变 Form Package、精确 Form/UI 版本与哈希绑定和事务联合发布；
-- Flyway V9 草稿、Form Package、租户约束、精确外键和查询索引；
-- PC 三栏可视化表单设计器、草稿搜索/创建、分组与字段拖拽、属性编辑、复制/删除和撤销；
-- revision CAS 自动保存、服务端冲突提示与重新加载恢复；
-- TEXTAREA、NUMBER、DATE、DATETIME、BOOLEAN、SELECT 静态选项字段协议、校验、哈希和 PostgreSQL JSON 往返；
-- Element Plus 与移动端 H5/微信共用 Renderer 对新增字段类型的真实渲染；
-- 节点字段访问/必填覆盖矩阵、服务端多节点预览和不可变 Form Package 发布确认摘要；
-- 租户隔离的 Approval DSL 草稿仓库、空白/模板/已发布版本复制、搜索、归档和 revision CAS 生命周期；
-- Approval DSL 服务端权威静态检查，区分 error、warning 和 info，并校验条件字段、审批人规则、受控修订回路和 UI 权限上下文；
-- 正式的并行 split/join、条件与并行组合、嵌套并行拓扑和确定性 Flowable BPMN 编译；
-- 不部署真实流程的服务端权威模拟器，覆盖同意、驳回、条件默认路由、Handle 回路、并行等待/join、阻塞和迁移上限；
-- 不可变 Approval DSL 版本仓库、确定性 DSL 哈希、不可变 BPMN 编译制品仓库和稳定编译哈希；
-- Approval DSL、Form Package、Form/UI Schema、BPMN、编译器版本和部署元数据精确绑定的不可变 Release Package；
-- Release Package 版本锁定、请求幂等、语义重放、版本冲突和单事务原子发布/失败回滚；
-- Flyway V10 Approval 草稿、DSL 版本、编译制品和 Release Package 表、租户边界、状态约束、精确外键和检索索引；
-- PC 服务端流程设计工作台、草稿刷新恢复、显式/自动保存、冲突安全重载、撤销、复制/删除、条件/并行分支、服务端检查/模拟和发布确认；
-- Release Package 到 Flowable 的显式幂等部署、平台部署投影、失败持久化、显式重试、部署审计和相同制品语义去重；
-- Approval DSL 与 Release Package 版本中心、稳定分页排序、完整制品关联、部署身份和确定性结构 Diff；
-- PC 版本管理页面、版本时间线、双版本比较、结构 Diff、Release Package/BPMN 只读详情和历史 DSL 新建草稿；
-- 平台拥有的当前生效 Release projection、revision CAS、激活历史、版本切换和历史版本回滚；
-- 新实例通过精确 Release Package、engineDefinitionId、DSL、Form Package 和编译器版本启动并持久化版本快照；
-- PC 版本生效页面、激活/回滚确认摘要、变更原因、expected revision、当前生效详情和激活历史；
-- Flyway V11–V13 部署、生效版本、激活历史、实例版本快照、租户边界、精确外键和 PostgreSQL 并发 CAS 约束；
-- 发布和部署前服务端权威 Preflight，统一输出 errors、warnings、infos、制品哈希、编译、模拟和部署兼容性摘要；
-- 确定性 preflight hash、事务内重新计算、草稿 revision/制品变化防陈旧提交和 warning 精确确认；
-- 发布与部署审计记录 Preflight Hash、目标环境、确认警告、确认人和确认时间；
-- BPMN 安全解析、process key 校验、Release Package 完整性复算以及编译制品精确字节保留；
-- PC 流程设计器和版本中心真实 Preflight、阻断项展示、warning 确认及同 Hash 发布/部署；
-- 服务端权威命名场景批量模拟，支持 1–100 个场景、稳定排序、草稿 revision/状态/租户边界检查且不部署或启动流程；
-- 场景输入深度、元素、文本、决策、身份快照、预期节点和迁移次数限制，以及 `MASKED`、`FIELD_NAMES_ONLY`、`FULL` 表单值披露模式；
-- 精确绑定 Approval DSL、Form Package、Form/UI Schema 版本与哈希的确定性模拟报告、稳定 `reportHash` 和可审计元数据；
-- 节点、Start/End、同意/驳回、条件路由/默认路由、并行 split/branch/join、Handle 回路、阻塞和迁移上限的路径覆盖率与未覆盖项；
-- PostgreSQL/Testcontainers 验证真实 JDBC 草稿/Form/UI 读取、过期 revision、跨租户隔离和模拟过程零草稿/审计写入；
-- PC 批量模拟工作台、采购付款预设、场景编辑/复制、路径详情、覆盖率、基线复制以及来自同一权威报告的 JSON 复制与下载；
-- PC 流程设计器基于上次服务端保存基线、本地状态和最新服务端 revision 的确定性三方 Diff、重叠路径识别和仅限非重叠修改的安全合并；
-- 流程设计器保存失败状态、Form Package 版本变更跟踪、撤销/重做历史以及条件路由操作历史；
-- 浏览器刷新、路由离开、草稿重新加载/切换、新建和归档操作的未保存修改或冲突保护，包含同草稿重新打开的数据丢失防护；
-- 流程节点 ID、顺序、入边、出边和类型统计的缓存拓扑索引，替代设计器热点路径中的重复全量扫描；
-- 100、300、500 节点拓扑构建与搜索基准门禁，以及首屏 120 节点的有界渲染和分批加载；
-- 大流程拓扑基准作为 PR 验证门禁持续执行并保存可追溯日志；
-- 条件与并行分支默认/手动折叠、节点名称/标识/类型搜索、多类型筛选和大流程自动折叠；
-- 保存、撤销、重做和删除快捷键，输入框、可编辑内容、按钮和链接的快捷键保护；
-- 服务端校验问题、模拟步骤和模拟问题的一键节点定位；
-- 删除节点前的引用、重连、驳回目标和并行汇聚影响摘要，以及不安全拓扑删除阻断；
-- 取消未保存修改确认时保留新建流程弹窗和用户输入；
-- `APPROVAL_DSL_EXPORT_V1` 与 `APPROVAL_RELEASE_PACKAGE_EXPORT_V1` 确定性跨租户传输协议；
-- DSL、BPMN、DMN、编译制品、部署元数据、Release Package、payload 与 envelope 的服务端重算和完整性拒绝；
-- 2 MiB 请求、JSON 深度/元素/字符串、500 节点、BPMN/DMN 字节数和安全资源名硬限制；
-- 重复 JSON key、未知字段、整数溢出、非法 Unicode、XXE/外部 DTD/schema 和非法 XML 防御；
-- 导入只创建目标租户 revision 1 的 DRAFT，精确重绑本地 Form Package，单事务幂等和低敏审计；
-- PostgreSQL/Testcontainers 证明导出零写入、跨租户隔离、失败零部分写入和成功仅新增草稿/审计；
-- PC 版本中心的 DSL/Release 导出、安全文件名、2 MiB 单 JSON 导入预览和只创建草稿确认；
-- 最多四层的递归 UI Section 树、全局唯一 Section Key、同级稳定顺序、1–4 列布局、折叠和递归字段唯一归属；
-- `ALWAYS`、`FIELD_EQUALS`、`FIELD_NOT_EMPTY` 受控可见性协议，不执行表达式、脚本、远程模块或动态 import；
-- 版本化白名单组件注册表以及 `BUSINESS_REFERENCE`、`USER_SELECTOR`、`DEPARTMENT_SELECTOR` 业务组件；
-- 组件与字段类型兼容校验、有界惰性属性、稳定属性哈希、未知组件/版本拒绝和只读 fallback；
-- PC、H5、微信小程序一致的递归区块顺序、隐藏、必填、只读摘要和安全 fallback 语义；
-- PC 表单设计器的子区块、复制、同级重排、跨嵌套区块字段移动、组件选择、属性编辑、撤销/重做和离开保护；
-- `readonlySummary` 在发布校验、设计预览、发起、任务运行时和重提中的服务端权威降级，不能提升 `HIDDEN`/`READONLY` 权限；
-- 递归区块与组件协议确定性哈希、PostgreSQL JSON 往返、跨端纯函数语义门禁和 committed-head 全矩阵验证；
-- 管理 API 的 `READ`、`DESIGN`、`PUBLISH`、`DEPLOY`、`ACTIVATE`、`TRANSFER` 封闭能力模型和显式 `ADMIN` 超级权限；
-- 默认基于已认证 Servlet Principal 的 fail-closed 权限边界，以及显式 opt-in 的可信网关 Header 模式；
-- 稳定 403 错误、权限集合不回显、拒绝事件低敏日志和管理端点反射覆盖门禁；
-- `approval.management.authorization` 与 `approval.management.request.duration` 低基数指标，不使用租户、用户、路径或制品作为时序标签；
-- Form/Release 发布、部署成功/失败、生效切换、回滚和安全导入的事务审计事件与运维核对表；
-- Java/Spring/Flowable/PostgreSQL/Node/PC/UniApp、协议版本、Renderer 和认证源兼容性矩阵；
-- 生产启动、Flyway、权限、健康探针、指标、发布/部署/激活/回滚、备份恢复和故障处置运维手册。
+详细交付可从 Git 历史、M2 测试和后续验收记录追溯。
 
-### 完成状态
+## M3 Collaboration — complete
 
-- D10 已完成全量 Diff 审查、调试/临时载荷扫描、PR 专用 helper 与自提交工作流清扫、默认生产权限边界复核和最终 committed-head 验证；
-- M2 交付保持在 Draft PR 中，后续合并、发布和 M3 范围由维护者显式决定。
+M3 已正式验收并合并：
 
-## M3 Collaboration
+- 顺序/并行会签、或签、票签和权重；
+- 加签、减签、委派、代理、离职交接和协办；
+- 评论、回复、附件、可见范围、消息渠道和通知偏好；
+- 通知 intent/attempt、重试、死信和 replay；
+- tenant-scoped 审计哈希链、完整性验证和导出；
+- detect-only 一致性检查和统一 operational failure；
+- 管理权限、安全、并发、性能和正式验收。
 
-- 顺序/并行会签、或签、票签、权重；
-- 前后加签、减签、委派和协办；
-- 代理、离职转办和流程交接；
-- 评论治理、消息渠道和通知偏好。
+验收入口：[`M3_FINAL_ACCEPTANCE.md`](M3_FINAL_ACCEPTANCE.md)。
 
-## M4 Operations
+## M4 Operations — complete
 
-- 工作日历、SLA、超时升级和自动处理；
-- 运维控制台、Job 重试、流程跳转和补偿；
-- 流程版本迁移和批次预演；
-- 监控、告警、容量和数据清理。
+M4 已正式验收并通过 PR #55 合并，实际完成范围覆盖并扩展了原始 Operations 规划：
 
-## M5 Ecosystem and AI
+- principal-backed 身份、租户隔离和 server-owned request context；
+- 企业责任来源、管理 capability、资源 scope 和高风险审计；
+- 版本化工作日历、不可变 SLA policy、时区和 DST；
+- SLA instance、execution intent、append-only attempt、lease、retry、DEAD 和 replay；
+- 运维管理 API、Web operations、结构化错误和低基数指标；
+- Process Release Lifecycle、单 ACTIVE release 和 immutable deployment evidence；
+- release-bound start、immutable runtime binding 和 fail-closed read/replay；
+- detect-only migration assessment、批次预演、`bindingEvidenceHash` 和 `reportHash`。
+
+M4 未提供真实运行实例迁移执行；迁移 dry-run 不会修改 Flowable 或平台业务状态。
+
+验收入口：[`M4_FINAL_ACCEPTANCE.md`](M4_FINAL_ACCEPTANCE.md)。
+
+## M4.1 Documentation Reconciliation — complete
+
+- PR #59 已合并；
+- README、架构、运维、协议和验收索引已与 M4 对齐；
+- living docs、immutable governance records 和 historical drafts 已分类；
+- 后续路线以本文件为权威。
+
+## M5 Governed Process Instance Migration and Release Operations — in progress
+
+跟踪：Issue #56 / Draft PR #58。
+
+### M5-A — Public API capability validation
+
+- 验证 Flowable 8.0.0 公开 migration API；
+- 建立简单任务、并行、多实例、子流程、timer/job、变量、identity link、并发和超时支持矩阵；
+- 禁止访问 `ACT_*` 内部表；
+- 在证据充分前不增加 V33、生产 worker、执行端点或前端执行按钮。
+
+当前结论：`SUPPORTED_WITH_LIMITATIONS`。简单 active user-task 迁移已有隔离证据，但复杂场景仍需验证。
+
+### M5-B — Governed model and persistence
+
+- migration plan、instance snapshot、authorization、intent、attempt、verification、reconciliation 和 completion evidence；
+- tenant scope、append-only evidence、deterministic hash 和精确 source/target release binding；
+- 只有通过 M5-A 门禁后才允许设计 V33。
+
+### M5-C — Immutable plan and approval gates
+
+- 从 detect-only assessment 创建计划；
+- revalidation、activity mapping、seal、approve、reject 和 cancel；
+- sealed plan 不允许静默修改实例、目标 release 或 mapping。
+
+### M5-D — Server executor and reconciliation
+
+- 默认关闭的服务端 executor；
+- lease、CAS、bounded batch、canary、pause 和 kill switch；
+- 外部引擎调用不放入长数据库事务；
+- UNKNOWN 结果不得盲目重试，必须 verification/reconciliation；
+- 不提供伪事务 rollback。
+
+### M5-E — Operations API and UI
+
+- 先提供只读计划、attempt、verification 和 reconciliation 视图；
+- 后续操作只创建受治理命令，不允许浏览器直接修改执行证据；
+- Mobile 默认只读。
+
+### M5-F — Fault, security and observability
+
+- 数据库、审计、引擎、超时、崩溃、lease、重复命令和并发故障注入；
+- tenant/operator/permission spoofing 与跨租户边界；
+- 指标只使用闭集低基数标签。
+
+### M5-G — Formal acceptance
+
+- 正式治理文档、永久 workflow、artifact/digest、测试矩阵和冻结证据；
+- 未得到明确指令前 PR 保持 Open + Draft。
+
+## M6 Ecosystem and AI — planned
+
+M6 继承原始 Roadmap 中 Ecosystem and AI 的产品方向，并在 M5 之后单独启动。
+
+### M6-A — Connector foundation
 
 - 钉钉、飞书连接器；
-- SDK、模板市场和第三方组件；
-- AI 材料检查、摘要、风险和意见建议；
-- 受控自动审批和 AI 审计。
+- 组织、身份、消息、第三方待办和业务回调；
+- 凭据管理、签名、限流、重试、死信和 provider evidence；
+- 连接器不能改变审批核心语义。
+
+### M6-B — SDK and event ecosystem
+
+- Java 和 TypeScript SDK；
+- 版本化 API contracts、签名 Webhook、事件订阅和幂等；
+- RuoYi-Vue-Plus 5.x/6.x 及其他宿主适配；
+- 兼容性矩阵和弃用策略。
+
+### M6-C — Template and component ecosystem
+
+- 流程模板中心、模板版本和分类；
+- 受控导入导出、依赖检查和租户本地重绑定；
+- 第三方表单组件注册、白名单属性和安全 fallback；
+- 模板或组件不能携带脚本、动态模块或可信权限。
+
+### M6-D — AI foundation
+
+- AI Provider SPI；
+- 模型、Prompt、知识来源和策略版本；
+- 数据最小化、脱敏、字段权限和 tenant isolation；
+- 成本、延迟、超时、降级、禁用和 fallback；
+- 输入、输出和人工决策的可追踪审计。
+
+### M6-E — AI approval assistance
+
+- 材料完整性检查；
+- 审批内容摘要；
+- 风险信号与相似案例检索；
+- 审批意见和下一步建议；
+- 输出必须标识来源、置信度、限制和需要人工核对的内容。
+
+### M6-F — Controlled automation and AI governance
+
+- 默认只建议、不自动改变流程状态；
+- 高风险动作必须人工确认、重新鉴权、幂等和审计；
+- 禁止 AI 伪造操作者、权限、审批结论或事实；
+- prompt injection、敏感数据泄露、越权检索和模型不可用测试；
+- AI 指标保持低基数。
+
+### M6-G — Formal acceptance
+
+- 连接器、SDK、模板和 AI 能力分别建立测试矩阵与治理记录；
+- 记录模型/Prompt/知识版本和已知限制；
+- 完成永久 workflow 和正式验收后才允许合并。
+
+## Permanent roadmap boundaries
+
+- 阶段规划不覆盖已冻结的历史验收事实；
+- M5 继续由 Issue #56 / PR #58 承载，不重新编号或迁移到其他 PR；
+- M6 不得提前混入 M5 PR；
+- detect-only assessment 不得描述为 migration execution；
+- AI 建议不等于审批决定；
+- 生产代码不查询或修改 Flowable `ACT_*` 表；
+- 客户端不能制造 tenant、operator、authority、audit、worker、lease 或 engine identity；
+- Issues #13 和 #14 保持 Open，除非维护者明确决定。
