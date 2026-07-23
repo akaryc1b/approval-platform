@@ -138,6 +138,24 @@ public record AuditEventContract(
                      "runtimeUsageCount",
                      "reason"
                  );
+            case "PROCESS_RELEASE_MIGRATION_DRY_RUN_EXECUTED" -> Set.of(
+                "operation",
+                "definitionKey",
+                "sourceReleaseVersion",
+                "sourceReleasePackageHash",
+                "targetReleaseVersion",
+                "targetReleasePackageHash",
+                "status",
+                "totalBindingCount",
+                "evaluatedCount",
+                "eligibleCount",
+                "blockedCount",
+                "terminalCount",
+                "highImpactChangeCount",
+                "reportHash",
+                "detectOnly",
+                "reason"
+            );
             case "INSTANCE_COMMENT_CREATED",
                  "INSTANCE_COMMENT_EDITED",
                  "INSTANCE_COMMENT_DELETED" -> Set.of(
