@@ -314,7 +314,7 @@ class JdbcApprovalProcessReleaseActivationIntegrationTest {
             State.PUBLISHED,
             1,
             "publish-" + version,
-            NOW.minusSeconds(600 - version * 10L)
+            releasePackage.publishedAt()
         );
         ApprovalProcessRelease lifecycle = ApprovalProcessRelease.published(
             releasePackage,
