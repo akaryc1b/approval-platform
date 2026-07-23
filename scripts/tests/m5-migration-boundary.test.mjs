@@ -13,6 +13,10 @@ const capabilityTestPath = path.join(
   root,
   'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationCapabilityTest.java',
 );
+const evidenceTestPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationEvidenceCapabilityTest.java',
+);
 const migrationDirectory = path.join(
   root,
   'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
@@ -76,6 +80,7 @@ test('M5-A remains capability validation only with a complete status matrix', as
   assert.match(feasibility, /Overall conclusion: `SUPPORTED_WITH_LIMITATIONS`/);
   assert.match(feasibility, /Flowable dependency baseline: `org\.flowable:flowable-bom:8\.0\.0`/);
   assert.match(feasibility, /Current M5-A decision: `SUPPORTED_WITH_LIMITATIONS`/);
+  assert.match(feasibility, /Second slice: runtime evidence, suspension, ended instances and receive tasks/);
 
   for (let scenario = 1; scenario <= 28; scenario += 1) {
     assert.match(
@@ -97,6 +102,19 @@ test('M5-A remains capability validation only with a complete status matrix', as
     );
   }
 
+  for (const scenario of [14, 15, 16, 17, 18, 20]) {
+    assert.match(
+      feasibility,
+      new RegExp(`\\| ${scenario} \\|[^\\n]*\\| \`SUPPORTED_WITH_LIMITATIONS\` \\|`),
+      `M5-A second evidence slice did not update scenario ${scenario}`,
+    );
+  }
+  assert.match(
+    feasibility,
+    /\| 19 \|[^\n]*\| `UNSUPPORTED` \|/,
+    'ended instances must remain unsupported',
+  );
+
   for (const requiredAnswer of [
     'Does the official API support migration?',
     'Can it migrate multiple instances?',
@@ -116,6 +134,7 @@ test('M5-A remains capability validation only with a complete status matrix', as
 
 test('Flowable migration capability code is isolated to test sources and public APIs', async () => {
   const capabilityTest = await text(capabilityTestPath);
+  const evidenceTest = await text(evidenceTestPath);
 
   for (const publicType of [
     'ProcessMigrationService',
@@ -133,14 +152,42 @@ test('Flowable migration capability code is isolated to test sources and public 
   ]) {
     assert.ok(capabilityTest.includes(operation), `capability test omits ${operation}`);
   }
-  assert.doesNotMatch(capabilityTest, /ACT_[A-Z0-9_]+/);
-  assert.doesNotMatch(capabilityTest, /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/);
+
+  for (const publicType of [
+    'HistoryService',
+    'RuntimeService',
+    'TaskService',
+    'IdentityLink',
+    'HistoricTaskInstance',
+  ]) {
+    assert.match(evidenceTest, new RegExp(`org\\.flowable.*${publicType}|${publicType}`));
+  }
+  for (const operation of [
+    'setVariableLocal',
+    'getVariableLocal',
+    'getIdentityLinksForTask',
+    'suspendProcessInstanceById',
+    'getActiveActivityIds',
+    'createHistoricProcessInstanceQuery',
+    'createHistoricTaskInstanceQuery',
+  ]) {
+    assert.ok(evidenceTest.includes(operation), `evidence test omits ${operation}`);
+  }
+
+  for (const content of [capabilityTest, evidenceTest]) {
+    assert.doesNotMatch(content, /ACT_[A-Z0-9_]+/);
+    assert.doesNotMatch(
+      content,
+      /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/,
+    );
+  }
 
   const productionRoots = [
     path.join(root, 'apps/server/src/main/java'),
     path.join(root, 'server-modules'),
   ];
-  const forbiddenPublicMigrationUse = /\b(?:ProcessMigrationService|ProcessInstanceMigrationBuilder|ActivityMigrationMapping)\b/;
+  const forbiddenPublicMigrationUse =
+    /\b(?:ProcessMigrationService|ProcessInstanceMigrationBuilder|ActivityMigrationMapping)\b/;
   for (const productionRoot of productionRoots) {
     const files = await filesUnder(productionRoot, new Set(['.java']));
     for (const file of files) {
@@ -205,7 +252,8 @@ test('M5-A introduces no V33, production worker, or execution surface', async ()
     )),
   ];
 
-  const forbiddenExecutionWords = /(?:execute|force|rollback|start|resume)[-_/]?(?:process[-_/]?)?migration|migration[-_/]?(?:execute|execution|force|rollback|start|resume)/i;
+  const forbiddenExecutionWords =
+    /(?:execute|force|rollback|start|resume)[-_/]?(?:process[-_/]?)?migration|migration[-_/]?(?:execute|execution|force|rollback|start|resume)/i;
   for (const file of [...apiFiles, ...clientFiles]) {
     const content = await text(file);
     assert.doesNotMatch(
