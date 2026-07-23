@@ -36,6 +36,22 @@ const callExitCapabilityPath = path.join(
   root,
   'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationCallActivityExitCapabilityTest.java',
 );
+const timerJobEvidencePath = path.join(
+  root,
+  'docs/M5_PROCESS_INSTANCE_MIGRATION_TIMER_JOB_EVIDENCE.md',
+);
+const timerCatchCapabilityPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationTimerCatchCapabilityTest.java',
+);
+const boundaryTimerCapabilityPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationBoundaryTimerCapabilityTest.java',
+);
+const pendingAsyncCapabilityPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationPendingAsyncJobCapabilityTest.java',
+);
 
 async function text(file) {
   return readFile(file, 'utf8');
@@ -169,5 +185,73 @@ test('subprocess capability uses public scope and call-tree APIs only', async ()
       capability,
       /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/,
     );
+  }
+});
+
+test('timer and job evidence remains isolated M5-A capability validation', async () => {
+  const evidence = await text(timerJobEvidencePath);
+
+  assert.match(evidence, /M5-A TIMER\/JOB SLICE: `CAPABILITY_VALIDATION_ONLY`/);
+  assert.match(evidence, /Overall conclusion remains: `SUPPORTED_WITH_LIMITATIONS`/);
+  assert.match(evidence, /Current M5-A decision remains `SUPPORTED_WITH_LIMITATIONS`/);
+  assert.match(evidence, /adds no `V33`/);
+
+  for (const scenario of [9, 10, 11, 12, 28]) {
+    assert.match(
+      evidence,
+      new RegExp('\\| ' + scenario + ' \\|[^\\n]*\\| `SUPPORTED_WITH_LIMITATIONS` \\|'),
+      `timer/job evidence does not classify scenario ${scenario}`,
+    );
+  }
+  assert.match(evidence, /\| 27 \|[^\n]*\| `UNKNOWN_REQUIRES_MORE_EVIDENCE` \|/);
+
+  for (const boundary of [
+    'does not authorize M5-B',
+    'Timeout remains `UNKNOWN`',
+    'must reject locked, executing, suspended, dead-letter and',
+    'must not be the only equality condition',
+  ]) {
+    assert.ok(evidence.includes(boundary), `timer/job evidence omits ${boundary}`);
+  }
+});
+
+test('timer and pending-job capability uses public service evidence only', async () => {
+  const timerCatch = await text(timerCatchCapabilityPath);
+  const boundaryTimer = await text(boundaryTimerCapabilityPath);
+  const pendingAsync = await text(pendingAsyncCapabilityPath);
+
+  for (const operation of [
+    'ManagementService',
+    'createTimerJobQuery',
+    'getProcessDefinitionId',
+    'getElementId',
+    'getDuedate',
+  ]) {
+    assert.ok(timerCatch.includes(operation), `timer catch capability omits ${operation}`);
+  }
+  for (const operation of [
+    'reviewBoundary',
+    'createTimerJobQuery',
+    'addsBoundaryTimerToAnExistingUserTaskWaitState',
+    'removesBoundaryTimerWhileKeepingTheUserTaskWaitState',
+  ]) {
+    assert.ok(boundaryTimer.includes(operation), `boundary timer capability omits ${operation}`);
+  }
+  for (const operation of [
+    'createJobQuery',
+    'flowable:async="true"',
+    'migratesDirectAsyncServiceTaskWhileItsJobRemainsPending',
+    'getActiveActivityIds',
+  ]) {
+    assert.ok(pendingAsync.includes(operation), `pending async capability omits ${operation}`);
+  }
+
+  for (const capability of [timerCatch, boundaryTimer, pendingAsync]) {
+    assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+/);
+    assert.doesNotMatch(
+      capability,
+      /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/,
+    );
+    assert.doesNotMatch(capability, /executeJob|deleteJob|setJobRetries|moveJobToDeadLetter/);
   }
 });
