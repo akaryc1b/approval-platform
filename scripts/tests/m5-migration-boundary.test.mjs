@@ -91,7 +91,7 @@ test('M5-A remains capability validation only with a complete status matrix', as
     'UNSUPPORTED',
     'UNKNOWN_REQUIRES_MORE_EVIDENCE',
   ]) {
-    assert.match(feasibility, new RegExp(`\\`${status}\\``));
+    assert.ok(feasibility.includes('`' + status + '`'));
   }
 
   for (const requiredAnswer of [
