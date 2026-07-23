@@ -159,6 +159,42 @@ test('AI routing invokes at most one provider and forbids post-invocation fallba
   }
 });
 
+test('AI artifact metadata and offline evaluation cannot contain prompts or authorize production', () => {
+  const coreSource = path.join(
+    root,
+    'server-modules/approval-ai-core/src/main/java/io/github/akaryc1b/approval/ai/core',
+  );
+  const prompt = text(path.join(coreSource, 'AiPromptTemplateDescriptor.java'));
+  const knowledge = text(path.join(coreSource, 'AiKnowledgeSourceDescriptor.java'));
+  const policy = text(path.join(coreSource, 'AiPolicyDescriptor.java'));
+  const output = text(path.join(coreSource, 'AiOutputSchemaDescriptor.java'));
+  const artifactRegistry = text(path.join(coreSource, 'AiAdvisoryArtifactRegistry.java'));
+  const providerRegistry = text(path.join(coreSource, 'AiProviderRegistry.java'));
+  const evaluationRunner = text(path.join(coreSource, 'AiEvaluationRunner.java'));
+  const evaluationReport = text(path.join(coreSource, 'AiEvaluationReport.java'));
+
+  assert.doesNotMatch(
+    prompt,
+    /\bString\s+(prompt|promptText|promptBody|content|body|instructions|messages)\b/,
+  );
+  assert.match(prompt, /Metadata-only prompt template authorization/);
+  assert.match(knowledge, /containsCustomerData/);
+  assert.match(knowledge, /knowledge retrieval is prohibited/);
+  assert.match(policy, /humanReviewRequired/);
+  assert.match(policy, /authoritativeDecisionAllowed/);
+  assert.match(policy, /postInvocationRetryAllowed/);
+  assert.match(output, /advisoryOnly/);
+  assert.match(output, /humanReviewRequired/);
+  assert.match(artifactRegistry, /exact AI prompt template metadata is not registered/);
+  assert.match(providerRegistry, /artifactRegistry\.authorize/);
+  assert.match(providerRegistry, /DETERMINISTIC_MOCK/);
+  assert.doesNotMatch(evaluationRunner, /\.advise\s*\(/);
+  assert.match(evaluationReport, /productionEnablementAuthorized/);
+  assert.match(evaluationReport, /approvalAutomationAuthorized/);
+  assert.match(evaluationReport, /cannot authorize production enablement/);
+  assert.match(evaluationReport, /cannot authorize approval automation/);
+});
+
 test('only the permanent validation workflow is automatic', () => {
   const workflowRoot = path.join(root, '.github/workflows');
   const workflows = filesUnder(workflowRoot)

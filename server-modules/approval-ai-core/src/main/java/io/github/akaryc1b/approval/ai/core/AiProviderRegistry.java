@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.ai.core;
 
 import io.github.akaryc1b.approval.ai.spi.AiAdvisoryProvider;
 import io.github.akaryc1b.approval.ai.spi.AiProviderDescriptor;
+import io.github.akaryc1b.approval.ai.spi.AiProviderType;
 import io.github.akaryc1b.approval.ai.spi.AiVersionReferences;
 
 import java.util.Collection;
@@ -10,12 +11,45 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Exact provider-version registry; untrusted requests never select or register providers. */
+/**
+ * Exact provider-version registry combined with server-owned prompt, knowledge, policy and output
+ * metadata authorization. Untrusted requests never select or register providers or artifacts.
+ */
 public final class AiProviderRegistry {
 
     private final Map<ProviderKey, AiAdvisoryProvider> providers;
+    private final AiAdvisoryArtifactRegistry artifactRegistry;
+    private final boolean artifactAuthorizationRequired;
 
-    public AiProviderRegistry(Collection<? extends AiAdvisoryProvider> providers) {
+    /**
+     * Package-private compatibility constructor for deterministic test providers only.
+     *
+     * <p>Production provider types cannot use this constructor and public construction always
+     * requires an exact artifact registry.</p>
+     */
+    AiProviderRegistry(Collection<? extends AiAdvisoryProvider> providers) {
+        this(providers, null, false);
+        for (AiAdvisoryProvider provider : this.providers.values()) {
+            if (provider.descriptor().providerType() != AiProviderType.DETERMINISTIC_MOCK) {
+                throw new IllegalArgumentException(
+                    "artifact registry is required for non-test AI providers"
+                );
+            }
+        }
+    }
+
+    public AiProviderRegistry(
+        Collection<? extends AiAdvisoryProvider> providers,
+        AiAdvisoryArtifactRegistry artifactRegistry
+    ) {
+        this(providers, artifactRegistry, true);
+    }
+
+    private AiProviderRegistry(
+        Collection<? extends AiAdvisoryProvider> providers,
+        AiAdvisoryArtifactRegistry artifactRegistry,
+        boolean artifactAuthorizationRequired
+    ) {
         Map<ProviderKey, AiAdvisoryProvider> resolved = new LinkedHashMap<>();
         if (providers != null) {
             for (AiAdvisoryProvider provider : providers) {
@@ -33,6 +67,10 @@ public final class AiProviderRegistry {
             }
         }
         this.providers = Map.copyOf(resolved);
+        this.artifactAuthorizationRequired = artifactAuthorizationRequired;
+        this.artifactRegistry = artifactAuthorizationRequired
+            ? Objects.requireNonNull(artifactRegistry, "artifactRegistry must not be null")
+            : null;
     }
 
     public Optional<AiAdvisoryProvider> find(
@@ -55,6 +93,8 @@ public final class AiProviderRegistry {
                 .filter(AiProviderDescriptor.CapabilityDescriptor::enabled)
                 .filter(capabilityDescriptor -> route.budget().maximumInputCharacters()
                     <= capabilityDescriptor.maximumInputCharacters())
+                .filter(ignored -> !artifactAuthorizationRequired
+                    || artifactRegistry.authorize(route.versions(), capability).allowed())
                 .isPresent());
     }
 
