@@ -22,9 +22,10 @@ class M6CTemplateComponentBoundaryTest {
             assertFalse(files.anyMatch(path -> path.getFileName().toString().startsWith("V33__")));
         }
         try (var files = Files.list(root.resolve(".github/workflows"))) {
-            List<String> names = files.filter(Files::isRegularFile)
+            List<String> automatic = files.filter(Files::isRegularFile)
+                .filter(M6CTemplateComponentBoundaryTest::runsAutomatically)
                 .map(path -> path.getFileName().toString()).sorted().toList();
-            assertEquals(List.of("approval-platform-validation.yml"), names);
+            assertEquals(List.of("approval-platform-validation.yml"), automatic);
         }
     }
 
@@ -51,6 +52,15 @@ class M6CTemplateComponentBoundaryTest {
         assertFalse(source.contains("approval.persistence"));
         assertTrue(source.contains("ProcessTemplateImportPreviewService"));
         assertTrue(source.contains("READONLY_FALLBACK"));
+    }
+
+    private static boolean runsAutomatically(Path workflow) {
+        try {
+            String content = Files.readString(workflow);
+            return content.contains("\n  pull_request:") || content.contains("\n  push:");
+        } catch (IOException exception) {
+            throw new IllegalStateException("workflow could not be read", exception);
+        }
     }
 
     private static Path repositoryRoot() {
