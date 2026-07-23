@@ -81,6 +81,11 @@ class ApprovalManagementPermissionCoverageTest {
             Requirement.RELEASE_LIFECYCLE
         );
         assertPermission(
+            ApprovalProcessReleaseMigrationAssessmentController.class,
+            "assess",
+            Requirement.RELEASE_MIGRATION_ASSESS
+        );
+        assertPermission(
             ApprovalArtifactTransferController.class,
             "importArtifact",
             Requirement.TRANSFER

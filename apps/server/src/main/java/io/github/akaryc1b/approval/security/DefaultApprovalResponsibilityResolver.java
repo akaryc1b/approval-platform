@@ -121,6 +121,7 @@ public final class DefaultApprovalResponsibilityResolver
                 Requirement.DEPLOY,
                 Requirement.ACTIVATE,
                 Requirement.RELEASE_LIFECYCLE,
+                Requirement.RELEASE_MIGRATION_ASSESS,
                 Requirement.SLA_READ,
                 Requirement.SLA_PUBLISH,
                 Requirement.SLA_ACTIVATE

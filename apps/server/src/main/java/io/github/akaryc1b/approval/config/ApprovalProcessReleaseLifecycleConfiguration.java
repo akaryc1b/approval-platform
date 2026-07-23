@@ -5,12 +5,18 @@ import io.github.akaryc1b.approval.application.ApprovalEffectiveReleaseService;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseActivationService;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseDispositionService;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseLifecycleService;
+import io.github.akaryc1b.approval.application.ApprovalProcessReleaseMigrationAssessmentService;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseQueryService;
 import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
+import io.github.akaryc1b.approval.application.ApprovalReleaseStructuralDiff;
+import io.github.akaryc1b.approval.application.port.ApprovalDefinitionVersionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalDesignDraftStore;
 import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseDeactivationPort;
 import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProcessReleaseStore;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentStore;
+import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalRuntimeBindingStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
@@ -114,6 +120,37 @@ public class ApprovalProcessReleaseLifecycleConfiguration {
             approvalEffectiveReleaseDeactivationPort,
             approvalRuntimeBindingStore,
             auditEventSink,
+            approvalReleasePackageHasher,
+            approvalClock,
+            UUID::randomUUID
+        );
+    }
+
+    @Bean
+    ApprovalProcessReleaseMigrationAssessmentService
+    approvalProcessReleaseMigrationAssessmentService(
+        IdempotencyGuard idempotencyGuard,
+        ApprovalProcessReleaseStore approvalProcessReleaseStore,
+        ApprovalReleasePackageStore approvalReleasePackageStore,
+        ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore,
+        ApprovalDefinitionVersionStore approvalDefinitionVersionStore,
+        ApprovalRuntimeBindingStore approvalRuntimeBindingStore,
+        ApprovalProjectionStore approvalProjectionStore,
+        AuditEventSink auditEventSink,
+        ApprovalReleaseStructuralDiff approvalReleaseStructuralDiff,
+        ApprovalReleasePackageHasher approvalReleasePackageHasher,
+        Clock approvalClock
+    ) {
+        return new ApprovalProcessReleaseMigrationAssessmentService(
+            idempotencyGuard,
+            approvalProcessReleaseStore,
+            approvalReleasePackageStore,
+            approvalReleaseDeploymentStore,
+            approvalDefinitionVersionStore,
+            approvalRuntimeBindingStore,
+            approvalProjectionStore,
+            auditEventSink,
+            approvalReleaseStructuralDiff,
             approvalReleasePackageHasher,
             approvalClock,
             UUID::randomUUID

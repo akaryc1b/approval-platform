@@ -38,6 +38,11 @@ public @interface ApprovalManagementPermission {
             "release-lifecycle",
             true
         ),
+        RELEASE_MIGRATION_ASSESS(
+            "approval.management.release.migration.assess",
+            "release-migration-assess",
+            true
+        ),
         TRANSFER("approval.management.transfer", "transfer", true),
         AUDIT_READ("approval.management.audit.read", "audit-read"),
         AUDIT_EXPORT("approval.management.audit.export", "audit-export", true),
