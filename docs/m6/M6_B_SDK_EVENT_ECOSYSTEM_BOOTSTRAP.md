@@ -1,6 +1,6 @@
 # M6-B SDK and Event Ecosystem Bootstrap
 
-Status: `SAFE_SLICE_2_IMPLEMENTED`
+Status: `SAFE_SLICE_3_IMPLEMENTED`
 
 Tracking:
 
@@ -28,42 +28,62 @@ The first safe slice established:
 
 ## Safe slice 2 — compatibility governance
 
-The second safe slice adds pure Java and TypeScript compatibility negotiation with a shared deterministic fixture.
+The second safe slice established:
 
-### Version and support policy
+- compatibility manifest version `1` and strict semantic versions;
+- minimum-client and support-window enforcement;
+- server-preference schema and Webhook protocol selection;
+- required/optional capability negotiation;
+- deprecation, sunset and replacement governance;
+- credential-free Generic REST and RuoYi binding blueprints.
 
-- compatibility manifest version `1`; unknown versions fail closed;
-- strict `major.minor.patch` SDK and contract semantic versions;
-- minimum-client enforcement before capability negotiation;
-- RFC 3339 UTC `supportedUntil` boundary;
-- contract support is expired at or after the declared boundary.
+## Safe slice 3 — transport policy abstraction
 
-### Schema, protocol and capability negotiation
+The third safe slice adds deterministic Java and TypeScript request-budget, response-mapping and adapter-conformance semantics without introducing a real transport.
 
-- server-preference selection for event schema and Webhook protocol;
-- terminal rejection when no common schema or protocol exists;
-- unknown required capabilities fail closed;
-- unknown optional capabilities are omitted with warnings;
-- duplicate schema, protocol, capability and deprecation declarations are invalid;
-- enabled capability order is deterministic.
+### Bounded request budget
 
-### Deprecation governance
+- transport policy version `1`; unknown versions fail closed;
+- policy is bound to exactly one SDK operation;
+- maximum attempts are limited to 10;
+- total request budget is limited to 300000 milliseconds;
+- per-attempt timeout must fit inside the total budget;
+- exponential backoff is deterministic and capped;
+- retry-after hints cannot exceed the remaining total budget.
 
-- `deprecatedSince`, `sunsetAt` and replacement identity;
-- warning while a deprecated capability remains supported;
-- required capability fails at sunset;
-- optional capability is omitted at sunset;
-- sunset must follow the deprecation instant.
+### Retry safety
 
-### Host integration boundary
+- `never` disables retries;
+- `idempotent` requires the existing SDK idempotency key;
+- retryable failures stop at the attempt limit;
+- attempt timeout is retryable;
+- budget exhaustion and attempts exhaustion are explicit terminal execution results;
+- request, request ID, trace ID and idempotency identity remain unchanged across attempts.
 
-Credential-free Generic REST and RuoYi starter blueprints demonstrate where negotiation is bound without adding Spring, RuoYi, Sa-Token or network dependencies to the SDK. Client profiles contain only SDK/schema/protocol/capability data and cannot manufacture tenant, operator, permission, authority or audit evidence.
+### Structured response mapping
+
+- success: `200–299`;
+- policy-declared retryable status values;
+- unauthorized: `401` and `403`;
+- conflict: `409`;
+- expired: `410`;
+- unsupported version: `426`;
+- other supported status values are permanent failures;
+- status outside `100–599` is malformed and fails closed.
+
+Every failure maps to the existing structured SDK error model with the originating request ID.
+
+### Adapter conformance boundary
+
+Java `ScriptedAdapter` and TypeScript `ScriptedConformanceAdapter` use deterministic in-memory scripts and virtual elapsed time. They never sleep, schedule, resolve an endpoint or perform network I/O. Generic REST and RuoYi examples describe policy binding only.
+
+Transport policy and adapter metadata cannot manufacture tenant, operator, permission, authority or audit evidence.
 
 ## Tests and permanent validation
 
-Java and TypeScript suites cover the shared compatibility fixture, semantic versions, minimum-client rejection, schema/protocol mismatch, required and optional unknown capabilities, support expiry, deprecation warnings, sunset behavior, unknown manifest rejection and trusted-evidence absence.
+The shared `transport-policy-v1.json` fixture validates identical Java and TypeScript attempt traces, response categories, delays, timeouts, total elapsed time and request identity. Additional tests cover unsupported policy versions, duplicate retry statuses, budget bounds, unauthorized/conflict/version mapping, retry disabled, missing idempotency, retry-after exhaustion, attempt timeout, max attempts and operation mismatch.
 
-The existing root `postinstall` gate continues to execute `pnpm sdk:test`; the Maven reactor executes Java tests. The permanent workflow remains `.github/workflows/approval-platform-validation.yml`.
+The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor executes Java tests. The permanent workflow remains `.github/workflows/approval-platform-validation.yml`.
 
 ## Still blocked
 
@@ -71,6 +91,7 @@ The existing root `postinstall` gate continues to execute `pnpm sdk:test`; the M
 - production event store or Outbox ownership changes;
 - production delivery/retry worker;
 - real HTTP transport or customer endpoint;
+- production clock, scheduler or sleep implementation;
 - production key/secret resolution implementation;
 - SDK migration execution commands before M5 acceptance;
 - any Flyway migration, including `V33`;
@@ -79,4 +100,4 @@ The existing root `postinstall` gate continues to execute `pnpm sdk:test`; the M
 
 ## Next gate
 
-The next M6-B gate requires explicit acceptance of compatibility governance before adding any real transport adapter, subscription model, event persistence or delivery runtime. Schema and runtime ownership must be coordinated with M5 and other M6 workstreams while preserving server-derived identity and audit evidence.
+The next M6-B gate requires explicit acceptance of transport policy abstraction before adding a real transport adapter. Production endpoint resolution, authentication, scheduling, persistence, subscription and delivery runtime remain separate coordinated gates.

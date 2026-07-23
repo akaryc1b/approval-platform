@@ -53,17 +53,20 @@ The independent `io.github.akaryc1b.approval.sdk.v1` package provides:
 - structured client result/error contracts and request correlation;
 - deterministic idempotency keys and in-memory mock transport;
 - at-least-once delivery decisions and an idempotent consumer helper;
-- pure `SdkCompatibilityV1` negotiation for SDK, event schema, Webhook protocol and capabilities;
-- strict semantic versions, support windows, deprecation warnings and sunset enforcement.
+- SDK/schema/protocol/capability compatibility governance;
+- deprecation, sunset and support-window enforcement;
+- bounded request budgets, structured response mapping and deterministic adapter conformance;
+- virtual elapsed-time retry traces with no sleep, scheduler or network implementation.
 
-Public client requests and compatibility profiles deliberately have no tenant, operator, permission, authority or audit-evidence fields. The package has no network client, Flowable type, migration command, persistence or delivery worker.
+Public requests, compatibility profiles, transport policies and adapter metadata have no tenant, operator, permission, authority or audit-evidence fields. The package has no network client, endpoint, production clock, Flowable type, migration command, persistence or delivery worker.
 
 ## Deployment rules
 
-- `InMemoryReplayGuard` and the M6-B in-memory guards are only for tests and single-node development.
+- `InMemoryReplayGuard`, M6-B in-memory guards and scripted adapters are only for tests and single-node development.
 - Production starters must provide a distributed replay guard, normally backed by Redis `SET NX EX` semantics.
 - Signing secrets must be resolved from encrypted configuration or a secret manager.
 - Secrets, bearer tokens and raw authentication payloads must never be logged.
+- Real endpoint resolution, authentication, clock, scheduling and network execution require a separate accepted transport gate.
 - No Flowable, approval database, Spring, Sa-Token or RuoYi dependency is allowed in this module.
 
 ## Planned implementations

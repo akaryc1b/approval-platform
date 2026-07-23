@@ -9,6 +9,8 @@ A Generic REST host adapter should:
 3. call `SdkCompatibilityV1.negotiate` or `negotiateCompatibility` before accepting SDK operations;
 4. expose the selected event schema, Webhook protocol, enabled capabilities and warnings;
 5. derive tenant, operator, permissions and audit evidence from authenticated server context;
-6. use `MockTransport` in tests until a separately accepted real transport gate exists.
+6. bind the accepted operation to a bounded transport policy;
+7. validate response mapping and retry traces with the scripted conformance adapter;
+8. keep endpoint resolution, authentication, clock, scheduler and real network execution outside this safe slice.
 
-Unknown manifest versions, missing required capabilities and expired support windows fail closed. Optional unknown capabilities never become trusted server capabilities.
+Unknown manifest or policy versions, missing required capabilities, expired support windows, operation mismatch and exhausted request budgets fail closed. Optional unknown capabilities never become trusted server capabilities.

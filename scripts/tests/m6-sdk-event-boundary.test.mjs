@@ -68,6 +68,17 @@ test('public client requests cannot manufacture trusted server evidence', async 
   }
 });
 
+test('transport policy uses virtual time and scripted adapters only', async () => {
+  const java = await readFile(join(sdkRoots[0], 'SdkTransportPolicyV1.java'), 'utf8');
+  const typescript = await readFile(join(sdkRoots[1], 'src/transport-policy.ts'), 'utf8');
+  assert.match(java, /class ScriptedAdapter/);
+  assert.match(java, /totalBudgetMillis/);
+  assert.match(typescript, /class ScriptedConformanceAdapter/);
+  assert.match(typescript, /totalBudgetMillis/);
+  assert.doesNotMatch(java, /\b(?:Thread\.sleep|ScheduledExecutorService|CompletableFuture|URI|URL)\b/);
+  assert.doesNotMatch(typescript, /\b(?:setTimeout|setInterval|AbortController|WebSocket|EventSource)\b/);
+});
+
 test('Flyway remains frozen through V32', async () => {
   const migrationRoots = [
     join(repositoryRoot, 'apps/server/src/main/resources/db/migration'),

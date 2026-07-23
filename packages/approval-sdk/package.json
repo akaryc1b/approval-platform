@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./dist/public.js",
-    "./compatibility": "./dist/compatibility.js"
+    "./compatibility": "./dist/compatibility.js",
+    "./transport-policy": "./dist/transport-policy.js"
   },
   "types": "./dist/public.d.ts",
   "scripts": {

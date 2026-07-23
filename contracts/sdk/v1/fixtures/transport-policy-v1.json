@@ -1,0 +1,81 @@
+{
+  "fixtureVersion": "1",
+  "policy": {
+    "policyVersion": "1",
+    "operation": "approval.task.read",
+    "retryMode": "idempotent",
+    "budget": {
+      "maxAttempts": 3,
+      "totalBudgetMillis": 5000,
+      "attemptTimeoutMillis": 2000,
+      "baseBackoffMillis": 100,
+      "maxBackoffMillis": 1000
+    },
+    "retryableStatusCodes": [408, 425, 429, 500, 502, 503, 504]
+  },
+  "request": {
+    "operation": "approval.task.read",
+    "payload": {
+      "taskId": "task_9001"
+    },
+    "correlation": {
+      "requestId": "req-transport-fixture-1",
+      "traceId": "trace-transport-fixture-1"
+    },
+    "idempotencyKey": "idem-transport-fixture-1"
+  },
+  "script": [
+    {
+      "durationMillis": 400,
+      "response": {
+        "statusCode": 503,
+        "payload": null,
+        "errorCode": "upstream_unavailable",
+        "errorMessage": "Retry later",
+        "retryAfterMillis": 600
+      }
+    },
+    {
+      "durationMillis": 350,
+      "response": {
+        "statusCode": 200,
+        "payload": {
+          "taskId": "task_9001",
+          "state": "PENDING"
+        },
+        "errorCode": null,
+        "errorMessage": null,
+        "retryAfterMillis": null
+      }
+    }
+  ],
+  "expectations": {
+    "status": "succeeded",
+    "value": {
+      "taskId": "task_9001",
+      "state": "PENDING"
+    },
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 1,
+        "timeoutMillis": 2000,
+        "durationMillis": 400,
+        "elapsedAfterAttemptMillis": 400,
+        "category": "retryable",
+        "scheduledDelayMillis": 600
+      },
+      {
+        "attempt": 2,
+        "timeoutMillis": 2000,
+        "durationMillis": 350,
+        "elapsedAfterAttemptMillis": 1350,
+        "category": "success",
+        "scheduledDelayMillis": 0
+      }
+    ],
+    "totalElapsedMillis": 1350,
+    "invocationElapsedMillis": [0, 1000],
+    "requestIdentityPreserved": true
+  }
+}
