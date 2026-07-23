@@ -1,6 +1,6 @@
 # M6-A Connector Foundation Bootstrap
 
-Status: `PROVIDER_RESOLUTION_SLICE_IMPLEMENTED`
+Status: `TYPED_PAYLOAD_SELECTION_SLICE_IMPLEMENTED`
 
 Tracking:
 
@@ -17,55 +17,131 @@ Tracking:
 - provider-resolution slice commits:
   - `280eb50be6a024edc342010607c09546bc690a4b`
   - `a3dfa49b78b99c7b1dac4805c0b7b51139cac23e`
+  - `0c7aa76e5206ba31ac3ab5261ce5038eae628a78`
+- typed-payload and selection slice commits:
+  - `9e647065c0bd83761dc3d06f48426af05ca78088`
+  - `0955afcc6e7b95f1a9d04a978236b0b53635ac88`
 
 ## Parallel milestone boundary
 
 M6-A develops in parallel with M5 but remains independent from Issue #56 and Draft PR #58. This branch does not use the M5 branch as a base, copy M5 migration implementation, or commit connector work to PR #58. Later `main` changes are incorporated by merge commit only; rebase and force push remain prohibited.
 
-## First implemented contract slice
+## Slice 1 — provider-neutral execution contracts
 
 The first safe slice extends the existing framework-neutral Connector SPI without replacing the existing authentication, organization, file, notification, business-callback, form-data or external-todo ports.
 
-It adds:
+It establishes:
 
-- credential-free `ProviderDescriptor` with provider key, provider type, protocol version, closed capabilities, enabled/disabled state and bounded compatibility metadata;
-- strict parsing for the existing closed `ConnectorProvider.Capability` set;
-- a closed `ConnectorOperation` set mapped to existing capabilities;
-- a typed request/result/error envelope carrying request, trace, idempotency, payload-hash, provider-result and bounded failure evidence;
-- `TrustedConnectorExecutionContext` as the only holder of trusted tenant routing and server-owned credential reference;
-- `CredentialReference`, whose string representation never renders the reference value;
-- HMAC-SHA256-v1 signing identifier, timestamp, nonce, maximum ten-minute validity window, replay result and canonical payload hash evidence;
+- credential-free `ProviderDescriptor`;
+- the closed `ConnectorOperation` set;
+- typed request/result/error and idempotency evidence;
+- `TrustedConnectorExecutionContext` and opaque `CredentialReference`;
+- timestamp, nonce, signing-algorithm, validity-window and replay evidence;
 - deterministic SHA-256 payload hashing and bounded secret redaction;
 - explicit success, rejection, rate-limit, retryable failure, permanent failure, timeout and unknown outcomes;
-- deterministic mock behavior for all outcome classes, tenant isolation and idempotency replay.
+- deterministic mock outcomes, tenant isolation and idempotency replay.
 
-## Provider registry and typed resolution
+`TIMEOUT` and `UNKNOWN` require reconciliation before retry and never authorize blind automatic replay.
 
-The second safe slice adds an immutable, provider-neutral server registry:
+## Slice 2 — provider registry, credential scope and reconciliation
 
-- `ConnectorProviderRegistry` groups bindings by provider key and closed operation;
-- one provider may register multiple operations with different request and response payload types;
-- registry construction rejects duplicate provider-operation bindings and inconsistent descriptors;
-- resolution fails closed for unknown providers, disabled providers, missing capabilities, unregistered operations and payload-type mismatches;
-- `ConnectorProviderBinding<P, R>` binds one descriptor, operation, request type, response type, execution port and optional reconciliation port;
-- execution and reconciliation both validate the trusted provider context and exact operation before invoking an adapter;
-- registration ordering is normalized and produces a deterministic SHA-256 registry fingerprint;
-- no classpath scanning, reflection-based provider loading or dynamic network discovery is introduced.
+The second safe slice adds:
 
-## Server-side credential resolution
+- immutable `ConnectorProviderRegistry` entries keyed by provider and operation;
+- exact typed request/response binding through `ConnectorProviderBinding<P, R>`;
+- deterministic registry fingerprints;
+- callback-only `ConnectorCredentialResolver` access;
+- deterministic credential-scope zeroization;
+- immutable reconciliation request, evidence and result contracts;
+- deterministic reconciliation fixtures for confirmed success, confirmed rejection, confirmed permanent failure, still unknown, not found and conflict.
 
-`ConnectorCredentialResolver` defines a callback-only boundary for server-owned credential material:
+`ConnectorReconciliationResult.automaticRetryAllowed()` always returns `false`.
 
-- the trusted execution context carries only an opaque `CredentialReference`;
-- adapters receive credential material only inside `withCredential` and `withSecretBytes` callbacks;
-- there is no raw secret, token or password getter;
-- the resolver does not return credential bytes to browser, mobile or public result contracts;
-- `DeterministicCredentialResolver` copies fixture material into a bounded callback scope and zeroes every scoped copy after use;
-- tenant and credential-reference mismatches fail closed;
-- credential scopes become inactive after the callback and cannot be reused;
-- string representations retain only redacted credential evidence.
+## Slice 3 — closed typed payloads
 
-The deterministic resolver is a test adapter. It does not represent a production secret store, production credential, production key-management implementation or customer configuration.
+`ConnectorOperationPayloads` now defines exact provider-neutral business payload contracts for:
+
+| Contract | Connector operation |
+| --- | --- |
+| `DirectoryReadCommand` / `DirectoryReadResult` | `ORGANIZATION_READ` |
+| `IdentityResolveCommand` / `IdentityResolveResult` | `IDENTITY_RESOLVE` |
+| `MessageSendCommand` / `MessageSendResult` | `NOTIFICATION_SEND` |
+| `ExternalTodoCommand` / `ExternalTodoResult` | `EXTERNAL_TODO_CREATE` |
+| `ExternalTodoCommand` / `ExternalTodoResult` | `EXTERNAL_TODO_UPDATE` |
+| `BusinessCallbackCommand` / `BusinessCallbackResult` | `BUSINESS_CALLBACK_DELIVER` |
+
+Each operation is bound by `ConnectorOperationContract<P, R>` with a stable contract key, closed operation, exact request type and exact response type.
+
+Typed business commands:
+
+- contain no trusted tenant, operator, authority, audit or credential identity;
+- reject credential-like metadata keys;
+- defensively copy bounded collections and metadata;
+- validate closed directory-query and result-state shapes;
+- provide deterministic canonical payload hashes;
+- normalize Map ordering and semantically unordered recipient ordering;
+- do not establish a trusted platform identity.
+
+`IdentityResolveResult.establishesTrustedPlatformIdentity()` is always `false`. Identity resolution remains provider evidence that must pass later server authentication, authorization and audit boundaries.
+
+## Deterministic provider selection policy
+
+`DeterministicConnectorProviderSelector` implements a server-owned, fail-closed selection policy.
+
+Selection input requires:
+
+- one exact `ConnectorOperationContract`;
+- an explicit non-empty allowlist of no more than 32 provider keys;
+- an optional preferred provider that must already be in the allowlist;
+- an optional exact protocol version;
+- a bounded policy version.
+
+Eligibility requires:
+
+- the provider exists in the immutable registry;
+- the provider is enabled;
+- the descriptor supports the operation capability;
+- the exact operation binding is registered;
+- request and response types match;
+- the exact required protocol version matches when supplied.
+
+The closed outcomes are:
+
+| Selection status | Meaning |
+| --- | --- |
+| `SELECTED` | exactly one eligible provider, or the explicit preferred provider is eligible |
+| `NO_ELIGIBLE_PROVIDER` | no allowlisted provider satisfies every requirement |
+| `AMBIGUOUS` | more than one provider is eligible and no explicit preference exists |
+| `PREFERRED_PROVIDER_INELIGIBLE` | the explicit preferred provider is not eligible; no fallback occurs |
+
+The selector never chooses by registration order, random choice, implicit priority, classpath discovery or network discovery.
+
+An ineligible explicit preferred provider never falls back to another eligible provider.
+
+## Selection evidence and invocation boundary
+
+`ConnectorProviderSelectionEvidence` binds:
+
+- policy version;
+- registry fingerprint;
+- operation contract key;
+- sorted allowed and eligible provider keys;
+- optional preferred provider;
+- optional required protocol version;
+- optional selected provider;
+- closed selection status;
+- deterministic SHA-256 evidence hash.
+
+Selection is planning only. `DeterministicConnectorProviderSelector` never calls `ConnectorExecutionPort.execute`.
+
+An adapter invocation occurs only after server code explicitly obtains the selected `ConnectorProviderBinding` and separately supplies:
+
+- a `TrustedConnectorExecutionContext`;
+- the exact typed `ConnectorRequest`;
+- a server-owned `CredentialReference`;
+- request, trace, idempotency and payload-hash evidence.
+
+`DeterministicTypedConnectorPort` is a network-free test adapter used to prove this separation.
 
 ## Retry and reconciliation semantics
 
@@ -83,17 +159,7 @@ Initial provider execution remains classified as follows:
 
 Only `TIMEOUT` and `UNKNOWN` results may enter `ConnectorReconciliationPort`.
 
-Reconciliation produces immutable evidence bound to:
-
-- original request ID;
-- original idempotency key;
-- original canonical payload hash;
-- original operation and uncertain outcome;
-- optional provider request ID;
-- bounded observation timestamp, status and details;
-- deterministic reconciliation evidence hash.
-
-The reconciliation decision matrix is closed:
+The reconciliation decision matrix remains closed:
 
 | Reconciliation status | Decision |
 | --- | --- |
@@ -104,50 +170,46 @@ The reconciliation decision matrix is closed:
 | `NOT_FOUND` | reconcile again |
 | `CONFLICT` | manual review |
 
-`ConnectorReconciliationResult.automaticRetryAllowed()` always returns `false`. A reconciliation result never directly authorizes replay of the original side effect. Any later retry requires a separately reviewed orchestration policy, fresh authorization, idempotency checks and evidence binding.
-
-## Deterministic adapters
-
-The current test-only adapters remain side-effect free:
-
-- `DeterministicMockConnector` returns all initial outcome classes without network access;
-- `DeterministicCredentialResolver` validates tenant/reference boundaries and zeroes scoped credential copies;
-- `DeterministicReconciliationPort` uses immutable fixed-clock fixtures for confirmed success, confirmed rejection, confirmed permanent failure and still-unknown evidence;
-- missing evidence produces `NOT_FOUND`;
-- payload-hash or provider-request-ID mismatch produces `CONFLICT`;
-- deterministic adapters do not call Flowable or modify approval process state.
+No selection or reconciliation result directly authorizes retry of an uncertain provider side effect.
 
 ## Test and permanent boundary coverage
 
-The first slice added 18 focused tests. The provider-resolution slice adds 15 more tests:
+The first slice added 18 focused tests. The provider-resolution slice added 15. The typed-payload and selection slice adds 18:
 
-- 12 contract tests for multi-operation typed resolution, stable registry fingerprints, duplicate/inconsistent registration rejection, disabled and unsupported providers, trusted provider/operation boundaries, credential redaction and zeroization, credential-scope escape rejection, reconciliation admission, deterministic evidence hashes, confirmed success/failure, still-unknown, not-found/conflict and missing reconciliation ports;
-- 3 permanent boundary tests proving callback-only credential access, absence of raw credential getters, mandatory reconciliation for uncertain results, prohibition of blind automatic retry, immutable registry construction, duplicate-operation rejection and absence of reflection/service-loader discovery.
+- 15 contract tests covering exact operation/type binding, closed directory shapes, stable payload hashes, sensitive-key rejection, identity trust boundaries, to-do/callback evidence, explicit allowlists, unique selection, ambiguity, explicit preference, no fallback, protocol/type mismatch, stable selection evidence and explicit adapter invocation;
+- 3 permanent boundary tests proving typed payloads cannot carry trusted or credential identity, provider selection contains no network/reflection/random/execution behavior, and Web/Mobile cannot manufacture server-owned provider selection.
 
-The accumulated M6-A focused coverage is 33 tests before counting the existing repository regression suite.
+Accumulated focused M6-A coverage before the full repository regression suite is 51 tests.
 
-The permanent boundary tests execute through the existing Maven backend job in `.github/workflows/approval-platform-validation.yml`; no workflow file is added or modified.
+All permanent tests execute through the existing Maven backend job in `.github/workflows/approval-platform-validation.yml`; no workflow file is added or modified.
 
-## Credential and client boundary
+## Explicitly absent
 
-- requests do not contain trusted tenant, operator, authority, audit identity or credential reference fields;
-- trusted tenant routing and credential references are supplied by server-side composition only;
-- descriptor, provider-result and reconciliation metadata reject credential-like keys;
-- bounded errors redact bearer values, named token/secret/password/API-key values and common provider-token shapes;
-- no browser or mobile TypeScript contract is added for trusted connector context or credential material.
+- no `V33` or other Flyway migration;
+- no real DingTalk or Feishu network call;
+- no production provider transport or customer endpoint configuration;
+- no production token, secret, credential material, customer domain or private address;
+- no production secret-store or key-management implementation;
+- no connector-owned persistence, worker, lease, scheduler or production retry orchestration;
+- no random, weighted, implicit-priority or network-based provider selection;
+- no selector-triggered provider invocation;
+- no automatic retry of `TIMEOUT`, `UNKNOWN`, `STILL_UNKNOWN` or `NOT_FOUND`;
+- no direct Flowable API exposure;
+- no connector-driven approve, reject, transfer, withdraw, terminate or migrate operation;
+- no direct approval process-state modification;
+- no browser-manufactured trusted provider, tenant, operator, authority, audit or signing identity;
+- no M5 source or semantic modification;
+- no second permanent or temporary GitHub Actions workflow;
+- no PR readiness, auto-merge or merge action.
 
 ## Still blocked until a later gate
 
-- real DingTalk or Feishu network calls;
-- production provider transport or customer endpoint configuration;
-- production credentials, tokens, secrets, customer domains or private endpoints;
-- production secret-store or key-management integration;
-- connector-owned persistence or Flyway migrations;
-- any `V33` migration;
-- connector workers, leases, schedules or production retry orchestration;
-- automatic retry of `TIMEOUT`, `UNKNOWN`, `STILL_UNKNOWN` or `NOT_FOUND` results;
-- direct connector mutation of approval process state;
-- modification of M5 migration plan, intent, attempt, verification, reconciliation or runtime-binding semantics;
-- browser-supplied trusted provider, tenant, operator, authority, audit or signing identity;
-- a second permanent or temporary GitHub Actions workflow;
+- real provider adapters and transport;
+- production credentials and secret-store integration;
+- provider selection persistence or tenant routing configuration;
+- provider fallback, weighted routing, load balancing or health-based routing;
+- connector workers, leases, schedules and recovery orchestration;
+- schema ownership and any `V33`;
+- automatic retry of uncertain outcomes;
+- approval-state actions;
 - marking PR #67 ready, enabling auto-merge or merging the PR.
