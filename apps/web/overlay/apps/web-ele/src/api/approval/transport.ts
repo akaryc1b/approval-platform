@@ -2,11 +2,15 @@ import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
 export interface ApprovalApiErrorPayload {
   code?: string;
+  details?: Record<string, string>;
   error?: string;
+  errorCode?: string;
   message?: string;
   occurredAt?: string;
   requestId?: string;
   retryable?: boolean;
+  timestamp?: string;
+  traceId?: string;
 }
 
 export interface ApprovalTracedResponse<T> {
@@ -16,13 +20,15 @@ export interface ApprovalTracedResponse<T> {
 
 export class ApprovalApiError extends Error {
   readonly code: string;
+  readonly details: Record<string, string>;
   readonly occurredAt?: string;
   readonly requestId?: string;
   readonly retryable: boolean;
   readonly status: number;
+  readonly traceId?: string;
 
   constructor(status: number, payload: ApprovalApiErrorPayload, responseRequestId?: string) {
-    const code = payload.code || payload.error || 'APPROVAL_REQUEST_FAILED';
+    const code = payload.errorCode || payload.code || payload.error || 'APPROVAL_REQUEST_FAILED';
     const requestId = payload.requestId || responseRequestId;
     const message = payload.message || payload.error || `请求失败（${status}）`;
     const details = [message, `[${code}]`, requestId ? `requestId=${requestId}` : undefined]
@@ -31,10 +37,12 @@ export class ApprovalApiError extends Error {
     super(details);
     this.name = 'ApprovalApiError';
     this.code = code;
-    this.occurredAt = payload.occurredAt;
+    this.details = payload.details || {};
+    this.occurredAt = payload.timestamp || payload.occurredAt;
     this.requestId = requestId;
     this.retryable = payload.retryable === true;
     this.status = status;
+    this.traceId = payload.traceId;
   }
 }
 
