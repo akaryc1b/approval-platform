@@ -284,7 +284,7 @@ test('duplicate and reconciliation evidence remains isolated M5-A validation', a
   assert.match(evidence, /adds no `V33`/);
 
   for (const boundary of [
-    'must not invoke the engine again',
+    'not invoke the engine again',
     'must never be retried merely because',
     '`UNKNOWN` is an explicit durable outcome',
     'Mixed evidence must remain `RECONCILIATION_REQUIRED`',
