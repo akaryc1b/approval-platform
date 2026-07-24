@@ -35,6 +35,10 @@ async function sdkSources() {
 
 function display(path) { return relative(repositoryRoot, path); }
 
+function forbid(source, words) {
+  for (const word of words) assert.doesNotMatch(source, new RegExp(`\\b${word}\\b`, 'i'));
+}
+
 test('SDK source exposes no Flowable or M5 migration execution API', async () => {
   const offenders = (await sdkSources()).filter(({ content }) =>
     /\b(?:RuntimeService|TaskService|ProcessMigrationService|ACT_[A-Z_]+|migration(?:Execute|Force|Rollback)|forceMigration|rollbackMigration)\b/i.test(content),
@@ -62,10 +66,8 @@ test('public client requests cannot manufacture trusted server evidence', async 
   const typescript = await readFile(join(sdkRoots[1], 'src/index.ts'), 'utf8');
   const javaRequest = java.slice(java.indexOf('public record Request('), java.indexOf('public record Correlation('));
   const tsRequest = typescript.slice(typescript.indexOf('export interface ApprovalRequest'), typescript.indexOf('export interface ApprovalTransport'));
-  for (const forbidden of ['tenantId', 'operatorId', 'permission', 'authority', 'auditEvidence', 'credentialLease']) {
-    assert.doesNotMatch(javaRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(tsRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
-  }
+  forbid(javaRequest, ['tenantId', 'operatorId', 'permission', 'authority', 'auditEvidence', 'credentialLease']);
+  forbid(tsRequest, ['tenantId', 'operatorId', 'permission', 'authority', 'auditEvidence', 'credentialLease']);
 });
 
 test('transport policy uses virtual time and scripted adapters only', async () => {
@@ -96,19 +98,12 @@ test('adapter binding uses logical endpoints and reference-only credential lease
   const tsContextRequest = typescript.slice(typescript.indexOf('export interface AuthenticationContextRequest'), typescript.indexOf('export interface ServerAuthenticationContextFields'));
   const javaCredential = java.slice(java.indexOf('public record CredentialReference('), java.indexOf('public record EndpointDescriptor('));
   const tsCredential = typescript.slice(typescript.indexOf('export interface CredentialReference'), typescript.indexOf('export interface LogicalEndpointDescriptor'));
-
-  for (const forbidden of ['url', 'uri', 'host', 'address', 'baseUrl', 'route']) {
-    assert.doesNotMatch(javaEndpoint, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(tsEndpoint, new RegExp(`\\b${forbidden}\\b`, 'i'));
-  }
-  for (const forbidden of ['tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialLease']) {
-    assert.doesNotMatch(javaContextRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(tsContextRequest, new RegExp(`\\b${forbidden}\\b`, 'i'));
-  }
-  for (const forbidden of ['secret', 'password', 'privateKey', 'headerValue', 'credentialMaterial']) {
-    assert.doesNotMatch(javaCredential, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(tsCredential, new RegExp(`\\b${forbidden}\\b`, 'i'));
-  }
+  forbid(javaEndpoint, ['url', 'uri', 'host', 'address', 'baseUrl', 'route']);
+  forbid(tsEndpoint, ['url', 'uri', 'host', 'address', 'baseUrl', 'route']);
+  forbid(javaContextRequest, ['tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialLease']);
+  forbid(tsContextRequest, ['tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialLease']);
+  forbid(javaCredential, ['secret', 'password', 'privateKey', 'headerValue', 'credentialMaterial']);
+  forbid(tsCredential, ['secret', 'password', 'privateKey', 'headerValue', 'credentialMaterial']);
   assert.doesNotMatch(java, /\b(?:System\.currentTimeMillis|Instant\.now|Thread\.sleep|URI|URL|Socket)\b/);
   assert.doesNotMatch(typescript, /\b(?:Date\.now|setTimeout|setInterval|AbortController|WebSocket|EventSource)\b/);
 });
@@ -129,12 +124,11 @@ test('diagnostics and audit use fake configuration, redaction and memory sink on
   const tsProvenance = typescript.slice(typescript.indexOf('export interface ConfigurationProvenance'), typescript.indexOf('export interface RawDiagnostic'));
   const javaAudit = java.slice(java.indexOf('public record AdapterAuditEvent('), java.indexOf('public static final class InMemoryAdapterAuditSink'));
   const tsAudit = typescript.slice(typescript.indexOf('export interface AdapterAuditEvent'), typescript.indexOf('export interface ExceptionDiagnosticInput'));
-  for (const forbidden of ['value', 'tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialReference', 'credentialLease', 'secret', 'password', 'privateKey', 'bearerToken']) {
-    assert.doesNotMatch(javaProvenance, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(tsProvenance, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(javaAudit, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(tsAudit, new RegExp(`\\b${forbidden}\\b`, 'i'));
-  }
+  const forbidden = ['value', 'tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialReference', 'credentialLease', 'secret', 'password', 'privateKey', 'bearerToken'];
+  forbid(javaProvenance, forbidden);
+  forbid(tsProvenance, forbidden);
+  forbid(javaAudit, forbidden);
+  forbid(tsAudit, forbidden);
 });
 
 test('emission policy uses deterministic bounded fake sinks and atomic audit batches', async () => {
@@ -161,12 +155,42 @@ test('emission policy uses deterministic bounded fake sinks and atomic audit bat
   const tsDiagnosticResult = tsDiagnostic.slice(tsDiagnostic.indexOf('export interface DiagnosticEmissionResult'), tsDiagnostic.indexOf('export class UnsupportedEmissionPolicyVersionError'));
   const javaAuditResult = javaAudit.slice(javaAudit.indexOf('public record AuditBatchEmissionResult('), javaAudit.indexOf('public static final class ScriptedAtomicAuditSink'));
   const tsAuditResult = tsAudit.slice(tsAudit.indexOf('export interface AuditBatchEmissionResult'), tsAudit.indexOf('export class ScriptedAtomicAuditSink'));
-  for (const forbidden of ['error', 'exception', 'stackTrace', 'rawMessage', 'tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialLease', 'secret', 'password', 'privateKey', 'bearerToken']) {
-    assert.doesNotMatch(javaDiagnosticResult, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(tsDiagnosticResult, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(javaAuditResult, new RegExp(`\\b${forbidden}\\b`, 'i'));
-    assert.doesNotMatch(tsAuditResult, new RegExp(`\\b${forbidden}\\b`, 'i'));
-  }
+  const forbidden = ['error', 'exception', 'stackTrace', 'rawMessage', 'tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialLease', 'secret', 'password', 'privateKey', 'bearerToken'];
+  forbid(javaDiagnosticResult, forbidden);
+  forbid(tsDiagnosticResult, forbidden);
+  forbid(javaAuditResult, forbidden);
+  forbid(tsAuditResult, forbidden);
+});
+
+test('telemetry and handoff use reference-only allowlists and deterministic fake boundaries', async () => {
+  const javaTelemetry = await readFile(join(sdkRoots[0], 'SdkTelemetrySignalV1.java'), 'utf8');
+  const javaHandoff = await readFile(join(sdkRoots[0], 'SdkAuditHandoffV1.java'), 'utf8');
+  const tsTelemetry = await readFile(join(sdkRoots[1], 'src/telemetry-signal.ts'), 'utf8');
+  const tsHandoff = await readFile(join(sdkRoots[1], 'src/audit-handoff.ts'), 'utf8');
+  const java = `${javaTelemetry}\n${javaHandoff}`;
+  const typescript = `${tsTelemetry}\n${tsHandoff}`;
+  assert.match(javaTelemetry, /allowedAttributeValues/);
+  assert.match(javaTelemetry, /class ScriptedTelemetryExporter/);
+  assert.match(javaHandoff, /class ScriptedAuditHandoffQueue/);
+  assert.match(javaHandoff, /DUPLICATE_ACKNOWLEDGED/);
+  assert.match(tsTelemetry, /allowedAttributeValues/);
+  assert.match(tsTelemetry, /class ScriptedTelemetryExporter/);
+  assert.match(tsHandoff, /class ScriptedAuditHandoffQueue/);
+  assert.match(tsHandoff, /duplicate_acknowledged/);
+  assert.doesNotMatch(java, /\b(?:System\.currentTimeMillis|Instant\.now|Thread\.sleep|System\.getenv|System\.getProperty|Files\.|Path\.|Logger|Kafka|Rabbit|JMS|JdbcTemplate|EntityManager|System\.out)\b/);
+  assert.doesNotMatch(typescript, /\b(?:Date\.now|setTimeout|setInterval|process\.env|Deno\.env|Bun\.env|readFile|writeFile|console\.|localStorage|sessionStorage|indexedDB|Kafka|Rabbit|JMS)\b/);
+
+  const javaSignal = javaTelemetry.slice(javaTelemetry.indexOf('public record ReferenceTelemetrySignal('), javaTelemetry.indexOf('public record TelemetryExportProof('));
+  const tsSignal = tsTelemetry.slice(tsTelemetry.indexOf('export interface ReferenceTelemetrySignal'), tsTelemetry.indexOf('export interface TelemetryExportProof'));
+  const javaAck = javaHandoff.slice(javaHandoff.indexOf('public record AuditHandoffAcknowledgement('), javaHandoff.indexOf('public record AuditHandoffResult('));
+  const tsAck = tsHandoff.slice(tsHandoff.indexOf('export interface AuditHandoffAcknowledgement'), tsHandoff.indexOf('export interface AuditHandoffResult'));
+  const forbidden = ['tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialReference', 'credentialLease', 'secret', 'password', 'privateKey', 'bearerToken', 'url', 'uri', 'host', 'address'];
+  forbid(javaSignal, forbidden);
+  forbid(tsSignal, forbidden);
+  forbid(javaAck, forbidden);
+  forbid(tsAck, forbidden);
+  assert.match(javaHandoff, /pending\.remove[\s\S]*acknowledged\.put/);
+  assert.match(tsHandoff, /pending\.delete[\s\S]*acknowledged\.set/);
 });
 
 test('Flyway remains frozen through V32', async () => {

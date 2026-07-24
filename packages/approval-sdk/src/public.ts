@@ -3,4 +3,5 @@ export * from './compatibility.js';
 export * from './diagnostics-audit.js';
 export * from './emission-policy.js';
 export * from './index.js';
+export * from './telemetry-handoff.js';
 export * from './transport-policy.js';

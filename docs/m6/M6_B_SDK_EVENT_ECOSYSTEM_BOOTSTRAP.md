@@ -1,6 +1,6 @@
 # M6-B SDK and Event Ecosystem Bootstrap
 
-Status: `SAFE_SLICE_6_IMPLEMENTED`
+Status: `SAFE_SLICE_7_IMPLEMENTED`
 
 Tracking:
 
@@ -52,49 +52,54 @@ M6-B develops in parallel with M5 and remains independent from Issue #56 and Dra
 
 ## Safe slice 6 — diagnostic emission and audit completeness
 
-### Diagnostic decision policy
+- explicit severity and deterministic sampling policy;
+- caller-supplied ordinal deduplication with bounded fake diagnostic sink;
+- complete started/attempt/terminal audit proof;
+- atomic fake audit batch sink;
+- diagnostic degradation and mandatory audit fail-closed behavior.
 
-- emission policy contract version `1`; unknown versions fail closed;
-- explicit minimum severity;
-- deterministic SHA-256 numerator/denominator sampling;
-- caller-supplied monotonic ordinal window, with no clock reads;
-- bounded tracker with deterministic expiry and eviction;
-- already-redacted diagnostics only.
+## Safe slice 7 — reference-only telemetry and audit handoff acknowledgement
 
-### Fake diagnostic sink
+### Telemetry signal contract
 
-- bounded `ScriptedInMemoryDiagnosticSink`;
-- accepted, capacity and scripted failure outcomes;
-- only accepted emissions enter the deduplication tracker;
-- sink failures return stable reason codes without raw exception text;
-- diagnostic sink loss is surfaced as degraded observability, not silently ignored.
+- telemetry/handoff contract version `1`; unknown versions fail closed;
+- explicit signal-name allowlist;
+- exact attribute-key and attribute-value allowlists;
+- prohibited credential, trusted-identity and raw-audit attribute names;
+- logical endpoint/correlation references, quantity, caller ordinal and provenance digest only;
+- canonical aggregation-identity and full-signal digests;
+- no arbitrary signal body, raw exception, endpoint address or credential material.
 
-### Audit completeness proof
+### Atomic fake telemetry exporter
 
-- exactly one started record, the expected attempt records and one terminal record;
-- contiguous sequence, required phase/type, unique event IDs and non-decreasing explicit times;
-- stable endpoint, operation, request, trace, binding, authentication-context and provenance identity;
-- canonical identity digest and full-batch digest;
-- missing, reordered, duplicate, identity-drifted or time-regressed records fail closed.
+- bounded `ScriptedTelemetryExporter` only;
+- unique signal IDs/digests and non-decreasing caller ordinals;
+- canonical batch proof;
+- capacity, duplicate and scripted failures append no partial signals;
+- exporter loss is returned as an explicit degraded result without raw exception text.
 
-### Atomic fake audit sink
+### Audit handoff acknowledgement
 
-- bounded `ScriptedAtomicAuditSink` only;
-- complete batches commit atomically;
-- capacity, duplicate-batch and scripted failures leave no partial records;
-- audit incompleteness or sink failure is always `FAILED_CLOSED`;
-- no production logger, exporter, queue or audit persistence exists.
+- envelope created only from `AuditCompletenessProof`;
+- logical destination, proof digests/counts and canonical envelope digest only;
+- original audit records and trusted identity evidence are absent;
+- NACK, timeout-like and scripted failure retain the exact pending handoff;
+- ACK atomically moves pending to acknowledged;
+- identical replay returns the original acknowledgement;
+- conflicting handoff identity fails closed;
+- bounded queue capacity creates no partial pending entry.
 
 ## Tests and permanent validation
 
-Java and TypeScript use `emission-policy-v1.json` and must agree on diagnostic fingerprint/sample bucket, audit identity digest, audit batch digest and atomic commit result. Additional tests cover severity suppression, sampling, ordinal deduplication, diagnostic capacity/failure, missing/reordered/identity-drifted audit records, audit capacity/failure/duplicate batches and unsafe bounds.
+Java and TypeScript use `telemetry-handoff-v1.json` and must agree on telemetry aggregation/signal/batch digests, audit handoff envelope digest, acknowledgement ID and NACK/timeout/ACK/duplicate-ACK state transitions. Additional tests cover key/value allowlists, unknown versions, exporter capacity/failure/duplicates, ordinal regression, queue capacity, no-loss pending recovery, conflicting replay and incomplete proof rejection.
 
 The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor executes Java tests. The permanent workflow remains `.github/workflows/approval-platform-validation.yml`.
 
 ## Still blocked
 
 - production environment/file/vault configuration source;
-- production diagnostic logger, telemetry exporter or audit persistence;
+- production diagnostic logger or telemetry backend;
+- production message broker, audit queue or audit persistence;
 - real HTTP or other network transport;
 - production endpoint address, discovery and routing;
 - production authentication executor or usable credential material;
@@ -109,4 +114,4 @@ The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor
 
 ## Next gate
 
-The next M6-B gate requires explicit acceptance of deterministic diagnostic emission and atomic audit completeness/failure-mode conformance. Production logging, telemetry, audit storage, endpoint addresses, credentials and network execution remain separately blocked.
+The next M6-B gate requires explicit acceptance of reference-only telemetry and audit handoff acknowledgement semantics before introducing any production telemetry backend, message broker, audit queue or persistence. Endpoint addresses, credentials and network execution remain separately blocked.

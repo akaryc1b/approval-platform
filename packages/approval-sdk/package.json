@@ -9,6 +9,7 @@
     "./compatibility": "./dist/compatibility.js",
     "./diagnostics-audit": "./dist/diagnostics-audit.js",
     "./emission-policy": "./dist/emission-policy.js",
+    "./telemetry-handoff": "./dist/telemetry-handoff.js",
     "./transport-policy": "./dist/transport-policy.js"
   },
   "types": "./dist/public.d.ts",
