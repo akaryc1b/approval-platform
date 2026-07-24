@@ -82,6 +82,13 @@ jobs:
             >m6-ai-activation-review-boundary.log 2>&1 \
             || { cat m6-ai-activation-review-boundary.log; exit 1; }
           cat m6-ai-activation-review-boundary.log
+      - name: Verify M6 AI transport review boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m6-ai-transport-review-boundary.test.mjs \
+            >m6-ai-transport-review-boundary.log 2>&1 \
+            || { cat m6-ai-transport-review-boundary.log; exit 1; }
+          cat m6-ai-transport-review-boundary.log
       - name: Upload repository governance logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -92,6 +99,7 @@ jobs:
             m4-release-governance-boundary.log
             m6-ai-foundation-boundary.log
             m6-ai-activation-review-boundary.log
+            m6-ai-transport-review-boundary.log
           if-no-files-found: ignore
 
   backend:
