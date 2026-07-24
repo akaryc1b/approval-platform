@@ -1,7 +1,39 @@
 package io.github.akaryc1b.approval.connector;
 
 import io.github.akaryc1b.approval.connector.ConnectorProvider.Capability;
-import io.github.akaryc1b.approval.connector.contract.*;
+import io.github.akaryc1b.approval.connector.contract.CanonicalConnectorPayload;
+import io.github.akaryc1b.approval.connector.contract.ConnectorExecutionAdmission;
+import io.github.akaryc1b.approval.connector.contract.ConnectorExecutionAdmissionEvidence;
+import io.github.akaryc1b.approval.connector.contract.ConnectorExecutionAdmissionRequest;
+import io.github.akaryc1b.approval.connector.contract.ConnectorExecutionAdmissionStatus;
+import io.github.akaryc1b.approval.connector.contract.ConnectorFoundationAcceptanceEvidence;
+import io.github.akaryc1b.approval.connector.contract.ConnectorFoundationAcceptanceRequest;
+import io.github.akaryc1b.approval.connector.contract.ConnectorFoundationAcceptanceStatus;
+import io.github.akaryc1b.approval.connector.contract.ConnectorFoundationBlockedCapability;
+import io.github.akaryc1b.approval.connector.contract.ConnectorInvocationAuthorizationEvidence;
+import io.github.akaryc1b.approval.connector.contract.ConnectorOperation;
+import io.github.akaryc1b.approval.connector.contract.ConnectorOperationContract;
+import io.github.akaryc1b.approval.connector.contract.ConnectorOrchestrationPlan;
+import io.github.akaryc1b.approval.connector.contract.ConnectorOrchestrationPlanningRequest;
+import io.github.akaryc1b.approval.connector.contract.ConnectorProviderBinding;
+import io.github.akaryc1b.approval.connector.contract.ConnectorProviderCompatibilityReport;
+import io.github.akaryc1b.approval.connector.contract.ConnectorProviderRegistry;
+import io.github.akaryc1b.approval.connector.contract.ConnectorProviderSelection;
+import io.github.akaryc1b.approval.connector.contract.ConnectorProviderSelectionEvidence;
+import io.github.akaryc1b.approval.connector.contract.ConnectorProviderSelectionRequest;
+import io.github.akaryc1b.approval.connector.contract.ConnectorProviderSelectionStatus;
+import io.github.akaryc1b.approval.connector.contract.ConnectorReconciliationPort;
+import io.github.akaryc1b.approval.connector.contract.ConnectorReconciliationRequest;
+import io.github.akaryc1b.approval.connector.contract.ConnectorReconciliationResult;
+import io.github.akaryc1b.approval.connector.contract.ConnectorRequest;
+import io.github.akaryc1b.approval.connector.contract.CredentialReference;
+import io.github.akaryc1b.approval.connector.contract.DeterministicConnectorExecutionAdmissionPolicy;
+import io.github.akaryc1b.approval.connector.contract.DeterministicConnectorFoundationAcceptanceEvaluator;
+import io.github.akaryc1b.approval.connector.contract.DeterministicConnectorOrchestrationPlanner;
+import io.github.akaryc1b.approval.connector.contract.DeterministicConnectorProviderCompatibilityMatrix;
+import io.github.akaryc1b.approval.connector.contract.DeterministicConnectorProviderSelector;
+import io.github.akaryc1b.approval.connector.contract.ProviderDescriptor;
+import io.github.akaryc1b.approval.connector.contract.TrustedConnectorExecutionContext;
 import io.github.akaryc1b.approval.connector.testing.DeterministicTypedConnectorPort;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +45,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConnectorExecutionAdmissionAcceptanceContractsTest {
 
@@ -44,7 +79,9 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
     @Test
     void admissionClassifiesRegistryStaleness() {
         Inputs inputs = inputs();
-        inputs.registry = new ConnectorProviderRegistry(List.of(inputs.binding, binding("provider-b")));
+        inputs.registry = new ConnectorProviderRegistry(
+            List.of(inputs.binding, binding("provider-b"))
+        );
         assertStatus(ConnectorExecutionAdmissionStatus.REGISTRY_STALE, inputs);
     }
 
@@ -52,8 +89,10 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
     void admissionClassifiesContractMismatch() {
         Inputs inputs = inputs();
         inputs.contract = new ConnectorOperationContract<>(
-            "notification.test.v2", ConnectorOperation.NOTIFICATION_SEND,
-            TestPayload.class, TestResponse.class
+            "notification.test.v2",
+            ConnectorOperation.NOTIFICATION_SEND,
+            TestPayload.class,
+            TestResponse.class
         );
         assertStatus(ConnectorExecutionAdmissionStatus.CONTRACT_MISMATCH, inputs);
     }
@@ -63,12 +102,20 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
         Inputs inputs = inputs();
         ConnectorProviderSelectionEvidence old = inputs.selection.evidence();
         ConnectorProviderSelectionEvidence changed = new ConnectorProviderSelectionEvidence(
-            "selection.v2", old.registryFingerprint(), old.contractKey(),
-            old.allowedProviderKeys(), old.eligibleProviderKeys(), old.preferredProviderKey(),
-            old.requiredProtocolVersion(), old.selectedProviderKey(), old.status()
+            "selection.v2",
+            old.registryFingerprint(),
+            old.contractKey(),
+            old.allowedProviderKeys(),
+            old.eligibleProviderKeys(),
+            old.preferredProviderKey(),
+            old.requiredProtocolVersion(),
+            old.selectedProviderKey(),
+            old.status()
         );
         inputs.selection = new ConnectorProviderSelection<>(
-            ConnectorProviderSelectionStatus.SELECTED, inputs.binding, changed
+            ConnectorProviderSelectionStatus.SELECTED,
+            inputs.binding,
+            changed
         );
         assertStatus(ConnectorExecutionAdmissionStatus.SELECTION_MISMATCH, inputs);
     }
@@ -78,8 +125,12 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
         Inputs inputs = inputs();
         ConnectorProviderCompatibilityReport old = inputs.compatibility;
         inputs.compatibility = new ConnectorProviderCompatibilityReport(
-            "compatibility.v2", old.registryFingerprint(), old.contractKey(),
-            old.contractFingerprint(), old.requiredProtocolVersion(), old.entries()
+            "compatibility.v2",
+            old.registryFingerprint(),
+            old.contractKey(),
+            old.contractFingerprint(),
+            old.requiredProtocolVersion(),
+            old.entries()
         );
         assertStatus(ConnectorExecutionAdmissionStatus.COMPATIBILITY_MISMATCH, inputs);
     }
@@ -87,18 +138,34 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
     @Test
     void admissionClassifiesBindingUnavailableWithoutReturningBinding() {
         Inputs inputs = inputs();
-        ConnectorReconciliationPort<TestResponse> reconciliation = new ConnectorReconciliationPort<>() {
-            @Override public ProviderDescriptor descriptor() { return inputs.binding.descriptor(); }
-            @Override public Object reconcile(TrustedConnectorExecutionContext c, Object r) {
-                throw new UnsupportedOperationException("test only");
-            }
-        };
-        ConnectorProviderBinding<TestPayload, TestResponse> changed = new ConnectorProviderBinding<>(
-            inputs.binding.descriptor(), inputs.binding.operation(), TestPayload.class,
-            TestResponse.class, inputs.port, reconciliation
-        );
+        ConnectorReconciliationPort<TestResponse> reconciliation =
+            new ConnectorReconciliationPort<>() {
+                @Override
+                public ProviderDescriptor descriptor() {
+                    return inputs.binding.descriptor();
+                }
+
+                @Override
+                public ConnectorReconciliationResult<TestResponse> reconcile(
+                    TrustedConnectorExecutionContext context,
+                    ConnectorReconciliationRequest request
+                ) {
+                    throw new UnsupportedOperationException("test only");
+                }
+            };
+        ConnectorProviderBinding<TestPayload, TestResponse> changed =
+            new ConnectorProviderBinding<>(
+                inputs.binding.descriptor(),
+                inputs.binding.operation(),
+                TestPayload.class,
+                TestResponse.class,
+                inputs.port,
+                reconciliation
+            );
         inputs.selection = new ConnectorProviderSelection<>(
-            ConnectorProviderSelectionStatus.SELECTED, changed, inputs.selection.evidence()
+            ConnectorProviderSelectionStatus.SELECTED,
+            changed,
+            inputs.selection.evidence()
         );
         assertStatus(ConnectorExecutionAdmissionStatus.BINDING_UNAVAILABLE, inputs);
         assertEquals(0, inputs.port.invocationCount());
@@ -124,8 +191,12 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
     void admissionClassifiesRequestMismatch() {
         Inputs inputs = inputs();
         inputs.request = new ConnectorRequest<>(
-            "request-b", inputs.request.traceId(), inputs.request.idempotencyKey(),
-            inputs.request.operation(), inputs.request.canonicalPayloadHash(), null,
+            "request-b",
+            inputs.request.traceId(),
+            inputs.request.idempotencyKey(),
+            inputs.request.operation(),
+            inputs.request.canonicalPayloadHash(),
+            null,
             inputs.request.payload()
         );
         assertStatus(ConnectorExecutionAdmissionStatus.REQUEST_MISMATCH, inputs);
@@ -136,9 +207,18 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
         Inputs inputs = inputs();
         ConnectorInvocationAuthorizationEvidence old = inputs.authorization;
         inputs.authorization = new ConnectorInvocationAuthorizationEvidence(
-            "authorization-b", old.authorizationPolicyVersion(), old.tenantId(), old.providerKey(),
-            old.contractKey(), old.operation(), old.requestId(), old.idempotencyKey(),
-            old.canonicalPayloadHash(), old.selectionEvidenceHash(), old.authorizedAt(), old.expiresAt()
+            "authorization-b",
+            old.authorizationPolicyVersion(),
+            old.tenantId(),
+            old.providerKey(),
+            old.contractKey(),
+            old.operation(),
+            old.requestId(),
+            old.idempotencyKey(),
+            old.canonicalPayloadHash(),
+            old.selectionEvidenceHash(),
+            old.authorizedAt(),
+            old.expiresAt()
         );
         assertStatus(ConnectorExecutionAdmissionStatus.AUTHORIZATION_MISMATCH, inputs);
     }
@@ -147,7 +227,9 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
     void admissionClassifiesExpiredAuthorization() {
         Inputs inputs = inputs();
         inputs.authorization = authorization(
-            inputs.selection.evidence(), NOW.minusSeconds(600), NOW.minusSeconds(1)
+            inputs.selection.evidence(),
+            NOW.minusSeconds(600),
+            NOW.minusSeconds(1)
         );
         inputs.plan = copyPlan(inputs.plan, inputs.authorization.evidenceHash());
         assertStatus(ConnectorExecutionAdmissionStatus.AUTHORIZATION_EXPIRED, inputs);
@@ -179,34 +261,56 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
         assertFalse(evidence.automaticExecutionEnabled());
         assertFalse(evidence.automaticRetryEnabled());
         assertTrue(evidence.requiresExplicitFormalAcceptance());
-        assertEquals(EnumSet.allOf(ConnectorFoundationBlockedCapability.class),
-            evidence.blockedCapabilities());
+        assertEquals(
+            EnumSet.allOf(ConnectorFoundationBlockedCapability.class),
+            evidence.blockedCapabilities()
+        );
     }
 
     @Test
     void foundationEvidenceFailsClosedForIncompleteOrStaleEvidence() {
         Inputs inputs = inputs();
         ConnectorExecutionAdmissionEvidence admitted = admit(inputs).evidence();
-        assertEquals(ConnectorFoundationAcceptanceStatus.INCOMPLETE_CONTRACT_COVERAGE,
-            evaluator().evaluate(acceptance(
-                inputs.registry, List.of(contract()), List.of(admitted))).status());
+        assertEquals(
+            ConnectorFoundationAcceptanceStatus.INCOMPLETE_CONTRACT_COVERAGE,
+            evaluator().evaluate(
+                acceptance(inputs.registry, List.of(contract()), List.of(admitted))
+            ).status()
+        );
 
         Inputs rejectedInputs = inputs();
         rejectedInputs.checkedAt = NOW.minusNanos(1);
-        assertEquals(ConnectorFoundationAcceptanceStatus.INCOMPLETE_ADMISSION_EVIDENCE,
-            evaluator().evaluate(acceptance(
-                inputs.registry, allContracts(), List.of(admit(rejectedInputs).evidence()))).status());
+        assertEquals(
+            ConnectorFoundationAcceptanceStatus.INCOMPLETE_ADMISSION_EVIDENCE,
+            evaluator().evaluate(
+                acceptance(
+                    inputs.registry,
+                    allContracts(),
+                    List.of(admit(rejectedInputs).evidence())
+                )
+            ).status()
+        );
 
         ConnectorExecutionAdmissionEvidence stale = new ConnectorExecutionAdmissionEvidence(
-            admitted.admissionPolicyVersion(), admitted.status(), admitted.planHash(),
-            "0".repeat(64), admitted.contractFingerprint(), admitted.selectionEvidenceHash(),
-            admitted.compatibilityEvidenceHash(), admitted.authorizationEvidenceHash(),
-            admitted.trustedContextEvidenceHash(), admitted.requestEvidenceHash(),
-            admitted.credentialReferenceHash(), admitted.checkedAt()
+            admitted.admissionPolicyVersion(),
+            admitted.status(),
+            admitted.planHash(),
+            "0".repeat(64),
+            admitted.contractFingerprint(),
+            admitted.selectionEvidenceHash(),
+            admitted.compatibilityEvidenceHash(),
+            admitted.authorizationEvidenceHash(),
+            admitted.trustedContextEvidenceHash(),
+            admitted.requestEvidenceHash(),
+            admitted.credentialReferenceHash(),
+            admitted.checkedAt()
         );
-        assertEquals(ConnectorFoundationAcceptanceStatus.REGISTRY_EVIDENCE_MISMATCH,
-            evaluator().evaluate(acceptance(
-                inputs.registry, allContracts(), List.of(stale))).status());
+        assertEquals(
+            ConnectorFoundationAcceptanceStatus.REGISTRY_EVIDENCE_MISMATCH,
+            evaluator().evaluate(
+                acceptance(inputs.registry, allContracts(), List.of(stale))
+            ).status()
+        );
     }
 
     private static Inputs inputs() {
@@ -216,67 +320,121 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
             new DeterministicConnectorProviderSelector().select(
                 registry,
                 new ConnectorProviderSelectionRequest<>(
-                    contract(), Set.of("provider-a"), null, PROTOCOL, "selection.v1"
+                    contract(),
+                    Set.of("provider-a"),
+                    null,
+                    PROTOCOL,
+                    "selection.v1"
                 )
             );
         ConnectorProviderCompatibilityReport compatibility =
             new DeterministicConnectorProviderCompatibilityMatrix(registry).evaluate(
-                contract(), Set.of("provider-a"), PROTOCOL, "compatibility.v1"
+                contract(),
+                Set.of("provider-a"),
+                PROTOCOL,
+                "compatibility.v1"
             );
         TestPayload payload = new TestPayload("hello");
         ConnectorRequest<TestPayload> request = new ConnectorRequest<>(
-            "request-a", "trace-a", "idempotency-a",
-            ConnectorOperation.NOTIFICATION_SEND, payload.canonicalPayloadHash(), null, payload
+            "request-a",
+            "trace-a",
+            "idempotency-a",
+            ConnectorOperation.NOTIFICATION_SEND,
+            payload.canonicalPayloadHash(),
+            null,
+            payload
         );
         TrustedConnectorExecutionContext context = context("tenant-a", "credential-a");
         ConnectorInvocationAuthorizationEvidence authorization = authorization(
-            selection.evidence(), NOW.minusSeconds(30), NOW.plusSeconds(300)
+            selection.evidence(),
+            NOW.minusSeconds(30),
+            NOW.plusSeconds(300)
         );
         ConnectorOrchestrationPlan plan = new DeterministicConnectorOrchestrationPlanner().plan(
             new ConnectorOrchestrationPlanningRequest<>(
-                registry, contract(), selection, compatibility, authorization, context, request
+                registry,
+                contract(),
+                selection,
+                compatibility,
+                authorization,
+                context,
+                request
             )
         );
         return new Inputs(
-            registry, binding,
+            registry,
+            binding,
             (DeterministicTypedConnectorPort<TestPayload, TestResponse>) binding.executionPort(),
-            contract(), selection, compatibility, authorization, context, request, plan,
+            contract(),
+            selection,
+            compatibility,
+            authorization,
+            context,
+            request,
+            plan,
             NOW.plusSeconds(1)
         );
     }
 
-    private static ConnectorExecutionAdmission admit(Inputs i) {
+    private static ConnectorExecutionAdmission admit(Inputs inputs) {
         return new DeterministicConnectorExecutionAdmissionPolicy(POLICY).admit(
             new ConnectorExecutionAdmissionRequest<>(
-                i.plan, i.registry, i.contract, i.selection, i.compatibility,
-                i.authorization, i.context, i.request, i.checkedAt
+                inputs.plan,
+                inputs.registry,
+                inputs.contract,
+                inputs.selection,
+                inputs.compatibility,
+                inputs.authorization,
+                inputs.context,
+                inputs.request,
+                inputs.checkedAt
             )
         );
     }
 
-    private static void assertStatus(ConnectorExecutionAdmissionStatus expected, Inputs inputs) {
+    private static void assertStatus(
+        ConnectorExecutionAdmissionStatus expected,
+        Inputs inputs
+    ) {
         assertEquals(expected, admit(inputs).status());
     }
 
-    private static ConnectorProviderBinding<TestPayload, TestResponse> binding(String providerKey) {
+    private static ConnectorProviderBinding<TestPayload, TestResponse> binding(
+        String providerKey
+    ) {
         ProviderDescriptor descriptor = new ProviderDescriptor(
-            providerKey, ProviderDescriptor.ProviderType.TEST, PROTOCOL,
-            Set.of(Capability.NOTIFICATION), ProviderDescriptor.ProviderState.ENABLED,
+            providerKey,
+            ProviderDescriptor.ProviderType.TEST,
+            PROTOCOL,
+            Set.of(Capability.NOTIFICATION),
+            ProviderDescriptor.ProviderState.ENABLED,
             Map.of("adapter", "deterministic")
         );
         DeterministicTypedConnectorPort<TestPayload, TestResponse> port =
             new DeterministicTypedConnectorPort<>(
-                descriptor, CLOCK, payload -> new TestResponse("accepted:" + payload.value())
+                descriptor,
+                CLOCK,
+                payload -> new TestResponse("accepted:" + payload.value())
             );
         return new ConnectorProviderBinding<>(
-            descriptor, ConnectorOperation.NOTIFICATION_SEND,
-            TestPayload.class, TestResponse.class, port, null
+            descriptor,
+            ConnectorOperation.NOTIFICATION_SEND,
+            TestPayload.class,
+            TestResponse.class,
+            port,
+            null
         );
     }
 
-    private static TrustedConnectorExecutionContext context(String tenant, String credential) {
+    private static TrustedConnectorExecutionContext context(
+        String tenant,
+        String credential
+    ) {
         return new TrustedConnectorExecutionContext(
-            tenant, "provider-a", new CredentialReference("provider-a", credential), NOW
+            tenant,
+            "provider-a",
+            new CredentialReference("provider-a", credential),
+            NOW
         );
     }
 
@@ -286,17 +444,27 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
         Instant expiresAt
     ) {
         return new ConnectorInvocationAuthorizationEvidence(
-            "authorization-a", "authorization.v1", "tenant-a", "provider-a",
-            contract().contractKey(), contract().operation(), "request-a", "idempotency-a",
-            new TestPayload("hello").canonicalPayloadHash(), selection.evidenceHash(),
-            authorizedAt, expiresAt
+            "authorization-a",
+            "authorization.v1",
+            "tenant-a",
+            "provider-a",
+            contract().contractKey(),
+            contract().operation(),
+            "request-a",
+            "idempotency-a",
+            new TestPayload("hello").canonicalPayloadHash(),
+            selection.evidenceHash(),
+            authorizedAt,
+            expiresAt
         );
     }
 
     private static ConnectorOperationContract<TestPayload, TestResponse> contract() {
         return new ConnectorOperationContract<>(
-            "notification.test.v1", ConnectorOperation.NOTIFICATION_SEND,
-            TestPayload.class, TestResponse.class
+            "notification.test.v1",
+            ConnectorOperation.NOTIFICATION_SEND,
+            TestPayload.class,
+            TestResponse.class
         );
     }
 
@@ -307,7 +475,10 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
             contract(),
             generic("external.todo.create.v1", ConnectorOperation.EXTERNAL_TODO_CREATE),
             generic("external.todo.update.v1", ConnectorOperation.EXTERNAL_TODO_UPDATE),
-            generic("business.callback.deliver.v1", ConnectorOperation.BUSINESS_CALLBACK_DELIVER)
+            generic(
+                "business.callback.deliver.v1",
+                ConnectorOperation.BUSINESS_CALLBACK_DELIVER
+            )
         );
     }
 
@@ -315,7 +486,12 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
         String key,
         ConnectorOperation operation
     ) {
-        return new ConnectorOperationContract<>(key, operation, Object.class, Object.class);
+        return new ConnectorOperationContract<>(
+            key,
+            operation,
+            Object.class,
+            Object.class
+        );
     }
 
     private static ConnectorFoundationAcceptanceRequest acceptance(
@@ -324,8 +500,15 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
         List<ConnectorExecutionAdmissionEvidence> admissions
     ) {
         return new ConnectorFoundationAcceptanceRequest(
-            "m6-a.foundation.v1", registry, contracts, "selection.v1", "compatibility.v1",
-            "orchestration.v1", POLICY, admissions, NOW.plusSeconds(2)
+            "m6-a.foundation.v1",
+            registry,
+            contracts,
+            "selection.v1",
+            "compatibility.v1",
+            "orchestration.v1",
+            POLICY,
+            admissions,
+            NOW.plusSeconds(2)
         );
     }
 
@@ -338,19 +521,32 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
         String authorizationHash
     ) {
         return new ConnectorOrchestrationPlan(
-            source.tenantId(), source.providerKey(), source.contractKey(), source.operation(),
-            source.requestId(), source.traceId(), source.idempotencyKey(),
-            source.canonicalPayloadHash(), source.credentialReferenceHash(),
-            source.registryFingerprint(), source.compatibilityEvidenceHash(),
-            source.selectionEvidenceHash(), authorizationHash, source.plannedAt()
+            source.tenantId(),
+            source.providerKey(),
+            source.contractKey(),
+            source.operation(),
+            source.requestId(),
+            source.traceId(),
+            source.idempotencyKey(),
+            source.canonicalPayloadHash(),
+            source.credentialReferenceHash(),
+            source.registryFingerprint(),
+            source.compatibilityEvidenceHash(),
+            source.selectionEvidenceHash(),
+            authorizationHash,
+            source.plannedAt()
         );
     }
 
     private record TestPayload(String value) implements CanonicalConnectorPayload {
-        @Override public String canonicalPayload() { return "value=" + value; }
+        @Override
+        public String canonicalPayload() {
+            return "value=" + value;
+        }
     }
 
-    private record TestResponse(String value) {}
+    private record TestResponse(String value) {
+    }
 
     private static final class Inputs {
         private ConnectorProviderRegistry registry;
