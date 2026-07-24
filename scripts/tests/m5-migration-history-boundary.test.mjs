@@ -20,6 +20,10 @@ const concurrencyCapabilityPath = path.join(
   root,
   'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationConcurrentCommandCapabilityTest.java',
 );
+const finalFeasibilityPath = path.join(
+  root,
+  'docs/M5_PROCESS_INSTANCE_MIGRATION_FEASIBILITY.md',
+);
 
 async function text(file) {
   return readFile(file, 'utf8');
@@ -81,6 +85,17 @@ test('concurrent-command evidence remains fail-closed M5-A capability validation
   assert.match(evidence, /Overall conclusion remains: `SUPPORTED_WITH_LIMITATIONS`/);
   assert.match(evidence, /Uncoordinated migration versus task completion \| `UNSUPPORTED`/);
   assert.match(evidence, /Concurrent duplicate migration invocation \| `UNSUPPORTED`/);
+  assert.match(evidence, /Permanent workflow Run `30058147323` \/ run #471/);
+
+  for (const observation of [
+    '`COMPLETION_WON_SOURCE_COMPLETED=6`',
+    '`MIGRATION_WON_TARGET_ACTIVE_AFTER_COMPLETE_CONFLICT=14`',
+    '`BOTH_SUCCEEDED_TARGET_COMPLETED=0`',
+    '`ONE_MIGRATION_WON=20`',
+    '`BOTH_MIGRATIONS_ACCEPTED=0`',
+  ]) {
+    assert.ok(evidence.includes(observation), `concurrency evidence omits ${observation}`);
+  }
 
   for (const boundary of [
     'Any duplicated task',
@@ -120,4 +135,33 @@ test('concurrent-command capability uses public services and a real start gate',
     capability,
     /createNative|executeJob|deleteJob|setJobRetries|deleteHistoricProcessInstance/,
   );
+});
+
+test('final M5-A feasibility is complete but does not self-authorize M5-B', async () => {
+  const feasibility = await text(finalFeasibilityPath);
+
+  assert.match(feasibility, /M5-A EVIDENCE GATE: `COMPLETE_PENDING_EXPLICIT_ACCEPTANCE`/);
+  assert.match(feasibility, /Overall conclusion: `SUPPORTED_WITH_LIMITATIONS`/);
+  assert.match(feasibility, /### 4\.8 Eighth slice: concurrent engine commands/);
+  assert.match(feasibility, /Permanent Run `30058147323` \/ #471 observed/);
+  assert.match(feasibility, /technical evidence package is complete and ready for explicit stage acceptance/);
+  assert.match(feasibility, /This decision does not authorize M5-B/);
+
+  for (const scenario of [6, 11, 12, 19, 21, 25]) {
+    assert.match(
+      feasibility,
+      new RegExp('\\| ' + scenario + ' \\|[^\\n]*\\| `UNSUPPORTED` \\|'),
+      `final feasibility does not prohibit scenario ${scenario}`,
+    );
+  }
+  assert.match(feasibility, /\| 26 \|[^\n]*\| `UNKNOWN_REQUIRES_MORE_EVIDENCE` \|/);
+
+  for (const boundary of [
+    'server-side lease or compare-and-set command gate',
+    'no automatic retry of `UNKNOWN`',
+    'PR #58 must remain Open + Draft',
+    'marking PR #58 Ready or merging it',
+  ]) {
+    assert.ok(feasibility.includes(boundary), `final feasibility omits ${boundary}`);
+  }
 });

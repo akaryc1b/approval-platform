@@ -56,7 +56,30 @@ Neither result is an idempotency contract. If both calls are accepted, the engin
 provided a unique winner. If one call fails, the error still does not provide a durable platform
 idempotency receipt.
 
-## 4. Governance decision
+## 4. Permanent observed evidence
+
+Permanent workflow Run `30058147323` / run #471 completed successfully at head
+`3a2bcb9343029a2eb86a4b45dc791e513dda284c`.
+
+The exact twenty-trial distributions were:
+
+- migration versus completion:
+  - `COMPLETION_WON_SOURCE_COMPLETED=6`;
+  - `MIGRATION_WON_TARGET_ACTIVE_AFTER_COMPLETE_CONFLICT=14`;
+  - `BOTH_SUCCEEDED_TARGET_COMPLETED=0`;
+- concurrent duplicate migrations:
+  - `ONE_MIGRATION_WON=20`;
+  - `BOTH_MIGRATIONS_ACCEPTED=0`.
+
+Every completion race ended as one coherent source-completed or target-active state. Every duplicate
+race ended with one target-definition instance and exactly one target task. The losing H2 commands
+emitted transaction deadlock/rollback errors. No duplicate task or mixed source/target definition
+was observed.
+
+These counts are evidence for this exact engine/database/test shape only. They are not scheduler
+probabilities and must not be used as a PostgreSQL or production prediction.
+
+## 5. Governance decision
 
 | Concern | M5-A decision | Required rule |
 |---|---|---|
@@ -66,7 +89,7 @@ idempotency receipt.
 | Losing command retry | `UNSUPPORTED` | A command error after overlap is not proof that nothing committed; reconcile before any new attempt. |
 | Cluster/PostgreSQL concurrency behavior | `UNKNOWN_REQUIRES_MORE_EVIDENCE` | Embedded H2 evidence must not be generalized into a database or cluster contract. |
 
-## 5. Platform implications
+## 6. Platform implications
 
 - Validation is not a lock and cannot authorize a later command after another operation wins.
 - Every authoritative migration, completion, withdraw, reject and terminate command requires a
@@ -79,7 +102,7 @@ idempotency receipt.
 - Concurrent duplicate calls must not reach Flowable in a production implementation.
 - No browser or mobile request may manufacture the lease, command winner or reconciliation result.
 
-## 6. Remaining limitations
+## 7. Remaining limitations
 
 - PostgreSQL and clustered-engine locking behavior;
 - migration versus withdraw, reject, terminate, timer firing and external job execution;
@@ -87,7 +110,7 @@ idempotency receipt.
 - network timeout while one concurrent command commits;
 - production lease expiry and worker crash behavior.
 
-## 7. Slice decision
+## 8. Slice decision
 
 Current M5-A decision remains `SUPPORTED_WITH_LIMITATIONS`.
 
