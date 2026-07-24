@@ -1,6 +1,6 @@
 # M6-C Template and Component Ecosystem Bootstrap
 
-Status: `THIRD_SAFE_SLICE_IMPLEMENTED`
+Status: `FOURTH_SAFE_SLICE_IMPLEMENTED`
 
 Tracking:
 
@@ -66,6 +66,21 @@ The third implementation slice adds `ProcessTemplateImportCoordinator` and the s
 
 This slice establishes a server-authoritative capability-resolution boundary without introducing a marketplace registry, database persistence, remote lookup or dynamic component loading.
 
+## Implemented fourth safe slice
+
+The fourth implementation slice binds every preview and draft-creation decision to deterministic tenant-registry evidence:
+
+- validates server-resolved form-field, connector, business-reference, organization, identity and registered-component keys before dependency resolution;
+- rejects unsafe registry values, duplicate registered-component identities, invalid component support whitelists and excessive registry/component counts;
+- computes a length-prefixed SHA-256 registry hash using protocol `process-template-tenant-registry-v1`;
+- sorts all registry sets and registered-component descriptors so semantically equivalent snapshots produce identical evidence;
+- records target tenant, platform protocol version and registry content hash in immutable `RegistryEvidence`;
+- includes `RegistryEvidence` in the `process-template-import-plan-v2` hash protocol;
+- changes the plan hash when any registry capability or component contract changes, even when the changed capability is not referenced by the current package;
+- returns the revalidated registry evidence with a successful draft-creation result for audit correlation.
+
+An old plan therefore cannot be reused across any server-authoritative registry drift. No registry snapshot is persisted, downloaded remotely or supplied by package content.
+
 ## Security limits and rejection behavior
 
 The package and decoder enforce:
@@ -77,8 +92,11 @@ The package and decoder enforce:
 - maximum dependencies: 500;
 - maximum component properties: 50;
 - maximum included artifact references: 100;
+- maximum top-level registry values: 10,000;
+- maximum registered components: 1,000;
+- maximum properties per registered component: 100;
 - duplicate JSON key rejection;
-- duplicate dependency, artifact, component and property-schema rejection;
+- duplicate dependency, artifact, component, property-schema and registered-component rejection;
 - unknown JSON field rejection;
 - malformed Unicode rejection;
 - path traversal and unsafe resource-name rejection;
@@ -88,22 +106,9 @@ The package and decoder enforce:
 
 ## Fixtures and tests
 
-Fixtures cover:
+Fixtures cover valid template packages, missing dependencies, incompatible versions, tampered hashes, duplicate dependencies, cross-tenant binding attempts, script/dynamic-import rejection, unknown-component fallback, path traversal, duplicate JSON keys, unknown tenant fields and malformed Unicode.
 
-- valid template package;
-- missing dependency preview;
-- incompatible platform version;
-- tampered content hash;
-- duplicate dependency;
-- cross-tenant binding attempt;
-- script/dynamic import rejection;
-- unknown component readonly fallback;
-- path traversal;
-- duplicate JSON keys;
-- unknown tenant field;
-- malformed Unicode.
-
-Application and API tests cover deterministic package and plan hashes, compatibility, dependency resolution, tenant rebinding, safe fallback, strict JSON and preview-only behavior. Draft-creation tests cover stale-plan rejection, non-importable plans, cross-tenant write contexts, artifact-envelope mismatch, missing source artifacts, exact Form Package selection, immutable target versions, idempotency-context propagation and DRAFT-only results. Coordinator tests cover server-only registry resolution, independent re-resolution for draft creation, registry drift, cross-tenant resolver output, cross-tenant write contexts, null snapshots, resolver-error redaction and command-contract exclusion of caller-supplied registries. The boundary test verifies that no `V33` migration or second permanent workflow exists and that the slices have no marketplace/download/class-loader/release-mutation dependency.
+Application and API tests cover deterministic package, registry and plan hashes, compatibility, dependency resolution, tenant rebinding, safe fallback, strict JSON and preview-only behavior. Draft-creation tests cover stale-plan rejection, non-importable plans, cross-tenant write contexts, artifact-envelope mismatch, missing source artifacts, exact Form Package selection, immutable target versions, idempotency-context propagation and DRAFT-only results. Coordinator tests cover server-only registry resolution, independent re-resolution for draft creation, registry drift, cross-tenant resolver output, cross-tenant write contexts, null snapshots, resolver-error redaction and command-contract exclusion of caller-supplied registries. Registry-evidence tests cover deterministic ordering, evidence fields, unreferenced capability drift, registered-component contract drift, unsafe values and duplicate component identities. The boundary test verifies that no `V33` migration or second permanent workflow exists and that the slices have no marketplace/download/class-loader/release-mutation dependency.
 
 ## Blocked until a later gate
 
@@ -112,6 +117,7 @@ Application and API tests cover deterministic package and plan hashes, compatibi
 - dynamic component loading or remote modules;
 - trusted package-supplied target bindings or registry snapshots;
 - direct publication, deployment or activation during import;
+- production registry resolver adapter wiring and management HTTP endpoints;
 - database persistence or any `V33` migration;
 - changes to M5 migration source or PR #58;
 - a second permanent GitHub Actions workflow.

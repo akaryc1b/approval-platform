@@ -17,6 +17,9 @@ public final class ProcessTemplateContracts {
     public static final int MAX_DEPENDENCIES = 500;
     public static final int MAX_COMPONENT_PROPERTIES = 50;
     public static final int MAX_ARTIFACTS = 100;
+    public static final int MAX_REGISTRY_VALUES = 10_000;
+    public static final int MAX_REGISTERED_COMPONENTS = 1_000;
+    public static final int MAX_REGISTERED_COMPONENT_PROPERTIES = 100;
 
     private ProcessTemplateContracts() {
     }
@@ -197,6 +200,24 @@ public final class ProcessTemplateContracts {
         }
     }
 
+    public record RegistryEvidence(
+        String tenantId,
+        String platformProtocolVersion,
+        String contentHash
+    ) {
+        public RegistryEvidence {
+            tenantId = ProcessTemplateSecurity.key(tenantId, "registryEvidence.tenantId");
+            platformProtocolVersion = ProcessTemplateSecurity.version(
+                platformProtocolVersion,
+                "registryEvidence.platformProtocolVersion"
+            );
+            contentHash = ProcessTemplateSecurity.hash(
+                contentHash,
+                "registryEvidence.contentHash"
+            );
+        }
+    }
+
     public record TenantBinding(
         BindingKind kind,
         String sourceKey,
@@ -248,6 +269,7 @@ public final class ProcessTemplateContracts {
 
     public record ImportPlan(
         String packageContentHash,
+        RegistryEvidence registryEvidence,
         DraftTarget draftTarget,
         List<Finding> findings,
         List<RebindingRequirement> rebindingRequirements,
@@ -256,6 +278,7 @@ public final class ProcessTemplateContracts {
         String planHash
     ) {
         public ImportPlan {
+            registryEvidence = Objects.requireNonNull(registryEvidence, "registryEvidence");
             findings = immutableList(findings);
             rebindingRequirements = immutableList(rebindingRequirements);
             acceptedBindings = immutableList(acceptedBindings);

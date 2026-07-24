@@ -57,6 +57,9 @@ class M6CTemplateComponentBoundaryTest {
         assertTrue(source.contains("ProcessTemplateTenantRegistryResolver"));
         assertTrue(source.contains("ApprovalArtifactTransferService"));
         assertTrue(source.contains("READONLY_FALLBACK"));
+        assertTrue(source.contains("RegistryEvidence"));
+        assertTrue(source.contains("process-template-tenant-registry-v1"));
+        assertTrue(source.contains("process-template-import-plan-v2"));
     }
 
     private static boolean runsAutomatically(Path workflow) {

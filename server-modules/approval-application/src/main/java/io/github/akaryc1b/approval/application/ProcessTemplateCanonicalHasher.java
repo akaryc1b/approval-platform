@@ -8,9 +8,12 @@ import io.github.akaryc1b.approval.application.ProcessTemplateContracts.Finding;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.IncludedArtifactReference;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.PropertySchema;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.RebindingRequirement;
+import io.github.akaryc1b.approval.application.ProcessTemplateContracts.RegisteredComponent;
+import io.github.akaryc1b.approval.application.ProcessTemplateContracts.RegistryEvidence;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TemplateManifest;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TemplatePackage;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TenantBinding;
+import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TenantRegistrySnapshot;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -19,9 +22,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.TreeSet;
 
-/** Length-prefixed SHA-256 protocol for packages and preview plans. */
+/** Length-prefixed SHA-256 protocol for packages, registries and preview plans. */
 public final class ProcessTemplateCanonicalHasher {
 
     public String packageHash(TemplatePackage value) {
@@ -69,16 +74,37 @@ public final class ProcessTemplateCanonicalHasher {
         return sha256(lengthPrefix(values));
     }
 
+    public String registryHash(TenantRegistrySnapshot registry) {
+        Objects.requireNonNull(registry, "registry");
+        List<String> values = new ArrayList<>();
+        values.add("process-template-tenant-registry-v1");
+        values.add(registry.tenantId());
+        values.add(registry.platformProtocolVersion());
+        appendSet(values, "form-field", registry.formFields());
+        appendSet(values, "connector-capability", registry.connectorCapabilities());
+        appendSet(values, "business-reference-type", registry.businessReferenceTypes());
+        appendSet(values, "organization-placeholder", registry.organizationPlaceholders());
+        appendSet(values, "identity-placeholder", registry.identityPlaceholders());
+        registry.components().stream()
+            .sorted(Comparator.comparing(RegisteredComponent::identity))
+            .forEach(component -> appendRegisteredComponent(values, component));
+        return sha256(lengthPrefix(values));
+    }
+
     public String planHash(
         String packageHash,
+        RegistryEvidence registryEvidence,
         DraftTarget target,
         List<Finding> findings,
         List<RebindingRequirement> requirements,
         List<TenantBinding> bindings
     ) {
         List<String> values = new ArrayList<>();
-        values.add("process-template-import-plan-v1");
+        values.add("process-template-import-plan-v2");
         values.add(packageHash);
+        values.add(registryEvidence.tenantId());
+        values.add(registryEvidence.platformProtocolVersion());
+        values.add(registryEvidence.contentHash());
         values.add(target.tenantId());
         values.add(target.definitionKey());
         values.add(Integer.toString(target.definitionVersion()));
@@ -92,6 +118,10 @@ public final class ProcessTemplateCanonicalHasher {
         return sha256(lengthPrefix(values));
     }
 
+    private static void appendSet(List<String> values, String kind, Set<String> entries) {
+        new TreeSet<>(entries).forEach(value -> values.add(kind + "|" + value));
+    }
+
     private static void appendComponent(List<String> values, ComponentRegistryDescriptor component) {
         values.add(String.join("|", "component", component.componentKey(),
             Integer.toString(component.componentVersion()),
@@ -102,6 +132,18 @@ public final class ProcessTemplateCanonicalHasher {
             .forEach(property -> values.add(String.join("|", "property", component.identity(),
                 property.key(), property.type().name(), Boolean.toString(property.required()),
                 Integer.toString(property.maximumLength()))));
+    }
+
+    private static void appendRegisteredComponent(
+        List<String> values,
+        RegisteredComponent component
+    ) {
+        values.add(String.join("|", "registered-component", component.componentKey(),
+            Integer.toString(component.componentVersion()),
+            String.join(",", new TreeSet<>(component.supportedFieldTypes())),
+            String.join(",", new TreeSet<>(component.propertyKeys())),
+            String.join(",", new TreeSet<>(component.renderingSupport())),
+            component.readonlyFallback()));
     }
 
     private static String lengthPrefix(List<String> values) {

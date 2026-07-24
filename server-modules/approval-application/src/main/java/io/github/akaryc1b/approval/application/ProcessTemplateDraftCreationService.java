@@ -8,6 +8,7 @@ import io.github.akaryc1b.approval.application.ProcessTemplateContracts.BindingK
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.ImportPlan;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.IncludedArtifactReference;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.PreviewRequest;
+import io.github.akaryc1b.approval.application.ProcessTemplateContracts.RegistryEvidence;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TemplatePackage;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TenantBinding;
 import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TenantRegistrySnapshot;
@@ -71,7 +72,10 @@ public final class ProcessTemplateDraftCreationService {
             command.templatePackage(),
             command.artifactEnvelope()
         );
-        if (!constantTimeEquals(sourceArtifact.contentHash(), command.artifactEnvelope().envelopeHash())) {
+        if (!constantTimeEquals(
+            sourceArtifact.contentHash(),
+            command.artifactEnvelope().envelopeHash()
+        )) {
             throw new ProcessTemplateException.HashMismatch(
                 "template artifact reference does not match the supplied transfer envelope"
             );
@@ -91,6 +95,7 @@ public final class ProcessTemplateDraftCreationService {
         verifyImportedDraft(imported, currentPlan, formPackage, command.artifactEnvelope());
         return new DraftCreationResult(
             currentPlan.packageContentHash(),
+            currentPlan.registryEvidence(),
             currentPlan.planHash(),
             sourceArtifact.resourceName(),
             imported
@@ -203,12 +208,14 @@ public final class ProcessTemplateDraftCreationService {
 
     public record DraftCreationResult(
         String packageContentHash,
+        RegistryEvidence registryEvidence,
         String planHash,
         String sourceResourceName,
         ImportResult draft
     ) {
         public DraftCreationResult {
             packageContentHash = hash(packageContentHash, "packageContentHash");
+            registryEvidence = Objects.requireNonNull(registryEvidence, "registryEvidence");
             planHash = hash(planHash, "planHash");
             sourceResourceName = Objects.requireNonNull(sourceResourceName, "sourceResourceName");
             draft = Objects.requireNonNull(draft, "draft");
