@@ -122,7 +122,7 @@ class SdkAuditHandoffReconciliationV1Test {
     @Test
     void acknowledgedProofIsTheOnlyFinalizableClassification() throws IOException {
         Map<String, Object> fixture = AggregationReconciliationFixtureSupport.fixture();
-        SdkAuditHandoffV1.AuditHandoffEnvelope =
+        SdkAuditHandoffV1.AuditHandoffEnvelope envelope =
             AggregationReconciliationFixtureSupport.envelope(fixture);
         SdkAuditHandoffV1.AuditHandoffAcknowledgement acknowledgement =
             AggregationReconciliationFixtureSupport.acknowledgement(fixture);
