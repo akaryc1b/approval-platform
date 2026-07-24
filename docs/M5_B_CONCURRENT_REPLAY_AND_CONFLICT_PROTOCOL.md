@@ -98,3 +98,9 @@ The Node boundary `m5-migration-persistence-concurrency-boundary.test.mjs` requi
 - no V36;
 - no M6 change;
 - no Ready, auto-merge, merge, or issue closure.
+
+## Retained failed evidence
+
+Run `30078875680` / #517 is retained as permanent failed evidence. The first concurrent suite proved that an identical intent or attempt can hit a second unique constraint before PostgreSQL applies the statement's named `ON CONFLICT` arbiter. The creator originally mapped that database rejection directly to a bounded conflict, so the two identical-call tests observed one insert and one conflict instead of one insert and one authoritative replay.
+
+The minimal correction performs a post-rollback authoritative read in `JdbcApprovalMigrationIntentCreator` and `JdbcApprovalMigrationAttemptCreator`. It returns replay only when the complete durable record equals the requested value. A missing or changed record remains `MigrationProtocolConflictException`. No retry loop, sleep, schema change, relaxed assertion, or alternate final state was added.

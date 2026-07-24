@@ -54,6 +54,12 @@ final class JdbcApprovalMigrationAttemptCreator {
                 return new AttemptCreationResult(value, false);
             });
         } catch (DataIntegrityViolationException exception) {
+            ApprovalMigrationAttempt concurrentReplay = repository.find(
+                value.tenantId(), value.attemptId()
+            ).orElse(null);
+            if (value.equals(concurrentReplay)) {
+                return new AttemptCreationResult(concurrentReplay, true);
+            }
             throw new MigrationProtocolConflictException("migration attempt persistence conflict", exception);
         }
     }
