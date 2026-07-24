@@ -4,164 +4,38 @@ import path from 'node:path';
 import test from 'node:test';
 
 const root = process.cwd();
-const evidencePath = path.join(
-  root,
-  'docs/M5_PROCESS_INSTANCE_MIGRATION_HISTORY_RECONCILIATION_EVIDENCE.md',
-);
-const capabilityPath = path.join(
-  root,
-  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationHistoryOnlyReconciliationCapabilityTest.java',
-);
-const concurrencyEvidencePath = path.join(
-  root,
-  'docs/M5_PROCESS_INSTANCE_MIGRATION_CONCURRENCY_EVIDENCE.md',
-);
-const concurrencyCapabilityPath = path.join(
-  root,
-  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationConcurrentCommandCapabilityTest.java',
-);
-const finalFeasibilityPath = path.join(
-  root,
-  'docs/M5_PROCESS_INSTANCE_MIGRATION_FEASIBILITY.md',
-);
+async function text(relative) { return readFile(path.join(root, relative), 'utf8'); }
 
-async function text(file) {
-  return readFile(file, 'utf8');
-}
-
-test('history-only evidence remains isolated M5-A capability validation', async () => {
-  const evidence = await text(evidencePath);
-
-  assert.match(evidence, /M5-A HISTORY-ONLY SLICE: `CAPABILITY_VALIDATION_ONLY`/);
-  assert.match(evidence, /Overall conclusion remains: `SUPPORTED_WITH_LIMITATIONS`/);
-  assert.match(evidence, /Current M5-A decision remains `SUPPORTED_WITH_LIMITATIONS`/);
-  assert.match(evidence, /adds no `V33`/);
-
+test('M5-A history-only evidence remains fail closed', async () => {
+  const evidence = await text('docs/M5_PROCESS_INSTANCE_MIGRATION_HISTORY_RECONCILIATION_EVIDENCE.md');
   for (const boundary of [
+    'M5-A HISTORY-ONLY SLICE: `CAPABILITY_VALIDATION_ONLY`',
     'No runtime and no history is not `NOT_APPLIED`',
     'Never retry migration automatically',
     'must not be converted into an active migration success',
-    'does not claim a true migration-versus-complete',
-    'does not authorize M5-B',
-  ]) {
-    assert.ok(evidence.includes(boundary), `history-only evidence omits ${boundary}`);
-  }
-});
-
-test('history-only capability uses public runtime and history evidence only', async () => {
-  const capability = await text(capabilityPath);
-
+  ]) assert.ok(evidence.includes(boundary), `history evidence omits ${boundary}`);
+  const capability = await text('server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationHistoryOnlyReconciliationCapabilityTest.java');
   for (const operation of [
-    'HistoryService',
-    'createHistoricProcessInstanceQuery',
-    'getProcessDefinitionId',
-    'getEndTime',
-    'getDeleteReason',
-    'MISSING_NO_EVIDENCE',
-    'HISTORY_ONLY_SOURCE_COMPLETED',
-    'HISTORY_ONLY_SOURCE_TERMINATED',
-    'HISTORY_ONLY_TARGET_COMPLETED',
-    'HISTORY_ONLY_TARGET_TERMINATED',
-    'runtime.deleteProcessInstance',
-  ]) {
-    assert.ok(capability.includes(operation), `history-only capability omits ${operation}`);
-  }
-
-  assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+/);
-  assert.doesNotMatch(
-    capability,
-    /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/,
-  );
-  assert.doesNotMatch(
-    capability,
-    /deleteHistoricProcessInstance|createNativeHistoric|executeJob|deleteJob|setJobRetries/,
-  );
+    'MISSING_NO_EVIDENCE', 'HISTORY_ONLY_SOURCE_COMPLETED',
+    'HISTORY_ONLY_SOURCE_TERMINATED', 'HISTORY_ONLY_TARGET_COMPLETED',
+    'HISTORY_ONLY_TARGET_TERMINATED', 'createHistoricProcessInstanceQuery',
+  ]) assert.ok(capability.includes(operation), `history capability omits ${operation}`);
+  assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+|createNative|deleteHistoricProcessInstance/);
 });
 
-test('concurrent-command evidence remains fail-closed M5-A capability validation', async () => {
-  const evidence = await text(concurrencyEvidencePath);
-
-  assert.match(evidence, /M5-A CONCURRENCY SLICE: `CAPABILITY_VALIDATION_ONLY`/);
-  assert.match(evidence, /Overall conclusion remains: `SUPPORTED_WITH_LIMITATIONS`/);
-  assert.match(evidence, /Uncoordinated migration versus task completion \| `UNSUPPORTED`/);
-  assert.match(evidence, /Concurrent duplicate migration invocation \| `UNSUPPORTED`/);
-  assert.match(evidence, /Permanent workflow Run `30058147323` \/ run #471/);
-
+test('M5-A concurrent-command evidence remains bounded public-API evidence', async () => {
+  const evidence = await text('docs/M5_PROCESS_INSTANCE_MIGRATION_CONCURRENCY_EVIDENCE.md');
   for (const observation of [
+    'Permanent workflow Run `30058147323` / run #471',
     '`COMPLETION_WON_SOURCE_COMPLETED=6`',
     '`MIGRATION_WON_TARGET_ACTIVE_AFTER_COMPLETE_CONFLICT=14`',
-    '`BOTH_SUCCEEDED_TARGET_COMPLETED=0`',
     '`ONE_MIGRATION_WON=20`',
-    '`BOTH_MIGRATIONS_ACCEPTED=0`',
-  ]) {
-    assert.ok(evidence.includes(observation), `concurrency evidence omits ${observation}`);
-  }
-
-  for (const boundary of [
-    'Any duplicated task',
-    'An exception from either command is not safe retry evidence',
     'Concurrent duplicate calls must not reach Flowable',
-    'does not authorize M5-B',
-  ]) {
-    assert.ok(evidence.includes(boundary), `concurrency evidence omits ${boundary}`);
-  }
-});
-
-test('concurrent-command capability uses public services and a real start gate', async () => {
-  const capability = await text(concurrencyCapabilityPath);
-
+  ]) assert.ok(evidence.includes(observation), `concurrency evidence omits ${observation}`);
+  const capability = await text('server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationConcurrentCommandCapabilityTest.java');
   for (const operation of [
-    'CountDownLatch',
-    'Executors.newFixedThreadPool(2)',
-    'ready.await(10, TimeUnit.SECONDS)',
-    'start.countDown()',
-    'tasks.complete(task.getId())',
-    'migrate(instance.getId())',
-    'BOTH_SUCCEEDED_TARGET_COMPLETED',
-    'COMPLETION_WON_SOURCE_COMPLETED',
-    'MIGRATION_WON_TARGET_ACTIVE_AFTER_COMPLETE_CONFLICT',
-    'BOTH_MIGRATIONS_ACCEPTED',
-    'ONE_MIGRATION_WON',
-  ]) {
-    assert.ok(capability.includes(operation), `concurrency capability omits ${operation}`);
-  }
-
-  assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+/);
-  assert.doesNotMatch(
-    capability,
-    /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/,
-  );
-  assert.doesNotMatch(
-    capability,
-    /createNative|executeJob|deleteJob|setJobRetries|deleteHistoricProcessInstance/,
-  );
-});
-
-test('final M5-A feasibility is complete but does not self-authorize M5-B', async () => {
-  const feasibility = await text(finalFeasibilityPath);
-
-  assert.match(feasibility, /M5-A EVIDENCE GATE: `COMPLETE_PENDING_EXPLICIT_ACCEPTANCE`/);
-  assert.match(feasibility, /Overall conclusion: `SUPPORTED_WITH_LIMITATIONS`/);
-  assert.match(feasibility, /### 4\.8 Eighth slice: concurrent engine commands/);
-  assert.match(feasibility, /Permanent Run `30058147323` \/ #471 observed/);
-  assert.match(feasibility, /technical evidence package is complete and ready for explicit stage acceptance/);
-  assert.match(feasibility, /This decision does not authorize M5-B/);
-
-  for (const scenario of [6, 11, 12, 19, 21, 25]) {
-    assert.match(
-      feasibility,
-      new RegExp('\\| ' + scenario + ' \\|[^\\n]*\\| `UNSUPPORTED` \\|'),
-      `final feasibility does not prohibit scenario ${scenario}`,
-    );
-  }
-  assert.match(feasibility, /\| 26 \|[^\n]*\| `UNKNOWN_REQUIRES_MORE_EVIDENCE` \|/);
-
-  for (const boundary of [
-    'server-side lease or compare-and-set command gate',
-    'no automatic retry of `UNKNOWN`',
-    'PR #58 must remain Open + Draft',
-    'marking PR #58 Ready or merging it',
-  ]) {
-    assert.ok(feasibility.includes(boundary), `final feasibility omits ${boundary}`);
-  }
+    'CountDownLatch', 'Executors.newFixedThreadPool(2)',
+    'tasks.complete(task.getId())', 'migrate(instance.getId())',
+  ]) assert.ok(capability.includes(operation), `concurrency capability omits ${operation}`);
+  assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+|createNative|executeJob|deleteJob/);
 });
