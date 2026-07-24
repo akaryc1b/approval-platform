@@ -33,7 +33,9 @@ final class JdbcApprovalMigrationAttemptRepository {
         UUID instanceId,
         int number
     ) {
-        return query("tenant_id=:tenantId and intent_id=:intentId and approval_instance_id=:instanceId and attempt_number=:number",
+        return query(
+            "tenant_id=:tenantId and intent_id=:intentId "
+                + "and approval_instance_id=:instanceId and attempt_number=:number",
             new MapSqlParameterSource().addValue("tenantId", tenantId).addValue("intentId", intentId)
                 .addValue("instanceId", instanceId).addValue("number", number));
     }
@@ -58,37 +60,58 @@ final class JdbcApprovalMigrationAttemptRepository {
         return jdbc.update("""
             insert into ap_process_migration_attempt (
               tenant_id,attempt_id,intent_id,approval_instance_id,attempt_number,parent_attempt_id,
-              status,revision,engine_outcome,lease_owner,lease_until,expected_binding_evidence_hash,
+              status,revision,engine_outcome,lease_actor,lease_owner,lease_until,
+              engine_request_reference,failure_class,error_summary,expected_binding_evidence_hash,
               payload_json,created_at,updated_at
             ) values (:tenantId,:attemptId,:intentId,:instanceId,:attemptNumber,:parentAttemptId,
-              :status,:revision,:engineOutcome,:leaseOwner,:leaseUntil,:bindingHash,
+              :status,:revision,:engineOutcome,null,:leaseOwner,:leaseUntil,
+              :engineRequestReference,:failureClass,:errorSummary,:bindingHash,
               cast(:payload as jsonb),:createdAt,:updatedAt)
             on conflict (tenant_id,intent_id,approval_instance_id,attempt_number) do nothing
             """, parameters(value));
     }
 
-    int update(ApprovalMigrationAttempt next, long expectedRevision, ApprovalMigrationAttemptEvent event) {
+    int update(
+        ApprovalMigrationAttempt next,
+        long expectedRevision,
+        ApprovalMigrationAttemptEvent event,
+        String leaseActor
+    ) {
         return jdbc.update("""
             update ap_process_migration_attempt set status=:status,revision=:revision,
-              engine_outcome=:engineOutcome,lease_owner=:leaseOwner,lease_until=:leaseUntil,
-              payload_json=cast(:payload as jsonb),updated_at=:updatedAt
+              engine_outcome=:engineOutcome,lease_actor=:leaseActor,
+              lease_owner=:leaseOwner,lease_until=:leaseUntil,
+              engine_request_reference=:engineRequestReference,failure_class=:failureClass,
+              error_summary=:errorSummary,payload_json=cast(:payload as jsonb),updated_at=:updatedAt
             where tenant_id=:tenantId and attempt_id=:attemptId
               and revision=:expectedRevision and status=:fromStatus
-            """, parameters(next).addValue("expectedRevision", expectedRevision)
+            """, parameters(next).addValue("leaseActor", leaseActor)
+                .addValue("expectedRevision", expectedRevision)
                 .addValue("fromStatus", event.fromStatus().name()));
     }
 
     void appendEvent(ApprovalMigrationAttemptEvent event) {
         jdbc.update("""
             insert into ap_process_migration_attempt_event (
-              tenant_id,event_id,attempt_id,revision,from_status,to_status,payload_json,happened_at
-            ) values (:tenantId,:eventId,:attemptId,:revision,:fromStatus,:toStatus,
+              tenant_id,event_id,attempt_id,revision,from_status,to_status,engine_outcome,
+              lease_actor,lease_owner,lease_until,engine_request_reference,failure_class,error_summary,
+              payload_json,happened_at
+            ) values (:tenantId,:eventId,:attemptId,:revision,:fromStatus,:toStatus,:engineOutcome,
+              :leaseActor,:leaseOwner,:leaseUntil,:engineRequestReference,:failureClass,:errorSummary,
               cast(:payload as jsonb),:happenedAt)
             """, new MapSqlParameterSource().addValue("tenantId", event.tenantId())
                 .addValue("eventId", event.eventId()).addValue("attemptId", event.attemptId())
                 .addValue("revision", event.revision())
                 .addValue("fromStatus", event.fromStatus() == null ? null : event.fromStatus().name())
-                .addValue("toStatus", event.toStatus().name()).addValue("payload", json.write(event))
+                .addValue("toStatus", event.toStatus().name())
+                .addValue("engineOutcome", event.engineOutcome().name())
+                .addValue("leaseActor", event.leaseActor()).addValue("leaseOwner", event.leaseOwner())
+                .addValue("leaseUntil", event.leaseUntil() == null
+                    ? null : JdbcApprovalMigrationJson.offset(event.leaseUntil()))
+                .addValue("engineRequestReference", event.engineRequestReference())
+                .addValue("failureClass", event.failureClass().name())
+                .addValue("errorSummary", event.errorSummary())
+                .addValue("payload", json.write(event))
                 .addValue("happenedAt", JdbcApprovalMigrationJson.offset(event.happenedAt())));
     }
 
@@ -105,7 +128,13 @@ final class JdbcApprovalMigrationAttemptRepository {
             .addValue("parentAttemptId", value.parentAttemptId()).addValue("status", value.status().name())
             .addValue("revision", value.revision()).addValue("engineOutcome", value.engineOutcome().name())
             .addValue("leaseOwner", value.leaseOwner())
-            .addValue("leaseUntil", value.leaseUntil() == null ? null : JdbcApprovalMigrationJson.offset(value.leaseUntil()))
+            .addValue(
+                "leaseUntil",
+                value.leaseUntil() == null ? null : JdbcApprovalMigrationJson.offset(value.leaseUntil())
+            )
+            .addValue("engineRequestReference", value.engineRequestReference())
+            .addValue("failureClass", value.failureClass().name())
+            .addValue("errorSummary", value.errorSummary())
             .addValue("bindingHash", value.expectedBindingEvidenceHash()).addValue("payload", json.write(value))
             .addValue("createdAt", JdbcApprovalMigrationJson.offset(value.createdAt()))
             .addValue("updatedAt", JdbcApprovalMigrationJson.offset(value.updatedAt()));

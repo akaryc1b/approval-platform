@@ -27,6 +27,7 @@ final class JdbcApprovalMigrationAttemptCreator {
 
     AttemptCreationResult create(ApprovalMigrationAttempt value, ApprovalMigrationAttemptEvent event) {
         validateInitial(value, event);
+        ApprovalMigrationAttemptEvent durableEvent = event.withDurableEvidence(value, null);
         try {
             return transactions.execute(status -> {
                 if (value.attemptNumber() > 1) {
@@ -50,7 +51,7 @@ final class JdbcApprovalMigrationAttemptCreator {
                     }
                     return new AttemptCreationResult(existing, true);
                 }
-                repository.appendEvent(event);
+                repository.appendEvent(durableEvent);
                 return new AttemptCreationResult(value, false);
             });
         } catch (DataIntegrityViolationException exception) {

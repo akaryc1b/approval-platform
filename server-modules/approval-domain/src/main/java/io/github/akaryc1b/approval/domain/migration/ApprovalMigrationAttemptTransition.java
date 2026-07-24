@@ -32,7 +32,7 @@ public record ApprovalMigrationAttemptTransition(
         happenedAt = Objects.requireNonNull(happenedAt, "happenedAt must not be null");
         ApprovalMigrationRules.validateAttemptEvidence(
             status, engineOutcome, leaseOwner, leaseUntil,
-            engineRequestReference, failureClass, errorSummary
+            engineRequestReference, failureClass, errorSummary, happenedAt
         );
     }
 }

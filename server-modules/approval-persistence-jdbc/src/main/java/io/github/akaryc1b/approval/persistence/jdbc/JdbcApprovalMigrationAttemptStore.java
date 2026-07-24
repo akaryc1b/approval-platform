@@ -44,7 +44,16 @@ final class JdbcApprovalMigrationAttemptStore {
         long expectedRevision,
         ApprovalMigrationAttemptEvent event
     ) {
-        return transitioner.transition(next, expectedRevision, event);
+        return transitioner.transition(next, expectedRevision, null, event);
+    }
+
+    ApprovalMigrationAttempt transition(
+        ApprovalMigrationAttempt next,
+        long expectedRevision,
+        String leaseActor,
+        ApprovalMigrationAttemptEvent event
+    ) {
+        return transitioner.transition(next, expectedRevision, leaseActor, event);
     }
 
     List<ApprovalMigrationAttemptEvent> events(String tenantId, UUID attemptId) {

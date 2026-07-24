@@ -25,19 +25,20 @@ test('M5-B persistence slice is explicitly authorized but remains below M5-C and
   assert.doesNotMatch(evidence, /M5-B stage status: `COMPLETE`/);
 });
 
-test('Flyway advances continuously through V36 with exactly six M5-B protocol tables', async () => {
+test('Flyway advances continuously through V37 with exactly six M5-B protocol tables', async () => {
   const files = await readdir(migrationDir);
   for (const expected of [
     'V33__create_process_migration_intents.sql',
     'V34__create_process_migration_attempts.sql',
     'V35__create_process_migration_outcome_evidence.sql',
     'V36__strengthen_process_migration_tenant_lineage_tamper_guards.sql',
+    'V37__strengthen_process_migration_lease_unknown_guards.sql',
   ]) assert.ok(files.includes(expected), `missing ${expected}`);
   assert.ok(
-    files.every((file) => !/^V(?:3[7-9]|[4-9][0-9])__/.test(file)),
-    `M5-B advanced beyond V36: ${files.join(', ')}`,
+    files.every((file) => !/^V(?:3[8-9]|[4-9][0-9])__/.test(file)),
+    `M5-B advanced beyond V37: ${files.join(', ')}`,
   );
-  const sql = (await Promise.all(files.filter((file) => /^V3[3-6]__/.test(file))
+  const sql = (await Promise.all(files.filter((file) => /^V3[3-7]__/.test(file))
     .sort().map((file) => text(path.join(migrationDir, file))))).join('\n');
   for (const table of [
     'ap_process_migration_intent', 'ap_process_migration_intent_event',
@@ -58,8 +59,12 @@ test('Flyway advances continuously through V36 with exactly six M5-B protocol ta
     'ap_require_process_migration_intent_event_v36',
     'ap_require_process_migration_attempt_event_v36',
     'migration retry must follow the immediate retryable parent',
-    'migration intent current row requires matching event',
-    'migration attempt current row requires matching event',
+    'migration attempt current row requires matching durable event',
+    'migration lease renewal requires current owner before expiry and an extension',
+    'migration lease takeover requires expiry and new-owner evidence',
+    'UNKNOWN requires preserved durable engine request evidence',
+    'UNKNOWN requires open reconciliation before progression',
+    'UNKNOWN-derived reconciliation requires terminal evidence before attempt closure',
     'migration intent revision must advance exactly once',
     'migration attempt revision must advance exactly once',
     'migration verification sequence must advance exactly once',

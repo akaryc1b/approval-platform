@@ -4,6 +4,7 @@ import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.At
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.EngineOutcome;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.FailureClass;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -27,17 +28,25 @@ final class ApprovalMigrationRules {
         AttemptStatus status,
         EngineOutcome engineOutcome,
         String leaseOwner,
-        java.time.Instant leaseUntil,
+        Instant leaseUntil,
         String requestReference,
         FailureClass failureClass,
-        String errorSummary
+        String errorSummary,
+        Instant evidenceTime
     ) {
+        Objects.requireNonNull(evidenceTime, "attempt evidence time must not be null");
         if (status == AttemptStatus.CLAIMED) {
-            if (leaseOwner == null || leaseUntil == null) {
-                throw new IllegalArgumentException("claimed attempt requires lease evidence");
+            if (leaseOwner == null || leaseUntil == null || !leaseUntil.isAfter(evidenceTime)) {
+                throw new IllegalArgumentException("claimed attempt requires a future lease");
+            }
+            if (engineOutcome != EngineOutcome.NOT_REQUESTED) {
+                throw new IllegalArgumentException("claimed attempt cannot retain an engine outcome");
             }
         } else if (leaseOwner != null || leaseUntil != null) {
             throw new IllegalArgumentException("only a claimed attempt can retain a lease");
+        }
+        if (status == AttemptStatus.PENDING && engineOutcome != EngineOutcome.NOT_REQUESTED) {
+            throw new IllegalArgumentException("pending attempt cannot retain an engine outcome");
         }
         boolean requestExpected = status == AttemptStatus.ENGINE_REQUESTED
             || status == AttemptStatus.VERIFYING || status == AttemptStatus.UNKNOWN
@@ -57,6 +66,43 @@ final class ApprovalMigrationRules {
             || status == AttemptStatus.RECONCILING;
         if (failed != (failureClass != FailureClass.NONE && errorSummary != null)) {
             throw new IllegalArgumentException("attempt failure evidence is inconsistent");
+        }
+    }
+
+    static void validateAttemptTransitionEvidence(
+        ApprovalMigrationAttempt current,
+        ApprovalMigrationAttemptTransition transition
+    ) {
+        if (current.status() == AttemptStatus.CLAIMED) {
+            Instant currentExpiry = Objects.requireNonNull(current.leaseUntil());
+            if (transition.status() == AttemptStatus.CLAIMED) {
+                boolean sameOwner = Objects.equals(current.leaseOwner(), transition.leaseOwner());
+                if (sameOwner) {
+                    if (!transition.happenedAt().isBefore(currentExpiry)
+                        || !transition.leaseUntil().isAfter(currentExpiry)) {
+                        throw new IllegalArgumentException(
+                            "lease renewal requires the current owner before expiry and must extend the lease"
+                        );
+                    }
+                } else if (transition.happenedAt().isBefore(currentExpiry)) {
+                    throw new IllegalArgumentException("lease takeover is permitted only after expiry");
+                }
+            } else if (!transition.happenedAt().isBefore(currentExpiry)) {
+                throw new IllegalArgumentException("expired lease owner cannot advance the attempt");
+            }
+        }
+        if (transition.status() == AttemptStatus.UNKNOWN
+            && !Objects.equals(current.engineRequestReference(), transition.engineRequestReference())) {
+            throw new IllegalArgumentException("UNKNOWN must preserve the engine request reference");
+        }
+        if (current.status() == AttemptStatus.UNKNOWN) {
+            if (transition.engineOutcome() != EngineOutcome.UNKNOWN
+                || !Objects.equals(current.engineRequestReference(), transition.engineRequestReference())
+                || transition.failureClass() != FailureClass.RECONCILIATION_REQUIRED) {
+                throw new IllegalArgumentException(
+                    "UNKNOWN can enter reconciliation only with preserved request evidence"
+                );
+            }
         }
     }
 

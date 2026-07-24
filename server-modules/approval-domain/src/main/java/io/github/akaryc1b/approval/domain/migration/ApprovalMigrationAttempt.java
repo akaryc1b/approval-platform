@@ -90,7 +90,7 @@ public record ApprovalMigrationAttempt(
         traceId = ApprovalMigrationRules.optionalText(traceId, "traceId", 256);
         ApprovalMigrationRules.validateAttemptEvidence(
             status, engineOutcome, leaseOwner, leaseUntil,
-            engineRequestReference, failureClass, errorSummary
+            engineRequestReference, failureClass, errorSummary, updatedAt
         );
     }
 
@@ -100,6 +100,7 @@ public record ApprovalMigrationAttempt(
         if (transition.happenedAt().isBefore(updatedAt)) {
             throw new IllegalArgumentException("attempt transition time moved backwards");
         }
+        ApprovalMigrationRules.validateAttemptTransitionEvidence(this, transition);
         return new ApprovalMigrationAttempt(
             attemptId, tenantId, intentId, approvalInstanceId, engineInstanceId,
             attemptNumber, parentAttemptId, expectedBindingEvidenceHash,

@@ -76,9 +76,9 @@ public final class ApprovalMigrationProtocol {
         boolean allowed = switch (from) {
             case PENDING -> to == AttemptStatus.CLAIMED || to == AttemptStatus.BLOCKED_STALE
                 || to == AttemptStatus.CANCELLED;
-            case CLAIMED -> to == AttemptStatus.ENGINE_REQUESTED || to == AttemptStatus.BLOCKED_STALE
-                || to == AttemptStatus.FAILED_RETRYABLE || to == AttemptStatus.FAILED_TERMINAL
-                || to == AttemptStatus.CANCELLED;
+            case CLAIMED -> to == AttemptStatus.CLAIMED || to == AttemptStatus.ENGINE_REQUESTED
+                || to == AttemptStatus.BLOCKED_STALE || to == AttemptStatus.FAILED_RETRYABLE
+                || to == AttemptStatus.FAILED_TERMINAL || to == AttemptStatus.CANCELLED;
             case ENGINE_REQUESTED -> to == AttemptStatus.VERIFYING || to == AttemptStatus.UNKNOWN
                 || to == AttemptStatus.FAILED_RETRYABLE || to == AttemptStatus.FAILED_TERMINAL;
             case VERIFYING -> to == AttemptStatus.SUCCEEDED || to == AttemptStatus.RECONCILING

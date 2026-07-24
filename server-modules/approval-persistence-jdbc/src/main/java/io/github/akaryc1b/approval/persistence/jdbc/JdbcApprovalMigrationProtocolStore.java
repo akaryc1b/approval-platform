@@ -90,6 +90,16 @@ public final class JdbcApprovalMigrationProtocolStore implements ApprovalMigrati
     }
 
     @Override
+    public ApprovalMigrationAttempt transitionAttempt(
+        ApprovalMigrationAttempt next,
+        long expectedRevision,
+        String leaseActor,
+        ApprovalMigrationAttemptEvent event
+    ) {
+        return attempts.transition(next, expectedRevision, leaseActor, event);
+    }
+
+    @Override
     public List<ApprovalMigrationAttemptEvent> findAttemptEvents(String tenantId, UUID attemptId) {
         return attempts.events(tenantId, attemptId);
     }

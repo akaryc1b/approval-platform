@@ -49,6 +49,15 @@ public interface ApprovalMigrationProtocolStore {
         ApprovalMigrationAttemptEvent event
     );
 
+    default ApprovalMigrationAttempt transitionAttempt(
+        ApprovalMigrationAttempt next,
+        long expectedRevision,
+        String leaseActor,
+        ApprovalMigrationAttemptEvent event
+    ) {
+        throw new UnsupportedOperationException("lease-owner fencing is not implemented by this store");
+    }
+
     List<ApprovalMigrationAttemptEvent> findAttemptEvents(String tenantId, UUID attemptId);
 
     void appendVerification(ApprovalMigrationVerification verification);
