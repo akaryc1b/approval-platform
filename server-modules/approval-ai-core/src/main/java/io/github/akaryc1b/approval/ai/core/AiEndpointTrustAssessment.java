@@ -99,13 +99,7 @@ public record AiEndpointTrustAssessment(
         }
         List<Fault> normalized = faults.stream().distinct().sorted().toList();
         Status status = normalized.isEmpty() ? Status.TRUSTED_FOR_REVIEW : Status.BLOCKED;
-        String hash = hash(
-            policy.contentHash(),
-            status,
-            normalized,
-            dns.evidenceHash(),
-            tls.evidenceHash()
-        );
+        String hash = hash(policy.contentHash(), status, normalized, dns, tls);
         return new AiEndpointTrustAssessment(
             policy.contentHash(),
             status,
@@ -144,12 +138,27 @@ public record AiEndpointTrustAssessment(
         String policyHash,
         Status status,
         List<Fault> faults,
-        String dnsHash,
-        String tlsHash
+        AiDnsResolutionEvidence dns,
+        AiTlsPeerEvidence tls
     ) {
-        String canonical = policyHash + '|' + status.name() + '|'
-            + faults.stream().map(Enum::name).sorted().toList() + '|'
-            + dnsHash + '|' + tlsHash;
+        String canonical = String.join(
+            "|",
+            policyHash,
+            status.name(),
+            faults.stream().map(Enum::name).sorted().toList().toString(),
+            dns.endpointAuthorizationKey(),
+            dns.host(),
+            dns.addressEvidenceHashes().stream().sorted().toList().toString(),
+            dns.status().name(),
+            Integer.toString(dns.observedTtlSeconds()),
+            dns.evidenceHash(),
+            tls.endpointAuthorizationKey(),
+            tls.host(),
+            String.valueOf(tls.certificateSpkiSha256()),
+            tls.status().name(),
+            Boolean.toString(tls.redirectObserved()),
+            tls.evidenceHash()
+        );
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(
