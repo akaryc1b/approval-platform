@@ -3,3 +3,4 @@ import './m5-migration-persistence-code-boundary.test.mjs';
 import './m5-migration-persistence-concurrency-boundary.test.mjs';
 import './m5-migration-persistence-tenant-tamper-boundary.test.mjs';
 import './m5-migration-persistence-lease-unknown-boundary.test.mjs';
+import './m5-migration-b-governance-acceptance-boundary.test.mjs';

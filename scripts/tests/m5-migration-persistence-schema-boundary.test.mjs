@@ -10,15 +10,16 @@ const migrationDir = path.join(
 );
 async function text(file) { return readFile(file, 'utf8'); }
 
-test('M5-B persistence slice is explicitly authorized but remains below M5-C and M5-D', async () => {
+test('M5-B persistence stage is accepted but remains below M5-C implementation and M5-D', async () => {
   const evidence = await text(path.join(root, 'docs/M5_B_PROCESS_MIGRATION_PERSISTENCE_PROTOCOL.md'));
   for (const boundary of [
     'M5-B PERSISTENCE SLICE: `AUTHORIZED_DOMAIN_AND_PERSISTENCE_ONLY`',
-    'M5-B stage status: `IN_PROGRESS`',
+    'M5-B stage status: `ACCEPTED_PENDING_ACCEPTANCE_EVIDENCE_VALIDATION`',
     'user explicitly accepted the completed M5-A evidence package',
     'planId` and `planHash` are persisted only as opaque future references',
     'Never retry `UNKNOWN` automatically',
-    'does not authorize M5-C',
+    'M5-C is the only next stage',
+    'does not authorize M5-D',
     'PR #58 remains Open + Draft',
     'Issues #13 and #14 remain Open',
   ]) assert.ok(evidence.includes(boundary), `M5-B evidence omits ${boundary}`);
