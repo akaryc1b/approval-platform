@@ -61,8 +61,11 @@ class M6ConnectorFoundationBoundaryTest {
     }
 
     @Test
-    void connectorFoundationHasNoRealProviderNetworkAdapter() throws IOException {
-        for (Path source : connectorFoundationProductionSources()) {
+    void connectorFoundationAllowsCapturedAdaptersWithoutRealNetwork() throws IOException {
+        List<Path> productionSources = new ArrayList<>(connectorFoundationProductionSources());
+        productionSources.addAll(capturedProviderAdapterProductionSources());
+
+        for (Path source : productionSources) {
             String content = Files.readString(source);
             for (String forbidden : List.of(
                 "java.net.",
@@ -72,20 +75,21 @@ class M6ConnectorFoundationBoundaryTest {
                 "RestClient",
                 "open.feishu.cn",
                 "oapi.dingtalk.com",
-                "api.dingtalk.com"
+                "api.dingtalk.com",
+                "ConnectorCredentialResolver",
+                "DataSource",
+                "JdbcTemplate",
+                "ScheduledExecutor",
+                "Thread.sleep(",
+                "ServiceLoader",
+                "Class.forName"
             )) {
                 assertFalse(
                     content.contains(forbidden),
-                    relative(source) + " contains real provider/network marker " + forbidden
+                    relative(source) + " contains real provider/infrastructure marker " + forbidden
                 );
             }
         }
-        List<String> providerPaths = filesUnder(ROOT.resolve("server-modules")).stream()
-            .filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
-            .map(path -> path.toString().toLowerCase())
-            .filter(path -> path.contains("dingtalk") || path.contains("feishu"))
-            .toList();
-        assertTrue(providerPaths.isEmpty(), "real provider adapter exists: " + providerPaths);
     }
 
     @Test
@@ -207,6 +211,18 @@ class M6ConnectorFoundationBoundaryTest {
             .filter(path -> {
                 String normalized = path.toString().replace('\\', '/');
                 return normalized.contains("/contract/") || normalized.contains("/testing/");
+            })
+            .toList();
+    }
+
+    private static List<Path> capturedProviderAdapterProductionSources() throws IOException {
+        return filesUnder(ROOT.resolve("server-modules")).stream()
+            .filter(path -> path.getFileName().toString().endsWith(".java"))
+            .filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
+            .filter(path -> {
+                String normalized = path.toString().replace('\\', '/');
+                return normalized.contains("/approval-connector-dingtalk/")
+                    || normalized.contains("/approval-connector-feishu/");
             })
             .toList();
     }
