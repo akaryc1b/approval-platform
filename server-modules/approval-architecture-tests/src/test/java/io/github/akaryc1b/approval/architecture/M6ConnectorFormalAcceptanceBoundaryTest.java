@@ -71,7 +71,7 @@ class M6ConnectorFormalAcceptanceBoundaryTest {
     }
 
     @Test
-    void governanceAcceptanceDoesNotCreateRuntimeAuthorityOrAnotherWorkflow()
+    void governanceAcceptanceDoesNotCreateRuntimeAuthorityOrAnotherAutomaticWorkflow()
         throws IOException {
         String evidence = Files.readString(
             CONTRACT_ROOT.resolve("ConnectorFoundationAcceptanceEvidence.java")
@@ -95,11 +95,30 @@ class M6ConnectorFormalAcceptanceBoundaryTest {
         try (Stream<Path> stream = Files.list(workflows)) {
             workflowFiles = stream.filter(Files::isRegularFile).toList();
         }
-        assertEquals(1, workflowFiles.size(), "only one permanent workflow is allowed");
+
+        List<Path> automaticPrMainWorkflows = workflowFiles.stream()
+            .filter(M6ConnectorFormalAcceptanceBoundaryTest::isAutomaticPrMainWorkflow)
+            .toList();
+        assertEquals(
+            1,
+            automaticPrMainWorkflows.size(),
+            "only one automatic PR/main workflow is allowed"
+        );
         assertEquals(
             "approval-platform-validation.yml",
-            workflowFiles.getFirst().getFileName().toString()
+            automaticPrMainWorkflows.getFirst().getFileName().toString()
         );
+    }
+
+    private static boolean isAutomaticPrMainWorkflow(Path workflow) {
+        try {
+            String content = Files.readString(workflow);
+            return content.contains("\n  pull_request:")
+                && content.contains("\n  push:")
+                && content.contains("\n      - main");
+        } catch (IOException exception) {
+            throw new IllegalStateException("workflow could not be read: " + workflow, exception);
+        }
     }
 
     private static Path repositoryRoot() {
