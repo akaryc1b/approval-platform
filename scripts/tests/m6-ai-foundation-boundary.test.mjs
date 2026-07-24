@@ -226,6 +226,76 @@ test('AI configuration preflight and dry-run assembly are zero-call and non-auth
   assert.match(dryRunReport, /cannot authorize approval automation/);
 });
 
+
+test('AI deployment readiness, external references and fault drills remain zero-call', () => {
+  const secretReference = coreSource('AiExternalSecretReference');
+  const endpoint = coreSource('AiProviderEndpointDescriptor');
+  const egress = coreSource('AiProviderEgressPolicy');
+  const deploymentSnapshot = coreSource('AiProviderDeploymentSnapshot');
+  const readinessGate = coreSource('AiProviderDeploymentReadinessGate');
+  const readinessReport = coreSource('AiProviderDeploymentReadinessReport');
+  const validatorRegistry = coreSource('AiProviderProtocolValidatorRegistry');
+  const failureRunner = coreSource('AiProviderFailureDrillRunner');
+  const failureReport = coreSource('AiProviderFailureDrillReport');
+  const changeSet = coreSource('AiProviderDeploymentChangeSet');
+  const validatorInterface = text(path.join(
+    root,
+    'server-modules/approval-ai-spi/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/spi/AiProviderProtocolValidator.java',
+  ));
+  const validationProfile = text(path.join(
+    root,
+    'server-modules/approval-ai-spi/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/spi/AiProviderProtocolProfile.java',
+  ));
+  const validationRequest = text(path.join(
+    root,
+    'server-modules/approval-ai-spi/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/spi/AiProviderProtocolValidationRequest.java',
+  ));
+  const validationResult = text(path.join(
+    root,
+    'server-modules/approval-ai-spi/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/spi/AiProviderProtocolValidationResult.java',
+  ));
+
+  assert.doesNotMatch(
+    secretReference,
+    /\bString\s+(secret|secretValue|token|password|credential|privateKey|clientSecret)\b/,
+  );
+  assert.match(secretReference, /external secret references cannot contain inline secret material/);
+  assert.match(secretReference, /cannot authorize runtime secret resolution/);
+  assert.match(endpoint, /AI Provider endpoints must use HTTPS/);
+  assert.match(endpoint, /endpoint port must be 443/);
+  assert.match(endpoint, /exact public DNS name/);
+  assert.match(endpoint, /redirects are prohibited/);
+  assert.match(egress, /cannot authorize network egress/);
+  assert.match(egress, /DNS rebinding protection/);
+  assert.match(deploymentSnapshot, /FAULT_DRILL_ONLY/);
+  assert.match(deploymentSnapshot, /must remain zero-call and secret-free/);
+  assert.doesNotMatch(readinessGate, /\.advise\s*\(/);
+  assert.doesNotMatch(readinessGate, /System\.getenv|System\.getProperty|java\.net/);
+  assert.doesNotMatch(failureRunner, /\.advise\s*\(/);
+  assert.doesNotMatch(failureRunner, /System\.getenv|System\.getProperty|java\.net/);
+  assert.match(readinessReport, /providerInvocationAttempted/);
+  assert.match(readinessReport, /secretResolutionAttempted/);
+  assert.match(readinessReport, /networkCallAttempted/);
+  assert.match(readinessReport, /cannot authorize production enablement/);
+  assert.match(failureReport, /cannot authorize production enablement/);
+  assert.match(changeSet, /cannot authorize apply/);
+  assert.match(changeSet, /humanApprovalRequired/);
+  assert.match(validatorInterface, /Provider-specific structural validation SPI/);
+  assert.match(validationProfile, /providerInvocationAllowed/);
+  assert.match(validationProfile, /cannot authorize Provider invocation/);
+  assert.match(validationRequest, /must remain zero-call and secret-free/);
+  assert.match(validationResult, /cannot authorize production enablement/);
+  assert.match(validatorRegistry, /Exact validator-profile registry/);
+
+  const mainValidatorImplementations = aiMainJava.filter((file) =>
+    /implements\s+AiProviderProtocolValidator/.test(text(file)));
+  assert.deepEqual(mainValidatorImplementations, []);
+});
+
 test('only the permanent validation workflow is automatic', () => {
   const workflowRoot = path.join(root, '.github/workflows');
   const workflows = filesUnder(workflowRoot)

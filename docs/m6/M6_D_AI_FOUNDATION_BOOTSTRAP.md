@@ -1,6 +1,6 @@
-# M6-D AI Foundation — Configuration Snapshot and Zero-Call Dry Run
+# M6-D AI Foundation — External References and Offline Deployment Readiness
 
-Status: `FOURTH_SAFE_SLICE_IMPLEMENTED`
+Status: `FIFTH_SAFE_SLICE_IMPLEMENTED`
 
 Tracking:
 
@@ -162,7 +162,7 @@ The report hash is deterministic over:
 
 Even a passing report can only state that the M6-D foundation evaluation passed.
 
-`AiEvaluationReport` permanently requires 
+`AiEvaluationReport` permanently requires:
 
 - `productionEnablementAuthorized = false`;
 - `approvalAutomationAuthorized = false`.
@@ -239,6 +239,116 @@ It does not receive Provider instances or a Provider registry and has no `.advis
 
 `AiAdvisoryDryRunReport` permanently rejects Provider invocation, production enablement and approval automation. A `READY` dry run proves configuration assembly consistency only; it does not activate a Provider, Prompt, customer knowledge source, API surface or process command.
 
+## Fifth safe slice
+
+### External secret reference metadata
+
+`AiExternalSecretReference` represents only an external reference identity, version, store kind, exact Provider version, purpose and rotation state. It has no secret value, token, password, private key or client-secret field.
+
+The constructor rejects:
+
+- inline secret material;
+- runtime secret-resolution authority;
+- an empty or unbounded purpose set.
+
+Supported store kinds are closed metadata values:
+
+- `EXTERNAL_SECRET_MANAGER`;
+- `KMS_WRAPPED_REFERENCE`;
+- `PLATFORM_SECRET_REFERENCE`.
+
+A reference can be `CURRENT`, `ROTATION_DUE`, `EXPIRED` or `REVOKED`. Deployment readiness requires `CURRENT`, but M6-D never resolves the referenced material.
+
+### Exact endpoint and egress allowlist metadata
+
+`AiProviderEndpointDescriptor` accepts only exact HTTPS metadata with:
+
+- a public DNS host name;
+- port `443`;
+- a bounded exact base-path prefix;
+- mandatory TLS;
+- redirects disabled;
+- private-address authorization disabled.
+
+Wildcards, localhost, IP literals, private-name suffixes, user information, query/fragment components, unsafe path traversal and encoded separator forms are rejected without DNS or network access.
+
+`AiProviderEgressPolicy` binds a deterministic SHA-256 hash to an exact set of endpoint descriptors. It requires DNS-rebinding protection and certificate validation metadata, rejects proxy bypass, and permanently sets `networkEgressAuthorized = false`.
+
+### Provider protocol-validation SPI
+
+The framework-neutral SPI adds:
+
+- `AiProviderProtocolValidator`;
+- `AiProviderProtocolProfile`;
+- `AiProviderProtocolValidationRequest`;
+- `AiProviderProtocolValidationResult`.
+
+Profiles bind exact Provider version, capability set, request/response schema hashes, payload-size limits and mandatory structured-output behavior. Unknown response fields must be rejected.
+
+Validation requests carry only version, capability, endpoint-policy identity and size evidence. They contain no Prompt, business input, model response or secret.
+
+Validation results are closed as `VALID`, `INVALID`, `UNSUPPORTED` or `UNKNOWN`. Neither requests nor results can record Provider invocation, secret resolution, network access, production enablement or approval automation.
+
+`AiProviderProtocolValidatorRegistry` performs exact profile-key registration. There is no production validator implementation; the deterministic implementation remains under test source only.
+
+### Deployment snapshot and readiness gate
+
+`AiProviderDeploymentSnapshot` is separate from `AiAdvisoryConfigurationSnapshot`, preserving the earlier rule that the advisory snapshot contains no endpoint or secret field. The deployment snapshot contains only:
+
+- deterministic snapshot identity/version/hash;
+- the exact advisory-configuration hash;
+- Provider-version deployment bindings;
+- endpoint and egress metadata;
+- external secret references;
+- protocol-validation profiles;
+- permanent `FAULT_DRILL_ONLY` stage.
+
+It permanently rejects Provider invocation, secret resolution, network egress, production enablement and approval automation.
+
+`AiProviderDeploymentReadinessGate` consumes a successful advisory preflight and validates deployment metadata without a Provider registry, secret resolver or network client. Every enabled route must resolve:
+
+- the exact deployment binding;
+- exact HTTPS endpoint metadata;
+- an exact valid egress-policy hash and allowlist entry;
+- at least one current Provider-authentication secret reference;
+- an exact protocol profile and exact registered structural validator;
+- `VALID` protocol-validation evidence.
+
+The closed readiness statuses are:
+
+- `READY_FOR_FAULT_DRILL`;
+- `DISABLED`;
+- `BLOCKED`.
+
+Fault classifications distinguish advisory/deployment hash mismatches, missing bindings, endpoint/egress failures, secret-reference failures, validator/profile failures and no-ready-route outcomes. Reports permanently prove zero Provider calls, zero secret resolutions and zero network calls.
+
+### Offline failure-drill protocol
+
+The fifth slice adds:
+
+- `AiProviderFailureDrillCase`;
+- `AiProviderFailureDrillObservation`;
+- `AiProviderFailureDrillReport`;
+- `AiProviderFailureDrillRunner`.
+
+The runner compares expected fail-closed startup faults with already-produced readiness reports. It has no Provider, resolver or network dependency. Report hashes are deterministic over sorted expectations, fixture hashes and bounded result codes.
+
+Even a passing fault-drill report cannot authorize Provider activation, production use or approval automation. Missing or mismatched observations fail the drill.
+
+### Configuration change-risk contract
+
+`AiProviderDeploymentChangeSet` compares two immutable deployment snapshots and produces deterministic, non-applying change evidence. Closed change types cover:
+
+- advisory-configuration changes;
+- Provider binding additions/removals;
+- endpoint and egress selection or metadata changes;
+- secret-reference set, rotation and metadata changes;
+- validation-profile selection, schema and limit changes;
+- operational-stage changes;
+- invalid source or target snapshot hashes.
+
+Risk is classified as `NONE`, `LOW`, `MEDIUM`, `HIGH` or `CRITICAL`. Any non-empty change set requires human approval. The contract permanently rejects `applyAuthorized`, production enablement and approval automation.
+
 ## Evaluation coverage
 
 The third slice adds deterministic tests for:
@@ -275,6 +385,21 @@ The fourth slice adds deterministic tests for:
 - blocked preflight never producing a ready dry run;
 - dry-run invocation and authority flags rejected.
 
+The fifth slice adds deterministic tests for:
+
+- stable deployment snapshot hashing across Map/Set ordering;
+- tampered deployment-hash detection;
+- HTTPS/public-DNS/port/path restrictions;
+- inline secret and network-egress authority rejection;
+- complete zero-call deployment readiness;
+- expired secret, endpoint allowlist and missing-validator blocking;
+- invalid protocol evidence blocking;
+- deterministic passing and failing startup fault drills;
+- non-authorizing fault-drill reports;
+- identical deployment diff behavior;
+- endpoint, secret-rotation and validation-schema risk detection;
+- mandatory human approval and permanent no-apply semantics.
+
 The permanent Node boundary additionally proves:
 
 - Prompt metadata classes contain no Prompt body or instructions field;
@@ -286,6 +411,11 @@ The permanent Node boundary additionally proves:
 - configuration snapshots contain no endpoint, credential or secret field;
 - preflight and dry-run reports cannot authorize production or automation;
 - evaluation reports cannot authorize production or automation;
+- external secret references contain no secret material;
+- endpoint/egress metadata authorizes no network access;
+- protocol validation, deployment readiness and failure drills have no `.advise(...)` call;
+- no production `AiProviderProtocolValidator` implementation exists;
+- deployment/fault-diff reports cannot authorize activation or apply;
 - no second automatic workflow, V33, M5 source or frozen governance change appears.
 
 ## Permanent safety boundary
@@ -294,11 +424,12 @@ The combined M6-D slices still contain:
 
 - no real Provider network call or network client;
 - no production Provider implementation or Spring wiring;
-- no production credential or API key;
+- no production credential, secret material or API key;
+- no secret resolver, endpoint connector or authorized network egress;
 - no production Prompt content or Prompt resource;
 - no customer knowledge data, retrieval or embeddings;
 - no attachment-content extraction;
-- no database persistence or durable circuit/evaluation/configuration state;
+- no database persistence or durable circuit/evaluation/configuration/deployment state;
 - no Flyway `V33`;
 - no approval, rejection, return, transfer, withdrawal, termination or migration command;
 - no retry or post-invocation Provider fallback;
@@ -311,15 +442,16 @@ The combined M6-D slices still contain:
 This slice does not add:
 
 - concrete Provider/model network adapters;
-- production secret management;
+- production secret management or runtime secret resolution;
+- real endpoint connectivity, DNS resolution or network egress;
 - production Prompt registration or content;
 - customer knowledge retrieval;
 - provider-reported token, latency or cost integration;
-- durable AI audit, evaluation, configuration or circuit persistence;
+- durable AI audit, evaluation, configuration, deployment or circuit persistence;
 - provider retry/background workers;
 - participant or management AI endpoints;
 - Web or Mobile AI controls;
 - AI-driven approval-state changes;
 - M6-E or M6-F behavior.
 
-A production adapter requires a separate accepted gate covering external secret management, endpoint and network-egress allowlists, exact model/artifact/configuration authorization, Provider-specific structured validation, operational disablement, usage verification, startup failure handling and failure drills. Controlled automation remains a later independent gate requiring human confirmation, server-side reauthorization, bounded reason, idempotency, audit and risk acceptance.
+A production adapter requires a separate accepted gate covering external secret resolution, endpoint and network-egress enforcement, exact model/artifact/configuration/deployment authorization, Provider-specific request/response adapters, certificate and DNS controls, operational disablement, usage verification, startup failure handling and independently reviewed failure drills. Controlled automation remains a later independent gate requiring human confirmation, server-side reauthorization, bounded reason, idempotency, audit and risk acceptance.
