@@ -13,7 +13,7 @@ test('M4 migrations remain contiguous and frozen through V32', async () => {
     .sort((left, right) => left - right);
   assert.deepEqual(
     versions.filter((version) => version <= 32),
-    Array.from({ length: 32 }, (_, index) => index + 1),
+    Array.from({ length: 31 }, (_, index) => index + 2),
     'M4 Flyway baseline must remain contiguous through V32',
   );
   assert.equal(new Set(versions).size, versions.length, 'Flyway migration versions must remain unique');

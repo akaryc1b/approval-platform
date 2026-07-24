@@ -57,6 +57,7 @@ class JdbcApprovalMigrationAttemptStoreIntegrationTest
         ApprovalMigrationIntent second = intent(
             UUID.randomUUID(),
             UUID.randomUUID(),
+            ApprovalMigrationJdbcFixtures.hash('9'),
             "intent-key-two",
             ApprovalMigrationJdbcFixtures.hash('8')
         );

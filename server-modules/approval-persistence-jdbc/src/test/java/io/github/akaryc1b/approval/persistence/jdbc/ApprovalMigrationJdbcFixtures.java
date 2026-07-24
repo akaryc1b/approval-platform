@@ -36,8 +36,18 @@ final class ApprovalMigrationJdbcFixtures {
     }
 
     static ApprovalMigrationIntent intent(UUID intentId, UUID planId, String key, String evidenceHash) {
+        return intent(intentId, planId, hash('a'), key, evidenceHash);
+    }
+
+    static ApprovalMigrationIntent intent(
+        UUID intentId,
+        UUID planId,
+        String planHash,
+        String key,
+        String evidenceHash
+    ) {
         return new ApprovalMigrationIntent(
-            intentId, TENANT, planId, hash('a'), DEFINITION_KEY,
+            intentId, TENANT, planId, planHash, DEFINITION_KEY,
             1, hash('b'), 2, hash('c'), 1,
             IntentStatus.PENDING, 1, key, evidenceHash,
             "migration-requester", "Create durable M5-B migration protocol evidence",

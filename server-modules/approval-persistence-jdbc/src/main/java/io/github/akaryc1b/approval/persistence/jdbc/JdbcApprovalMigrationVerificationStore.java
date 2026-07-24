@@ -11,6 +11,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Idempotent immutable verification append with database-enforced gap-free sequence. */
@@ -31,6 +32,11 @@ final class JdbcApprovalMigrationVerificationStore {
     }
 
     void append(ApprovalMigrationVerification value) {
+        Optional<ApprovalMigrationVerification> replay = findExisting(value.tenantId(), value.verificationId());
+        if (replay.isPresent()) {
+            requireExactReplay(replay.get(), value);
+            return;
+        }
         try {
             transactions.execute(status -> {
                 int inserted = jdbc.update("""
@@ -54,6 +60,13 @@ final class JdbcApprovalMigrationVerificationStore {
                 return null;
             });
         } catch (DataIntegrityViolationException exception) {
+            Optional<ApprovalMigrationVerification> concurrentReplay = findExisting(
+                value.tenantId(),
+                value.verificationId()
+            );
+            if (concurrentReplay.isPresent() && concurrentReplay.get().equals(value)) {
+                return;
+            }
             throw new MigrationProtocolConflictException("migration verification conflict", exception);
         }
     }
@@ -68,15 +81,33 @@ final class JdbcApprovalMigrationVerificationStore {
     }
 
     private ApprovalMigrationVerification findById(String tenantId, UUID verificationId) {
+        return findExisting(tenantId, verificationId).orElseThrow(() ->
+            new MigrationProtocolConflictException("verification replay disappeared")
+        );
+    }
+
+    private Optional<ApprovalMigrationVerification> findExisting(
+        String tenantId,
+        UUID verificationId
+    ) {
         return jdbc.query("""
             select payload_json::text from ap_process_migration_verification
             where tenant_id=:tenantId and verification_id=:verificationId
             """, new MapSqlParameterSource().addValue("tenantId", tenantId)
                 .addValue("verificationId", verificationId),
             (row, number) -> json.read(row.getString(1), ApprovalMigrationVerification.class))
-            .stream().findFirst().orElseThrow(() -> new MigrationProtocolConflictException(
-                "verification replay disappeared"
-            ));
+            .stream().findFirst();
+    }
+
+    private static void requireExactReplay(
+        ApprovalMigrationVerification existing,
+        ApprovalMigrationVerification requested
+    ) {
+        if (!existing.equals(requested)) {
+            throw new MigrationProtocolConflictException(
+                "verification identity was reused with different evidence"
+            );
+        }
     }
 
     private MapSqlParameterSource parameters(ApprovalMigrationVerification value) {

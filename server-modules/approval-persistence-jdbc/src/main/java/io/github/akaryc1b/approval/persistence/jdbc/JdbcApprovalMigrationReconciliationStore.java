@@ -11,6 +11,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Idempotent immutable reconciliation append with closed database progression. */
@@ -31,6 +32,11 @@ final class JdbcApprovalMigrationReconciliationStore {
     }
 
     void append(ApprovalMigrationReconciliation value) {
+        Optional<ApprovalMigrationReconciliation> replay = findExisting(value.tenantId(), value.reconciliationId());
+        if (replay.isPresent()) {
+            requireExactReplay(replay.get(), value);
+            return;
+        }
         try {
             transactions.execute(status -> {
                 int inserted = jdbc.update("""
@@ -54,6 +60,13 @@ final class JdbcApprovalMigrationReconciliationStore {
                 return null;
             });
         } catch (DataIntegrityViolationException exception) {
+            Optional<ApprovalMigrationReconciliation> concurrentReplay = findExisting(
+                value.tenantId(),
+                value.reconciliationId()
+            );
+            if (concurrentReplay.isPresent() && concurrentReplay.get().equals(value)) {
+                return;
+            }
             throw new MigrationProtocolConflictException("migration reconciliation conflict", exception);
         }
     }
@@ -68,15 +81,33 @@ final class JdbcApprovalMigrationReconciliationStore {
     }
 
     private ApprovalMigrationReconciliation findById(String tenantId, UUID reconciliationId) {
+        return findExisting(tenantId, reconciliationId).orElseThrow(() ->
+            new MigrationProtocolConflictException("reconciliation replay disappeared")
+        );
+    }
+
+    private Optional<ApprovalMigrationReconciliation> findExisting(
+        String tenantId,
+        UUID reconciliationId
+    ) {
         return jdbc.query("""
             select payload_json::text from ap_process_migration_reconciliation
             where tenant_id=:tenantId and reconciliation_id=:reconciliationId
             """, new MapSqlParameterSource().addValue("tenantId", tenantId)
                 .addValue("reconciliationId", reconciliationId),
             (row, number) -> json.read(row.getString(1), ApprovalMigrationReconciliation.class))
-            .stream().findFirst().orElseThrow(() -> new MigrationProtocolConflictException(
-                "reconciliation replay disappeared"
-            ));
+            .stream().findFirst();
+    }
+
+    private static void requireExactReplay(
+        ApprovalMigrationReconciliation existing,
+        ApprovalMigrationReconciliation requested
+    ) {
+        if (!existing.equals(requested)) {
+            throw new MigrationProtocolConflictException(
+                "reconciliation identity was reused with different evidence"
+            );
+        }
     }
 
     private MapSqlParameterSource parameters(ApprovalMigrationReconciliation value) {
