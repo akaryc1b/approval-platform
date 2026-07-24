@@ -62,34 +62,37 @@ class M6ConnectorFoundationBoundaryTest {
 
     @Test
     void connectorFoundationAllowsCapturedAdaptersWithoutRealNetwork() throws IOException {
-        List<Path> productionSources = new ArrayList<>(connectorFoundationProductionSources());
-        productionSources.addAll(capturedProviderAdapterProductionSources());
+        List<String> networkMarkers = List.of(
+            "java.net.",
+            "java.net.http",
+            "HttpClient",
+            "WebClient",
+            "RestClient",
+            "open.feishu.cn",
+            "oapi.dingtalk.com",
+            "api.dingtalk.com"
+        );
+        assertSourcesExclude(
+            connectorFoundationProductionSources(),
+            networkMarkers,
+            "real provider/network marker"
+        );
 
-        for (Path source : productionSources) {
-            String content = Files.readString(source);
-            for (String forbidden : List.of(
-                "java.net.",
-                "java.net.http",
-                "HttpClient",
-                "WebClient",
-                "RestClient",
-                "open.feishu.cn",
-                "oapi.dingtalk.com",
-                "api.dingtalk.com",
-                "ConnectorCredentialResolver",
-                "DataSource",
-                "JdbcTemplate",
-                "ScheduledExecutor",
-                "Thread.sleep(",
-                "ServiceLoader",
-                "Class.forName"
-            )) {
-                assertFalse(
-                    content.contains(forbidden),
-                    relative(source) + " contains real provider/infrastructure marker " + forbidden
-                );
-            }
-        }
+        List<String> capturedAdapterMarkers = new ArrayList<>(networkMarkers);
+        capturedAdapterMarkers.addAll(List.of(
+            "ConnectorCredentialResolver",
+            "DataSource",
+            "JdbcTemplate",
+            "ScheduledExecutor",
+            "Thread.sleep(",
+            "ServiceLoader",
+            "Class.forName"
+        ));
+        assertSourcesExclude(
+            capturedProviderAdapterProductionSources(),
+            capturedAdapterMarkers,
+            "real provider/infrastructure marker"
+        );
     }
 
     @Test
@@ -199,6 +202,22 @@ class M6ConnectorFoundationBoundaryTest {
                 gitBlobSha(ROOT.resolve(entry.getKey())),
                 entry.getKey() + " is frozen"
             );
+        }
+    }
+
+    private static void assertSourcesExclude(
+        List<Path> sources,
+        List<String> forbiddenMarkers,
+        String description
+    ) throws IOException {
+        for (Path source : sources) {
+            String content = Files.readString(source);
+            for (String forbidden : forbiddenMarkers) {
+                assertFalse(
+                    content.contains(forbidden),
+                    relative(source) + " contains " + description + " " + forbidden
+                );
+            }
         }
     }
 
