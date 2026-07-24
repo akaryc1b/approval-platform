@@ -18,6 +18,7 @@
         <module>approval-definition-compiler</module>
         <module>approval-engine-spi</module>
         <module>approval-connector-spi</module>
+        <module>approval-connector-dingtalk</module>
         <module>approval-integration-core</module>
         <module>approval-connector-generic</module>
         <module>approval-integration-jdbc</module>
