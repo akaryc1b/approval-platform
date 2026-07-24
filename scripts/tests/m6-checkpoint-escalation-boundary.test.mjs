@@ -91,7 +91,10 @@ test('capacity and scripted failure cannot partially commit checkpoint or finali
     join(javaRoot, 'SdkReconciliationEscalationV1.java'),
     'utf8',
   );
-  const tsCheckpoint = await readFile(join(tsRoot, 'aggregate-export-checkpoint.ts'), 'utf8');
+  const tsCheckpoint = await readFile(
+    join(tsRoot, 'aggregate-checkpoint-model.ts'),
+    'utf8',
+  );
   const tsEscalation = await readFile(join(tsRoot, 'reconciliation-escalation.ts'), 'utf8');
   assert.match(javaCheckpoint, /checkpoints\.add[\s\S]*latestByStream\.put/);
   assert.match(tsCheckpoint, /checkpointsInternal\.push[\s\S]*latestByStream\.set/);
