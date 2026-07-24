@@ -1,6 +1,6 @@
 # M5-B4 Lease Ownership and Durable UNKNOWN Protocol
 
-M5-B4 status: `IMPLEMENTED_AWAITING_PERMANENT_VALIDATION`
+M5-B4 status: `PERMANENTLY_VALIDATED`
 
 M5-B remains `IN_PROGRESS`. This slice strengthens the platform-owned migration persistence protocol only.
 It does not authorize M5-C, migration-plan creation or approval, a migration executor, a worker,
@@ -54,6 +54,10 @@ It adds append-only result evidence to `ap_process_migration_attempt_event`:
 New event JSON contains the same evidence. Historical pre-V37 event JSON remains readable even where
 lease-result fields were not previously available. Current rows and new events must match their durable
 columns at transaction commit.
+
+Jackson may serialize `Instant` values as a numeric epoch or as an ISO-8601 string. V37 uses the closed
+`ap_migration_json_instant_v37` conversion function for both forms and rejects every other JSON type.
+This preserves exact timestamp evidence without weakening current-row/event consistency.
 
 ## Durable UNKNOWN
 
@@ -109,6 +113,63 @@ scenarios:
 
 The concurrent scenario uses independent JDBC stores, executor threads, start gates and bounded future
 timeouts. It uses no sleep, retry annotation or scheduler.
+
+## Retained failed validation
+
+Run `30088435734` / #525 at head `bc19c441bfef6daa6054fe531d328eeeac5db2c4`
+is permanently retained and was not rerun.
+
+Vben and Mobile succeeded. Repository hygiene failed only because this document split the exact
+`Never retry UNKNOWN automatically` boundary phrase across two lines. Java reached the persistence-jdbc
+module but failed before the new scenarios could execute because the first V37 trigger directly cast a
+Jackson numeric epoch value to `timestamptz`.
+
+The minimal correction in commit `d11928f6e0e237e21fbccb48ba26dc1ddf17b3b7`:
+
+- adds one closed JSON timestamp conversion function supporting numeric epoch and ISO-8601 string values;
+- uses it for lease, created, updated and event timestamps;
+- places the permanent UNKNOWN prohibition phrase on one line;
+- changes no lease transition, UNKNOWN, reconciliation, test outcome or execution-authority rule.
+
+All four Run #525 artifacts were downloaded. Their ZIP SHA-256 values exactly matched GitHub digests:
+
+| Artifact | ID | SHA-256 |
+| --- | ---: | --- |
+| `approval-maven-30088435734` | `8594775973` | `6ed2c035621ba1b5e2c577c72c32bd6846beb84242af1cb28eb38e32c714a7a9` |
+| `approval-vben-30088435734` | `8594701157` | `b3c71c7d036e2186af9d215ff047f08799a46727a730714be278d2cb39448139` |
+| `approval-mobile-30088435734` | `8594764993` | `7ea60b42248a6dde8d63936b486b1cb046a1f22bf7d6947fd9461dc401f473a2` |
+| `approval-hygiene-30088435734` | `8594665415` | `dae2fa5ee728f77a67275e33570cd3babbd6657c499522215007e3922d77a22b` |
+
+## Permanent successful validation
+
+Approval Platform Validation Run `30089052236` / #526 at head
+`d11928f6e0e237e21fbccb48ba26dc1ddf17b3b7` completed successfully. All four raw job logs were read.
+
+Test and build evidence:
+
+- Maven aggregate: 540 tests, 0 failures, 0 errors, 0 skipped;
+- persistence-jdbc: 227/227 passed;
+- M5-B domain and JDBC protocol tests: 37/37 passed;
+- M5-B2 concurrent PostgreSQL/JDBC tests: 11/11 passed;
+- M5-B3 tenant/lineage/tamper PostgreSQL tests: 8/8 passed;
+- M5-B4 lease/UNKNOWN PostgreSQL tests: 8/8 passed;
+- M5-A Flowable capability tests: 30/30 passed;
+- M5 migration permanent Node boundaries: 28/28 passed;
+- M4 SLA/calendar boundaries: 13/13 passed;
+- M4 release governance boundaries: 5/5 passed;
+- Vben client boundaries: 10/10 passed;
+- Vben type-check and production build passed;
+- UniApp type-check, H5 build and WeChat Mini Program build passed;
+- fresh, historical, V36-to-V37 and 5,000-instance/task upgrade paths reached and validated V37.
+
+All four Run #526 artifacts were downloaded. Their ZIP SHA-256 values exactly matched GitHub digests:
+
+| Artifact | ID | SHA-256 |
+| --- | ---: | --- |
+| `approval-maven-30089052236` | `8595033536` | `9f55ce4df4c4a4b7f8932e8f95a6029d4e088ac99fa929b3dd9bb6edbed5e52f` |
+| `approval-vben-30089052236` | `8594942861` | `333bad1049db3b611aa26dde415a2bc31bb78e11222464472248ded11f347144` |
+| `approval-mobile-30089052236` | `8594927803` | `51d21c68447829b2d7c9fa11dd434129581a75a95f1080f3147bf33a429520b1` |
+| `approval-hygiene-30089052236` | `8594908230` | `540d062faf94ea4979b109a0d960a37eba7a07c11dd55e70b0bf4c54509028c2` |
 
 ## Explicit absences
 

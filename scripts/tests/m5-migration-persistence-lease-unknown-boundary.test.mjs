@@ -50,7 +50,7 @@ test('M5-B4 makes UNKNOWN request and failure evidence independently durable', a
     'UNKNOWN-derived reconciliation requires terminal evidence before attempt closure',
   ]) assert.ok(sql.includes(marker), `V37 UNKNOWN protocol omits ${marker}`);
   for (const marker of [
-    'M5-B4 status: `IMPLEMENTED_AWAITING_PERMANENT_VALIDATION`',
+    'M5-B4 status: `PERMANENTLY_VALIDATED`',
     'Never retry `UNKNOWN` automatically',
     'no worker, scheduler or polling loop',
     'does not authorize M5-C',
@@ -72,6 +72,18 @@ test('M5-B4 permanent PostgreSQL tests close lease and UNKNOWN outcomes without 
   assert.match(source, /CountDownLatch/);
   assert.match(source, /Future<Boolean>/);
   assert.doesNotMatch(source, /Thread\.sleep|@Retryable|@Scheduled/);
+});
+
+test('M5-B4 permanent evidence retains failure and successful validation artifacts', async () => {
+  const evidence = await text(evidencePath);
+  for (const marker of [
+    'Run `30088435734` / #525',
+    'Run `30089052236` / #526',
+    'Maven aggregate: 540 tests',
+    'M5-B4 lease/UNKNOWN PostgreSQL tests: 8/8 passed',
+    '9f55ce4df4c4a4b7f8932e8f95a6029d4e088ac99fa929b3dd9bb6edbed5e52f',
+    '540d062faf94ea4979b109a0d960a37eba7a07c11dd55e70b0bf4c54509028c2',
+  ]) assert.ok(evidence.includes(marker), `M5-B4 permanent evidence omits ${marker}`);
 });
 
 test('M5-B4 remains persistence-only and exposes no migration execution authority', async () => {
