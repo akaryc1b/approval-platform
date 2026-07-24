@@ -2,9 +2,9 @@
 
 M5-B governance decision: `ACCEPTED`
 
-Acceptance evidence status: `IMPLEMENTED_AWAITING_PERMANENT_VALIDATION`
+Acceptance evidence status: `PERMANENTLY_VALIDATED`
 
-M5-C stage authorization: `AUTHORIZED_AFTER_ACCEPTANCE_EVIDENCE_VALIDATION`
+M5-C stage authorization: `AUTHORIZED_TO_BEGIN`
 
 Production migration execution authorization: `NOT_AUTHORIZED`
 
@@ -96,6 +96,37 @@ The final Run #527 artifact digests are:
 Failed Runs #512, #513, #514, #517 and #525 remain retained and explained. None was hidden or
 blindly rerun.
 
+### Acceptance evidence permanent validation
+
+The M5-B governance acceptance package was permanently validated without changing production Java,
+Flyway migrations or execution authority:
+
+- workflow: `Approval Platform Validation`;
+- Run ID: `30094448784`;
+- run number: `#530`;
+- head: `3bcc679af0c573ef972bf303fd079c0f7ab65653`;
+- result: `success`;
+- Maven aggregate: `540` tests, zero failures, zero errors and zero skipped;
+- persistence-jdbc: `227/227`;
+- M5-B domain and JDBC protocol: `37/37`;
+- M5-B4 lease/UNKNOWN PostgreSQL scenarios: `8/8`;
+- M5 permanent Node boundaries: `31/31`;
+- all four jobs succeeded;
+- all four raw job logs were read;
+- all four downloaded artifact ZIP SHA-256 values matched the GitHub digests.
+
+The acceptance Run #530 artifacts are:
+
+| Artifact | ID | GitHub digest and downloaded ZIP SHA-256 |
+| --- | ---: | --- |
+| `approval-maven-30094448784` | `8597131037` | `b9d005ecbcc9b22eae37ae835e1cfb499117c664f1199568b94f2439b6cf3241` — exact match |
+| `approval-vben-30094448784` | `8597035914` | `c54f3b6c210becb7cafdefe20a73cb8c9abfa1333440081a11af4ff79ce67eac` — exact match |
+| `approval-mobile-30094448784` | `8597008964` | `95bce1572a2d4a0f2dbc9485f8b5e8b99ccd9cc395cf91b252d1f997fddb58a0` — exact match |
+| `approval-hygiene-30094448784` | `8596987460` | `5984ee8d2c43ab05ff9ba79879465f18a414cd7c9c4ff2fdcf73d687368234ff` — exact match |
+
+This validation authorizes beginning M5-C as a plan-only stage. It does not begin M5-C in this
+commit, authorize M5-D, or authorize production migration execution.
+
 ## Accepted limitations
 
 The M5-A technical decision remains `SUPPORTED_WITH_LIMITATIONS`. M5-B acceptance does not expand
@@ -119,7 +150,7 @@ M5-B does not provide or authorize:
 M5-B is accepted for its defined domain-and-persistence scope. This is not production migration
 approval and does not mark PR #58 Ready.
 
-After this acceptance package receives permanent validation, the only authorized next stage is
+The acceptance package is permanently validated. The only authorized next stage is
 M5-C — Immutable Migration Plans and Approval Gates. M5-C must remain plan-only and cannot invoke
 Flowable, create an executor, mutate runtime bindings, expose execution controls or authorize M5-D.
 

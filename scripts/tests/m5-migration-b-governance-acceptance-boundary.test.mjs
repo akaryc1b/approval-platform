@@ -13,8 +13,8 @@ test('M5-B governance decision accepts only the domain and persistence stage', a
   const [acceptance, protocol] = await Promise.all([text(acceptancePath), text(protocolPath)]);
   for (const marker of [
     'M5-B governance decision: `ACCEPTED`',
-    'Acceptance evidence status: `IMPLEMENTED_AWAITING_PERMANENT_VALIDATION`',
-    'M5-C stage authorization: `AUTHORIZED_AFTER_ACCEPTANCE_EVIDENCE_VALIDATION`',
+    'Acceptance evidence status: `PERMANENTLY_VALIDATED`',
+    'M5-C stage authorization: `AUTHORIZED_TO_BEGIN`',
     'Production migration execution authorization: `NOT_AUTHORIZED`',
     'Issue #56 defines M5-B as the governed migration domain model and persistence protocol',
     'PR #58 remains Open + Draft',
@@ -22,8 +22,8 @@ test('M5-B governance decision accepts only the domain and persistence stage', a
     'does not authorize M5-D',
   ]) assert.ok(acceptance.includes(marker), `M5-B acceptance omits ${marker}`);
   for (const marker of [
-    'M5-B stage status: `ACCEPTED_PENDING_ACCEPTANCE_EVIDENCE_VALIDATION`',
-    'M5-C is the only next stage',
+    'M5-B stage status: `ACCEPTED`',
+    'M5-C is the only authorized next stage',
     'does not authorize M5-D',
     'Never retry `UNKNOWN` automatically',
   ]) assert.ok(protocol.includes(marker), `M5-B protocol omits ${marker}`);
@@ -43,6 +43,12 @@ test('M5-B acceptance freezes permanent evidence without manufacturing execution
     '6eb97232ea99f16a870484482b0f9e09aff41183367e7679acefcadab1de905c',
     'No V38 or later migration exists',
     'M5-C — Immutable Migration Plans and Approval Gates',
+    'Run ID: `30094448784`',
+    'run number: `#530`',
+    'head: `3bcc679af0c573ef972bf303fd079c0f7ab65653`',
+    'M5 permanent Node boundaries: `31/31`',
+    'b9d005ecbcc9b22eae37ae835e1cfb499117c664f1199568b94f2439b6cf3241',
+    'M5-C stage authorization: `AUTHORIZED_TO_BEGIN`',
   ]) assert.ok(acceptance.includes(marker), `M5-B acceptance evidence omits ${marker}`);
   assert.doesNotMatch(acceptance, /M5-D stage authorization: `AUTHORIZED`/);
   assert.doesNotMatch(acceptance, /Production migration execution authorization: `AUTHORIZED`/);

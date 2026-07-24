@@ -2,13 +2,13 @@
 
 M5-B PERSISTENCE SLICE: `AUTHORIZED_DOMAIN_AND_PERSISTENCE_ONLY`
 
-M5-B stage status: `ACCEPTED_PENDING_ACCEPTANCE_EVIDENCE_VALIDATION`
+M5-B stage status: `ACCEPTED`
 
 The user explicitly accepted the completed M5-A evidence package and authorized progression into
 M5-B. This stage adds platform-owned domain and PostgreSQL persistence evidence only.
 
-The M5-B governance decision is accepted subject to permanent validation of the acceptance evidence.
-M5-C is the only next stage. This does not authorize M5-D, Flowable invocation, a migration worker,
+The M5-B governance decision and acceptance evidence are permanently validated.
+M5-C is the only authorized next stage. This does not authorize M5-D, Flowable invocation, a migration worker,
 execution APIs, client execution controls, automatic migration, or automatic retry.
 
 ## Scope
@@ -18,7 +18,7 @@ identities; revision CAS; append-only evidence; exact idempotent replay; and bou
 classification.
 
 `planId` and `planHash` are persisted only as opaque future references. M5-B cannot create,
-authorize, consume or execute a plan. M5-C is the only next stage after acceptance evidence validation.
+authorize, consume or execute a plan. M5-C is the only authorized next stage. This protocol does not implement M5-C.
 
 PR #58 remains Open + Draft. Issues #13 and #14 remain Open. Production code does not query or
 modify Flowable `ACT_*` tables. The only automatic PR/main workflow remains
@@ -87,6 +87,5 @@ append, concurrent replay, active-attempt ownership, strict retry lineage, lease
 fencing, durable UNKNOWN reconciliation gating, canonical payload tamper resistance, immutable gap-free
 outcome evidence and database rejection of direct lifecycle bypass.
 
-M5-B is accepted for its defined domain-and-persistence scope, pending permanent validation of the
-acceptance evidence. It does not authorize marking PR #58 Ready, merging it, enabling auto-merge,
+M5-B is accepted and permanently validated for its defined domain-and-persistence scope. It does not authorize marking PR #58 Ready, merging it, enabling auto-merge,
 exposing production migration execution or beginning M5-D.

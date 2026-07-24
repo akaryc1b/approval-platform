@@ -14,11 +14,11 @@ test('M5-B persistence stage is accepted but remains below M5-C implementation a
   const evidence = await text(path.join(root, 'docs/M5_B_PROCESS_MIGRATION_PERSISTENCE_PROTOCOL.md'));
   for (const boundary of [
     'M5-B PERSISTENCE SLICE: `AUTHORIZED_DOMAIN_AND_PERSISTENCE_ONLY`',
-    'M5-B stage status: `ACCEPTED_PENDING_ACCEPTANCE_EVIDENCE_VALIDATION`',
+    'M5-B stage status: `ACCEPTED`',
     'user explicitly accepted the completed M5-A evidence package',
     'planId` and `planHash` are persisted only as opaque future references',
     'Never retry `UNKNOWN` automatically',
-    'M5-C is the only next stage',
+    'M5-C is the only authorized next stage',
     'does not authorize M5-D',
     'PR #58 remains Open + Draft',
     'Issues #13 and #14 remain Open',
