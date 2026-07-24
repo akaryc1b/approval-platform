@@ -12,6 +12,14 @@ const capabilityPath = path.join(
   root,
   'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationHistoryOnlyReconciliationCapabilityTest.java',
 );
+const concurrencyEvidencePath = path.join(
+  root,
+  'docs/M5_PROCESS_INSTANCE_MIGRATION_CONCURRENCY_EVIDENCE.md',
+);
+const concurrencyCapabilityPath = path.join(
+  root,
+  'server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationConcurrentCommandCapabilityTest.java',
+);
 
 async function text(file) {
   return readFile(file, 'utf8');
@@ -63,5 +71,53 @@ test('history-only capability uses public runtime and history evidence only', as
   assert.doesNotMatch(
     capability,
     /deleteHistoricProcessInstance|createNativeHistoric|executeJob|deleteJob|setJobRetries/,
+  );
+});
+
+test('concurrent-command evidence remains fail-closed M5-A capability validation', async () => {
+  const evidence = await text(concurrencyEvidencePath);
+
+  assert.match(evidence, /M5-A CONCURRENCY SLICE: `CAPABILITY_VALIDATION_ONLY`/);
+  assert.match(evidence, /Overall conclusion remains: `SUPPORTED_WITH_LIMITATIONS`/);
+  assert.match(evidence, /Uncoordinated migration versus task completion \| `UNSUPPORTED`/);
+  assert.match(evidence, /Concurrent duplicate migration invocation \| `UNSUPPORTED`/);
+
+  for (const boundary of [
+    'Any duplicated task',
+    'An exception from either command is not safe retry evidence',
+    'Concurrent duplicate calls must not reach Flowable',
+    'does not authorize M5-B',
+  ]) {
+    assert.ok(evidence.includes(boundary), `concurrency evidence omits ${boundary}`);
+  }
+});
+
+test('concurrent-command capability uses public services and a real start gate', async () => {
+  const capability = await text(concurrencyCapabilityPath);
+
+  for (const operation of [
+    'CountDownLatch',
+    'Executors.newFixedThreadPool(2)',
+    'ready.await(10, TimeUnit.SECONDS)',
+    'start.countDown()',
+    'tasks.complete(task.getId())',
+    'migrate(instance.getId())',
+    'BOTH_SUCCEEDED_TARGET_COMPLETED',
+    'COMPLETION_WON_SOURCE_COMPLETED',
+    'MIGRATION_WON_TARGET_ACTIVE_AFTER_COMPLETE_CONFLICT',
+    'BOTH_MIGRATIONS_ACCEPTED',
+    'ONE_MIGRATION_WON',
+  ]) {
+    assert.ok(capability.includes(operation), `concurrency capability omits ${operation}`);
+  }
+
+  assert.doesNotMatch(capability, /ACT_[A-Z0-9_]+/);
+  assert.doesNotMatch(
+    capability,
+    /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/,
+  );
+  assert.doesNotMatch(
+    capability,
+    /createNative|executeJob|deleteJob|setJobRetries|deleteHistoricProcessInstance/,
   );
 });
