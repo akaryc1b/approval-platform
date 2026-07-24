@@ -23,7 +23,7 @@ approval:
       enforced: ${APPROVAL_MANAGEMENT_PERMISSIONS_ENFORCED:true}
       trusted-header-name: ${APPROVAL_MANAGEMENT_TRUSTED_HEADER:X-Approval-Trusted-Permissions}
   process-template:
-    platform-protocol-version: ${APPROVAL_TEMPLATE_PLATFORM_PROTOCOL_VERSION:1.0}
+    platform-protocol-version: ${APPROVAL_TEMPLATE_PLATFORM_PROTOCOL_VERSION:1.0.0}
     connector-capabilities: ${APPROVAL_TEMPLATE_CONNECTOR_CAPABILITIES:}
     business-reference-types: ${APPROVAL_TEMPLATE_BUSINESS_REFERENCE_TYPES:}
     organization-placeholders: ${APPROVAL_TEMPLATE_ORGANIZATION_PLACEHOLDERS:}

@@ -145,7 +145,7 @@ class ProcessTemplateLocalTenantRegistryResolverTest {
             stores.forms,
             stores.uiSchemas,
             new ApprovalFormComponentRegistry(),
-            "1.0",
+            "1.0.0",
             Set.of("directory.read"),
             Set.of("purchase-order"),
             Set.of("initiator.department"),

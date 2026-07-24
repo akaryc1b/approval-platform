@@ -65,7 +65,7 @@ public class ProcessTemplateImportConfiguration {
         ApprovalFormStore forms,
         ApprovalUiSchemaStore uiSchemas,
         ApprovalFormComponentRegistry componentRegistry,
-        @Value("${approval.process-template.platform-protocol-version:1.0}")
+        @Value("${approval.process-template.platform-protocol-version:1.0.0}")
         String platformProtocolVersion,
         @Value("${approval.process-template.connector-capabilities:}")
         String connectorCapabilities,
