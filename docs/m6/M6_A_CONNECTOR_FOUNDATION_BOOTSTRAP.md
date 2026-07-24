@@ -1,6 +1,6 @@
 # M6-A Connector Foundation Bootstrap
 
-Status: `COMPATIBILITY_ORCHESTRATION_SLICE_IMPLEMENTED`
+Status: `EXECUTION_ADMISSION_ACCEPTANCE_REVIEW_SLICE_IMPLEMENTED`
 
 Tracking:
 
@@ -25,6 +25,10 @@ Tracking:
 - compatibility and orchestration slice commits:
   - `2d8911014e0a7b799d90391c912c29b16ef36633`
   - `0e1786249a1779edd2fc74a02d5189d802e15cee`
+  - `9a6be281bfcc06d74df85acde168ce8747ee4730`
+- execution-admission and foundation-review slice commits:
+  - `3b66507415e1b2b2d923a58b7fcdc4f54aab2b81`
+  - `afc67757ca0815c9fe11b255419322f6beda6a50`
 
 ## Parallel milestone boundary
 
@@ -87,7 +91,7 @@ The closed selection outcomes are:
 
 Selection is planning only. It never invokes `ConnectorExecutionPort.execute`, chooses by registration order or randomness, or performs health, classpath or network discovery.
 
-## Slice 4 — provider compatibility evidence
+## Slice 4 — provider compatibility and no-network orchestration planning
 
 `DeterministicConnectorProviderCompatibilityMatrix` assesses one exact operation contract against 1–32 explicit provider keys using immutable Registry evidence only.
 
@@ -103,54 +107,107 @@ The closed compatibility classifications are:
 | `CONTRACT_TYPE_MISMATCH` | registered request or response type differs from the operation contract |
 | `PROTOCOL_MISMATCH` | an exact required protocol version does not match |
 
-Compatibility assessment:
+Compatibility assessment does not invoke an adapter, query network or health state, use runtime metrics, reflection, classpath discovery or `ServiceLoader`. It binds matrix version, Registry fingerprint, contract fingerprint, required protocol and sorted classifications into deterministic evidence.
 
-- does not invoke a provider adapter;
-- does not use network, health checks, metrics, runtime observation, reflection or `ServiceLoader`;
-- sorts provider rows and rejects duplicate provider keys;
-- binds matrix version, Registry fingerprint, contract key, contract fingerprint, required protocol and every classification into deterministic SHA-256 evidence.
+`ConnectorInvocationAuthorizationEvidence` is server-owned, valid for no more than ten minutes and binds one exact tenant, provider, contract, operation, request, idempotency key, payload hash and selection-evidence hash. It does not replace the shared platform authorization or audit model.
 
-`ConnectorProviderRegistry.findBinding` is a read-only optional lookup used to distinguish an unregistered operation from an exact type mismatch. Existing strict `resolve` behavior remains unchanged.
+`DeterministicConnectorOrchestrationPlanner` verifies current Registry, exact binding registration, contract, selection, compatibility, trusted context, request evidence and authorization. It produces a hash-only `ConnectorOrchestrationPlan` containing no executable binding or raw credential reference.
 
-## Server-owned authorization evidence
-
-`ConnectorInvocationAuthorizationEvidence` is an opaque connector-local decision binding. It does not replace the shared authorization or audit model.
-
-It binds:
-
-- authorization decision ID and policy version;
-- tenant, selected provider, contract key and operation;
-- request ID, idempotency key and canonical payload hash;
-- provider-selection evidence hash;
-- authorization time and expiry.
-
-Authorization validity must be positive and no longer than ten minutes. The evidence is server-owned and is never accepted from browser or mobile contracts.
-
-## No-network orchestration planning
-
-`DeterministicConnectorOrchestrationPlanner` validates one complete server-side planning request and produces an immutable `ConnectorOrchestrationPlan`.
-
-Planning requires matching evidence for:
-
-- current Registry fingerprint and selected binding registration;
-- exact operation contract and payload types;
-- provider selection and selected provider;
-- compatibility report, contract fingerprint and selected compatible row;
-- trusted tenant/provider context and server-owned credential reference;
-- request ID, trace ID, idempotency key and canonical payload hash;
-- server authorization decision and validity window.
-
-When a payload implements `CanonicalConnectorPayload`, the planner verifies the request hash against the payload canonical hash.
-
-The resulting plan stores only hashes and bounded identifiers. The credential reference is represented by a deterministic hash; its reference value is not rendered in plan evidence.
-
-The plan deliberately contains no `ConnectorProviderBinding` or `ConnectorExecutionPort`. It provides:
+The plan always reports:
 
 - `automaticExecutionAllowed() == false`;
 - `automaticRetryAllowed() == false`;
 - `requiresExplicitExecution() == true`.
 
-The planner never calls `.execute`, resolves credential bytes, sends network traffic, performs retries or mutates approval process state. A later execution gate must independently re-resolve current server state, authorization and credentials.
+The planner never calls `.execute`, resolves credential bytes, sends network traffic, performs retries or mutates approval process state.
+
+## Slice 5 — execution-admission revalidation
+
+`DeterministicConnectorExecutionAdmissionPolicy` revalidates one existing orchestration plan against current server evidence immediately before a later explicit invocation gate.
+
+Admission input includes:
+
+- the immutable orchestration plan;
+- current immutable Registry;
+- exact operation contract;
+- current selected provider and selection evidence;
+- current compatibility report;
+- current authorization evidence;
+- current trusted tenant/provider/credential-reference context;
+- current typed request;
+- an explicit check timestamp.
+
+The closed admission classifications are:
+
+| Admission status | Meaning |
+| --- | --- |
+| `ADMITTED` | all current evidence matches the plan at the check timestamp |
+| `PLAN_TIME_INVALID` | the check predates the plan |
+| `REGISTRY_STALE` | the current Registry fingerprint differs from the planned Registry |
+| `CONTRACT_MISMATCH` | contract key, operation or fingerprint differs |
+| `SELECTION_MISMATCH` | selected provider or selection evidence differs |
+| `COMPATIBILITY_MISMATCH` | compatibility evidence is stale, missing or non-compatible |
+| `BINDING_UNAVAILABLE` | the exact current binding is missing or changed |
+| `TRUSTED_CONTEXT_MISMATCH` | trusted tenant, provider or planning-time context differs |
+| `REQUEST_MISMATCH` | request, trace, idempotency, operation, type or payload hash differs |
+| `CREDENTIAL_MISMATCH` | the server credential-reference hash differs |
+| `AUTHORIZATION_MISMATCH` | authorization identity or bound evidence differs |
+| `AUTHORIZATION_EXPIRED` | authorization is not valid at admission time |
+
+`ADMITTED` is only a deterministic current-evidence conclusion. It is not a provider invocation receipt, execution command, capability token or retry authorization.
+
+`ConnectorExecutionAdmission` contains no `ConnectorProviderBinding` or `ConnectorExecutionPort` and always reports:
+
+- `automaticExecutionAllowed() == false`;
+- `automaticRetryAllowed() == false`;
+- `requiresExplicitInvocation() == true`.
+
+Admission evidence stores only bounded identifiers and hashes. The credential reference is represented only by its deterministic hash. The admission policy never calls `.execute`, resolves secret bytes, sends network traffic, sleeps, schedules work, retries a result or mutates approval process state.
+
+## M6-A foundation review evidence
+
+`DeterministicConnectorFoundationAcceptanceEvaluator` consolidates deterministic foundation evidence for a later formal review.
+
+It checks:
+
+- unique closed operation coverage for every `ConnectorOperation`;
+- operation-contract fingerprints;
+- current Registry fingerprint;
+- selection, compatibility, orchestration and admission policy versions;
+- non-empty admitted evidence;
+- matching admission policy versions;
+- admission timestamps not later than evaluation;
+- admission Registry fingerprints matching the current Registry.
+
+The closed review statuses are:
+
+| Foundation review status | Meaning |
+| --- | --- |
+| `READY_FOR_FORMAL_ACCEPTANCE_REVIEW` | contract coverage and current admitted evidence are complete |
+| `INCOMPLETE_CONTRACT_COVERAGE` | one or more closed operations are missing or duplicated |
+| `INCOMPLETE_ADMISSION_EVIDENCE` | admission evidence is absent, rejected, version-mismatched or future-dated |
+| `REGISTRY_EVIDENCE_MISMATCH` | admitted evidence references another Registry fingerprint |
+
+`READY_FOR_FORMAL_ACCEPTANCE_REVIEW` does not grant formal acceptance. `ConnectorFoundationAcceptanceEvidence` always reports:
+
+- `formalAcceptanceGranted() == false`;
+- `productionEnabled() == false`;
+- `automaticExecutionEnabled() == false`;
+- `automaticRetryEnabled() == false`;
+- `requiresExplicitFormalAcceptance() == true`.
+
+Every review result retains all production safety blocks:
+
+- `REAL_PROVIDER_TRANSPORT`;
+- `PRODUCTION_CREDENTIALS`;
+- `PERSISTENCE`;
+- `CONNECTOR_WORKER`;
+- `AUTOMATIC_EXECUTION`;
+- `AUTOMATIC_RETRY`;
+- `HEALTH_BASED_ROUTING`;
+- `APPROVAL_STATE_MUTATION`.
+
+Formal M6-A acceptance, PR readiness, production enablement and execution remain separate explicit gates.
 
 ## Retry and reconciliation semantics
 
@@ -158,13 +215,13 @@ The planner never calls `.execute`, resolves credential bytes, sends network tra
 | --- | --- |
 | `SUCCESS` | do not retry |
 | `REJECTED` | do not retry |
-| `RATE_LIMITED` | retry with backoff under a later reviewed execution policy |
-| `RETRYABLE_PROVIDER_FAILURE` | retry with backoff under a later reviewed execution policy |
+| `RATE_LIMITED` | retry with backoff only under a later reviewed execution policy |
+| `RETRYABLE_PROVIDER_FAILURE` | retry with backoff only under a later reviewed execution policy |
 | `PERMANENT_PROVIDER_FAILURE` | do not retry |
 | `TIMEOUT` | reconcile before any retry decision |
 | `UNKNOWN` | reconcile before any retry decision |
 
-Only `TIMEOUT` and `UNKNOWN` enter `ConnectorReconciliationPort`. No selection, compatibility, orchestration-plan or reconciliation result directly authorizes replay of an uncertain provider side effect.
+Only `TIMEOUT` and `UNKNOWN` enter `ConnectorReconciliationPort`. No selection, compatibility, plan, admission, foundation review or reconciliation result directly authorizes replay of an uncertain provider side effect.
 
 ## Test and permanent boundary coverage
 
@@ -173,14 +230,18 @@ Focused coverage by slice:
 - first slice: 18 tests;
 - provider-resolution slice: 15 tests;
 - typed-payload and selection slice: 18 tests;
-- compatibility and orchestration slice: 18 tests.
+- compatibility and orchestration slice: 18 tests;
+- execution-admission and foundation-review slice: 18 tests.
 
-The fourth slice adds:
+The fifth slice adds:
 
-- 15 contract tests for every compatibility classification, stable matrix evidence, read-only Registry lookup, bounded authorization, deterministic planning, stale Registry rejection, compatibility mismatch rejection, tenant/provider/request/idempotency binding, expired authorization, payload-hash mismatch and disabled automatic execution/retry;
-- 3 permanent boundary tests proving compatibility uses immutable evidence only, orchestration cannot execute or authorize retry, and Web/Mobile cannot manufacture trusted authorization or orchestration evidence.
+- 15 contract tests covering successful non-executing admission; every admission mismatch class; deterministic admission evidence; credential-reference redaction; review-ready foundation evidence; complete blocked-capability retention; incomplete operation coverage; rejected admission evidence; and stale Registry evidence;
+- 3 permanent boundary tests proving admission cannot invoke adapters, resolve credentials, access network or schedule work; foundation review cannot grant formal acceptance or production enablement; and Web/Mobile cannot manufacture admission, authorization, trusted-context or foundation-review evidence.
 
-Accumulated focused M6-A coverage before the full repository regression suite is 69 tests.
+Accumulated focused M6-A coverage before the full repository regression suite is 87 tests:
+
+- connector contract tests: 68;
+- permanent boundary tests: 19.
 
 All permanent tests execute through the existing Maven backend job in `.github/workflows/approval-platform-validation.yml`; no workflow file is added or modified.
 
@@ -191,28 +252,36 @@ All permanent tests execute through the existing Maven backend job in `.github/w
 - no production provider transport, endpoint or health discovery;
 - no production token, secret, credential material, customer domain or private address;
 - no production secret-store or key-management integration;
-- no connector-owned persistence, worker, lease, scheduler or production retry orchestration;
+- no connector-owned persistence, worker, lease, scheduler, recovery or production retry orchestration;
 - no random, weighted, implicit-priority, fallback, load-balanced or network-based provider selection;
-- no selector, compatibility matrix or orchestration planner triggered provider invocation;
-- no plan-carried executable binding or raw credential reference;
+- no selector, compatibility matrix, planner, admission policy or foundation evaluator triggered provider invocation;
+- no plan- or admission-carried executable binding or raw credential reference;
 - no automatic execution or automatic retry authorization;
+- no formal acceptance or production enablement;
 - no direct Flowable API exposure;
 - no connector-driven approve, reject, transfer, withdraw, terminate or migrate operation;
 - no direct approval process-state modification;
-- no browser-manufactured trusted provider, tenant, operator, authority, audit, authorization or signing identity;
+- no browser-manufactured trusted provider, tenant, operator, authority, audit, authorization, admission or signing identity;
 - no M5 source or semantic modification;
 - no second permanent or temporary GitHub Actions workflow;
 - no PR readiness, auto-merge or merge action.
 
-## Still blocked until a later gate
+## Next explicit gate
 
-- real provider adapters and transport;
+The M6-A contract foundation is eligible only for a later formal acceptance review after permanent validation of this slice.
+
+Until explicitly authorized, the following remain blocked:
+
+- formal M6-A acceptance;
+- marking PR #67 ready;
+- real provider adapters or transport;
+- provider execution;
 - production credentials and secret-store integration;
-- compatibility, selection, authorization or plan persistence;
+- selection, compatibility, authorization, plan or admission persistence;
 - provider tenant-routing configuration;
 - provider fallback, weighted routing, load balancing or health-based routing;
-- connector workers, leases, schedules, recovery and execution orchestration;
+- connector workers, leases, schedules and recovery;
 - schema ownership and any `V33`;
 - automatic retry of uncertain outcomes;
 - approval-state actions;
-- marking PR #67 ready, enabling auto-merge or merging the PR.
+- auto-merge or merge.
