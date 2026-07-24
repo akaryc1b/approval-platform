@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.persistence.jdbc;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationProtocolStore.MigrationProtocolConflictException;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationReconciliation;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.UncategorizedSQLException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -59,7 +60,7 @@ final class JdbcApprovalMigrationReconciliationStore {
                 }
                 return null;
             });
-        } catch (DataIntegrityViolationException exception) {
+        } catch (DataIntegrityViolationException | UncategorizedSQLException exception) {
             Optional<ApprovalMigrationReconciliation> concurrentReplay = findExisting(
                 value.tenantId(),
                 value.reconciliationId()
