@@ -4,7 +4,7 @@ This example is intentionally transport-free and contains no token or endpoint.
 
 TypeScript tests create `MockTransport`, send a request containing only operation, payload, request/trace correlation and idempotency key, then return a typed `Result`. Java uses the equivalent `ApprovalSdk.MockTransport` and `ApprovalSdk.DefaultClient` contracts.
 
-Compatibility negotiation, bounded transport policy evaluation, logical security binding, diagnostic/audit redaction, deterministic emission policy, reference-only telemetry/audit handoff and caller-ordinal aggregation/reconciliation occur before any future real adapter execution. The credential-free blueprints are:
+Compatibility negotiation, bounded transport policy evaluation, logical security binding, diagnostic/audit redaction, deterministic emission policy, reference-only telemetry/audit handoff, caller-ordinal aggregation/reconciliation and checkpoint/escalation occur before any future real adapter execution. The credential-free blueprints are:
 
 - [Generic REST host](GENERIC_REST_HOST.md)
 - [RuoYi starter](RUOYI_STARTER.md)
@@ -14,5 +14,6 @@ Compatibility negotiation, bounded transport policy evaluation, logical security
 - [Diagnostic emission and audit completeness](EMISSION_POLICY.md)
 - [Telemetry signal and audit handoff](TELEMETRY_HANDOFF.md)
 - [Telemetry aggregation and handoff reconciliation](AGGREGATION_RECONCILIATION.md)
+- [Aggregate checkpoint and reconciliation escalation](CHECKPOINT_ESCALATION.md)
 
-Hosts derive tenant, operator, permissions and audit evidence on the server. Those values are not accepted from SDK request, compatibility profile, transport policy, logical endpoint, diagnostic, emission decision, telemetry signal, aggregate snapshot, adapter audit metadata, handoff acknowledgement or reconciliation proof.
+Hosts derive tenant, operator, permissions and audit evidence on the server. Those values are not accepted from SDK request, compatibility profile, transport policy, logical endpoint, diagnostic, emission decision, telemetry signal, aggregate snapshot, export checkpoint, adapter audit metadata, handoff acknowledgement, reconciliation proof, escalation proof or finalization checkpoint.

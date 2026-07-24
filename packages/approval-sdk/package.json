@@ -7,6 +7,7 @@
     ".": "./dist/public.js",
     "./adapter-binding": "./dist/adapter-binding.js",
     "./aggregation-reconciliation": "./dist/aggregation-reconciliation.js",
+    "./checkpoint-escalation": "./dist/checkpoint-escalation.js",
     "./compatibility": "./dist/compatibility.js",
     "./diagnostics-audit": "./dist/diagnostics-audit.js",
     "./emission-policy": "./dist/emission-policy.js",
@@ -16,6 +17,6 @@
   "types": "./dist/public.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "pnpm build && node --test test/*.test.mjs ../../scripts/tests/m6-sdk-event-boundary.test.mjs ../../scripts/tests/m6-aggregation-reconciliation-boundary.test.mjs"
+    "test": "pnpm build && node --test test/*.test.mjs ../../scripts/tests/m6-sdk-event-boundary.test.mjs ../../scripts/tests/m6-aggregation-reconciliation-boundary.test.mjs ../../scripts/tests/m6-checkpoint-escalation-boundary.test.mjs"
   }
 }

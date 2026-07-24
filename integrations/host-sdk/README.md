@@ -65,18 +65,20 @@ The independent `io.github.akaryc1b.approval.sdk.v1` package provides:
 - bounded atomic fake telemetry export;
 - no-loss pending audit handoff and deterministic acknowledgement semantics;
 - caller-ordinal telemetry aggregation with bounded rollover snapshots;
-- reference-only handoff reconciliation proofs with acknowledged-only finalization.
+- reference-only handoff reconciliation proofs with acknowledged-only finalization eligibility;
+- monotonic aggregate export checkpoints over complete reference-only snapshot sets;
+- caller-ordinal reconciliation escalation and atomic acknowledged finalization checkpoints.
 
-Public requests, compatibility profiles, transport policies, logical endpoints, diagnostics, emission decisions, telemetry signals, aggregate snapshots, audit events, handoff acknowledgements and reconciliation proofs cannot manufacture trusted identity, permission or raw audit evidence. The package has no network client, production endpoint, production clock, Flowable type, migration command, persistence or delivery worker.
+Public requests, compatibility profiles, transport policies, logical endpoints, diagnostics, emission decisions, telemetry signals, aggregate snapshots, export checkpoints, audit events, handoff acknowledgements, reconciliation proofs, escalation proofs and finalization checkpoints cannot manufacture trusted identity, permission or raw audit evidence. The package has no network client, production endpoint, production clock, Flowable type, migration command, persistence or delivery worker.
 
 ## Deployment rules
 
-- `InMemoryReplayGuard`, M6-B in-memory guards, scripted adapters, diagnostic sinks, telemetry exporters, aggregation stores, audit sinks, handoff queues and reconciliation stores are only for tests and single-node development.
+- `InMemoryReplayGuard`, M6-B in-memory guards, scripted adapters, diagnostic sinks, telemetry exporters, aggregation/checkpoint stores, audit sinks, handoff queues and reconciliation/escalation stores are only for tests and single-node development.
 - Production starters must provide a distributed replay guard, normally backed by Redis `SET NX EX` semantics.
 - Signing secrets must be resolved from encrypted configuration or a secret manager.
 - Secrets, bearer tokens, raw authentication payloads, exception messages and stack traces must never be logged or exported.
-- Diagnostic or telemetry sink loss must be surfaced as degraded observability; mandatory audit incompleteness, handoff uncertainty or conflicting reconciliation evidence must remain non-finalizable or fail closed.
-- Real configuration sources, logging, telemetry backends, aggregation storage, brokers, audit persistence, endpoint resolution, authentication, clock, scheduling and network execution require separate accepted gates.
+- Diagnostic or telemetry sink loss must be surfaced as degraded observability; partial aggregate export, checkpoint discontinuity, mandatory audit incompleteness, handoff uncertainty, conflicting reconciliation evidence or escalation regression must remain non-finalizable or fail closed.
+- Real configuration sources, logging, telemetry backends, aggregation/checkpoint storage, brokers, audit persistence, endpoint resolution, authentication, clock, scheduling and network execution require separate accepted gates.
 - No Flowable, approval database, Spring, Sa-Token or RuoYi dependency is allowed in this module.
 
 ## Planned implementations

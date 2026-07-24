@@ -1,6 +1,6 @@
 # M6-B SDK and Event Ecosystem Bootstrap
 
-Status: `SAFE_SLICE_8_IMPLEMENTED`
+Status: `SAFE_SLICE_9_IMPLEMENTED`
 
 Tracking:
 
@@ -70,31 +70,41 @@ M6-B develops in parallel with M5 and remains independent from Issue #56 and Dra
 
 ## Safe slice 8 — telemetry aggregation windows and handoff reconciliation
 
-### Caller-ordinal aggregation
-
-- aggregation/reconciliation contract version `1`; unknown versions fail closed;
 - fixed caller-ordinal windows with no clock reads;
-- bounded active windows, aggregation identities and tracked signal digests;
-- recomputation of aggregation-identity and full-signal digests before acceptance;
-- deterministic duplicate suppression inside the retained ordinal horizon;
-- quantity/count accumulation with first/last reference evidence;
-- oldest-window rollover with canonical reference-only snapshots;
-- ordinal regression, digest mismatch, quantity overflow and scripted store failure fail closed;
-- identity-capacity rejection leaves active state unchanged.
+- bounded active windows, identities and tracked signal digests;
+- deterministic duplicate suppression and rollover snapshots;
+- snapshot digest recomputation and atomic fake aggregation state;
+- reference-only handoff reconciliation evidence/proofs;
+- acknowledged-only finalization eligibility;
+- bounded fake reconciliation proof store.
 
-### Audit handoff reconciliation
+## Safe slice 9 — aggregate export checkpoint and reconciliation escalation
 
-- consumes expected envelope plus optional pending/acknowledgement snapshots only;
-- classifications: pending confirmed, acknowledged confirmed, acknowledgement missing, missing evidence and conflicting evidence;
-- only acknowledged confirmation is safe to finalize;
-- pending, missing and conflicting evidence remain non-finalizable;
-- canonical evidence and proof digests;
-- bounded scripted reconciliation proof store;
-- duplicate, capacity and scripted failure append no partial proof.
+### Aggregate export checkpoint
+
+- checkpoint/escalation contract version `1`; unknown versions fail closed;
+- consumes validated reference-only aggregate snapshots only;
+- recomputes and validates every snapshot digest;
+- deterministic snapshot ordering and snapshot-set digest;
+- exact full-set export evidence required before checkpoint creation;
+- first checkpoint has no predecessor and later checkpoints form a monotonic digest chain;
+- checkpoint ordinal must be monotonic and cover all included snapshot ordinals;
+- snapshot reuse, partial export, continuity mismatch and ordinal regression fail closed;
+- bounded scripted checkpoint store with atomic duplicate/capacity/failure behavior.
+
+### Reconciliation escalation
+
+- consumes an existing reference-only handoff reconciliation proof and caller evaluation ordinal;
+- deterministic levels: none, observe, investigate, block and resolved;
+- unresolved evidence can only escalate with caller-ordinal age;
+- stored unresolved levels and evaluation ordinals cannot regress;
+- only acknowledged-confirmed reconciliation can become resolved;
+- only resolved acknowledged evidence can atomically create a finalization checkpoint;
+- bounded scripted escalation store rejects duplicate, capacity, ordinal/level regression, finalization conflict and scripted failure without partial finalization.
 
 ## Tests and permanent validation
 
-Java and TypeScript use `aggregation-reconciliation-v1.json` and must agree on duplicate suppression, quantity accumulation, window rollover, snapshot digests, reconciliation classifications, evidence/proof digests and duplicate-proof handling. Additional tests cover ordinal regression, forged signal digests, identity capacity, scripted failures, pending confirmation, conflicting acknowledgement, proof-store capacity and safe-finalization invariants.
+Java and TypeScript use `checkpoint-escalation-v1.json` and must agree on checkpoint identity/snapshot-set/checkpoint digests, escalation levels/proof digests and the acknowledged finalization checkpoint. Additional tests cover partial export, checkpoint continuity, duplicate checkpoint/snapshot suppression, ordinal regression, store capacity/failure, caller-ordinal aging, level regression, finalization conflict and acknowledged-only resolution.
 
 The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor executes Java tests. Permanent boundaries remain inside the single workflow `.github/workflows/approval-platform-validation.yml`.
 
@@ -102,8 +112,9 @@ The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor
 
 - production environment/file/vault configuration source;
 - production diagnostic logger or telemetry backend;
-- production telemetry aggregation or durable deduplication store;
-- production message broker, audit queue, reconciliation store or audit persistence;
+- production telemetry aggregation, checkpoint or durable deduplication store;
+- production OpenTelemetry/metrics exporter;
+- production message broker, audit queue, escalation/reconciliation store or audit persistence;
 - real HTTP or other network transport;
 - production endpoint address, discovery and routing;
 - production authentication executor or usable credential material;
@@ -118,4 +129,4 @@ The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor
 
 ## Next gate
 
-The next M6-B gate requires explicit acceptance of caller-ordinal telemetry aggregation and reference-only handoff reconciliation before introducing production aggregation, durable deduplication, broker, audit queue or reconciliation persistence. Endpoint addresses, credentials and network execution remain separately blocked.
+The next M6-B gate requires explicit acceptance of deterministic aggregate export checkpoints and reconciliation escalation/finalization semantics before introducing production aggregation, durable checkpoints, brokers, audit queues, escalation storage or persistence. Endpoint addresses, credentials and network execution remain separately blocked.

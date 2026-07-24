@@ -1,5 +1,6 @@
 export * from './adapter-binding.js';
 export * from './aggregation-reconciliation.js';
+export * from './checkpoint-escalation.js';
 export * from './compatibility.js';
 export * from './diagnostics-audit.js';
 export * from './emission-policy.js';
