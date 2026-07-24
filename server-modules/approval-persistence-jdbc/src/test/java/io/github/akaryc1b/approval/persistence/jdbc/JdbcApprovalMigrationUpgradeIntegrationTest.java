@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalMigrationUpgradeIntegrationTest {
 
-    private static final String LATEST_VERSION = "35";
+    private static final String LATEST_VERSION = "36";
     private static final List<UpgradeCase> UPGRADE_CASES = List.of(
         new UpgradeCase("approval_latest_fresh", null),
         new UpgradeCase("approval_latest_v1", "1"),
@@ -51,7 +51,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
     }
 
     @Test
-    void freshAndHistoricalUpgradePathsReachV35() {
+    void freshAndHistoricalUpgradePathsReachV36() {
         for (UpgradeCase upgrade : UPGRADE_CASES) {
             assertUpgrade(upgrade);
         }

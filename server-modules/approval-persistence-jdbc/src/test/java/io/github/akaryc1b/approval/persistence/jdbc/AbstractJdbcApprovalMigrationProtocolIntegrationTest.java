@@ -21,6 +21,7 @@ import java.util.UUID;
 
 import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.DEFINITION_KEY;
 import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.NOW;
+import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.OTHER_TENANT;
 import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.TENANT;
 import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.hash;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -75,8 +76,10 @@ abstract class AbstractJdbcApprovalMigrationProtocolIntegrationTest {
                 control.execute("set session_replication_role = replica");
             }
             try (Statement statement = connection.createStatement()) {
-                seedReleasePackage(statement, 1, hash('b'));
-                seedReleasePackage(statement, 2, hash('c'));
+                seedReleasePackage(statement, TENANT, 1, hash('b'));
+                seedReleasePackage(statement, TENANT, 2, hash('c'));
+                seedReleasePackage(statement, OTHER_TENANT, 1, hash('b'));
+                seedReleasePackage(statement, OTHER_TENANT, 2, hash('c'));
             } finally {
                 try (Statement control = connection.createStatement()) {
                     control.execute("set session_replication_role = origin");
@@ -88,6 +91,7 @@ abstract class AbstractJdbcApprovalMigrationProtocolIntegrationTest {
 
     private static void seedReleasePackage(
         Statement statement,
+        String tenantId,
         int version,
         String packageHash
     ) throws SQLException {
@@ -106,11 +110,11 @@ abstract class AbstractJdbcApprovalMigrationProtocolIntegrationTest {
               '%s','%s'::uuid,'migration-protocol-publisher',timestamptz '%s'
             )
             """.formatted(
-                TENANT, DEFINITION_KEY, version, version, hash(hex(version + 1)),
+                tenantId, DEFINITION_KEY, version, version, hash(hex(version + 1)),
                 version, hash(hex(version + 3)), version, hash(hex(version + 5)),
                 version, hash(hex(version + 7)), version,
                 hash(hex(version + 9)), hash(hex(version + 11)), hash(hex(version + 13)),
-                packageHash, new UUID(70, version), offset(NOW.minusSeconds(100 - version))
+                packageHash, new UUID(tenantId.hashCode(), version), offset(NOW.minusSeconds(100 - version))
             ));
         assertEquals(1, inserted);
     }

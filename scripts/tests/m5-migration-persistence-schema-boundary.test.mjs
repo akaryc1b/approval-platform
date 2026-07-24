@@ -25,18 +25,19 @@ test('M5-B persistence slice is explicitly authorized but remains below M5-C and
   assert.doesNotMatch(evidence, /M5-B stage status: `COMPLETE`/);
 });
 
-test('Flyway advances continuously through V35 with exactly six M5-B protocol tables', async () => {
+test('Flyway advances continuously through V36 with exactly six M5-B protocol tables', async () => {
   const files = await readdir(migrationDir);
   for (const expected of [
     'V33__create_process_migration_intents.sql',
     'V34__create_process_migration_attempts.sql',
     'V35__create_process_migration_outcome_evidence.sql',
+    'V36__strengthen_process_migration_tenant_lineage_tamper_guards.sql',
   ]) assert.ok(files.includes(expected), `missing ${expected}`);
   assert.ok(
-    files.every((file) => !/^V(?:3[6-9]|[4-9][0-9])__/.test(file)),
-    `M5-B advanced beyond V35: ${files.join(', ')}`,
+    files.every((file) => !/^V(?:3[7-9]|[4-9][0-9])__/.test(file)),
+    `M5-B advanced beyond V36: ${files.join(', ')}`,
   );
-  const sql = (await Promise.all(files.filter((file) => /^V3[3-5]__/.test(file))
+  const sql = (await Promise.all(files.filter((file) => /^V3[3-6]__/.test(file))
     .sort().map((file) => text(path.join(migrationDir, file))))).join('\n');
   for (const table of [
     'ap_process_migration_intent', 'ap_process_migration_intent_event',
@@ -52,6 +53,13 @@ test('Flyway advances continuously through V35 with exactly six M5-B protocol ta
     'ap_guard_process_migration_verification_insert',
     'ap_guard_process_migration_reconciliation_insert',
     'ap_reject_process_migration_evidence_mutation',
+    'ap_validate_process_migration_intent_payload_v36',
+    'ap_validate_process_migration_attempt_payload_v36',
+    'ap_require_process_migration_intent_event_v36',
+    'ap_require_process_migration_attempt_event_v36',
+    'migration retry must follow the immediate retryable parent',
+    'migration intent current row requires matching event',
+    'migration attempt current row requires matching event',
     'migration intent revision must advance exactly once',
     'migration attempt revision must advance exactly once',
     'migration verification sequence must advance exactly once',
