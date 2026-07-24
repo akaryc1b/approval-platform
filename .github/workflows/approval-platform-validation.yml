@@ -68,7 +68,7 @@ jobs:
           cat m4-release-governance-boundary.log
       - name: Upload repository governance logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: approval-hygiene-${{ github.run_id }}
           path: |
@@ -102,7 +102,7 @@ jobs:
           tail -n 100 maven-verify.log
       - name: Upload Maven verification log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: approval-maven-${{ github.run_id }}
           path: maven-verify.log
@@ -148,7 +148,7 @@ jobs:
         run: pnpm web:build >web-build.log 2>&1 || { tail -n 220 web-build.log; exit 1; }
       - name: Upload Vben verification logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: approval-vben-${{ github.run_id }}
           path: |
@@ -193,7 +193,7 @@ jobs:
         run: pnpm mobile:build:weixin >mobile-weixin.log 2>&1 || { tail -n 220 mobile-weixin.log; exit 1; }
       - name: Upload mobile verification logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: approval-mobile-${{ github.run_id }}
           path: |

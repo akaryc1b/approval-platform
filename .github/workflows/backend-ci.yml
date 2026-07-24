@@ -22,7 +22,7 @@ jobs:
           mvn -B -ntp verify 2>&1 | tee backend-ci.log
       - name: Upload backend failure log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-ci-log
           path: backend-ci.log
