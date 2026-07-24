@@ -12,9 +12,8 @@ import io.github.akaryc1b.approval.connector.model.PageRequest;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 final class DingTalkTestFixtures {
 
@@ -144,12 +143,18 @@ final class DingTalkTestFixtures {
         private DingTalkTransportRequest lastRequest;
 
         CapturingTransport(DingTalkTransportResponse response) {
-            this.response = assertNotNull(response);
+            this.response = Objects.requireNonNull(
+                response,
+                "response must not be null"
+            );
         }
 
         @Override
         public DingTalkTransportResponse exchange(DingTalkTransportRequest request) {
-            lastRequest = assertNotNull(request);
+            lastRequest = Objects.requireNonNull(
+                request,
+                "request must not be null"
+            );
             invocations.incrementAndGet();
             return response;
         }
