@@ -199,7 +199,7 @@ public final class ProcessTemplateImportPreviewService {
     }
 
     private static void checkCompatibility(
-        TemplatePackae value,
+        TemplatePackage value,
         TenantRegistrySnapshot registry,
         List<Finding> findings
     ) {
