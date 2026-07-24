@@ -1,3 +1,15 @@
+create function ap_migration_json_instant_v37(payload jsonb, field_name text)
+returns timestamptz language plpgsql immutable as $$
+declare value jsonb; raw_value text;
+begin
+ value:=payload->field_name;
+ if value is null or value='null'::jsonb then return null; end if;
+ raw_value:=value#>>'{}';
+ if jsonb_typeof(value)='number' then return to_timestamp(raw_value::double precision); end if;
+ if jsonb_typeof(value)='string' then return raw_value::timestamptz; end if;
+ raise exception using errcode='23514',message='migration timestamp payload must be string number or null';
+end $$;
+
 alter table ap_process_migration_attempt
  add column lease_actor varchar(200),
  add column engine_request_reference varchar(256),
@@ -55,7 +67,7 @@ update ap_process_migration_attempt_event
  set engine_outcome=coalesce(nullif(payload_json->>'engineOutcome',''),'NOT_REQUESTED'),
      lease_actor=nullif(payload_json->>'leaseActor',''),
      lease_owner=nullif(payload_json->>'leaseOwner',''),
-     lease_until=nullif(payload_json->>'leaseUntil','')::timestamptz,
+     lease_until=ap_migration_json_instant_v37(payload_json,'leaseUntil'),
      engine_request_reference=nullif(payload_json->>'engineRequestReference',''),
      failure_class=coalesce(nullif(payload_json->>'failureClass',''),'NONE'),
      error_summary=nullif(payload_json->>'errorSummary','');
@@ -91,12 +103,12 @@ begin
   or (new.payload_json->>'engineOutcome') is distinct from new.engine_outcome
   or (new.payload_json->>'revision')::bigint is distinct from new.revision
   or (new.payload_json->>'leaseOwner') is distinct from new.lease_owner
-  or (new.payload_json->>'leaseUntil')::timestamptz is distinct from new.lease_until
+  or ap_migration_json_instant_v37(new.payload_json,'leaseUntil') is distinct from new.lease_until
   or (new.payload_json->>'engineRequestReference') is distinct from new.engine_request_reference
   or (new.payload_json->>'failureClass') is distinct from new.failure_class
   or (new.payload_json->>'errorSummary') is distinct from new.error_summary
-  or (new.payload_json->>'createdAt')::timestamptz is distinct from new.created_at
-  or (new.payload_json->>'updatedAt')::timestamptz is distinct from new.updated_at
+  or ap_migration_json_instant_v37(new.payload_json,'createdAt') is distinct from new.created_at
+  or ap_migration_json_instant_v37(new.payload_json,'updatedAt') is distinct from new.updated_at
   or (new.payload_json->>'expectedBindingEvidenceHash') is distinct from new.expected_binding_evidence_hash
  then raise exception using errcode='23514',message='migration attempt payload does not match durable columns'; end if;
  if tg_op='INSERT' then
@@ -229,11 +241,11 @@ begin
   or (new.payload_json->>'engineOutcome') is distinct from new.engine_outcome
   or (new.payload_json->>'leaseActor') is distinct from new.lease_actor
   or (new.payload_json->>'leaseOwner') is distinct from new.lease_owner
-  or (new.payload_json->>'leaseUntil')::timestamptz is distinct from new.lease_until
+  or ap_migration_json_instant_v37(new.payload_json,'leaseUntil') is distinct from new.lease_until
   or (new.payload_json->>'engineRequestReference') is distinct from new.engine_request_reference
   or (new.payload_json->>'failureClass') is distinct from new.failure_class
   or (new.payload_json->>'errorSummary') is distinct from new.error_summary
-  or (new.payload_json->>'happenedAt')::timestamptz is distinct from new.happened_at
+  or ap_migration_json_instant_v37(new.payload_json,'happenedAt') is distinct from new.happened_at
  then raise exception using errcode='23514',message='migration attempt event payload mismatch'; end if;
  if new.revision=1 then
   if new.from_status is not null or new.to_status<>'PENDING'

@@ -66,8 +66,8 @@ consistent:
 - bounded nonblank error evidence is present;
 - no lease remains.
 
-`UNKNOWN` is never retryable and has no transition to `FAILED_RETRYABLE`. Never retry `UNKNOWN`
-automatically.
+`UNKNOWN` is never retryable and has no transition to `FAILED_RETRYABLE`.
+Never retry `UNKNOWN` automatically.
 
 Before `UNKNOWN -> RECONCILING`, the same tenant-scoped attempt must already have an `OPEN` or
 `MANUAL_REVIEW_REQUIRED` reconciliation sequence. The attempt preserves its engine outcome and request
