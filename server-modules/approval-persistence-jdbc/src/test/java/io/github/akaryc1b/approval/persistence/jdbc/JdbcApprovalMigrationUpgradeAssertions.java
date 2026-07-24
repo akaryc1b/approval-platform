@@ -22,7 +22,9 @@ final class JdbcApprovalMigrationUpgradeAssertions {
     private static final Set<String> M5_TABLES = Set.of(
         "ap_process_migration_intent", "ap_process_migration_intent_event",
         "ap_process_migration_attempt", "ap_process_migration_attempt_event",
-        "ap_process_migration_verification", "ap_process_migration_reconciliation"
+        "ap_process_migration_verification", "ap_process_migration_reconciliation",
+        "ap_process_migration_plan", "ap_process_migration_plan_instance",
+        "ap_process_migration_plan_authorization", "ap_process_migration_plan_event"
     );
     private static final Set<String> M4_INDEXES = Set.of(
         "idx_work_calendar_active_lookup", "idx_sla_policy_active_lookup",
@@ -37,15 +39,31 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         "idx_process_release_history_request", "idx_process_runtime_binding_release_usage",
         "idx_process_runtime_binding_business_key"
     );
+    private static final Set<String> M5_PLAN_INDEXES = Set.of(
+        "idx_process_migration_plan_status_v38",
+        "idx_process_migration_plan_assessment_v38",
+        "idx_process_migration_plan_instance_v38",
+        "idx_process_migration_plan_event_v38"
+    );
 
     private JdbcApprovalMigrationUpgradeAssertions() {
     }
 
     static void assertLatestSchema(DataSource dataSource) {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
-        assertEquals(M4_TABLES, queryNames(jdbc, "table_name", "information_schema.tables", M4_TABLES));
-        assertEquals(M5_TABLES, queryNames(jdbc, "table_name", "information_schema.tables", M5_TABLES));
+        assertEquals(
+            M4_TABLES,
+            queryNames(jdbc, "table_name", "information_schema.tables", M4_TABLES)
+        );
+        assertEquals(
+            M5_TABLES,
+            queryNames(jdbc, "table_name", "information_schema.tables", M5_TABLES)
+        );
         assertEquals(M4_INDEXES, queryNames(jdbc, "indexname", "pg_indexes", M4_INDEXES));
+        assertEquals(
+            M5_PLAN_INDEXES,
+            queryNames(jdbc, "indexname", "pg_indexes", M5_PLAN_INDEXES)
+        );
     }
 
     private static Set<String> queryNames(
@@ -54,7 +72,10 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         String table,
         Set<String> expected
     ) {
-        String placeholders = String.join(",", java.util.Collections.nCopies(expected.size(), "?"));
+        String placeholders = String.join(
+            ",",
+            java.util.Collections.nCopies(expected.size(), "?")
+        );
         List<String> names = jdbc.queryForList(
             "select " + column + " from " + table
                 + " where " + (table.equals("pg_indexes") ? "schemaname" : "table_schema")

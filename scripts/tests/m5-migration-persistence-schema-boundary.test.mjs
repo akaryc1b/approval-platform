@@ -10,7 +10,7 @@ const migrationDir = path.join(
 );
 async function text(file) { return readFile(file, 'utf8'); }
 
-test('M5-B persistence stage is accepted but remains below M5-C implementation and M5-D', async () => {
+test('M5-B persistence stage stays accepted and frozen below M5-D', async () => {
   const evidence = await text(path.join(root, 'docs/M5_B_PROCESS_MIGRATION_PERSISTENCE_PROTOCOL.md'));
   for (const boundary of [
     'M5-B PERSISTENCE SLICE: `AUTHORIZED_DOMAIN_AND_PERSISTENCE_ONLY`',
@@ -26,7 +26,7 @@ test('M5-B persistence stage is accepted but remains below M5-C implementation a
   assert.doesNotMatch(evidence, /M5-B stage status: `COMPLETE`/);
 });
 
-test('Flyway advances continuously through V37 with exactly six M5-B protocol tables', async () => {
+test('M5-B remains exactly V33 through V37 with six protocol tables', async () => {
   const files = await readdir(migrationDir);
   for (const expected of [
     'V33__create_process_migration_intents.sql',
@@ -35,10 +35,6 @@ test('Flyway advances continuously through V37 with exactly six M5-B protocol ta
     'V36__strengthen_process_migration_tenant_lineage_tamper_guards.sql',
     'V37__strengthen_process_migration_lease_unknown_guards.sql',
   ]) assert.ok(files.includes(expected), `missing ${expected}`);
-  assert.ok(
-    files.every((file) => !/^V(?:3[8-9]|[4-9][0-9])__/.test(file)),
-    `M5-B advanced beyond V37: ${files.join(', ')}`,
-  );
   const sql = (await Promise.all(files.filter((file) => /^V3[3-7]__/.test(file))
     .sort().map((file) => text(path.join(migrationDir, file))))).join('\n');
   for (const table of [
@@ -72,4 +68,5 @@ test('Flyway advances continuously through V37 with exactly six M5-B protocol ta
     'migration reconciliation sequence must advance exactly once',
   ]) assert.ok(sql.includes(boundary), `M5-B SQL omits ${boundary}`);
   assert.doesNotMatch(sql, /ACT_[A-Z0-9_]+/);
+  assert.doesNotMatch(sql, /ap_process_migration_plan/);
 });

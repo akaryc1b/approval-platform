@@ -19,14 +19,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalMigrationUpgradeIntegrationTest {
 
-    private static final String LATEST_VERSION = "37";
+    private static final String LATEST_VERSION = "38";
     private static final List<UpgradeCase> UPGRADE_CASES = List.of(
         new UpgradeCase("approval_latest_fresh", null),
         new UpgradeCase("approval_latest_v1", "1"),
         new UpgradeCase("approval_latest_v13", "13"),
         new UpgradeCase("approval_latest_v23", "23"),
         new UpgradeCase("approval_latest_v31", "31"),
-        new UpgradeCase("approval_latest_v36", "36")
+        new UpgradeCase("approval_latest_v36", "36"),
+        new UpgradeCase("approval_latest_v37", "37")
     );
     private static final String V27_DATABASE = "approval_latest_v27_heavy";
 
@@ -52,7 +53,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
     }
 
     @Test
-    void freshAndHistoricalUpgradePathsReachV37() {
+    void freshAndHistoricalUpgradePathsReachV38() {
         for (UpgradeCase upgrade : UPGRADE_CASES) {
             assertUpgrade(upgrade);
         }
@@ -60,7 +61,10 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
 
     @Test
     void upgradesV27WithFiveThousandInstancesAndTasksWithoutChangingEvidence() {
-        DataSource dataSource = JdbcApprovalMigrationUpgradeSupport.dataSource(POSTGRES, V27_DATABASE);
+        DataSource dataSource = JdbcApprovalMigrationUpgradeSupport.dataSource(
+            POSTGRES,
+            V27_DATABASE
+        );
         Flyway baseline = JdbcApprovalMigrationUpgradeSupport.flyway(
             dataSource,
             MigrationVersion.fromVersion("27")
@@ -87,8 +91,13 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
             upgrade.databaseName()
         );
         if (upgrade.startingVersion() != null) {
-            MigrationVersion startingVersion = MigrationVersion.fromVersion(upgrade.startingVersion());
-            Flyway starting = JdbcApprovalMigrationUpgradeSupport.flyway(dataSource, startingVersion);
+            MigrationVersion startingVersion = MigrationVersion.fromVersion(
+                upgrade.startingVersion()
+            );
+            Flyway starting = JdbcApprovalMigrationUpgradeSupport.flyway(
+                dataSource,
+                startingVersion
+            );
             starting.migrate();
             assertEquals(
                 startingVersion.getVersion(),
