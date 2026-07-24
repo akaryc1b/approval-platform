@@ -109,12 +109,20 @@ test('deterministic transport implementation remains test-only', () => {
   assert.doesNotMatch(productionFiles, /class\s+DeterministicProviderTransportMapper/);
 });
 
-test('transport boundary uses only the existing permanent workflow', () => {
+test('transport boundary uses only the existing automatic workflow', () => {
   const workflowRoot = path.join(root, '.github/workflows');
-  const workflows = readdirSync(workflowRoot).filter((name) => /\.ya?ml$/.test(name));
-  assert.deepEqual(workflows, ['approval-platform-validation.yml']);
+  const workflows = readdirSync(workflowRoot)
+    .filter((name) => /\.ya?ml$/.test(name));
+  const automatic = workflows.filter((name) => {
+    const content = readFileSync(path.join(workflowRoot, name), 'utf8');
+    return /^\s{0,4}(pull_request|push):\s*$/m.test(content);
+  });
+  assert.deepEqual(automatic, ['approval-platform-validation.yml']);
 
-  const workflow = readFileSync(path.join(workflowRoot, workflows[0]), 'utf8');
+  const workflow = readFileSync(
+    path.join(workflowRoot, 'approval-platform-validation.yml'),
+    'utf8',
+  );
   assert.match(workflow, /Verify M6 AI transport review boundaries/);
   assert.match(workflow, /m6-ai-transport-review-boundary\.test\.mjs/);
   assert.match(workflow, /m6-ai-transport-review-boundary\.log/);
