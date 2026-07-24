@@ -1,6 +1,6 @@
 # M6-C Template and Component Ecosystem Bootstrap
 
-Status: `FOURTH_SAFE_SLICE_IMPLEMENTED`
+Status: `FIFTH_SAFE_SLICE_IMPLEMENTED`
 
 Tracking:
 
@@ -81,6 +81,24 @@ The fourth implementation slice binds every preview and draft-creation decision 
 
 An old plan therefore cannot be reused across any server-authoritative registry drift. No registry snapshot is persisted, downloaded remotely or supplied by package content.
 
+## Implemented fifth safe slice
+
+The fifth implementation slice binds importability to one exact existing tenant-local Form Package and its immutable Form/UI schema hashes:
+
+- `ProcessTemplateLocalFormPackageEvidenceResolver` reuses the existing `ApprovalFormPackageResolver` and immutable Form Package, Form Schema and UI Schema stores;
+- only an exact target tenant, definition key and positive Form Package version can be resolved;
+- missing packages, missing schemas and package/schema hash mismatches fail closed behind a redacted error;
+- Form Package evidence contains only tenant, definition, immutable versions and content hashes, not publisher, operator, source-draft or credential data;
+- evidence is hashed using the length-prefixed protocol `process-template-form-package-evidence-v1`;
+- `ProcessTemplateGovernedImportCoordinator` wraps the existing server-authoritative coordinator without changing its validated contracts;
+- an importable preview receives a server-generated `process-template-governed-preview-v1` hash covering package hash, registry evidence, plan hash, draft target and Form Package evidence;
+- non-importable previews do not resolve or expose Form Package evidence;
+- create-draft accepts only the expected governed preview hash, re-resolves registry and Form Package evidence, and rejects any drift before the draft importer;
+- public preview/create commands cannot carry trusted Form Package evidence;
+- the successful governed result returns the exact evidence used for audit correlation while the existing Artifact Transfer service performs final immutable Form Package validation during draft creation.
+
+The local evidence adapter has no save, lock, network, remote-download, marketplace, dynamic-loader, publish, deploy or activate operation. Spring bean wiring and management HTTP endpoints remain separate later gates.
+
 ## Security limits and rejection behavior
 
 The package and decoder enforce:
@@ -102,22 +120,22 @@ The package and decoder enforce:
 - path traversal and unsafe resource-name rejection;
 - content-hash recomputation and tamper rejection;
 - JavaScript, script tags, expressions, remote modules, dynamic imports, executable URLs and HTML data URL rejection;
-- cross-tenant binding and registry-authority rejection.
+- cross-tenant binding, registry-authority and Form Package evidence rejection.
 
 ## Fixtures and tests
 
 Fixtures cover valid template packages, missing dependencies, incompatible versions, tampered hashes, duplicate dependencies, cross-tenant binding attempts, script/dynamic-import rejection, unknown-component fallback, path traversal, duplicate JSON keys, unknown tenant fields and malformed Unicode.
 
-Application and API tests cover deterministic package, registry and plan hashes, compatibility, dependency resolution, tenant rebinding, safe fallback, strict JSON and preview-only behavior. Draft-creation tests cover stale-plan rejection, non-importable plans, cross-tenant write contexts, artifact-envelope mismatch, missing source artifacts, exact Form Package selection, immutable target versions, idempotency-context propagation and DRAFT-only results. Coordinator tests cover server-only registry resolution, independent re-resolution for draft creation, registry drift, cross-tenant resolver output, cross-tenant write contexts, null snapshots, resolver-error redaction and command-contract exclusion of caller-supplied registries. Registry-evidence tests cover deterministic ordering, evidence fields, unreferenced capability drift, registered-component contract drift, unsafe values and duplicate component identities. The boundary test verifies that no `V33` migration or second permanent workflow exists and that the slices have no marketplace/download/class-loader/release-mutation dependency.
+Application and API tests cover deterministic package, registry, plan, Form Package evidence and governed-preview hashes, compatibility, dependency resolution, tenant rebinding, safe fallback, strict JSON and preview-only behavior. Draft-creation tests cover stale-plan rejection, non-importable plans, cross-tenant write contexts, artifact-envelope mismatch, missing source artifacts, exact Form Package selection, immutable target versions, idempotency-context propagation and DRAFT-only results. Coordinator tests cover server-only registry resolution, independent re-resolution for draft creation, registry drift, cross-tenant resolver output, cross-tenant write contexts, null snapshots, resolver-error redaction and command-contract exclusion of caller-supplied registries. Form Package evidence tests cover exact local resolution, missing packages, schema-hash mismatch, tenant isolation, evidence-hash tampering, governed-preview drift, resolver-error redaction and command-contract exclusion of caller-supplied evidence. Boundary tests verify no `V33`, second automatic workflow, marketplace/download/class-loader/release-mutation dependency or Form Package store mutation path.
 
 ## Blocked until a later gate
 
 - marketplace persistence;
 - remote package download or remote registry lookup;
 - dynamic component loading or remote modules;
-- trusted package-supplied target bindings or registry snapshots;
+- trusted package-supplied target bindings, registry snapshots or Form Package evidence;
 - direct publication, deployment or activation during import;
-- production registry resolver adapter wiring and management HTTP endpoints;
+- production registry/Form Package resolver Spring wiring and management HTTP endpoints;
 - database persistence or any `V33` migration;
 - changes to M5 migration source or PR #58;
 - a second permanent GitHub Actions workflow.
