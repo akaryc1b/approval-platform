@@ -1,144 +1,169 @@
 package io.github.akaryc1b.approval.application;
 
-import io.github.akaryc1b.approval.application.ProcessTemplateContracts.BindingKind;
-import io.github.akaryc1b.approval.application.ProcessTemplateContracts.RegisteredComponent;
-import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TenantBinding;
-import io.github.akaryc1b.approval.application.ProcessTemplateContracts.TenantRegistrySnapshot;
-import io.github.akaryc1b.approval.application.port.ApprovalFormPackageStore;
-import io.github.akaryc1b.approval.application.port.ApprovalFormStore;
-import io.github.akaryc1b.approval.application.port.ApprovalUiSchemaStore;
-import io.github.akaryc1b.approval.application.port.ProcessTemplateTenantRegistryResolver;
-import io.github.akaryc1b.approval.application.port.ProcessTemplateTenantRegistryResolver.RegistryResolutionRequest;
+import io.github.akaryc1b.approval.domain.form.FormDefinition.FieldType;
+import io.github.akaryc1b.approval.domain.form.FormDefinition.FormField;
+import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.ComponentDefinition;
+import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.FieldLayout;
 
+import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
-/** Resolves current import capabilities only from local immutable stores and host allowlists. */
-public final class ProcessTemplateLocalTenantRegistryResolver
-    implements ProcessTemplateTenantRegistryResolver {
+/** Host-owned whitelist for form components. No server value can select an arbitrary client module. */
+public final class ApprovalFormComponentRegistry {
 
-    private final ApprovalFormPackageResolver formPackages;
-    private final ApprovalFormComponentRegistry componentRegistry;
-    private final String platformProtocolVersion;
-    private final Set<String> connectorCapabilities;
-    private final Set<String> businessReferenceTypes;
-    private final Set<String> organizationPlaceholders;
-    private final Set<String> identityPlaceholders;
+    private static final Pattern SAFE_PROPERTY = Pattern.compile("[A-Za-z][A-Za-z0-9_.-]{0,63}");
+    private static final int MAX_PROPERTIES = 20;
+    private static final int MAX_PROPERTY_STRING = 4096;
+    private static final Set<String> RENDERING_SUPPORT = Set.of("WEB", "H5", "WECHAT");
+    private static final String READONLY_FALLBACK = "READONLY_TEXT";
 
-    public ProcessTemplateLocalTenantRegistryResolver(
-        ApprovalFormPackageStore packages,
-        ApprovalFormStore forms,
-        ApprovalUiSchemaStore uiSchemas,
-        ApprovalFormComponentRegistry componentRegistry,
-        String platformProtocolVersion,
-        Set<String> connectorCapabilities,
-        Set<String> businessReferenceTypes,
-        Set<String> organizationPlaceholders,
-        Set<String> identityPlaceholders
-    ) {
-        this.formPackages = new ApprovalFormPackageResolver(packages, forms, uiSchemas);
-        this.componentRegistry = Objects.requireNonNull(componentRegistry, "componentRegistry");
-        this.platformProtocolVersion = ProcessTemplateSecurity.version(
-            platformProtocolVersion,
-            "platformProtocolVersion"
+    private static final Map<String, Descriptor> DESCRIPTORS = Map.ofEntries(
+        entry("TEXT", Set.of(FieldType.TEXT), Set.of("mask", "trim")),
+        entry("TEXTAREA", Set.of(FieldType.TEXTAREA), Set.of("autosize", "trim")),
+        entry("MONEY", Set.of(FieldType.MONEY), Set.of("prefix", "suffix")),
+        entry("ATTACHMENT", Set.of(FieldType.ATTACHMENT), Set.of("accept")),
+        entry("NUMBER", Set.of(FieldType.NUMBER), Set.of("prefix", "suffix")),
+        entry("DATE", Set.of(FieldType.DATE), Set.of("displayFormat")),
+        entry("DATETIME", Set.of(FieldType.DATETIME), Set.of("displayFormat")),
+        entry("BOOLEAN", Set.of(FieldType.BOOLEAN), Set.of("activeLabel", "inactiveLabel")),
+        entry("SELECT", Set.of(FieldType.SELECT), Set.of("displayMode")),
+        entry("BUSINESS_REFERENCE", Set.of(FieldType.TEXT), Set.of("referenceType")),
+        entry("USER_SELECTOR", Set.of(FieldType.TEXT), Set.of("scope", "selectionMode")),
+        entry("DEPARTMENT_SELECTOR", Set.of(FieldType.TEXT), Set.of("scope", "selectionMode"))
+    );
+
+    public EffectiveComponent resolve(FormField field, FieldLayout layout) {
+        ComponentDefinition configured = layout.component();
+        if (configured == null) {
+            return new EffectiveComponent(field.type().name(), 1, Map.of(), null);
+        }
+        Descriptor descriptor = DESCRIPTORS.get(configured.componentType());
+        if (descriptor == null) {
+            throw new IllegalArgumentException(
+                "unregistered form component: " + configured.componentType()
+            );
+        }
+        if (configured.componentVersion() != descriptor.version()) {
+            throw new IllegalArgumentException(
+                "unsupported component version: " + configured.componentType()
+                    + '@' + configured.componentVersion()
+            );
+        }
+        if (!descriptor.fieldTypes().contains(field.type())) {
+            throw new IllegalArgumentException(
+                "component " + configured.componentType() + " is incompatible with field "
+                    + field.key() + " of type " + field.type()
+            );
+        }
+        validateProperties(configured, descriptor);
+        return new EffectiveComponent(
+            configured.componentType(),
+            configured.componentVersion(),
+            configured.properties(),
+            configured.fallbackRenderer()
         );
-        this.connectorCapabilities = safeKeys(
-            connectorCapabilities,
-            "connectorCapabilities"
-        );
-        this.businessReferenceTypes = safeKeys(
-            businessReferenceTypes,
-            "businessReferenceTypes"
-        );
-        this.organizationPlaceholders = safeKeys(
-            organizationPlaceholders,
-            "organizationPlaceholders"
-        );
-        this.identityPlaceholders = safeKeys(identityPlaceholders, "identityPlaceholders");
     }
 
-    @Override
-    public TenantRegistrySnapshot resolve(RegistryResolutionRequest request) {
-        Objects.requireNonNull(request, "request");
-        return new TenantRegistrySnapshot(
-            request.tenantId(),
-            platformProtocolVersion,
-            resolveFormFields(request),
-            connectorCapabilities,
-            businessReferenceTypes,
-            organizationPlaceholders,
-            identityPlaceholders,
-            registeredComponents()
-        );
+    public boolean isRegistered(String componentType, int componentVersion) {
+        Descriptor descriptor = DESCRIPTORS.get(componentType);
+        return descriptor != null && descriptor.version() == componentVersion;
     }
 
-    private Set<String> resolveFormFields(RegistryResolutionRequest request) {
-        List<TenantBinding> bindings = request.previewRequest().bindings().stream()
-            .filter(binding -> binding.kind() == BindingKind.FORM_PACKAGE)
-            .toList();
-        if (bindings.isEmpty()) {
-            return Set.of();
-        }
-        if (bindings.size() != 1) {
-            throw new ProcessTemplateException(
-                "tenant registry resolution requires at most one Form Package binding"
-            );
-        }
-        TenantBinding binding = bindings.get(0);
-        if (!request.tenantId().equals(binding.targetTenantId())) {
-            throw new ProcessTemplateException.CrossTenantBinding(
-                "Form Package binding tenant does not match registry tenant"
-            );
-        }
-        if (binding.targetVersion() == null
-            || binding.targetVersion() < 1
-            || !request.previewRequest().targetDefinitionKey()
-                .equals(binding.targetResourceKey())) {
-            return Set.of();
-        }
-        ApprovalFormPackageResolver.ExactFormPackage exact;
-        try {
-            exact = formPackages.resolve(
-                request.tenantId(),
-                binding.targetResourceKey(),
-                binding.targetVersion()
-            );
-        } catch (RuntimeException exception) {
-            throw new ProcessTemplateException.RegistryResolutionFailed(
-                "target tenant Form Package registry could not be resolved safely",
-                exception
-            );
-        }
-        TreeSet<String> fields = new TreeSet<>();
-        exact.form().definition().fields().forEach(field -> fields.add(
-            ProcessTemplateSecurity.key(field.key(), "formField")
-        ));
-        return Set.copyOf(fields);
+    public Set<String> componentTypes() {
+        return DESCRIPTORS.keySet();
     }
 
-    private List<RegisteredComponent> registeredComponents() {
-        return componentRegistry.registeredDescriptors().stream()
-            .map(descriptor -> new RegisteredComponent(
-                descriptor.componentType(),
-                descriptor.componentVersion(),
-                descriptor.supportedFieldTypes(),
-                descriptor.propertyKeys(),
-                descriptor.renderingSupport(),
-                descriptor.readonlyFallback()
+    /** Immutable data-only view used by server-authoritative template registry resolution. */
+    public List<RegisteredDescriptor> registeredDescriptors() {
+        return DESCRIPTORS.entrySet().stream()
+            .map(entry -> new RegisteredDescriptor(
+                entry.getKey(),
+                entry.getValue().version(),
+                entry.getValue().fieldTypes().stream()
+                    .map(Enum::name)
+                    .collect(java.util.stream.Collectors.toCollection(TreeSet::new)),
+                new TreeSet<>(entry.getValue().propertyKeys()),
+                RENDERING_SUPPORT,
+                READONLY_FALLBACK
             ))
+            .sorted(Comparator.comparing(RegisteredDescriptor::componentType))
             .toList();
     }
 
-    private static Set<String> safeKeys(Set<String> values, String name) {
-        if (values == null || values.isEmpty()) {
-            return Set.of();
+    private static void validateProperties(ComponentDefinition component, Descriptor descriptor) {
+        if (component.properties().size() > MAX_PROPERTIES) {
+            throw new IllegalArgumentException("component properties exceed the maximum of 20");
         }
-        TreeSet<String> normalized = new TreeSet<>();
-        for (String value : values) {
-            normalized.add(ProcessTemplateSecurity.key(value, name));
+        component.properties().forEach((key, value) -> {
+            if (!SAFE_PROPERTY.matcher(key).matches()) {
+                throw new IllegalArgumentException("unsafe component property: " + key);
+            }
+            if (!descriptor.propertyKeys().contains(key)) {
+                throw new IllegalArgumentException(
+                    "unsupported property for " + component.componentType() + ": " + key
+                );
+            }
+            validatePropertyValue(value, key);
+        });
+    }
+
+    private static void validatePropertyValue(Object value, String key) {
+        if (value == null || value instanceof Boolean || value instanceof Number) {
+            return;
         }
-        return Set.copyOf(normalized);
+        if (value instanceof String text) {
+            if (text.length() > MAX_PROPERTY_STRING) {
+                throw new IllegalArgumentException("component property is too long: " + key);
+            }
+            return;
+        }
+        if (value instanceof List<?> values) {
+            if (values.size() > 100) {
+                throw new IllegalArgumentException("component property list is too large: " + key);
+            }
+            values.forEach(item -> validatePropertyValue(item, key));
+            return;
+        }
+        throw new IllegalArgumentException(
+            "component property must be a scalar or scalar list: " + key
+        );
+    }
+
+    private static Map.Entry<String, Descriptor> entry(
+        String type,
+        Set<FieldType> fieldTypes,
+        Set<String> propertyKeys
+    ) {
+        return Map.entry(type, new Descriptor(1, fieldTypes, propertyKeys));
+    }
+
+    private record Descriptor(int version, Set<FieldType> fieldTypes, Set<String> propertyKeys) {
+    }
+
+    public record RegisteredDescriptor(
+        String componentType,
+        int componentVersion,
+        Set<String> supportedFieldTypes,
+        Set<String> propertyKeys,
+        Set<String> renderingSupport,
+        String readonlyFallback
+    ) {
+        public RegisteredDescriptor {
+            supportedFieldTypes = Set.copyOf(supportedFieldTypes);
+            propertyKeys = Set.copyOf(propertyKeys);
+            renderingSupport = Set.copyOf(renderingSupport);
+        }
+    }
+
+    public record EffectiveComponent(
+        String componentType,
+        int componentVersion,
+        Map<String, Object> properties,
+        Object fallbackRenderer
+    ) {
     }
 }
