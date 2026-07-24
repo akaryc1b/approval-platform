@@ -5,9 +5,11 @@ import io.github.akaryc1b.approval.domain.form.FormDefinition.FormField;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.ComponentDefinition;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.FieldLayout;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 /** Host-owned whitelist for form components. No server value can select an arbitrary client module. */
@@ -16,6 +18,8 @@ public final class ApprovalFormComponentRegistry {
     private static final Pattern SAFE_PROPERTY = Pattern.compile("[A-Za-z][A-Za-z0-9_.-]{0,63}");
     private static final int MAX_PROPERTIES = 20;
     private static final int MAX_PROPERTY_STRING = 4096;
+    private static final Set<String> RENDERING_SUPPORT = Set.of("WEB", "H5", "WECHAT");
+    private static final String READONLY_FALLBACK = "READONLY_TEXT";
 
     private static final Map<String, Descriptor> DESCRIPTORS = Map.ofEntries(
         entry("TEXT", Set.of(FieldType.TEXT), Set.of("mask", "trim")),
@@ -73,6 +77,23 @@ public final class ApprovalFormComponentRegistry {
         return DESCRIPTORS.keySet();
     }
 
+    /** Immutable data-only view used by server-authoritative template registry resolution. */
+    public List<RegisteredDescriptor> registeredDescriptors() {
+        return DESCRIPTORS.entrySet().stream()
+            .map(entry -> new RegisteredDescriptor(
+                entry.getKey(),
+                entry.getValue().version(),
+                entry.getValue().fieldTypes().stream()
+                    .map(Enum::name)
+                    .collect(java.util.stream.Collectors.toCollection(TreeSet::new)),
+                new TreeSet<>(entry.getValue().propertyKeys()),
+                RENDERING_SUPPORT,
+                READONLY_FALLBACK
+            ))
+            .sorted(Comparator.comparing(RegisteredDescriptor::componentType))
+            .toList();
+    }
+
     private static void validateProperties(ComponentDefinition component, Descriptor descriptor) {
         if (component.properties().size() > MAX_PROPERTIES) {
             throw new IllegalArgumentException("component properties exceed the maximum of 20");
@@ -121,6 +142,21 @@ public final class ApprovalFormComponentRegistry {
     }
 
     private record Descriptor(int version, Set<FieldType> fieldTypes, Set<String> propertyKeys) {
+    }
+
+    public record RegisteredDescriptor(
+        String componentType,
+        int componentVersion,
+        Set<String> supportedFieldTypes,
+        Set<String> propertyKeys,
+        Set<String> renderingSupport,
+        String readonlyFallback
+    ) {
+        public RegisteredDescriptor {
+            supportedFieldTypes = Set.copyOf(supportedFieldTypes);
+            propertyKeys = Set.copyOf(propertyKeys);
+            renderingSupport = Set.copyOf(renderingSupport);
+        }
     }
 
     public record EffectiveComponent(

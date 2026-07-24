@@ -1,0 +1,1 @@
+{"targetTenantId":"tenant-b","binding":{"kind":"CONNECTOR","sourceKey":"finance.submit","targetTenantId":"tenant-a","targetResourceKey":"finance.submit.local","targetVersion":1}}
