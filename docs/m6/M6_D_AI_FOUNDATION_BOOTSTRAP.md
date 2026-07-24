@@ -1,6 +1,6 @@
-# M6-D AI Foundation — Artifact Authorization and Offline Evaluation
+# M6-D AI Foundation — Configuration Snapshot and Zero-Call Dry Run
 
-Status: `THIRD_SAFE_SLICE_IMPLEMENTED`
+Status: `FOURTH_SAFE_SLICE_IMPLEMENTED`
 
 Tracking:
 
@@ -162,7 +162,7 @@ The report hash is deterministic over:
 
 Even a passing report can only state that the M6-D foundation evaluation passed.
 
-`AiEvaluationReport` permanently requires:
+`AiEvaluationReport` permanently requires 
 
 - `productionEnablementAuthorized = false`;
 - `approvalAutomationAuthorized = false`.
@@ -178,6 +178,66 @@ A passing offline suite does not authorize:
 - participant or management API exposure;
 - an approval-state command;
 - M6-E or M6-F behavior.
+
+## Fourth safe slice
+
+### Immutable server configuration snapshot
+
+`AiAdvisoryConfigurationSnapshot` captures only server-owned metadata and policy:
+
+- bounded snapshot identity and version;
+- deterministic declared SHA-256 content hash;
+- exact routing policy and ordered route semantics;
+- exact data-minimization policies keyed by policy version;
+- permanent `DRY_RUN_ONLY` stage;
+- `productionEnablementAuthorized = false`;
+- `approvalAutomationAuthorized = false`.
+
+The snapshot contains no credential, endpoint, Provider secret, Prompt body, customer knowledge, network client or runtime activation switch. Its constructor rejects both production-enablement and approval-automation authority.
+
+### Deterministic configuration hash
+
+The content hash is computed over canonical, length-prefixed metadata:
+
+- snapshot identity and version;
+- routing enablement and fallback flags;
+- routes sorted by route ID;
+- route priority, capabilities, exact Provider/model/Prompt/knowledge/policy/output versions and invocation budgets;
+- data policies sorted by exact policy identity;
+- field rules sorted by field key;
+- all input limits and Prompt-injection blocking state.
+
+Map, Set and route input order do not change the hash when the effective configuration is identical. A declared/computed mismatch remains representable as evidence so startup preflight can fail closed instead of silently normalizing tampered configuration.
+
+### Startup preflight
+
+`AiAdvisoryStartupPreflight` inspects one snapshot without calling a Provider. Every enabled route must resolve:
+
+- the exact data-minimization policy;
+- the exact Provider version;
+- the exact model and capability descriptor;
+- the exact Prompt, knowledge, policy and output-schema metadata bundle;
+- the route budget allowed by the Provider descriptor.
+
+A snapshot is `READY_FOR_DRY_RUN` only when the declared hash matches and every enabled route is fully authorized. Missing Provider, policy or artifact metadata, version mismatch, descriptor mismatch, or a snapshot with no ready route produces `BLOCKED`. A disabled routing snapshot produces `DISABLED` and remains non-authorizing.
+
+`AiAdvisoryPreflightReport` contains bounded route checks and issue codes only. It permanently rejects:
+
+- `providerInvocationAttempted = true`;
+- `productionEnablementAuthorized = true`;
+- `approvalAutomationAuthorized = true`.
+
+### Zero-call dry-run assembly
+
+`AiAdvisoryDryRunAssembler` accepts only a matching snapshot and preflight report. It creates deterministic per-capability plans containing:
+
+- the advisory capability;
+- the primary route selected by priority and stable route ID;
+- the ordered pre-invocation candidate route IDs.
+
+It does not receive Provider instances or a Provider registry and has no `.advise(...)` call site. A blocked or mismatched preflight cannot produce a ready plan.
+
+`AiAdvisoryDryRunReport` permanently rejects Provider invocation, production enablement and approval automation. A `READY` dry run proves configuration assembly consistency only; it does not activate a Provider, Prompt, customer knowledge source, API surface or process command.
 
 ## Evaluation coverage
 
@@ -200,6 +260,21 @@ The third slice adds deterministic tests for:
 - fixture hash affecting the report hash;
 - production and automation authorization remaining false.
 
+The fourth slice adds deterministic tests for:
+
+- stable snapshot hashing across equivalent route and policy ordering;
+- tampered declared-hash detection;
+- permanent dry-run-only stage;
+- configuration authority flags rejected;
+- exact complete startup preflight;
+- missing data policy and Prompt metadata rejection;
+- missing Provider rejection;
+- disabled routing safety;
+- deterministic primary/fallback route planning;
+- zero Provider invocations during preflight and dry run;
+- blocked preflight never producing a ready dry run;
+- dry-run invocation and authority flags rejected.
+
 The permanent Node boundary additionally proves:
 
 - Prompt metadata classes contain no Prompt body or instructions field;
@@ -207,6 +282,9 @@ The permanent Node boundary additionally proves:
 - policy and output descriptors retain advisory/human-review constraints;
 - public Provider registration includes artifact authorization;
 - offline evaluation has no `.advise(...)` call;
+- startup preflight and dry-run assembly have no `.advise(...)` call;
+- configuration snapshots contain no endpoint, credential or secret field;
+- preflight and dry-run reports cannot authorize production or automation;
 - evaluation reports cannot authorize production or automation;
 - no second automatic workflow, V33, M5 source or frozen governance change appears.
 
@@ -220,7 +298,7 @@ The combined M6-D slices still contain:
 - no production Prompt content or Prompt resource;
 - no customer knowledge data, retrieval or embeddings;
 - no attachment-content extraction;
-- no database persistence or durable circuit/evaluation state;
+- no database persistence or durable circuit/evaluation/configuration state;
 - no Flyway `V33`;
 - no approval, rejection, return, transfer, withdrawal, termination or migration command;
 - no retry or post-invocation Provider fallback;
@@ -237,11 +315,11 @@ This slice does not add:
 - production Prompt registration or content;
 - customer knowledge retrieval;
 - provider-reported token, latency or cost integration;
-- durable AI audit, evaluation or circuit persistence;
+- durable AI audit, evaluation, configuration or circuit persistence;
 - provider retry/background workers;
 - participant or management AI endpoints;
 - Web or Mobile AI controls;
 - AI-driven approval-state changes;
 - M6-E or M6-F behavior.
 
-A production adapter requires a separate accepted gate covering secret management, network egress, exact model and artifact authorization, provider-specific structured validation, operational disablement, usage verification and failure drills. Controlled automation remains a later independent gate requiring human confirmation, server-side reauthorization, bounded reason, idempotency, audit and risk acceptance.
+A production adapter requires a separate accepted gate covering external secret management, endpoint and network-egress allowlists, exact model/artifact/configuration authorization, Provider-specific structured validation, operational disablement, usage verification, startup failure handling and failure drills. Controlled automation remains a later independent gate requiring human confirmation, server-side reauthorization, bounded reason, idempotency, audit and risk acceptance.

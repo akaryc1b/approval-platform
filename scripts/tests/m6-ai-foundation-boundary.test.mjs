@@ -36,10 +36,18 @@ const aiMainJava = aiFiles.filter((file) =>
 const aiTestJava = aiFiles.filter((file) =>
   relative(file).includes('/src/test/java/') && file.endsWith('.java'));
 
+function coreSource(name) {
+  return text(path.join(
+    root,
+    'server-modules/approval-ai-core/src/main/java/' +
+      `io/github/akaryc1b/approval/ai/core/${name}.java`,
+  ));
+}
+
 test('AI production code has no network client, credentials, provider adapter or prompt asset', () => {
   assert.ok(aiMainJava.length > 0, 'AI main sources must exist');
   const production = aiMainJava.map(text).join('\n');
-  const forbiddenPatterns = [
+  for (const pattern of [
     /import\s+java\.net\./,
     /import\s+org\.springframework\.web\./,
     /import\s+okhttp3\./,
@@ -52,8 +60,7 @@ test('AI production code has no network client, credentials, provider adapter or
     /implements\s+AiAdvisoryProvider/,
     /Authorization\s*:/,
     /api[_-]?key\s*=/i,
-  ];
-  for (const pattern of forbiddenPatterns) {
+  ]) {
     assert.doesNotMatch(production, pattern);
   }
   for (const moduleRoot of aiRoots) {
@@ -118,14 +125,10 @@ test('AI contracts cannot execute approval, transfer, termination or migration c
 });
 
 test('AI routing invokes at most one provider and forbids post-invocation fallback', () => {
-  const coreSource = path.join(
-    root,
-    'server-modules/approval-ai-core/src/main/java/io/github/akaryc1b/approval/ai/core',
-  );
-  const coordinator = text(path.join(coreSource, 'AiAdvisoryCoordinator.java'));
-  const routingPolicy = text(path.join(coreSource, 'AiProviderRoutingPolicy.java'));
-  const executionOutcome = text(path.join(coreSource, 'AiCoordinatedAdvisoryOutcome.java'));
-  const routingMetrics = text(path.join(coreSource, 'AiProviderRoutingMetrics.java'));
+  const coordinator = coreSource('AiAdvisoryCoordinator');
+  const routingPolicy = coreSource('AiProviderRoutingPolicy');
+  const executionOutcome = coreSource('AiCoordinatedAdvisoryOutcome');
+  const routingMetrics = coreSource('AiProviderRoutingMetrics');
   const usageEvidence = text(path.join(
     root,
     'server-modules/approval-ai-spi/src/main/java/' +
@@ -160,18 +163,14 @@ test('AI routing invokes at most one provider and forbids post-invocation fallba
 });
 
 test('AI artifact metadata and offline evaluation cannot contain prompts or authorize production', () => {
-  const coreSource = path.join(
-    root,
-    'server-modules/approval-ai-core/src/main/java/io/github/akaryc1b/approval/ai/core',
-  );
-  const prompt = text(path.join(coreSource, 'AiPromptTemplateDescriptor.java'));
-  const knowledge = text(path.join(coreSource, 'AiKnowledgeSourceDescriptor.java'));
-  const policy = text(path.join(coreSource, 'AiPolicyDescriptor.java'));
-  const output = text(path.join(coreSource, 'AiOutputSchemaDescriptor.java'));
-  const artifactRegistry = text(path.join(coreSource, 'AiAdvisoryArtifactRegistry.java'));
-  const providerRegistry = text(path.join(coreSource, 'AiProviderRegistry.java'));
-  const evaluationRunner = text(path.join(coreSource, 'AiEvaluationRunner.java'));
-  const evaluationReport = text(path.join(coreSource, 'AiEvaluationReport.java'));
+  const prompt = coreSource('AiPromptTemplateDescriptor');
+  const knowledge = coreSource('AiKnowledgeSourceDescriptor');
+  const policy = coreSource('AiPolicyDescriptor');
+  const output = coreSource('AiOutputSchemaDescriptor');
+  const artifactRegistry = coreSource('AiAdvisoryArtifactRegistry');
+  const providerRegistry = coreSource('AiProviderRegistry');
+  const evaluationRunner = coreSource('AiEvaluationRunner');
+  const evaluationReport = coreSource('AiEvaluationReport');
 
   assert.doesNotMatch(
     prompt,
@@ -193,6 +192,38 @@ test('AI artifact metadata and offline evaluation cannot contain prompts or auth
   assert.match(evaluationReport, /approvalAutomationAuthorized/);
   assert.match(evaluationReport, /cannot authorize production enablement/);
   assert.match(evaluationReport, /cannot authorize approval automation/);
+});
+
+test('AI configuration preflight and dry-run assembly are zero-call and non-authorizing', () => {
+  const snapshot = coreSource('AiAdvisoryConfigurationSnapshot');
+  const preflight = coreSource('AiAdvisoryStartupPreflight');
+  const preflightReport = coreSource('AiAdvisoryPreflightReport');
+  const dryRun = coreSource('AiAdvisoryDryRunAssembler');
+  const dryRunReport = coreSource('AiAdvisoryDryRunReport');
+
+  assert.match(snapshot, /DRY_RUN_ONLY/);
+  assert.match(snapshot, /SHA-256/);
+  assert.match(snapshot, /declaredContentHash/);
+  assert.match(snapshot, /computedContentHash/);
+  assert.match(snapshot, /productionEnablementAuthorized/);
+  assert.match(snapshot, /approvalAutomationAuthorized/);
+  assert.doesNotMatch(
+    snapshot,
+    /\bString\s+(endpoint|credential|secret|apiKey|promptBody|customerData)\b/,
+  );
+  assert.doesNotMatch(preflight, /\.advise\s*\(/);
+  assert.doesNotMatch(dryRun, /\.advise\s*\(/);
+  assert.match(preflight, /AI_CONFIGURATION_HASH_MISMATCH/);
+  assert.match(preflight, /AI_DATA_POLICY_NOT_REGISTERED/);
+  assert.match(preflight, /AI_PROVIDER_VERSION_NOT_REGISTERED/);
+  assert.match(preflight, /AI_ROUTE_EXCEEDS_DATA_POLICY_CHARACTER_LIMIT/);
+  assert.match(preflight, /AI_ROUTE_EXCEEDS_DATA_POLICY_FIELD_LIMIT/);
+  assert.match(preflightReport, /startup preflight cannot invoke an AI Provider/);
+  assert.match(preflightReport, /cannot authorize production enablement/);
+  assert.match(preflightReport, /cannot authorize approval automation/);
+  assert.match(dryRunReport, /AI dry-run assembly cannot invoke a Provider/);
+  assert.match(dryRunReport, /cannot authorize production enablement/);
+  assert.match(dryRunReport, /cannot authorize approval automation/);
 });
 
 test('only the permanent validation workflow is automatic', () => {
