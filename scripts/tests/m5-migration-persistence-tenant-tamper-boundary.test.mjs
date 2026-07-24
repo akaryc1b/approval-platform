@@ -52,7 +52,7 @@ test('V36 closes database lineage payload and event atomicity gaps without execu
 test('M5-B3 evidence remains persistence-only and does not authorize M5-C', async () => {
   const evidence = await text(evidencePath);
   for (const rule of [
-    'M5-B3 status: `IMPLEMENTED_PENDING_PERMANENT_VALIDATION`',
+    'M5-B3 status: `PERMANENTLY_VALIDATED`',
     'tenant-scoped identities',
     'immediate `FAILED_RETRYABLE` parent',
     'current row requires a matching event',
@@ -60,5 +60,7 @@ test('M5-B3 evidence remains persistence-only and does not authorize M5-C', asyn
     'No worker',
     'No Flowable invocation',
     'PR #58 remains Open + Draft',
+    'Run ID: `30083687987`',
+    'Maven aggregate: `532` tests',
   ]) assert.ok(evidence.includes(rule), `M5-B3 evidence omits ${rule}`);
 });

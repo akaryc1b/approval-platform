@@ -1,6 +1,6 @@
 # M5-B3 Tenant Isolation, Lineage and Tamper Resistance Protocol
 
-M5-B3 status: `IMPLEMENTED_PENDING_PERMANENT_VALIDATION`
+M5-B3 status: `PERMANENTLY_VALIDATED`
 
 M5-B remains `IN_PROGRESS`. This slice strengthens the governed migration persistence protocol only.
 It does not authorize M5-C, migration-plan creation, authorization, execution, a worker, Flowable
@@ -78,6 +78,41 @@ V33-V35 remain unchanged. M5-B3 adds only:
 
 V36 creates no new table and no execution capability. It strengthens payload consistency, retry
 lineage, event-chain continuity and deferred current-row/event atomicity for the existing six tables.
+No V37 or later migration is introduced.
+
+## Permanent validation
+
+- workflow: `Approval Platform Validation`;
+- Run ID: `30083687987`;
+- run number: `#523`;
+- head: `7faa492161f5587ed4c02d9e62cedf992417b47d`;
+- result: `success`;
+- Repository hygiene, Java 21 / Maven / PostgreSQL, Vben and UniApp jobs all succeeded;
+- raw logs for all four jobs were read.
+
+### Artifact verification
+
+| Artifact | ID | GitHub digest and downloaded ZIP SHA-256 |
+| --- | ---: | --- |
+| `approval-maven-30083687987` | `8592942933` | `90a56008b0055180fd56304d5ba7ae1af639b371d7afc0e4ad91becbd6d8da0f` — exact match |
+| `approval-vben-30083687987` | `8592852935` | `04231889c91734701e1c21c6eb463168562863a84d56d9c9461abf746a938af5` — exact match |
+| `approval-mobile-30083687987` | `8592834602` | `47b698fcda09928d462190cf2c6c28d459cb3bc386f296fb308dd13d66671e47` — exact match |
+| `approval-hygiene-30083687987` | `8592813226` | `1561bc0041ecfa3e83a8ceb353662f240ee9179497bfef26d46243b371e0599c` — exact match |
+
+### Test and build evidence
+
+- Maven aggregate: `532` tests, `0` failures, `0` errors, `0` skipped;
+- persistence-jdbc: `219/219`;
+- M5-B domain and JDBC protocol tests: `29/29`;
+- M5-B2 concurrent PostgreSQL/JDBC tests: `11/11`;
+- M5-B3 tenant/lineage/tamper PostgreSQL tests: `8/8`;
+- M5-A Flowable capability tests: `30/30`;
+- M5 migration permanent Node boundaries: `24/24`;
+- M4 SLA/calendar boundaries: `13/13`;
+- M4 release governance boundaries: `5/5`;
+- Vben client boundaries: `10/10`, type-check and production build passed;
+- UniApp type-check, H5 build and WeChat Mini Program build passed;
+- upgrade paths and the 5,000-instance/task evidence reach and validate Flyway V36.
 
 ## Explicit absences
 
@@ -89,4 +124,12 @@ lineage, event-chain continuity and deferred current-row/event atomicity for the
 - No Web or Mobile migration action.
 - No automatic retry, including `UNKNOWN`.
 - No M6 dependency or semantic change.
+- No second automatic workflow.
+- No Ready, auto-merge, merge or issue closure.
 - This slice does not authorize M5-C.
+
+## Next gate
+
+M5-B remains `IN_PROGRESS`. The next allowed slice is M5-B4 — Lease Ownership and Durable
+`UNKNOWN`. M5-C remains blocked until all M5-B slices are complete and the user explicitly accepts
+M5-B.
