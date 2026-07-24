@@ -20,6 +20,8 @@ Deterministic diagnostic sampling, ordinal deduplication, bounded fake sinks, au
 
 Reference-only telemetry signals, key/value attribute allowlists, atomic fake export and audit handoff acknowledgement are defined in [TELEMETRY_HANDOFF.md](TELEMETRY_HANDOFF.md). Telemetry/handoff version `1` contains no production telemetry backend, broker, queue or storage.
 
+Caller-ordinal telemetry aggregation windows, rollover snapshots and reference-only audit handoff reconciliation proofs are defined in [AGGREGATION_RECONCILIATION.md](AGGREGATION_RECONCILIATION.md). Aggregation/reconciliation version `1` uses bounded fake stores only.
+
 ## Event delivery semantics
 
 Delivery is at least once. Ordering is guaranteed only within the same optional `orderingKey`; consumers must not infer global ordering. Consumers deduplicate by `eventId`, retain terminal decisions, and retry only `RETRYABLE_REJECTION`. `PERMANENT_REJECTION`, `EXPIRED_EVENT`, and `UNSUPPORTED_SCHEMA_VERSION` are terminal. Replay uses the original event identity and requires the same idempotent consumer behavior.
@@ -42,4 +44,4 @@ Verification checks algorithm, bounded clock skew, key resolution, canonical pay
 
 ## Trust boundary
 
-Event tenant context and producer identity are server-produced inbound evidence. Public client requests, compatibility profiles, transport policies, logical endpoint descriptors, diagnostics, emission decisions, telemetry signals, audit events and handoff acknowledgements cannot provide trusted tenant, operator, permission, authority or raw audit evidence. Host authentication and production observability remain server-owned boundaries.
+Event tenant context and producer identity are server-produced inbound evidence. Public client requests, compatibility profiles, transport policies, logical endpoint descriptors, diagnostics, emission decisions, telemetry signals, aggregate snapshots, audit events, handoff acknowledgements and reconciliation proofs cannot provide trusted tenant, operator, permission, authority or raw audit evidence. Host authentication and production observability remain server-owned boundaries.

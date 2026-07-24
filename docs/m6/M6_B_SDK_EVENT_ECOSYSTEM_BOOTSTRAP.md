@@ -1,6 +1,6 @@
 # M6-B SDK and Event Ecosystem Bootstrap
 
-Status: `SAFE_SLICE_7_IMPLEMENTED`
+Status: `SAFE_SLICE_8_IMPLEMENTED`
 
 Tracking:
 
@@ -60,46 +60,50 @@ M6-B develops in parallel with M5 and remains independent from Issue #56 and Dra
 
 ## Safe slice 7 — reference-only telemetry and audit handoff acknowledgement
 
-### Telemetry signal contract
-
-- telemetry/handoff contract version `1`; unknown versions fail closed;
-- explicit signal-name allowlist;
-- exact attribute-key and attribute-value allowlists;
-- prohibited credential, trusted-identity and raw-audit attribute names;
-- logical endpoint/correlation references, quantity, caller ordinal and provenance digest only;
-- canonical aggregation-identity and full-signal digests;
-- no arbitrary signal body, raw exception, endpoint address or credential material.
-
-### Atomic fake telemetry exporter
-
-- bounded `ScriptedTelemetryExporter` only;
-- unique signal IDs/digests and non-decreasing caller ordinals;
-- canonical batch proof;
-- capacity, duplicate and scripted failures append no partial signals;
-- exporter loss is returned as an explicit degraded result without raw exception text.
-
-### Audit handoff acknowledgement
-
-- envelope created only from `AuditCompletenessProof`;
-- logical destination, proof digests/counts and canonical envelope digest only;
-- original audit records and trusted identity evidence are absent;
-- NACK, timeout-like and scripted failure retain the exact pending handoff;
+- exact signal-name and key/value attribute allowlists;
+- canonical aggregation-identity, signal and batch digests;
+- bounded atomic fake telemetry exporter;
+- reference-only handoff envelope created from audit completeness proof;
+- NACK/timeout/failure retain pending handoff;
 - ACK atomically moves pending to acknowledged;
-- identical replay returns the original acknowledgement;
-- conflicting handoff identity fails closed;
-- bounded queue capacity creates no partial pending entry.
+- duplicate/conflicting replay semantics.
+
+## Safe slice 8 — telemetry aggregation windows and handoff reconciliation
+
+### Caller-ordinal aggregation
+
+- aggregation/reconciliation contract version `1`; unknown versions fail closed;
+- fixed caller-ordinal windows with no clock reads;
+- bounded active windows, aggregation identities and tracked signal digests;
+- recomputation of aggregation-identity and full-signal digests before acceptance;
+- deterministic duplicate suppression inside the retained ordinal horizon;
+- quantity/count accumulation with first/last reference evidence;
+- oldest-window rollover with canonical reference-only snapshots;
+- ordinal regression, digest mismatch, quantity overflow and scripted store failure fail closed;
+- identity-capacity rejection leaves active state unchanged.
+
+### Audit handoff reconciliation
+
+- consumes expected envelope plus optional pending/acknowledgement snapshots only;
+- classifications: pending confirmed, acknowledged confirmed, acknowledgement missing, missing evidence and conflicting evidence;
+- only acknowledged confirmation is safe to finalize;
+- pending, missing and conflicting evidence remain non-finalizable;
+- canonical evidence and proof digests;
+- bounded scripted reconciliation proof store;
+- duplicate, capacity and scripted failure append no partial proof.
 
 ## Tests and permanent validation
 
-Java and TypeScript use `telemetry-handoff-v1.json` and must agree on telemetry aggregation/signal/batch digests, audit handoff envelope digest, acknowledgement ID and NACK/timeout/ACK/duplicate-ACK state transitions. Additional tests cover key/value allowlists, unknown versions, exporter capacity/failure/duplicates, ordinal regression, queue capacity, no-loss pending recovery, conflicting replay and incomplete proof rejection.
+Java and TypeScript use `aggregation-reconciliation-v1.json` and must agree on duplicate suppression, quantity accumulation, window rollover, snapshot digests, reconciliation classifications, evidence/proof digests and duplicate-proof handling. Additional tests cover ordinal regression, forged signal digests, identity capacity, scripted failures, pending confirmation, conflicting acknowledgement, proof-store capacity and safe-finalization invariants.
 
-The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor executes Java tests. The permanent workflow remains `.github/workflows/approval-platform-validation.yml`.
+The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor executes Java tests. Permanent boundaries remain inside the single workflow `.github/workflows/approval-platform-validation.yml`.
 
 ## Still blocked
 
 - production environment/file/vault configuration source;
 - production diagnostic logger or telemetry backend;
-- production message broker, audit queue or audit persistence;
+- production telemetry aggregation or durable deduplication store;
+- production message broker, audit queue, reconciliation store or audit persistence;
 - real HTTP or other network transport;
 - production endpoint address, discovery and routing;
 - production authentication executor or usable credential material;
@@ -114,4 +118,4 @@ The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor
 
 ## Next gate
 
-The next M6-B gate requires explicit acceptance of reference-only telemetry and audit handoff acknowledgement semantics before introducing any production telemetry backend, message broker, audit queue or persistence. Endpoint addresses, credentials and network execution remain separately blocked.
+The next M6-B gate requires explicit acceptance of caller-ordinal telemetry aggregation and reference-only handoff reconciliation before introducing production aggregation, durable deduplication, broker, audit queue or reconciliation persistence. Endpoint addresses, credentials and network execution remain separately blocked.
