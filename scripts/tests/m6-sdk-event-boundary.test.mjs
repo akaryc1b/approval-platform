@@ -137,6 +137,38 @@ test('diagnostics and audit use fake configuration, redaction and memory sink on
   }
 });
 
+test('emission policy uses deterministic bounded fake sinks and atomic audit batches', async () => {
+  const javaDiagnostic = await readFile(join(sdkRoots[0], 'SdkDiagnosticEmissionV1.java'), 'utf8');
+  const javaAudit = await readFile(join(sdkRoots[0], 'SdkAuditCompletenessV1.java'), 'utf8');
+  const java = `${javaDiagnostic}\n${javaAudit}`;
+  const tsDiagnostic = await readFile(join(sdkRoots[1], 'src/diagnostic-emission.ts'), 'utf8');
+  const tsAudit = await readFile(join(sdkRoots[1], 'src/audit-completeness.ts'), 'utf8');
+  const typescript = `${tsDiagnostic}\n${tsAudit}`;
+  assert.match(java, /class BoundedDiagnosticDeduplicationTracker/);
+  assert.match(java, /class ScriptedInMemoryDiagnosticSink/);
+  assert.match(java, /class ScriptedAtomicAuditSink/);
+  assert.match(java, /appendBatch/);
+  assert.match(java, /FAILED_CLOSED/);
+  assert.match(typescript, /class BoundedDiagnosticDeduplicationTracker/);
+  assert.match(typescript, /class ScriptedInMemoryDiagnosticSink/);
+  assert.match(typescript, /class ScriptedAtomicAuditSink/);
+  assert.match(typescript, /appendBatch/);
+  assert.match(typescript, /failed_closed/);
+  assert.doesNotMatch(java, /\b(?:System\.currentTimeMillis|Instant\.now|Thread\.sleep|System\.getenv|System\.getProperty|Files\.|Path\.|Logger|JdbcTemplate|EntityManager|System\.out)\b/);
+  assert.doesNotMatch(typescript, /\b(?:Date\.now|setTimeout|setInterval|process\.env|Deno\.env|Bun\.env|readFile|writeFile|console\.|localStorage|sessionStorage|indexedDB)\b/);
+
+  const javaDiagnosticResult = javaDiagnostic.slice(javaDiagnostic.indexOf('public record DiagnosticEmissionResult('), javaDiagnostic.indexOf('public static final class BoundedDiagnosticDeduplicationTracker'));
+  const tsDiagnosticResult = tsDiagnostic.slice(tsDiagnostic.indexOf('export interface DiagnosticEmissionResult'), tsDiagnostic.indexOf('export class UnsupportedEmissionPolicyVersionError'));
+  const javaAuditResult = javaAudit.slice(javaAudit.indexOf('public record AuditBatchEmissionResult('), javaAudit.indexOf('public static final class ScriptedAtomicAuditSink'));
+  const tsAuditResult = tsAudit.slice(tsAudit.indexOf('export interface AuditBatchEmissionResult'), tsAudit.indexOf('export class ScriptedAtomicAuditSink'));
+  for (const forbidden of ['error', 'exception', 'stackTrace', 'rawMessage', 'tenantId', 'operatorId', 'permissionSnapshotHash', 'auditReference', 'credentialLease', 'secret', 'password', 'privateKey', 'bearerToken']) {
+    assert.doesNotMatch(javaDiagnosticResult, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(tsDiagnosticResult, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(javaAuditResult, new RegExp(`\\b${forbidden}\\b`, 'i'));
+    assert.doesNotMatch(tsAuditResult, new RegExp(`\\b${forbidden}\\b`, 'i'));
+  }
+});
+
 test('Flyway remains frozen through V32', async () => {
   const migrationRoots = [
     join(repositoryRoot, 'apps/server/src/main/resources/db/migration'),

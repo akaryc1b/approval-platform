@@ -59,17 +59,20 @@ The independent `io.github.akaryc1b.approval.sdk.v1` package provides:
 - logical endpoints, server-issued authentication context and reference-only credential leases;
 - deterministic adapter lifecycle with no endpoint address or network execution;
 - fake configuration provenance, diagnostic redaction and reference-only adapter audit events;
-- in-memory audit sink with no production persistence.
+- deterministic severity/sampling/deduplication emission policy;
+- bounded fake diagnostic sink and atomic fake audit completeness sink;
+- canonical diagnostic fingerprint, audit identity digest and audit batch digest.
 
-Public requests, compatibility profiles, transport policies, logical endpoints, diagnostics and audit events cannot manufacture trusted identity, permission or raw audit evidence. The package has no network client, production endpoint, production clock, Flowable type, migration command, persistence or delivery worker.
+Public requests, compatibility profiles, transport policies, logical endpoints, diagnostics, emission decisions and audit events cannot manufacture trusted identity, permission or raw audit evidence. The package has no network client, production endpoint, production clock, Flowable type, migration command, persistence or delivery worker.
 
 ## Deployment rules
 
-- `InMemoryReplayGuard`, M6-B in-memory guards, scripted adapters and `InMemoryAdapterAuditSink` are only for tests and single-node development.
+- `InMemoryReplayGuard`, M6-B in-memory guards, scripted adapters, diagnostic sinks and audit sinks are only for tests and single-node development.
 - Production starters must provide a distributed replay guard, normally backed by Redis `SET NX EX` semantics.
 - Signing secrets must be resolved from encrypted configuration or a secret manager.
 - Secrets, bearer tokens, raw authentication payloads, exception messages and stack traces must never be logged.
-- Real configuration sources, diagnostic logging, audit persistence, endpoint resolution, authentication, clock, scheduling and network execution require separate accepted gates.
+- Diagnostic sink loss must be surfaced as degraded observability; mandatory audit incompleteness or sink failure must fail closed.
+- Real configuration sources, diagnostic logging, telemetry, audit persistence, endpoint resolution, authentication, clock, scheduling and network execution require separate accepted gates.
 - No Flowable, approval database, Spring, Sa-Token or RuoYi dependency is allowed in this module.
 
 ## Planned implementations

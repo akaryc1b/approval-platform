@@ -16,6 +16,8 @@ Logical endpoints, server-issued authentication context, reference-only credenti
 
 Configuration provenance, diagnostic redaction and reference-only adapter audit events are defined in [DIAGNOSTICS_AUDIT.md](DIAGNOSTICS_AUDIT.md). Diagnostics/audit version `1` uses fake sources and an in-memory sink only.
 
+Deterministic diagnostic sampling, ordinal deduplication, bounded fake sinks, audit completeness proofs and atomic failure-mode conformance are defined in [EMISSION_POLICY.md](EMISSION_POLICY.md). Emission policy version `1` contains no production logger or audit persistence.
+
 ## Event delivery semantics
 
 Delivery is at least once. Ordering is guaranteed only within the same optional `orderingKey`; consumers must not infer global ordering. Consumers deduplicate by `eventId`, retain terminal decisions, and retry only `RETRYABLE_REJECTION`. `PERMANENT_REJECTION`, `EXPIRED_EVENT`, and `UNSUPPORTED_SCHEMA_VERSION` are terminal. Replay uses the original event identity and requires the same idempotent consumer behavior.
@@ -38,4 +40,4 @@ Verification checks algorithm, bounded clock skew, key resolution, canonical pay
 
 ## Trust boundary
 
-Event tenant context and producer identity are server-produced inbound evidence. Public client requests, compatibility profiles, transport policies, logical endpoint descriptors, diagnostics and audit events cannot provide trusted tenant, operator, permission, authority or raw audit evidence. Host authentication and production observability remain server-owned boundaries.
+Event tenant context and producer identity are server-produced inbound evidence. Public client requests, compatibility profiles, transport policies, logical endpoint descriptors, diagnostics, emission decisions and audit events cannot provide trusted tenant, operator, permission, authority or raw audit evidence. Host authentication and production observability remain server-owned boundaries.

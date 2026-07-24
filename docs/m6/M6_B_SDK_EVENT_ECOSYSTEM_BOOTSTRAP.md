@@ -1,6 +1,6 @@
 # M6-B SDK and Event Ecosystem Bootstrap
 
-Status: `SAFE_SLICE_5_IMPLEMENTED`
+Status: `SAFE_SLICE_6_IMPLEMENTED`
 
 Tracking:
 
@@ -45,47 +45,56 @@ M6-B develops in parallel with M5 and remains independent from Issue #56 and Dra
 
 ## Safe slice 5 — diagnostic redaction, provenance and adapter audit
 
-### Fake configuration source
+- fake configuration source with explicit public/sensitive classification;
+- canonical configuration provenance and reference-only sensitive identities;
+- diagnostic literal/key redaction and generic exception rendering;
+- reference-only adapter audit events and in-memory sink.
 
-- diagnostics/audit contract version `1`; unknown versions fail closed;
-- only deterministic source kind `fixture` is implemented;
-- duplicate configuration keys are rejected;
-- public and sensitive entries are explicitly classified;
-- no environment, file, vault, secret-manager or network reads exist.
+## Safe slice 6 — diagnostic emission and audit completeness
 
-### Configuration provenance
+### Diagnostic decision policy
 
-- source ID, revision and explicit load time;
-- public/sensitive key-name inventories;
-- SHA-256 value digests and canonical content digest;
-- sensitive values return only deterministic reference identities;
-- raw sensitive values are absent from `ResolvedConfiguration` outputs.
+- emission policy contract version `1`; unknown versions fail closed;
+- explicit minimum severity;
+- deterministic SHA-256 numerator/denominator sampling;
+- caller-supplied monotonic ordinal window, with no clock reads;
+- bounded tracker with deterministic expiry and eviction;
+- already-redacted diagnostics only.
 
-### Diagnostic redaction
+### Fake diagnostic sink
 
-- sensitive literals are removed from messages and context values;
-- authorization, token, password, secret, private-key, certificate and credential-material keys are fully redacted;
-- exception diagnostics emit stable exception type and generic message only;
-- raw exception messages and stack traces are never returned;
-- a final invariant check rejects leaked registered literals.
+- bounded `ScriptedInMemoryDiagnosticSink`;
+- accepted, capacity and scripted failure outcomes;
+- only accepted emissions enter the deduplication tracker;
+- sink failures return stable reason codes without raw exception text;
+- diagnostic sink loss is surfaced as degraded observability, not silently ignored.
 
-### Adapter audit contract
+### Audit completeness proof
 
-- event, endpoint, operation, request, trace, binding and authentication-context references;
-- outcome, reason code, explicit occurrence time and provenance digest;
-- no tenant, operator, permission snapshot, raw audit reference, credential lease or secret material;
-- deterministic `InMemoryAdapterAuditSink` only, with no production persistence.
+- exactly one started record, the expected attempt records and one terminal record;
+- contiguous sequence, required phase/type, unique event IDs and non-decreasing explicit times;
+- stable endpoint, operation, request, trace, binding, authentication-context and provenance identity;
+- canonical identity digest and full-batch digest;
+- missing, reordered, duplicate, identity-drifted or time-regressed records fail closed.
+
+### Atomic fake audit sink
+
+- bounded `ScriptedAtomicAuditSink` only;
+- complete batches commit atomically;
+- capacity, duplicate-batch and scripted failures leave no partial records;
+- audit incompleteness or sink failure is always `FAILED_CLOSED`;
+- no production logger, exporter, queue or audit persistence exists.
 
 ## Tests and permanent validation
 
-Java and TypeScript use `diagnostics-audit-v1.json`, whose deliberately sensitive fixture literals contain `DO-NOT-LEAK`. Both implementations must produce the same provenance digest, sensitive references, redacted diagnostic and audit event while proving those literals never appear in output.
+Java and TypeScript use `emission-policy-v1.json` and must agree on diagnostic fingerprint/sample bucket, audit identity digest, audit batch digest and atomic commit result. Additional tests cover severity suppression, sampling, ordinal deduplication, diagnostic capacity/failure, missing/reordered/identity-drifted audit records, audit capacity/failure/duplicate batches and unsafe bounds.
 
 The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor executes Java tests. The permanent workflow remains `.github/workflows/approval-platform-validation.yml`.
 
 ## Still blocked
 
 - production environment/file/vault configuration source;
-- production diagnostic logger or audit persistence;
+- production diagnostic logger, telemetry exporter or audit persistence;
 - real HTTP or other network transport;
 - production endpoint address, discovery and routing;
 - production authentication executor or usable credential material;
@@ -100,4 +109,4 @@ The existing root `postinstall` gate executes `pnpm sdk:test`; the Maven reactor
 
 ## Next gate
 
-The next M6-B gate requires explicit acceptance of diagnostic redaction, configuration provenance and adapter audit contracts before introducing any production configuration source, logger or audit persistence. Real endpoint addresses, credentials and network execution remain separately blocked.
+The next M6-B gate requires explicit acceptance of deterministic diagnostic emission and atomic audit completeness/failure-mode conformance. Production logging, telemetry, audit storage, endpoint addresses, credentials and network execution remain separately blocked.
