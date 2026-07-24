@@ -34,8 +34,10 @@ public class ProcessTemplateImportConfiguration {
     }
 
     @Bean
-    ProcessTemplatePackageValidator processTemplatePackageValidator() {
-        return new ProcessTemplatePackageValidator();
+    ProcessTemplatePackageValidator processTemplatePackageValidator(
+        ProcessTemplateCanonicalHasher hasher
+    ) {
+        return new ProcessTemplatePackageValidator(hasher);
     }
 
     @Bean
