@@ -61,6 +61,21 @@ public final class ConnectorProviderRegistry {
             : Optional.of(registration.descriptor());
     }
 
+    public Optional<ConnectorProviderBinding<?, ?>> findBinding(
+        String providerKey,
+        ConnectorOperation operation
+    ) {
+        String key = ConnectorContractSupport.requireSafeIdentifier(
+            providerKey,
+            "providerKey"
+        );
+        operation = Objects.requireNonNull(operation, "operation must not be null");
+        ProviderRegistration registration = providers.get(key);
+        return registration == null
+            ? Optional.empty()
+            : Optional.ofNullable(registration.bindings().get(operation));
+    }
+
     public String registryFingerprint() {
         return registryFingerprint;
     }
