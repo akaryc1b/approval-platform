@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalMigrationUpgradeIntegrationTest {
 
-    private static final String LATEST_VERSION = "38";
+    private static final String LATEST_VERSION = "39";
     private static final List<UpgradeCase> UPGRADE_CASES = List.of(
         new UpgradeCase("approval_latest_fresh", null),
         new UpgradeCase("approval_latest_v1", "1"),
@@ -27,20 +27,22 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         new UpgradeCase("approval_latest_v23", "23"),
         new UpgradeCase("approval_latest_v31", "31"),
         new UpgradeCase("approval_latest_v36", "36"),
-        new UpgradeCase("approval_latest_v37", "37")
+        new UpgradeCase("approval_latest_v37", "37"),
+        new UpgradeCase("approval_latest_v38", "38")
     );
     private static final String V27_DATABASE = "approval_latest_v27_heavy";
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
-        .withDatabaseName("approval_migration_upgrade_test")
+        .withDatabaseName("approval_migration_upgrade_admin")
         .withUsername("approval")
         .withPassword("approval");
 
     @BeforeAll
     static void createIsolatedDatabases() {
         JdbcTemplate admin = new JdbcTemplate(new DriverManagerDataSource(
-            POSTGRES.getJdbcUrl(),
+            "jdbc:postgresql://" + POSTGRES.getHost() + ":" + POSTGRES.getMappedPort(5432)
+                + "/postgres",
             POSTGRES.getUsername(),
             POSTGRES.getPassword()
         ));
@@ -53,7 +55,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
     }
 
     @Test
-    void freshAndHistoricalUpgradePathsReachV38() {
+    void freshAndHistoricalUpgradePathsReachV39WithoutExecutionSideEffects() {
         for (UpgradeCase upgrade : UPGRADE_CASES) {
             assertUpgrade(upgrade);
         }
@@ -82,6 +84,14 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         assertEquals(LATEST_VERSION, latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
         JdbcApprovalMigrationUpgradeSupport.assertProjectionEvidence(jdbc, 5_000);
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_plan_consumption",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_intent",
+            Integer.class
+        ));
         JdbcApprovalMigrationUpgradeAssertions.assertLatestSchema(dataSource);
     }
 
@@ -109,7 +119,23 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         latest.migrate();
         assertEquals(LATEST_VERSION, latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
+        assertNoExecutionSideEffects(new JdbcTemplate(dataSource));
         JdbcApprovalMigrationUpgradeAssertions.assertLatestSchema(dataSource);
+    }
+
+    private static void assertNoExecutionSideEffects(JdbcTemplate jdbc) {
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_plan_consumption",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_intent",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_runtime_binding",
+            Integer.class
+        ));
     }
 
     private record UpgradeCase(String databaseName, String startingVersion) {
