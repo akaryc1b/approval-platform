@@ -352,7 +352,7 @@ public final class JdbcApprovalMigrationAttemptClaimStore
                 .addValue("intentId", request.intentId())
                 .addValue("claimedAt", JdbcApprovalMigrationJson.offset(request.claimedAt()))
                 .addValue("limit", request.limit()),
-            (row, number) -> json.read(row.getString(1), ApprovalMigrationAttempt.class))));
+            (row, number) -> json.read(row.getString(1), ApprovalMigrationAttempt.class)));
     }
 
     private ApprovalMigrationIntent lockIntent(String tenantId, UUID intentId) {
