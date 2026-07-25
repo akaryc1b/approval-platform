@@ -39,16 +39,9 @@ class M6CredentialBindingFoundationBoundaryTest {
         assertTrue(pom.contains("<scope>test</scope>"));
         assertTrue(pom.contains("junit-jupiter"));
         for (String forbidden : List.of(
-            "spring-boot",
-            "flowable",
-            "approval-integration-jdbc",
-            "approval-persistence-jdbc",
-            "approval-application",
-            "httpclient",
-            "vault",
-            "secretsmanager",
-            "aliyun",
-            "kubernetes"
+            "spring-boot", "flowable", "approval-integration-jdbc",
+            "approval-persistence-jdbc", "approval-application", "httpclient",
+            "vault", "secretsmanager", "aliyun", "kubernetes"
         )) {
             assertFalse(
                 pom.toLowerCase().contains(forbidden),
@@ -62,27 +55,11 @@ class M6CredentialBindingFoundationBoundaryTest {
         String source = mainSource(CORE);
 
         for (String forbidden : List.of(
-            "java.net.",
-            "HttpClient",
-            "WebClient",
-            "RestClient",
-            "DataSource",
-            "JdbcTemplate",
-            "org.springframework",
-            "org.flowable",
-            "System.getenv",
-            "System.getProperty",
-            "Files.read",
-            "Path.of",
-            "ThreadLocal",
-            "ExecutorService",
-            "ScheduledExecutor",
-            "@Scheduled",
-            "HashiCorp",
-            "VaultTemplate",
-            "SecretsManagerClient",
-            "KmsClient",
-            "Aliyun",
+            "java.net.", "HttpClient", "WebClient", "RestClient", "DataSource",
+            "JdbcTemplate", "org.springframework", "org.flowable", "System.getenv",
+            "System.getProperty", "Files.read", "Path.of", "ThreadLocal",
+            "ExecutorService", "ScheduledExecutor", "@Scheduled", "HashiCorp",
+            "VaultTemplate", "SecretsManagerClient", "KmsClient", "Aliyun",
             "KubernetesClient"
         )) {
             assertFalse(source.contains(forbidden), "credential core contains " + forbidden);
@@ -118,12 +95,8 @@ class M6CredentialBindingFoundationBoundaryTest {
         )) {
             String content = Files.readString(findMainSource(file));
             for (String forbidden : List.of(
-                "byte[]",
-                "SecretUse",
-                "SecretBytesUse",
-                "AuthorizationHeader",
-                "PrivateKey",
-                "AppSecret"
+                "byte[]", "SecretUse", "SecretBytesUse", "AuthorizationHeader",
+                "PrivateKey", "AppSecret"
             )) {
                 assertFalse(content.contains(forbidden), file + " contains " + forbidden);
             }
@@ -138,14 +111,9 @@ class M6CredentialBindingFoundationBoundaryTest {
         String source = mainSource(DINGTALK);
 
         for (String forbidden : List.of(
-            "implements ConnectorCredentialResolver",
-            "ServerOwnedCredentialResolver",
-            "CredentialMaterialSource",
-            "ResolvedScopedCredential",
-            "byte[] secret",
-            "accessToken =",
-            "appSecret =",
-            "credentialCache"
+            "implements ConnectorCredentialResolver", "ServerOwnedCredentialResolver",
+            "CredentialMaterialSource", "ResolvedScopedCredential", "byte[] secret",
+            "accessToken =", "appSecret =", "credentialCache"
         )) {
             assertFalse(source.contains(forbidden), "DingTalk adapter contains " + forbidden);
         }
@@ -162,10 +130,8 @@ class M6CredentialBindingFoundationBoundaryTest {
             for (Path source : javaScriptAndVueFiles(root)) {
                 String content = Files.readString(source);
                 for (String forbidden : List.of(
-                    "TrustedConnectorExecutionContext",
-                    "CredentialResolutionRequest",
-                    "CredentialResolutionEvidence",
-                    "ResolvedScopedCredential",
+                    "TrustedConnectorExecutionContext", "CredentialResolutionRequest",
+                    "CredentialResolutionEvidence", "ResolvedScopedCredential",
                     "CredentialMaterialSource"
                 )) {
                     assertFalse(
@@ -179,21 +145,33 @@ class M6CredentialBindingFoundationBoundaryTest {
 
     @Test
     void foundationAddsNoWorkflowMigrationM5OrApprovalMutation() throws IOException {
-        List<String> workflows = filesUnder(ROOT.resolve(".github/workflows")).stream()
-            .map(path -> path.getFileName().toString())
-            .filter(name -> name.endsWith(".yml") || name.endsWith(".yaml"))
-            .sorted()
-            .toList();
-        assertEquals(List.of("approval-platform-validation.yml"), workflows);
+        List<String> automaticWorkflows = new ArrayList<>();
+        for (Path workflow : filesUnder(ROOT.resolve(".github/workflows"))) {
+            String name = workflow.getFileName().toString();
+            if (!name.endsWith(".yml") && !name.endsWith(".yaml")) {
+                continue;
+            }
+            String uncommented = Files.readString(workflow).lines()
+                .map(line -> line.replaceFirst("\\s+#.*$", ""))
+                .reduce("", (left, right) -> left + "\n" + right);
+            if (Pattern.compile("(?m)^\\s*(pull_request|push):\\s*$")
+                .matcher(uncommented).find()) {
+                automaticWorkflows.add(name);
+            }
+        }
+        assertEquals(
+            List.of("approval-platform-validation.yml"),
+            automaticWorkflows.stream().sorted().toList()
+        );
 
+        Pattern flywayVersion = Pattern.compile("V(\\d+)__.*\\.sql");
         for (Path migration : filesUnder(ROOT)) {
             String normalized = relative(migration);
             if (!normalized.contains("/src/main/resources/db/migration/")
                 || !migration.getFileName().toString().endsWith(".sql")) {
                 continue;
             }
-            var matcher = Pattern.compile("V(\\d+)__.*\\.sql")
-                .matcher(migration.getFileName().toString());
+            var matcher = flywayVersion.matcher(migration.getFileName().toString());
             if (matcher.matches()) {
                 assertTrue(
                     Integer.parseInt(matcher.group(1)) <= 32,
@@ -204,17 +182,9 @@ class M6CredentialBindingFoundationBoundaryTest {
 
         String source = mainSource(CORE);
         for (String forbidden : List.of(
-            "migration_intent",
-            "migration_attempt",
-            "reconciliation",
-            "runtime_binding",
-            "completeTask(",
-            "approve(",
-            "reject(",
-            "transfer(",
-            "withdraw(",
-            "terminate(",
-            "migrate("
+            "migration_intent", "migration_attempt", "reconciliation", "runtime_binding",
+            "completeTask(", "approve(", "reject(", "transfer(", "withdraw(",
+            "terminate(", "migrate("
         )) {
             assertFalse(source.contains(forbidden), "credential core crosses boundary " + forbidden);
         }
@@ -278,7 +248,7 @@ class M6CredentialBindingFoundationBoundaryTest {
             return List.of();
         }
         try (Stream<Path> stream = Files.walk(root)) {
-            return new ArrayList<>(stream.filter(Files::isRegularFile).toList());
+            return stream.filter(Files::isRegularFile).toList();
         }
     }
 
