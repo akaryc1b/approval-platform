@@ -20,6 +20,12 @@
             <version>${revision}</version>
         </dependency>
         <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-connector-dingtalk</artifactId>
+            <version>${revision}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
