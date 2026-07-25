@@ -1,6 +1,6 @@
 # M6-A-P2 Server-Owned Credential Binding
 
-Status: `CREDENTIAL_VERSION_AND_ROTATION_SEMANTICS_IMPLEMENTED`
+Status: `DINGTALK_CREDENTIAL_BINDING_CONFORMANCE_IMPLEMENTED`
 
 Decision date: `2026-07-25`
 
@@ -25,41 +25,52 @@ P2-A introduced closed credential material, binding-state and resolution-status 
 deterministic, secret-free binding descriptors, resolution requests and resolution evidence.
 
 P2-B added a Platform Security-owned resolver, a material-source port and non-returning scoped-use
-APIs. The resolver binds one exact provider, tenant, credential reference, operation, key and
-version before opening material. It never falls back to another reference or source version.
+APIs. P2-C added deterministic version, validity and rotation semantics without persistence or
+background execution.
 
-P2-C adds deterministic version, validity and rotation semantics without persistence or background
-execution. `DISABLED`, `REVOKED`, `NOT_YET_VALID`, `EXPIRED` and `ROTATION_PENDING` all fail
-closed. The resolver evaluates not-before and expiration against its injected clock. Material-source
-version must equal the exact active descriptor version, and a descriptor change during resolution
-fails closed.
+P2-D adds a non-secret captured binding plan and a Platform Security-owned DingTalk credential
+profile. The profile maps only `ORGANIZATION_READ` and `IDENTITY_RESOLVE` to the closed
+`ACCESS_TOKEN` material type. It does not acquire, refresh, cache or transmit a token.
 
-Rotation completion requires one exact binding, a pending previous version, a different active
-version, an exact source-version snapshot and a currently valid active descriptor. Rotation
-evidence is deterministic, secret-free, never authorizes production execution and always reports
-that previous-version fallback is forbidden.
+DingTalk production adapter source remains unchanged. It does not own, save, resolve, cache or
+rotate credentials. The credential-core module references the captured DingTalk module only in
+test scope.
 
-## Scoped lifecycle
+## DingTalk captured conformance
 
-Production use is limited to synchronous, non-returning callbacks. Every temporary material copy
-is zeroized in a `finally` block. Callback failure still closes both the resolved credential scope
-and the material-source scope. Use after close is rejected and repeated close is idempotent. A
-closed resolver cannot resolve again.
+The test consumer resolves one exact server-owned binding, exercises the bounded secret scope and
+then invokes the existing injected `DingTalkTransport` with its credential-free captured request.
+The request continues to guarantee:
 
-The older generic `withCredential` and `withSecretBytes` APIs remain only for source compatibility
-and deterministic test fixtures. `ServerOwnedCredentialResolver` rejects both generic paths and
-requires an operation-bound `CredentialResolutionRequest`.
+- `credentialMaterialPresent() == false`;
+- `absoluteEndpointPresent() == false`;
+- no sensitive header;
+- no provider host;
+- no AppKey, AppSecret or access-token value.
+
+Provider mismatch, reference mismatch, revoked, expired and wrong-operation cases fail before the
+callback. In every such case the DingTalk transport invocation count is exactly zero.
+
+## Scoped lifecycle and validity
+
+Every temporary material copy is zeroized in a `finally` block. Callback failure closes the
+resolved scope and material-source scope. Use after close is rejected, repeated close is idempotent,
+and a closed resolver cannot resolve again.
+
+`DISABLED`, `REVOKED`, `NOT_YET_VALID`, `EXPIRED` and `ROTATION_PENDING` fail closed. Material
+source version must match the exact active descriptor version. A descriptor change during
+resolution fails closed, and previous-version fallback is forbidden.
 
 Java cannot prevent deliberately malicious trusted callback code from copying memory. The
-foundation guarantee is bounded: the production API does not offer a return path, Platform-owned
-production code is subject to permanent architecture tests, and the scope is only available to
-trusted server components.
+foundation guarantee is bounded: the production API has no return path, Platform-owned production
+code is subject to permanent architecture tests, and the scope is available only to trusted server
+components.
 
 ## Explicitly absent
 
-This stage contains no database rotation job, scheduler, background worker, automatic token
-refresh, OAuth call, network operation, automatic source retry or implicit previous-version
-fallback. Test-only in-memory material fixtures use conspicuous non-production values.
+There is no production secret backend, token-acquisition endpoint, OAuth refresh, Authorization
+header injection, `x-acs-dingtalk-access-token`, real DingTalk host, HTTP client, network call,
+persistence, migration, scheduler, worker, automatic retry or fallback.
 
 ## Explicitly blocked
 
