@@ -15,21 +15,20 @@ test('M5-C governance accepts immutable plans without authorizing production exe
   ]);
   for (const marker of [
     'M5-C governance decision: `ACCEPTED`',
-    'Acceptance evidence status: `IMPLEMENTED_AWAITING_PERMANENT_VALIDATION`',
-    'M5-D stage authorization: `AUTHORIZED_AFTER_ACCEPTANCE_EVIDENCE_VALIDATION`',
+    'Acceptance evidence status: `PERMANENTLY_VALIDATED`',
+    'M5-D stage authorization: `AUTHORIZED_TO_BEGIN`',
     'Production migration execution authorization: `NOT_AUTHORIZED`',
     'No additional M5-C plan lifecycle\nslice is required before stage acceptance',
     'PR #58 remains Open + Draft',
     'Issues #13, #14 and #56 remain Open',
   ]) assert.ok(acceptance.includes(marker), `M5-C acceptance omits ${marker}`);
   for (const marker of [
-    'M5-C stage status: `ACCEPTED_PENDING_ACCEPTANCE_EVIDENCE_VALIDATION`',
+    'M5-C stage status: `ACCEPTED`',
     'M5-C governance decision: `ACCEPTED`',
-    'M5-D stage authorization: `AUTHORIZED_AFTER_ACCEPTANCE_EVIDENCE_VALIDATION`',
+    'M5-D stage authorization: `AUTHORIZED_TO_BEGIN`',
     'Production migration execution authorization: `NOT_AUTHORIZED`',
   ]) assert.ok(protocol.includes(marker), `M5-C protocol omits ${marker}`);
   assert.doesNotMatch(acceptance, /Production migration execution authorization: `AUTHORIZED`/);
-  assert.doesNotMatch(protocol, /M5-D stage authorization: `AUTHORIZED_TO_BEGIN`/);
 });
 
 test('M5-C acceptance freezes exact evidence and retained limitations', async () => {
@@ -46,6 +45,11 @@ test('M5-C acceptance freezes exact evidence and retained limitations', async ()
     'plan consumption or a `CONSUMED` transition',
     'Production execution must\nremain disabled by default',
     'M5-D authorization to begin is not production migration execution approval',
+    'Run ID: `30148042479`',
+    'run number: `#536`',
+    'head: `e01db0cc3f70e52075915ca3157ab3774272c5aa`',
+    'M5 permanent Node boundaries: `37/37`',
+    '02d10440bdad5e3276a7e12c230405913ed8af87fe89c64f7e8cabe24ce66c80',
   ]) assert.ok(acceptance.includes(marker), `M5-C acceptance evidence omits ${marker}`);
   assert.doesNotMatch(acceptance, /PR #58 status: READY/);
   assert.doesNotMatch(acceptance, /M5-D governance decision: `ACCEPTED`/);

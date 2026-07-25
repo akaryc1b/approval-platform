@@ -1,14 +1,14 @@
 # M5-C Immutable Migration Plan and Exact Approval Protocol
 
-M5-C stage status: `ACCEPTED_PENDING_ACCEPTANCE_EVIDENCE_VALIDATION`
+M5-C stage status: `ACCEPTED`
 
 M5-C governance decision: `ACCEPTED`
 
 M5-C1 status: `PERMANENTLY_VALIDATED`
 
-M5-C acceptance evidence status: `IMPLEMENTED_AWAITING_PERMANENT_VALIDATION`
+M5-C acceptance evidence status: `PERMANENTLY_VALIDATED`
 
-M5-D stage authorization: `AUTHORIZED_AFTER_ACCEPTANCE_EVIDENCE_VALIDATION`
+M5-D stage authorization: `AUTHORIZED_TO_BEGIN`
 
 Production migration execution authorization: `NOT_AUTHORIZED`
 
@@ -118,6 +118,25 @@ Final pre-acceptance Run #535:
 
 Failed Runs #532 and #533 remain retained as import-hygiene evidence and were not rerun.
 
+### M5-C acceptance validation
+
+- workflow Run ID: `30148042479`;
+- run number: `#536`;
+- head: `e01db0cc3f70e52075915ca3157ab3774272c5aa`;
+- result: `success`;
+- Maven aggregate: `560` tests with zero failures, errors or skipped tests;
+- approval-persistence-jdbc: `236/236`;
+- M5-C1 domain/application/JDBC: `20/20`;
+- M5 permanent Node boundaries: `37/37`;
+- all four jobs, raw logs and downloaded artifact digest checks succeeded.
+
+Acceptance artifact SHA-256 values:
+
+- Maven: `02d10440bdad5e3276a7e12c230405913ed8af87fe89c64f7e8cabe24ce66c80`;
+- Vben: `53d42742937e2b642a8024c7cd85552bcac2da6650f4977168b581703c44c620`;
+- Mobile: `db6429b3a515b8d24cbf7d90da7d95af0af9aa649c047519776fa4072f3ad960`;
+- Hygiene: `c0ed0a809830ed060fa22bf8183ecbdb8cf456050c6111a592e39ea6dc0bcfb7`.
+
 ## 6. Accepted limitations
 
 M5-C does not provide or authorize:
@@ -137,8 +156,8 @@ M5-C does not provide or authorize:
 
 ## 7. Acceptance and next gate
 
-M5-C is accepted pending permanent validation of this governance package. After that validation, M5-D
-is the only authorized next stage and may begin controlled server-side executor, verification,
+M5-C and its acceptance evidence are permanently validated. M5-D is the only authorized next
+stage and may begin controlled server-side executor, verification,
 `UNKNOWN` handling and reconciliation implementation.
 
 M5-D authorization to begin does not authorize production migration execution. Production execution

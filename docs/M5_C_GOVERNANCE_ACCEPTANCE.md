@@ -2,9 +2,9 @@
 
 M5-C governance decision: `ACCEPTED`
 
-Acceptance evidence status: `IMPLEMENTED_AWAITING_PERMANENT_VALIDATION`
+Acceptance evidence status: `PERMANENTLY_VALIDATED`
 
-M5-D stage authorization: `AUTHORIZED_AFTER_ACCEPTANCE_EVIDENCE_VALIDATION`
+M5-D stage authorization: `AUTHORIZED_TO_BEGIN`
 
 Production migration execution authorization: `NOT_AUTHORIZED`
 
@@ -105,6 +105,39 @@ Neither was hidden or blindly rerun. Both failed only on unused test imports bef
 execution; the minimal follow-up commits removed those imports without changing production or V38
 semantics.
 
+### Acceptance evidence permanent validation
+
+The M5-C governance acceptance package was permanently validated without changing production Java,
+Flyway V38 or production execution authority:
+
+- workflow: `Approval Platform Validation`;
+- Run ID: `30148042479`;
+- run number: `#536`;
+- head: `e01db0cc3f70e52075915ca3157ab3774272c5aa`;
+- result: `success`;
+- all four jobs succeeded;
+- Maven aggregate: `560` tests, zero failures, zero errors and zero skipped;
+- approval-domain: `31/31`;
+- approval-engine-flowable: `40/40`;
+- approval-application: `132/132`;
+- approval-persistence-jdbc: `236/236`;
+- M5-C1 domain/application/JDBC: `20/20`;
+- M5 permanent Node boundaries: `37/37`;
+- all four raw job logs were read;
+- all four downloaded artifact ZIP SHA-256 values matched GitHub digests.
+
+The acceptance Run #536 artifacts are:
+
+| Artifact | ID | GitHub digest and downloaded ZIP SHA-256 |
+| --- | ---: | --- |
+| `approval-maven-30148042479` | `8616737593` | `02d10440bdad5e3276a7e12c230405913ed8af87fe89c64f7e8cabe24ce66c80` — exact match |
+| `approval-vben-30148042479` | `8616687961` | `53d42742937e2b642a8024c7cd85552bcac2da6650f4977168b581703c44c620` — exact match |
+| `approval-mobile-30148042479` | `8616679380` | `db6429b3a515b8d24cbf7d90da7d95af0af9aa649c047519776fa4072f3ad960` — exact match |
+| `approval-hygiene-30148042479` | `8616672002` | `c0ed0a809830ed060fa22bf8183ecbdb8cf456050c6111a592e39ea6dc0bcfb7` — exact match |
+
+This validation authorizes M5-D to begin controlled design and implementation. It does not authorize
+production migration execution, mark PR #58 Ready, merge it or close any issue.
+
 ## Accepted limitations
 
 M5-C acceptance does not provide or authorize:
@@ -124,8 +157,8 @@ M5-C acceptance does not provide or authorize:
 
 ## M5-D gate after acceptance validation
 
-After this acceptance package is permanently validated, M5-D is the only authorized next stage.
-M5-D may begin controlled server-side executor, verification, `UNKNOWN` handling and reconciliation
+This acceptance package is permanently validated. M5-D is the only authorized next stage and
+may begin controlled server-side executor, verification, `UNKNOWN` handling and reconciliation
 design and implementation, subject to all permanent Issue #56 invariants.
 
 M5-D authorization to begin is not production migration execution approval. Production execution must
@@ -136,7 +169,6 @@ reconciliation boundaries.
 ## Governance result
 
 M5-C is accepted for its immutable-plan and exact-approval-gate scope. This does not mark PR #58 Ready.
-The acceptance decision becomes the stage baseline only after this evidence package receives permanent
-validation.
+The acceptance decision and evidence are permanently validated and now form the M5-C stage baseline.
 
 PR #58 must remain Open + Draft. No auto-merge, merge or issue closure is authorized.
