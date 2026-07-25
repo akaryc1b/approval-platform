@@ -1,6 +1,5 @@
 package io.github.akaryc1b.approval.application;
 
-import io.github.akaryc1b.approval.application.ApprovalMigrationPlanService.AuthorizePlanCommand;
 import io.github.akaryc1b.approval.application.ApprovalMigrationPlanService.CreatePlanCommand;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseMigrationAssessmentService.AssessmentResult;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseMigrationAssessmentService.AssessmentStatus;
@@ -12,7 +11,6 @@ import io.github.akaryc1b.approval.application.port.ApprovalProcessReleaseStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
-import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.domain.audit.AuditEvent;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
@@ -23,7 +21,6 @@ import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlan;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAuthorization;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanEvent;
-import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanProtocol.PlanStatus;
 import org.junit.jupiter.api.BeforeEach;
 
 import java.time.Clock;
@@ -38,7 +35,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-
 
 abstract class ApprovalMigrationPlanServiceTestSupport {
 
@@ -307,8 +303,16 @@ abstract class ApprovalMigrationPlanServiceTestSupport {
                 : Optional.empty();
         }
 
-        @Override public void lock(String tenantId, String definitionKey) { throw unsupported(); }
-        @Override public Optional<ApprovalProcessRelease> findActive(String t, String d) { throw unsupported(); }
+        @Override
+        public void lock(String tenantId, String definitionKey) {
+            throw unsupported();
+        }
+
+        @Override
+        public Optional<ApprovalProcessRelease> findActive(String tenantId, String definitionKey) {
+            throw unsupported();
+        }
+
         @Override
         public Optional<ApprovalProcessRelease.Transition> findTransitionByIdempotency(
             String tenantId,
@@ -316,8 +320,17 @@ abstract class ApprovalMigrationPlanServiceTestSupport {
         ) {
             throw unsupported();
         }
-        @Override public ReleasePage findReleases(ReleaseCriteria c) { throw unsupported(); }
-        @Override public TransitionPage findHistory(TransitionCriteria c) { throw unsupported(); }
+
+        @Override
+        public ReleasePage findReleases(ReleaseCriteria criteria) {
+            throw unsupported();
+        }
+
+        @Override
+        public TransitionPage findHistory(TransitionCriteria criteria) {
+            throw unsupported();
+        }
+
         @Override
         public void savePublished(
             ApprovalProcessRelease release,
@@ -358,10 +371,18 @@ abstract class ApprovalMigrationPlanServiceTestSupport {
                 : Optional.empty();
         }
 
-        @Override public void lock(String t, String d, int v) { throw unsupported(); }
-        @Override public void save(ApprovalReleaseDeployment d) { throw unsupported(); }
         @Override
-        public boolean update(ApprovalReleaseDeployment d, int expectedAttemptCount) {
+        public void lock(String tenantId, String definitionKey, int releaseVersion) {
+            throw unsupported();
+        }
+
+        @Override
+        public void save(ApprovalReleaseDeployment value) {
+            throw unsupported();
+        }
+
+        @Override
+        public boolean update(ApprovalReleaseDeployment value, int expectedAttemptCount) {
             throw unsupported();
         }
     }
@@ -384,11 +405,30 @@ abstract class ApprovalMigrationPlanServiceTestSupport {
                 : Optional.empty();
         }
 
-        @Override public void lockVersion(String t, String d, int v) { throw unsupported(); }
-        @Override public Optional<ApprovalReleasePackage> findLatest(String t, String d) { throw unsupported(); }
-        @Override public Optional<ApprovalReleasePackage> findByDraft(String t, UUID d) { throw unsupported(); }
-        @Override public ReleasePage findReleases(ReleaseCriteria c) { throw unsupported(); }
-        @Override public void save(ApprovalReleasePackage p) { throw unsupported(); }
+        @Override
+        public void lockVersion(String tenantId, String definitionKey, int releaseVersion) {
+            throw unsupported();
+        }
+
+        @Override
+        public Optional<ApprovalReleasePackage> findLatest(String tenantId, String definitionKey) {
+            throw unsupported();
+        }
+
+        @Override
+        public Optional<ApprovalReleasePackage> findByDraft(String tenantId, UUID draftId) {
+            throw unsupported();
+        }
+
+        @Override
+        public ReleasePage findReleases(ReleaseCriteria criteria) {
+            throw unsupported();
+        }
+
+        @Override
+        public void save(ApprovalReleasePackage releasePackage) {
+            throw unsupported();
+        }
     }
 
     protected static UnsupportedOperationException unsupported() {
@@ -397,7 +437,8 @@ abstract class ApprovalMigrationPlanServiceTestSupport {
 
     protected static final class InMemoryPlanStore implements ApprovalMigrationPlanStore {
         protected final Map<UUID, ApprovalMigrationPlan> plans = new LinkedHashMap<>();
-        protected final Map<UUID, ApprovalMigrationPlanAuthorization> authorizations = new LinkedHashMap<>();
+        protected final Map<UUID, ApprovalMigrationPlanAuthorization> authorizations =
+            new LinkedHashMap<>();
         protected final Map<UUID, List<ApprovalMigrationPlanEvent>> events = new LinkedHashMap<>();
 
         @Override
