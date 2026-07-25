@@ -96,7 +96,8 @@ The following remain blocked after P2-E:
 - no token acquisition, refresh, cache or Authorization header injection;
 - no tenant routing;
 - no persistence, credential store or Flyway migration;
-- no scheduler, worker or background job;
+- no scheduler or background job;
+- no worker;
 - no automatic retry;
 - no recovery, fallback, weighted routing, load balancing or health routing;
 - no shared authorization, audit or production observability-export change;
@@ -120,7 +121,7 @@ No local Maven executable was available in the execution environment, so Maven r
 and architecture execution are taken only from the permanent GitHub Actions workflow rather than
 claimed from local validation.
 
-### Retained validation failure
+### Retained validation failures
 
 Run `30155260636` / run #548 is retained. Credential Core, DingTalk, Checkstyle and all preceding
 modules succeeded, while the new permanent boundary class failed two governance assertions. The
@@ -128,11 +129,14 @@ first assertion counted every manual or specialized workflow file instead of onl
 `pull_request` / `push` workflows. The second required the exact phrase `no automatic retry` while
 the document used an equivalent compound sentence.
 
-The minimum correction is commit
-`a1ec009e9c3fd56b4d7276abcb4c0f57bd036509`: it aligns the workflow filter with the repository's
-established automatic-workflow test. This document now states the blocked retry capability with the
-exact phrase required by the permanent gate. The failed run was not rerun or hidden; this new Head
-triggers a natural new run.
+Commit `a1ec009e9c3fd56b4d7276abcb4c0f57bd036509` aligned the workflow filter with the repository's
+established automatic-workflow test. The failed run was not rerun or hidden; the new Head triggered
+a natural run.
+
+Run `30155542705` / run #549 is also retained. The workflow filter and `no automatic retry` gate
+passed. The only remaining failure was the exact governance phrase `no worker`, while the document
+used the compound text `no scheduler, worker or background job`. This document now states
+`no worker` explicitly. Run #549 was not rerun or hidden; a new commit triggers another natural run.
 
 ## Stop condition
 
