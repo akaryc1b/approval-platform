@@ -50,7 +50,9 @@ public record ApprovalMigrationPlanEvent(
             }
         } else {
             ApprovalMigrationPlanProtocol.requireTransition(fromStatus, toStatus);
-            if (toStatus == PlanStatus.AUTHORIZED) {
+            boolean authorizationBound = toStatus == PlanStatus.AUTHORIZED
+                || fromStatus == PlanStatus.AUTHORIZED;
+            if (authorizationBound) {
                 authorizationId = Objects.requireNonNull(
                     authorizationId,
                     "authorizationId must not be null"
@@ -61,7 +63,7 @@ public record ApprovalMigrationPlanEvent(
                 );
             } else if (authorizationId != null || authorizationEvidenceHash != null) {
                 throw new IllegalArgumentException(
-                    "only authorization transition may add authorization evidence"
+                    "only an authorization-bound transition may retain authorization evidence"
                 );
             }
         }
