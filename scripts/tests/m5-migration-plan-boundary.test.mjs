@@ -8,28 +8,24 @@ const read = (file) => readFile(path.join(root, file), 'utf8');
 const app = 'server-modules/approval-application/src/main/java/io/github/akaryc1b/approval';
 const jdbc = 'server-modules/approval-persistence-jdbc/src';
 
-test('M5-C1 is permanently validated plan-only evidence below execution authority', async () => {
+test('M5-C is accepted pending evidence validation and remains below production execution', async () => {
   const evidence = await read('docs/M5_C_IMMUTABLE_MIGRATION_PLAN_PROTOCOL.md');
   for (const value of [
-    'M5-C stage status: `IN_PROGRESS`',
+    'M5-C stage status: `ACCEPTED_PENDING_ACCEPTANCE_EVIDENCE_VALIDATION`',
+    'M5-C governance decision: `ACCEPTED`',
     'M5-C1 status: `PERMANENTLY_VALIDATED`',
-    'M5-C1 evidence freeze status: `IMPLEMENTED_AWAITING_FINAL_VALIDATION`',
-    'M5-B governance decision remains `ACCEPTED`',
-    'It does not create an execution intent, invoke Flowable, mutate runtime bindings',
-    'Run ID: `30113635674`',
-    'run number: `#532`',
-    'Run ID: `30136606769`',
-    'run number: `#533`',
-    'Run ID: `30136814277`',
-    'run number: `#534`',
+    'M5-C acceptance evidence status: `IMPLEMENTED_AWAITING_PERMANENT_VALIDATION`',
+    'M5-D stage authorization: `AUTHORIZED_AFTER_ACCEPTANCE_EVIDENCE_VALIDATION`',
+    'Production migration execution authorization: `NOT_AUTHORIZED`',
+    'Run ID: `30137372365`',
     'Maven aggregate: `560` tests',
     'M5-C1 domain/application/JDBC total: `20/20`',
     'M5 permanent Node boundaries: `35/35`',
-    'dd00cb2d11bf04ed947a292bbf59e9101b94e686306f600cdd2050268903ee37',
-    'M5-D and\nproduction execution remain `NOT_AUTHORIZED`',
+    'PR #58 remains Open + Draft',
+    'Issues #13, #14 and #56 remain Open',
   ]) assert.ok(evidence.includes(value), `missing ${value}`);
-  assert.doesNotMatch(evidence, /M5-C stage status: `ACCEPTED`/);
-  assert.doesNotMatch(evidence, /M5-D stage authorization: `AUTHORIZED`/);
+  assert.doesNotMatch(evidence, /M5-D stage authorization: `AUTHORIZED_TO_BEGIN`/);
+  assert.doesNotMatch(evidence, /Production migration execution authorization: `AUTHORIZED`/);
 });
 
 test('V38 creates four guarded plan tables without changing M5-B intent', async () => {
