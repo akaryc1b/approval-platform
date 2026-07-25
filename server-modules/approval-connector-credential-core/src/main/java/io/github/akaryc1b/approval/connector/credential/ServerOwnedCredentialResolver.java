@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.connector.contract.ConnectorCredentialResolve
 import io.github.akaryc1b.approval.connector.contract.CredentialReference;
 import io.github.akaryc1b.approval.connector.contract.TrustedConnectorExecutionContext;
 
+import java.io.Serial;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
@@ -66,16 +67,24 @@ public final class ServerOwnedCredentialResolver
 
         Instant now = clock.instant();
         CredentialReference reference = request.context().credentialReference();
-        Optional<CredentialBindingDescriptor> found = bindingCatalog.find(reference);
+        Optional<CredentialBindingDescriptor> found;
+        try {
+            found = Objects.requireNonNull(
+                bindingCatalog.find(reference),
+                "binding catalog returned null"
+            );
+        } catch (RuntimeException exception) {
+            throw failure(request, now, CredentialResolutionStatus.UNKNOWN, null, null);
+        }
         if (found.isEmpty()) {
             throw failure(request, now, CredentialResolutionStatus.REFERENCE_NOT_FOUND, null, null);
         }
         CredentialBindingDescriptor descriptor = found.orElseThrow();
         validateDescriptor(request, descriptor, now);
 
-        CredentialMaterialSource.MaterialScope materialScope;
+        CredentialMaterialSource.MaterialScope openedScope;
         try {
-            materialScope = Objects.requireNonNull(
+            openedScope = Objects.requireNonNull(
                 materialSource.openMaterial(reference, descriptor.keyId(), descriptor.versionId()),
                 "material source returned null scope"
             );
@@ -97,19 +106,50 @@ public final class ServerOwnedCredentialResolver
             );
         }
 
-        try {
-            if (!materialScope.active()
-                || !descriptor.keyId().equals(materialScope.keyId())
+        String sourceEvidenceHash = null;
+        try (MaterialScopeGuard materialScope = new MaterialScopeGuard(openedScope)) {
+            if (!materialScope.active()) {
+                throw new MaterialAccessException(
+                    CredentialResolutionStatus.MATERIAL_INVALID,
+                    null
+                );
+            }
+            if (!descriptor.keyId().equals(materialScope.keyId())
                 || !descriptor.versionId().equals(materialScope.versionId())) {
                 throw failure(
                     request,
                     now,
                     CredentialResolutionStatus.VERSION_MISMATCH,
                     descriptor,
-                    materialScope.sourceEvidenceHash()
+                    null
                 );
             }
-            CredentialBindingDescriptor currentDescriptor = bindingCatalog.find(reference).orElse(null);
+            try {
+                sourceEvidenceHash = CredentialContractSupport.requireSha256(
+                    materialScope.sourceEvidenceHash(),
+                    "sourceEvidenceHash"
+                );
+            } catch (MaterialAccessException exception) {
+                throw exception;
+            } catch (RuntimeException exception) {
+                throw new MaterialAccessException(
+                    CredentialResolutionStatus.MATERIAL_INVALID,
+                    exception
+                );
+            }
+
+            CredentialBindingDescriptor currentDescriptor;
+            try {
+                currentDescriptor = bindingCatalog.find(reference).orElse(null);
+            } catch (RuntimeException exception) {
+                throw failure(
+                    request,
+                    now,
+                    CredentialResolutionStatus.UNKNOWN,
+                    descriptor,
+                    sourceEvidenceHash
+                );
+            }
             if (currentDescriptor == null
                 || !descriptor.fingerprint().equals(currentDescriptor.fingerprint())) {
                 throw failure(
@@ -117,7 +157,7 @@ public final class ServerOwnedCredentialResolver
                     now,
                     CredentialResolutionStatus.VERSION_MISMATCH,
                     descriptor,
-                    materialScope.sourceEvidenceHash()
+                    sourceEvidenceHash
                 );
             }
 
@@ -126,21 +166,24 @@ public final class ServerOwnedCredentialResolver
                 now,
                 CredentialResolutionStatus.RESOLVED,
                 descriptor,
-                materialScope.sourceEvidenceHash()
+                sourceEvidenceHash
             );
-            ScopedCredentialImpl credential = new ScopedCredentialImpl(
+            try (ScopedCredentialImpl credential = new ScopedCredentialImpl(
                 descriptor,
                 evidence,
                 materialScope
-            );
-            try {
+            )) {
                 use.accept(credential);
                 return evidence;
-            } finally {
-                credential.close();
             }
-        } finally {
-            materialScope.close();
+        } catch (MaterialAccessException exception) {
+            throw failure(
+                request,
+                now,
+                exception.status(),
+                descriptor,
+                sourceEvidenceHash
+            );
         }
     }
 
@@ -265,13 +308,13 @@ public final class ServerOwnedCredentialResolver
 
         private final CredentialBindingDescriptor descriptor;
         private final CredentialResolutionEvidence evidence;
-        private final CredentialMaterialSource.MaterialScope materialScope;
+        private final MaterialScopeGuard materialScope;
         private boolean active = true;
 
         private ScopedCredentialImpl(
             CredentialBindingDescriptor descriptor,
             CredentialResolutionEvidence evidence,
-            CredentialMaterialSource.MaterialScope materialScope
+            MaterialScopeGuard materialScope
         ) {
             this.descriptor = descriptor;
             this.evidence = evidence;
@@ -319,18 +362,26 @@ public final class ServerOwnedCredentialResolver
         public void useSecretBytes(SecretBytesUse use) {
             requireActive();
             Objects.requireNonNull(use, "use must not be null");
-            materialScope.useSecretBytes(sourceBytes -> {
-                Objects.requireNonNull(sourceBytes, "material source returned null bytes");
-                if (sourceBytes.length == 0 || sourceBytes.length > 16_384) {
-                    throw new CredentialMaterialSource.MaterialInvalidException();
-                }
-                byte[] scopedCopy = sourceBytes.clone();
-                try {
-                    use.accept(scopedCopy);
-                } finally {
-                    Arrays.fill(scopedCopy, (byte) 0);
-                }
-            });
+            try {
+                materialScope.useSecretBytes(sourceBytes -> {
+                    Objects.requireNonNull(sourceBytes, "material source returned null bytes");
+                    if (sourceBytes.length == 0 || sourceBytes.length > 16_384) {
+                        throw new CredentialMaterialSource.MaterialInvalidException();
+                    }
+                    byte[] scopedCopy = sourceBytes.clone();
+                    try {
+                        try {
+                            use.accept(scopedCopy);
+                        } catch (RuntimeException exception) {
+                            throw new SecretCallbackException(exception);
+                        }
+                    } finally {
+                        Arrays.fill(scopedCopy, (byte) 0);
+                    }
+                });
+            } catch (SecretCallbackException exception) {
+                throw exception.callbackFailure();
+            }
         }
 
         @Override
@@ -348,6 +399,7 @@ public final class ServerOwnedCredentialResolver
         public void close() {
             if (active) {
                 active = false;
+                materialScope.close();
             }
         }
 
@@ -355,6 +407,155 @@ public final class ServerOwnedCredentialResolver
             if (!active) {
                 throw new IllegalStateException("credential scope is closed");
             }
+        }
+    }
+
+    private static final class MaterialScopeGuard implements AutoCloseable {
+
+        private final CredentialMaterialSource.MaterialScope delegate;
+        private boolean closed;
+
+        private MaterialScopeGuard(CredentialMaterialSource.MaterialScope delegate) {
+            this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
+        }
+
+        private boolean active() {
+            requireOpen();
+            try {
+                return delegate.active();
+            } catch (CredentialMaterialSource.SourceUnavailableException exception) {
+                throw new MaterialAccessException(
+                    CredentialResolutionStatus.MATERIAL_SOURCE_UNAVAILABLE,
+                    exception
+                );
+            } catch (RuntimeException exception) {
+                throw new MaterialAccessException(
+                    CredentialResolutionStatus.MATERIAL_INVALID,
+                    exception
+                );
+            }
+        }
+
+        private String keyId() {
+            return metadata(delegate::keyId);
+        }
+
+        private String versionId() {
+            return metadata(delegate::versionId);
+        }
+
+        private String sourceEvidenceHash() {
+            return metadata(delegate::sourceEvidenceHash);
+        }
+
+        private void useSecretBytes(SecretBytesUse use) {
+            requireOpen();
+            try {
+                delegate.useSecretBytes(use);
+            } catch (SecretCallbackException exception) {
+                throw exception;
+            } catch (CredentialMaterialSource.SourceUnavailableException exception) {
+                throw new MaterialAccessException(
+                    CredentialResolutionStatus.MATERIAL_SOURCE_UNAVAILABLE,
+                    exception
+                );
+            } catch (CredentialMaterialSource.MaterialInvalidException exception) {
+                throw new MaterialAccessException(
+                    CredentialResolutionStatus.MATERIAL_INVALID,
+                    exception
+                );
+            } catch (RuntimeException exception) {
+                throw new MaterialAccessException(
+                    CredentialResolutionStatus.MATERIAL_INVALID,
+                    exception
+                );
+            }
+        }
+
+        @Override
+        public void close() {
+            if (!closed) {
+                closed = true;
+                try {
+                    delegate.close();
+                } catch (CredentialMaterialSource.SourceUnavailableException exception) {
+                    throw new MaterialAccessException(
+                        CredentialResolutionStatus.MATERIAL_SOURCE_UNAVAILABLE,
+                        exception
+                    );
+                } catch (RuntimeException exception) {
+                    throw new MaterialAccessException(
+                        CredentialResolutionStatus.MATERIAL_INVALID,
+                        exception
+                    );
+                }
+            }
+        }
+
+        private String metadata(MetadataUse use) {
+            requireOpen();
+            try {
+                return use.get();
+            } catch (CredentialMaterialSource.SourceUnavailableException exception) {
+                throw new MaterialAccessException(
+                    CredentialResolutionStatus.MATERIAL_SOURCE_UNAVAILABLE,
+                    exception
+                );
+            } catch (RuntimeException exception) {
+                throw new MaterialAccessException(
+                    CredentialResolutionStatus.MATERIAL_INVALID,
+                    exception
+                );
+            }
+        }
+
+        private void requireOpen() {
+            if (closed) {
+                throw new IllegalStateException("material scope is closed");
+            }
+        }
+
+        @FunctionalInterface
+        private interface MetadataUse {
+
+            String get();
+        }
+    }
+
+    private static final class MaterialAccessException extends IllegalStateException {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        private final CredentialResolutionStatus status;
+
+        private MaterialAccessException(
+            CredentialResolutionStatus status,
+            RuntimeException cause
+        ) {
+            super("credential material access failed", cause);
+            this.status = Objects.requireNonNull(status, "status must not be null");
+        }
+
+        private CredentialResolutionStatus status() {
+            return status;
+        }
+    }
+
+    private static final class SecretCallbackException extends IllegalStateException {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        private final RuntimeException callbackFailure;
+
+        private SecretCallbackException(RuntimeException callbackFailure) {
+            super("credential callback failed", callbackFailure);
+            this.callbackFailure = callbackFailure;
+        }
+
+        private RuntimeException callbackFailure() {
+            return callbackFailure;
         }
     }
 }
