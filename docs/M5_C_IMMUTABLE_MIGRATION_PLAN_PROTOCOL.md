@@ -2,7 +2,9 @@
 
 M5-C stage status: `IN_PROGRESS`
 
-M5-C1 status: `IMPLEMENTED_PENDING_PERMANENT_VALIDATION`
+M5-C1 status: `PERMANENTLY_VALIDATED`
+
+M5-C1 evidence freeze status: `IMPLEMENTED_AWAITING_FINAL_VALIDATION`
 
 M5-B governance decision remains `ACCEPTED` and its evidence remains
 `PERMANENTLY_VALIDATED`.
@@ -48,8 +50,9 @@ The service fails closed unless the assessment:
 - provides a nonempty canonical active-task key set and binding evidence hash for every selection.
 
 The selected set is explicit and bounded to 1–1000 UUIDs. It cannot be a query evaluated later.
-Duplicate selection identities fail. Selected instances and task keys are sorted before hashing and persistence. Task-key counts and
-each individual key are hashed as separate canonical values rather than a delimiter-joined string.
+Duplicate selection identities fail. Selected instances and task keys are sorted before hashing and
+persistence. Task-key counts and each individual key are hashed as separate canonical values rather
+than a delimiter-joined string.
 
 The deterministic plan hash covers:
 
@@ -93,15 +96,18 @@ status, unexpired plan and unexpired authorization. It does not consume a plan o
 
 ## 4. Flyway V38
 
-`db.migration.V38__Create_immutable_process_migration_plans` is a checksum-bearing Flyway Java migration. It deterministically concatenates seven immutable classpath SQL fragments and adds four tenant-scoped tables:
+`db.migration.V38__Create_immutable_process_migration_plans` is a checksum-bearing Flyway Java
+migration. It deterministically concatenates seven immutable classpath SQL fragments and adds four
+tenant-scoped tables:
 
 1. `ap_process_migration_plan`;
 2. `ap_process_migration_plan_instance`;
 3. `ap_process_migration_plan_authorization`;
 4. `ap_process_migration_plan_event`.
 
-The assembled V38 SQL does not alter the accepted M5-B intent, attempt, verification or reconciliation tables. There is
-no foreign key or application call that automatically converts an authorized plan into an intent.
+The assembled V38 SQL does not alter the accepted M5-B intent, attempt, verification or
+reconciliation tables. There is no foreign key or application call that automatically converts an
+authorized plan into an intent.
 
 Database guards enforce:
 
@@ -134,10 +140,97 @@ Permanent domain, application and PostgreSQL/Testcontainers tests cover:
 - exact authorization replay and authorized read gating;
 - stale revision and mismatched authorization rejection;
 - concurrent authorization with exactly one revision owner;
+- target deployment identity drift rejection at service and database boundaries;
 - direct plan, selection, authorization and event mutation/deletion rejection;
+- cross-tenant authorization reference rejection;
 - fresh, historical, V37-to-V38 and 5,000-instance/task upgrade paths.
 
-## 6. Explicitly absent
+## 6. Retained failed validation evidence
+
+### Run #532 — application test import hygiene
+
+- workflow Run ID: `30113635674`;
+- run number: `#532`;
+- head: `24ba20d5a8bf941450365caa4b41472dd87a97c6`;
+- conclusion: `failure`;
+- Repository hygiene, Vben and Mobile succeeded;
+- Java stopped at application Checkstyle because two M5-C test files retained 30 unused imports;
+- no application test, JDBC test, V38 migration or PostgreSQL semantic failure occurred;
+- no rerun was used.
+
+| Artifact | ID | GitHub digest and downloaded ZIP SHA-256 |
+| --- | ---: | --- |
+| `approval-maven-30113635674` | `8604560277` | `35ab49754a66d6a7c62f74e181e99a55213404d0a1b0b8af92f0281ad4290804` — exact match |
+| `approval-vben-30113635674` | `8604564540` | `0e9515e62efb37b91509c75984d0142599fe15e95e8bc32d60e8b0eeeed3430b` — exact match |
+| `approval-mobile-30113635674` | `8604544311` | `900713a8604085fc83432043a2f32153ebcdd418fec8287e3507c541cf77a8bb` — exact match |
+| `approval-hygiene-30113635674` | `8604520545` | `af0d64d6e7447cf21e9cbed5613601e8f63a8824bced901ce9b913a295f738e6` — exact match |
+
+The minimal follow-up commit was
+`dd876e84fc9be709157a283af8bd6f4748a2603b` — `fix: clean migration plan test imports`.
+
+### Run #533 — JDBC test import hygiene
+
+- workflow Run ID: `30136606769`;
+- run number: `#533`;
+- head: `dd876e84fc9be709157a283af8bd6f4748a2603b`;
+- conclusion: `failure`;
+- Repository hygiene, Vben and Mobile succeeded;
+- domain tests were `31/31`, Flowable tests were `40/40` and application tests were `132/132`;
+- Java then stopped at persistence-jdbc Checkstyle because two M5-C JDBC tests retained four unused imports;
+- no V38 migration or PostgreSQL semantic failure occurred;
+- no rerun was used.
+
+| Artifact | ID | GitHub digest and downloaded ZIP SHA-256 |
+| --- | ---: | --- |
+| `approval-maven-30136606769` | `8613016086` | `b9cf6d0c7bdd890ee9d88581fe69021c74e5dc30706ac1c3fffe8268071de44b` — exact match |
+| `approval-vben-30136606769` | `8613019403` | `b508a2e3f781ff4e0ff88a628601cc5912035a9aa5d32b71e0a102da63b84914` — exact match |
+| `approval-mobile-30136606769` | `8613010792` | `13fbaf0ba9648fdbfbd5225654355824861a5e7937f17b18a8b79a06a92078f0` — exact match |
+| `approval-hygiene-30136606769` | `8612998465` | `0702494a695e9acd05ab284bed778825052dece79d5334160cca8ad23ba11d30` — exact match |
+
+The minimal follow-up commit was
+`502bb7462c2191cbef98f64e286d84a91ea8ed57` — `fix: clean migration plan jdbc test imports`.
+
+## 7. Successful implementation validation
+
+M5-C1 was permanently validated by the unique automatic workflow:
+
+- workflow: `Approval Platform Validation`;
+- Run ID: `30136814277`;
+- run number: `#534`;
+- head: `502bb7462c2191cbef98f64e286d84a91ea8ed57`;
+- result: `success`;
+- all four jobs succeeded;
+- all four raw job logs were read;
+- all four downloaded artifact ZIP SHA-256 values matched GitHub digests.
+
+| Artifact | ID | GitHub digest and downloaded ZIP SHA-256 |
+| --- | ---: | --- |
+| `approval-maven-30136814277` | `8613145767` | `dd00cb2d11bf04ed947a292bbf59e9101b94e686306f600cdd2050268903ee37` — exact match |
+| `approval-vben-30136814277` | `8613087604` | `a3bb4e3135d40d895bbe7e23e71b3f7841f0d4ecd7f005ac0d77a70faf24391e` — exact match |
+| `approval-mobile-30136814277` | `8613079906` | `dedf3c9b35c995644658757e2506c15fed381f5fb76d5755fe7c751acf75b2ee` — exact match |
+| `approval-hygiene-30136814277` | `8613068920` | `733eb9be61f5faafa4fb1271fe6fe72fe7fbf920f962e9df8395197ab6adb6b5` — exact match |
+
+Final implementation evidence:
+
+- Maven aggregate: `560` tests, zero failures, zero errors and zero skipped;
+- approval-domain: `31/31`;
+- approval-engine-flowable: `40/40`;
+- approval-application: `132/132`;
+- approval-persistence-jdbc: `236/236`;
+- M5-C1 domain tests: `4/4`;
+- M5-C1 application service tests: `7/7`;
+- M5-C1 PostgreSQL plan scenarios: `9/9`;
+- M5-C1 domain/application/JDBC total: `20/20`;
+- M5 permanent Node boundaries: `35/35`;
+- M4 SLA/calendar boundaries: `13/13`;
+- M4 release governance boundaries: `5/5`;
+- Vben client boundaries: `10/10`;
+- Vben type-check and production build succeeded;
+- UniApp type-check, H5 build and WeChat Mini Program build succeeded;
+- fresh, historical, V37-to-V38 and 5,000-instance/task upgrade paths reached V38 and preserved evidence;
+- Maven reactor completed all 16 modules with `BUILD SUCCESS`.
+
+## 8. Explicitly absent
 
 M5-C1 includes no:
 
@@ -154,8 +247,9 @@ M5-C1 includes no:
 - second automatic workflow;
 - PR Ready, auto-merge, merge or issue closure.
 
-## 7. Next gate
+## 9. Next gate
 
-M5-C remains `IN_PROGRESS` after this slice. The next permitted decision is whether additional M5-C
-plan lifecycle/approval governance evidence is required before formal M5-C acceptance. M5-D and
+M5-C remains `IN_PROGRESS` after this slice. M5-C1 is permanently validated, but this does not
+accept the whole M5-C stage. The next permitted decision is whether additional M5-C plan
+lifecycle/approval governance evidence is required before formal M5-C acceptance. M5-D and
 production execution remain `NOT_AUTHORIZED`.
