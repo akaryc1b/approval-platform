@@ -84,7 +84,7 @@ Permanent tests prove that credential core has no Spring, Flowable, JDBC, HTTP, 
 secret-loader, cloud secret SDK, scheduler or worker dependency; DingTalk does not implement the
 Resolver; browser and mobile code cannot access trusted credential types; evidence and plans carry
 no raw secret type; production code retains no secret byte-array field; and the branch adds no
-workflow or Flyway migration.
+automatic PR/main workflow or Flyway migration.
 
 ## Explicitly absent and blocked
 
@@ -96,7 +96,8 @@ The following remain blocked after P2-E:
 - no token acquisition, refresh, cache or Authorization header injection;
 - no tenant routing;
 - no persistence, credential store or Flyway migration;
-- no scheduler, worker, background job or automatic retry;
+- no scheduler, worker or background job;
+- no automatic retry;
 - no recovery, fallback, weighted routing, load balancing or health routing;
 - no shared authorization, audit or production observability-export change;
 - no browser or mobile credential control;
@@ -118,6 +119,20 @@ workflow completes.
 No local Maven executable was available in the execution environment, so Maven reactor, Checkstyle
 and architecture execution are taken only from the permanent GitHub Actions workflow rather than
 claimed from local validation.
+
+### Retained validation failure
+
+Run `30155260636` / run #548 is retained. Credential Core, DingTalk, Checkstyle and all preceding
+modules succeeded, while the new permanent boundary class failed two governance assertions. The
+first assertion counted every manual or specialized workflow file instead of only automatic
+`pull_request` / `push` workflows. The second required the exact phrase `no automatic retry` while
+the document used an equivalent compound sentence.
+
+The minimum correction is commit
+`a1ec009e9c3fd56b4d7276abcb4c0f57bd036509`: it aligns the workflow filter with the repository's
+established automatic-workflow test. This document now states the blocked retry capability with the
+exact phrase required by the permanent gate. The failed run was not rerun or hidden; this new Head
+triggers a natural new run.
 
 ## Stop condition
 
