@@ -69,16 +69,22 @@ public final class ApprovalMigrationExecutionAdmissionService {
 
     public AdmissionResult admit(AdmitPlanCommand command) {
         Objects.requireNonNull(command, "command must not be null");
+        String requestHash = requestHash(command);
         return idempotency.execute(
             command.context(),
             OPERATION,
-            requestHash(command),
+            requestHash,
             AdmissionResult.class,
-            () -> admitOnce(command)
+            () -> admissions.findAdmission(
+                command.context().tenantId(),
+                command.planId(),
+                command.context().idempotencyKey(),
+                requestHash
+            ).orElseGet(() -> admitOnce(command, requestHash))
         );
     }
 
-    private AdmissionResult admitOnce(AdmitPlanCommand command) {
+    private AdmissionResult admitOnce(AdmitPlanCommand command, String requestHash) {
         RequestContext context = command.context();
         Instant now = clock.instant();
         ApprovalMigrationPlan plan = plans.requireAuthorizedPlan(
@@ -89,7 +95,6 @@ public final class ApprovalMigrationExecutionAdmissionService {
         );
         requireCurrentReleaseEvidence(plan);
 
-        String requestHash = requestHash(command);
         UUID auditEventId = nextIdentifier("auditEventId");
         UUID intentId = nextIdentifier("intentId");
         UUID consumptionId = nextIdentifier("consumptionId");

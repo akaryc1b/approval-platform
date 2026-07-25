@@ -16,6 +16,13 @@ public interface ApprovalMigrationExecutionAdmissionStore {
 
     AdmissionResult admit(AdmissionRequest request);
 
+    Optional<AdmissionResult> findAdmission(
+        String tenantId,
+        UUID planId,
+        String idempotencyKey,
+        String requestHash
+    );
+
     Optional<ApprovalMigrationPlanConsumption> findConsumption(String tenantId, UUID planId);
 
     record AdmissionRequest(

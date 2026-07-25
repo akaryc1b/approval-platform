@@ -56,8 +56,9 @@ public final class JdbcApprovalMigrationExecutionAdmissionStore
     public AdmissionResult admit(AdmissionRequest request) {
         Objects.requireNonNull(request, "request must not be null");
         requireEvidence(request);
-        Optional<AdmissionResult> replay = findReplay(
+        Optional<AdmissionResult> replay = findAdmission(
             request.consumption().tenantId(),
+            request.consumption().planId(),
             request.consumption().idempotencyKey(),
             request.consumption().requestHash()
         );
@@ -67,8 +68,9 @@ public final class JdbcApprovalMigrationExecutionAdmissionStore
         try {
             return transactions.execute(status -> admitOnce(request));
         } catch (DataAccessException exception) {
-            Optional<AdmissionResult> concurrentReplay = findReplay(
+            Optional<AdmissionResult> concurrentReplay = findAdmission(
                 request.consumption().tenantId(),
+                request.consumption().planId(),
                 request.consumption().idempotencyKey(),
                 request.consumption().requestHash()
             );
@@ -80,6 +82,20 @@ public final class JdbcApprovalMigrationExecutionAdmissionStore
                 exception
             );
         }
+    }
+
+    @Override
+    public Optional<AdmissionResult> findAdmission(
+        String tenantId,
+        UUID planId,
+        String idempotencyKey,
+        String requestHash
+    ) {
+        Optional<AdmissionResult> replay = findReplay(tenantId, idempotencyKey, requestHash);
+        if (replay.isPresent() && !replay.get().consumption().planId().equals(planId)) {
+            throw conflict("migration admission idempotency key belongs to another plan");
+        }
+        return replay;
     }
 
     @Override
@@ -97,8 +113,9 @@ public final class JdbcApprovalMigrationExecutionAdmissionStore
 
     private AdmissionResult admitOnce(AdmissionRequest request) {
         ApprovalMigrationPlanConsumption requestedConsumption = request.consumption();
-        Optional<AdmissionResult> replay = findReplay(
+        Optional<AdmissionResult> replay = findAdmission(
             requestedConsumption.tenantId(),
+            requestedConsumption.planId(),
             requestedConsumption.idempotencyKey(),
             requestedConsumption.requestHash()
         );

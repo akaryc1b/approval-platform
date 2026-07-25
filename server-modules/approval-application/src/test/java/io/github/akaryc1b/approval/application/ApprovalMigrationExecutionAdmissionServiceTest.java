@@ -186,20 +186,14 @@ class ApprovalMigrationExecutionAdmissionServiceTest
 
         @Override
         public AdmissionResult admit(AdmissionRequest request) {
-            UUID existingId = idempotency.get(request.consumption().idempotencyKey());
-            if (existingId != null) {
-                ApprovalMigrationPlanConsumption existing = consumptions.get(existingId);
-                if (!existing.requestHash().equals(request.consumption().requestHash())) {
-                    throw new MigrationExecutionAdmissionConflictException(
-                        "idempotency key was reused with different evidence"
-                    );
-                }
-                return new AdmissionResult(
-                    planStore.plans.get(existing.planId()),
-                    intents.get(existing.intentId()),
-                    existing,
-                    true
-                );
+            Optional<AdmissionResult> replay = findAdmission(
+                request.consumption().tenantId(),
+                request.consumption().planId(),
+                request.consumption().idempotencyKey(),
+                request.consumption().requestHash()
+            );
+            if (replay.isPresent()) {
+                return replay.get();
             }
             ApprovalMigrationPlan current = planStore.plans.get(request.consumedPlan().planId());
             if (current.status() != PlanStatus.AUTHORIZED
@@ -224,6 +218,33 @@ class ApprovalMigrationExecutionAdmissionServiceTest
         }
 
         @Override
+        public Optional<AdmissionResult> findAdmission(
+            String tenantId,
+            UUID planId,
+            String idempotencyKey,
+            String requestHash
+        ) {
+            UUID existingId = idempotency.get(idempotencyKey);
+            if (existingId == null) {
+                return Optional.empty();
+            }
+            ApprovalMigrationPlanConsumption existing = consumptions.get(existingId);
+            if (!existing.tenantId().equals(tenantId)
+                || !existing.planId().equals(planId)
+                || !existing.requestHash().equals(requestHash)) {
+                throw new MigrationExecutionAdmissionConflictException(
+                    "idempotency key was reused with different evidence"
+                );
+            }
+            return Optional.of(new AdmissionResult(
+                planStore.plans.get(existing.planId()),
+                intents.get(existing.intentId()),
+                existing,
+                true
+            ));
+        }
+
+        @Override
         public Optional<ApprovalMigrationPlanConsumption> findConsumption(
             String tenantId,
             UUID planId
@@ -240,6 +261,16 @@ class ApprovalMigrationExecutionAdmissionServiceTest
         @Override
         public AdmissionResult admit(AdmissionRequest request) {
             throw new IllegalStateException("audit persistence failed");
+        }
+
+        @Override
+        public Optional<AdmissionResult> findAdmission(
+            String tenantId,
+            UUID planId,
+            String idempotencyKey,
+            String requestHash
+        ) {
+            return Optional.empty();
         }
 
         @Override
