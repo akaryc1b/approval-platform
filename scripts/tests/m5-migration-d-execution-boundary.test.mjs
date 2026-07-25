@@ -48,8 +48,9 @@ test('V39 enforces atomic plan intent and consumption linkage', () => {
   assert.match(migration, /consumed migration plan requires exact admitted intent evidence/);
   assert.match(migration, /append-only/);
   assert.doesNotMatch(migration, /ACT_[A-Z_]+/);
-  assert.match(upgrade, /LATEST_VERSION = "39"/);
+  assert.match(upgrade, /LATEST_VERSION = "40"/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v38", "38"\)/);
+  assert.match(upgrade, /new UpgradeCase\("approval_latest_v39", "39"\)/);
   assert.match(upgrade, /assertNoExecutionSideEffects/);
 });
 

@@ -34,9 +34,9 @@ public class ApprovalRuntimeBindingEvidenceConfiguration {
     @Primary
     ApprovalProjectionStore runtimeBindingEnforcingProjectionStore(
         @Qualifier("approvalProjectionStore") ApprovalProjectionStore delegate,
-        ApprovalInstanceCommandFence commandFence,
         ApprovalRuntimeBindingStore approvalRuntimeBindingStore,
-        MeterRegistry meters
+        MeterRegistry meters,
+        ApprovalInstanceCommandFence commandFence
     ) {
         Objects.requireNonNull(meters, "meters must not be null");
         ApprovalProjectionStore fenced = new CommandFencedApprovalProjectionStore(
