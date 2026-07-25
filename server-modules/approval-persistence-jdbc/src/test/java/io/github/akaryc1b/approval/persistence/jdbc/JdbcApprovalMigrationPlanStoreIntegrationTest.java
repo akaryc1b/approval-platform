@@ -5,12 +5,9 @@ import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlan;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAuthorization;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanEvent;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DataAccessException;
 
 import java.util.UUID;
 
-import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.DEFINITION_KEY;
-import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.NOW;
 import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.OTHER_TENANT;
 import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.TENANT;
 import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.hash;
