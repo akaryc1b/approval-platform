@@ -22,6 +22,14 @@ approval:
     management-permissions:
       enforced: ${APPROVAL_MANAGEMENT_PERMISSIONS_ENFORCED:true}
       trusted-header-name: ${APPROVAL_MANAGEMENT_TRUSTED_HEADER:X-Approval-Trusted-Permissions}
+  migration:
+    execution:
+      enabled: ${APPROVAL_MIGRATION_EXECUTION_ENABLED:false}
+    worker:
+      enabled: ${APPROVAL_MIGRATION_WORKER_ENABLED:false}
+    reconciliation:
+      automatic:
+        enabled: ${APPROVAL_MIGRATION_RECONCILIATION_AUTOMATIC_ENABLED:false}
   connector:
     generic:
       enabled: ${APPROVAL_GENERIC_CONNECTOR_ENABLED:false}
