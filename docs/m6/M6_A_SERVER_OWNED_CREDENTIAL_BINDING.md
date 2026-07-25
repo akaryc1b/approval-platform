@@ -42,6 +42,12 @@ evidence or a production-enablement token.
 material copies are zeroized in `finally`; callback exceptions still close every scope; use after
 close fails; repeated close is idempotent; and a closed resolver cannot resolve again.
 
+An explicit credential-scope close now closes the underlying material scope immediately through an
+idempotent guard. Source availability, metadata, evidence-hash, secret-use and close failures are
+converted to deterministic `MATERIAL_SOURCE_UNAVAILABLE` or `MATERIAL_INVALID` resolution evidence.
+Catalog infrastructure failures fail closed as `UNKNOWN`. Exceptions deliberately raised by trusted
+business callbacks remain callback failures and are not misclassified as material-source failures.
+
 The legacy generic `withCredential` and `withSecretBytes` methods remain only for source
 compatibility and deterministic test fixtures. Production Resolver and scope implementations reject
 those paths because their generic return values could carry bytes or copies out of the callback.
@@ -113,13 +119,30 @@ The following remain blocked after P2-E:
 ## Validation evidence
 
 Each P2 slice received local Java 21 compilation, executable contract/lifecycle smoke validation,
-source hygiene checks and a natural run of the repository's only permanent workflow. Exact final
-run, artifact digest and test totals are recorded in PR #67 and Issue #63 after the final permanent
-workflow completes.
+source hygiene checks and a natural run of the repository's only permanent workflow. The subsequent
+lifecycle review also received Java 21 `-Xlint:all -Werror` compilation and executable tests for
+immediate close, source unavailability, invalid material, invalid source evidence, close failure,
+catalog failure and trusted-callback exception preservation. Exact final run, artifact digest and
+test totals are recorded in PR #67 and Issue #63 after the final permanent workflow completes.
 
 No local Maven executable was available in the execution environment, so Maven reactor, Checkstyle
 and architecture execution are taken only from the permanent GitHub Actions workflow rather than
 claimed from local validation.
+
+### Post-validation lifecycle review
+
+A code-level review after successful run #551 identified two lifecycle gaps that remained inside the
+already authorized P2 scope: an explicit credential close did not immediately close the underlying
+material scope, and source failures raised after material opening were not always represented by a
+deterministic resolution status.
+
+The review was corrected without opening a new capability:
+
+- `ed5bbf450649a4aad3defb7ca7576ca858b7b272` — harden material-scope lifecycle and failure mapping;
+- `57ba01ac000e538ccef894d5a3bb25d8cb60a202` — cover immediate close, deterministic source failure
+  evidence and callback-exception preservation.
+
+No real backend, network, persistence, worker, retry, routing or approval-state behavior was added.
 
 ### Retained validation failures
 
@@ -136,7 +159,7 @@ a natural run.
 Run `30155542705` / run #549 is also retained. The workflow filter and `no automatic retry` gate
 passed. The only remaining failure was the exact governance phrase `no worker`, while the document
 used the compound text `no scheduler, worker or background job`. This document now states
-`no worker` explicitly. Run #549 was not rerun or hidden; a new commit triggers another natural run.
+`no worker` explicitly. Run #549 was not rerun or hidden; a new commit triggered another natural run.
 
 ## Stop condition
 
