@@ -1,7 +1,6 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.BindingCasDisposition;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.BindingCasException;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.CompletionRequest;
@@ -35,7 +34,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
-import java.nio.charset.StandardCharsets;
 import java.sql.Statement;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -365,7 +363,7 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             hash('d'),
             "compiler-v2",
             "purchase-payment-v2.bpmn20.xml",
-            "<definitions id=\"target-v2\"/>".getBytes(StandardCharsets.UTF_8),
+            "<definitions id=\"target-v2\"/>",
             hash('e'),
             hash('f'),
             null,
