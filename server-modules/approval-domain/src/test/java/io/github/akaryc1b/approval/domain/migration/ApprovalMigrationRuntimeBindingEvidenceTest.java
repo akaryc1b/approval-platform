@@ -82,7 +82,7 @@ class ApprovalMigrationRuntimeBindingEvidenceTest {
         assertEquals(initial.bindingEvidenceHash(), migrated.previousBindingEvidenceHash());
 
         assertThrows(
-            IllegalArgumentException.class,
+            NullPointerException.class,
             () -> new ApprovalMigrationRuntimeBindingEvidence(
                 UUID.randomUUID(),
                 "tenant-d5",
