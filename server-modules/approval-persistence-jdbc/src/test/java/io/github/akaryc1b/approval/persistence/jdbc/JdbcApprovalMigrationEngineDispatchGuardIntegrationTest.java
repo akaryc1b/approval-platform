@@ -48,7 +48,7 @@ class JdbcApprovalMigrationEngineDispatchGuardIntegrationTest
         assertEquals(1, named.update(requestSql(), request));
         assertEquals(1, count("ap_process_migration_engine_request"));
         assertThrows(DataAccessException.class, () -> jdbc.update(
-            "update ap_process_migration_engine_request set bounded_summary='tamper' "
+            "update ap_process_migration_engine_request set trace_id='tamper' "
                 + "where tenant_id=? and engine_request_id=?",
             TENANT,
             REQUEST_ID
