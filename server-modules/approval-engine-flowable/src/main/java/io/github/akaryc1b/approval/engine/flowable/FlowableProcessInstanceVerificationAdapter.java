@@ -11,6 +11,7 @@ import org.flowable.engine.ManagementService;
 import org.flowable.engine.RepositoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
+import org.flowable.engine.history.HistoricActivityInstance;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.Execution;
@@ -103,6 +104,11 @@ public final class FlowableProcessInstanceVerificationAdapter
         List<Execution> executionsRaw = runtimeService.createExecutionQuery()
             .processInstanceId(runtime.getId())
             .listPage(0, READ_LIMIT);
+        List<HistoricActivityInstance> activeHistoricActivitiesRaw = historyService
+            .createHistoricActivityInstanceQuery()
+            .processInstanceId(runtime.getId())
+            .unfinished()
+            .listPage(0, READ_LIMIT);
         List<Task> tasksRaw = taskService.createTaskQuery()
             .processInstanceId(runtime.getId())
             .active()
@@ -127,24 +133,58 @@ public final class FlowableProcessInstanceVerificationAdapter
             .listPage(0, READ_LIMIT);
 
         boolean truncated = exceeds(activeActivitiesRaw)
-            || exceeds(executionsRaw) || exceeds(tasksRaw) || exceeds(executableJobs)
+            || exceeds(executionsRaw) || exceeds(activeHistoricActivitiesRaw)
+            || exceeds(tasksRaw) || exceeds(executableJobs)
             || exceeds(timerJobs) || exceeds(suspendedJobs) || exceeds(deadLetterJobs)
             || exceeds(subscriptionsRaw) || exceeds(historicTasksRaw);
 
         List<Execution> executions = trim(executionsRaw);
+        List<HistoricActivityInstance> activeHistoricActivities = trim(activeHistoricActivitiesRaw);
         Map<String, String> definitionByExecution = new HashMap<>();
-        List<DefinitionEvidence> executionEvidence = executions.stream()
-            .map(execution -> {
-                if (execution.getId() != null) {
-                    definitionByExecution.put(execution.getId(), execution.getProcessDefinitionId());
-                }
-                return new DefinitionEvidence(
-                    "EXECUTION",
+        ArrayList<DefinitionEvidence> executionEvidence = new ArrayList<>();
+        for (Execution execution : executions) {
+            boolean matched = false;
+            if (execution.getActivityId() == null) {
+                matched = true;
+                definitionByExecution.put(execution.getId(), runtime.getProcessDefinitionId());
+                executionEvidence.add(new DefinitionEvidence(
+                    "EXECUTION_ROOT",
                     hashId(execution.getId()),
-                    execution.getProcessDefinitionId()
-                );
-            })
-            .toList();
+                    runtime.getProcessDefinitionId()
+                ));
+            } else {
+                for (HistoricActivityInstance activity : activeHistoricActivities) {
+                    if (Objects.equals(execution.getId(), activity.getExecutionId())
+                        && Objects.equals(execution.getActivityId(), activity.getActivityId())) {
+                        matched = true;
+                        mergeDefinition(
+                            definitionByExecution,
+                            execution.getId(),
+                            activity.getProcessDefinitionId()
+                        );
+                        executionEvidence.add(new DefinitionEvidence(
+                            "EXECUTION_ACTIVITY",
+                            hashId(
+                                execution.getId() + '|' + execution.getActivityId() + '|' + activity.getId()
+                            ),
+                            activity.getProcessDefinitionId()
+                        ));
+                    }
+                }
+            }
+            if (!matched) {
+                executionEvidence.add(new DefinitionEvidence(
+                    "EXECUTION_UNRESOLVED",
+                    hashId(execution.getId() + '|' + value(execution.getActivityId(), "MISSING")),
+                    null
+                ));
+            }
+        }
+        if (executionEvidence.size() > MAX_ITEMS) {
+            truncated = true;
+            executionEvidence = new ArrayList<>(executionEvidence.subList(0, MAX_ITEMS));
+        }
+
         List<TaskEvidence> taskEvidence = trim(tasksRaw).stream()
             .map(task -> new TaskEvidence(
                 hashId(task.getId()),
@@ -169,7 +209,7 @@ public final class FlowableProcessInstanceVerificationAdapter
                 hashId(subscription.getId()),
                 value(subscription.getEventType(), "UNKNOWN_EVENT"),
                 subscription.getActivityId(),
-                definitionByExecution.get(subscription.getExecutionId())
+                normalizedDefinition(definitionByExecution.get(subscription.getExecutionId()))
             ))
             .toList();
 
@@ -333,17 +373,17 @@ public final class FlowableProcessInstanceVerificationAdapter
         ArrayList<String> hashes = new ArrayList<>();
         boolean unsupported = false;
         for (String name : allowlistedNames) {
-            Object value = variables.get(name);
-            if (value == null) {
+            Object variable = variables.get(name);
+            if (variable == null) {
                 hashes.add(sha256("variable-v1|" + name + "|MISSING"));
-            } else if (safeScalar(value)) {
+            } else if (safeScalar(variable)) {
                 hashes.add(sha256(
-                    "variable-v1|" + name + '|' + value.getClass().getName() + '|' + value
+                    "variable-v1|" + name + '|' + variable.getClass().getName() + '|' + variable
                 ));
             } else {
                 unsupported = true;
                 hashes.add(sha256(
-                    "variable-v1|" + name + "|UNSUPPORTED|" + value.getClass().getName()
+                    "variable-v1|" + name + "|UNSUPPORTED|" + variable.getClass().getName()
                 ));
             }
         }
@@ -355,6 +395,19 @@ public final class FlowableProcessInstanceVerificationAdapter
         return value instanceof CharSequence || value instanceof Number
             || value instanceof Boolean || value instanceof Character || value instanceof Enum<?>
             || value instanceof java.util.UUID || value instanceof TemporalAccessor;
+    }
+
+    private static void mergeDefinition(Map<String, String> definitions, String executionId, String value) {
+        String existing = definitions.get(executionId);
+        if (!definitions.containsKey(executionId)) {
+            definitions.put(executionId, value);
+        } else if (!Objects.equals(existing, value)) {
+            definitions.put(executionId, "");
+        }
+    }
+
+    private static String normalizedDefinition(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private static ApprovalMigrationEngineSnapshot withHash(ApprovalMigrationEngineSnapshot value) {
