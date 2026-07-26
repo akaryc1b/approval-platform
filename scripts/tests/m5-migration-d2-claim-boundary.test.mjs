@@ -76,7 +76,7 @@ test('D2 shares one tenant and instance command serialization boundary', () => {
   assert.match(projectionFence, /fence\.guardBusinessCommand/);
   assert.match(instanceFenceJdbc, /approval-instance-command:v1:/);
   assert.match(instanceFenceJdbc, /pg_advisory_xact_lock/);
-  assert.match(claimJdbc, /instanceFences\.acquireMigrationLock/);
+  assert.match(claimJdbc, /commandFence\.acquireMigrationLock/);
   assert.match(claimJdbc, /ap_approval_instance_command_fence/);
 });
 
@@ -84,7 +84,7 @@ test('D2 provisions sealed selections before a deterministic bounded claim', () 
   const provisionPosition = claimService.indexOf('provisioning.ensureInitialAttempts');
   const claimPosition = claimService.indexOf('claims.claim');
   assert.ok(provisionPosition >= 0 && claimPosition > provisionPosition);
-  assert.match(provisioningJdbc, /status='CONSUMED'/);
+  assert.match(provisioningJdbc, /PlanStatus\.CONSUMED/);
   assert.match(provisioningJdbc, /ap_process_migration_plan_instance/);
   assert.match(provisioningJdbc, /ap_process_runtime_binding/);
   assert.match(provisioningJdbc, /instance_status/);
@@ -104,7 +104,7 @@ test('D2 keeps worker identity and leases server owned and stale owner fenced', 
   assert.match(claimService, /Duration\.ofMinutes\(15\)/);
   assert.match(fenceDomain, /same-owner renewal requires current ownership and lease extension/);
   assert.match(fenceDomain, /lease takeover requires expiry/);
-  assert.match(claimJdbc, /current\.renewed\(request\.workerId\(\)/);
+  assert.match(claimJdbc, /fence\.renewed\(\s*request\.workerId\(\)/);
   assert.match(claimJdbc, /migration attempt lease ownership is stale/);
   assert.match(migration, /same-owner fence renewal requires current ownership and extension/);
   assert.match(migration, /command fence takeover requires expiry/);
