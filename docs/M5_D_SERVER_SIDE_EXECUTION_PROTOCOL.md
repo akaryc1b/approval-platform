@@ -6,27 +6,28 @@
 - M5-B: `ACCEPTED / PERMANENTLY_VALIDATED`
 - M5-C: `ACCEPTED / PERMANENTLY_VALIDATED`
 - M5-D1: `PERMANENTLY_VALIDATED`
-- M5-D2: `COMPLETE_PENDING_EXPLICIT_ACCEPTANCE`
-- M5-D3 through M5-D8: not started
+- M5-D2: `ACCEPTED / PERMANENTLY_VALIDATED`
+- M5-D3: `COMPLETE / PERMANENTLY_VALIDATED`
+- M5-D4 through M5-D8: not started
 - Current M5-D overall result: `IN_PROGRESS`
 - Production migration execution: `NOT_AUTHORIZED`
 - M5-E, M5-F and M5-G: not started
 
-M5-D is server-owned execution infrastructure. D2 completion does not authorize production execution, a public execution endpoint, a Web or Mobile execution control, an automatic scheduler, force success, rollback, or automatic retry of an ambiguous engine result.
+M5-D is server-owned execution infrastructure. D3 completion does not authorize production execution, a public execution endpoint, a Web or Mobile execution control, an automatic scheduler, force success, rollback, or automatic retry of an ambiguous engine result.
 
 ## Verified baseline and migration decision
 
-The accepted persistence protocol is Flyway V33–V37. The accepted immutable-plan protocol is Flyway V38. M5-D1 adds V39 for exact plan consumption and intent admission. M5-D2 adds V40 for exact attempt provisioning support, bounded claim evidence and the shared tenant/instance command fence. V1–V40 remain immutable.
+The accepted persistence protocol is Flyway V33–V37. The accepted immutable-plan protocol is Flyway V38. M5-D1 adds V39 for exact plan consumption and intent admission. M5-D2 adds V40 for exact attempt provisioning support, bounded claim evidence and the shared tenant/instance command fence. M5-D3 adds V41 for immutable engine request/outcome evidence and V42 to bind database guards to the immutable attempt payload identity and exact consumed target plan. V1–V42 remain immutable.
 
-The M5-C domain and V38 vocabulary reserve terminal plan state `CONSUMED`. V39 provides the guarded consumption transaction. V40 does not alter V38 or V39 evidence; it adds claim/fence state and supporting indexes after every active M6 pull request was checked for Flyway migration occupancy.
+Before V41 and again before V42 were allocated, active M6 pull requests #67–#70 were rechecked and contained no Flyway migration. M5 and M6 remain independent branches and code lines.
 
-Immediately before every M5 ref update, active M6 pull requests #67–#70 must be rechecked. M5 and M6 remain independent branches and code lines.
+Immediately before every later M5 migration or final ref update, active M6 pull requests #67–#70 must be rechecked again.
 
 ## Permanent invariants
 
 1. Production code never reads or writes Flowable `ACT_*` tables.
-2. Flowable 8.0.0 public APIs are the only future engine integration boundary.
-3. A Flowable call never runs inside a long platform database transaction.
+2. Flowable 8.0.0 public APIs are the only engine integration boundary.
+3. A Flowable call never runs inside a platform database transaction.
 4. A successful API response is not a verified migration result.
 5. An exception does not prove that the engine made no change.
 6. `UNKNOWN` is durable and never automatically retried.
@@ -50,6 +51,8 @@ Immediately before every M5 ref update, active M6 pull requests #67–#70 must b
 - `ApprovalMigrationExecutionAdmissionService`: exact plan consumption and M5-B intent creation; no engine call.
 - `ApprovalMigrationAttemptClaimService`: exact initial-attempt provisioning followed by one bounded tenant claim; server-owned worker identity; no engine call.
 - `ApprovalMigrationOneShotClaimRunner`: internal one-shot claim adapter; disabled by default; no scheduler.
+- `ApprovalMigrationSingleInstanceExecutor`: prepares one immutable request in short transaction A, invokes one Flowable instance outside the platform transaction, then performs one fenced outcome finalization in short transaction B.
+- `ApprovalMigrationSingleInstanceExecutor.OneShotRunner`: internal one-shot execution gate; both execution and worker flags must be explicitly enabled; no loop or scheduler.
 
 ### Implemented ports and adapters
 
@@ -57,11 +60,15 @@ Immediately before every M5 ref update, active M6 pull requests #67–#70 must b
 - `ApprovalMigrationAttemptProvisioningStore` derives initial attempts only from one current consumed plan, exact selections and current runtime bindings.
 - `ApprovalMigrationAttemptClaimStore` owns bounded claim batches, renewal and expiry takeover.
 - `ApprovalInstanceCommandFence` is shared by migration claims and approval business-command mutations.
+- `ProcessInstanceMigrationPort` accepts one exact instance and exposes no definition-wide or multi-instance request.
+- `FlowableProcessInstanceMigrationAdapter` uses Flowable 8.0.0 public APIs to create, validate and invoke one single-instance migration builder.
+- `ApprovalMigrationEngineExecutionStore` owns the two short platform transactions and does not invoke Flowable.
+- `JdbcApprovalMigrationEngineExecutionStore` writes immutable request/outcome evidence, attempt events and audits while rechecking attempt, lease, fence, binding, intent and consumed plan identity.
 - No M5-D Controller, REST route, Web action or Mobile action is permitted.
 
-### Future D3–D8 boundaries
+### Future D4–D8 boundaries
 
-The single-instance Flowable executor, exact verification, runtime-binding CAS, durable `UNKNOWN` reconciliation, canary runner and later operational surfaces remain design-only and are not started by D2.
+Exact verification, runtime-binding CAS, durable `UNKNOWN` reconciliation, canary/bounded batch control and plan-level completion aggregation remain separate future slices. D3 does not implement or imply them.
 
 ## D1 plan consumption and intent admission
 
@@ -127,7 +134,7 @@ The claim query:
 - uses `FOR UPDATE SKIP LOCKED`;
 - is supported by `idx_process_migration_attempt_claim_v40`;
 - records an immutable claim batch even when the exact result is empty;
-- commits attempt, fence, fence event, claim-batch and audit evidence before any future engine call.
+- commits attempt, fence, fence event, claim-batch and audit evidence before an engine call.
 
 The closed command vocabulary covers complete, approve, reject, return, withdraw, retrieve, transfer, terminate and migration. Current projection mutations are wrapped by `CommandFencedApprovalProjectionStore` and consult the same active migration fence.
 
@@ -165,58 +172,106 @@ The verified plan:
 - retains tenant and intent prefix conditions;
 - contains no `Seq Scan`.
 
-## Cross-system transaction boundary for future slices
+## D3 governed single-instance engine request
+
+Short platform transaction A:
+
+1. locks the exact tenant-scoped attempt;
+2. requires `CLAIMED`, the expected revision, current worker ownership and an unexpired lease;
+3. acquires the shared tenant/instance command serialization lock;
+4. locks and checks the exact active migration fence, worker and fence revision;
+5. locks and verifies the current runtime binding evidence hash, engine instance and source definition;
+6. verifies the current `RUNNING` intent and exact `CONSUMED` plan target release, package, deployment and definition;
+7. writes one immutable bounded engine request with deterministic request/evidence hashes;
+8. transitions the attempt to `ENGINE_REQUESTED` and appends attempt-event and audit evidence;
+9. commits before the engine adapter is called.
+
+A duplicate request for the attempt, a changed request hash, a stale binding, target drift, worker spoofing, fence drift, lease expiry or audit failure fails closed.
+
+## D3 Flowable public-API dispatch
+
+Outside every platform database transaction, the adapter:
+
+1. reads one exact runtime instance through public APIs;
+2. reads the source and target definitions through `RepositoryService`;
+3. creates a bounded, value-free pre-dispatch snapshot;
+4. rejects unsupported or stale evidence before dispatch;
+5. creates one `ProcessInstanceMigrationBuilder` targeting one exact process definition;
+6. invokes public `validateMigration(engineInstanceId)`;
+7. invokes `migrate(engineInstanceId)` at most once only when validation succeeds.
+
+Pre-dispatch rejection covers missing or suspended runtime, tenant/source/target mismatch, target deployment drift, truncated evidence, unsupported parallel/multi-instance/subprocess/call-activity shape, unsafe executable/timer/suspended/dead-letter jobs, stale task/activity mapping and unsupported active-token shape.
+
+The adapter never changes platform plan, intent, attempt or runtime binding. It cannot return platform success.
+
+## D3 outcome finalization and UNKNOWN
+
+Short platform transaction B:
+
+1. locks the exact `ENGINE_REQUESTED` attempt and request lineage;
+2. reacquires the tenant/instance command serialization lock;
+3. rechecks worker identity, fence revision and unexpired lease;
+4. appends one immutable bounded engine outcome;
+5. transitions the attempt and appends attempt-event and audit evidence;
+6. commits atomically.
+
+Result semantics:
+
+- pre-dispatch or public engine validation rejection records no migration call and a governed terminal rejection;
+- a returned migration call transitions only to `VERIFYING` with `EngineOutcome.ACCEPTED`;
+- timeout, connection reset, interruption, response loss, incomplete response or another exception that cannot prove non-dispatch produces durable `UNKNOWN` and `ENGINE_OUTCOME_UNKNOWN`;
+- stale-owner, audit or persistence finalization failure propagates and never causes a second outcome write;
+- no ambiguity path automatically calls migration again;
+- no rollback or force-success behavior exists.
+
+## Implemented cross-system transaction boundary
 
 ```text
 short database transaction A
-  validate current plan/intent/attempt/fence evidence
-  persist immutable request evidence
+  validate exact plan/intent/attempt/binding/fence/lease evidence
+  persist immutable engine request evidence
+  transition CLAIMED -> ENGINE_REQUESTED
 commit A
 
 no platform database transaction
-  future Flowable public validateMigration / migrate / readback
+  Flowable public validateMigration / migrate for one instance at most once
 
 short database transaction B
-  fence stale owner
+  fence stale owner/revision/lease
   persist bounded engine outcome
-  append verification or reconciliation evidence
-  perform runtime-binding CAS only when target is exact
+  append attempt event and audit
+  returned call -> VERIFYING
+  ambiguous call -> UNKNOWN
 commit B
 ```
 
-D2 implements only the database-side provisioning, claim and lease transactions. It invokes no Flowable API.
+D3 deliberately does not append exact post-migration verification and does not mutate runtime binding. Those actions belong to D4 and D5.
 
-## Future Flowable adapter contract
+## D3 bounded pre-dispatch evidence and sensitive data
 
-A future engine port may support only one exact runtime process instance and one exact target definition. It must use public APIs and provide bounded before, after and reconciliation snapshots.
+D3 request/outcome evidence is tenant scoped, attempt scoped, bounded and server generated. The pre-dispatch snapshot records runtime presence, process-definition/deployment identity, suspension, active activity IDs, active task-definition keys, closed job/timer counts, truncation and a deterministic SHA-256 hash.
 
-It must reject definition-wide migration, batch migration, multi-instance activity, executable/pending/failed/dead-letter jobs, suspended or absent runtime, unsupported boundary/subscription shapes, ungoverned call-activity trees, stale mappings, stale active task keys and stale runtime binding.
+Credentials, tokens, secret values, attachment bytes, arbitrary serialized objects, unfiltered variable values and unbounded history/identity data are never stored. Truncation rejects dispatch.
 
-The adapter cannot return platform success or update plan, intent, attempt or runtime binding directly.
+## D4 exact verification — next gate, not implemented
 
-## Bounded snapshots and sensitive data
+D4 must read bounded public runtime/task/job/timer/subscription/history evidence and deterministically distinguish exact target runtime, exact source runtime, source/target terminal history, mixed source/target evidence, runtime missing with history present, both missing, contradictory evidence, truncated evidence, manual review and reconciliation required.
 
-Allowed future snapshot fields include runtime presence, process definition identity, active activities, active task keys and count, suspension, bounded allowlisted variable hashes, bounded identity links and candidates, jobs, timers, relevant subscriptions, history presence, historic definition, end time and bounded delete reason.
+A target runtime with a source-bound execution, task, job, timer, subscription or activity must not be target verified. Verification evidence must be immutable, tenant scoped, bound to the exact attempt/request/outcome and server generated. D4 must not mutate runtime binding.
 
-Credentials, tokens, secret values, attachment bytes, arbitrary serialized objects, unbounded variables and oversized payloads are never stored. Truncation prevents exact verification and must be classified.
+## D5 runtime-binding CAS — planned only
 
-## Verification and runtime-binding CAS
+Runtime binding may change only after exact target verification with complete non-truncated evidence. CAS must check tenant, instance, binding revision, original binding evidence hash, source and target release, source and target engine definition, attempt identity and verification evidence hash. Audit failure must roll back the platform update. CAS conflict after engine mutation must enter reconciliation and cannot be called success or rollback.
 
-Future verification must distinguish exact target runtime, exact source runtime, source/target completed or terminated history, mixed evidence, missing evidence and reconciliation required. A target runtime with a source-bound job, timer, task, execution or relevant subscription is not target verified.
+## D6 durable UNKNOWN and reconciliation — planned only
 
-Runtime binding may change only after exact target verification. CAS must check tenant, instance, existing revision, original binding evidence hash, source release, target release and target engine definition. Audit failure must roll back the platform update. CAS conflict after engine mutation must enter reconciliation and cannot be called success.
+Timeout, connection reset, lost response, crash after dispatch, incomplete result, contradictory runtime/history evidence and stale-worker finalization preserve durable `UNKNOWN`. Reconciliation must use public runtime, task, job, timer, subscription and history APIs, acquire an independent fenced lease, append immutable evidence, support exact replay, reject changed-payload replay and never redispatch migration.
 
-## Durable UNKNOWN and reconciliation
+## D7 canary, bounded execution and kill switch — planned only
 
-Timeout, connection reset, lost response, crash after dispatch, incomplete result, contradictory runtime/history evidence and stale-worker finalization may enter `UNKNOWN` in a future slice. `UNKNOWN` must preserve server-owned engine request evidence and must never automatically call migration again.
+A later bounded executor must select one deterministic canary. Remaining instances become eligible only after exact canary target verification and successful binding CAS. `UNKNOWN`, `RECONCILING` or manual review pauses the plan by default.
 
-Reconciliation must use Flowable public runtime, task, job, timer, subscription and history APIs, append immutable evidence and distinguish source confirmed, target confirmed, source/target history terminal, mixed state, missing evidence, manual review and unsafe automatic recovery.
-
-## Canary, bounded execution and kill switch
-
-A future bounded executor must select one deterministic canary. Remaining instances become eligible only after exact canary target verification and successful binding CAS. `UNKNOWN`, `RECONCILING` or manual review pauses the plan by default.
-
-A kill switch may prevent new engine calls but cannot pretend to cancel a call already dispatched. No such control is exposed by D2.
+A kill switch may prevent new engine calls but cannot pretend to cancel a call already dispatched.
 
 ## Default-disabled configuration
 
@@ -233,12 +288,14 @@ Missing, malformed or incomplete configuration fails closed.
 ## Permanent evidence
 
 - D1 evidence: `docs/M5_D1_AUTHORIZED_PLAN_ADMISSION_EVIDENCE.md`
-- D2 evidence: `docs/M5_D2_SHARED_COMMAND_FENCE_CLAIM_EVIDENCE.md`
+- D2 implementation evidence: `docs/M5_D2_SHARED_COMMAND_FENCE_CLAIM_EVIDENCE.md`
+- D2 formal acceptance: `docs/M5_D2_GOVERNANCE_ACCEPTANCE.md`
+- D3 implementation evidence: `docs/M5_D3_SINGLE_INSTANCE_EXECUTOR_PERMANENT_EVIDENCE.md`
 
-D2 permanent evidence includes application tests, PostgreSQL 16 provisioning/claim/concurrency/rollback tests, 5,000-row tenant-prefixed bounded claim `EXPLAIN (FORMAT JSON)`, Node boundaries, raw Actions logs and downloaded Maven/Vben/Mobile/Hygiene artifact digests.
+D3 permanent evidence includes application/Flowable/PostgreSQL tests, the V42 historical and 5,000-row upgrade matrix, permanent Node boundaries, raw Actions logs and independently verified Maven/Vben/Mobile/Hygiene artifact digests.
 
 ## Stop conditions
 
-M5-D2 is `COMPLETE_PENDING_EXPLICIT_ACCEPTANCE`; it is not accepted without explicit user acceptance. M5-D overall remains `IN_PROGRESS`.
+M5-D2 is `ACCEPTED / PERMANENTLY_VALIDATED`. M5-D3 is `COMPLETE / PERMANENTLY_VALIDATED`. M5-D overall remains `IN_PROGRESS`.
 
-Work stops before M5-D3 through M5-D8, M5-E management API/UI, M5-F full fault-injection and observability, M5-G merge readiness, production execution authorization, Ready-for-review, auto-merge, merge or issue closure.
+Work stops at the M5-D4 gate until the D3 documentation head has a successful natural permanent workflow run. D5–D8, M5-E management API/UI, M5-F full fault-injection and observability, M5-G merge readiness, production execution authorization, Ready-for-review, auto-merge, merge and issue closure remain blocked.
