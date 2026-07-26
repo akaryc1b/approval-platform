@@ -2,9 +2,11 @@ package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalMigrationExactVerificationService;
+import io.github.akaryc1b.approval.application.ApprovalMigrationRuntimeBindingCasService;
 import io.github.akaryc1b.approval.application.ApprovalMigrationSingleInstanceExecutor;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationExactVerificationStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort;
 import io.github.akaryc1b.approval.engine.ProcessInstanceVerificationPort;
@@ -12,6 +14,7 @@ import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceMigrat
 import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceVerificationAdapter;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStore;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.ManagementService;
 import org.flowable.engine.ProcessMigrationService;
@@ -27,7 +30,7 @@ import javax.sql.DataSource;
 import java.time.Clock;
 import java.util.UUID;
 
-/** Default-disabled internal wiring for one-shot M5-D3 execution and D4 verification. */
+/** Default-disabled internal wiring for one-shot M5-D3 through D5 operations. */
 @Configuration(proxyBeanMethods = false)
 public class ApprovalMigrationExecutionConfiguration {
 
@@ -98,6 +101,22 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
+    ApprovalMigrationRuntimeBindingCasStore approvalMigrationRuntimeBindingCasStore(
+        DataSource dataSource,
+        ObjectMapper objectMapper,
+        PlatformTransactionManager transactionManager,
+        AuditEventSink auditEventSink
+    ) {
+        return new JdbcApprovalMigrationRuntimeBindingCasStore(
+            dataSource,
+            objectMapper,
+            transactionManager,
+            auditEventSink,
+            UUID::randomUUID
+        );
+    }
+
+    @Bean
     ApprovalMigrationSingleInstanceExecutor approvalMigrationSingleInstanceExecutor(
         ApprovalMigrationEngineExecutionStore executionStore,
         ProcessInstanceMigrationPort engineMigration
@@ -122,6 +141,16 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
+    ApprovalMigrationRuntimeBindingCasService approvalMigrationRuntimeBindingCasService(
+        ApprovalMigrationRuntimeBindingCasStore bindingCasStore
+    ) {
+        return new ApprovalMigrationRuntimeBindingCasService(
+            bindingCasStore,
+            Clock.systemUTC()
+        );
+    }
+
+    @Bean
     ApprovalMigrationSingleInstanceExecutor.OneShotRunner approvalMigrationOneShotExecutionRunner(
         @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
         @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
@@ -141,6 +170,19 @@ public class ApprovalMigrationExecutionConfiguration {
         ApprovalMigrationExactVerificationService service
     ) {
         return new ApprovalMigrationExactVerificationService.OneShotRunner(
+            executionEnabled,
+            workerEnabled,
+            service
+        );
+    }
+
+    @Bean
+    ApprovalMigrationRuntimeBindingCasService.OneShotRunner approvalMigrationOneShotBindingCasRunner(
+        @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
+        @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
+        ApprovalMigrationRuntimeBindingCasService service
+    ) {
+        return new ApprovalMigrationRuntimeBindingCasService.OneShotRunner(
             executionEnabled,
             workerEnabled,
             service
