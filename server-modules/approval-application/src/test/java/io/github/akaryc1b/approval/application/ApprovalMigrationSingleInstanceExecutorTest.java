@@ -63,11 +63,34 @@ class ApprovalMigrationSingleInstanceExecutorTest {
         var result = executor.execute(request());
 
         assertEquals(1, calls[0]);
+        assertEquals(1, store.finalizeCalls);
         assertEquals(AttemptStatus.UNKNOWN, result.attempt().status());
         assertEquals(EngineOutcome.UNKNOWN, result.attempt().engineOutcome());
         assertEquals(FailureClass.ENGINE_OUTCOME_UNKNOWN, result.attempt().failureClass());
         assertEquals(ApprovalMigrationEngineExecutionStore.FinalDisposition.AMBIGUOUS_UNKNOWN,
             store.finalizeRequest.disposition());
+    }
+
+    @Test
+    void staleOwnerOrAuditFinalizationFailureIsPropagatedWithoutSecondOutcomeWrite() {
+        RecordingStore store = new RecordingStore();
+        store.failFinalization = true;
+        int[] calls = {0};
+        ProcessInstanceMigrationPort engine = command -> {
+            calls[0]++;
+            store.order.add("engine");
+            return returned(snapshot());
+        };
+        ApprovalMigrationSingleInstanceExecutor executor = executor(store, engine);
+
+        assertThrows(
+            ApprovalMigrationEngineExecutionStore.ExecutionConflictException.class,
+            () -> executor.execute(request())
+        );
+
+        assertEquals(1, calls[0]);
+        assertEquals(1, store.finalizeCalls);
+        assertEquals(List.of("prepare", "engine", "finalize"), store.order);
     }
 
     @Test
@@ -147,6 +170,8 @@ class ApprovalMigrationSingleInstanceExecutorTest {
     private static final class RecordingStore implements ApprovalMigrationEngineExecutionStore {
         private final List<String> order = new ArrayList<>();
         private boolean transactionOpen;
+        private boolean failFinalization;
+        private int finalizeCalls;
         private FinalizeRequest finalizeRequest;
 
         @Override
@@ -180,8 +205,12 @@ class ApprovalMigrationSingleInstanceExecutorTest {
         @Override
         public ApprovalMigrationAttempt finalizeOutcome(FinalizeRequest request) {
             assertFalse(transactionOpen);
-            transactionOpen = true;
+            finalizeCalls++;
             order.add("finalize");
+            if (failFinalization) {
+                throw new ExecutionConflictException("stale finalization authority");
+            }
+            transactionOpen = true;
             finalizeRequest = request;
             ApprovalMigrationAttempt current = request.prepared().attempt();
             ApprovalMigrationAttempt next = switch (request.disposition()) {
