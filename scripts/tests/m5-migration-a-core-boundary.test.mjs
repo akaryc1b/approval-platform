@@ -7,6 +7,7 @@ import test from 'node:test';
 const root = process.cwd();
 const feasibilityPath = path.join(root, 'docs/M5_PROCESS_INSTANCE_MIGRATION_FEASIBILITY.md');
 const workflowDirectory = path.join(root, '.github/workflows');
+const governedD3Adapter = 'server-modules/approval-engine-flowable/src/main/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationAdapter.java';
 const frozenDocuments = new Map([
   ['docs/M3_FINAL_ACCEPTANCE.md', '459c684027e4a08f08655bff3e31721912dc35bc'],
   ['docs/M4_IDENTITY_AND_TENANT_GOVERNANCE.md', '716ecf6503aeaea7a6dbfa5980964a5c4b983619'],
@@ -49,16 +50,27 @@ test('accepted M5-A feasibility remains complete and frozen as the M5-B basis', 
   assert.match(feasibility, /\| 26 \|[^\n]*\| `UNKNOWN_REQUIRES_MORE_EVIDENCE` \|/);
 });
 
-test('production code still cannot invoke Flowable migration or internal tables', async () => {
+test('only the governed D3 adapter may invoke public single-instance Flowable migration APIs', async () => {
   const files = (await filesUnder(path.join(root, 'server-modules'), new Set(['.java'])))
     .filter((file) => !file.split(path.sep).join('/').includes('/src/test/'));
+  let migrationAdapters = 0;
   for (const file of files) {
     const content = await text(file);
+    const relative = path.relative(root, file).split(path.sep).join('/');
     assert.doesNotMatch(content, /ACT_[A-Z0-9_]+/);
     assert.doesNotMatch(content, /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/);
-    assert.doesNotMatch(content, /\b(?:ProcessMigrationService|ProcessInstanceMigrationBuilder|ActivityMigrationMapping)\b/);
+    if (relative === governedD3Adapter) {
+      migrationAdapters += 1;
+      assert.match(content, /ProcessMigrationService/);
+      assert.match(content, /validateMigration\(command\.engineInstanceId\(\)\)/);
+      assert.match(content, /builder\.migrate\(command\.engineInstanceId\(\)\)/);
+      assert.doesNotMatch(content, /migrateProcessInstances|batchMigrateProcessInstances|rollback/i);
+    } else {
+      assert.doesNotMatch(content, /\b(?:ProcessMigrationService|ProcessInstanceMigrationBuilder|ActivityMigrationMapping)\b/);
+    }
     assert.doesNotMatch(path.basename(file), /migration.*worker|worker.*migration/i);
   }
+  assert.equal(migrationAdapters, 1);
 });
 
 test('M5 retains one permanent automatic workflow', async () => {
