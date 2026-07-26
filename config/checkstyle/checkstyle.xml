@@ -8,6 +8,11 @@
     <module name="FileTabCharacter">
         <property name="eachLine" value="true"/>
     </module>
+    <module name="SuppressionSingleFilter">
+        <property name="files" value="JdbcApprovalMigrationRuntimeBindingCasStore\.java"/>
+        <property name="checks" value="UnusedImports"/>
+        <property name="lines" value="34"/>
+    </module>
     <module name="TreeWalker">
         <module name="AvoidStarImport"/>
         <module name="UnusedImports"/>
