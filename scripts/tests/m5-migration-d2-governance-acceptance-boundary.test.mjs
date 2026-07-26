@@ -9,10 +9,11 @@ const protocol = read('docs/M5_D_SERVER_SIDE_EXECUTION_PROTOCOL.md');
 const evidence = read('docs/M5_D2_SHARED_COMMAND_FENCE_CLAIM_EVIDENCE.md');
 const acceptance = read('docs/M5_D2_GOVERNANCE_ACCEPTANCE.md');
 
-test('M5-D2 is explicitly accepted while later D slices remain separately gated', () => {
+test('M5-D2 remains accepted while later D slices advance through separate gates', () => {
   assert.ok(protocol.includes('- M5-D2: `ACCEPTED / PERMANENTLY_VALIDATED`'));
   assert.ok(protocol.includes('- M5-D3: `COMPLETE / PERMANENTLY_VALIDATED`'));
-  assert.ok(protocol.includes('- M5-D4 through M5-D8: not started'));
+  assert.ok(protocol.includes('- M5-D4: `COMPLETE / PERMANENTLY_VALIDATED`'));
+  assert.ok(protocol.includes('- M5-D5 through M5-D8: not started'));
   assert.ok(protocol.includes('- Current M5-D overall result: `IN_PROGRESS`'));
   assert.ok(protocol.includes('- Production migration execution: `NOT_AUTHORIZED`'));
   assert.ok(evidence.includes('- M5-D2 implementation slice: `COMPLETE_PENDING_EXPLICIT_ACCEPTANCE`'));
