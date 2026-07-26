@@ -78,12 +78,12 @@ public record ApprovalMigrationExactVerification(
         String targetEngineDefinitionId
     ) {
         Objects.requireNonNull(snapshot, "snapshot must not be null");
-        sourceEngineDefinitionId = ApprovalMigrationRules.requireText(
+        String sourceDefinition = ApprovalMigrationRules.requireText(
             sourceEngineDefinitionId,
             "sourceEngineDefinitionId",
             256
         );
-        targetEngineDefinitionId = ApprovalMigrationRules.requireText(
+        String targetDefinition = ApprovalMigrationRules.requireText(
             targetEngineDefinitionId,
             "targetEngineDefinitionId",
             256
@@ -101,10 +101,10 @@ public record ApprovalMigrationExactVerification(
             if (snapshot.historicEndTime() == null) {
                 return ExactClassification.STALE_OR_CONTRADICTORY_EVIDENCE;
             }
-            if (sourceEngineDefinitionId.equals(snapshot.historicEngineDefinitionId())) {
+            if (sourceDefinition.equals(snapshot.historicEngineDefinitionId())) {
                 return ExactClassification.SOURCE_HISTORY_TERMINAL;
             }
-            if (targetEngineDefinitionId.equals(snapshot.historicEngineDefinitionId())) {
+            if (targetDefinition.equals(snapshot.historicEngineDefinitionId())) {
                 return ExactClassification.TARGET_HISTORY_TERMINAL;
             }
             return ExactClassification.STALE_OR_CONTRADICTORY_EVIDENCE;
@@ -114,11 +114,11 @@ public record ApprovalMigrationExactVerification(
         }
 
         Set<String> observedDefinitions = observedDefinitions(snapshot);
-        boolean sourceObserved = observedDefinitions.contains(sourceEngineDefinitionId);
-        boolean targetObserved = observedDefinitions.contains(targetEngineDefinitionId);
+        boolean sourceObserved = observedDefinitions.contains(sourceDefinition);
+        boolean targetObserved = observedDefinitions.contains(targetDefinition);
         boolean unknownObserved = observedDefinitions.stream().anyMatch(
-            definition -> !sourceEngineDefinitionId.equals(definition)
-                && !targetEngineDefinitionId.equals(definition)
+            definition -> !sourceDefinition.equals(definition)
+                && !targetDefinition.equals(definition)
         );
         boolean missingDefinition = hasMissingDefinition(snapshot);
         if (sourceObserved && targetObserved) {
@@ -127,13 +127,13 @@ public record ApprovalMigrationExactVerification(
         if (unknownObserved || missingDefinition) {
             return ExactClassification.STALE_OR_CONTRADICTORY_EVIDENCE;
         }
-        if (targetEngineDefinitionId.equals(snapshot.runtimeEngineDefinitionId())
-            && targetEngineDefinitionId.equals(snapshot.historicEngineDefinitionId())
+        if (targetDefinition.equals(snapshot.runtimeEngineDefinitionId())
+            && targetDefinition.equals(snapshot.historicEngineDefinitionId())
             && targetObserved && !sourceObserved) {
             return ExactClassification.EXACT_TARGET_RUNTIME;
         }
-        if (sourceEngineDefinitionId.equals(snapshot.runtimeEngineDefinitionId())
-            && sourceEngineDefinitionId.equals(snapshot.historicEngineDefinitionId())
+        if (sourceDefinition.equals(snapshot.runtimeEngineDefinitionId())
+            && sourceDefinition.equals(snapshot.historicEngineDefinitionId())
             && sourceObserved && !targetObserved) {
             return ExactClassification.EXACT_SOURCE_RUNTIME;
         }
