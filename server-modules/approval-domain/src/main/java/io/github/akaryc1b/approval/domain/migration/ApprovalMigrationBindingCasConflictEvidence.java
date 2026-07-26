@@ -12,6 +12,9 @@ public record ApprovalMigrationBindingCasConflictEvidence(
     UUID attemptId,
     UUID approvalInstanceId,
     UUID verificationId,
+    String workerId,
+    long expectedAttemptRevision,
+    long expectedFenceRevision,
     long expectedBindingRevision,
     String expectedBindingEvidenceHash,
     int expectedSourceReleaseVersion,
@@ -42,6 +45,9 @@ public record ApprovalMigrationBindingCasConflictEvidence(
             verificationId,
             "verificationId must not be null"
         );
+        workerId = ApprovalMigrationRules.requireText(workerId, "workerId", 200);
+        ApprovalMigrationRules.requirePositive(expectedAttemptRevision, "expectedAttemptRevision");
+        ApprovalMigrationRules.requirePositive(expectedFenceRevision, "expectedFenceRevision");
         ApprovalMigrationRules.requirePositive(expectedBindingRevision, "expectedBindingRevision");
         expectedBindingEvidenceHash = ApprovalMigrationRules.requireHash(
             expectedBindingEvidenceHash,
