@@ -105,7 +105,10 @@ test('D2 keeps worker identity and leases server owned and stale owner fenced', 
   assert.match(fenceDomain, /same-owner renewal requires current ownership and lease extension/);
   assert.match(fenceDomain, /lease takeover requires expiry/);
   assert.match(claimJdbc, /fence\.renewed\(\s*request\.workerId\(\)/);
-  assert.match(claimJdbc, /migration attempt lease ownership is stale/);
+  assert.match(
+    claimJdbc,
+    /protocol\.transitionAttempt\(\s*nextAttempt,\s*current\.revision\(\),\s*request\.workerId\(\)/,
+  );
   assert.match(migration, /same-owner fence renewal requires current ownership and extension/);
   assert.match(migration, /command fence takeover requires expiry/);
   assert.match(migration, /where status='ACTIVE'/);
