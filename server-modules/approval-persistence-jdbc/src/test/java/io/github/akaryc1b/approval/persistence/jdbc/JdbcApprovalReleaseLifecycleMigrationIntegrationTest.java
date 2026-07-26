@@ -24,7 +24,7 @@ class JdbcApprovalReleaseLifecycleMigrationIntegrationTest {
         .withPassword("approval");
 
     @Test
-    void v32BackfillRemainsValidWhenRepositoryAdvancesThroughV42() {
+    void v32BackfillRemainsValidWhenRepositoryAdvancesThroughV43() {
         DataSource dataSource = new DriverManagerDataSource(
             POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword()
         );
@@ -37,7 +37,7 @@ class JdbcApprovalReleaseLifecycleMigrationIntegrationTest {
             .locations("classpath:db/migration").load();
         latest.migrate();
 
-        assertEquals("42", latest.info().current().getVersion().getVersion());
+        assertEquals("43", latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
         assertEquals(0, jdbc.queryForObject(
             "select count(*) from ap_process_migration_plan_consumption",
@@ -53,6 +53,10 @@ class JdbcApprovalReleaseLifecycleMigrationIntegrationTest {
         ));
         assertEquals(0, jdbc.queryForObject(
             "select count(*) from ap_process_migration_engine_outcome",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_exact_verification",
             Integer.class
         ));
     }
