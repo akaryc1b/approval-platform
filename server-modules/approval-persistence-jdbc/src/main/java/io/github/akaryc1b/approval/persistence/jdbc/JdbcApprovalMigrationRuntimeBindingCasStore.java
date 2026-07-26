@@ -31,7 +31,6 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -185,45 +184,48 @@ public final class JdbcApprovalMigrationRuntimeBindingCasStore
             plan,
             requestHash
         );
-        ApprovalMigrationInstanceCompletionEvidence completion = new ApprovalMigrationInstanceCompletionEvidence(
-            completionId,
-            attempt.tenantId(),
-            attempt.intentId(),
-            attempt.attemptId(),
-            attempt.approvalInstanceId(),
-            verification.evidence().verificationId(),
-            bindingEvidence.bindingEvidenceId(),
-            bindingEvidence.bindingRevision(),
-            attempt.revision(),
-            fence.revision(),
-            requestHash,
-            binding.bindingEvidenceHash(),
-            bindingEvidence.bindingEvidenceHash(),
-            plan.sourceReleaseVersion(),
-            plan.sourcePackageHash(),
-            attempt.sourceEngineDefinitionId(),
-            plan.targetReleaseVersion(),
-            plan.targetPackageHash(),
-            plan.targetEngineDeploymentId(),
-            plan.targetEngineDefinitionId(),
-            verification.evidence().verificationEvidenceHash(),
-            completionHash,
-            request.happenedAt(),
-            request.requestId(),
-            request.traceId()
-        );
+        ApprovalMigrationInstanceCompletionEvidence completion =
+            new ApprovalMigrationInstanceCompletionEvidence(
+                completionId,
+                attempt.tenantId(),
+                attempt.intentId(),
+                attempt.attemptId(),
+                attempt.approvalInstanceId(),
+                verification.evidence().verificationId(),
+                bindingEvidence.bindingEvidenceId(),
+                bindingEvidence.bindingRevision(),
+                attempt.revision(),
+                fence.revision(),
+                requestHash,
+                binding.bindingEvidenceHash(),
+                bindingEvidence.bindingEvidenceHash(),
+                plan.sourceReleaseVersion(),
+                plan.sourcePackageHash(),
+                attempt.sourceEngineDefinitionId(),
+                plan.targetReleaseVersion(),
+                plan.targetPackageHash(),
+                plan.targetEngineDeploymentId(),
+                plan.targetEngineDefinitionId(),
+                verification.evidence().verificationEvidenceHash(),
+                completionHash,
+                request.happenedAt(),
+                request.requestId(),
+                request.traceId()
+            );
         insertCompletion(completion, request.workerId());
 
-        ApprovalMigrationAttempt succeeded = attempt.transitioned(new ApprovalMigrationAttemptTransition(
-            AttemptStatus.SUCCEEDED,
-            EngineOutcome.CONFIRMED,
-            null,
-            null,
-            attempt.engineRequestReference(),
-            FailureClass.NONE,
-            null,
-            request.happenedAt()
-        ));
+        ApprovalMigrationAttempt succeeded = attempt.transitioned(
+            new ApprovalMigrationAttemptTransition(
+                AttemptStatus.SUCCEEDED,
+                EngineOutcome.CONFIRMED,
+                null,
+                null,
+                attempt.engineRequestReference(),
+                FailureClass.NONE,
+                null,
+                request.happenedAt()
+            )
+        );
         ApprovalMigrationAttempt storedAttempt = protocol.transitionAttempt(
             succeeded,
             attempt.revision(),
@@ -401,6 +403,7 @@ public final class JdbcApprovalMigrationRuntimeBindingCasStore
                 .addValue("tenantId", attempt.tenantId())
                 .addValue("intentId", attempt.intentId()),
             (row, number) -> new PlanAuthority(
+                attempt.tenantId(),
                 row.getString("definition_key"),
                 row.getInt("source_release_version"),
                 row.getString("source_package_hash"),
@@ -475,30 +478,30 @@ public final class JdbcApprovalMigrationRuntimeBindingCasStore
 
     private TargetRelease lockTarget(PlanAuthority plan) {
         return jdbc.query("""
-            select package.definition_key,package.release_version,package.package_hash,
-                   package.definition_version,package.definition_hash,
-                   package.form_package_version,package.form_package_hash,
-                   package.form_version,package.form_hash,
-                   package.ui_schema_version,package.ui_schema_hash,
-                   package.compiler_version,package.compiled_artifact_hash,
-                   package.bpmn_hash,package.deployment_metadata_hash,
-                   deployment.engine_deployment_id,deployment.engine_definition_id,
-                   deployment.engine_version
-            from ap_approval_release_package package
+            select release_package.definition_key,release_package.release_version,
+                   release_package.package_hash,release_package.definition_version,
+                   release_package.definition_hash,release_package.form_package_version,
+                   release_package.form_package_hash,release_package.form_version,
+                   release_package.form_hash,release_package.ui_schema_version,
+                   release_package.ui_schema_hash,release_package.compiler_version,
+                   release_package.compiled_artifact_hash,release_package.bpmn_hash,
+                   release_package.deployment_metadata_hash,deployment.engine_deployment_id,
+                   deployment.engine_definition_id,deployment.engine_version
+            from ap_approval_release_package release_package
             join ap_approval_release_deployment deployment
-              on deployment.tenant_id=package.tenant_id
-             and deployment.definition_key=package.definition_key
-             and deployment.release_version=package.release_version
-             and deployment.release_package_hash=package.package_hash
-            where package.tenant_id=:tenantId
-              and package.definition_key=:definitionKey
-              and package.release_version=:releaseVersion
-              and package.package_hash=:packageHash
+              on deployment.tenant_id=release_package.tenant_id
+             and deployment.definition_key=release_package.definition_key
+             and deployment.release_version=release_package.release_version
+             and deployment.release_package_hash=release_package.package_hash
+            where release_package.tenant_id=:tenantId
+              and release_package.definition_key=:definitionKey
+              and release_package.release_version=:releaseVersion
+              and release_package.package_hash=:packageHash
               and deployment.engine_deployment_id=:deploymentId
               and deployment.engine_definition_id=:definitionId
               and deployment.engine_version=:engineVersion
               and deployment.status='DEPLOYED'
-            for update of package,deployment
+            for update of release_package,deployment
             """, new MapSqlParameterSource()
                 .addValue("tenantId", plan.tenantId())
                 .addValue("definitionKey", plan.definitionKey())
@@ -1155,6 +1158,7 @@ public final class JdbcApprovalMigrationRuntimeBindingCasStore
             row.getObject("verification_id", UUID.class),
             row.getString("previous_binding_evidence_hash"),
             row.getString("binding_evidence_hash"),
+            row.getString("definition_key"),
             row.getInt("release_version"),
             row.getString("release_package_hash"),
             row.getString("engine_deployment_id"),
@@ -1229,6 +1233,7 @@ public final class JdbcApprovalMigrationRuntimeBindingCasStore
     }
 
     private record PlanAuthority(
+        String tenantId,
         String definitionKey,
         int sourceReleaseVersion,
         String sourcePackageHash,
@@ -1238,9 +1243,6 @@ public final class JdbcApprovalMigrationRuntimeBindingCasStore
         String targetEngineDefinitionId,
         int targetEngineVersion
     ) {
-        String tenantId() {
-            throw new UnsupportedOperationException("tenant is supplied by the attempt");
-        }
     }
 
     private record InstanceProjection(
