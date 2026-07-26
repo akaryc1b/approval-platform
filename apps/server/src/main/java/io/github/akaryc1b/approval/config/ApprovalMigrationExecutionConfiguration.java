@@ -1,12 +1,18 @@
 package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalMigrationExactVerificationService;
 import io.github.akaryc1b.approval.application.ApprovalMigrationSingleInstanceExecutor;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationExactVerificationStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort;
+import io.github.akaryc1b.approval.engine.ProcessInstanceVerificationPort;
 import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceMigrationAdapter;
+import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceVerificationAdapter;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStore;
+import org.flowable.engine.HistoryService;
 import org.flowable.engine.ManagementService;
 import org.flowable.engine.ProcessMigrationService;
 import org.flowable.engine.RepositoryService;
@@ -21,7 +27,7 @@ import javax.sql.DataSource;
 import java.time.Clock;
 import java.util.UUID;
 
-/** Default-disabled internal wiring for one-shot M5-D3 execution. */
+/** Default-disabled internal wiring for one-shot M5-D3 execution and D4 verification. */
 @Configuration(proxyBeanMethods = false)
 public class ApprovalMigrationExecutionConfiguration {
 
@@ -43,6 +49,23 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
+    ProcessInstanceVerificationPort processInstanceVerificationPort(
+        RepositoryService repositoryService,
+        RuntimeService runtimeService,
+        TaskService taskService,
+        ManagementService managementService,
+        HistoryService historyService
+    ) {
+        return new FlowableProcessInstanceVerificationAdapter(
+            repositoryService,
+            runtimeService,
+            taskService,
+            managementService,
+            historyService
+        );
+    }
+
+    @Bean
     ApprovalMigrationEngineExecutionStore approvalMigrationEngineExecutionStore(
         DataSource dataSource,
         ObjectMapper objectMapper,
@@ -50,6 +73,22 @@ public class ApprovalMigrationExecutionConfiguration {
         AuditEventSink auditEventSink
     ) {
         return new JdbcApprovalMigrationEngineExecutionStore(
+            dataSource,
+            objectMapper,
+            transactionManager,
+            auditEventSink,
+            UUID::randomUUID
+        );
+    }
+
+    @Bean
+    ApprovalMigrationExactVerificationStore approvalMigrationExactVerificationStore(
+        DataSource dataSource,
+        ObjectMapper objectMapper,
+        PlatformTransactionManager transactionManager,
+        AuditEventSink auditEventSink
+    ) {
+        return new JdbcApprovalMigrationExactVerificationStore(
             dataSource,
             objectMapper,
             transactionManager,
@@ -71,6 +110,18 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
+    ApprovalMigrationExactVerificationService approvalMigrationExactVerificationService(
+        ApprovalMigrationExactVerificationStore verificationStore,
+        ProcessInstanceVerificationPort engineVerification
+    ) {
+        return new ApprovalMigrationExactVerificationService(
+            verificationStore,
+            engineVerification,
+            Clock.systemUTC()
+        );
+    }
+
+    @Bean
     ApprovalMigrationSingleInstanceExecutor.OneShotRunner approvalMigrationOneShotExecutionRunner(
         @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
         @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
@@ -80,6 +131,19 @@ public class ApprovalMigrationExecutionConfiguration {
             executionEnabled,
             workerEnabled,
             executor
+        );
+    }
+
+    @Bean
+    ApprovalMigrationExactVerificationService.OneShotRunner approvalMigrationOneShotVerificationRunner(
+        @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
+        @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
+        ApprovalMigrationExactVerificationService service
+    ) {
+        return new ApprovalMigrationExactVerificationService.OneShotRunner(
+            executionEnabled,
+            workerEnabled,
+            service
         );
     }
 }
