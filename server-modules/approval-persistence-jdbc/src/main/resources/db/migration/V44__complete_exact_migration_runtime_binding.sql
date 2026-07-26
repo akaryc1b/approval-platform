@@ -33,6 +33,7 @@ create table ap_process_runtime_binding_evidence (
  verification_id uuid,
  previous_binding_evidence_hash char(64),
  binding_evidence_hash char(64) not null,
+ definition_key varchar(64) not null,
  release_version integer not null,
  release_package_hash char(64) not null,
  engine_deployment_id varchar(128) not null,
@@ -52,24 +53,24 @@ create table ap_process_runtime_binding_evidence (
   references ap_process_migration_attempt (tenant_id,attempt_id),
  foreign key (tenant_id,verification_id)
   references ap_process_migration_exact_verification (tenant_id,verification_id),
- foreign key (tenant_id,release_version,release_package_hash)
-  references ap_approval_release_package (tenant_id,release_version,package_hash)
-  deferrable initially deferred,
+ foreign key (tenant_id,definition_key,release_version,release_package_hash)
+  references ap_approval_release_package (
+   tenant_id,definition_key,release_version,package_hash
+  ) deferrable initially deferred,
  check (binding_revision>0 and release_version>0 and engine_version>0),
  check (binding_evidence_hash ~ '^[0-9a-f]{64}$'
   and evidence_hash ~ '^[0-9a-f]{64}$'),
  check (previous_binding_evidence_hash is null
   or previous_binding_evidence_hash ~ '^[0-9a-f]{64}$'),
  check (jsonb_typeof(payload_json)='object'),
- check (btrim(engine_deployment_id)<>'' and btrim(engine_definition_id)<>''
-  and btrim(request_id)<>''),
+ check (btrim(definition_key)<>'' and btrim(engine_deployment_id)<>''
+  and btrim(engine_definition_id)<>'' and btrim(request_id)<>''),
  check ((binding_revision=1 and attempt_id is null and verification_id is null
    and previous_binding_evidence_hash is null)
   or (binding_revision>1 and attempt_id is not null and verification_id is not null
    and previous_binding_evidence_hash is not null))
 );
 
--- The release-package key includes definition_key; keep exact package lineage in a trigger.
 create index idx_process_runtime_binding_evidence_instance_v44
  on ap_process_runtime_binding_evidence (
   tenant_id,approval_instance_id,binding_revision,binding_evidence_id
@@ -111,8 +112,8 @@ create table ap_process_migration_instance_completion (
  unique (tenant_id,request_hash),
  foreign key (tenant_id,intent_id)
   references ap_process_migration_intent (tenant_id,intent_id),
- foreign key (tenant_id,attempt_id,approval_instance_id)
-  references ap_process_migration_attempt (tenant_id,attempt_id,approval_instance_id),
+ foreign key (tenant_id,attempt_id)
+  references ap_process_migration_attempt (tenant_id,attempt_id),
  foreign key (tenant_id,verification_id)
   references ap_process_migration_exact_verification (tenant_id,verification_id),
  foreign key (tenant_id,binding_evidence_id)
@@ -170,8 +171,8 @@ create table ap_process_migration_binding_cas_conflict (
  unique (tenant_id,request_hash),
  foreign key (tenant_id,intent_id)
   references ap_process_migration_intent (tenant_id,intent_id),
- foreign key (tenant_id,attempt_id,approval_instance_id)
-  references ap_process_migration_attempt (tenant_id,attempt_id,approval_instance_id),
+ foreign key (tenant_id,attempt_id)
+  references ap_process_migration_attempt (tenant_id,attempt_id),
  foreign key (tenant_id,verification_id)
   references ap_process_migration_exact_verification (tenant_id,verification_id),
  check (expected_attempt_revision>0 and expected_fence_revision>0
@@ -237,16 +238,16 @@ $$;
 insert into ap_process_runtime_binding_evidence (
  tenant_id,binding_evidence_id,approval_instance_id,binding_revision,
  attempt_id,verification_id,previous_binding_evidence_hash,binding_evidence_hash,
- release_version,release_package_hash,engine_deployment_id,engine_definition_id,
- engine_version,evidence_hash,recorded_at,request_id,trace_id,payload_json
+ definition_key,release_version,release_package_hash,engine_deployment_id,
+ engine_definition_id,engine_version,evidence_hash,recorded_at,request_id,trace_id,payload_json
 )
 select binding.tenant_id,gen_random_uuid(),binding.approval_instance_id,1,
- null,null,null,binding.binding_evidence_hash,
+ null,null,null,binding.binding_evidence_hash,binding.definition_key,
  binding.release_version,binding.release_package_hash,binding.engine_deployment_id,
  binding.engine_definition_id,binding.engine_version,
  encode(sha256(convert_to(concat_ws(chr(31),
   'm5-runtime-binding-history-v44',binding.tenant_id,binding.approval_instance_id::text,
-  '1',binding.binding_evidence_hash
+  '1',binding.binding_evidence_hash,binding.definition_key
  ),'UTF8')),'hex'),
  binding.bound_at,binding.request_id,binding.trace_id,
  jsonb_build_object(
@@ -257,11 +258,16 @@ select binding.tenant_id,gen_random_uuid(),binding.approval_instance_id,1,
   'verificationId',null,
   'previousBindingEvidenceHash',null,
   'bindingEvidenceHash',binding.binding_evidence_hash,
+  'definitionKey',binding.definition_key,
   'releaseVersion',binding.release_version,
   'releasePackageHash',binding.release_package_hash,
   'engineDeploymentId',binding.engine_deployment_id,
   'engineDefinitionId',binding.engine_definition_id,
   'engineVersion',binding.engine_version,
+  'evidenceHash',encode(sha256(convert_to(concat_ws(chr(31),
+   'm5-runtime-binding-history-v44',binding.tenant_id,binding.approval_instance_id::text,
+   '1',binding.binding_evidence_hash,binding.definition_key
+  ),'UTF8')),'hex'),
   'recordedAt',binding.bound_at,
   'requestId',binding.request_id,
   'traceId',binding.trace_id
@@ -276,19 +282,20 @@ begin
  previous_hash:=case when tg_op='UPDATE' then old.binding_evidence_hash else null end;
  evidence_value:=encode(sha256(convert_to(concat_ws(chr(31),
   'm5-runtime-binding-history-v44',new.tenant_id,new.approval_instance_id::text,
-  new.binding_revision::text,new.binding_evidence_hash,coalesce(previous_hash,''),
-  coalesce(new.last_migration_attempt_id::text,''),coalesce(new.last_verification_id::text,'')
+  new.binding_revision::text,new.binding_evidence_hash,new.definition_key,
+  coalesce(previous_hash,''),coalesce(new.last_migration_attempt_id::text,''),
+  coalesce(new.last_verification_id::text,'')
  ),'UTF8')),'hex');
  insert into ap_process_runtime_binding_evidence (
   tenant_id,binding_evidence_id,approval_instance_id,binding_revision,
   attempt_id,verification_id,previous_binding_evidence_hash,binding_evidence_hash,
-  release_version,release_package_hash,engine_deployment_id,engine_definition_id,
-  engine_version,evidence_hash,recorded_at,request_id,trace_id,payload_json
+  definition_key,release_version,release_package_hash,engine_deployment_id,
+  engine_definition_id,engine_version,evidence_hash,recorded_at,request_id,trace_id,payload_json
  ) values (
   new.tenant_id,gen_random_uuid(),new.approval_instance_id,new.binding_revision,
   new.last_migration_attempt_id,new.last_verification_id,previous_hash,new.binding_evidence_hash,
-  new.release_version,new.release_package_hash,new.engine_deployment_id,new.engine_definition_id,
-  new.engine_version,evidence_value,new.bound_at,new.request_id,new.trace_id,
+  new.definition_key,new.release_version,new.release_package_hash,new.engine_deployment_id,
+  new.engine_definition_id,new.engine_version,evidence_value,new.bound_at,new.request_id,new.trace_id,
   jsonb_build_object(
    'tenantId',new.tenant_id,
    'approvalInstanceId',new.approval_instance_id,
@@ -297,6 +304,7 @@ begin
    'verificationId',new.last_verification_id,
    'previousBindingEvidenceHash',previous_hash,
    'bindingEvidenceHash',new.binding_evidence_hash,
+   'definitionKey',new.definition_key,
    'releaseVersion',new.release_version,
    'releasePackageHash',new.release_package_hash,
    'engineDeploymentId',new.engine_deployment_id,
@@ -344,9 +352,12 @@ begin
  end if;
  select * into attempt_row from ap_process_migration_attempt
   where tenant_id=new.tenant_id and attempt_id=new.last_migration_attempt_id for update;
+ if not found then
+  raise exception using errcode='23514',message='runtime binding update attempt does not exist';
+ end if;
  select * into verification_row from ap_process_migration_exact_verification
   where tenant_id=new.tenant_id and verification_id=new.last_verification_id;
- if not found or attempt_row.attempt_id is null
+ if not found
   or attempt_row.approval_instance_id<>new.approval_instance_id
   or attempt_row.status<>'VERIFYING'
   or attempt_row.revision<>verification_row.expected_attempt_revision
@@ -456,24 +467,20 @@ create constraint trigger trg_process_runtime_binding_projection_required_v44
 create function ap_guard_runtime_binding_evidence_v44()
 returns trigger language plpgsql as $$
 declare binding_row ap_process_runtime_binding%rowtype;
- package_key varchar(64);
 begin
  if tg_op<>'INSERT' then
   raise exception using errcode='55000',message='runtime binding revision evidence is append-only';
  end if;
  select * into binding_row from ap_process_runtime_binding
   where tenant_id=new.tenant_id and approval_instance_id=new.approval_instance_id;
- select definition_key into package_key from ap_approval_release_package
-  where tenant_id=new.tenant_id and release_version=new.release_version
-   and package_hash=new.release_package_hash;
  if not found or binding_row.binding_revision<>new.binding_revision
   or binding_row.binding_evidence_hash<>new.binding_evidence_hash
+  or binding_row.definition_key<>new.definition_key
   or binding_row.release_version<>new.release_version
   or binding_row.release_package_hash<>new.release_package_hash
   or binding_row.engine_deployment_id<>new.engine_deployment_id
   or binding_row.engine_definition_id<>new.engine_definition_id
   or binding_row.engine_version<>new.engine_version
-  or binding_row.definition_key<>package_key
   or binding_row.last_migration_attempt_id is distinct from new.attempt_id
   or binding_row.last_verification_id is distinct from new.verification_id then
   raise exception using errcode='23514',message='runtime binding evidence does not match current revision';
