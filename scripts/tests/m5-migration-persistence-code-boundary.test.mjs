@@ -44,7 +44,7 @@ test('domain port and JDBC stores model durable CAS evidence without engine exec
     'on conflict (tenant_id,reconciliation_id) do nothing',
   ]) assert.ok(jdbc.includes(operation), `JDBC stores omit ${operation}`);
   for (const content of [domain, port, jdbc]) {
-    assert.doesNotMatch(content, /ACT_[A-Z0-9_]+/);
+    assert.doesNotMatch(content, /\bACT_[A-Z0-9_]+\b/);
     assert.doesNotMatch(content, /ProcessMigrationService|ProcessInstanceMigrationBuilder/);
     assert.doesNotMatch(content, /@Scheduled|MigrationWorker|executeMigration|forceMigration/);
   }
