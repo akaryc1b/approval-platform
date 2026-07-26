@@ -14,6 +14,7 @@ public record ApprovalMigrationRuntimeBindingEvidence(
     UUID verificationId,
     String previousBindingEvidenceHash,
     String bindingEvidenceHash,
+    String definitionKey,
     int releaseVersion,
     String releasePackageHash,
     String engineDeploymentId,
@@ -56,6 +57,7 @@ public record ApprovalMigrationRuntimeBindingEvidence(
             bindingEvidenceHash,
             "bindingEvidenceHash"
         );
+        definitionKey = ApprovalMigrationRules.requireText(definitionKey, "definitionKey", 64);
         ApprovalMigrationRules.requirePositive(releaseVersion, "releaseVersion");
         releasePackageHash = ApprovalMigrationRules.requireHash(
             releasePackageHash,
