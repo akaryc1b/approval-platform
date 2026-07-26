@@ -374,7 +374,7 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             "publisher-d5",
             NOW.plusSeconds(1)
         );
-        new JdbcApprovalReleasePackageStore(dataSource).save(value);
+        JdbcRuntimeBindingStartTestFixture.insertPackage(dataSource, value);
         new JdbcApprovalReleaseDeploymentStore(dataSource).save(new ApprovalReleaseDeployment(
             TARGET_DEPLOYMENT_RECORD,
             TENANT,
