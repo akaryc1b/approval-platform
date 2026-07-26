@@ -10,6 +10,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -108,18 +109,85 @@ final class DingTalkEndpointPolicy {
 
         URI uri = endpoint.uri();
         Map<String, String> headers = new LinkedHashMap<>(request.headers());
+        String renderedCredential;
         if (endpoint.authentication() == AuthenticationLocation.HEADER) {
-            headers.put(ACCESS_TOKEN_HEADER, new String(accessToken, StandardCharsets.US_ASCII));
+            renderedCredential = new String(accessToken, StandardCharsets.US_ASCII);
+            headers.put(ACCESS_TOKEN_HEADER, renderedCredential);
         } else {
+            renderedCredential = percentEncode(accessToken);
             uri = URI.create(
                 endpoint.uri().toASCIIString()
                     + "?"
                     + ACCESS_TOKEN_QUERY
                     + "="
-                    + percentEncode(accessToken)
+                    + renderedCredential
             );
         }
-        return sender.send(uri, Map.copyOf(headers), request.body(), request.timeout());
+        DingTalkTransportResponse response = sender.send(
+            uri,
+            Map.copyOf(headers),
+            request.body(),
+            request.timeout()
+        );
+        return redactCredentialEcho(response, accessToken, renderedCredential);
+    }
+
+    private static DingTalkTransportResponse redactCredentialEcho(
+        DingTalkTransportResponse response,
+        byte[] accessToken,
+        String renderedCredential
+    ) {
+        if (response == null || response.providerRequestId() == null) {
+            return response;
+        }
+        String requestId = response.providerRequestId();
+        byte[] requestIdBytes = requestId.getBytes(StandardCharsets.US_ASCII);
+        try {
+            if (!contains(requestIdBytes, accessToken)
+                && (renderedCredential == null || !containsIgnoreCase(requestId, renderedCredential))) {
+                return response;
+            }
+            return new DingTalkTransportResponse(
+                response.state(),
+                response.statusCode(),
+                null,
+                response.body(),
+                response.completedAt()
+            );
+        } finally {
+            Arrays.fill(requestIdBytes, (byte) 0);
+        }
+    }
+
+    private static boolean contains(byte[] value, byte[] candidate) {
+        if (candidate.length == 0 || candidate.length > value.length) {
+            return false;
+        }
+        for (int start = 0; start <= value.length - candidate.length; start++) {
+            boolean matched = true;
+            for (int index = 0; index < candidate.length; index++) {
+                if (value[start + index] != candidate[index]) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsIgnoreCase(String value, String candidate) {
+        if (candidate.isEmpty() || candidate.length() > value.length()) {
+            return false;
+        }
+        for (int start = 0; start <= value.length() - candidate.length(); start++) {
+            if (value.regionMatches(true, start, candidate, 0, candidate.length())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static EndpointBinding endpoint(
@@ -244,16 +312,32 @@ final class DingTalkEndpointPolicy {
             if (isIpv4Mapped(bytes)) {
                 return isPublicIpv4(new byte[] {bytes[12], bytes[13], bytes[14], bytes[15]});
             }
-            int first = Byte.toUnsignedInt(bytes[0]);
-            if (first < 0x20 || first > 0x3f) {
-                return false;
-            }
-            return !(first == 0x20
-                && Byte.toUnsignedInt(bytes[1]) == 0x01
-                && Byte.toUnsignedInt(bytes[2]) == 0x0d
-                && Byte.toUnsignedInt(bytes[3]) == 0xb8);
+            return isPublicIpv6(bytes);
         }
         return false;
+    }
+
+    private static boolean isPublicIpv6(byte[] bytes) {
+        int firstSegment = ipv6Segment(bytes, 0);
+        int secondSegment = ipv6Segment(bytes, 2);
+        if ((firstSegment & 0xe000) != 0x2000) {
+            return false;
+        }
+        if (firstSegment == 0x2001 && secondSegment <= 0x01ff) {
+            return false;
+        }
+        if (firstSegment == 0x2001 && secondSegment == 0x0db8) {
+            return false;
+        }
+        if (firstSegment == 0x2002 || firstSegment == 0x3ffe) {
+            return false;
+        }
+        return firstSegment != 0x3fff || (secondSegment & 0xf000) != 0;
+    }
+
+    private static int ipv6Segment(byte[] bytes, int offset) {
+        return Byte.toUnsignedInt(bytes[offset]) << 8
+            | Byte.toUnsignedInt(bytes[offset + 1]);
     }
 
     private static boolean isPublicIpv4(byte[] bytes) {
