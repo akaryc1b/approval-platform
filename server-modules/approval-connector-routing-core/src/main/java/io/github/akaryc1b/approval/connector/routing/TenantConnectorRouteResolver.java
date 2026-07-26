@@ -83,7 +83,7 @@ public final class TenantConnectorRouteResolver {
                 null
             );
         }
-        if (!snapshot.configurationValid()) {
+        if (!snapshot.integrityValid()) {
             return finish(
                 ResolutionStatus.INVALID_CONFIGURATION,
                 tenantHash,
@@ -99,9 +99,9 @@ public final class TenantConnectorRouteResolver {
             request.capability(),
             request.intent()
         );
-        if (candidates.isEmpty()) {
+        if (candidates.size() > 1) {
             return finish(
-                ResolutionStatus.MISSING,
+                ResolutionStatus.AMBIGUOUS,
                 tenantHash,
                 requestHash,
                 snapshot.snapshotHash(),
@@ -109,9 +109,11 @@ public final class TenantConnectorRouteResolver {
                 null
             );
         }
-        if (candidates.size() != 1) {
+        if (candidates.isEmpty()) {
             return finish(
-                ResolutionStatus.AMBIGUOUS,
+                snapshot.configurationValid()
+                    ? ResolutionStatus.MISSING
+                    : ResolutionStatus.INVALID_CONFIGURATION,
                 tenantHash,
                 requestHash,
                 snapshot.snapshotHash(),
@@ -125,6 +127,16 @@ public final class TenantConnectorRouteResolver {
         if (routeStatus != ResolutionStatus.RESOLVED) {
             return finish(
                 routeStatus,
+                tenantHash,
+                requestHash,
+                snapshot.snapshotHash(),
+                route.definitionHash(),
+                null
+            );
+        }
+        if (!snapshot.configurationValid()) {
+            return finish(
+                ResolutionStatus.INVALID_CONFIGURATION,
                 tenantHash,
                 requestHash,
                 snapshot.snapshotHash(),
