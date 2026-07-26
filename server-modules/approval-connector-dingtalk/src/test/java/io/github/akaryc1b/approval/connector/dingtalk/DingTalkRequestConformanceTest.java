@@ -32,8 +32,8 @@ class DingTalkRequestConformanceTest {
             Map.of(
                 "directoryQueries", "USER_BY_ID",
                 "identityNamespace", "dingtalk-userid",
-                "implementationMode", "captured-transport-only",
-                "productionNetwork", "false"
+                "implementationMode", "captured-plus-production-transport",
+                "productionNetwork", "default-disabled"
             ),
             descriptor.compatibilityMetadata()
         );
