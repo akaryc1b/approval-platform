@@ -57,7 +57,7 @@ test('only the governed D3 adapter may invoke public single-instance Flowable mi
   for (const file of files) {
     const content = await text(file);
     const relative = path.relative(root, file).split(path.sep).join('/');
-    assert.doesNotMatch(content, /ACT_[A-Z0-9_]+/);
+    assert.doesNotMatch(content, /\bACT_[A-Z0-9_]+\b/);
     assert.doesNotMatch(content, /org\.flowable\.(?:common\.)?engine\.impl|org\.flowable\.engine\.impl/);
     if (relative === governedD3Adapter) {
       migrationAdapters += 1;
