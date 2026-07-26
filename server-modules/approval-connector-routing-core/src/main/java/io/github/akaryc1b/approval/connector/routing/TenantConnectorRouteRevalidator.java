@@ -59,7 +59,7 @@ public final class TenantConnectorRouteRevalidator {
         if (snapshot == null) {
             return result(RevalidationStatus.SOURCE_UNAVAILABLE, tenantHash, plan, null);
         }
-        if (!snapshot.integrityValid()) {
+        if (!snapshot.configurationValid()) {
             return result(
                 RevalidationStatus.INVALID_CONFIGURATION,
                 tenantHash,

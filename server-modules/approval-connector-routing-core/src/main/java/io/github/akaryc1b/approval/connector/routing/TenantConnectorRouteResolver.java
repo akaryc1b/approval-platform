@@ -83,7 +83,7 @@ public final class TenantConnectorRouteResolver {
                 null
             );
         }
-        if (!snapshot.integrityValid()) {
+        if (!snapshot.configurationValid()) {
             return finish(
                 ResolutionStatus.INVALID_CONFIGURATION,
                 tenantHash,
