@@ -134,7 +134,7 @@ public final class TenantConnectorRouteContracts {
             return hash(canonical(
                 capability.name(),
                 intent.name(),
-                optionalHash(businessReference),
+                nullable(optionalHash(businessReference)),
                 hash(correlationReference)
             ));
         }
@@ -414,7 +414,7 @@ public final class TenantConnectorRouteContracts {
             String businessHash = optionalHash(request.businessReference());
             String correlationHash = hash(request.correlationReference());
             String requestHash = request.evidenceHash();
-            String computedPlanHash = computePlanHash(
+            String planHash = computePlanHash(
                 tenantHash,
                 definition.providerKey(),
                 definition.capability(),
@@ -455,7 +455,7 @@ public final class TenantConnectorRouteContracts {
                 businessHash,
                 correlationHash,
                 createdAtEvidence,
-                computedPlanHash
+                planHash
             );
         }
 
@@ -550,7 +550,7 @@ public final class TenantConnectorRouteContracts {
             status = Objects.requireNonNull(status, "status must not be null");
             plan = plan == null ? Optional.empty() : plan;
             evidence = Objects.requireNonNull(evidence, "evidence must not be null");
-            if ((status == ResolutionStatus.RESOLVED) != plan.isPresent()) {
+            if (status == ResolutionStatus.RESOLVED != plan.isPresent()) {
                 throw new IllegalArgumentException("only RESOLVED may carry a route plan");
             }
             if (evidence.status() != status) {
