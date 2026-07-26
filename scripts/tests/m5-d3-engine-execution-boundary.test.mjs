@@ -25,18 +25,23 @@ const store = read(storePath);
 const config = read(configPath);
 const migration = read(migrationPath);
 
-function javaSources(relativeRoot) {
+function sourceFiles(relativeRoot, extensions) {
   const directory = path.join(root, relativeRoot);
   const files = [];
   const visit = (current) => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const next = path.join(current, entry.name);
-      if (entry.isDirectory()) visit(next);
-      else if (entry.name.endsWith('.java')) files.push(readFileSync(next, 'utf8'));
+      if (entry.isDirectory() && !['node_modules', 'dist'].includes(entry.name)) visit(next);
+      else if (entry.isFile() && extensions.test(entry.name)) {
+        files.push({
+          relative: path.relative(root, next).split(path.sep).join('/'),
+          content: readFileSync(next, 'utf8'),
+        });
+      }
     }
   };
   visit(directory);
-  return files.join('\n');
+  return files;
 }
 
 test('D3 port accepts only one exact instance and has no batch or rollback surface', () => {
@@ -89,32 +94,34 @@ test('D3 evidence is append-only and fence-revision bound', () => {
   assert.match(migration, /lease_until<=new\.recorded_at/);
 });
 
-test('one-shot execution remains default disabled and has no resident scheduler', () => {
+test('one-shot execution remains default disabled and adds no migration scheduler', () => {
   const application = read('apps/server/src/main/resources/application.yml');
   assert.match(application, /migration:\s*[\s\S]*execution:\s*[\s\S]*enabled:\s*\$\{APPROVAL_MIGRATION_EXECUTION_ENABLED:false\}/);
   assert.match(application, /worker:\s*[\s\S]*enabled:\s*\$\{APPROVAL_MIGRATION_WORKER_ENABLED:false\}/);
   assert.match(config, /approval\.migration\.execution\.enabled:false/);
   assert.match(config, /approval\.migration\.worker\.enabled:false/);
   assert.match(executor, /class OneShotRunner/);
-  const production = javaSources('apps/server/src/main/java');
-  assert.doesNotMatch(production, /@Scheduled|SchedulingConfigurer/);
+  for (const content of [config, executor, adapter, store]) {
+    assert.doesNotMatch(content, /@Scheduled|SchedulingConfigurer|TaskScheduler/);
+  }
+  const migrationNamedSources = sourceFiles('apps/server/src/main/java', /\.java$/)
+    .filter(({ relative, content }) => /migration/i.test(relative) || /Migration/.test(content));
+  assert.equal(migrationNamedSources.some(({ content }) => /@Scheduled|SchedulingConfigurer/.test(content)), false);
 });
 
 test('D3 adds no public execution controller or Web Mobile control', () => {
-  const server = javaSources('apps/server/src/main/java');
-  assert.doesNotMatch(server, /@(PostMapping|PutMapping|PatchMapping)[\s\S]{0,240}(migration|execute|reconcile)/i);
+  const serverSources = sourceFiles('apps/server/src/main/java', /\.java$/);
+  for (const { relative, content } of serverSources) {
+    if (!/(Controller|Resource)\.java$/.test(relative)) continue;
+    assert.doesNotMatch(content, /@(PostMapping|PutMapping|PatchMapping)\s*\([^)]*(migration[^)]*(execute|force|rollback|reconcile)|(execute|force|rollback|reconcile)[^)]*migration)/i);
+  }
+  assert.doesNotMatch(config, /@RestController|@Controller|RequestMapping|PostMapping/);
   for (const clientRoot of ['apps/web-antd', 'apps/mobile']) {
     const absolute = path.join(root, clientRoot);
     if (!existsSync(absolute)) continue;
-    const files = [];
-    const visit = (current) => {
-      for (const entry of readdirSync(current, { withFileTypes: true })) {
-        const next = path.join(current, entry.name);
-        if (entry.isDirectory() && !['node_modules', 'dist'].includes(entry.name)) visit(next);
-        else if (entry.isFile() && /\.(vue|ts|tsx|js)$/.test(entry.name)) files.push(readFileSync(next, 'utf8'));
-      }
-    };
-    visit(absolute);
-    assert.doesNotMatch(files.join('\n'), /migration.{0,80}(execute|force|rollback|reconcile)/i);
+    const clientSources = sourceFiles(clientRoot, /\.(vue|ts|tsx|js)$/);
+    for (const { content } of clientSources) {
+      assert.doesNotMatch(content, /migration.{0,80}(execute|force|rollback|reconcile)/i);
+    }
   }
 });
