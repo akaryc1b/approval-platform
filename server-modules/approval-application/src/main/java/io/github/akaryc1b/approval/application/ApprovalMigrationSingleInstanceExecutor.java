@@ -54,9 +54,11 @@ public final class ApprovalMigrationSingleInstanceExecutor {
             request.traceId()
         ));
 
+        FinalizeRequest finalization;
+        String resultDisposition;
         try {
             MigrationDispatchResult result = engineMigration.migrateOne(prepared.engineCommand());
-            ApprovalMigrationAttempt stored = executionStore.finalizeOutcome(new FinalizeRequest(
+            finalization = new FinalizeRequest(
                 prepared,
                 disposition(result),
                 result.engineCallAttempted(),
@@ -66,34 +68,39 @@ public final class ApprovalMigrationSingleInstanceExecutor {
                 result.boundedSummary(),
                 result.preDispatchSnapshot().snapshotHash(),
                 clock.instant()
-            ));
-            return new ExecutionResult(stored, prepared.engineRequestId(), result.disposition().name());
+            );
+            resultDisposition = result.disposition().name();
         } catch (AmbiguousMigrationDispatchException exception) {
-            ApprovalMigrationAttempt stored = persistUnknown(
+            finalization = unknownFinalization(
                 prepared,
                 exception.stableCode(),
                 exception.getMessage(),
                 exception.engineCallMayHaveOccurred()
             );
-            return new ExecutionResult(stored, prepared.engineRequestId(), "AMBIGUOUS_UNKNOWN");
+            resultDisposition = "AMBIGUOUS_UNKNOWN";
         } catch (RuntimeException exception) {
-            ApprovalMigrationAttempt stored = persistUnknown(
+            finalization = unknownFinalization(
                 prepared,
                 "ENGINE_PORT_UNEXPECTED",
                 "engine dispatch ended without authoritative completion evidence",
                 true
             );
-            return new ExecutionResult(stored, prepared.engineRequestId(), "AMBIGUOUS_UNKNOWN");
+            resultDisposition = "AMBIGUOUS_UNKNOWN";
         }
+
+        // Finalization is deliberately outside the engine exception boundary. A stale-owner,
+        // audit or evidence conflict must propagate and must never trigger a second outcome write.
+        ApprovalMigrationAttempt stored = executionStore.finalizeOutcome(finalization);
+        return new ExecutionResult(stored, prepared.engineRequestId(), resultDisposition);
     }
 
-    private ApprovalMigrationAttempt persistUnknown(
+    private FinalizeRequest unknownFinalization(
         PreparedDispatch prepared,
         String stableCode,
         String summary,
         boolean callMayHaveOccurred
     ) {
-        return executionStore.finalizeOutcome(new FinalizeRequest(
+        return new FinalizeRequest(
             prepared,
             FinalDisposition.AMBIGUOUS_UNKNOWN,
             callMayHaveOccurred,
@@ -103,7 +110,7 @@ public final class ApprovalMigrationSingleInstanceExecutor {
             summary,
             sha256("unknown-pre-dispatch|" + prepared.requestEvidenceHash()),
             clock.instant()
-        ));
+        );
     }
 
     private static FinalDisposition disposition(MigrationDispatchResult result) {
