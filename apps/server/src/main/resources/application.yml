@@ -23,6 +23,8 @@ approval:
       enforced: ${APPROVAL_MANAGEMENT_PERMISSIONS_ENFORCED:true}
       trusted-header-name: ${APPROVAL_MANAGEMENT_TRUSTED_HEADER:X-Approval-Trusted-Permissions}
   connector:
+    tenant-routing:
+      enabled: false
     generic:
       enabled: ${APPROVAL_GENERIC_CONNECTOR_ENABLED:false}
       connector-key: ${APPROVAL_GENERIC_CONNECTOR_KEY:generic-rest}
