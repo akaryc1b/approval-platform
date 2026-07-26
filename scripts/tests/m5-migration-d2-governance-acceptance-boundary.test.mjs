@@ -7,20 +7,40 @@ const root = process.cwd();
 const read = (path) => readFileSync(join(root, path), 'utf8');
 const protocol = read('docs/M5_D_SERVER_SIDE_EXECUTION_PROTOCOL.md');
 const evidence = read('docs/M5_D2_SHARED_COMMAND_FENCE_CLAIM_EVIDENCE.md');
+const acceptance = read('docs/M5_D2_GOVERNANCE_ACCEPTANCE.md');
 
-test('M5-D2 governance stops at explicit acceptance without advancing D3', () => {
-  assert.ok(protocol.includes('- M5-D2: `COMPLETE_PENDING_EXPLICIT_ACCEPTANCE`'));
-  assert.ok(protocol.includes('- M5-D3 through M5-D8: not started'));
+test('M5-D2 is explicitly accepted while later D slices remain separately gated', () => {
+  assert.ok(protocol.includes('- M5-D2: `ACCEPTED / PERMANENTLY_VALIDATED`'));
+  assert.ok(protocol.includes('- M5-D3: `COMPLETE / PERMANENTLY_VALIDATED`'));
+  assert.ok(protocol.includes('- M5-D4 through M5-D8: not started'));
   assert.ok(protocol.includes('- Current M5-D overall result: `IN_PROGRESS`'));
   assert.ok(protocol.includes('- Production migration execution: `NOT_AUTHORIZED`'));
   assert.ok(evidence.includes('- M5-D2 implementation slice: `COMPLETE_PENDING_EXPLICIT_ACCEPTANCE`'));
-  assert.ok(evidence.includes('- M5-D3 through M5-D8: not started'));
   assert.ok(evidence.includes('This is not an acceptance decision'));
-  assert.ok(!protocol.includes('- M5-D2: `ACCEPTED`'));
-  assert.ok(!evidence.includes('- M5-D2 implementation slice: `ACCEPTED`'));
+  assert.ok(acceptance.includes('- M5-D2: `ACCEPTED / PERMANENTLY_VALIDATED`'));
+  assert.ok(acceptance.includes('- Production migration execution: `NOT_AUTHORIZED`'));
+  assert.ok(acceptance.includes('Only M5-D3'));
 });
 
-test('M5-D2 evidence freezes the exact successful implementation run', () => {
+test('M5-D2 formal acceptance freezes the exact committed-head run and artifacts', () => {
+  for (const required of [
+    '`1e27dcc69d9c899b3593f9bb464fc1847a595513`',
+    'Run ID: `30187720943`',
+    'run number: `#564`',
+    '`8627594481`',
+    'eaf01b7066017017aba1fc4930b2e65cced72b1d83e32c8e98a935f5af464e30',
+    '`8627556607`',
+    'ca9ac648ef32d88fb87f50ef15b5bc763e7722aa216c2caf4b93bea2e9e5aa45',
+    '`8627551054`',
+    '33dc4a82ea38c52c5be3f2ecc95e76463113f532454ad8a30e4c0897af7a7d4e',
+    '`8627544056`',
+    '891dbcb714ea6ca33b8e5058fdd6cc2f79f45d821782a1848a9b53cc40af96a4',
+  ]) {
+    assert.ok(acceptance.includes(required), `missing acceptance evidence: ${required}`);
+  }
+});
+
+test('M5-D2 implementation evidence freezes the exact successful implementation run', () => {
   for (const required of [
     'run ID: `30187205016`',
     'run number: `#563`',
