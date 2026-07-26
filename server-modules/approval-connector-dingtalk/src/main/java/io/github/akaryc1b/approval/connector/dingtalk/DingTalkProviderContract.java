@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Closed provider metadata for the captured DingTalk transport conformance slice.
+ * Closed provider metadata for captured and default-disabled production DingTalk transport.
  */
 public final class DingTalkProviderContract {
 
@@ -33,8 +33,8 @@ public final class DingTalkProviderContract {
         Map.of(
             "directoryQueries", "USER_BY_ID",
             "identityNamespace", IDENTITY_NAMESPACE,
-            "implementationMode", "captured-transport-only",
-            "productionNetwork", "false"
+            "implementationMode", "captured-plus-production-transport",
+            "productionNetwork", "default-disabled"
         )
     );
 

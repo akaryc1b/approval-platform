@@ -81,11 +81,12 @@ final class DingTalkResultSupport {
         R value,
         ConnectorRequest<?> request,
         DingTalkTransportRequest transportRequest,
-        DingTalkTransportResponse response
+        DingTalkTransportResponse response,
+        DingTalkTransport transport
     ) {
         return ConnectorResult.success(
             value,
-            providerResult(transportRequest, response),
+            providerResult(transportRequest, response, transport),
             idempotency(request),
             request.securityEvidence()
         );
@@ -95,7 +96,8 @@ final class DingTalkResultSupport {
         ConnectorRequest<?> request,
         DingTalkTransportRequest transportRequest,
         DingTalkTransportResponse response,
-        TransportFailure failure
+        TransportFailure failure,
+        DingTalkTransport transport
     ) {
         return failure(
             request,
@@ -105,7 +107,8 @@ final class DingTalkResultSupport {
             failure.code(),
             failure.failureClass(),
             failure.message(),
-            Map.of("statusCode", Integer.toString(response.statusCode()))
+            Map.of("statusCode", Integer.toString(response.statusCode())),
+            transport
         );
     }
 
@@ -117,11 +120,12 @@ final class DingTalkResultSupport {
         String code,
         ProviderFailureClass failureClass,
         String message,
-        Map<String, String> details
+        Map<String, String> details,
+        DingTalkTransport transport
     ) {
         return ConnectorResult.failure(
             outcome,
-            providerResult(transportRequest, response),
+            providerResult(transportRequest, response, transport),
             idempotency(request),
             request.securityEvidence(),
             new ConnectorError(code, failureClass, message, details)
@@ -130,10 +134,18 @@ final class DingTalkResultSupport {
 
     private static ConnectorProviderResult providerResult(
         DingTalkTransportRequest request,
-        DingTalkTransportResponse response
+        DingTalkTransportResponse response,
+        DingTalkTransport transport
     ) {
+        DingTalkTransport.TransportMode mode = transport.mode();
         Map<String, String> metadata = new LinkedHashMap<>();
-        metadata.put("adapter", "dingtalk-captured");
+        metadata.put(
+            "adapter",
+            mode == DingTalkTransport.TransportMode.PRODUCTION
+                ? "dingtalk-production"
+                : "dingtalk-captured"
+        );
+        metadata.put("transportMode", mode.name());
         metadata.put("apiFamily", request.apiFamily().name());
         metadata.put("path", request.path());
         metadata.put("transportState", response.state().name());

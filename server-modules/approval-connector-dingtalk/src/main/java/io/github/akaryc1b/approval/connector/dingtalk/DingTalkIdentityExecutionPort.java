@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Captured DingTalk identity adapter for the dingtalk-userid namespace.
+ * DingTalk identity adapter for the dingtalk-userid namespace.
  */
 public final class DingTalkIdentityExecutionPort
     implements ConnectorExecutionPort<IdentityResolveCommand, IdentityResolveResult> {
@@ -58,7 +58,7 @@ public final class DingTalkIdentityExecutionPort
 
         DingTalkTransportRequest transportRequest = encoder.encodeIdentity(request.payload());
         DingTalkTransportResponse response = Objects.requireNonNull(
-            transport.exchange(transportRequest),
+            transport.exchange(context, request.operation(), transportRequest),
             "transport must not return null"
         );
         DingTalkResultSupport.TransportFailure transportFailure =
@@ -68,7 +68,8 @@ public final class DingTalkIdentityExecutionPort
                 request,
                 transportRequest,
                 response,
-                transportFailure
+                transportFailure,
+                transport
             );
         }
 
@@ -83,14 +84,16 @@ public final class DingTalkIdentityExecutionPort
                     "DINGTALK_RESPONSE_ID_MISMATCH",
                     ProviderFailureClass.UNKNOWN,
                     "DingTalk identity response ID does not match request",
-                    Map.of()
+                    Map.of(),
+                    transport
                 );
             }
             return DingTalkResultSupport.success(
                 DingTalkUserMappings.identityResult(detail),
                 request,
                 transportRequest,
-                response
+                response,
+                transport
             );
         } catch (DingTalkProviderException exception) {
             return DingTalkResultSupport.failure(
@@ -101,7 +104,8 @@ public final class DingTalkIdentityExecutionPort
                 "DINGTALK_PROVIDER_REJECTED",
                 ProviderFailureClass.PERMANENT,
                 exception.getMessage(),
-                Map.of("providerCode", Long.toString(exception.providerCode()))
+                Map.of("providerCode", Long.toString(exception.providerCode())),
+                transport
             );
         } catch (RuntimeException exception) {
             return DingTalkResultSupport.failure(
@@ -112,7 +116,8 @@ public final class DingTalkIdentityExecutionPort
                 "DINGTALK_RESPONSE_INVALID",
                 ProviderFailureClass.UNKNOWN,
                 "DingTalk response could not be parsed",
-                Map.of()
+                Map.of(),
+                transport
             );
         }
     }

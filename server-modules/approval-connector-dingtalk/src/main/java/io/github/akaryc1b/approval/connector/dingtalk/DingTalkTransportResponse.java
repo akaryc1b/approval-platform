@@ -22,7 +22,7 @@ public record DingTalkTransportResponse(
             if (statusCode < 100 || statusCode > 599) {
                 throw new IllegalArgumentException("responded statusCode must be between 100 and 599");
             }
-            body = requireText(body, "body", 65_536);
+            body = requireBody(body, 65_536);
         } else {
             if (statusCode != 0) {
                 throw new IllegalArgumentException("non-response statusCode must be zero");
@@ -61,6 +61,14 @@ public record DingTalkTransportResponse(
         RESPONDED,
         TIMEOUT,
         UNKNOWN
+    }
+
+    private static String requireBody(String value, int maximumLength) {
+        Objects.requireNonNull(value, "body must not be null");
+        if (value.length() > maximumLength) {
+            throw new IllegalArgumentException("body exceeds " + maximumLength + " characters");
+        }
+        return value;
     }
 
     private static String requireText(String value, String name, int maximumLength) {
