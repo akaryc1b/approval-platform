@@ -14,6 +14,9 @@ public record ApprovalMigrationInstanceCompletionEvidence(
     UUID verificationId,
     UUID bindingEvidenceId,
     long bindingRevision,
+    long expectedAttemptRevision,
+    long expectedFenceRevision,
+    String requestHash,
     String sourceBindingEvidenceHash,
     String targetBindingEvidenceHash,
     int sourceReleaseVersion,
@@ -50,6 +53,9 @@ public record ApprovalMigrationInstanceCompletionEvidence(
         if (bindingRevision < 2) {
             throw new IllegalArgumentException("migration completion requires binding revision 2 or later");
         }
+        ApprovalMigrationRules.requirePositive(expectedAttemptRevision, "expectedAttemptRevision");
+        ApprovalMigrationRules.requirePositive(expectedFenceRevision, "expectedFenceRevision");
+        requestHash = ApprovalMigrationRules.requireHash(requestHash, "requestHash");
         sourceBindingEvidenceHash = ApprovalMigrationRules.requireHash(
             sourceBindingEvidenceHash,
             "sourceBindingEvidenceHash"
