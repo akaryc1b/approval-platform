@@ -107,6 +107,37 @@ public record ApprovalMigrationCommandFence(
         );
     }
 
+    public ApprovalMigrationCommandFence released(String actor, Instant happenedAt) {
+        if (status != FenceStatus.ACTIVE) {
+            throw new IllegalArgumentException("only an active command fence may be released");
+        }
+        String normalizedActor = ApprovalMigrationRules.requireText(actor, "actor", 200);
+        Instant changedAt = Objects.requireNonNull(happenedAt, "happenedAt must not be null");
+        if (!leaseOwner.equals(normalizedActor) || !changedAt.isBefore(leaseUntil)) {
+            throw new IllegalArgumentException(
+                "command fence release requires current owner before lease expiry"
+            );
+        }
+        return new ApprovalMigrationCommandFence(
+            fenceId,
+            tenantId,
+            approvalInstanceId,
+            attemptId,
+            operation,
+            FenceStatus.RELEASED,
+            revision + 1,
+            leaseOwner,
+            leaseUntil,
+            idempotencyKey,
+            requestHash,
+            acquiredAt,
+            changedAt,
+            changedAt,
+            requestId,
+            traceId
+        );
+    }
+
     public enum FenceStatus {
         ACTIVE,
         RELEASED
