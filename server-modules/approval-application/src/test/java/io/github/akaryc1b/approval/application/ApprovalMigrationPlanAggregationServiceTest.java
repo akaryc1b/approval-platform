@@ -3,9 +3,15 @@ package io.github.akaryc1b.approval.application;
 import io.github.akaryc1b.approval.application.ApprovalMigrationPlanAggregationService.AggregateCommand;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore.AggregationRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore.AggregationResult;
+import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.AggregateStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.CanaryStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.OrchestrationStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PauseReason;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanAggregate;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanAggregateEvent;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.StateCounts;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.TerminalOutcome;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -20,8 +26,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class ApprovalMigrationPlanAggregationServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-07-27T12:00:00Z");
-    private static final UUID INTENT = UUID.fromString(
+    private static final UUID PLAN = UUID.fromString(
         "88000000-0000-0000-0000-000000000001"
+    );
+    private static final UUID INTENT = UUID.fromString(
+        "88000000-0000-0000-0000-000000000002"
+    );
+    private static final RequestContext CONTEXT = new RequestContext(
+        "tenant-a",
+        "operator-a",
+        "request-aggregation",
+        "idempotency-aggregation",
+        "trace-aggregation"
     );
 
     @Test
@@ -34,7 +50,7 @@ class ApprovalMigrationPlanAggregationServiceTest {
     }
 
     @Test
-    void enabledRunnerDelegatesOnlyServerOwnedRequestMaterial() {
+    void enabledRunnerDelegatesOnlyServerOwnedContextAndExactPlan() {
         AtomicReference<AggregationRequest> observed = new AtomicReference<>();
         ApprovalMigrationPlanAggregationService.OneShotRunner runner =
             new ApprovalMigrationPlanAggregationService.OneShotRunner(
@@ -45,28 +61,32 @@ class ApprovalMigrationPlanAggregationServiceTest {
         AggregationResult result = runner.runOnce(command());
 
         assertEquals(AggregateStatus.NOT_STARTED, result.aggregate().status());
-        assertEquals("tenant-a", observed.get().tenantId());
-        assertEquals(INTENT, observed.get().intentId());
+        assertEquals(CONTEXT, observed.get().context());
+        assertEquals(PLAN, observed.get().planId());
         assertEquals(1, observed.get().expectedAggregateRevision());
         assertEquals(NOW, observed.get().happenedAt());
-        assertEquals("request-aggregation", observed.get().requestId());
+        assertEquals("Aggregate exact consumed plan", observed.get().reason());
     }
 
     @Test
-    void commandRejectsMissingAuthorityAndStaleRevision() {
+    void commandRejectsMissingContextPlanAndStaleRevision() {
         assertThrows(NullPointerException.class, () -> new AggregateCommand(
             null,
-            INTENT,
+            PLAN,
             1,
-            "request",
-            null
+            "reason"
+        ));
+        assertThrows(NullPointerException.class, () -> new AggregateCommand(
+            CONTEXT,
+            null,
+            1,
+            "reason"
         ));
         assertThrows(IllegalArgumentException.class, () -> new AggregateCommand(
-            "tenant-a",
-            INTENT,
+            CONTEXT,
+            PLAN,
             0,
-            "request",
-            null
+            "reason"
         ));
     }
 
@@ -77,52 +97,79 @@ class ApprovalMigrationPlanAggregationServiceTest {
             observed.set(request);
             PlanAggregate aggregate = aggregate(request);
             PlanAggregateEvent event = new PlanAggregateEvent(
-                UUID.fromString("88000000-0000-0000-0000-000000000003"),
+                UUID.fromString("88000000-0000-0000-0000-000000000004"),
                 request.tenantId(),
                 aggregate.aggregateId(),
                 aggregate.planId(),
                 aggregate.intentId(),
                 aggregate.aggregateRevision(),
                 aggregate.status(),
+                aggregate.terminalOutcome(),
+                aggregate.pauseReason(),
+                aggregate.predecessorHash(),
                 aggregate.aggregateHash(),
                 hash('e'),
                 request.happenedAt(),
                 request.requestId(),
-                request.traceId()
+                request.traceId(),
+                aggregate.auditReference()
             );
             return new AggregationResult(aggregate, event, null, false);
         }, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private static PlanAggregate aggregate(AggregationRequest request) {
+        StateCounts counts = new StateCounts(
+            2,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2
+        );
         return new PlanAggregate(
-            UUID.fromString("88000000-0000-0000-0000-000000000002"),
+            UUID.fromString("88000000-0000-0000-0000-000000000003"),
             request.tenantId(),
-            UUID.fromString("88000000-0000-0000-0000-000000000004"),
-            request.intentId(),
+            request.operatorId(),
+            request.planId(),
+            INTENT,
+            hash('a'),
             request.expectedAggregateRevision(),
             AggregateStatus.NOT_STARTED,
-            2,
-            0,
-            0,
-            2,
-            hash('a'),
-            hash('0'),
+            TerminalOutcome.UNRESOLVED,
+            counts,
+            CanaryStatus.NOT_SELECTED,
+            OrchestrationStatus.NOT_STARTED,
+            false,
+            PauseReason.NONE,
+            false,
             hash('b'),
+            hash('0'),
+            request.idempotencyKey(),
             hash('c'),
+            hash('d'),
             request.happenedAt(),
+            request.reason(),
             request.requestId(),
-            request.traceId()
+            request.traceId(),
+            "audit-event:88000000-0000-0000-0000-000000000005"
         );
     }
 
     private static AggregateCommand command() {
         return new AggregateCommand(
-            "tenant-a",
-            INTENT,
+            CONTEXT,
+            PLAN,
             1,
-            "request-aggregation",
-            "trace-aggregation"
+            "Aggregate exact consumed plan"
         );
     }
 

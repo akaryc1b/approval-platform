@@ -131,15 +131,15 @@ public final class ApprovalMigrationPlanAggregationRules {
         if (counts.terminalFailedCount() > 0) {
             return AggregateStatus.TERMINAL_FAILURE_PRESENT;
         }
+        if (signals.canaryStatus() == CanaryStatus.IN_PROGRESS
+            || signals.orchestrationStatus() == OrchestrationStatus.CANARY_IN_PROGRESS) {
+            return AggregateStatus.CANARY_IN_PROGRESS;
+        }
         if (signals.orchestrationStatus() == OrchestrationStatus.BOUNDED_IN_PROGRESS
             || counts.claimedCount() > 0
             || counts.engineRequestedCount() > 0
             || counts.verifyingCount() > 0) {
             return AggregateStatus.BOUNDED_EXECUTION_IN_PROGRESS;
-        }
-        if (signals.canaryStatus() == CanaryStatus.IN_PROGRESS
-            || signals.orchestrationStatus() == OrchestrationStatus.CANARY_IN_PROGRESS) {
-            return AggregateStatus.CANARY_IN_PROGRESS;
         }
         if (signals.canaryStatus() == CanaryStatus.PENDING) {
             return AggregateStatus.CANARY_PENDING;

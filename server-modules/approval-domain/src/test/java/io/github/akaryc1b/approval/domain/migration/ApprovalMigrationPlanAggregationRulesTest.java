@@ -1,10 +1,14 @@
 package io.github.akaryc1b.approval.domain.migration;
 
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.AggregateStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.CanaryStatus;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.InstanceFact;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.InstanceStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.OrchestrationStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PauseReason;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanSignals;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.Summary;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.TerminalOutcome;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -19,99 +23,118 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 class ApprovalMigrationPlanAggregationRulesTest {
 
     @Test
-    void derivesAllExactlyCompletedAndManualCompletion() {
-        Summary exact = summarize(List.of(
+    void exactSuccessAndTerminalFailureUseDifferentTerminalOutcomes() {
+        Summary success = summarize(List.of(
             fact(1, true, InstanceStatus.EXACTLY_COMPLETED),
             fact(2, false, InstanceStatus.EXACTLY_COMPLETED)
         ), PlanSignals.none());
-        assertEquals(AggregateStatus.ALL_INSTANCES_EXACTLY_COMPLETED, exact.status());
-        assertEquals(2, exact.terminalCount());
-        assertEquals(2, exact.succeededCount());
-        assertEquals(0, exact.unresolvedCount());
+        assertEquals(AggregateStatus.COMPLETED_SUCCEEDED, success.status());
+        assertEquals(TerminalOutcome.SUCCEEDED, success.terminalOutcome());
+        assertEquals(2, success.counts().exactSuccessCount());
+        assertEquals(0, success.counts().unresolvedCount());
 
-        Summary manual = summarize(List.of(
+        Summary failed = summarize(List.of(
             fact(1, true, InstanceStatus.EXACTLY_COMPLETED),
-            fact(2, false, InstanceStatus.MANUALLY_DISPOSED)
+            fact(2, false, InstanceStatus.TERMINAL_FAILURE)
         ), PlanSignals.none());
-        assertEquals(AggregateStatus.COMPLETED_WITH_MANUAL_DISPOSITION, manual.status());
-        assertEquals(2, manual.terminalCount());
-        assertEquals(1, manual.succeededCount());
+        assertEquals(AggregateStatus.COMPLETED_WITH_TERMINAL_FAILURE, failed.status());
+        assertEquals(
+            TerminalOutcome.COMPLETED_WITH_TERMINAL_FAILURE,
+            failed.terminalOutcome()
+        );
+        assertEquals(1, failed.counts().terminalFailedCount());
     }
 
     @Test
-    void unresolvedEvidenceAlwaysPrecedesCompletion() {
-        assertStatus(InstanceStatus.UNKNOWN, AggregateStatus.UNKNOWN_PRESENT);
-        assertStatus(InstanceStatus.RECONCILING, AggregateStatus.RECONCILIATION_PRESENT);
-        assertStatus(
-            InstanceStatus.MANUAL_REVIEW_REQUIRED,
-            AggregateStatus.MANUAL_REVIEW_PRESENT
-        );
-        assertStatus(
-            InstanceStatus.TERMINAL_FAILURE,
-            AggregateStatus.TERMINAL_FAILURE_PRESENT
-        );
-        assertStatus(
-            InstanceStatus.COMPLETION_CONFLICT,
-            AggregateStatus.COMPLETION_CONFLICT
-        );
-        assertStatus(
-            InstanceStatus.INVALID_INCOMPLETE_EVIDENCE,
-            AggregateStatus.INVALID_INCOMPLETE_EVIDENCE
-        );
+    void unresolvedEvidenceAlwaysFailsClosed() {
+        assertPaused(InstanceStatus.UNKNOWN, PauseReason.UNKNOWN);
+        assertPaused(InstanceStatus.RECONCILING, PauseReason.RECONCILIATION);
+        assertPaused(InstanceStatus.MANUAL_REVIEW_REQUIRED, PauseReason.MANUAL_REVIEW);
+        assertPaused(InstanceStatus.BINDING_CONFLICT, PauseReason.BINDING_CONFLICT);
+        assertPaused(InstanceStatus.BLOCKED_STALE, PauseReason.STALE_AUTHORITY);
+
+        Summary invalid = summarize(List.of(
+            fact(1, true, InstanceStatus.EXACTLY_COMPLETED),
+            fact(2, false, InstanceStatus.INVALID_INCOMPLETE_EVIDENCE)
+        ), PlanSignals.none());
+        assertEquals(AggregateStatus.INVALID_OR_INCOMPLETE_EVIDENCE, invalid.status());
+        assertEquals(TerminalOutcome.INVALID_EVIDENCE, invalid.terminalOutcome());
     }
 
     @Test
-    void derivesProgressAndCanaryStates() {
-        Summary partial = summarize(List.of(
-            fact(1, true, InstanceStatus.EXACTLY_COMPLETED),
-            fact(2, false, InstanceStatus.NOT_STARTED)
-        ), PlanSignals.none());
-        assertEquals(AggregateStatus.PARTIALLY_COMPLETED, partial.status());
+    void derivesProgressCountsAndClosedSignals() {
+        Summary pending = summarize(List.of(
+            fact(1, true, InstanceStatus.UNPROVISIONED),
+            fact(2, false, InstanceStatus.UNPROVISIONED)
+        ), signals(
+            CanaryStatus.PENDING,
+            OrchestrationStatus.NOT_STARTED,
+            PauseReason.NONE,
+            false,
+            false
+        ));
+        assertEquals(AggregateStatus.CANARY_PENDING, pending.status());
+        assertEquals(2, pending.counts().pendingCount());
+        assertEquals(0, pending.counts().provisionedAttemptCount());
 
-        Summary canaryPending = summarize(List.of(
-            fact(1, true, InstanceStatus.NOT_STARTED),
-            fact(2, false, InstanceStatus.NOT_STARTED)
-        ), signals(true, false, false, false, false, false));
-        assertEquals(AggregateStatus.CANARY_PENDING, canaryPending.status());
-
-        Summary canaryRunning = summarize(List.of(
-            fact(1, true, InstanceStatus.IN_FLIGHT),
-            fact(2, false, InstanceStatus.NOT_STARTED)
-        ), signals(true, true, false, false, false, false));
-        assertEquals(AggregateStatus.CANARY_RUNNING, canaryRunning.status());
+        Summary canary = summarize(List.of(
+            fact(1, true, InstanceStatus.ENGINE_REQUESTED),
+            fact(2, false, InstanceStatus.PENDING)
+        ), signals(
+            CanaryStatus.IN_PROGRESS,
+            OrchestrationStatus.CANARY_IN_PROGRESS,
+            PauseReason.NONE,
+            true,
+            false
+        ));
+        assertEquals(AggregateStatus.CANARY_IN_PROGRESS, canary.status());
+        assertEquals(1, canary.counts().engineRequestedCount());
 
         Summary bounded = summarize(List.of(
             fact(1, true, InstanceStatus.EXACTLY_COMPLETED),
-            fact(2, false, InstanceStatus.IN_FLIGHT)
-        ), signals(true, false, true, false, false, false));
-        assertEquals(AggregateStatus.BOUNDED_EXECUTION_RUNNING, bounded.status());
+            fact(2, false, InstanceStatus.VERIFYING)
+        ), signals(
+            CanaryStatus.COMPLETED,
+            OrchestrationStatus.BOUNDED_IN_PROGRESS,
+            PauseReason.NONE,
+            true,
+            false
+        ));
+        assertEquals(AggregateStatus.PARTIALLY_COMPLETED, bounded.status());
+        assertEquals(1, bounded.counts().verifyingCount());
     }
 
     @Test
-    void killSwitchPauseAndIncompleteSignalsFailClosed() {
+    void killSwitchAndIncompleteSignalsCannotBecomeSuccess() {
         List<InstanceFact> facts = List.of(
-            fact(1, true, InstanceStatus.NOT_STARTED),
-            fact(2, false, InstanceStatus.NOT_STARTED)
+            fact(1, true, InstanceStatus.EXACTLY_COMPLETED),
+            fact(2, false, InstanceStatus.EXACTLY_COMPLETED)
         );
-        assertEquals(
-            AggregateStatus.KILL_SWITCH_BLOCKED,
-            summarize(facts, signals(true, false, false, true, true, false)).status()
-        );
-        assertEquals(
-            AggregateStatus.PAUSED,
-            summarize(facts, signals(true, false, false, true, false, false)).status()
-        );
-        assertEquals(
-            AggregateStatus.INVALID_INCOMPLETE_EVIDENCE,
-            summarize(facts, signals(true, false, false, false, false, true)).status()
-        );
+        Summary killSwitch = summarize(facts, signals(
+            CanaryStatus.PAUSED,
+            OrchestrationStatus.PAUSED,
+            PauseReason.KILL_SWITCH,
+            true,
+            false
+        ));
+        assertEquals(AggregateStatus.PAUSED, killSwitch.status());
+        assertEquals(PauseReason.KILL_SWITCH, killSwitch.signals().pauseReason());
+
+        Summary incomplete = summarize(facts, signals(
+            CanaryStatus.INVALID,
+            OrchestrationStatus.INVALID,
+            PauseReason.INCOMPLETE_EVIDENCE,
+            false,
+            true
+        ));
+        assertEquals(AggregateStatus.INVALID_OR_INCOMPLETE_EVIDENCE, incomplete.status());
     }
 
     @Test
     void canonicalOrderingIsStableAndSequenceGapsFailClosed() {
         List<InstanceFact> reversed = new ArrayList<>(List.of(
             fact(1, true, InstanceStatus.EXACTLY_COMPLETED),
-            fact(2, false, InstanceStatus.NOT_STARTED)
+            fact(2, false, InstanceStatus.PENDING)
         ));
         Collections.reverse(reversed);
         Summary summary = summarize(reversed, PlanSignals.none());
@@ -119,16 +142,10 @@ class ApprovalMigrationPlanAggregationRulesTest {
         assertEquals(1, summary.canonicalFacts().get(0).sequenceNo());
 
         Summary invalid = summarize(List.of(
-            fact(1, true, InstanceStatus.NOT_STARTED),
-            new InstanceFact(
-                3,
-                new UUID(0, 3),
-                false,
-                InstanceStatus.NOT_STARTED,
-                hash('3')
-            )
+            fact(1, true, InstanceStatus.PENDING),
+            fact(3, false, InstanceStatus.PENDING)
         ), PlanSignals.none());
-        assertEquals(AggregateStatus.INVALID_INCOMPLETE_EVIDENCE, invalid.status());
+        assertEquals(AggregateStatus.INVALID_OR_INCOMPLETE_EVIDENCE, invalid.status());
     }
 
     @Test
@@ -143,20 +160,19 @@ class ApprovalMigrationPlanAggregationRulesTest {
             Collections.reverse(reversed);
             Summary replay = summarize(reversed, PlanSignals.none());
             assertEquals(first, replay);
-            assertEquals(AggregateStatus.ALL_INSTANCES_EXACTLY_COMPLETED, first.status());
-            assertEquals(5_000, first.succeededCount());
+            assertEquals(AggregateStatus.COMPLETED_SUCCEEDED, first.status());
+            assertEquals(5_000, first.counts().exactSuccessCount());
         });
     }
 
-    private static void assertStatus(
-        InstanceStatus instanceStatus,
-        AggregateStatus aggregateStatus
-    ) {
+    private static void assertPaused(InstanceStatus status, PauseReason reason) {
         Summary summary = summarize(List.of(
             fact(1, true, InstanceStatus.EXACTLY_COMPLETED),
-            fact(2, false, instanceStatus)
+            fact(2, false, status)
         ), PlanSignals.none());
-        assertEquals(aggregateStatus, summary.status());
+        assertEquals(AggregateStatus.PAUSED, summary.status());
+        assertEquals(reason, summary.signals().pauseReason());
+        assertEquals(1, summary.counts().unresolvedCount());
     }
 
     private static Summary summarize(List<InstanceFact> facts, PlanSignals signals) {
@@ -164,29 +180,32 @@ class ApprovalMigrationPlanAggregationRulesTest {
     }
 
     private static InstanceFact fact(int sequence, boolean canary, InstanceStatus status) {
+        UUID attemptId = status == InstanceStatus.UNPROVISIONED
+            ? null
+            : new UUID(1, sequence);
         return new InstanceFact(
             sequence,
             new UUID(0, sequence),
             canary,
+            attemptId,
             status,
-            hash((char) ('a' + sequence % 6))
+            hash((char) ('a' + sequence % 6)),
+            hash((char) ('f' - sequence % 6))
         );
     }
 
     private static PlanSignals signals(
-        boolean canarySelected,
-        boolean canaryRunning,
-        boolean boundedRunning,
-        boolean paused,
-        boolean killSwitchBlocked,
+        CanaryStatus canaryStatus,
+        OrchestrationStatus orchestrationStatus,
+        PauseReason pauseReason,
+        boolean killSwitchObserved,
         boolean incomplete
     ) {
         return new PlanSignals(
-            canarySelected,
-            canaryRunning,
-            boundedRunning,
-            paused,
-            killSwitchBlocked,
+            canaryStatus,
+            orchestrationStatus,
+            pauseReason,
+            killSwitchObserved,
             incomplete,
             hash('f')
         );
