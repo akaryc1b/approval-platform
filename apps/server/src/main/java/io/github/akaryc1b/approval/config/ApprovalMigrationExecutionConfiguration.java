@@ -15,6 +15,7 @@ import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceVerifi
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStore;
+import io.github.akaryc1b.approval.persistence.jdbc.PostgresSerializedApprovalMigrationRuntimeBindingCasStore;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.ManagementService;
 import org.flowable.engine.ProcessMigrationService;
@@ -107,12 +108,17 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationRuntimeBindingCasStore(
+        ApprovalMigrationRuntimeBindingCasStore jdbcStore =
+            new JdbcApprovalMigrationRuntimeBindingCasStore(
+                dataSource,
+                objectMapper,
+                transactionManager,
+                auditEventSink,
+                UUID::randomUUID
+            );
+        return new PostgresSerializedApprovalMigrationRuntimeBindingCasStore(
             dataSource,
-            objectMapper,
-            transactionManager,
-            auditEventSink,
-            UUID::randomUUID
+            jdbcStore
         );
     }
 
