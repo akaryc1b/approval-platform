@@ -312,6 +312,7 @@ final class JdbcRuntimeBindingStartTestFixture {
                     releasePackage.tenantId(),
                     releasePackage.definitionKey(),
                     releasePackage.releaseVersion(),
+                    releasePackage.definitionVersion(),
                     releasePackage.definitionHash(),
                     releasePackage.formPackageVersion(),
                     releasePackage.formPackageHash(),
