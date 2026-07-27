@@ -99,9 +99,9 @@ test('V44 evidence is immutable revisioned and tied to exact verification', () =
     'verification_evidence_hash',
     'ap_process_migration_instance_completion',
     'ap_process_migration_binding_cas_conflict',
-    'runtime binding evidence is append-only',
-    'migration completion evidence is append-only',
-    'binding CAS conflict evidence is append-only',
+    'runtime binding revision evidence is append-only',
+    'migration instance completion evidence is append-only',
+    'migration binding CAS conflict evidence is append-only',
   ]) {
     assert.match(migration, new RegExp(required, 'i'));
   }
