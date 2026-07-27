@@ -16,7 +16,6 @@ import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggrega
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanSignals;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.StateCounts;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.Summary;
-import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.TerminalOutcome;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationRules;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -104,6 +103,15 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         PlanSignals signals = loadSignals(plan);
         Summary summary = ApprovalMigrationPlanAggregationRules.summarize(facts, signals);
         String inputHash = inputEvidenceHash(plan, summary);
+        if (currentRevision > 0) {
+            PlanAggregate latest = latestAggregate(plan.tenantId(), plan.planId());
+            if (latest.inputEvidenceHash().equals(inputHash)) {
+                throw conflict(
+                    "authoritative aggregation input is unchanged; exact replay must reuse "
+                        + "the existing idempotency key"
+                );
+            }
+        }
         String predecessor = currentRevision == 0
             ? ZERO_HASH
             : latestAggregateHash(plan.tenantId(), plan.planId());
@@ -780,6 +788,16 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         return value == null ? 0 : value;
     }
 
+    private PlanAggregate latestAggregate(String tenantId, UUID planId) {
+        return queryOne(
+            "select payload_json::text from ap_process_migration_plan_aggregate "
+                + "where tenant_id=:tenantId and plan_id=:planId "
+                + "order by aggregate_revision desc limit 1",
+            params("tenantId", tenantId, "planId", planId),
+            PlanAggregate.class
+        ).orElseThrow(() -> conflict("plan aggregate predecessor was not found"));
+    }
+
     private String latestAggregateHash(String tenantId, UUID planId) {
         return jdbc.query(
             "select aggregate_hash from ap_process_migration_plan_aggregate "
@@ -931,7 +949,7 @@ public final class JdbcApprovalMigrationPlanAggregationStore
             completed
                 ? "PROCESS_MIGRATION_PLAN_COMPLETION_RECORDED"
                 : "PROCESS_MIGRATION_PLAN_AGGREGATED",
-            "APPROVAL_MIGRATION_PLAN",
+            "APPROVAl_MIGRATION_PLAN",
             aggregate.planId().toString(),
             aggregate.requestId(),
             aggregate.traceId(),
