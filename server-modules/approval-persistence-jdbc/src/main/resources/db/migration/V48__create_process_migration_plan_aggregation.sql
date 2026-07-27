@@ -234,6 +234,10 @@ create index idx_process_migration_plan_aggregate_event_plan_v48
  on ap_process_migration_plan_aggregate_event (
   tenant_id,plan_id,aggregate_revision,event_id
  );
+create index idx_process_migration_plan_aggregate_event_intent_v48
+ on ap_process_migration_plan_aggregate_event (
+  tenant_id,intent_id,aggregate_revision,event_id
+ );
 create index idx_process_migration_plan_completion_time_v48
  on ap_process_migration_plan_completion (
   tenant_id,completed_at,plan_id
