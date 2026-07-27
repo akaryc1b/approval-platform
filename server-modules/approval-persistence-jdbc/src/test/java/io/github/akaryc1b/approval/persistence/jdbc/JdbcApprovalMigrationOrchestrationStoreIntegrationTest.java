@@ -53,7 +53,7 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
         AdmissionResult admission = persistConsumedPlan(1);
         List<AuditEvent> audits = new ArrayList<>();
         JdbcApprovalMigrationOrchestrationStore orchestration = orchestrationStore(audits);
-        PrepareRequest request = request(admission, 10, 1, 1, 1, "orchestration-one");
+        PrepareRequest request = request(admission, 10, 1, 1, false, "orchestration-one");
 
         PreparedOrchestration first = orchestration.prepare(request);
         PreparedOrchestration replay = orchestration.prepare(request);
@@ -69,7 +69,7 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
         assertEquals(1, audits.size());
 
         assertThrows(OrchestrationConflictException.class, () -> orchestration.prepare(
-            request(admission, 20, 1, 1, 1, "orchestration-one")
+            request(admission, 20, 1, 1, false, "orchestration-one")
         ));
         assertEquals(1, count("ap_process_migration_orchestration_run"));
     }
@@ -80,7 +80,7 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
         List<AuditEvent> audits = java.util.Collections.synchronizedList(new ArrayList<>());
         JdbcApprovalMigrationOrchestrationStore firstStore = orchestrationStore(audits);
         JdbcApprovalMigrationOrchestrationStore secondStore = orchestrationStore(audits);
-        PrepareRequest request = request(admission, 25, 1, 1, 1, "concurrent-run");
+        PrepareRequest request = request(admission, 25, 1, 1, false, "concurrent-run");
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -110,17 +110,17 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
     }
 
     @Test
-    void staleKillSwitchRevisionProducesImmutableBlockedEvidence() {
+    void activeKillSwitchProducesImmutableBlockedEvidence() {
         AdmissionResult admission = persistConsumedPlan(3);
         List<AuditEvent> audits = new ArrayList<>();
         PreparedOrchestration prepared = orchestrationStore(audits).prepare(
-            request(admission, 10, 1, 1, 2, "stale-switch")
+            request(admission, 10, 1, 2, true, "active-switch")
         );
 
         assertTrue(prepared.finalized());
         assertFalse(prepared.dispatchEligible());
         assertEquals(RunEventType.KILL_SWITCH_BLOCKED, prepared.latestEvent().eventType());
-        assertEquals(PauseReason.STALE_KILL_SWITCH_REVISION, prepared.pauseReason());
+        assertEquals(PauseReason.KILL_SWITCH_ACTIVE, prepared.pauseReason());
         assertEquals(1, count("ap_process_migration_orchestration_run"));
         assertEquals(1, count("ap_process_migration_orchestration_event"));
         assertEquals(1, audits.size());
@@ -140,7 +140,7 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
         );
 
         assertThrows(IllegalStateException.class, () -> orchestration.prepare(
-            request(admission, 10, 1, 1, 1, "audit-failure")
+            request(admission, 10, 1, 1, false, "audit-failure")
         ));
         assertEquals(0, count("ap_process_migration_canary_selection"));
         assertEquals(0, count("ap_process_migration_orchestration_run"));
@@ -191,7 +191,7 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
 
         JdbcApprovalMigrationOrchestrationStore orchestration = orchestrationStore(new ArrayList<>());
         PreparedOrchestration prepared = orchestration.prepare(
-            request(admission, 10, 1, 1, 1, "tamper-run")
+            request(admission, 10, 1, 1, false, "tamper-run")
         );
         assertThrows(DataAccessException.class, () -> jdbc.update(
             "update ap_process_migration_canary_selection set request_id='tampered' "
@@ -214,7 +214,6 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
                 "other-tenant",
                 UUID.randomUUID(),
                 10,
-                1,
                 1,
                 new Snapshot(1, false, "CONFIGURED_OFF", hash('8')),
                 NOW.plusSeconds(50),
@@ -239,8 +238,8 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
         AdmissionResult admission,
         int limit,
         long runRevision,
-        long expectedSwitchRevision,
-        long observedSwitchRevision,
+        long switchRevision,
+        boolean switchEnabled,
         String requestId
     ) {
         return new PrepareRequest(
@@ -248,11 +247,10 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
             admission.intent().intentId(),
             limit,
             runRevision,
-            expectedSwitchRevision,
             new Snapshot(
-                observedSwitchRevision,
-                false,
-                "CONFIGURED_OFF",
+                switchRevision,
+                switchEnabled,
+                switchEnabled ? "EMERGENCY_STOP" : "CONFIGURED_OFF",
                 hash('8')
             ),
             NOW.plusSeconds(50),
