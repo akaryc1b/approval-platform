@@ -30,9 +30,16 @@ public record ApprovalMigrationAttemptTransition(
         failureClass = Objects.requireNonNull(failureClass, "failureClass must not be null");
         errorSummary = ApprovalMigrationRules.optionalText(errorSummary, "errorSummary", 1000);
         happenedAt = Objects.requireNonNull(happenedAt, "happenedAt must not be null");
+        String validationRequestReference = engineRequestReference;
+        if (validationRequestReference == null
+            && engineOutcome == EngineOutcome.UNKNOWN
+            && (status == AttemptStatus.BLOCKED_STALE
+                || status == AttemptStatus.FAILED_TERMINAL)) {
+            validationRequestReference = "inherited-engine-request-reference";
+        }
         ApprovalMigrationRules.validateAttemptEvidence(
             status, engineOutcome, leaseOwner, leaseUntil,
-            engineRequestReference, failureClass, errorSummary, happenedAt
+            validationRequestReference, failureClass, errorSummary, happenedAt
         );
     }
 }
