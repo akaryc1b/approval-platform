@@ -65,31 +65,6 @@ final class JdbcRuntimeBindingStartTestFixture {
                 ap_command_idempotency
             cascade
             """);
-        jdbc.execute("""
-            alter table ap_approval_instance
-              add column if not exists current_task_key varchar(128)
-            """);
-        jdbc.execute("""
-            alter table ap_approval_instance
-              alter column initiator_id set default 'initiator-d5',
-              alter column amount set default 1,
-              alter column supplier set default 'supplier-d5',
-              alter column purchase_order_reference set default 'po-d5',
-              alter column attachment_ids_json set default '[]'::jsonb,
-              alter column assignee_snapshot_json set default '{}'::jsonb,
-              alter column request_hash set default repeat('0', 64)
-            """);
-        jdbc.execute("""
-            alter table ap_process_migration_exact_verification
-              add column if not exists engine_instance_id varchar(256),
-              add column if not exists read_failure_code varchar(96),
-              alter column runtime_present set default true,
-              alter column history_present set default true,
-              alter column observed_runtime_definition_id
-                set default 'engine-definition:d5-target:2',
-              alter column observed_history_definition_id
-                set default 'engine-definition:d5-target:2'
-            """);
     }
 
     static ApprovalReleasePackage seedReleaseEvidence(DataSource dataSource) {
@@ -330,31 +305,6 @@ final class JdbcRuntimeBindingStartTestFixture {
                     releasePackage.publishedBy(),
                     releasePackage.publishedAt()
                 ));
-                if (releasePackage.releaseVersion() > RELEASE_VERSION) {
-                    statement.execute("""
-                        insert into ap_process_release_lifecycle (
-                          tenant_id,definition_key,release_version,release_package_hash,
-                          lifecycle_state,revision,published_by,published_at,
-                          activated_at,deprecated_at,retired_at,last_transition_by,
-                          last_transition_at,last_transition_reason,last_idempotency_key,
-                          last_request_id,last_trace_id,last_audit_chain_reference
-                        ) values (
-                          '%s','%s',%d,'%s','PUBLISHED',1,'%s',timestamptz '%s',
-                          null,null,null,'%s',timestamptz '%s','D5 target lifecycle fixture',
-                          'target-lifecycle-d5','request-target-lifecycle-d5','trace-d5',
-                          'audit-target-lifecycle-d5'
-                        )
-                        """.formatted(
-                        releasePackage.tenantId(),
-                        releasePackage.definitionKey(),
-                        releasePackage.releaseVersion(),
-                        releasePackage.packageHash(),
-                        releasePackage.publishedBy(),
-                        releasePackage.publishedAt(),
-                        releasePackage.publishedBy(),
-                        releasePackage.publishedAt()
-                    ));
-                }
                 statement.execute("set session_replication_role = origin");
             }
             return null;
