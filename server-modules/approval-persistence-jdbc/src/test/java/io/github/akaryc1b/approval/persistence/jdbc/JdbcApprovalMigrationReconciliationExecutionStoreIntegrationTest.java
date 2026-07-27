@@ -408,11 +408,11 @@ class JdbcApprovalMigrationReconciliationExecutionStoreIntegrationTest
                      worker_id,attempt_revision,fence_id,fence_revision,
                      engine_instance_id,source_binding_evidence_hash,source_engine_definition_id,
                      target_release_version,target_package_hash,target_engine_deployment_id,
-                     target_engine_definition_id,target_engine_version,activity_mapping_json,
+                     target_engine_definition_id,activity_mapping_json,
                      request_hash,evidence_hash,requested_at,request_id,trace_id,payload_json
                     ) values (
                      '%s','%s','%s','%s','%s','worker-original',2,'%s',1,
-                     'engine-instance-one','%s','%s',2,'%s','deployment-target','%s',2,'[]'::jsonb,
+                     'engine-instance-one','%s','%s',2,'%s','deployment-target','%s','[]'::jsonb,
                      '%s','%s',timestamptz '%s','request-engine-d6','trace-d6','{}'::jsonb
                     )
                     """.formatted(
