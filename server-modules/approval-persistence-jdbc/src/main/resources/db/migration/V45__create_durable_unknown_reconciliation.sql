@@ -136,6 +136,9 @@ returns trigger language plpgsql as $$
 declare attempt_row ap_process_migration_attempt%rowtype;
  latest_status varchar(32);
 begin
+ if tg_op='DELETE' then
+  raise exception using errcode='55000',message='reconciliation lease is append-only';
+ end if;
  if (new.payload_json->>'leaseId')::uuid is distinct from new.lease_id
   or (new.payload_json->>'tenantId') is distinct from new.tenant_id
   or (new.payload_json->>'intentId')::uuid is distinct from new.intent_id
@@ -159,12 +162,12 @@ begin
   where tenant_id=new.tenant_id and attempt_id=new.attempt_id
   order by sequence desc limit 1;
  if not found or attempt_row.intent_id<>new.intent_id
-  or attempt_row.status<>'RECONCILING' or attempt_row.engine_outcome<>'UNKNOWN'
-  or latest_status<>'OPEN' then
-  raise exception using errcode='23514',message='reconciliation lease requires current open UNKNOWN lineage';
+  or attempt_row.engine_outcome<>'UNKNOWN' then
+  raise exception using errcode='23514',message='reconciliation lease UNKNOWN lineage mismatch';
  end if;
  if tg_op='INSERT' then
-  if new.status<>'ACTIVE' or new.revision<>1 or new.released_at is not null
+  if attempt_row.status<>'RECONCILING' or latest_status<>'OPEN'
+   or new.status<>'ACTIVE' or new.revision<>1 or new.released_at is not null
    or new.acquired_at<>new.updated_at or new.lease_until<=new.updated_at then
    raise exception using errcode='23514',message='reconciliation lease must begin ACTIVE revision 1';
   end if;
@@ -179,6 +182,9 @@ begin
   raise exception using errcode='40001',message='reconciliation lease revision or source status is stale';
  end if;
  if new.status='ACTIVE' then
+  if attempt_row.status<>'RECONCILING' or latest_status<>'OPEN' then
+   raise exception using errcode='23514',message='active reconciliation lease requires open evidence';
+  end if;
   if new.worker_id=old.worker_id then
    if new.updated_at>=old.lease_until or new.lease_until<=old.lease_until then
     raise exception using errcode='23514',message='reconciliation lease renewal requires owner and extension';
@@ -187,6 +193,13 @@ begin
    raise exception using errcode='23514',message='reconciliation lease takeover requires expiry';
   end if;
  elsif new.status='RELEASED' then
+  if not (
+    (latest_status='MANUAL_REVIEW_REQUIRED' and attempt_row.status='RECONCILING')
+    or (latest_status='RESOLVED_SOURCE' and attempt_row.status='BLOCKED_STALE')
+    or (latest_status='RESOLVED_TERMINAL' and attempt_row.status='FAILED_TERMINAL')
+   ) then
+   raise exception using errcode='23514',message='reconciliation lease release final state mismatch';
+  end if;
   if new.worker_id<>old.worker_id or new.updated_at>=old.lease_until
    or new.lease_until<>old.lease_until or new.request_hash<>old.request_hash
    or new.request_id<>old.request_id or new.trace_id is distinct from old.trace_id
