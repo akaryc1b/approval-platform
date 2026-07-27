@@ -65,6 +65,10 @@ final class JdbcRuntimeBindingStartTestFixture {
                 ap_command_idempotency
             cascade
             """);
+        jdbc.execute(
+            "alter table ap_approval_instance "
+                + "add column if not exists current_task_key varchar(128)"
+        );
     }
 
     static ApprovalReleasePackage seedReleaseEvidence(DataSource dataSource) {
