@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalMigrationUpgradeIntegrationTest {
 
-    private static final String LATEST_VERSION = "44";
+    private static final String LATEST_VERSION = "45";
     private static final List<UpgradeCase> UPGRADE_CASES = List.of(
         new UpgradeCase("approval_latest_fresh", null),
         new UpgradeCase("approval_latest_v1", "1"),
@@ -33,7 +33,8 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         new UpgradeCase("approval_latest_v40", "40"),
         new UpgradeCase("approval_latest_v41", "41"),
         new UpgradeCase("approval_latest_v42", "42"),
-        new UpgradeCase("approval_latest_v43", "43")
+        new UpgradeCase("approval_latest_v43", "43"),
+        new UpgradeCase("approval_latest_v44", "44")
     );
     private static final String V27_DATABASE = "approval_latest_v27_heavy";
 
@@ -60,7 +61,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
     }
 
     @Test
-    void freshAndHistoricalUpgradePathsReachV44WithoutExecutionSideEffects() {
+    void freshAndHistoricalUpgradePathsReachV45WithoutExecutionSideEffects() {
         for (UpgradeCase upgrade : UPGRADE_CASES) {
             assertUpgrade(upgrade);
         }
@@ -117,6 +118,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
             "select count(*) from ap_process_migration_binding_cas_conflict",
             Integer.class
         ));
+        assertD6Empty(jdbc);
         JdbcApprovalMigrationUpgradeAssertions.assertLatestSchema(dataSource);
     }
 
@@ -183,6 +185,22 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         ));
         assertEquals(0, jdbc.queryForObject(
             "select count(*) from ap_process_migration_binding_cas_conflict",
+            Integer.class
+        ));
+        assertD6Empty(jdbc);
+    }
+
+    private static void assertD6Empty(JdbcTemplate jdbc) {
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_reconciliation_lease",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_reconciliation_lease_event",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_reconciliation_observation",
             Integer.class
         ));
     }
