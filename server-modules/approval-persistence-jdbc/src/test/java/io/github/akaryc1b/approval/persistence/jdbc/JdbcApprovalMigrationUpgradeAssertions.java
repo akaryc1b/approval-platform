@@ -80,7 +80,8 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         "idx_process_migration_kill_switch_observation_time_v47",
         "idx_process_migration_plan_aggregate_plan_v48",
         "idx_process_migration_plan_aggregate_status_v48",
-        "idx_process_migration_plan_aggregate_event_intent_v48",
+        "idx_process_migration_plan_aggregate_unresolved_v48",
+        "idx_process_migration_plan_aggregate_event_plan_v48",
         "idx_process_migration_plan_completion_time_v48"
     );
 
