@@ -330,6 +330,31 @@ final class JdbcRuntimeBindingStartTestFixture {
                     releasePackage.publishedBy(),
                     releasePackage.publishedAt()
                 ));
+                if (releasePackage.releaseVersion() > RELEASE_VERSION) {
+                    statement.execute("""
+                        insert into ap_process_release_lifecycle (
+                          tenant_id,definition_key,release_version,release_package_hash,
+                          lifecycle_state,revision,published_by,published_at,
+                          activated_at,deprecated_at,retired_at,last_transition_by,
+                          last_transition_at,last_transition_reason,last_idempotency_key,
+                          last_request_id,last_trace_id,last_audit_chain_reference
+                        ) values (
+                          '%s','%s',%d,'%s','PUBLISHED',1,'%s',timestamptz '%s',
+                          null,null,null,'%s',timestamptz '%s','D5 target lifecycle fixture',
+                          'target-lifecycle-d5','request-target-lifecycle-d5','trace-d5',
+                          'audit-target-lifecycle-d5'
+                        )
+                        """.formatted(
+                        releasePackage.tenantId(),
+                        releasePackage.definitionKey(),
+                        releasePackage.releaseVersion(),
+                        releasePackage.packageHash(),
+                        releasePackage.publishedBy(),
+                        releasePackage.publishedAt(),
+                        releasePackage.publishedBy(),
+                        releasePackage.publishedAt()
+                    ));
+                }
                 statement.execute("set session_replication_role = origin");
             }
             return null;
