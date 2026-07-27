@@ -120,8 +120,7 @@ test('D8 derives detailed counts and hashes from canonical immutable evidence on
   assert.match(jdbc, /M5-D8-PLAN-AGGREGATE-V1/);
   assert.match(jdbc, /M5-D8-PLAN-COMPLETION-V1/);
   assert.match(jdbc, /StandardCharsets\.UTF_8/);
-  assert.match(jdbc, /latestAggregate/);
-  assert.match(jdbc, /authoritative aggregation input is unchanged/);
+  assert.match(v48, /unique \(tenant_id,plan_id,input_evidence_hash\)/);
   assert.match(serialized, /pg_advisory_lock/);
   assert.match(serialized, /request\.tenantId\(\).*request\.planId\(\)/s);
   assert.match(serialized, /pg_advisory_unlock/);
