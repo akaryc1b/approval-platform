@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalMigrationUpgradeIntegrationTest {
 
-    private static final String LATEST_VERSION = "46";
+    private static final String LATEST_VERSION = "47";
     private static final List<UpgradeCase> UPGRADE_CASES = List.of(
         new UpgradeCase("approval_latest_fresh", null),
         new UpgradeCase("approval_latest_v1", "1"),
@@ -35,7 +35,8 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         new UpgradeCase("approval_latest_v42", "42"),
         new UpgradeCase("approval_latest_v43", "43"),
         new UpgradeCase("approval_latest_v44", "44"),
-        new UpgradeCase("approval_latest_v45", "45")
+        new UpgradeCase("approval_latest_v45", "45"),
+        new UpgradeCase("approval_latest_v46", "46")
     );
     private static final String V27_DATABASE = "approval_latest_v27_heavy";
 
@@ -62,7 +63,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
     }
 
     @Test
-    void freshAndHistoricalUpgradePathsReachV46WithoutExecutionSideEffects() {
+    void freshAndHistoricalUpgradePathsReachV47WithoutExecutionSideEffects() {
         for (UpgradeCase upgrade : UPGRADE_CASES) {
             assertUpgrade(upgrade);
         }
@@ -120,6 +121,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
             Integer.class
         ));
         assertD6Empty(jdbc);
+        assertD7Empty(jdbc);
         JdbcApprovalMigrationUpgradeAssertions.assertLatestSchema(dataSource);
     }
 
@@ -189,6 +191,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
             Integer.class
         ));
         assertD6Empty(jdbc);
+        assertD7Empty(jdbc);
     }
 
     private static void assertD6Empty(JdbcTemplate jdbc) {
@@ -202,6 +205,29 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         ));
         assertEquals(0, jdbc.queryForObject(
             "select count(*) from ap_process_migration_reconciliation_observation",
+            Integer.class
+        ));
+    }
+
+    private static void assertD7Empty(JdbcTemplate jdbc) {
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_canary_selection",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_orchestration_run",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_orchestration_event",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_orchestration_batch",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_kill_switch_observation",
             Integer.class
         ));
     }

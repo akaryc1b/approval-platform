@@ -85,10 +85,10 @@ test('D6 is internal one-shot and default disabled', () => {
   );
 });
 
-test('D6 upgrade matrix reaches V46 including explicit V45 upgrade', () => {
-  assert.match(upgrade, /LATEST_VERSION = "46"/);
-  assert.match(upgrade, /new UpgradeCase\("approval_latest_v44", "44"\)/);
+test('D6 upgrade paths remain covered after D7 advances latest Flyway to V47', () => {
+  assert.match(upgrade, /LATEST_VERSION = "47"/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v45", "45"\)/);
+  assert.match(upgrade, /new UpgradeCase\("approval_latest_v46", "46"\)/);
   assert.match(upgrade, /upgradesV27WithFiveThousandInstancesAndTasksWithoutChangingEvidence/);
   assert.match(upgrade, /assertD6Empty\(jdbc\)/);
 });

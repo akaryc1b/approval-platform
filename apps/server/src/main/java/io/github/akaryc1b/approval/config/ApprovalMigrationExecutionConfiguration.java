@@ -1,12 +1,24 @@
 package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalMigrationAttemptClaimService;
+import io.github.akaryc1b.approval.application.ApprovalMigrationAttemptPipelineService;
+import io.github.akaryc1b.approval.application.ApprovalMigrationBoundedOrchestrationService;
 import io.github.akaryc1b.approval.application.ApprovalMigrationExactVerificationService;
 import io.github.akaryc1b.approval.application.ApprovalMigrationReconciliationService;
 import io.github.akaryc1b.approval.application.ApprovalMigrationRuntimeBindingCasService;
 import io.github.akaryc1b.approval.application.ApprovalMigrationSingleInstanceExecutor;
+import io.github.akaryc1b.approval.application.ApprovalReleasePackageHasher;
+import io.github.akaryc1b.approval.application.ConfiguredApprovalMigrationKillSwitch;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationAttemptClaimStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationAttemptPipeline;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationAttemptProvisioningStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationBindingRevisionReader;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationBoundedClaimCoordinator;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationExactVerificationStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationKillSwitch;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationReconciliationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
@@ -14,8 +26,12 @@ import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort;
 import io.github.akaryc1b.approval.engine.ProcessInstanceVerificationPort;
 import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceMigrationAdapter;
 import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceVerificationAdapter;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationAttemptClaimStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationAttemptProvisioningStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationBindingRevisionReader;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOrchestrationStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationReconciliationExecutionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStore;
 import io.github.akaryc1b.approval.persistence.jdbc.PostgresSerializedApprovalMigrationRuntimeBindingCasStore;
@@ -34,10 +50,15 @@ import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
-/** Default-disabled internal wiring for one-shot M5-D3 through D6 operations. */
+/** Default-disabled internal wiring for one-shot M5-D3 through D7 operations. */
 @Configuration(proxyBeanMethods = false)
 public class ApprovalMigrationExecutionConfiguration {
+
+    private final Supplier<UUID> d7Identifiers = new MonotonicUuidSupplier();
+    private final String orchestrationWorkerId = "m5-orchestration-" + UUID.randomUUID();
 
     @Bean
     ProcessInstanceMigrationPort processInstanceMigrationPort(
@@ -70,6 +91,69 @@ public class ApprovalMigrationExecutionConfiguration {
             taskService,
             managementService,
             historyService
+        );
+    }
+
+    @Bean
+    ApprovalMigrationAttemptProvisioningStore approvalMigrationAttemptProvisioningStore(
+        DataSource dataSource,
+        ObjectMapper objectMapper,
+        PlatformTransactionManager transactionManager,
+        AuditEventSink auditEventSink
+    ) {
+        return new JdbcApprovalMigrationAttemptProvisioningStore(
+            dataSource,
+            objectMapper,
+            transactionManager,
+            auditEventSink,
+            d7Identifiers
+        );
+    }
+
+    @Bean
+    ApprovalMigrationAttemptClaimStore approvalMigrationAttemptClaimStore(
+        DataSource dataSource,
+        ObjectMapper objectMapper,
+        PlatformTransactionManager transactionManager,
+        AuditEventSink auditEventSink
+    ) {
+        return new JdbcApprovalMigrationAttemptClaimStore(
+            dataSource,
+            objectMapper,
+            transactionManager,
+            auditEventSink,
+            d7Identifiers
+        );
+    }
+
+    @Bean
+    ApprovalMigrationAttemptClaimService approvalMigrationAttemptClaimService(
+        ApprovalMigrationAttemptProvisioningStore provisioningStore,
+        ApprovalMigrationAttemptClaimStore claimStore,
+        ApprovalReleasePackageHasher hasher
+    ) {
+        return new ApprovalMigrationAttemptClaimService(
+            provisioningStore,
+            claimStore,
+            hasher,
+            Clock.systemUTC(),
+            () -> orchestrationWorkerId,
+            Duration.ofMinutes(5)
+        );
+    }
+
+    @Bean
+    ApprovalMigrationBoundedClaimCoordinator approvalMigrationBoundedClaimCoordinator(
+        ApprovalMigrationAttemptClaimService claimService
+    ) {
+        return (tenantId, intentId, limit, requestId, traceId) -> claimService.claim(
+            new ApprovalMigrationAttemptClaimService.ClaimCommand(
+                tenantId,
+                intentId,
+                limit,
+                requestId,
+                traceId
+            )
         );
     }
 
@@ -143,6 +227,44 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
+    ApprovalMigrationBindingRevisionReader approvalMigrationBindingRevisionReader(
+        DataSource dataSource
+    ) {
+        return new JdbcApprovalMigrationBindingRevisionReader(dataSource);
+    }
+
+    @Bean
+    ApprovalMigrationOrchestrationStore approvalMigrationOrchestrationStore(
+        DataSource dataSource,
+        ObjectMapper objectMapper,
+        PlatformTransactionManager transactionManager,
+        AuditEventSink auditEventSink
+    ) {
+        return new JdbcApprovalMigrationOrchestrationStore(
+            dataSource,
+            objectMapper,
+            transactionManager,
+            auditEventSink,
+            d7Identifiers
+        );
+    }
+
+    @Bean
+    ApprovalMigrationKillSwitch approvalMigrationKillSwitch(
+        @Value("${approval.migration.kill-switch.enabled:false}") boolean enabled,
+        @Value("${approval.migration.kill-switch.revision:1}") long revision,
+        @Value("${approval.migration.kill-switch.reason-code:CONFIGURED_OFF}") String reasonCode,
+        ApprovalReleasePackageHasher hasher
+    ) {
+        return new ConfiguredApprovalMigrationKillSwitch(
+            enabled,
+            revision,
+            reasonCode,
+            hasher
+        );
+    }
+
+    @Bean
     ApprovalMigrationSingleInstanceExecutor approvalMigrationSingleInstanceExecutor(
         ApprovalMigrationEngineExecutionStore executionStore,
         ProcessInstanceMigrationPort engineMigration
@@ -186,6 +308,37 @@ public class ApprovalMigrationExecutionConfiguration {
             engineVerification,
             Clock.systemUTC(),
             Duration.ofMinutes(5)
+        );
+    }
+
+    @Bean
+    ApprovalMigrationAttemptPipeline approvalMigrationAttemptPipeline(
+        ApprovalMigrationSingleInstanceExecutor executor,
+        ApprovalMigrationExactVerificationService verifier,
+        ApprovalMigrationRuntimeBindingCasService bindingCas,
+        ApprovalMigrationBindingRevisionReader bindingRevisions
+    ) {
+        return new ApprovalMigrationAttemptPipelineService(
+            executor,
+            verifier,
+            bindingCas,
+            bindingRevisions
+        );
+    }
+
+    @Bean
+    ApprovalMigrationBoundedOrchestrationService approvalMigrationBoundedOrchestrationService(
+        ApprovalMigrationOrchestrationStore orchestrationStore,
+        ApprovalMigrationBoundedClaimCoordinator claims,
+        ApprovalMigrationAttemptPipeline pipeline,
+        ApprovalMigrationKillSwitch killSwitch
+    ) {
+        return new ApprovalMigrationBoundedOrchestrationService(
+            orchestrationStore,
+            claims,
+            pipeline,
+            killSwitch,
+            Clock.systemUTC()
         );
     }
 
@@ -242,5 +395,35 @@ public class ApprovalMigrationExecutionConfiguration {
             automaticReconciliationEnabled,
             service
         );
+    }
+
+    @Bean
+    ApprovalMigrationBoundedOrchestrationService.OneShotRunner
+        approvalMigrationOneShotOrchestrationRunner(
+            @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
+            @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
+            @Value("${approval.migration.orchestration.enabled:false}") boolean orchestrationEnabled,
+            ApprovalMigrationBoundedOrchestrationService service
+        ) {
+        return new ApprovalMigrationBoundedOrchestrationService.OneShotRunner(
+            executionEnabled,
+            workerEnabled,
+            orchestrationEnabled,
+            service
+        );
+    }
+
+    private static final class MonotonicUuidSupplier implements Supplier<UUID> {
+        private final long prefix = UUID.randomUUID().getMostSignificantBits();
+        private final AtomicLong sequence = new AtomicLong();
+
+        @Override
+        public UUID get() {
+            long next = sequence.incrementAndGet();
+            if (next < 1) {
+                throw new IllegalStateException("migration evidence identifier sequence exhausted");
+            }
+            return new UUID(prefix, next);
+        }
     }
 }

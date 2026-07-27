@@ -27,6 +27,12 @@ approval:
       enabled: ${APPROVAL_MIGRATION_EXECUTION_ENABLED:false}
     worker:
       enabled: ${APPROVAL_MIGRATION_WORKER_ENABLED:false}
+    orchestration:
+      enabled: ${APPROVAL_MIGRATION_ORCHESTRATION_ENABLED:false}
+    kill-switch:
+      enabled: ${APPROVAL_MIGRATION_KILL_SWITCH_ENABLED:false}
+      revision: ${APPROVAL_MIGRATION_KILL_SWITCH_REVISION:1}
+      reason-code: ${APPROVAL_MIGRATION_KILL_SWITCH_REASON_CODE:CONFIGURED_OFF}
     reconciliation:
       automatic:
         enabled: ${APPROVAL_MIGRATION_RECONCILIATION_AUTOMATIC_ENABLED:false}
