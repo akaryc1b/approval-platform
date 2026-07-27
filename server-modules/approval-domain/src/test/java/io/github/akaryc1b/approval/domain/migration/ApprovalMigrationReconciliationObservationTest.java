@@ -99,7 +99,23 @@ class ApprovalMigrationReconciliationObservationTest {
         );
         assertThrows(
             IllegalArgumentException.class,
-            () -> lease(ReconciliationLeaseStatus.RELEASED, NOW.plusSeconds(60), NOW.plusSeconds(30))
+            () -> new ApprovalMigrationReconciliationLease(
+                UUID.fromString("56000000-0000-0000-0000-000000000005"),
+                "tenant-d6",
+                UUID.fromString("56000000-0000-0000-0000-000000000002"),
+                UUID.fromString("56000000-0000-0000-0000-000000000003"),
+                ReconciliationLeaseStatus.RELEASED,
+                2,
+                "worker-d6",
+                NOW.plusSeconds(60),
+                NOW,
+                NOW.plusSeconds(40),
+                NOW.plusSeconds(30),
+                HASH,
+                HASH,
+                "request-d6",
+                "trace-d6"
+            )
         );
     }
 
