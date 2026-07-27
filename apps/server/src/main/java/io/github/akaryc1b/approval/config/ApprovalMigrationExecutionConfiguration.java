@@ -2,10 +2,12 @@ package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalMigrationExactVerificationService;
+import io.github.akaryc1b.approval.application.ApprovalMigrationReconciliationService;
 import io.github.akaryc1b.approval.application.ApprovalMigrationRuntimeBindingCasService;
 import io.github.akaryc1b.approval.application.ApprovalMigrationSingleInstanceExecutor;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationExactVerificationStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationReconciliationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort;
@@ -14,6 +16,7 @@ import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceMigrat
 import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceVerificationAdapter;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationReconciliationExecutionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStore;
 import io.github.akaryc1b.approval.persistence.jdbc.PostgresSerializedApprovalMigrationRuntimeBindingCasStore;
 import org.flowable.engine.HistoryService;
@@ -29,9 +32,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.UUID;
 
-/** Default-disabled internal wiring for one-shot M5-D3 through D5 operations. */
+/** Default-disabled internal wiring for one-shot M5-D3 through D6 operations. */
 @Configuration(proxyBeanMethods = false)
 public class ApprovalMigrationExecutionConfiguration {
 
@@ -123,6 +127,22 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
+    ApprovalMigrationReconciliationStore approvalMigrationReconciliationStore(
+        DataSource dataSource,
+        ObjectMapper objectMapper,
+        PlatformTransactionManager transactionManager,
+        AuditEventSink auditEventSink
+    ) {
+        return new JdbcApprovalMigrationReconciliationExecutionStore(
+            dataSource,
+            objectMapper,
+            transactionManager,
+            auditEventSink,
+            UUID::randomUUID
+        );
+    }
+
+    @Bean
     ApprovalMigrationSingleInstanceExecutor approvalMigrationSingleInstanceExecutor(
         ApprovalMigrationEngineExecutionStore executionStore,
         ProcessInstanceMigrationPort engineMigration
@@ -153,6 +173,19 @@ public class ApprovalMigrationExecutionConfiguration {
         return new ApprovalMigrationRuntimeBindingCasService(
             bindingCasStore,
             Clock.systemUTC()
+        );
+    }
+
+    @Bean
+    ApprovalMigrationReconciliationService approvalMigrationReconciliationService(
+        ApprovalMigrationReconciliationStore reconciliationStore,
+        ProcessInstanceVerificationPort engineVerification
+    ) {
+        return new ApprovalMigrationReconciliationService(
+            reconciliationStore,
+            engineVerification,
+            Clock.systemUTC(),
+            Duration.ofMinutes(5)
         );
     }
 
@@ -191,6 +224,22 @@ public class ApprovalMigrationExecutionConfiguration {
         return new ApprovalMigrationRuntimeBindingCasService.OneShotRunner(
             executionEnabled,
             workerEnabled,
+            service
+        );
+    }
+
+    @Bean
+    ApprovalMigrationReconciliationService.OneShotRunner approvalMigrationOneShotReconciliationRunner(
+        @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
+        @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
+        @Value("${approval.migration.reconciliation.automatic.enabled:false}")
+        boolean automaticReconciliationEnabled,
+        ApprovalMigrationReconciliationService service
+    ) {
+        return new ApprovalMigrationReconciliationService.OneShotRunner(
+            executionEnabled,
+            workerEnabled,
+            automaticReconciliationEnabled,
             service
         );
     }
