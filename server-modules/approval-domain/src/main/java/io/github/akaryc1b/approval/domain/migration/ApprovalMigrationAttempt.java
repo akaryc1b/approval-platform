@@ -101,12 +101,16 @@ public record ApprovalMigrationAttempt(
             throw new IllegalArgumentException("attempt transition time moved backwards");
         }
         ApprovalMigrationRules.validateAttemptTransitionEvidence(this, transition);
+        String nextRequestReference = ApprovalMigrationRules.normalizedAttemptRequestReference(
+            this,
+            transition
+        );
         return new ApprovalMigrationAttempt(
             attemptId, tenantId, intentId, approvalInstanceId, engineInstanceId,
             attemptNumber, parentAttemptId, expectedBindingEvidenceHash,
             sourceEngineDefinitionId, targetEngineDefinitionId,
             transition.status(), transition.engineOutcome(), revision + 1,
-            transition.leaseOwner(), transition.leaseUntil(), transition.engineRequestReference(),
+            transition.leaseOwner(), transition.leaseUntil(), nextRequestReference,
             transition.failureClass(), transition.errorSummary(), createdAt, transition.happenedAt(),
             requestId, traceId
         );
