@@ -9,7 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Objects;
 
-/** Cross-node serialization before any D8 replay or revision read. */
+/** Cross-node tenant/plan serialization before any D8 replay or revision read. */
 public final class PostgresSerializedApprovalMigrationPlanAggregationStore
     implements ApprovalMigrationPlanAggregationStore {
 
@@ -33,7 +33,7 @@ public final class PostgresSerializedApprovalMigrationPlanAggregationStore
     public AggregationResult aggregate(AggregationRequest request) {
         Objects.requireNonNull(request, "request must not be null");
         String lockKey = "approval-migration-plan-aggregation:"
-            + request.tenantId() + ':' + request.intentId();
+            + request.tenantId() + ':' + request.planId();
         try (Connection connection = dataSource.getConnection()) {
             acquire(connection, lockKey);
             RuntimeException delegateFailure = null;

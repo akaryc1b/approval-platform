@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.application.port;
 
+import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanAggregate;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanAggregateEvent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanCompletion;
@@ -14,24 +15,42 @@ public interface ApprovalMigrationPlanAggregationStore {
     AggregationResult aggregate(AggregationRequest request);
 
     record AggregationRequest(
-        String tenantId,
-        UUID intentId,
+        RequestContext context,
+        UUID planId,
         long expectedAggregateRevision,
-        Instant happenedAt,
-        String requestId,
-        String traceId
+        String reason,
+        Instant happenedAt
     ) {
         public AggregationRequest {
-            tenantId = requireText(tenantId, "tenantId", 128);
-            intentId = Objects.requireNonNull(intentId, "intentId must not be null");
+            context = Objects.requireNonNull(context, "context must not be null");
+            planId = Objects.requireNonNull(planId, "planId must not be null");
             if (expectedAggregateRevision < 1) {
-                throw new IllegalArgumentException("expectedAggregateRevision must be positive");
+                throw new IllegalArgumentException(
+                    "expectedAggregateRevision must be positive"
+                );
             }
+            reason = requireText(reason, "reason", 1000);
             happenedAt = Objects.requireNonNull(happenedAt, "happenedAt must not be null");
-            requestId = requireText(requestId, "requestId", 256);
-            traceId = traceId == null || traceId.isBlank()
-                ? null
-                : requireText(traceId, "traceId", 256);
+        }
+
+        public String tenantId() {
+            return context.tenantId();
+        }
+
+        public String operatorId() {
+            return context.operatorId();
+        }
+
+        public String requestId() {
+            return context.requestId();
+        }
+
+        public String idempotencyKey() {
+            return context.idempotencyKey();
+        }
+
+        public String traceId() {
+            return context.traceId();
         }
     }
 

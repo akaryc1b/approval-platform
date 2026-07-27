@@ -5,13 +5,18 @@ import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggrega
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.domain.audit.AuditEvent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.AggregateStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.CanaryStatus;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.InstanceFact;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.InstanceStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.OrchestrationStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PauseReason;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanAggregate;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanAggregateEvent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanCompletion;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PlanSignals;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.StateCounts;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.Summary;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.TerminalOutcome;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationRules;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -26,6 +31,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -75,9 +81,9 @@ public final class JdbcApprovalMigrationPlanAggregationStore
 
     private AggregationResult aggregateOnce(AggregationRequest request) {
         String requestHash = requestHash(request);
-        Optional<PlanAggregate> replay = findAggregateByRequestId(
+        Optional<PlanAggregate> replay = findAggregateByIdempotency(
             request.tenantId(),
-            request.requestId()
+            request.idempotencyKey()
         );
         if (replay.isPresent()) {
             PlanAggregate aggregate = replay.orElseThrow();
@@ -85,11 +91,12 @@ public final class JdbcApprovalMigrationPlanAggregationStore
             return result(aggregate, true);
         }
 
-        PlanContext plan = lockPlan(request.tenantId(), request.intentId());
-        long currentRevision = currentAggregateRevision(plan.tenantId(), plan.intentId());
+        PlanContext plan = lockPlan(request.tenantId(), request.planId());
+        long currentRevision = currentAggregateRevision(plan.tenantId(), plan.planId());
         if (request.expectedAggregateRevision() != currentRevision + 1) {
             throw conflict("plan aggregate revision is stale");
         }
+
         List<InstanceFact> facts = loadFacts(plan);
         if (facts.size() != plan.selectedCount()) {
             throw conflict("sealed plan selected count does not match canonical instances");
@@ -99,63 +106,73 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         String inputHash = inputEvidenceHash(plan, summary);
         String predecessor = currentRevision == 0
             ? ZERO_HASH
-            : latestAggregateHash(plan.tenantId(), plan.intentId());
-        String aggregateHash = sha256(join(
-            "m5-d8-plan-aggregate-v1",
-            plan.tenantId(),
-            plan.planId(),
-            plan.intentId(),
+            : latestAggregateHash(plan.tenantId(), plan.planId());
+        String aggregateHash = aggregateHash(
+            plan,
             request.expectedAggregateRevision(),
-            summary.status(),
-            summary.selectedCount(),
-            summary.terminalCount(),
-            summary.succeededCount(),
-            summary.unresolvedCount(),
+            summary,
             inputHash,
             predecessor
-        ));
+        );
+
+        UUID auditEventId = nextIdentifier("auditEventId");
+        String auditReference = "audit-event:" + auditEventId;
         PlanAggregate aggregate = new PlanAggregate(
             nextIdentifier("planAggregateId"),
             plan.tenantId(),
+            request.operatorId(),
             plan.planId(),
             plan.intentId(),
+            plan.planHash(),
             request.expectedAggregateRevision(),
             summary.status(),
-            summary.selectedCount(),
-            summary.terminalCount(),
-            summary.succeededCount(),
-            summary.unresolvedCount(),
+            summary.terminalOutcome(),
+            summary.counts(),
+            summary.signals().canaryStatus(),
+            summary.signals().orchestrationStatus(),
+            summary.signals().paused(),
+            summary.signals().pauseReason(),
+            summary.signals().killSwitchObserved(),
             inputHash,
             predecessor,
+            request.idempotencyKey(),
             requestHash,
             aggregateHash,
             request.happenedAt(),
+            request.reason(),
             request.requestId(),
-            request.traceId()
+            request.traceId(),
+            auditReference
         );
         PlanAggregateEvent event = event(aggregate, request);
         PlanCompletion completion = completion(aggregate, request);
+
         insertAggregate(aggregate);
         insertEvent(event);
         if (completion != null) {
             insertCompletion(completion);
         }
-        appendAudit(aggregate, completion != null);
+        appendAudit(auditEventId, aggregate, completion != null);
         return new AggregationResult(aggregate, event, completion, false);
     }
 
-    private PlanContext lockPlan(String tenantId, UUID intentId) {
+    private PlanContext lockPlan(String tenantId, UUID planId) {
         PlanContext plan = jdbc.query("""
             select plan.tenant_id,plan.plan_id,plan.plan_hash,plan.selected_instance_count,
               intent.intent_id,intent.intent_evidence_hash
-            from ap_process_migration_intent intent
-            join ap_process_migration_plan plan
-              on plan.tenant_id=intent.tenant_id and plan.plan_id=intent.plan_id
-             and plan.plan_hash=intent.plan_hash
-            where intent.tenant_id=:tenantId and intent.intent_id=:intentId
+            from ap_process_migration_plan plan
+            join ap_process_migration_plan_consumption consumption
+              on consumption.tenant_id=plan.tenant_id and consumption.plan_id=plan.plan_id
+             and consumption.plan_hash=plan.plan_hash
+            join ap_process_migration_intent intent
+              on intent.tenant_id=consumption.tenant_id
+             and intent.intent_id=consumption.intent_id
+             and intent.plan_id=plan.plan_id and intent.plan_hash=plan.plan_hash
+             and intent.intent_evidence_hash=consumption.intent_evidence_hash
+            where plan.tenant_id=:tenantId and plan.plan_id=:planId
               and plan.status='CONSUMED'
             for update of plan,intent
-            """, params("tenantId", tenantId, "intentId", intentId),
+            """, params("tenantId", tenantId, "planId", planId),
             (row, number) -> new PlanContext(
                 row.getString("tenant_id"),
                 row.getObject("plan_id", UUID.class),
@@ -166,6 +183,7 @@ public final class JdbcApprovalMigrationPlanAggregationStore
             )).stream().findFirst().orElseThrow(() -> conflict(
                 "consumed migration plan was not found in tenant"
             ));
+
         Integer actualCount = jdbc.queryForObject(
             "select count(*) from ap_process_migration_plan_instance "
                 + "where tenant_id=:tenantId and plan_id=:planId",
@@ -183,32 +201,69 @@ public final class JdbcApprovalMigrationPlanAggregationStore
             select selection.sequence_no,selection.approval_instance_id,
               selection.instance_evidence_hash,
               (canary.approval_instance_id is not null) canary,
+              coalesce(attempt.attempt_count,0) attempt_count,
               attempt.attempt_id,attempt.attempt_number,attempt.status attempt_status,
               attempt.revision attempt_revision,attempt.engine_outcome,
-              attempt.failure_class,attempt.payload_json::text attempt_payload,
+              attempt.expected_binding_evidence_hash,
+              request.request_hash engine_request_hash,
+              request.evidence_hash engine_request_evidence_hash,
+              outcome.disposition engine_outcome_disposition,
+              outcome.outcome_hash,
+              verification.classification verification_classification,
+              verification.truncated verification_truncated,
+              verification.verification_evidence_hash,
               coalesce(completion.completion_count,0) completion_count,
-              completion.completion_attempt_id,completion.completion_hash,
+              completion.completion_attempt_id,completion.binding_revision,
+              completion.target_binding_evidence_hash,completion.completion_hash,
               coalesce(conflict.conflict_count,0) conflict_count,
-              conflict.conflict_hash,reconciliation.status reconciliation_status,
+              conflict.conflict_hash,
+              reconciliation.status reconciliation_status,
               coalesce(reconciliation.resolution_evidence_hash,
-                reconciliation.evidence_hash) reconciliation_hash
+                reconciliation.evidence_hash) reconciliation_hash,
+              observation.classification observation_classification,
+              observation.disposition observation_disposition,
+              observation.evidence_hash observation_hash
             from ap_process_migration_plan_instance selection
             left join ap_process_migration_canary_selection canary
               on canary.tenant_id=selection.tenant_id and canary.plan_id=selection.plan_id
              and canary.approval_instance_id=selection.approval_instance_id
             left join lateral (
-              select value.attempt_id,value.attempt_number,value.status,value.revision,
-                value.engine_outcome,value.failure_class,value.payload_json
+              select count(*)::integer attempt_count,
+                (array_agg(value.attempt_id order by value.attempt_number desc,
+                  value.attempt_id desc))[1] attempt_id,
+                (array_agg(value.attempt_number order by value.attempt_number desc,
+                  value.attempt_id desc))[1] attempt_number,
+                (array_agg(value.status order by value.attempt_number desc,
+                  value.attempt_id desc))[1] status,
+                (array_agg(value.revision order by value.attempt_number desc,
+                  value.attempt_id desc))[1] revision,
+                (array_agg(value.engine_outcome order by value.attempt_number desc,
+                  value.attempt_id desc))[1] engine_outcome,
+                (array_agg(value.expected_binding_evidence_hash
+                  order by value.attempt_number desc,value.attempt_id desc))[1]
+                  expected_binding_evidence_hash
               from ap_process_migration_attempt value
               where value.tenant_id=selection.tenant_id
                 and value.intent_id=:intentId
                 and value.approval_instance_id=selection.approval_instance_id
-              order by value.attempt_number desc,value.attempt_id desc limit 1
             ) attempt on true
+            left join ap_process_migration_engine_request request
+              on request.tenant_id=selection.tenant_id
+             and request.attempt_id=attempt.attempt_id
+            left join ap_process_migration_engine_outcome outcome
+              on outcome.tenant_id=selection.tenant_id
+             and outcome.attempt_id=attempt.attempt_id
+            left join ap_process_migration_exact_verification verification
+              on verification.tenant_id=selection.tenant_id
+             and verification.attempt_id=attempt.attempt_id
             left join lateral (
               select count(*)::integer completion_count,
                 (array_agg(value.attempt_id order by value.completed_at desc,
                   value.completion_id desc))[1] completion_attempt_id,
+                (array_agg(value.binding_revision order by value.completed_at desc,
+                  value.completion_id desc))[1] binding_revision,
+                (array_agg(value.target_binding_evidence_hash order by value.completed_at desc,
+                  value.completion_id desc))[1] target_binding_evidence_hash,
                 (array_agg(value.completion_evidence_hash order by value.completed_at desc,
                   value.completion_id desc))[1] completion_hash
               from ap_process_migration_instance_completion value
@@ -232,6 +287,9 @@ public final class JdbcApprovalMigrationPlanAggregationStore
                 and value.attempt_id=attempt.attempt_id
               order by value.sequence desc,value.reconciliation_id desc limit 1
             ) reconciliation on true
+            left join ap_process_migration_reconciliation_observation observation
+              on observation.tenant_id=selection.tenant_id
+             and observation.attempt_id=attempt.attempt_id
             where selection.tenant_id=:tenantId and selection.plan_id=:planId
             order by selection.sequence_no
             """, params(
@@ -243,20 +301,32 @@ public final class JdbcApprovalMigrationPlanAggregationStore
                 row.getObject("approval_instance_id", UUID.class),
                 row.getBoolean("canary"),
                 row.getString("instance_evidence_hash"),
+                row.getInt("attempt_count"),
                 row.getObject("attempt_id", UUID.class),
                 nullableInteger(row, "attempt_number"),
                 row.getString("attempt_status"),
                 nullableLong(row, "attempt_revision"),
                 row.getString("engine_outcome"),
-                row.getString("failure_class"),
-                row.getString("attempt_payload"),
+                row.getString("expected_binding_evidence_hash"),
+                row.getString("engine_request_hash"),
+                row.getString("engine_request_evidence_hash"),
+                row.getString("engine_outcome_disposition"),
+                row.getString("outcome_hash"),
+                row.getString("verification_classification"),
+                nullableBoolean(row, "verification_truncated"),
+                row.getString("verification_evidence_hash"),
                 row.getInt("completion_count"),
                 row.getObject("completion_attempt_id", UUID.class),
+                nullableLong(row, "binding_revision"),
+                row.getString("target_binding_evidence_hash"),
                 row.getString("completion_hash"),
                 row.getInt("conflict_count"),
                 row.getString("conflict_hash"),
                 row.getString("reconciliation_status"),
-                row.getString("reconciliation_hash")
+                row.getString("reconciliation_hash"),
+                row.getString("observation_classification"),
+                row.getString("observation_disposition"),
+                row.getString("observation_hash")
             )));
     }
 
@@ -264,8 +334,10 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         SignalRow row = jdbc.query("""
             select canary.selection_id,canary.selection_evidence_hash,
               run.run_id,run.phase,run.run_evidence_hash,
-              event.event_type,event.event_evidence_hash,
-              batch.batch_evidence_hash,observation.observation_evidence_hash
+              event.event_type,event.pause_reason,event.event_evidence_hash,
+              batch.batch_evidence_hash,
+              observation.switch_enabled,observation.dispatch_allowed,
+              observation.reason_code,observation.observation_evidence_hash
             from (select 1) anchor
             left join lateral (
               select value.selection_id,value.selection_evidence_hash
@@ -280,7 +352,7 @@ public final class JdbcApprovalMigrationPlanAggregationStore
               order by value.run_revision desc,value.run_id desc limit 1
             ) run on true
             left join lateral (
-              select value.event_type,value.event_evidence_hash
+              select value.event_type,value.pause_reason,value.event_evidence_hash
               from ap_process_migration_orchestration_event value
               where value.tenant_id=:tenantId and value.run_id=run.run_id
               order by value.sequence desc,value.event_id desc limit 1
@@ -292,7 +364,8 @@ public final class JdbcApprovalMigrationPlanAggregationStore
               limit 1
             ) batch on true
             left join lateral (
-              select value.observation_evidence_hash
+              select value.switch_enabled,value.dispatch_allowed,value.reason_code,
+                value.observation_evidence_hash
               from ap_process_migration_kill_switch_observation value
               where value.tenant_id=:tenantId and value.run_id=run.run_id
               order by value.observed_at desc,value.observation_id desc limit 1
@@ -308,42 +381,94 @@ public final class JdbcApprovalMigrationPlanAggregationStore
                 result.getString("phase"),
                 result.getString("run_evidence_hash"),
                 result.getString("event_type"),
+                result.getString("pause_reason"),
                 result.getString("event_evidence_hash"),
                 result.getString("batch_evidence_hash"),
+                nullableBoolean(result, "switch_enabled"),
+                nullableBoolean(result, "dispatch_allowed"),
+                result.getString("reason_code"),
                 result.getString("observation_evidence_hash")
             )).stream().findFirst().orElseThrow(() -> conflict(
                 "plan aggregation signals could not be read"
             ));
+
         boolean selected = row.selectionId() != null;
         boolean runPresent = row.runId() != null;
         boolean eventPresent = row.eventType() != null;
+        boolean incomplete = selected != runPresent || runPresent != eventPresent;
         boolean active = "PREPARED".equals(row.eventType())
             || "DISPATCH_ALLOWED".equals(row.eventType());
-        boolean canaryRunning = active && "CANARY".equals(row.phase());
-        boolean boundedRunning = active && "BOUNDED".equals(row.phase());
-        boolean killBlocked = "KILL_SWITCH_BLOCKED".equals(row.eventType());
-        boolean paused = killBlocked || "PAUSED".equals(row.eventType());
-        boolean incomplete = selected != runPresent || runPresent != eventPresent;
-        String evidenceHash = selected || runPresent || eventPresent
-            ? sha256(join(
-                "m5-d8-plan-signals-v1",
+        boolean paused = "PAUSED".equals(row.eventType())
+            || "KILL_SWITCH_BLOCKED".equals(row.eventType());
+        boolean completed = "COMPLETED".equals(row.eventType())
+            || "CANARY_COMPLETED".equals(row.eventType())
+            || "BATCH_RECORDED".equals(row.eventType());
+
+        CanaryStatus canaryStatus;
+        if (incomplete) {
+            canaryStatus = CanaryStatus.INVALID;
+        } else if (!selected) {
+            canaryStatus = CanaryStatus.NOT_SELECTED;
+        } else if (!runPresent) {
+            canaryStatus = CanaryStatus.PENDING;
+        } else if ("CANARY".equals(row.phase()) && active) {
+            canaryStatus = CanaryStatus.IN_PROGRESS;
+        } else if ("CANARY".equals(row.phase()) && paused) {
+            canaryStatus = CanaryStatus.PAUSED;
+        } else if (completed || "BOUNDED".equals(row.phase())) {
+            canaryStatus = CanaryStatus.COMPLETED;
+        } else {
+            canaryStatus = CanaryStatus.PENDING;
+        }
+
+        OrchestrationStatus orchestrationStatus;
+        if (incomplete) {
+            orchestrationStatus = OrchestrationStatus.INVALID;
+        } else if (!runPresent) {
+            orchestrationStatus = OrchestrationStatus.NOT_STARTED;
+        } else if (paused) {
+            orchestrationStatus = OrchestrationStatus.PAUSED;
+        } else if ("CANARY".equals(row.phase()) && active) {
+            orchestrationStatus = OrchestrationStatus.CANARY_IN_PROGRESS;
+        } else if ("BOUNDED".equals(row.phase()) && active) {
+            orchestrationStatus = OrchestrationStatus.BOUNDED_IN_PROGRESS;
+        } else if (completed) {
+            orchestrationStatus = OrchestrationStatus.COMPLETED;
+        } else {
+            orchestrationStatus = OrchestrationStatus.NOT_STARTED;
+        }
+
+        PauseReason pauseReason = incomplete
+            ? PauseReason.INCOMPLETE_EVIDENCE
+            : pauseReason(row.pauseReason());
+        boolean killSwitchObserved = row.observationHash() != null;
+        if (pauseReason == PauseReason.KILL_SWITCH && !killSwitchObserved) {
+            incomplete = true;
+            pauseReason = PauseReason.INCOMPLETE_EVIDENCE;
+        }
+        String evidenceHash = selected || runPresent || eventPresent || killSwitchObserved
+            ? hashValues(
+                "M5-D8-PLAN-SIGNALS-V1",
                 row.selectionId(),
                 row.selectionHash(),
                 row.runId(),
                 row.phase(),
                 row.runHash(),
                 row.eventType(),
+                row.pauseReason(),
                 row.eventHash(),
                 row.batchHash(),
+                row.switchEnabled(),
+                row.dispatchAllowed(),
+                row.killReasonCode(),
                 row.observationHash()
-            ))
+            )
             : ZERO_HASH;
         return new PlanSignals(
-            selected,
-            canaryRunning,
-            boundedRunning,
-            paused,
-            killBlocked,
+            canaryStatus,
+            orchestrationStatus,
+            pauseReason,
+            killSwitchObserved,
             incomplete,
             evidenceHash
         );
@@ -351,104 +476,173 @@ public final class JdbcApprovalMigrationPlanAggregationStore
 
     private InstanceFact fact(FactRow row) {
         InstanceStatus status;
-        if (row.conflictCount() > 0 || row.completionCount() > 1) {
-            status = InstanceStatus.COMPLETION_CONFLICT;
+        if (row.attemptCount() == 0) {
+            status = InstanceStatus.UNPROVISIONED;
+        } else if (row.attemptCount() != 1 || row.attemptId() == null) {
+            status = InstanceStatus.INVALID_INCOMPLETE_EVIDENCE;
+        } else if (row.conflictCount() > 0) {
+            status = InstanceStatus.BINDING_CONFLICT;
+        } else if (row.completionCount() > 1) {
+            status = InstanceStatus.INVALID_INCOMPLETE_EVIDENCE;
         } else if (row.completionCount() == 1) {
-            status = row.attemptId() != null
-                && row.attemptId().equals(row.completionAttemptId())
-                && "SUCCEEDED".equals(row.attemptStatus())
+            status = exactCompletion(row)
                 ? InstanceStatus.EXACTLY_COMPLETED
-                : InstanceStatus.COMPLETION_CONFLICT;
-        } else if (row.attemptId() == null) {
-            status = InstanceStatus.NOT_STARTED;
+                : InstanceStatus.INVALID_INCOMPLETE_EVIDENCE;
         } else {
             status = switch (row.attemptStatus()) {
-                case "PENDING", "CLAIMED", "ENGINE_REQUESTED", "VERIFYING" ->
-                    InstanceStatus.IN_FLIGHT;
+                case "PENDING" -> InstanceStatus.PENDING;
+                case "CLAIMED" -> InstanceStatus.CLAIMED;
+                case "ENGINE_REQUESTED" -> InstanceStatus.ENGINE_REQUESTED;
+                case "VERIFYING" -> InstanceStatus.VERIFYING;
                 case "UNKNOWN" -> InstanceStatus.UNKNOWN;
                 case "RECONCILING" -> manual(row.reconciliationStatus())
                     ? InstanceStatus.MANUAL_REVIEW_REQUIRED
                     : InstanceStatus.RECONCILING;
-                case "BLOCKED_STALE" -> "RESOLVED_SOURCE".equals(row.reconciliationStatus())
-                    ? InstanceStatus.MANUALLY_DISPOSED
-                    : InstanceStatus.INVALID_INCOMPLETE_EVIDENCE;
+                case "BLOCKED_STALE" -> InstanceStatus.BLOCKED_STALE;
                 case "FAILED_RETRYABLE", "FAILED_TERMINAL", "CANCELLED" ->
                     InstanceStatus.TERMINAL_FAILURE;
                 case "SUCCEEDED" -> InstanceStatus.INVALID_INCOMPLETE_EVIDENCE;
                 default -> InstanceStatus.INVALID_INCOMPLETE_EVIDENCE;
             };
         }
-        String evidenceHash = sha256(join(
-            "m5-d8-instance-fact-v1",
+
+        String evidenceHash = hashValues(
+            "M5-D8-INSTANCE-FACT-V1",
             row.sequenceNo(),
             row.approvalInstanceId(),
             row.canary(),
             row.instanceEvidenceHash(),
+            row.attemptCount(),
             row.attemptId(),
             row.attemptNumber(),
             row.attemptStatus(),
             row.attemptRevision(),
             row.engineOutcome(),
-            row.failureClass(),
-            row.attemptPayload(),
+            row.expectedBindingEvidenceHash(),
+            row.engineRequestHash(),
+            row.engineRequestEvidenceHash(),
+            row.engineOutcomeDisposition(),
+            row.outcomeHash(),
+            row.verificationClassification(),
+            row.verificationTruncated(),
+            row.verificationEvidenceHash(),
             row.completionCount(),
             row.completionAttemptId(),
+            row.bindingRevision(),
+            row.targetBindingEvidenceHash(),
             row.completionHash(),
             row.conflictCount(),
             row.conflictHash(),
             row.reconciliationStatus(),
             row.reconciliationHash(),
+            row.observationClassification(),
+            row.observationDisposition(),
+            row.observationHash(),
             status
-        ));
+        );
         return new InstanceFact(
             row.sequenceNo(),
             row.approvalInstanceId(),
             row.canary(),
+            row.attemptId(),
             status,
+            row.instanceEvidenceHash(),
             evidenceHash
         );
     }
 
+    private static boolean exactCompletion(FactRow row) {
+        return row.attemptId().equals(row.completionAttemptId())
+            && "SUCCEEDED".equals(row.attemptStatus())
+            && "EXACT_TARGET_RUNTIME".equals(row.verificationClassification())
+            && Boolean.FALSE.equals(row.verificationTruncated())
+            && row.bindingRevision() != null
+            && row.bindingRevision() > 1
+            && row.targetBindingEvidenceHash() != null
+            && row.verificationEvidenceHash() != null
+            && row.completionHash() != null;
+    }
+
     private String inputEvidenceHash(PlanContext plan, Summary summary) {
-        StringBuilder canonical = new StringBuilder(join(
-            "m5-d8-input-evidence-v1",
+        List<Object> values = new ArrayList<>();
+        values.add("M5-D8-INPUT-EVIDENCE-V1");
+        values.add(plan.tenantId());
+        values.add(plan.planId());
+        values.add(plan.planHash());
+        values.add(plan.intentId());
+        values.add(plan.intentEvidenceHash());
+        values.add(plan.selectedCount());
+        values.add(summary.signals().canaryStatus());
+        values.add(summary.signals().orchestrationStatus());
+        values.add(summary.signals().pauseReason());
+        values.add(summary.signals().killSwitchObserved());
+        values.add(summary.signals().incompleteEvidence());
+        values.add(summary.signals().evidenceHash());
+        for (InstanceFact fact : summary.canonicalFacts()) {
+            values.add(fact.sequenceNo());
+            values.add(fact.approvalInstanceId());
+            values.add(fact.canary());
+            values.add(fact.attemptId());
+            values.add(fact.status());
+            values.add(fact.selectedInstanceEvidenceHash());
+            values.add(fact.evidenceHash());
+        }
+        return hashValues(values.toArray());
+    }
+
+    private String aggregateHash(
+        PlanContext plan,
+        long revision,
+        Summary summary,
+        String inputHash,
+        String predecessor
+    ) {
+        StateCounts counts = summary.counts();
+        return hashValues(
+            "M5-D8-PLAN-AGGREGATE-V1",
             plan.tenantId(),
             plan.planId(),
-            plan.planHash(),
             plan.intentId(),
-            plan.intentEvidenceHash(),
-            plan.selectedCount(),
-            summary.signals().canarySelected(),
-            summary.signals().canaryRunning(),
-            summary.signals().boundedRunning(),
-            summary.signals().paused(),
-            summary.signals().killSwitchBlocked(),
-            summary.signals().incompleteEvidence(),
-            summary.signals().evidenceHash()
-        ));
-        for (InstanceFact fact : summary.canonicalFacts()) {
-            canonical.append('\u001e').append(join(
-                fact.sequenceNo(),
-                fact.approvalInstanceId(),
-                fact.canary(),
-                fact.status(),
-                fact.evidenceHash()
-            ));
-        }
-        return sha256(canonical.toString());
+            plan.planHash(),
+            revision,
+            summary.status(),
+            summary.terminalOutcome(),
+            counts.selectedCount(),
+            counts.provisionedAttemptCount(),
+            counts.pendingCount(),
+            counts.claimedCount(),
+            counts.engineRequestedCount(),
+            counts.verifyingCount(),
+            counts.reconcilingCount(),
+            counts.unknownCount(),
+            counts.manualReviewCount(),
+            counts.bindingConflictCount(),
+            counts.blockedStaleCount(),
+            counts.terminalFailedCount(),
+            counts.exactSuccessCount(),
+            counts.unresolvedCount(),
+            summary.signals().canaryStatus(),
+            summary.signals().orchestrationStatus(),
+            summary.signals().pauseReason(),
+            summary.signals().killSwitchObserved(),
+            inputHash,
+            predecessor
+        );
     }
 
     private PlanAggregateEvent event(PlanAggregate aggregate, AggregationRequest request) {
-        String eventHash = sha256(join(
-            "m5-d8-plan-aggregate-event-v1",
+        String eventHash = hashValues(
+            "M5-D8-PLAN-AGGREGATE-EVENT-V1",
             aggregate.tenantId(),
             aggregate.planId(),
             aggregate.intentId(),
             aggregate.aggregateRevision(),
             aggregate.status(),
+            aggregate.terminalOutcome(),
+            aggregate.pauseReason(),
             aggregate.aggregateHash(),
             aggregate.predecessorHash()
-        ));
+        );
         return new PlanAggregateEvent(
             nextIdentifier("planAggregateEventId"),
             aggregate.tenantId(),
@@ -457,32 +651,38 @@ public final class JdbcApprovalMigrationPlanAggregationStore
             aggregate.intentId(),
             aggregate.aggregateRevision(),
             aggregate.status(),
+            aggregate.terminalOutcome(),
+            aggregate.pauseReason(),
+            aggregate.predecessorHash(),
             aggregate.aggregateHash(),
             eventHash,
             request.happenedAt(),
             request.requestId(),
-            request.traceId()
+            request.traceId(),
+            aggregate.auditReference()
         );
     }
 
     private PlanCompletion completion(PlanAggregate aggregate, AggregationRequest request) {
-        if (aggregate.status() != AggregateStatus.ALL_INSTANCES_EXACTLY_COMPLETED
-            && aggregate.status() != AggregateStatus.COMPLETED_WITH_MANUAL_DISPOSITION) {
+        if (aggregate.status() != AggregateStatus.COMPLETED_SUCCEEDED
+            && aggregate.status() != AggregateStatus.COMPLETED_WITH_TERMINAL_FAILURE) {
             return null;
         }
-        String completionHash = sha256(join(
-            "m5-d8-plan-completion-v1",
+        String completionHash = hashValues(
+            "M5-D8-PLAN-COMPLETION-V1",
             aggregate.tenantId(),
             aggregate.planId(),
             aggregate.intentId(),
             aggregate.aggregateRevision(),
             aggregate.status(),
-            aggregate.selectedCount(),
-            aggregate.terminalCount(),
-            aggregate.succeededCount(),
+            aggregate.terminalOutcome(),
+            aggregate.counts().selectedCount(),
+            aggregate.counts().exactSuccessCount(),
+            aggregate.counts().terminalFailedCount(),
+            aggregate.counts().unresolvedCount(),
             aggregate.inputEvidenceHash(),
             aggregate.aggregateHash()
-        ));
+        );
         return new PlanCompletion(
             nextIdentifier("planCompletionId"),
             aggregate.tenantId(),
@@ -491,15 +691,15 @@ public final class JdbcApprovalMigrationPlanAggregationStore
             aggregate.aggregateId(),
             aggregate.aggregateRevision(),
             aggregate.status(),
-            aggregate.selectedCount(),
-            aggregate.terminalCount(),
-            aggregate.succeededCount(),
+            aggregate.terminalOutcome(),
+            aggregate.counts(),
             aggregate.inputEvidenceHash(),
             aggregate.aggregateHash(),
             completionHash,
             request.happenedAt(),
             request.requestId(),
-            request.traceId()
+            request.traceId(),
+            aggregate.auditReference()
         );
     }
 
@@ -518,18 +718,26 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         String requestHash
     ) {
         if (!aggregate.tenantId().equals(request.tenantId())
-            || !aggregate.intentId().equals(request.intentId())
+            || !aggregate.operatorId().equals(request.operatorId())
+            || !aggregate.planId().equals(request.planId())
             || aggregate.aggregateRevision() != request.expectedAggregateRevision()
+            || !aggregate.idempotencyKey().equals(request.idempotencyKey())
+            || !aggregate.reason().equals(request.reason())
+            || !aggregate.requestId().equals(request.requestId())
+            || !Objects.equals(aggregate.traceId(), request.traceId())
             || !aggregate.requestHash().equals(requestHash)) {
             throw conflict("changed plan aggregation replay is forbidden");
         }
     }
 
-    private Optional<PlanAggregate> findAggregateByRequestId(String tenantId, String requestId) {
+    private Optional<PlanAggregate> findAggregateByIdempotency(
+        String tenantId,
+        String idempotencyKey
+    ) {
         return queryOne(
             "select payload_json::text from ap_process_migration_plan_aggregate "
-                + "where tenant_id=:tenantId and request_id=:requestId",
-            params("tenantId", tenantId, "requestId", requestId),
+                + "where tenant_id=:tenantId and idempotency_key=:idempotencyKey",
+            params("tenantId", tenantId, "idempotencyKey", idempotencyKey),
             PlanAggregate.class
         );
     }
@@ -561,23 +769,23 @@ public final class JdbcApprovalMigrationPlanAggregationStore
             .stream().findFirst();
     }
 
-    private long currentAggregateRevision(String tenantId, UUID intentId) {
+    private long currentAggregateRevision(String tenantId, UUID planId) {
         Long value = jdbc.queryForObject(
             "select coalesce(max(aggregate_revision),0) "
                 + "from ap_process_migration_plan_aggregate "
-                + "where tenant_id=:tenantId and intent_id=:intentId",
-            params("tenantId", tenantId, "intentId", intentId),
+                + "where tenant_id=:tenantId and plan_id=:planId",
+            params("tenantId", tenantId, "planId", planId),
             Long.class
         );
         return value == null ? 0 : value;
     }
 
-    private String latestAggregateHash(String tenantId, UUID intentId) {
+    private String latestAggregateHash(String tenantId, UUID planId) {
         return jdbc.query(
             "select aggregate_hash from ap_process_migration_plan_aggregate "
-                + "where tenant_id=:tenantId and intent_id=:intentId "
+                + "where tenant_id=:tenantId and plan_id=:planId "
                 + "order by aggregate_revision desc limit 1",
-            params("tenantId", tenantId, "intentId", intentId),
+            params("tenantId", tenantId, "planId", planId),
             (row, number) -> row.getString(1)
         ).stream().findFirst().orElseThrow(() -> conflict(
             "plan aggregate predecessor was not found"
@@ -585,19 +793,66 @@ public final class JdbcApprovalMigrationPlanAggregationStore
     }
 
     private void insertAggregate(PlanAggregate aggregate) {
+        StateCounts counts = aggregate.counts();
         jdbc.update("""
             insert into ap_process_migration_plan_aggregate (
-              tenant_id,aggregate_id,plan_id,intent_id,aggregate_revision,status,
-              selected_count,terminal_count,succeeded_count,unresolved_count,
-              input_evidence_hash,predecessor_hash,request_hash,aggregate_hash,
-              aggregated_at,request_id,trace_id,payload_json
+              tenant_id,aggregate_id,plan_id,intent_id,plan_hash,aggregate_revision,
+              status,terminal_outcome,selected_count,provisioned_attempt_count,
+              pending_count,claimed_count,engine_requested_count,verifying_count,
+              reconciling_count,unknown_count,manual_review_count,binding_conflict_count,
+              blocked_stale_count,terminal_failed_count,exact_success_count,unresolved_count,
+              canary_status,orchestration_status,paused,pause_reason,kill_switch_observed,
+              input_evidence_hash,predecessor_hash,operator_id,idempotency_key,request_hash,
+              aggregate_hash,aggregated_at,reason,request_id,trace_id,audit_reference,payload_json
             ) values (
-              :tenantId,:aggregateId,:planId,:intentId,:revision,:status,
-              :selected,:terminal,:succeeded,:unresolved,
-              :inputHash,:predecessor,:requestHash,:aggregateHash,
-              :aggregatedAt,:requestId,:traceId,cast(:payload as jsonb)
+              :tenantId,:aggregateId,:planId,:intentId,:planHash,:revision,
+              :status,:terminalOutcome,:selected,:provisioned,:pending,:claimed,
+              :engineRequested,:verifying,:reconciling,:unknown,:manualReview,
+              :bindingConflict,:blockedStale,:terminalFailed,:exactSuccess,:unresolved,
+              :canaryStatus,:orchestrationStatus,:paused,:pauseReason,:killSwitchObserved,
+              :inputHash,:predecessor,:operatorId,:idempotencyKey,:requestHash,
+              :aggregateHash,:aggregatedAt,:reason,:requestId,:traceId,:auditReference,
+              cast(:payload as jsonb)
             )
-            """, aggregateParameters(aggregate)
+            """, new MapSqlParameterSource()
+                .addValue("tenantId", aggregate.tenantId())
+                .addValue("aggregateId", aggregate.aggregateId())
+                .addValue("planId", aggregate.planId())
+                .addValue("intentId", aggregate.intentId())
+                .addValue("planHash", aggregate.planHash())
+                .addValue("revision", aggregate.aggregateRevision())
+                .addValue("status", aggregate.status().name())
+                .addValue("terminalOutcome", aggregate.terminalOutcome().name())
+                .addValue("selected", counts.selectedCount())
+                .addValue("provisioned", counts.provisionedAttemptCount())
+                .addValue("pending", counts.pendingCount())
+                .addValue("claimed", counts.claimedCount())
+                .addValue("engineRequested", counts.engineRequestedCount())
+                .addValue("verifying", counts.verifyingCount())
+                .addValue("reconciling", counts.reconcilingCount())
+                .addValue("unknown", counts.unknownCount())
+                .addValue("manualReview", counts.manualReviewCount())
+                .addValue("bindingConflict", counts.bindingConflictCount())
+                .addValue("blockedStale", counts.blockedStaleCount())
+                .addValue("terminalFailed", counts.terminalFailedCount())
+                .addValue("exactSuccess", counts.exactSuccessCount())
+                .addValue("unresolved", counts.unresolvedCount())
+                .addValue("canaryStatus", aggregate.canaryStatus().name())
+                .addValue("orchestrationStatus", aggregate.orchestrationStatus().name())
+                .addValue("paused", aggregate.paused())
+                .addValue("pauseReason", aggregate.pauseReason().name())
+                .addValue("killSwitchObserved", aggregate.killSwitchObserved())
+                .addValue("inputHash", aggregate.inputEvidenceHash())
+                .addValue("predecessor", aggregate.predecessorHash())
+                .addValue("operatorId", aggregate.operatorId())
+                .addValue("idempotencyKey", aggregate.idempotencyKey())
+                .addValue("requestHash", aggregate.requestHash())
+                .addValue("aggregateHash", aggregate.aggregateHash())
+                .addValue("aggregatedAt", offset(aggregate.aggregatedAt()))
+                .addValue("reason", aggregate.reason())
+                .addValue("requestId", aggregate.requestId())
+                .addValue("traceId", aggregate.traceId())
+                .addValue("auditReference", aggregate.auditReference())
                 .addValue("payload", json.write(aggregate)));
     }
 
@@ -605,11 +860,12 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         jdbc.update("""
             insert into ap_process_migration_plan_aggregate_event (
               tenant_id,event_id,aggregate_id,plan_id,intent_id,aggregate_revision,
-              status,predecessor_hash,event_hash,happened_at,request_id,trace_id,payload_json
+              status,terminal_outcome,pause_reason,predecessor_hash,aggregate_hash,
+              event_hash,happened_at,request_id,trace_id,audit_reference,payload_json
             ) values (
               :tenantId,:eventId,:aggregateId,:planId,:intentId,:revision,
-              :status,:predecessor,:eventHash,:happenedAt,:requestId,:traceId,
-              cast(:payload as jsonb)
+              :status,:terminalOutcome,:pauseReason,:predecessor,:aggregateHash,
+              :eventHash,:happenedAt,:requestId,:traceId,:auditReference,cast(:payload as jsonb)
             )
             """, new MapSqlParameterSource()
                 .addValue("tenantId", event.tenantId())
@@ -619,26 +875,31 @@ public final class JdbcApprovalMigrationPlanAggregationStore
                 .addValue("intentId", event.intentId())
                 .addValue("revision", event.aggregateRevision())
                 .addValue("status", event.status().name())
+                .addValue("terminalOutcome", event.terminalOutcome().name())
+                .addValue("pauseReason", event.pauseReason().name())
                 .addValue("predecessor", event.predecessorHash())
+                .addValue("aggregateHash", event.aggregateHash())
                 .addValue("eventHash", event.eventHash())
                 .addValue("happenedAt", offset(event.happenedAt()))
                 .addValue("requestId", event.requestId())
                 .addValue("traceId", event.traceId())
+                .addValue("auditReference", event.auditReference())
                 .addValue("payload", json.write(event)));
     }
 
     private void insertCompletion(PlanCompletion completion) {
+        StateCounts counts = completion.counts();
         jdbc.update("""
             insert into ap_process_migration_plan_completion (
               tenant_id,completion_id,plan_id,intent_id,aggregate_id,aggregate_revision,
-              completion_status,selected_count,terminal_count,succeeded_count,
-              input_evidence_hash,aggregate_hash,completion_evidence_hash,
-              completed_at,request_id,trace_id,payload_json
+              completion_status,terminal_outcome,selected_count,terminal_failed_count,
+              exact_success_count,input_evidence_hash,aggregate_hash,completion_evidence_hash,
+              completed_at,request_id,trace_id,audit_reference,payload_json
             ) values (
               :tenantId,:completionId,:planId,:intentId,:aggregateId,:revision,
-              :status,:selected,:terminal,:succeeded,
-              :inputHash,:aggregateHash,:completionHash,
-              :completedAt,:requestId,:traceId,cast(:payload as jsonb)
+              :status,:terminalOutcome,:selected,:terminalFailed,:exactSuccess,
+              :inputHash,:aggregateHash,:completionHash,:completedAt,:requestId,:traceId,
+              :auditReference,cast(:payload as jsonb)
             )
             """, new MapSqlParameterSource()
                 .addValue("tenantId", completion.tenantId())
@@ -648,44 +909,25 @@ public final class JdbcApprovalMigrationPlanAggregationStore
                 .addValue("aggregateId", completion.aggregateId())
                 .addValue("revision", completion.aggregateRevision())
                 .addValue("status", completion.completionStatus().name())
-                .addValue("selected", completion.selectedCount())
-                .addValue("terminal", completion.terminalCount())
-                .addValue("succeeded", completion.succeededCount())
+                .addValue("terminalOutcome", completion.terminalOutcome().name())
+                .addValue("selected", counts.selectedCount())
+                .addValue("terminalFailed", counts.terminalFailedCount())
+                .addValue("exactSuccess", counts.exactSuccessCount())
                 .addValue("inputHash", completion.inputEvidenceHash())
                 .addValue("aggregateHash", completion.aggregateHash())
                 .addValue("completionHash", completion.completionEvidenceHash())
                 .addValue("completedAt", offset(completion.completedAt()))
                 .addValue("requestId", completion.requestId())
                 .addValue("traceId", completion.traceId())
+                .addValue("auditReference", completion.auditReference())
                 .addValue("payload", json.write(completion)));
     }
 
-    private MapSqlParameterSource aggregateParameters(PlanAggregate aggregate) {
-        return new MapSqlParameterSource()
-            .addValue("tenantId", aggregate.tenantId())
-            .addValue("aggregateId", aggregate.aggregateId())
-            .addValue("planId", aggregate.planId())
-            .addValue("intentId", aggregate.intentId())
-            .addValue("revision", aggregate.aggregateRevision())
-            .addValue("status", aggregate.status().name())
-            .addValue("selected", aggregate.selectedCount())
-            .addValue("terminal", aggregate.terminalCount())
-            .addValue("succeeded", aggregate.succeededCount())
-            .addValue("unresolved", aggregate.unresolvedCount())
-            .addValue("inputHash", aggregate.inputEvidenceHash())
-            .addValue("predecessor", aggregate.predecessorHash())
-            .addValue("requestHash", aggregate.requestHash())
-            .addValue("aggregateHash", aggregate.aggregateHash())
-            .addValue("aggregatedAt", offset(aggregate.aggregatedAt()))
-            .addValue("requestId", aggregate.requestId())
-            .addValue("traceId", aggregate.traceId());
-    }
-
-    private void appendAudit(PlanAggregate aggregate, boolean completed) {
+    private void appendAudit(UUID auditEventId, PlanAggregate aggregate, boolean completed) {
         auditEvents.append(new AuditEvent(
-            nextIdentifier("auditEventId"),
+            auditEventId,
             aggregate.tenantId(),
-            "server:m5-plan-aggregation",
+            aggregate.operatorId(),
             completed
                 ? "PROCESS_MIGRATION_PLAN_COMPLETION_RECORDED"
                 : "PROCESS_MIGRATION_PLAN_AGGREGATED",
@@ -694,27 +936,42 @@ public final class JdbcApprovalMigrationPlanAggregationStore
             aggregate.requestId(),
             aggregate.traceId(),
             aggregate.aggregatedAt(),
-            Map.of(
-                "aggregateRevision", Long.toString(aggregate.aggregateRevision()),
-                "aggregateStatus", aggregate.status().name(),
-                "selectedCount", Integer.toString(aggregate.selectedCount()),
-                "terminalCount", Integer.toString(aggregate.terminalCount()),
-                "succeededCount", Integer.toString(aggregate.succeededCount()),
-                "unresolvedCount", Integer.toString(aggregate.unresolvedCount()),
-                "aggregateHash", aggregate.aggregateHash()
+            Map.ofEntries(
+                Map.entry("aggregateRevision", Long.toString(aggregate.aggregateRevision())),
+                Map.entry("aggregateStatus", aggregate.status().name()),
+                Map.entry("terminalOutcome", aggregate.terminalOutcome().name()),
+                Map.entry("selectedCount", Integer.toString(aggregate.counts().selectedCount())),
+                Map.entry("exactSuccessCount", Integer.toString(
+                    aggregate.counts().exactSuccessCount()
+                )),
+                Map.entry("terminalFailedCount", Integer.toString(
+                    aggregate.counts().terminalFailedCount()
+                )),
+                Map.entry("unresolvedCount", Integer.toString(
+                    aggregate.counts().unresolvedCount()
+                )),
+                Map.entry("pauseReason", aggregate.pauseReason().name()),
+                Map.entry("reasonHash", hashValues(
+                    "M5-D8-BOUNDED-REASON-V1",
+                    aggregate.reason()
+                )),
+                Map.entry("aggregateHash", aggregate.aggregateHash())
             )
         ));
     }
 
     private String requestHash(AggregationRequest request) {
-        return sha256(join(
-            "m5-d8-plan-aggregation-request-v1",
+        return hashValues(
+            "M5-D8-PLAN-AGGREGATION-REQUEST-V1",
             request.tenantId(),
-            request.intentId(),
+            request.operatorId(),
+            request.idempotencyKey(),
+            request.planId(),
             request.expectedAggregateRevision(),
+            request.reason(),
             request.requestId(),
             request.traceId()
-        ));
+        );
     }
 
     private <T> T execute(String message, Supplier<T> operation) {
@@ -736,6 +993,28 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         return "MANUAL_REVIEW_REQUIRED".equals(status) || "UNRESOLVED".equals(status);
     }
 
+    private static PauseReason pauseReason(String value) {
+        if (value == null || "NONE".equals(value)) {
+            return PauseReason.NONE;
+        }
+        return switch (value) {
+            case "KILL_SWITCH_ACTIVE" -> PauseReason.KILL_SWITCH;
+            case "CANARY_UNKNOWN" -> PauseReason.UNKNOWN;
+            case "CANARY_RECONCILIATION" -> PauseReason.RECONCILIATION;
+            case "CANARY_MANUAL_REVIEW" -> PauseReason.MANUAL_REVIEW;
+            case "CANARY_BINDING_CONFLICT" -> PauseReason.BINDING_CONFLICT;
+            case "TERMINAL_FAILURE" -> PauseReason.TERMINAL_FAILURE;
+            case "CANARY_IN_FLIGHT" -> PauseReason.CANARY_IN_FLIGHT;
+            case "EMPTY_BATCH" -> PauseReason.EMPTY_BATCH;
+            case "CANARY_NOT_EXACT_TARGET", "STALE_KILL_SWITCH_REVISION",
+                 "STALE_ORCHESTRATION_REVISION", "STALE_WORKER", "STALE_LEASE" ->
+                PauseReason.STALE_AUTHORITY;
+            case "MISSING_OR_INCOMPLETE_EVIDENCE" ->
+                PauseReason.INCOMPLETE_EVIDENCE;
+            default -> PauseReason.INCOMPLETE_EVIDENCE;
+        };
+    }
+
     private static Integer nullableInteger(java.sql.ResultSet row, String column)
         throws java.sql.SQLException {
         int value = row.getInt(column);
@@ -745,6 +1024,12 @@ public final class JdbcApprovalMigrationPlanAggregationStore
     private static Long nullableLong(java.sql.ResultSet row, String column)
         throws java.sql.SQLException {
         long value = row.getLong(column);
+        return row.wasNull() ? null : value;
+    }
+
+    private static Boolean nullableBoolean(java.sql.ResultSet row, String column)
+        throws java.sql.SQLException {
+        boolean value = row.getBoolean(column);
         return row.wasNull() ? null : value;
     }
 
@@ -760,18 +1045,21 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         return JdbcApprovalMigrationJson.offset(value);
     }
 
-    private static String join(Object... values) {
-        return java.util.Arrays.stream(values)
-            .map(value -> Objects.toString(value, ""))
-            .collect(java.util.stream.Collectors.joining("\u001f"));
-    }
-
-    private static String sha256(String value) {
+    private static String hashValues(Object... values) {
         try {
-            return HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8))
-            );
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            for (Object value : values) {
+                if (value == null) {
+                    digest.update("-1:".getBytes(StandardCharsets.UTF_8));
+                } else {
+                    byte[] bytes = value.toString().getBytes(StandardCharsets.UTF_8);
+                    digest.update(Integer.toString(bytes.length).getBytes(StandardCharsets.UTF_8));
+                    digest.update((byte) ':');
+                    digest.update(bytes);
+                    digest.update((byte) '|');
+                }
+            }
+            return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
@@ -800,20 +1088,32 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         UUID approvalInstanceId,
         boolean canary,
         String instanceEvidenceHash,
+        int attemptCount,
         UUID attemptId,
         Integer attemptNumber,
         String attemptStatus,
         Long attemptRevision,
         String engineOutcome,
-        String failureClass,
-        String attemptPayload,
+        String expectedBindingEvidenceHash,
+        String engineRequestHash,
+        String engineRequestEvidenceHash,
+        String engineOutcomeDisposition,
+        String outcomeHash,
+        String verificationClassification,
+        Boolean verificationTruncated,
+        String verificationEvidenceHash,
         int completionCount,
         UUID completionAttemptId,
+        Long bindingRevision,
+        String targetBindingEvidenceHash,
         String completionHash,
         int conflictCount,
         String conflictHash,
         String reconciliationStatus,
-        String reconciliationHash
+        String reconciliationHash,
+        String observationClassification,
+        String observationDisposition,
+        String observationHash
     ) {
     }
 
@@ -824,8 +1124,12 @@ public final class JdbcApprovalMigrationPlanAggregationStore
         String phase,
         String runHash,
         String eventType,
+        String pauseReason,
         String eventHash,
         String batchHash,
+        Boolean switchEnabled,
+        Boolean dispatchAllowed,
+        String killReasonCode,
         String observationHash
     ) {
     }

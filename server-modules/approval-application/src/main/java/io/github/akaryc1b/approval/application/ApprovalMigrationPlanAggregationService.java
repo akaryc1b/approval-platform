@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.application;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore.AggregationRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore.AggregationResult;
+import io.github.akaryc1b.approval.domain.context.RequestContext;
 
 import java.time.Clock;
 import java.util.Objects;
@@ -25,36 +26,33 @@ public final class ApprovalMigrationPlanAggregationService {
     public AggregationResult aggregateOnce(AggregateCommand command) {
         Objects.requireNonNull(command, "command must not be null");
         return store.aggregate(new AggregationRequest(
-            command.tenantId(),
-            command.intentId(),
+            command.context(),
+            command.planId(),
             command.expectedAggregateRevision(),
-            clock.instant(),
-            command.requestId(),
-            command.traceId()
+            command.reason(),
+            clock.instant()
         ));
     }
 
     public record AggregateCommand(
-        String tenantId,
-        UUID intentId,
+        RequestContext context,
+        UUID planId,
         long expectedAggregateRevision,
-        String requestId,
-        String traceId
+        String reason
     ) {
         public AggregateCommand {
-            tenantId = requireText(tenantId, "tenantId", 128);
-            intentId = Objects.requireNonNull(intentId, "intentId must not be null");
+            context = Objects.requireNonNull(context, "context must not be null");
+            planId = Objects.requireNonNull(planId, "planId must not be null");
             if (expectedAggregateRevision < 1) {
-                throw new IllegalArgumentException("expectedAggregateRevision must be positive");
+                throw new IllegalArgumentException(
+                    "expectedAggregateRevision must be positive"
+                );
             }
-            requestId = requireText(requestId, "requestId", 256);
-            traceId = traceId == null || traceId.isBlank()
-                ? null
-                : requireText(traceId, "traceId", 256);
+            reason = requireText(reason, "reason", 1000);
         }
     }
 
-    /** Default-disabled internal gate. */
+    /** Default-disabled internal one-shot gate. It never loops or scans tenants. */
     public static final class OneShotRunner {
         private final boolean aggregationEnabled;
         private final ApprovalMigrationPlanAggregationService service;
