@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationExecutionAdmissionStore.AdmissionRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationExecutionAdmissionStore.AdmissionResult;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationKillSwitch.Snapshot;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore.OrchestrationConflictException;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore.PrepareRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore.PreparedOrchestration;
@@ -52,7 +53,7 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
     void deterministicCanaryExactReplayAndChangedReplayFailClosed() {
         AdmissionResult admission = persistConsumedPlan(1);
         List<AuditEvent> audits = new ArrayList<>();
-        JdbcApprovalMigrationOrchestrationStore orchestration = orchestrationStore(audits);
+        ApprovalMigrationOrchestrationStore orchestration = orchestrationStore(audits);
         PrepareRequest request = request(admission, 10, 1, 1, false, "orchestration-one");
 
         PreparedOrchestration first = orchestration.prepare(request);
@@ -78,8 +79,8 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
     void concurrentNodesPersistOneCanaryAndOneAuthoritativeRun() throws Exception {
         AdmissionResult admission = persistConsumedPlan(2);
         List<AuditEvent> audits = java.util.Collections.synchronizedList(new ArrayList<>());
-        JdbcApprovalMigrationOrchestrationStore firstStore = orchestrationStore(audits);
-        JdbcApprovalMigrationOrchestrationStore secondStore = orchestrationStore(audits);
+        ApprovalMigrationOrchestrationStore firstStore = orchestrationStore(audits);
+        ApprovalMigrationOrchestrationStore secondStore = orchestrationStore(audits);
         PrepareRequest request = request(admission, 25, 1, 1, false, "concurrent-run");
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
@@ -129,15 +130,16 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
     @Test
     void auditFailureRollsBackCanaryRunAndEventTogether() {
         AdmissionResult admission = persistConsumedPlan(4);
-        JdbcApprovalMigrationOrchestrationStore orchestration = new JdbcApprovalMigrationOrchestrationStore(
-            dataSource,
-            mapper(),
-            new JdbcTransactionManager(dataSource),
-            event -> {
-                throw new IllegalStateException("orchestration audit failed");
-            },
-            UUID::randomUUID
-        );
+        JdbcApprovalMigrationOrchestrationStore orchestration =
+            new JdbcApprovalMigrationOrchestrationStore(
+                dataSource,
+                mapper(),
+                new JdbcTransactionManager(dataSource),
+                event -> {
+                    throw new IllegalStateException("orchestration audit failed");
+                },
+                UUID::randomUUID
+            );
 
         assertThrows(IllegalStateException.class, () -> orchestration.prepare(
             request(admission, 10, 1, 1, false, "audit-failure")
@@ -189,7 +191,7 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
         ));
         assertEquals(0, count("ap_process_migration_canary_selection"));
 
-        JdbcApprovalMigrationOrchestrationStore orchestration = orchestrationStore(new ArrayList<>());
+        ApprovalMigrationOrchestrationStore orchestration = orchestrationStore(new ArrayList<>());
         PreparedOrchestration prepared = orchestration.prepare(
             request(admission, 10, 1, 1, false, "tamper-run")
         );
@@ -208,7 +210,7 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
 
     @Test
     void crossTenantIntentEnumerationFailsClosed() {
-        JdbcApprovalMigrationOrchestrationStore orchestration = orchestrationStore(new ArrayList<>());
+        ApprovalMigrationOrchestrationStore orchestration = orchestrationStore(new ArrayList<>());
         assertThrows(OrchestrationConflictException.class, () -> orchestration.prepare(
             new PrepareRequest(
                 "other-tenant",
@@ -224,13 +226,17 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
         assertEquals(0, count("ap_process_migration_canary_selection"));
     }
 
-    private JdbcApprovalMigrationOrchestrationStore orchestrationStore(List<AuditEvent> audits) {
-        return new JdbcApprovalMigrationOrchestrationStore(
+    private ApprovalMigrationOrchestrationStore orchestrationStore(List<AuditEvent> audits) {
+        ApprovalMigrationOrchestrationStore delegate = new JdbcApprovalMigrationOrchestrationStore(
             dataSource,
             mapper(),
             new JdbcTransactionManager(dataSource),
             audits::add,
             UUID::randomUUID
+        );
+        return new PostgresSerializedApprovalMigrationOrchestrationStore(
+            dataSource,
+            delegate
         );
     }
 
@@ -260,7 +266,7 @@ class JdbcApprovalMigrationOrchestrationStoreIntegrationTest
     }
 
     private static PreparedOrchestration gatedPrepare(
-        JdbcApprovalMigrationOrchestrationStore store,
+        ApprovalMigrationOrchestrationStore store,
         PrepareRequest request,
         CountDownLatch ready,
         CountDownLatch start
