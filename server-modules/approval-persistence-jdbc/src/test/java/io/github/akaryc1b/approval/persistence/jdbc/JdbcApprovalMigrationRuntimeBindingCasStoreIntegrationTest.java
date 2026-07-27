@@ -3,15 +3,14 @@ package io.github.akaryc1b.approval.persistence.jdbc;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.BindingCasDisposition;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.BindingCasException;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.BindingCasResult;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.CompletionRequest;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseDeployment;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 import io.github.akaryc1b.approval.domain.definition.ApprovalRuntimeBinding;
 import io.github.akaryc1b.approval.domain.migration.ApprovalCommandOperation;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttempt;
-import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttemptEvent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationCommandFence;
-import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationCommandFenceEvent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationEngineSnapshot;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationEngineSnapshot.DefinitionEvidence;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationEngineSnapshot.TaskEvidence;
@@ -34,12 +33,18 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
+import java.math.BigDecimal;
 import java.sql.Statement;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -145,12 +150,12 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
     @Test
     void exactTargetCasCompletesBindingProjectionAttemptFenceAndReplayOnce() {
         seedMigrationAuthority(SOURCE_BINDING_HASH);
-        JdbcApprovalMigrationRuntimeBindingCasStore store = store(
+        JdbcApprovalMigrationRuntimeBindingCasStore store = rawStore(
             new JdbcAuditEventSink(dataSource, objectMapper, transactionManager)
         );
 
-        var first = store.complete(request("request-d5-complete"));
-        var replay = store.complete(request("request-d5-complete"));
+        BindingCasResult first = store.complete(request("request-d5-complete"));
+        BindingCasResult replay = store.complete(request("request-d5-complete"));
 
         assertEquals(BindingCasDisposition.COMPLETED, first.disposition());
         assertEquals(BindingCasDisposition.REPLAYED_COMPLETION, replay.disposition());
@@ -160,89 +165,61 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
         assertEquals(2, first.bindingEvidence().bindingRevision());
         assertEquals(SOURCE_BINDING_HASH, first.bindingEvidence().previousBindingEvidenceHash());
         assertNotEquals(SOURCE_BINDING_HASH, first.bindingEvidence().bindingEvidenceHash());
-
-        assertEquals(2L, longValue(
-            "select binding_revision from ap_process_runtime_binding where tenant_id=? and approval_instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
-        assertEquals(2, intValue(
-            "select release_version from ap_process_runtime_binding where tenant_id=? and approval_instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
-        assertEquals(TARGET_DEFINITION, textValue(
-            "select engine_definition_id from ap_process_runtime_binding where tenant_id=? and approval_instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
-        assertEquals(2, intValue(
-            "select release_version from ap_approval_instance where tenant_id=? and instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
-        assertEquals(TARGET_DEFINITION, textValue(
-            "select engine_definition_id from ap_approval_instance where tenant_id=? and instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
-        assertEquals(2, count("ap_process_runtime_binding_evidence"));
-        assertEquals(1, count("ap_process_migration_instance_completion"));
-        assertEquals(0, count("ap_process_migration_binding_cas_conflict"));
-        assertEquals("SUCCEEDED", attemptStatus());
-        assertEquals(5L, attemptRevision());
-        assertEquals("RELEASED", fenceStatus());
-        assertEquals(2L, fenceRevision());
-        assertEquals(1, jdbc.queryForObject(
-            "select count(*) from ap_audit_event where action='PROCESS_MIGRATION_INSTANCE_COMPLETED'",
-            Integer.class
-        ));
-        assertEquals(2, jdbc.queryForObject(
-            "select count(*) from ap_process_migration_attempt_event where tenant_id=? and attempt_id=?",
-            Integer.class,
-            TENANT,
-            ATTEMPT_ID
-        ));
-        assertEquals(2, jdbc.queryForObject(
-            "select count(*) from ap_approval_instance_command_fence_event where tenant_id=? and fence_id=?",
-            Integer.class,
-            TENANT,
-            FENCE_ID
-        ));
+        assertCompletedProjection();
 
         assertThrows(
             BindingCasException.class,
             () -> store.complete(request("request-d5-changed"))
         );
-        assertThrows(
-            DataAccessException.class,
-            () -> jdbc.update(
-                "delete from ap_process_migration_instance_completion where tenant_id=? and attempt_id=?",
-                TENANT,
-                ATTEMPT_ID
-            )
+        assertAppendOnlyEvidence();
+    }
+
+    @Test
+    void concurrentSerializedCasProducesOneCompletionAndOneExactReplay() throws Exception {
+        seedMigrationAuthority(SOURCE_BINDING_HASH);
+        var audit = new JdbcAuditEventSink(dataSource, objectMapper, transactionManager);
+        var firstStore = new PostgresSerializedApprovalMigrationRuntimeBindingCasStore(
+            dataSource,
+            rawStore(audit)
         );
-        assertThrows(
-            DataAccessException.class,
-            () -> jdbc.update(
-                "update ap_process_runtime_binding_evidence set request_id='tampered' "
-                    + "where tenant_id=? and approval_instance_id=? and binding_revision=2",
-                TENANT,
-                INSTANCE_ID
-            )
+        var secondStore = new PostgresSerializedApprovalMigrationRuntimeBindingCasStore(
+            dataSource,
+            rawStore(audit)
         );
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<BindingCasResult> first = executor.submit(() -> {
+                await(start);
+                return firstStore.complete(request("request-d5-concurrent"));
+            });
+            Future<BindingCasResult> second = executor.submit(() -> {
+                await(start);
+                return secondStore.complete(request("request-d5-concurrent"));
+            });
+            start.countDown();
+
+            List<BindingCasDisposition> dispositions = List.of(
+                first.get(10, TimeUnit.SECONDS).disposition(),
+                second.get(10, TimeUnit.SECONDS).disposition()
+            );
+            assertTrue(dispositions.contains(BindingCasDisposition.COMPLETED));
+            assertTrue(dispositions.contains(BindingCasDisposition.REPLAYED_COMPLETION));
+        }
+
+        assertCompletedProjection();
     }
 
     @Test
     void staleBindingCasRecordsObservedConflictAndRequiresReconciliationWithoutMutation() {
         String staleExpectedHash = "e".repeat(64);
         seedMigrationAuthority(staleExpectedHash);
-        JdbcApprovalMigrationRuntimeBindingCasStore store = store(
+        JdbcApprovalMigrationRuntimeBindingCasStore store = rawStore(
             new JdbcAuditEventSink(dataSource, objectMapper, transactionManager)
         );
 
-        var first = store.complete(request("request-d5-conflict"));
-        var replay = store.complete(request("request-d5-conflict"));
+        BindingCasResult first = store.complete(request("request-d5-conflict"));
+        BindingCasResult replay = store.complete(request("request-d5-conflict"));
 
         assertEquals(BindingCasDisposition.RECONCILIATION_REQUIRED, first.disposition());
         assertEquals(BindingCasDisposition.REPLAYED_CONFLICT, replay.disposition());
@@ -250,21 +227,9 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
         assertEquals(EngineOutcome.VERIFICATION_MISMATCH, first.attempt().engineOutcome());
         assertEquals(SOURCE_BINDING_HASH, first.conflictEvidence().observedBindingEvidenceHash());
         assertEquals(1L, first.conflictEvidence().observedBindingRevision());
-        assertEquals(1L, longValue(
-            "select binding_revision from ap_process_runtime_binding where tenant_id=? and approval_instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
-        assertEquals(1, intValue(
-            "select release_version from ap_process_runtime_binding where tenant_id=? and approval_instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
-        assertEquals(SOURCE_DEFINITION, textValue(
-            "select engine_definition_id from ap_process_runtime_binding where tenant_id=? and approval_instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
+        assertEquals(1L, bindingRevision());
+        assertEquals(1, bindingReleaseVersion());
+        assertEquals(SOURCE_DEFINITION, bindingDefinitionId());
         assertEquals(1, count("ap_process_runtime_binding_evidence"));
         assertEquals(0, count("ap_process_migration_instance_completion"));
         assertEquals(1, count("ap_process_migration_binding_cas_conflict"));
@@ -286,7 +251,7 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
     @Test
     void auditFailureRollsBackBindingCompletionAttemptAndFenceTogether() {
         seedMigrationAuthority(SOURCE_BINDING_HASH);
-        JdbcApprovalMigrationRuntimeBindingCasStore store = store(event -> {
+        JdbcApprovalMigrationRuntimeBindingCasStore store = rawStore(event -> {
             throw new IllegalStateException("audit unavailable");
         });
 
@@ -295,21 +260,9 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             () -> store.complete(request("request-d5-audit-failure"))
         );
 
-        assertEquals(1L, longValue(
-            "select binding_revision from ap_process_runtime_binding where tenant_id=? and approval_instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
-        assertEquals(1, intValue(
-            "select release_version from ap_process_runtime_binding where tenant_id=? and approval_instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
-        assertEquals(1, intValue(
-            "select release_version from ap_approval_instance where tenant_id=? and instance_id=?",
-            TENANT,
-            INSTANCE_ID
-        ));
+        assertEquals(1L, bindingRevision());
+        assertEquals(1, bindingReleaseVersion());
+        assertEquals(1, instanceReleaseVersion());
         assertEquals(1, count("ap_process_runtime_binding_evidence"));
         assertEquals(0, count("ap_process_migration_instance_completion"));
         assertEquals(0, count("ap_process_migration_binding_cas_conflict"));
@@ -320,7 +273,7 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
         assertEquals(0, count("ap_audit_event"));
     }
 
-    private JdbcApprovalMigrationRuntimeBindingCasStore store(
+    private JdbcApprovalMigrationRuntimeBindingCasStore rawStore(
         io.github.akaryc1b.approval.application.port.AuditEventSink audit
     ) {
         AtomicLong sequence = new AtomicLong();
@@ -375,6 +328,29 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             NOW.plusSeconds(1)
         );
         JdbcRuntimeBindingStartTestFixture.insertPackage(dataSource, value);
+        jdbc.update("""
+            insert into ap_process_release_lifecycle (
+              tenant_id,definition_key,release_version,release_package_hash,
+              lifecycle_state,revision,published_by,published_at,
+              activated_at,deprecated_at,retired_at,last_transition_by,
+              last_transition_at,last_transition_reason,last_idempotency_key,
+              last_request_id,last_trace_id,last_audit_chain_reference
+            ) values (?,?,?,?,'PUBLISHED',1,?,?,null,null,null,?,?,?, ?,?,?,?)
+            """,
+            TENANT,
+            DEFINITION_KEY,
+            value.releaseVersion(),
+            value.packageHash(),
+            value.publishedBy(),
+            offset(value.publishedAt()),
+            value.publishedBy(),
+            offset(value.publishedAt()),
+            "D5 target lifecycle fixture",
+            "target-lifecycle-d5",
+            "request-target-lifecycle-d5",
+            "trace-d5",
+            "audit-target-lifecycle-d5"
+        );
         new JdbcApprovalReleaseDeploymentStore(dataSource).save(new ApprovalReleaseDeployment(
             TARGET_DEPLOYMENT_RECORD,
             TENANT,
@@ -399,23 +375,26 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
     private void seedSourceInstanceAndBinding() {
         jdbc.update("""
             insert into ap_approval_instance (
-              tenant_id,instance_id,business_key,engine_instance_id,definition_key,
-              definition_version,content_hash,form_key,form_version,compiler_version,
-              release_version,release_package_hash,form_package_version,form_package_hash,
-              ui_schema_version,ui_schema_hash,engine_definition_id,status,current_task_key,
-              version,created_at,updated_at
-            ) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'RUNNING','managerApproval',1,?,?)
+              instance_id,tenant_id,business_key,engine_instance_id,
+              definition_key,definition_version,form_key,form_version,
+              compiler_version,content_hash,release_version,release_package_hash,
+              form_package_version,form_package_hash,ui_schema_version,ui_schema_hash,
+              engine_definition_id,initiator_id,amount,supplier,purchase_order_reference,
+              attachment_ids_json,assignee_snapshot_json,request_hash,status,version,
+              created_at,updated_at
+            ) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,cast(? as jsonb),
+              cast(? as jsonb),?,'RUNNING',1,?,?)
             """,
-            TENANT,
             INSTANCE_ID,
+            TENANT,
             BUSINESS_KEY,
             ENGINE_INSTANCE,
             DEFINITION_KEY,
             sourcePackage.definitionVersion(),
-            sourcePackage.definitionHash(),
-            "purchasePaymentForm",
+            DEFINITION_KEY,
             sourcePackage.formVersion(),
             sourcePackage.compilerVersion(),
+            sourcePackage.definitionHash(),
             sourcePackage.releaseVersion(),
             sourcePackage.packageHash(),
             sourcePackage.formPackageVersion(),
@@ -423,6 +402,13 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             sourcePackage.uiSchemaVersion(),
             sourcePackage.uiSchemaHash(),
             SOURCE_DEFINITION,
+            "initiator-d5",
+            BigDecimal.ONE,
+            "supplier-d5",
+            "po-d5",
+            "[]",
+            "{}",
+            hash('b'),
             offset(NOW.plusSeconds(3)),
             offset(NOW.plusSeconds(3))
         );
@@ -484,24 +470,6 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             "request-attempt-d5",
             "trace-d5"
         );
-        ApprovalMigrationAttemptEvent attemptEvent = new ApprovalMigrationAttemptEvent(
-            UUID.fromString("53000000-0000-0000-0000-000000000012"),
-            TENANT,
-            ATTEMPT_ID,
-            4,
-            AttemptStatus.ENGINE_REQUESTED,
-            AttemptStatus.VERIFYING,
-            EngineOutcome.ACCEPTED,
-            null,
-            null,
-            null,
-            ENGINE_REQUEST_ID.toString(),
-            FailureClass.NONE,
-            null,
-            NOW.plusSeconds(20),
-            "request-attempt-d5",
-            "trace-d5"
-        );
         ApprovalMigrationCommandFence fence = new ApprovalMigrationCommandFence(
             FENCE_ID,
             TENANT,
@@ -520,12 +488,6 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             "request-fence-d5",
             "trace-d5"
         );
-        ApprovalMigrationCommandFenceEvent fenceEvent = ApprovalMigrationCommandFenceEvent.from(
-            UUID.fromString("53000000-0000-0000-0000-000000000013"),
-            null,
-            fence,
-            WORKER
-        );
         ApprovalMigrationExactVerification verification = exactVerification();
 
         jdbc.execute((ConnectionCallback<Void>) connection -> {
@@ -535,9 +497,9 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
                 statement.executeUpdate(intentSql());
                 statement.executeUpdate(consumptionSql());
                 statement.executeUpdate(attemptSql(attempt));
-                statement.executeUpdate(attemptEventSql(attemptEvent));
+                statement.executeUpdate(attemptEventSql());
                 statement.executeUpdate(fenceSql(fence));
-                statement.executeUpdate(fenceEventSql(fenceEvent));
+                statement.executeUpdate(fenceEventSql());
                 statement.executeUpdate(verificationSql(verification));
             } finally {
                 try (Statement statement = connection.createStatement()) {
@@ -700,21 +662,20 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
         );
     }
 
-    private String attemptEventSql(ApprovalMigrationAttemptEvent value) {
+    private String attemptEventSql() {
         return """
             insert into ap_process_migration_attempt_event (
               tenant_id,event_id,attempt_id,revision,from_status,to_status,engine_outcome,
               lease_actor,lease_owner,lease_until,engine_request_reference,failure_class,
               error_summary,payload_json,happened_at
             ) values ('%s','%s','%s',4,'ENGINE_REQUESTED','VERIFYING','ACCEPTED',null,null,null,
-              '%s','NONE',null,'%s'::jsonb,timestamptz '%s')
+              '%s','NONE',null,'{}'::jsonb,timestamptz '%s')
             """.formatted(
             TENANT,
-            value.eventId(),
+            UUID.fromString("53000000-0000-0000-0000-000000000012"),
             ATTEMPT_ID,
             ENGINE_REQUEST_ID,
-            json(value),
-            offsetText(value.happenedAt())
+            offsetText(NOW.plusSeconds(20))
         );
     }
 
@@ -743,27 +704,24 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
         );
     }
 
-    private String fenceEventSql(ApprovalMigrationCommandFenceEvent value) {
+    private String fenceEventSql() {
         return """
             insert into ap_approval_instance_command_fence_event (
               tenant_id,event_id,fence_id,approval_instance_id,attempt_id,revision,
               from_status,to_status,lease_actor,lease_owner,lease_until,happened_at,
               request_id,trace_id,payload_json
             ) values ('%s','%s','%s','%s','%s',1,null,'ACTIVE','%s','%s',
-              timestamptz '%s',timestamptz '%s','%s','%s','%s'::jsonb)
+              timestamptz '%s',timestamptz '%s','request-fence-d5','trace-d5','{}'::jsonb)
             """.formatted(
             TENANT,
-            value.eventId(),
+            UUID.fromString("53000000-0000-0000-0000-000000000013"),
             FENCE_ID,
             INSTANCE_ID,
             ATTEMPT_ID,
             WORKER,
             WORKER,
-            offsetText(value.leaseUntil()),
-            offsetText(value.happenedAt()),
-            value.requestId(),
-            value.traceId(),
-            json(value)
+            offsetText(NOW.plusSeconds(600)),
+            offsetText(NOW.plusSeconds(10))
         );
     }
 
@@ -772,12 +730,14 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             insert into ap_process_migration_exact_verification (
               tenant_id,verification_id,intent_id,attempt_id,engine_request_id,
               engine_outcome_id,worker_id,expected_attempt_revision,expected_fence_revision,
-              engine_instance_id,source_engine_definition_id,target_engine_definition_id,
-              classification,read_succeeded,read_failure_code,truncated,snapshot_hash,
-              request_hash,verification_evidence_hash,recorded_at,request_id,trace_id,payload_json
-            ) values ('%s','%s','%s','%s','%s','%s','%s',4,1,'%s','%s','%s',
-              'EXACT_TARGET_RUNTIME',true,null,false,'%s','%s','%s',timestamptz '%s',
-              '%s','%s','%s'::jsonb)
+              source_engine_definition_id,target_engine_definition_id,classification,
+              read_succeeded,runtime_present,history_present,truncated,
+              observed_runtime_definition_id,observed_history_definition_id,
+              snapshot_hash,request_hash,verification_evidence_hash,recorded_at,
+              request_id,trace_id,payload_json
+            ) values ('%s','%s','%s','%s','%s','%s','%s',4,1,'%s','%s',
+              'EXACT_TARGET_RUNTIME',true,true,true,false,'%s','%s','%s','%s','%s',
+              timestamptz '%s','%s','%s','%s'::jsonb)
             """.formatted(
             TENANT,
             VERIFICATION_ID,
@@ -786,8 +746,9 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             ENGINE_REQUEST_ID,
             ENGINE_OUTCOME_ID,
             WORKER,
-            ENGINE_INSTANCE,
             SOURCE_DEFINITION,
+            TARGET_DEFINITION,
+            TARGET_DEFINITION,
             TARGET_DEFINITION,
             value.snapshot().snapshotHash(),
             value.requestHash(),
@@ -796,6 +757,102 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
             value.requestId(),
             value.traceId(),
             json(value)
+        );
+    }
+
+    private void assertCompletedProjection() {
+        assertEquals(2L, bindingRevision());
+        assertEquals(2, bindingReleaseVersion());
+        assertEquals(TARGET_DEFINITION, bindingDefinitionId());
+        assertEquals(2, instanceReleaseVersion());
+        assertEquals(TARGET_DEFINITION, textValue(
+            "select engine_definition_id from ap_approval_instance "
+                + "where tenant_id=? and instance_id=?",
+            TENANT,
+            INSTANCE_ID
+        ));
+        assertEquals(2, count("ap_process_runtime_binding_evidence"));
+        assertEquals(1, count("ap_process_migration_instance_completion"));
+        assertEquals(0, count("ap_process_migration_binding_cas_conflict"));
+        assertEquals("SUCCEEDED", attemptStatus());
+        assertEquals(5L, attemptRevision());
+        assertEquals("RELEASED", fenceStatus());
+        assertEquals(2L, fenceRevision());
+        assertEquals(1, jdbc.queryForObject(
+            "select count(*) from ap_audit_event "
+                + "where action='PROCESS_MIGRATION_INSTANCE_COMPLETED'",
+            Integer.class
+        ));
+        assertEquals(2, jdbc.queryForObject(
+            "select count(*) from ap_process_migration_attempt_event "
+                + "where tenant_id=? and attempt_id=?",
+            Integer.class,
+            TENANT,
+            ATTEMPT_ID
+        ));
+        assertEquals(2, jdbc.queryForObject(
+            "select count(*) from ap_approval_instance_command_fence_event "
+                + "where tenant_id=? and fence_id=?",
+            Integer.class,
+            TENANT,
+            FENCE_ID
+        ));
+    }
+
+    private void assertAppendOnlyEvidence() {
+        assertThrows(
+            DataAccessException.class,
+            () -> jdbc.update(
+                "delete from ap_process_migration_instance_completion "
+                    + "where tenant_id=? and attempt_id=?",
+                TENANT,
+                ATTEMPT_ID
+            )
+        );
+        assertThrows(
+            DataAccessException.class,
+            () -> jdbc.update(
+                "update ap_process_runtime_binding_evidence set request_id='tampered' "
+                    + "where tenant_id=? and approval_instance_id=? and binding_revision=2",
+                TENANT,
+                INSTANCE_ID
+            )
+        );
+    }
+
+    private long bindingRevision() {
+        return longValue(
+            "select binding_revision from ap_process_runtime_binding "
+                + "where tenant_id=? and approval_instance_id=?",
+            TENANT,
+            INSTANCE_ID
+        );
+    }
+
+    private int bindingReleaseVersion() {
+        return intValue(
+            "select release_version from ap_process_runtime_binding "
+                + "where tenant_id=? and approval_instance_id=?",
+            TENANT,
+            INSTANCE_ID
+        );
+    }
+
+    private String bindingDefinitionId() {
+        return textValue(
+            "select engine_definition_id from ap_process_runtime_binding "
+                + "where tenant_id=? and approval_instance_id=?",
+            TENANT,
+            INSTANCE_ID
+        );
+    }
+
+    private int instanceReleaseVersion() {
+        return intValue(
+            "select release_version from ap_approval_instance "
+                + "where tenant_id=? and instance_id=?",
+            TENANT,
+            INSTANCE_ID
         );
     }
 
@@ -865,5 +922,16 @@ class JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest {
 
     private static String hash(char value) {
         return Character.toString(value).repeat(64);
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("timed out awaiting concurrent CAS start");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("concurrent CAS test was interrupted", exception);
+        }
     }
 }
