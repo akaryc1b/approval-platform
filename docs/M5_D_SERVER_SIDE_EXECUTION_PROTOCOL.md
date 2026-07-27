@@ -10,12 +10,13 @@
 - M5-D3: `COMPLETE / PERMANENTLY_VALIDATED`
 - M5-D4: `COMPLETE / PERMANENTLY_VALIDATED`
 - M5-D5: `COMPLETE / PERMANENTLY_VALIDATED`
-- M5-D6 through M5-D8: not started
+- M5-D6: `COMPLETE / PERMANENTLY_VALIDATED`
+- M5-D7 through M5-D8: not started
 - Current M5-D overall result: `IN_PROGRESS`
 - Production migration execution: `NOT_AUTHORIZED`
 - M5-E, M5-F and M5-G: not started
 
-M5-D is server-owned execution infrastructure. D5 completion does not authorize production execution, a public execution/reconciliation endpoint, a Web or Mobile execution control, a resident scheduler, definition-wide migration, automatic `UNKNOWN` retry, force success, rollback, or cross-system atomicity.
+M5-D is server-owned execution infrastructure. D6 completion does not authorize production execution, a public execution/reconciliation endpoint, a Web or Mobile execution control, a resident scheduler, definition-wide migration, automatic `UNKNOWN` retry, force success, rollback, or cross-system atomicity.
 
 ## Verified baseline and Flyway allocation
 
@@ -26,9 +27,11 @@ The accepted persistence protocol is Flyway V33–V37. The immutable-plan protoc
 - V41: immutable single-instance engine request/outcome evidence;
 - V42: request/outcome guards bound to immutable attempt payload and exact consumed target plan;
 - V43: exact bounded verification evidence and deterministic classification lineage;
-- V44: exact-target runtime-binding CAS, immutable binding-revision history, per-instance completion evidence and observed CAS-conflict evidence.
+- V44: exact-target runtime-binding CAS, immutable binding-revision history, per-instance completion evidence and observed CAS-conflict evidence;
+- V45: independent reconciliation lease, append-only lease events and immutable UNKNOWN observation evidence;
+- V46: UNKNOWN-derived terminal engine-request lineage preservation.
 
-V1–V44 are immutable. Before each later migration allocation or final ref update, active M6 pull requests #67–#70 must be rechecked. M5 and M6 remain independent branches and code lines.
+V1–V46 are immutable. Before each later migration allocation or final ref update, active M6 pull requests #67–#70 must be rechecked. M5 and M6 remain independent branches and code lines.
 
 ## Permanent invariants
 
@@ -64,6 +67,8 @@ V1–V44 are immutable. Before each later migration allocation or final ref upda
 - `ApprovalMigrationExactVerificationService.OneShotRunner`: internal default-disabled verification gate.
 - `ApprovalMigrationRuntimeBindingCasService`: exact-target platform completion through D5 CAS; no Flowable call.
 - `ApprovalMigrationRuntimeBindingCasService.OneShotRunner`: internal default-disabled CAS gate; no loop or scheduler.
+- `ApprovalMigrationReconciliationService`: short prepare transaction, one transaction-free bounded public readback, short finalize transaction; no migration dispatch.
+- `ApprovalMigrationReconciliationService.OneShotRunner`: internal three-switch reconciliation gate; no loop or scheduler.
 
 ## Implemented ports and adapters
 
@@ -82,6 +87,8 @@ V1–V44 are immutable. Before each later migration allocation or final ref upda
 - `ApprovalMigrationRuntimeBindingCasStore` accepts only server-owned exact lineage and expected revisions.
 - `JdbcApprovalMigrationRuntimeBindingCasStore` owns one short D5 platform transaction and performs no engine call.
 - `PostgresSerializedApprovalMigrationRuntimeBindingCasStore` serializes same tenant/attempt completion across nodes before any replay read and explicitly releases pooled PostgreSQL advisory-lock sessions.
+- `ApprovalMigrationReconciliationStore` owns two short D6 platform transactions around one public read and exposes no dispatch operation.
+- `JdbcApprovalMigrationReconciliationExecutionStore` owns independent reconciliation leases, immutable observations, exact replay, terminal/manual decisions and audit atomicity without reading or mutating Flowable.
 - No M5-D Controller, REST route, Web action or Mobile action is permitted.
 
 ## D1 plan consumption and intent admission
@@ -248,7 +255,7 @@ If exact engine target verification exists but platform binding/projection autho
 - one immutable binding-CAS conflict is appended;
 - attempt transitions `VERIFYING -> RECONCILING` with `VERIFICATION_MISMATCH`;
 - conflict audit evidence is appended;
-- the command fence remains active for D6;
+- the migration command fence is not reused as D6 read authority;
 - migration is never redispatched and rollback is never fabricated.
 
 V44 guards enforce monotonic binding revision, exact D4 verification lineage, predecessor hash, append-only revision/completion/conflict evidence, completion only with updated binding plus `SUCCEEDED/CONFIRMED` and released fence, and conflict only with `RECONCILING/VERIFICATION_MISMATCH`.
@@ -296,27 +303,85 @@ short database transaction — D5 platform completion
   attempt/fence/audit transition
 commit
 explicitly release D5 advisory lock before pooled connection return
+
+short database transaction A — D6 reconciliation preparation
+  require durable AMBIGUOUS_UNKNOWN request/outcome lineage
+  append OPEN reconciliation evidence
+  UNKNOWN -> RECONCILING when needed
+  acquire independent reconciliation lease and event
+commit
+
+no platform database transaction
+  one bounded public runtime/task/job/timer/subscription/history readback
+
+short database transaction B — D6 reconciliation finalization
+  revalidate attempt, request hash and independent lease authority
+  append immutable observation and server-derived disposition
+  append terminal or manual reconciliation evidence
+  preserve original ambiguous engine request lineage
+  release reconciliation lease and append audit
+  never redispatch migration and never mutate runtime binding
+commit
 ```
 
 No Flowable operation participates in a platform transaction. There is no two-phase commit and no claimed rollback across Flowable and PostgreSQL.
 
-## D6 durable UNKNOWN and reconciliation — planned only
+## D6 durable UNKNOWN and reconciliation
 
-Timeout, connection reset, lost response, crash after dispatch, incomplete result, contradictory runtime/history evidence, stale-worker finalization and D5 CAS conflict preserve reconciliation-required state.
+Timeout, connection reset, lost response, crash after dispatch, incomplete result and every D3 `AMBIGUOUS_UNKNOWN` outcome preserve the fact that the one migration call may have occurred. D6 observes that attempt; it never repeats the call.
 
-D6 must:
+### Short preparation transaction
 
-- acquire an independent tenant/attempt reconciliation lease and fence;
-- use bounded public runtime, task, job, timer, subscription and history APIs only;
-- perform no migration dispatch;
-- append immutable request/readback/decision/lease/audit evidence;
-- support exact replay and reject changed-payload replay;
-- allow exact target evidence to invoke the existing D5 CAS boundary;
-- never automatically retry an exact source result;
-- preserve mixed, missing, truncated, failed-read or contradictory evidence for manual or terminal resolution;
-- remain default disabled with no scheduler or public endpoint.
+D6 accepts only tenant, attempt, server-owned worker, expected attempt revision and request correlation. The transaction:
 
-D6 is blocked until the D5 documentation head itself passes the permanent workflow.
+1. locks the exact tenant-scoped attempt;
+2. requires current `UNKNOWN`, or an eligible `RECONCILING` expired-lease takeover;
+3. requires `EngineOutcome.UNKNOWN`, the original engine request reference and exact D3 `AMBIGUOUS_UNKNOWN` outcome;
+4. appends the first `OPEN` reconciliation sequence when entering from `UNKNOWN`;
+5. transitions `UNKNOWN -> RECONCILING` while preserving request evidence;
+6. creates or takes over one independent reconciliation lease with revision fencing;
+7. appends the matching lease event and audit;
+8. commits before engine readback.
+
+The independent lease cannot authorize migration dispatch. Same-owner renewal requires a strict extension before expiry. Different-owner takeover requires expiry. Stale owners and stale revisions fail closed.
+
+### Transaction-free public readback
+
+D6 invokes one `ProcessInstanceVerificationPort.readOne` call through the same bounded public runtime, task, job, timer, subscription and history boundary used by D4. No platform transaction is open.
+
+Stable and unexpected read failures become bounded server-owned evidence. Snapshot, classification and disposition are never caller supplied. Classification is recomputed from immutable source/target definition identity and the observed bounded snapshot.
+
+### Closed dispositions and outcomes
+
+The persistent disposition vocabulary is:
+
+- `SOURCE_CONFIRMED_NO_RETRY`;
+- `SOURCE_TERMINAL_CONFIRMED_NO_RETRY`;
+- `TARGET_CONFIRMED_BINDING_CAS_REQUIRED`;
+- `TARGET_TERMINAL_BINDING_CAS_REQUIRED`;
+- `MANUAL_REVIEW_REQUIRED`.
+
+The only outcomes are:
+
+| Observation | Reconciliation | Attempt | Runtime binding |
+| --- | --- | --- | --- |
+| exact source runtime | `RESOLVED_SOURCE` | `BLOCKED_STALE` | unchanged |
+| source terminal history | `RESOLVED_TERMINAL` | `FAILED_TERMINAL` | unchanged |
+| exact target runtime | `MANUAL_REVIEW_REQUIRED` | `RECONCILING` | unchanged; separate D5-compatible CAS handoff required |
+| target terminal history | `MANUAL_REVIEW_REQUIRED` | `RECONCILING` | unchanged; manual terminal handling required |
+| mixed, missing, stale, truncated, incomplete or read failure | `MANUAL_REVIEW_REQUIRED` | `RECONCILING` | unchanged |
+
+Source evidence never creates retry authority. Target evidence alone never changes the platform binding or claims success. D6 does not itself invoke D5 CAS.
+
+### Atomic finalization and replay
+
+One short final transaction locks the exact attempt, OPEN reconciliation and active lease; rechecks worker, attempt revision, lease revision/expiry, request hash and original ambiguous outcome; appends one immutable observation and server-derived conclusion; applies only the closed result above; releases the reconciliation lease; appends lease event and audit; and commits all platform evidence together.
+
+Exact same-payload replay returns stored evidence and performs no second engine read. Changed payload fails closed. An active different-owner lease rejects preparation; an expired lease may be taken over exactly once through revision CAS. Audit failure rolls back prepare or finalize platform state atomically.
+
+V45 makes lease events and observations append-only and rejects direct mutation or deletion. V46 permits `BLOCKED_STALE` or `FAILED_TERMINAL` to retain an engine request reference only where `engine_outcome='UNKNOWN'`. UNKNOWN-derived terminal rows and events therefore preserve the exact original request lineage without authorizing redispatch.
+
+D6 remains internal and default disabled. There is no scheduler, polling loop, Controller, REST route, Web action or Mobile action.
 
 ## D7 canary, bounded execution and kill switch — planned only
 
@@ -348,11 +413,12 @@ Missing, malformed or incomplete configuration fails closed.
 - D3: `docs/M5_D3_SINGLE_INSTANCE_EXECUTOR_PERMANENT_EVIDENCE.md`
 - D4: `docs/M5_D4_EXACT_VERIFICATION_PERMANENT_EVIDENCE.md`
 - D5: `docs/M5_D5_RUNTIME_BINDING_CAS_PERMANENT_EVIDENCE.md`
+- D6: `docs/M5_D6_DURABLE_UNKNOWN_RECONCILIATION_PERMANENT_EVIDENCE.md`
 
-D5 permanent evidence includes domain/application/PostgreSQL tests, exact and concurrent replay, audit rollback, V44 historical and 5,000-row upgrades, permanent Node boundaries, raw Actions logs and independently verified Maven/Vben/Mobile/Hygiene artifact digests.
+D6 permanent evidence includes domain/application/PostgreSQL tests, source no-retry, target CAS-required/manual handling, exact replay, expiry takeover, prepare/finalize audit rollback, V45/V46 fresh and historical upgrades, 5,000-row preservation, permanent Node boundaries, raw Actions logs and independently verified Maven/Vben/Mobile/Hygiene artifact digests.
 
 ## Stop conditions
 
-M5-D2 is `ACCEPTED / PERMANENTLY_VALIDATED`. M5-D3, D4 and D5 are `COMPLETE / PERMANENTLY_VALIDATED`. M5-D overall remains `IN_PROGRESS`.
+M5-D2 is `ACCEPTED / PERMANENTLY_VALIDATED`. M5-D3, D4, D5 and D6 are `COMPLETE / PERMANENTLY_VALIDATED`. M5-D overall remains `IN_PROGRESS`.
 
-Work stops at the M5-D6 gate until this D5 documentation head has a successful natural permanent workflow run. D7–D8, M5-E management API/UI, M5-F full fault-injection and observability, M5-G merge readiness, production execution authorization, Ready-for-review, auto-merge, merge and issue closure remain blocked.
+Work stops before M5-D7. D7–D8, M5-E management API/UI, M5-F full fault-injection and observability, M5-G merge readiness, production execution authorization, Ready-for-review, auto-merge, merge and issue closure remain blocked.
