@@ -69,7 +69,7 @@ test('V45 and V46 persist independent lease and immutable observation evidence',
   assert.match(v46, /drop constraint ck_process_migration_attempt_request_v37/);
   assert.match(v46, /ck_process_migration_attempt_request_v46/);
   assert.match(v46, /status in \('BLOCKED_STALE','FAILED_TERMINAL'\) and engine_outcome='UNKNOWN'/);
-  assert.doesNotMatch(v45 + v46, /ACT_[A-Z0-9_]+|rollback|force success/i);
+  assert.doesNotMatch(v45 + v46, /\bACT_[A-Z0-9_]+\b|ProcessMigrationService|\.migrate\(/);
 });
 
 test('D6 is internal one-shot and default disabled', () => {
