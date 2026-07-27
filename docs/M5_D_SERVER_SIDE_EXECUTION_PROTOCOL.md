@@ -9,11 +9,12 @@ Status:
 - M5-D5: `COMPLETE / PERMANENTLY_VALIDATED`
 - M5-D6: `COMPLETE / PERMANENTLY_VALIDATED`
 - M5-D7: `COMPLETE / PERMANENTLY_VALIDATED`
-- M5-D8: not started
-- M5-D overall: `IN_PROGRESS`
+- M5-D8: `COMPLETE / PERMANENTLY_VALIDATED`
+- M5-D overall: `COMPLETE_CANDIDATE / PERMANENTLY_VALIDATED`
 - Production migration execution: `NOT_AUTHORIZED`
 
 PR #58 remains Open + Draft. Issues #13, #14 and #56 remain Open.
+M5 as a whole remains `IN_PROGRESS` because M5-E, M5-F and M5-G are not complete.
 
 ## Permanent invariants
 
@@ -29,15 +30,16 @@ PR #58 remains Open + Draft. Issues #13, #14 and #56 remain Open.
 10. Binding CAS conflict enters reconciliation; it never redispatches migration.
 11. Audit failure fails closed and rolls back the current platform transaction.
 12. Tenant, operator, worker, lease and engine identity are server-owned.
-13. Execution, worker, orchestration and reconciliation are default disabled.
+13. Execution, worker, orchestration, aggregation and reconciliation are default disabled.
 14. Evidence is bounded, redacted and append-only.
 15. Metrics use only closed low-cardinality labels.
 16. The repository has one automatic PR/main workflow only.
-17. Browser and Mobile clients cannot mutate Attempt, verification, binding, reconciliation or
-    completion evidence.
+17. Browser and Mobile clients cannot mutate Attempt, verification, binding, reconciliation,
+    orchestration, aggregate or completion evidence.
 18. Detect-only, API return or inferred evidence is never described as migration success.
 19. No `UNKNOWN` path regains dispatch authority.
 20. A Kill Switch blocks only future dispatch and cannot claim cancellation of an in-flight call.
+21. Plan aggregation cannot authorize execution, rewrite per-instance evidence or hide unresolved work.
 
 ## Transaction boundary
 
@@ -133,9 +135,19 @@ D7 outer session advisory lock
     append audit
   commit
   explicitly release advisory lock
+
+D8 outer session advisory lock
+  serialize tenant/intent aggregate replay before evidence reads
+  D8 short repeatable-read platform transaction
+    lock consumed immutable plan and exact governed intent
+    read canonical immutable D1-D7 evidence
+    derive closed plan status, exact counts and deterministic hashes
+    append aggregate, event, optional completion and audit atomically
+  commit
+  explicitly release advisory lock
 ```
 
-No protocol phase claims two-phase commit or cross-system atomicity.
+D8 performs no Flowable call. No protocol phase claims two-phase commit or cross-system atomicity.
 
 ## D1 — exact authorized-plan admission
 
@@ -304,7 +316,7 @@ Kill Switch or stale orchestration revision.
 
 ### Bounded one-shot execution
 
-`ApprovalMigrationBoundedOrchestrationService` reuses D2 claim and the D3–D5 per-instance pipeline.
+`ApprovalMigrationBoundedOrchestrationService` reuses D2 claim and the D3-D5 per-instance pipeline.
 
 It is:
 
@@ -354,6 +366,77 @@ V47 creates:
 All are append-only. Payloads are bound to durable columns. Run/event predecessor hashes, exact D2
 claim ownership and Kill Switch run/Attempt/revision lineage are enforced.
 
+## D8 — deterministic plan-level completion aggregation
+
+D8 reads immutable D1-D7 evidence only. It does not invoke Flowable, dispatch migration, mutate
+runtime binding, update Attempts or rewrite per-instance evidence.
+
+### Closed status precedence
+
+The plan-level status vocabulary is:
+
+- `NOT_STARTED`;
+- `CANARY_PENDING`;
+- `CANARY_RUNNING`;
+- `BOUNDED_EXECUTION_RUNNING`;
+- `PAUSED`;
+- `KILL_SWITCH_BLOCKED`;
+- `UNKNOWN_PRESENT`;
+- `RECONCILIATION_PRESENT`;
+- `MANUAL_REVIEW_PRESENT`;
+- `TERMINAL_FAILURE_PRESENT`;
+- `PARTIALLY_COMPLETED`;
+- `ALL_INSTANCES_EXACTLY_COMPLETED`;
+- `COMPLETED_WITH_MANUAL_DISPOSITION`;
+- `COMPLETION_CONFLICT`;
+- `INVALID_INCOMPLETE_EVIDENCE`.
+
+Invalid/incomplete evidence and completion conflict precede completion. `UNKNOWN`, reconciliation,
+manual review and terminal failure remain visible and cannot be converted into success.
+
+### Canonical facts, counts and hashes
+
+D8 derives one fact for every selected instance in the sealed plan sequence. It computes exact
+selected, terminal, succeeded and unresolved counts. Normal evidence requires an exact continuous
+canonical sequence; a gap is retained as invalid evidence.
+
+The deterministic input-evidence hash binds plan/intent evidence, D7 plan signals and every
+per-instance fact. Aggregate hashes bind the closed status, exact counts, input hash, revision and
+predecessor. Random aggregate/event/completion UUIDs are not hash inputs.
+
+The first aggregate requires revision 1 and the zero predecessor. Every later revision must be the
+exact next revision and its predecessor must equal the previous aggregate hash. Exact replay returns
+the stored result; changed or stale replay fails closed. A tenant/intent session advisory lock
+serializes two-node replay before evidence reads.
+
+### Completion gate
+
+A plan completion is appended only when unresolved count is zero and every selected instance has an
+allowed immutable terminal disposition:
+
+- `ALL_INSTANCES_EXACTLY_COMPLETED` requires terminal and succeeded counts equal selected count;
+- `COMPLETED_WITH_MANUAL_DISPOSITION` requires terminal count equal selected count and at least one
+  explicit non-exact manual disposition.
+
+No completion record is created for `UNKNOWN`, reconciliation, manual review, terminal failure,
+conflict, missing/incomplete evidence, pause or Kill Switch block.
+
+### V48 evidence and atomicity
+
+V48 creates:
+
+- `ap_process_migration_plan_aggregate`;
+- `ap_process_migration_plan_aggregate_event`;
+- `ap_process_migration_plan_completion`.
+
+All are append-only. Payloads are bound to durable columns. Consumed-plan/intent lineage, exact
+selected count, revision/predecessor chain, event lineage and completion status/count/hash lineage
+are enforced.
+
+Within one short repeatable-read transaction D8 appends aggregate, event, optional completion and
+audit. Audit failure rolls back the whole D8 transaction. V48 creates no execution side effect and
+rewrites no D1-D7 evidence.
+
 ## Default-disabled configuration
 
 The effective defaults remain:
@@ -362,6 +445,7 @@ The effective defaults remain:
 approval.migration.execution.enabled=false
 approval.migration.worker.enabled=false
 approval.migration.orchestration.enabled=false
+approval.migration.aggregation.enabled=false
 approval.migration.reconciliation.automatic.enabled=false
 approval.migration.kill-switch.enabled=false
 approval.migration.kill-switch.revision=1
@@ -371,21 +455,22 @@ Missing, malformed or incomplete authority fails closed.
 
 ## Flyway ownership and validation
 
-M5 owns the continuous sequence V33 through V47.
+M5 owns the continuous sequence V33 through V48.
 
-- V33–V37: migration persistence, tenant/lineage, lease and UNKNOWN guards;
+- V33-V37: migration persistence, tenant/lineage, lease and UNKNOWN guards;
 - V38: immutable plans;
 - V39: exact plan consumption and intent admission;
 - V40: provisioning, bounded claims and shared command fence;
-- V41–V42: immutable single-instance request/outcome and payload guards;
+- V41-V42: immutable single-instance request/outcome and payload guards;
 - V43: exact bounded verification evidence;
 - V44: runtime-binding CAS, history, completion and conflict;
 - V45: independent reconciliation lease/event and immutable observation;
 - V46: UNKNOWN-derived terminal request-lineage preservation;
-- V47: canary, orchestration, bounded batch and Kill Switch evidence.
+- V47: canary, orchestration, bounded batch and Kill Switch evidence;
+- V48: immutable plan aggregate, aggregate event and plan completion evidence.
 
-Fresh migration, historical upgrades, explicit V46-to-V47 upgrade and the retained 5,000-instance
-path are validated. Migration creates no Flowable call or execution side effect. V1 through V46
+Fresh migration, historical upgrades, explicit V47-to-V48 upgrade and the retained 5,000-instance
+path are validated. Migration creates no Flowable call or execution side effect. V1 through V47
 remain unchanged.
 
 ## Permanent evidence
@@ -398,11 +483,13 @@ remain unchanged.
 - D5: `docs/M5_D5_RUNTIME_BINDING_CAS_PERMANENT_EVIDENCE.md`
 - D6: `docs/M5_D6_DURABLE_UNKNOWN_RECONCILIATION_PERMANENT_EVIDENCE.md`
 - D7: `docs/M5_D7_CANARY_BOUNDED_ORCHESTRATION_PERMANENT_EVIDENCE.md`
+- D8: `docs/M5_D8_PLAN_LEVEL_AGGREGATION_PERMANENT_EVIDENCE.md`
 
 ## Stop condition
 
-M5-D1 through D7 have reached their permanent validation gates. M5-D overall remains `IN_PROGRESS`.
+M5-D1 through D8 have reached their permanent validation gates. M5-D overall is
+`COMPLETE_CANDIDATE / PERMANENTLY_VALIDATED`, while M5 as a whole remains `IN_PROGRESS`.
 
-Work may proceed only to M5-D8 under the current authorization. M5-E executable commands, M5-F2
-production-grade exercise, M5-G merge readiness, production execution, Ready-for-review, auto-merge,
-merge and issue closure remain blocked.
+Work may proceed only to M5-E1 read-only Operations API and Web/Mobile visibility under the current
+authorization. M5-E2 executable commands, M5-F2 production-grade exercise, M5-G merge readiness,
+production execution, Ready-for-review, auto-merge, merge and issue closure remain blocked.

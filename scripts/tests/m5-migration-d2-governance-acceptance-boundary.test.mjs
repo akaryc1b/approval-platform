@@ -20,10 +20,14 @@ test('M5-D2 remains accepted while later D slices advance through separate gates
   const afterD7 = protocol.includes('- M5-D6: `COMPLETE / PERMANENTLY_VALIDATED`')
     && protocol.includes('- M5-D7: `COMPLETE / PERMANENTLY_VALIDATED`')
     && protocol.includes('- M5-D8: not started');
-  assert.ok(beforeD6 || afterD6 || afterD7);
+  const afterD8 = protocol.includes('- M5-D7: `COMPLETE / PERMANENTLY_VALIDATED`')
+    && protocol.includes('- M5-D8: `COMPLETE / PERMANENTLY_VALIDATED`')
+    && protocol.includes('- M5-D overall: `COMPLETE_CANDIDATE / PERMANENTLY_VALIDATED`');
+  assert.ok(beforeD6 || afterD6 || afterD7 || afterD8);
   assert.ok(
     protocol.includes('- Current M5-D overall result: `IN_PROGRESS`')
-      || protocol.includes('- M5-D overall: `IN_PROGRESS`'),
+      || protocol.includes('- M5-D overall: `IN_PROGRESS`')
+      || protocol.includes('- M5-D overall: `COMPLETE_CANDIDATE / PERMANENTLY_VALIDATED`'),
   );
   assert.ok(protocol.includes('- Production migration execution: `NOT_AUTHORIZED`'));
   assert.ok(evidence.includes('- M5-D2 implementation slice: `COMPLETE_PENDING_EXPLICIT_ACCEPTANCE`'));
