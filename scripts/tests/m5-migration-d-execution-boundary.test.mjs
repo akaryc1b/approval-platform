@@ -21,6 +21,10 @@ const upgrade = read(
   'server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/'
     + 'persistence/jdbc/JdbcApprovalMigrationUpgradeIntegrationTest.java',
 );
+const lineage = read(
+  'server-modules/approval-persistence-jdbc/src/main/resources/db/migration/'
+    + 'V46__preserve_ambiguous_terminal_request_lineage.sql',
+);
 
 function filesBelow(path) {
   const absolute = join(root, path);
@@ -48,7 +52,7 @@ test('V39 linkage remains frozen while later D slices advance the schema', () =>
   assert.match(migration, /consumed migration plan requires exact admitted intent evidence/);
   assert.match(migration, /append-only/);
   assert.doesNotMatch(migration, /ACT_[A-Z_]+/);
-  assert.match(upgrade, /LATEST_VERSION = "45"/);
+  assert.match(upgrade, /LATEST_VERSION = "46"/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v38", "38"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v39", "39"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v40", "40"\)/);
@@ -56,7 +60,12 @@ test('V39 linkage remains frozen while later D slices advance the schema', () =>
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v42", "42"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v43", "43"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v44", "44"\)/);
+  assert.match(upgrade, /new UpgradeCase\("approval_latest_v45", "45"\)/);
   assert.match(upgrade, /assertNoExecutionSideEffects/);
+  assert.match(lineage, /ck_process_migration_attempt_request_v46/);
+  assert.match(lineage, /BLOCKED_STALE/);
+  assert.match(lineage, /FAILED_TERMINAL/);
+  assert.match(lineage, /engine_outcome='UNKNOWN'/);
 });
 
 test('D1 keeps execution internal and does not add public controls', () => {
