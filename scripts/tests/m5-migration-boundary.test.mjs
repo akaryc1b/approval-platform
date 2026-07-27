@@ -5,3 +5,4 @@ import './m5-migration-c-governance-acceptance-boundary.test.mjs';
 import './m5-migration-d-execution-boundary.test.mjs';
 import './m5-migration-d2-claim-boundary.test.mjs';
 import './m5-migration-d2-governance-acceptance-boundary.test.mjs';
+import './m5-d8-plan-aggregation-boundary.test.mjs';

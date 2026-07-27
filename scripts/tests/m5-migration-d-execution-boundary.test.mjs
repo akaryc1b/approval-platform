@@ -52,7 +52,7 @@ test('V39 linkage remains frozen while later D slices advance the schema', () =>
   assert.match(migration, /consumed migration plan requires exact admitted intent evidence/);
   assert.match(migration, /append-only/);
   assert.doesNotMatch(migration, /ACT_[A-Z_]+/);
-  assert.match(upgrade, /LATEST_VERSION = "47"/);
+  assert.match(upgrade, /LATEST_VERSION = "48"/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v38", "38"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v39", "39"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v40", "40"\)/);
@@ -62,6 +62,7 @@ test('V39 linkage remains frozen while later D slices advance the schema', () =>
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v44", "44"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v45", "45"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v46", "46"\)/);
+  assert.match(upgrade, /new UpgradeCase\("approval_latest_v47", "47"\)/);
   assert.match(upgrade, /assertNoExecutionSideEffects/);
   assert.match(lineage, /ck_process_migration_attempt_request_v46/);
   assert.match(lineage, /BLOCKED_STALE/);

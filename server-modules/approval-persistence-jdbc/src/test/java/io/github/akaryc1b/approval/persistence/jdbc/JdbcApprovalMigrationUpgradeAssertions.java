@@ -36,7 +36,10 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         "ap_process_migration_orchestration_run",
         "ap_process_migration_orchestration_event",
         "ap_process_migration_orchestration_batch",
-        "ap_process_migration_kill_switch_observation"
+        "ap_process_migration_kill_switch_observation",
+        "ap_process_migration_plan_aggregate",
+        "ap_process_migration_plan_aggregate_event",
+        "ap_process_migration_plan_completion"
     );
     private static final Set<String> M4_INDEXES = Set.of(
         "idx_work_calendar_active_lookup", "idx_sla_policy_active_lookup",
@@ -74,7 +77,11 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         "idx_process_migration_reconciliation_observation_attempt_v45",
         "idx_process_migration_orchestration_run_plan_v47",
         "idx_process_migration_orchestration_event_run_v47",
-        "idx_process_migration_kill_switch_observation_time_v47"
+        "idx_process_migration_kill_switch_observation_time_v47",
+        "idx_process_migration_plan_aggregate_plan_v48",
+        "idx_process_migration_plan_aggregate_status_v48",
+        "idx_process_migration_plan_aggregate_event_intent_v48",
+        "idx_process_migration_plan_completion_time_v48"
     );
 
     private JdbcApprovalMigrationUpgradeAssertions() {
