@@ -110,13 +110,36 @@ final class ApprovalMigrationRules {
         }
         if (current.status() == AttemptStatus.RECONCILING
             && (transition.status() == AttemptStatus.BLOCKED_STALE
-                || transition.status() == AttemptStatus.FAILED_TERMINAL)
-            && (transition.engineOutcome() != EngineOutcome.UNKNOWN
-                || !Objects.equals(current.engineRequestReference(), transition.engineRequestReference()))) {
-            throw new IllegalArgumentException(
-                "ambiguous reconciliation closure must preserve engine request evidence"
-            );
+                || transition.status() == AttemptStatus.FAILED_TERMINAL)) {
+            if (transition.engineOutcome() != EngineOutcome.UNKNOWN) {
+                throw new IllegalArgumentException(
+                    "ambiguous reconciliation closure must preserve UNKNOWN outcome"
+                );
+            }
+            if (transition.engineRequestReference() != null
+                && !Objects.equals(
+                    current.engineRequestReference(),
+                    transition.engineRequestReference()
+                )) {
+                throw new IllegalArgumentException(
+                    "ambiguous reconciliation closure cannot replace engine request evidence"
+                );
+            }
         }
+    }
+
+    static String normalizedAttemptRequestReference(
+        ApprovalMigrationAttempt current,
+        ApprovalMigrationAttemptTransition transition
+    ) {
+        boolean ambiguousClosure = current.status() == AttemptStatus.RECONCILING
+            && (transition.status() == AttemptStatus.BLOCKED_STALE
+                || transition.status() == AttemptStatus.FAILED_TERMINAL)
+            && transition.engineOutcome() == EngineOutcome.UNKNOWN;
+        if (ambiguousClosure && transition.engineRequestReference() == null) {
+            return current.engineRequestReference();
+        }
+        return transition.engineRequestReference();
     }
 
     static List<String> canonicalKeys(List<String> values, String name) {
