@@ -80,7 +80,7 @@ test('D8 uses closed status outcome and pause vocabularies', () => {
     assert.match(evidence, new RegExp(`\\b${reason}\\b`));
     assert.match(v48, new RegExp(`'${reason}'`));
   }
-  assert.match(rules, /signals\.incompleteEvidence\(\)/);
+  assert.match(rules, /suppliedSignals\.incompleteEvidence\(\)/);
   assert.match(rules, /AggregateStatus\.COMPLETED_SUCCEEDED/);
   assert.match(rules, /AggregateStatus\.COMPLETED_WITH_TERMINAL_FAILURE/);
 });
