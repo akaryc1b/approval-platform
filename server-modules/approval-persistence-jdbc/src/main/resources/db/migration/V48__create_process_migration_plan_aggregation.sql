@@ -46,6 +46,7 @@ create table ap_process_migration_plan_aggregate (
  unique (tenant_id,idempotency_key),
  unique (tenant_id,request_hash),
  unique (tenant_id,plan_id,aggregate_hash),
+ unique (tenant_id,plan_id,input_evidence_hash),
  foreign key (tenant_id,plan_id,plan_hash)
   references ap_process_migration_plan (tenant_id,plan_id,plan_hash),
  foreign key (tenant_id,intent_id)
