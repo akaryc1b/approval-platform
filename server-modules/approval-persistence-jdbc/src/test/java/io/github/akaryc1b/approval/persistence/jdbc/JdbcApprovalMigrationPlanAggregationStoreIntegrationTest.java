@@ -8,6 +8,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggrega
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore.AggregationRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore.AggregationResult;
 import io.github.akaryc1b.approval.domain.audit.AuditEvent;
+import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationIntent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationIntentEvent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlan;
@@ -15,6 +16,7 @@ import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAuthori
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanConsumption;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanEvent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.AggregateStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanAggregationEvidence.PauseReason;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlanProtocol.PlanStatus;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.IntentStatus;
 import org.junit.jupiter.api.Test;
@@ -38,7 +40,6 @@ import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbc
 import static io.github.akaryc1b.approval.persistence.jdbc.ApprovalMigrationJdbcFixtures.hash;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,39 +61,48 @@ class JdbcApprovalMigrationPlanAggregationStoreIntegrationTest
         assertTrue(replay.replayed());
         assertEquals(first.aggregate(), replay.aggregate());
         assertEquals(AggregateStatus.NOT_STARTED, first.aggregate().status());
-        assertEquals(2, first.aggregate().selectedCount());
-        assertEquals(2, first.aggregate().unresolvedCount());
+        assertEquals(2, first.aggregate().counts().selectedCount());
+        assertEquals(2, first.aggregate().counts().pendingCount());
+        assertEquals(2, first.aggregate().counts().unresolvedCount());
+        assertEquals(PauseReason.NONE, first.aggregate().pauseReason());
         assertNull(first.completion());
         assertEquals(1, count("ap_process_migration_plan_aggregate"));
         assertEquals(1, count("ap_process_migration_plan_aggregate_event"));
         assertEquals(0, count("ap_process_migration_plan_completion"));
         assertEquals(1, audits.size());
+        assertEquals("migration-operator", audits.get(0).operatorId());
 
         assertThrows(AggregationConflictException.class, () -> store.aggregate(
             new AggregationRequest(
-                request.tenantId(),
-                request.intentId(),
+                request.context(),
+                request.planId(),
                 2,
-                request.happenedAt(),
-                request.requestId(),
-                request.traceId()
+                request.reason(),
+                request.happenedAt()
             )
         ));
         assertEquals(1, count("ap_process_migration_plan_aggregate"));
     }
 
     @Test
-    void newRevisionUsesSameInputAndExactPredecessorWhenEvidenceIsUnchanged() {
+    void unchangedEvidenceCannotCreateASecondAggregateRevision() {
         AdmissionResult admission = persistConsumedPlan(2);
         ApprovalMigrationPlanAggregationStore store = rawStore(new ArrayList<>());
 
         AggregationResult first = store.aggregate(request(admission, 1, "aggregate-first"));
-        AggregationResult second = store.aggregate(request(admission, 2, "aggregate-second"));
 
-        assertEquals(first.aggregate().inputEvidenceHash(), second.aggregate().inputEvidenceHash());
-        assertEquals(first.aggregate().aggregateHash(), second.aggregate().predecessorHash());
-        assertNotEquals(first.aggregate().aggregateHash(), second.aggregate().aggregateHash());
-        assertEquals(2, count("ap_process_migration_plan_aggregate"));
+        assertThrows(AggregationConflictException.class, () -> store.aggregate(
+            request(admission, 2, "aggregate-second")
+        ));
+        assertEquals(1, count("ap_process_migration_plan_aggregate"));
+        assertEquals(1, count("ap_process_migration_plan_aggregate_event"));
+        assertEquals(first.aggregate().aggregateHash(), jdbc.queryForObject(
+            "select aggregate_hash from ap_process_migration_plan_aggregate "
+                + "where tenant_id=? and plan_id=?",
+            String.class,
+            TENANT,
+            admission.intent().planId()
+        ));
     }
 
     @Test
@@ -155,14 +165,20 @@ class JdbcApprovalMigrationPlanAggregationStoreIntegrationTest
         AdmissionResult admission = persistConsumedPlan(5);
         ApprovalMigrationPlanAggregationStore store = rawStore(new ArrayList<>());
 
+        AggregationRequest valid = request(admission, 1, "aggregate-valid-shape");
         assertThrows(AggregationConflictException.class, () -> store.aggregate(
             new AggregationRequest(
-                "other-tenant",
-                admission.intent().intentId(),
+                new RequestContext(
+                    "other-tenant",
+                    valid.operatorId(),
+                    "aggregate-cross-tenant",
+                    "aggregation-cross-tenant",
+                    null
+                ),
+                valid.planId(),
                 1,
-                NOW.plusSeconds(60),
-                "aggregate-cross-tenant",
-                null
+                valid.reason(),
+                NOW.plusSeconds(60)
             )
         ));
         assertThrows(AggregationConflictException.class, () -> store.aggregate(
@@ -172,7 +188,7 @@ class JdbcApprovalMigrationPlanAggregationStoreIntegrationTest
     }
 
     @Test
-    void aggregateEvidenceIsAppendOnly() {
+    void aggregateEvidenceIsAppendOnlyAndPayloadBound() {
         AdmissionResult admission = persistConsumedPlan(6);
         AggregationResult result = rawStore(new ArrayList<>()).aggregate(
             request(admission, 1, "aggregate-tamper")
@@ -187,6 +203,30 @@ class JdbcApprovalMigrationPlanAggregationStoreIntegrationTest
         assertThrows(DataAccessException.class, () -> jdbc.update(
             "delete from ap_process_migration_plan_aggregate_event "
                 + "where tenant_id=? and aggregate_id=?",
+            TENANT,
+            result.aggregate().aggregateId()
+        ));
+        assertThrows(DataAccessException.class, () -> jdbc.update(
+            "insert into ap_process_migration_plan_aggregate ("
+                + "tenant_id,aggregate_id,plan_id,intent_id,plan_hash,aggregate_revision,"
+                + "status,terminal_outcome,selected_count,provisioned_attempt_count,"
+                + "pending_count,claimed_count,engine_requested_count,verifying_count,"
+                + "reconciling_count,unknown_count,manual_review_count,binding_conflict_count,"
+                + "blocked_stale_count,terminal_failed_count,exact_success_count,unresolved_count,"
+                + "canary_status,orchestration_status,paused,pause_reason,kill_switch_observed,"
+                + "input_evidence_hash,predecessor_hash,operator_id,idempotency_key,request_hash,"
+                + "aggregate_hash,aggregated_at,reason,request_id,audit_reference,payload_json"
+                + ") select tenant_id,?,plan_id,intent_id,plan_hash,aggregate_revision+1,"
+                + "status,terminal_outcome,selected_count,provisioned_attempt_count,"
+                + "pending_count,claimed_count,engine_requested_count,verifying_count,"
+                + "reconciling_count,unknown_count,manual_review_count,binding_conflict_count,"
+                + "blocked_stale_count,terminal_failed_count,exact_success_count,unresolved_count,"
+                + "canary_status,orchestration_status,paused,pause_reason,kill_switch_observed,"
+                + "input_evidence_hash,aggregate_hash,operator_id,?,request_hash,"
+                + "aggregate_hash,aggregated_at,reason,request_id,audit_reference,payload_json "
+                + "from ap_process_migration_plan_aggregate where tenant_id=? and aggregate_id=?",
+            UUID.randomUUID(),
+            "tampered-idempotency",
             TENANT,
             result.aggregate().aggregateId()
         ));
@@ -215,12 +255,17 @@ class JdbcApprovalMigrationPlanAggregationStoreIntegrationTest
         String requestId
     ) {
         return new AggregationRequest(
-            admission.intent().tenantId(),
-            admission.intent().intentId(),
+            new RequestContext(
+                admission.intent().tenantId(),
+                "migration-operator",
+                requestId,
+                "aggregation-key-" + requestId,
+                "trace-aggregation"
+            ),
+            admission.intent().planId(),
             revision,
-            NOW.plusSeconds(60 + revision),
-            requestId,
-            "trace-aggregation"
+            "Aggregate exact consumed plan for D8",
+            NOW.plusSeconds(60 + revision)
         );
     }
 
