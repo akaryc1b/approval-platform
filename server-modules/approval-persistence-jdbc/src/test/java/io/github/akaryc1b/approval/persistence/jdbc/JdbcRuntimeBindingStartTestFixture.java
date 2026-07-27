@@ -79,6 +79,17 @@ final class JdbcRuntimeBindingStartTestFixture {
               alter column assignee_snapshot_json set default '{}'::jsonb,
               alter column request_hash set default repeat('0', 64)
             """);
+        jdbc.execute("""
+            alter table ap_process_migration_exact_verification
+              add column if not exists engine_instance_id varchar(256),
+              add column if not exists read_failure_code varchar(96),
+              alter column runtime_present set default true,
+              alter column history_present set default true,
+              alter column observed_runtime_definition_id
+                set default 'engine-definition:d5-target:2',
+              alter column observed_history_definition_id
+                set default 'engine-definition:d5-target:2'
+            """);
     }
 
     static ApprovalReleasePackage seedReleaseEvidence(DataSource dataSource) {
@@ -301,7 +312,6 @@ final class JdbcRuntimeBindingStartTestFixture {
                     releasePackage.tenantId(),
                     releasePackage.definitionKey(),
                     releasePackage.releaseVersion(),
-                    releasePackage.definitionVersion(),
                     releasePackage.definitionHash(),
                     releasePackage.formPackageVersion(),
                     releasePackage.formPackageHash(),
