@@ -130,7 +130,6 @@ public interface ApprovalMigrationReconciliationStore {
                 || !attempt.attemptId().equals(observation.attemptId())
                 || !reconciliation.tenantId().equals(observation.tenantId())
                 || !reconciliation.attemptId().equals(observation.attemptId())
-                || reconciliation.sequence() < 2
                 || !lease.tenantId().equals(observation.tenantId())
                 || !lease.attemptId().equals(observation.attemptId())
                 || !lease.leaseId().equals(observation.leaseId())) {
