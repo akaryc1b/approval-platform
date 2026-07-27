@@ -65,10 +65,20 @@ final class JdbcRuntimeBindingStartTestFixture {
                 ap_command_idempotency
             cascade
             """);
-        jdbc.execute(
-            "alter table ap_approval_instance "
-                + "add column if not exists current_task_key varchar(128)"
-        );
+        jdbc.execute("""
+            alter table ap_approval_instance
+              add column if not exists current_task_key varchar(128)
+            """);
+        jdbc.execute("""
+            alter table ap_approval_instance
+              alter column initiator_id set default 'initiator-d5',
+              alter column amount set default 1,
+              alter column supplier set default 'supplier-d5',
+              alter column purchase_order_reference set default 'po-d5',
+              alter column attachment_ids_json set default '[]'::jsonb,
+              alter column assignee_snapshot_json set default '{}'::jsonb,
+              alter column request_hash set default repeat('0', 64)
+            """);
     }
 
     static ApprovalReleasePackage seedReleaseEvidence(DataSource dataSource) {
