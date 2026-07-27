@@ -128,7 +128,11 @@ public interface ApprovalMigrationReconciliationStore {
             if (disposition != observation.disposition()
                 || !attempt.tenantId().equals(observation.tenantId())
                 || !attempt.attemptId().equals(observation.attemptId())
-                || !reconciliation.reconciliationId().equals(observation.reconciliationId())
+                || !reconciliation.tenantId().equals(observation.tenantId())
+                || !reconciliation.attemptId().equals(observation.attemptId())
+                || reconciliation.sequence() < 2
+                || !lease.tenantId().equals(observation.tenantId())
+                || !lease.attemptId().equals(observation.attemptId())
                 || !lease.leaseId().equals(observation.leaseId())) {
                 throw new IllegalArgumentException("stored reconciliation evidence is inconsistent");
             }
