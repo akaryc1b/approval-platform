@@ -48,9 +48,13 @@ final class ApprovalMigrationRules {
         if (status == AttemptStatus.PENDING && engineOutcome != EngineOutcome.NOT_REQUESTED) {
             throw new IllegalArgumentException("pending attempt cannot retain an engine outcome");
         }
+        boolean ambiguousTerminal = (status == AttemptStatus.BLOCKED_STALE
+            || status == AttemptStatus.FAILED_TERMINAL)
+            && engineOutcome == EngineOutcome.UNKNOWN;
         boolean requestExpected = status == AttemptStatus.ENGINE_REQUESTED
             || status == AttemptStatus.VERIFYING || status == AttemptStatus.UNKNOWN
-            || status == AttemptStatus.RECONCILING || status == AttemptStatus.SUCCEEDED;
+            || status == AttemptStatus.RECONCILING || status == AttemptStatus.SUCCEEDED
+            || ambiguousTerminal;
         if (requestExpected != (requestReference != null)) {
             throw new IllegalArgumentException("attempt engine request evidence is inconsistent");
         }
@@ -104,6 +108,15 @@ final class ApprovalMigrationRules {
                 );
             }
         }
+        if (current.status() == AttemptStatus.RECONCILING
+            && (transition.status() == AttemptStatus.BLOCKED_STALE
+                || transition.status() == AttemptStatus.FAILED_TERMINAL)
+            && (transition.engineOutcome() != EngineOutcome.UNKNOWN
+                || !Objects.equals(current.engineRequestReference(), transition.engineRequestReference()))) {
+            throw new IllegalArgumentException(
+                "ambiguous reconciliation closure must preserve engine request evidence"
+            );
+        }
     }
 
     static List<String> canonicalKeys(List<String> values, String name) {
@@ -119,10 +132,20 @@ final class ApprovalMigrationRules {
         return List.copyOf(sorted);
     }
 
-    static void requirePositive(long value, String name) {
-        if (value < 1) {
-            throw new IllegalArgumentException(name + " must be positive");
+    static String requireText(String value, String name, int maximumLength) {
+        Objects.requireNonNull(value, name + " must not be null");
+        String normalized = value.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(name + " must not be blank");
         }
+        if (normalized.length() > maximumLength) {
+            throw new IllegalArgumentException(name + " exceeds maximum length " + maximumLength);
+        }
+        return normalized;
+    }
+
+    static String optionalText(String value, String name, int maximumLength) {
+        return value == null || value.isBlank() ? null : requireText(value, name, maximumLength);
     }
 
     static String requireHash(String value, String name) {
@@ -134,19 +157,18 @@ final class ApprovalMigrationRules {
     }
 
     static String optionalHash(String value, String name) {
-        return value == null || value.isBlank() ? null : requireHash(value, name);
+        return value == null ? null : requireHash(value, name);
     }
 
-    static String requireText(String value, String name, int maximum) {
-        Objects.requireNonNull(value, name + " must not be null");
-        String normalized = value.trim();
-        if (normalized.isEmpty() || normalized.length() > maximum) {
-            throw new IllegalArgumentException(name + " must be non-blank and at most " + maximum);
+    static void requirePositive(long value, String name) {
+        if (value < 1) {
+            throw new IllegalArgumentException(name + " must be positive");
         }
-        return normalized;
     }
 
-    static String optionalText(String value, String name, int maximum) {
-        return value == null || value.isBlank() ? null : requireText(value, name, maximum);
+    static void requireNonNegative(long value, String name) {
+        if (value < 0) {
+            throw new IllegalArgumentException(name + " must not be negative");
+        }
     }
 }
