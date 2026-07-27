@@ -105,9 +105,13 @@ public final class ApprovalMigrationPlanAggregationEvidence {
             if (selectedCount != canonicalFacts.size()) {
                 throw new IllegalArgumentException("selected count does not match canonical facts");
             }
-            for (int index = 0; index < canonicalFacts.size(); index++) {
-                if (canonicalFacts.get(index).sequenceNo() != index + 1) {
-                    throw new IllegalArgumentException("instance facts are not canonically ordered");
+            if (status != AggregateStatus.INVALID_INCOMPLETE_EVIDENCE) {
+                for (int index = 0; index < canonicalFacts.size(); index++) {
+                    if (canonicalFacts.get(index).sequenceNo() != index + 1) {
+                        throw new IllegalArgumentException(
+                            "instance facts are not canonically ordered"
+                        );
+                    }
                 }
             }
             if (status == AggregateStatus.ALL_INSTANCES_EXACTLY_COMPLETED
