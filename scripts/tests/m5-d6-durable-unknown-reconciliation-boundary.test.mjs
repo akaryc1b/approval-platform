@@ -63,7 +63,10 @@ test('V45 and V46 persist independent lease and immutable observation evidence',
   assert.match(v45, /create table ap_process_migration_reconciliation_observation \(/);
   assert.match(v45, /migration reconciliation observation is append-only/);
   assert.match(v45, /reconciliation lease event is append-only/);
-  assert.match(v45, /reconciliation lease cannot be deleted/);
+  assert.match(
+    v45,
+    /create trigger trg_process_migration_reconciliation_lease_guard_v45[\s\S]*before insert or update or delete/,
+  );
   assert.match(v45, /SOURCE_CONFIRMED_NO_RETRY/);
   assert.match(v45, /TARGET_CONFIRMED_BINDING_CAS_REQUIRED/);
   assert.match(v46, /drop constraint ck_process_migration_attempt_request_v37/);
