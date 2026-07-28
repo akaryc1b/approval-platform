@@ -73,7 +73,7 @@ export interface MigrationInstancePage {
 
 export function findMigrationOperationsSummary() {
   return mobileApprovalRequest<MigrationOperationsSummary>(
-    '/approval/management/process-instance-operations/summary',
+    '/approval/mobile/process-instance-operations/summary',
   )
 }
 
@@ -86,13 +86,13 @@ export function findMigrationOperationPlans(limit = 50, offset = 0) {
   }
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) })
   return mobileApprovalRequest<MigrationPlanPage>(
-    `/approval/management/process-instance-operations/plans?${query.toString()}`,
+    `/approval/mobile/process-instance-operations/plans?${query.toString()}`,
   )
 }
 
 export function findMigrationOperationInstances(planId: string, limit = 200, offset = 0) {
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) })
   return mobileApprovalRequest<MigrationInstancePage>(
-    `/approval/management/process-instance-operations/plans/${encodeURIComponent(planId)}/instances?${query.toString()}`,
+    `/approval/mobile/process-instance-operations/plans/${encodeURIComponent(planId)}/instances?${query.toString()}`,
   )
 }
