@@ -35,9 +35,13 @@ const upgrade = read(
 );
 
 test('D6 uses one bounded public readback outside two short platform transactions', () => {
-  assert.match(application, /reconciliationStore\.prepare\(new PrepareRequest/);
-  assert.match(application, /engineVerification\.readOne\(prepared\.engineCommand\(\)\)/);
-  assert.match(application, /reconciliationStore\.finalizeObservation\(new FinalizeRequest/);
+  const prepareIndex = application.indexOf('reconciliationStore.prepare(');
+  const readIndex = application.indexOf('engineVerification.readOne(prepared.engineCommand())');
+  const finalizeIndex = application.indexOf('reconciliationStore.finalizeObservation(');
+  assert.ok(prepareIndex >= 0, 'D6 prepare boundary is missing');
+  assert.ok(readIndex > prepareIndex, 'D6 engine read must follow prepare');
+  assert.ok(finalizeIndex > readIndex, 'D6 finalization must follow engine read');
+  assert.match(application, /new FinalizeRequest\(\s*prepared,\s*snapshot,\s*classification,/s);
   assert.match(store, /transactions\.execute\(status -> prepareOnce\(request\)\)/);
   assert.match(store, /transactions\.execute\(status -> finalizeOnce\(request\)\)/);
   assert.match(store, /AttemptStatus\.UNKNOWN/);
