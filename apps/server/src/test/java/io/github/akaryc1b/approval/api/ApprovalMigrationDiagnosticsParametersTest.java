@@ -60,7 +60,7 @@ class ApprovalMigrationDiagnosticsParametersTest {
         assertEquals(AttemptStatusFilter.UNKNOWN, criteria.attemptStatus());
         assertEquals(FailureClass.AMBIGUOUS_UNKNOWN, criteria.failureClass());
         assertEquals(ReconciliationState.OPEN, criteria.reconciliationState());
-        assertEquals("2026-06-30T16:00:00Z", criteria.from().toString());
+        assertEquals("2026-07-01T00:00+08:00", criteria.from().toString());
     }
 
     @Test
