@@ -71,14 +71,15 @@ test('E1 exposes exactly four tenant-scoped GET operations handlers', () => {
 });
 
 test('E1 capability is dedicated read-only and excludes unrelated roles', () => {
+  const capability = permission.match(
+    /MIGRATION_OPERATIONS_READ\(([\s\S]*?)\),\s*TRANSFER/,
+  );
+  assert.ok(capability, 'migration operations capability is missing');
   assert.match(
-    permission,
-    /MIGRATION_OPERATIONS_READ\(\s*"approval\.management\.migration\.operations\.read",\s*"migration-operations-read"\s*\)/s,
+    capability[1],
+    /"approval\.management\.migration\.operations\.read",\s*"migration-operations-read"/s,
   );
-  assert.doesNotMatch(
-    permission,
-    /MIGRATION_OPERATIONS_READ\([\s\S]*?true\s*\)/,
-  );
+  assert.doesNotMatch(capability[1], /\btrue\b/);
   for (const role of ['PROCESS_PUBLISHER', 'AUDITOR', 'OPERATIONS']) {
     const block = resolver.match(new RegExp(
       `ApprovalEnterpriseRole\\.${role},[\\s\\S]*?\\n\\s*\\)`,
