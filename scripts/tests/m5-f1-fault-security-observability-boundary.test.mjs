@@ -95,9 +95,17 @@ test('F1 Operations observability is structured and low cardinality', () => {
   assert.match(operationsAdvice, /"result", classification\.result\(\)\.metricValue\(\)/);
   assert.match(operationsAdvice, /"failure_class", classification\.failureClass\(\)\.metricValue\(\)/);
   assert.match(operationsAdvice, /Map\.of\("failureClass", failureClass\.metricValue\(\)\)/);
+  const counterRegistration = operationsAdvice.match(
+    /meters\.counter\([\s\S]*?\)\.increment\(\);/,
+  );
+  assert.ok(counterRegistration, 'Operations counter registration is missing');
+  assert.deepEqual(
+    [...counterRegistration[0].matchAll(/"([a-z_]+)"/g)].map(match => match[1]),
+    ['operation', 'result', 'failure_class'],
+  );
   assert.doesNotMatch(
-    f1Production,
-    /"tenantId"\s*,|"operatorId"\s*,|"planId"\s*,|"intentId"\s*,|"attemptId"\s*,|"instanceId"\s*,|"requestId"\s*,|"traceId"\s*,|"reason"\s*,/,
+    counterRegistration[0],
+    /tenantId|operatorId|definitionKey|planId|intentId|attemptId|instanceId|requestId|traceId|reason|message|exception/,
   );
 });
 
