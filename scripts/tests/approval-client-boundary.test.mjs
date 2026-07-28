@@ -40,17 +40,19 @@ test('browser and mobile overlays cannot forge trusted management authorities', 
   assert.deepEqual(offenders, []);
 });
 
-test('mobile management access is limited to the E1 GET-only operations view', async () => {
-  const managementSources = (await sources(mobileRoot))
-    .filter(file => file.content.includes('/approval/management/'));
-  assert.deepEqual(
-    managementSources.map(file => displayPath(file.path)),
-    ['apps/mobile/overlay/src/api/approval/process-instance-operations.ts'],
+test('mobile overlay cannot reference tenant management endpoints', async () => {
+  const offenders = (await sources(mobileRoot))
+    .filter(file => file.content.includes('/approval/management/'))
+    .map(file => displayPath(file.path));
+  assert.deepEqual(offenders, []);
+
+  const operations = await readFile(
+    join(mobileRoot, 'api/approval/process-instance-operations.ts'),
+    'utf8',
   );
-  const operations = managementSources[0].content;
   assert.match(operations, /@\/api\/approval\/transport/);
-  assert.match(operations, /process-instance-operations\/summary/);
-  assert.match(operations, /process-instance-operations\/plans/);
+  assert.match(operations, /\/approval\/mobile\/process-instance-operations\/summary/);
+  assert.match(operations, /\/approval\/mobile\/process-instance-operations\/plans/);
   assert.doesNotMatch(operations, /uni\.request\s*\(/);
   assert.doesNotMatch(operations, /approvalCommandHeaders|Idempotency-Key/);
   assert.doesNotMatch(operations, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
