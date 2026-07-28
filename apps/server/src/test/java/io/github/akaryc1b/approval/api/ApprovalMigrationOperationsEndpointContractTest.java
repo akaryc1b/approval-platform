@@ -29,7 +29,7 @@ class ApprovalMigrationOperationsEndpointContractTest {
             RequestMapping.class
         );
         assertEquals(
-            "/api/approval/management/migrations",
+            "/api/approval/management/process-instance-operations",
             mapping.value()[0]
         );
         Method[] handlers = Arrays.stream(
