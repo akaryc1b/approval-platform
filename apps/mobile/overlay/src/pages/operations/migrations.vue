@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type {
   MigrationInstanceItem,
+  MigrationInstancePage,
   MigrationOperationsSummary,
   MigrationPlanItem,
   MigrationPlanPage,
@@ -26,6 +27,7 @@ const loading = ref(false)
 const detailLoading = ref(false)
 const loadError = ref('')
 const selected = ref<MigrationPlanItem>()
+const plans = ref<MigrationPlanItem[]>([])
 const instances = ref<MigrationInstanceItem[]>([])
 const summary = ref<MigrationOperationsSummary>({
   activePlans: 0,
@@ -43,6 +45,14 @@ const page = ref<MigrationPlanPage>({
   items: [],
   limit: 50,
   offset: 0,
+  total: 0,
+})
+const instancePage = ref<MigrationInstancePage>({
+  hasMore: false,
+  items: [],
+  limit: 100,
+  offset: 0,
+  planId: '',
   total: 0,
 })
 
@@ -71,6 +81,8 @@ function statusType(value?: string) {
 async function load() {
   loading.value = true
   loadError.value = ''
+  selected.value = undefined
+  instances.value = []
   try {
     const [nextSummary, nextPage] = await Promise.all([
       findMigrationOperationsSummary(),
@@ -78,9 +90,27 @@ async function load() {
     ])
     summary.value = nextSummary
     page.value = nextPage
+    plans.value = nextPage.items
   }
   catch (error) {
     loadError.value = errorMessage(error)
+  }
+  finally {
+    loading.value = false
+  }
+}
+
+async function loadMorePlans() {
+  if (loading.value || !page.value.hasMore)
+    return
+  loading.value = true
+  try {
+    const nextPage = await findMigrationOperationPlans(page.value.limit, plans.value.length)
+    page.value = nextPage
+    plans.value = [...plans.value, ...nextPage.items]
+  }
+  catch (error) {
+    uni.showToast({ icon: 'none', title: errorMessage(error) })
   }
   finally {
     loading.value = false
@@ -92,8 +122,30 @@ async function showPlan(plan: MigrationPlanItem) {
   instances.value = []
   detailLoading.value = true
   try {
-    const result = await findMigrationOperationInstances(plan.planId, 200, 0)
+    const result = await findMigrationOperationInstances(plan.planId, 100, 0)
+    instancePage.value = result
     instances.value = result.items
+  }
+  catch (error) {
+    uni.showToast({ icon: 'none', title: errorMessage(error) })
+  }
+  finally {
+    detailLoading.value = false
+  }
+}
+
+async function loadMoreInstances() {
+  if (!selected.value || detailLoading.value || !instancePage.value.hasMore)
+    return
+  detailLoading.value = true
+  try {
+    const result = await findMigrationOperationInstances(
+      selected.value.planId,
+      instancePage.value.limit,
+      instances.value.length,
+    )
+    instancePage.value = result
+    instances.value = [...instances.value, ...result.items]
   }
   catch (error) {
     uni.showToast({ icon: 'none', title: errorMessage(error) })
@@ -145,11 +197,11 @@ onShow(load)
       <text>{{ loadError }}</text>
       <wd-button size="small" plain @click="load">重新加载</wd-button>
     </view>
-    <view v-else-if="loading" class="state-card">正在读取持久化证据...</view>
-    <view v-else-if="page.items.length === 0" class="state-card">当前没有迁移计划</view>
+    <view v-else-if="loading && plans.length === 0" class="state-card">正在读取持久化证据...</view>
+    <view v-else-if="plans.length === 0" class="state-card">当前没有迁移计划</view>
     <view v-else class="plan-list">
       <view
-        v-for="plan in page.items"
+        v-for="plan in plans"
         :key="plan.planId"
         class="plan-card"
         @click="showPlan(plan)"
@@ -174,12 +226,26 @@ onShow(load)
           暂停原因：{{ plan.pauseReason }} · 最近聚合：{{ formatDate(plan.latestAggregatedAt) }}
         </text>
       </view>
+      <view class="page-evidence">
+        <text>计划证据已显示 {{ plans.length }} / {{ page.total }} 条</text>
+        <wd-button
+          v-if="page.hasMore"
+          size="small"
+          plain
+          :loading="loading"
+          @click="loadMorePlans"
+        >
+          加载更多计划
+        </wd-button>
+      </view>
     </view>
 
     <view v-if="selected" class="section-title">
       <text>实例证据 · {{ selected.definitionKey }}</text>
     </view>
-    <view v-if="selected && detailLoading" class="state-card">正在读取实例证据...</view>
+    <view v-if="selected && detailLoading && instances.length === 0" class="state-card">
+      正在读取实例证据...
+    </view>
     <view v-else-if="selected && instances.length === 0" class="state-card">
       计划尚无实例执行证据
     </view>
@@ -202,6 +268,18 @@ onShow(load)
           验证：{{ item.verificationClassification || '-' }} · 对账：{{ item.reconciliationStatus || '-' }}
         </text>
       </view>
+      <view class="page-evidence">
+        <text>实例证据已显示 {{ instances.length }} / {{ instancePage.total }} 条</text>
+        <wd-button
+          v-if="instancePage.hasMore"
+          size="small"
+          plain
+          :loading="detailLoading"
+          @click="loadMoreInstances"
+        >
+          加载更多实例
+        </wd-button>
+      </view>
     </view>
   </view>
 </template>
@@ -216,7 +294,8 @@ onShow(load)
 .metric-card,
 .plan-card,
 .instance-card,
-.state-card {
+.state-card,
+.page-evidence {
   border-radius: 22rpx;
   background: var(--wot-color-white, var(--uni-bg-color));
   box-shadow: 0 8rpx 24rpx rgb(15 23 42 / 5%);
@@ -225,7 +304,8 @@ onShow(load)
 .notice__title { font-size: 30rpx; font-weight: 700; }
 .notice__text,
 .plan-card__meta,
-.state-card { color: var(--wot-color-content-secondary, var(--uni-text-color-grey)); font-size: 24rpx; }
+.state-card,
+.page-evidence { color: var(--wot-color-content-secondary, var(--uni-text-color-grey)); font-size: 24rpx; }
 .metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18rpx; margin-top: 20rpx; }
 .metric-card { display: grid; gap: 10rpx; padding: 22rpx; }
 .metric-card__value { font-size: 42rpx; font-weight: 700; }
@@ -243,4 +323,5 @@ onShow(load)
 .plan-card__counts { justify-content: flex-start; font-size: 24rpx; }
 .state-card { display: grid; gap: 18rpx; justify-items: center; padding: 28rpx; text-align: center; }
 .state-card--error { color: var(--wot-color-danger, var(--uni-color-error)); }
+.page-evidence { display: grid; gap: 16rpx; justify-items: center; padding: 20rpx; }
 </style>
