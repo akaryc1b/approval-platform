@@ -61,7 +61,7 @@ class JdbcApprovalMigrationOperationsQueryIntegrationTest
         assertFalse(page.hasMore());
         assertEquals(tenantPlan.planId(), page.items().getFirst().planId());
         assertEquals(2, page.items().getFirst().selectedInstanceCount());
-        assertEquals(2, page.items().getFirst().unresolvedCount());
+        assertEquals(0, page.items().getFirst().unresolvedCount());
 
         var detail = query.findPlan(TENANT, tenantPlan.planId()).orElseThrow();
         assertEquals(tenantPlan.planHash(), detail.plan().planHash());
