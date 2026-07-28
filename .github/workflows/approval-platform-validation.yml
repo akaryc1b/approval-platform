@@ -93,6 +93,18 @@ jobs:
           node --test scripts/tests/m5-d7-canary-orchestration-boundary.test.mjs \
             >>m5-migration-boundary.log 2>&1 \
             || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d8-plan-aggregation-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-e1-operations-visibility-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-f1-fault-security-observability-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-e2-advanced-diagnostics-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
           cat m5-migration-boundary.log
       - name: Upload repository governance logs
         if: always()
