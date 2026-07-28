@@ -71,6 +71,16 @@ export interface MigrationInstancePage {
   total: number
 }
 
+function boundedPaging(limit: number, offset: number) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) {
+    throw new Error('每页数量必须为 1–200 的整数')
+  }
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    throw new Error('偏移量必须为非负整数')
+  }
+  return { limit, offset }
+}
+
 export function findMigrationOperationsSummary() {
   return mobileApprovalRequest<MigrationOperationsSummary>(
     '/approval/mobile/process-instance-operations/summary',
@@ -78,20 +88,22 @@ export function findMigrationOperationsSummary() {
 }
 
 export function findMigrationOperationPlans(limit = 50, offset = 0) {
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) {
-    throw new Error('每页数量必须为 1–200 的整数')
-  }
-  if (!Number.isSafeInteger(offset) || offset < 0) {
-    throw new Error('偏移量必须为非负整数')
-  }
-  const query = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const bounded = boundedPaging(limit, offset)
+  const query = new URLSearchParams({
+    limit: String(bounded.limit),
+    offset: String(bounded.offset),
+  })
   return mobileApprovalRequest<MigrationPlanPage>(
     `/approval/mobile/process-instance-operations/plans?${query.toString()}`,
   )
 }
 
 export function findMigrationOperationInstances(planId: string, limit = 200, offset = 0) {
-  const query = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const bounded = boundedPaging(limit, offset)
+  const query = new URLSearchParams({
+    limit: String(bounded.limit),
+    offset: String(bounded.offset),
+  })
   return mobileApprovalRequest<MigrationInstancePage>(
     `/approval/mobile/process-instance-operations/plans/${encodeURIComponent(planId)}/instances?${query.toString()}`,
   )
