@@ -100,6 +100,8 @@ test('E1 reads bounded durable evidence without mutation or Flowable access', ()
   assert.match(queryPort, /PlanPage findPlans/);
   assert.match(queryPort, /Optional<PlanDetail> findPlan/);
   assert.match(queryPort, /InstancePage findInstances/);
+  assert.match(queryPort, /unresolvedCount = selectedInstanceCount/);
+  assert.match(queryPort, /plan without aggregate revision cannot expose aggregate evidence/);
   assert.match(jdbc, /order by plan\.created_at desc,plan\.plan_id desc/);
   assert.match(jdbc, /order by selection\.sequence_no/);
   assert.match(jdbc, /ap_process_migration_plan_aggregate/);
@@ -115,6 +117,7 @@ test('E1 reads bounded durable evidence without mutation or Flowable access', ()
 test('Web and Mobile visibility clients remain GET-only and command-free', () => {
   assert.match(webApi, /\/approval\/management\/process-instance-operations\/summary/);
   assert.match(mobileApi, /\/approval\/mobile\/process-instance-operations\/summary/);
+  assert.doesNotMatch(mobileApi, /\/approval\/management\//);
   for (const client of [webApi, mobileApi]) {
     assert.match(client, /process-instance-operations\/plans/);
     assert.doesNotMatch(client, /approvalCommandHeaders|Idempotency-Key/);
@@ -129,6 +132,17 @@ test('Web and Mobile visibility clients remain GET-only and command-free', () =>
       /@click="[^"]*(?:execute|retry|rollback|force|reconcile|cancel)[^"]*"/i,
     );
   }
+});
+
+test('Web and Mobile never silently truncate bounded operations evidence', () => {
+  assert.match(webView, /instancePageChanged/);
+  assert.match(webView, /:total="instancePage\.total"/);
+  assert.match(webView, /instancePage\.offset \+ 1/);
+  assert.match(mobileApi, /function boundedPaging\(limit: number, offset: number\)/);
+  assert.match(mobileView, /loadMorePlans/);
+  assert.match(mobileView, /plans\.length }} \/ {{ page\.total/);
+  assert.match(mobileView, /loadMoreInstances/);
+  assert.match(mobileView, /instances\.length }} \/ {{ instancePage\.total/);
 });
 
 test('E1 adds no Flyway version M6 ownership or second workflow', () => {
