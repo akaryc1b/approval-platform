@@ -9,6 +9,7 @@ import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationPlan;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
@@ -108,8 +109,8 @@ class JdbcApprovalMigrationDiagnosticsQueryIntegrationTest
             AttemptStatusFilter.UNPROVISIONED,
             FailureClass.NONE,
             ReconciliationState.NONE,
-            NOW.minusSeconds(1),
-            NOW.plusSeconds(1),
+            OffsetDateTime.ofInstant(NOW.minusSeconds(1), ZoneOffset.UTC),
+            OffsetDateTime.ofInstant(NOW.plusSeconds(1), ZoneOffset.UTC),
             InstanceSort.LATEST_EVIDENCE_DESC,
             1,
             10
