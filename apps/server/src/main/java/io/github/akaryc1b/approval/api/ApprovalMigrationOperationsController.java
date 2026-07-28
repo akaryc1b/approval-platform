@@ -23,7 +23,10 @@ import java.util.UUID;
 
 /** Read-only M5-E1 process-instance operations visibility. No command mapping exists here. */
 @RestController
-@RequestMapping("/api/approval/management/process-instance-operations")
+@RequestMapping({
+    "/api/approval/management/process-instance-operations",
+    "/api/approval/mobile/process-instance-operations"
+})
 @ApprovalManagementPermission(
     value = ApprovalManagementPermission.Requirement.MIGRATION_OPERATIONS_READ,
     resourceScope = ApprovalManagementPermission.ResourceScope.TENANT
