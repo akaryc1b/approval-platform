@@ -39,6 +39,9 @@ approval:
       automatic:
         enabled: ${APPROVAL_MIGRATION_RECONCILIATION_AUTOMATIC_ENABLED:false}
   connector:
+    secret-material:
+      enabled: false
+      backend-selection: BLOCKED_PENDING_BACKEND_SELECTION
     tenant-routing:
       enabled: false
     generic:

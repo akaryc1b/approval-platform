@@ -1,6 +1,7 @@
 package io.github.akaryc1b.approval.connector.credential;
 
 import java.io.Serial;
+import java.util.Objects;
 
 import io.github.akaryc1b.approval.connector.contract.ConnectorCredentialResolver.SecretBytesUse;
 import io.github.akaryc1b.approval.connector.contract.CredentialReference;
@@ -12,6 +13,17 @@ public interface CredentialMaterialSource {
         String expectedKeyId,
         String expectedVersionId
     );
+
+    /**
+     * Opens the P5 exact governed lease. Existing P2 sources remain source compatible, while an
+     * unselected production backend fails closed instead of falling back to another source.
+     */
+    default CredentialMaterialLease openLease(CredentialMaterialRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        throw new CredentialMaterialSourceException(
+            CredentialMaterialFailure.BACKEND_NOT_SELECTED
+        );
+    }
 
     interface MaterialScope extends AutoCloseable {
 
