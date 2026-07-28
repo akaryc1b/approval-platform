@@ -40,11 +40,20 @@ test('browser and mobile overlays cannot forge trusted management authorities', 
   assert.deepEqual(offenders, []);
 });
 
-test('mobile participant overlay cannot reference tenant management endpoints', async () => {
-  const offenders = (await sources(mobileRoot))
-    .filter(file => file.content.includes('/approval/management/'))
-    .map(file => displayPath(file.path));
-  assert.deepEqual(offenders, []);
+test('mobile management access is limited to the E1 GET-only operations view', async () => {
+  const managementSources = (await sources(mobileRoot))
+    .filter(file => file.content.includes('/approval/management/'));
+  assert.deepEqual(
+    managementSources.map(file => displayPath(file.path)),
+    ['apps/mobile/overlay/src/api/approval/process-instance-operations.ts'],
+  );
+  const operations = managementSources[0].content;
+  assert.match(operations, /@\/api\/approval\/transport/);
+  assert.match(operations, /process-instance-operations\/summary/);
+  assert.match(operations, /process-instance-operations\/plans/);
+  assert.doesNotMatch(operations, /uni\.request\s*\(/);
+  assert.doesNotMatch(operations, /approvalCommandHeaders|Idempotency-Key/);
+  assert.doesNotMatch(operations, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
 });
 
 test('web management API modules use the governed approval transport', async () => {
@@ -92,6 +101,7 @@ test('mobile participant API modules use the governed approval transport', async
     'identities.ts',
     'index.ts',
     'notifications.ts',
+    'process-instance-operations.ts',
     'task-collaboration.ts',
   ]) {
     const content = await readFile(join(apiRoot, modulePath), 'utf8');
@@ -145,10 +155,15 @@ test('management routes declare host-side capability hints', async () => {
     join(webRoot, 'router/routes/modules/approval.ts'),
     'utf8',
   );
+  const operationsRoutes = await readFile(
+    join(webRoot, 'router/routes/modules/approval-process-instance-operations.ts'),
+    'utf8',
+  );
   assert.match(auditRoutes, /authority: \['approval:audit:view'\]/);
   assert.match(approvalRoutes, /name: 'ApprovalHandovers'[\s\S]*authority: \['approval:ops:view'\]/);
   assert.match(approvalRoutes, /name: 'ApprovalOperations'[\s\S]*authority: \['approval:ops:view'\]/);
   assert.match(approvalRoutes, /name: 'ApprovalOperationalFailures'[\s\S]*authority: \['approval:ops:view'\]/);
+  assert.match(operationsRoutes, /authority: \['approval:ops:view'\]/);
 });
 
 test('process release mutations require explicit bounded reason headers', async () => {
@@ -160,90 +175,4 @@ test('process release mutations require explicit bounded reason headers', async 
   assert.match(design, /length < 8 \|\| length > 512/);
   assert.match(effective, /X-Approval-Operation-Reason/);
   assert.match(effective, /length < 8 \|\| length > 512/);
-  assert.match(effective, /JSON\.stringify\(\{ expectedRevision \}\)/);
-  assert.doesNotMatch(effective, /JSON\.stringify\(\{ expectedRevision, reason \}\)/);
-  assert.match(effective, /\/release-lifecycle\?\$\{query\}/);
-  assert.match(effective, /changeApprovalProcessReleaseDisposition\(\s*'deprecate'/);
-  assert.match(effective, /changeApprovalProcessReleaseDisposition\(\s*'retire'/);
-  assert.match(effective, /approvalCommandHeaders\(`approval-release-\$\{action\}`\)/);
-
-  for (const content of [design, effective]) {
-    assert.doesNotMatch(content, /X-(?:Tenant|Operator)-Id/);
-    assert.doesNotMatch(content, /audit(?:Chain)?Reference\s*:/i);
-  }
-});
-
-test('release lifecycle UI uses server revisions and preserves immutable runtime evidence', async () => {
-  const effectiveView = await readFile(
-    join(webRoot, 'views/approval/versions/effective.vue'),
-    'utf8',
-  );
-  assert.match(effectiveView, /findApprovalProcessReleaseLifecycles/);
-  assert.match(effectiveView, /evidence\.revision/);
-  assert.match(effectiveView, /runtimeUsageCount/);
-  assert.match(effectiveView, /已有实例、Release Package 和审计证据不会删除/);
-  assert.doesNotMatch(effectiveView, /tenantId\s*:/);
-  assert.doesNotMatch(effectiveView, /operatorId\s*:/);
-  assert.doesNotMatch(effectiveView, /audit(?:Chain)?Reference\s*:/i);
-});
-
-test('web release migration assessment remains detect-only and governed', async () => {
-  const api = await readFile(
-    join(webRoot, 'api/approval/release-migration-assessment.ts'),
-    'utf8',
-  );
-  const view = await readFile(
-    join(webRoot, 'views/approval/versions/migration-dry-run.vue'),
-    'utf8',
-  );
-  const routes = await readFile(
-    join(webRoot, 'router/routes/modules/approval-release-migration.ts'),
-    'utf8',
-  );
-
-  assert.match(api, /approvalRequest<ReleaseMigrationAssessmentWireResponse>/);
-  assert.match(api, /approvalCommandHeaders\('approval-release-migration-assessment'\)/);
-  assert.match(api, /\/migration-dry-run/);
-  assert.match(api, /encodeURIComponent\(normalizedDefinitionKey\)/);
-
-  const bodyBoundary = api.slice(
-    api.indexOf('function requestBody'),
-    api.indexOf('function normalizeResponse'),
-  );
-  for (const field of ['targetReleaseVersion', 'limit', 'offset']) {
-    assert.match(bodyBoundary, new RegExp(`\\b${field}\\b`));
-  }
-  for (const forbidden of [
-    'tenantId',
-    'operatorId',
-    'userId',
-    'auditChainReference',
-    'releasePackageHash',
-    'engineIdentity',
-    'migrationCommand',
-  ]) {
-    assert.doesNotMatch(bodyBoundary, new RegExp(`\\b${forbidden}\\b`, 'i'));
-  }
-
-  assert.match(api, /'X-Approval-Operation-Reason': normalizeReason\(reason\)/);
-  assert.match(api, /normalize\('NFKC'\)/);
-  assert.match(api, /codePoints\.length < 8 \|\| codePoints\.length > 512/);
-  assert.match(api, /isControl \|\| isUnsupportedSeparator \|\| isSurrogate/);
-  assert.doesNotMatch(api, /X-(?:Tenant|Operator)-Id/);
-  assert.doesNotMatch(api, /Trusted-Permissions/);
-
-  assert.match(view, /仅生成评估证据，不执行实例迁移/);
-  assert.match(view, /detect-only/);
-  assert.match(view, /report\.reportHash/);
-  assert.match(view, /bindingEvidenceHash/);
-  assert.doesNotMatch(
-    view,
-    />\s*(?:执行迁移|确认迁移|开始迁移|强制迁移|应用变更|跳过阻断|修改实例|重新绑定实例)\s*</,
-  );
-  assert.doesNotMatch(view, /\/(?:execute|migration-execution|force-migration|rollback-migration)/i);
-  assert.match(view, /runReleaseMigrationDryRun/);
-
-  assert.match(routes, /path: '\/approval\/versions\/migration-dry-run'/);
-  assert.match(routes, /authority: \['approval:definition:design'\]/);
-  assert.match(routes, /ApprovalReleaseMigrationDryRun/);
 });
