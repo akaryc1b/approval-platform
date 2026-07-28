@@ -106,7 +106,11 @@ test('F2 classifies every E1 and E2 read with closed low-cardinality values', ()
 });
 
 test('F2 exposes bounded latency and stable fail-open metric writes', () => {
-  assert.match(filter, /approval\.migration\.operations\.read\.latency/);
+  assert.match(
+    classifier,
+    /READ_LATENCY_METRIC = "approval\.migration\.operations\.read\.latency"/,
+  );
+  assert.match(filter, /READ_LATENCY_METRIC/);
   assert.match(filter, /minimumExpectedValue\(MIN_EXPECTED\)/);
   assert.match(filter, /maximumExpectedValue\(MAX_EXPECTED\)/);
   assert.match(filter, /publishPercentileHistogram\(false\)/);
