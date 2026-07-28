@@ -1,10 +1,13 @@
 package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore.ExecutionConflictException;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore.FinalDisposition;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore.FinalizeRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore.PrepareRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore.PreparedDispatch;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry.Event;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttempt;
 import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort;
 import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort.AmbiguousMigrationDispatchException;
@@ -24,11 +27,21 @@ public final class ApprovalMigrationSingleInstanceExecutor {
     private final ApprovalMigrationEngineExecutionStore executionStore;
     private final ProcessInstanceMigrationPort engineMigration;
     private final Clock clock;
+    private final ApprovalMigrationSafetyTelemetry telemetry;
 
     public ApprovalMigrationSingleInstanceExecutor(
         ApprovalMigrationEngineExecutionStore executionStore,
         ProcessInstanceMigrationPort engineMigration,
         Clock clock
+    ) {
+        this(executionStore, engineMigration, clock, ApprovalMigrationSafetyTelemetry.NOOP);
+    }
+
+    public ApprovalMigrationSingleInstanceExecutor(
+        ApprovalMigrationEngineExecutionStore executionStore,
+        ProcessInstanceMigrationPort engineMigration,
+        Clock clock,
+        ApprovalMigrationSafetyTelemetry telemetry
     ) {
         this.executionStore = Objects.requireNonNull(
             executionStore,
@@ -39,20 +52,30 @@ public final class ApprovalMigrationSingleInstanceExecutor {
             "engineMigration must not be null"
         );
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.telemetry = ApprovalMigrationSafetyTelemetry.require(telemetry);
     }
 
     public ExecutionResult execute(ExecutionRequest request) {
         Objects.requireNonNull(request, "request must not be null");
-        PreparedDispatch prepared = executionStore.prepare(new PrepareRequest(
-            request.tenantId(),
-            request.attemptId(),
-            request.workerId(),
-            request.expectedAttemptRevision(),
-            request.expectedFenceRevision(),
-            clock.instant(),
-            request.requestId(),
-            request.traceId()
-        ));
+        PreparedDispatch prepared;
+        try {
+            prepared = executionStore.prepare(new PrepareRequest(
+                request.tenantId(),
+                request.attemptId(),
+                request.workerId(),
+                request.expectedAttemptRevision(),
+                request.expectedFenceRevision(),
+                clock.instant(),
+                request.requestId(),
+                request.traceId()
+            ));
+        } catch (ExecutionConflictException exception) {
+            ApprovalMigrationSafetyTelemetry.safeRecord(
+                telemetry,
+                Event.STALE_OWNERSHIP_REJECTED
+            );
+            throw exception;
+        }
 
         FinalizeRequest finalization;
         String resultDisposition;
@@ -90,7 +113,19 @@ public final class ApprovalMigrationSingleInstanceExecutor {
 
         // Finalization is deliberately outside the engine exception boundary. A stale-owner,
         // audit or evidence conflict must propagate and must never trigger a second outcome write.
-        ApprovalMigrationAttempt stored = executionStore.finalizeOutcome(finalization);
+        ApprovalMigrationAttempt stored;
+        try {
+            stored = executionStore.finalizeOutcome(finalization);
+        } catch (ExecutionConflictException exception) {
+            ApprovalMigrationSafetyTelemetry.safeRecord(
+                telemetry,
+                Event.DUPLICATE_OUTCOME_PREVENTED
+            );
+            throw exception;
+        }
+        if (finalization.disposition() == FinalDisposition.AMBIGUOUS_UNKNOWN) {
+            ApprovalMigrationSafetyTelemetry.safeRecord(telemetry, Event.UNKNOWN_ENTERED);
+        }
         return new ExecutionResult(stored, prepared.engineRequestId(), resultDisposition);
     }
 
@@ -210,7 +245,9 @@ public final class ApprovalMigrationSingleInstanceExecutor {
         Objects.requireNonNull(value, name + " must not be null");
         String normalized = value.trim();
         if (normalized.isEmpty() || normalized.length() > maximum) {
-            throw new IllegalArgumentException(name + " is blank or exceeds maximum length " + maximum);
+            throw new IllegalArgumentException(
+                name + " is blank or exceeds maximum length " + maximum
+            );
         }
         return normalized;
     }
