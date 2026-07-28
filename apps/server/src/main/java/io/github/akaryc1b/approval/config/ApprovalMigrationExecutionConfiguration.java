@@ -21,6 +21,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalMigrationKillSwitch;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationReconciliationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort;
 import io.github.akaryc1b.approval.engine.ProcessInstanceVerificationPort;
@@ -267,12 +268,14 @@ public class ApprovalMigrationExecutionConfiguration {
     @Bean
     ApprovalMigrationSingleInstanceExecutor approvalMigrationSingleInstanceExecutor(
         ApprovalMigrationEngineExecutionStore executionStore,
-        ProcessInstanceMigrationPort engineMigration
+        ProcessInstanceMigrationPort engineMigration,
+        ApprovalMigrationSafetyTelemetry telemetry
     ) {
         return new ApprovalMigrationSingleInstanceExecutor(
             executionStore,
             engineMigration,
-            Clock.systemUTC()
+            Clock.systemUTC(),
+            telemetry
         );
     }
 
@@ -301,13 +304,15 @@ public class ApprovalMigrationExecutionConfiguration {
     @Bean
     ApprovalMigrationReconciliationService approvalMigrationReconciliationService(
         ApprovalMigrationReconciliationStore reconciliationStore,
-        ProcessInstanceVerificationPort engineVerification
+        ProcessInstanceVerificationPort engineVerification,
+        ApprovalMigrationSafetyTelemetry telemetry
     ) {
         return new ApprovalMigrationReconciliationService(
             reconciliationStore,
             engineVerification,
             Clock.systemUTC(),
-            Duration.ofMinutes(5)
+            Duration.ofMinutes(5),
+            telemetry
         );
     }
 
@@ -316,13 +321,15 @@ public class ApprovalMigrationExecutionConfiguration {
         ApprovalMigrationSingleInstanceExecutor executor,
         ApprovalMigrationExactVerificationService verifier,
         ApprovalMigrationRuntimeBindingCasService bindingCas,
-        ApprovalMigrationBindingRevisionReader bindingRevisions
+        ApprovalMigrationBindingRevisionReader bindingRevisions,
+        ApprovalMigrationSafetyTelemetry telemetry
     ) {
         return new ApprovalMigrationAttemptPipelineService(
             executor,
             verifier,
             bindingCas,
-            bindingRevisions
+            bindingRevisions,
+            telemetry
         );
     }
 
@@ -331,14 +338,16 @@ public class ApprovalMigrationExecutionConfiguration {
         ApprovalMigrationOrchestrationStore orchestrationStore,
         ApprovalMigrationBoundedClaimCoordinator claims,
         ApprovalMigrationAttemptPipeline pipeline,
-        ApprovalMigrationKillSwitch killSwitch
+        ApprovalMigrationKillSwitch killSwitch,
+        ApprovalMigrationSafetyTelemetry telemetry
     ) {
         return new ApprovalMigrationBoundedOrchestrationService(
             orchestrationStore,
             claims,
             pipeline,
             killSwitch,
-            Clock.systemUTC()
+            Clock.systemUTC(),
+            telemetry
         );
     }
 
@@ -421,7 +430,9 @@ public class ApprovalMigrationExecutionConfiguration {
         public UUID get() {
             long next = sequence.incrementAndGet();
             if (next < 1) {
-                throw new IllegalStateException("migration evidence identifier sequence exhausted");
+                throw new IllegalStateException(
+                    "migration evidence identifier sequence exhausted"
+                );
             }
             return new UUID(prefix, next);
         }
