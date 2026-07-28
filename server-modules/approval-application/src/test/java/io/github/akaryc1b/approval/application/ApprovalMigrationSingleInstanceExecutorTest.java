@@ -2,6 +2,8 @@ package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.application.ApprovalMigrationSingleInstanceExecutor.ExecutionRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecutionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry.Event;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttempt;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttemptTransition;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.AttemptStatus;
@@ -67,8 +69,52 @@ class ApprovalMigrationSingleInstanceExecutorTest {
         assertEquals(AttemptStatus.UNKNOWN, result.attempt().status());
         assertEquals(EngineOutcome.UNKNOWN, result.attempt().engineOutcome());
         assertEquals(FailureClass.ENGINE_OUTCOME_UNKNOWN, result.attempt().failureClass());
-        assertEquals(ApprovalMigrationEngineExecutionStore.FinalDisposition.AMBIGUOUS_UNKNOWN,
-            store.finalizeRequest.disposition());
+        assertEquals(
+            ApprovalMigrationEngineExecutionStore.FinalDisposition.AMBIGUOUS_UNKNOWN,
+            store.finalizeRequest.disposition()
+        );
+    }
+
+    @Test
+    void recordsUnknownOnlyAfterDurableFinalization() {
+        RecordingStore store = new RecordingStore();
+        List<Event> events = new ArrayList<>();
+        ProcessInstanceMigrationPort engine = command -> {
+            throw new ProcessInstanceMigrationPort.AmbiguousMigrationDispatchException(
+                "RESPONSE_LOST",
+                "response was lost after dispatch",
+                true,
+                new IllegalStateException("lost")
+            );
+        };
+        ApprovalMigrationSingleInstanceExecutor executor = executor(store, engine, events::add);
+
+        var result = executor.execute(request());
+
+        assertEquals(AttemptStatus.UNKNOWN, result.attempt().status());
+        assertEquals(List.of(Event.UNKNOWN_ENTERED), events);
+    }
+
+    @Test
+    void telemetryFailureCannotChangeDurableUnknownOutcome() {
+        RecordingStore store = new RecordingStore();
+        ApprovalMigrationSafetyTelemetry broken = event -> {
+            throw new IllegalStateException("synthetic observability outage");
+        };
+        ProcessInstanceMigrationPort engine = command -> {
+            throw new ProcessInstanceMigrationPort.AmbiguousMigrationDispatchException(
+                "RESPONSE_LOST",
+                "response was lost after dispatch",
+                true,
+                new IllegalStateException("lost")
+            );
+        };
+        ApprovalMigrationSingleInstanceExecutor executor = executor(store, engine, broken);
+
+        var result = executor.execute(request());
+
+        assertEquals(AttemptStatus.UNKNOWN, result.attempt().status());
+        assertEquals(1, store.finalizeCalls);
     }
 
     @Test
@@ -94,9 +140,57 @@ class ApprovalMigrationSingleInstanceExecutorTest {
     }
 
     @Test
+    void recordsFinalizationConflictAsDuplicateOutcomePrevention() {
+        RecordingStore store = new RecordingStore();
+        store.failFinalization = true;
+        List<Event> events = new ArrayList<>();
+        ApprovalMigrationSingleInstanceExecutor executor = executor(
+            store,
+            command -> returned(snapshot()),
+            events::add
+        );
+
+        assertThrows(
+            ApprovalMigrationEngineExecutionStore.ExecutionConflictException.class,
+            () -> executor.execute(request())
+        );
+
+        assertEquals(List.of(Event.DUPLICATE_OUTCOME_PREVENTED), events);
+        assertEquals(1, store.finalizeCalls);
+    }
+
+    @Test
+    void recordsPreparationAuthorityConflictBeforeAnyEngineCall() {
+        RecordingStore store = new RecordingStore();
+        store.failPreparation = true;
+        List<Event> events = new ArrayList<>();
+        int[] calls = {0};
+        ApprovalMigrationSingleInstanceExecutor executor = executor(
+            store,
+            command -> {
+                calls[0]++;
+                return returned(snapshot());
+            },
+            events::add
+        );
+
+        assertThrows(
+            ApprovalMigrationEngineExecutionStore.ExecutionConflictException.class,
+            () -> executor.execute(request())
+        );
+
+        assertEquals(0, calls[0]);
+        assertEquals(0, store.finalizeCalls);
+        assertEquals(List.of(Event.STALE_OWNERSHIP_REJECTED), events);
+    }
+
+    @Test
     void oneShotRunnerFailsClosedUnlessBothExecutionAndWorkerAreEnabled() {
         RecordingStore store = new RecordingStore();
-        ApprovalMigrationSingleInstanceExecutor executor = executor(store, command -> returned(snapshot()));
+        ApprovalMigrationSingleInstanceExecutor executor = executor(
+            store,
+            command -> returned(snapshot())
+        );
 
         var disabledExecution = new ApprovalMigrationSingleInstanceExecutor.OneShotRunner(
             false,
@@ -118,10 +212,19 @@ class ApprovalMigrationSingleInstanceExecutorTest {
         RecordingStore store,
         ProcessInstanceMigrationPort engine
     ) {
+        return executor(store, engine, ApprovalMigrationSafetyTelemetry.NOOP);
+    }
+
+    private static ApprovalMigrationSingleInstanceExecutor executor(
+        RecordingStore store,
+        ProcessInstanceMigrationPort engine,
+        ApprovalMigrationSafetyTelemetry telemetry
+    ) {
         return new ApprovalMigrationSingleInstanceExecutor(
             store,
             engine,
-            Clock.fixed(NOW, ZoneOffset.UTC)
+            Clock.fixed(NOW, ZoneOffset.UTC),
+            telemetry
         );
     }
 
@@ -170,6 +273,7 @@ class ApprovalMigrationSingleInstanceExecutorTest {
     private static final class RecordingStore implements ApprovalMigrationEngineExecutionStore {
         private final List<String> order = new ArrayList<>();
         private boolean transactionOpen;
+        private boolean failPreparation;
         private boolean failFinalization;
         private int finalizeCalls;
         private FinalizeRequest finalizeRequest;
@@ -178,6 +282,10 @@ class ApprovalMigrationSingleInstanceExecutorTest {
         public PreparedDispatch prepare(PrepareRequest request) {
             transactionOpen = true;
             order.add("prepare");
+            if (failPreparation) {
+                transactionOpen = false;
+                throw new ExecutionConflictException("stale preparation authority");
+            }
             ApprovalMigrationAttempt prepared = requestedAttempt(request);
             PreparedDispatch result = new PreparedDispatch(
                 UUID.fromString("00000000-0000-0000-0000-000000000201"),
@@ -215,16 +323,31 @@ class ApprovalMigrationSingleInstanceExecutorTest {
             ApprovalMigrationAttempt current = request.prepared().attempt();
             ApprovalMigrationAttempt next = switch (request.disposition()) {
                 case CALL_RETURNED_AWAITING_VERIFICATION -> current.transitioned(
-                    transition(AttemptStatus.VERIFYING, EngineOutcome.ACCEPTED,
-                        FailureClass.NONE, null, current.engineRequestReference())
+                    transition(
+                        AttemptStatus.VERIFYING,
+                        EngineOutcome.ACCEPTED,
+                        FailureClass.NONE,
+                        null,
+                        current.engineRequestReference()
+                    )
                 );
                 case AMBIGUOUS_UNKNOWN -> current.transitioned(
-                    transition(AttemptStatus.UNKNOWN, EngineOutcome.UNKNOWN,
-                        FailureClass.ENGINE_OUTCOME_UNKNOWN, "unknown", current.engineRequestReference())
+                    transition(
+                        AttemptStatus.UNKNOWN,
+                        EngineOutcome.UNKNOWN,
+                        FailureClass.ENGINE_OUTCOME_UNKNOWN,
+                        "unknown",
+                        current.engineRequestReference()
+                    )
                 );
                 case PRE_DISPATCH_REJECTED, ENGINE_REJECTED -> current.transitioned(
-                    transition(AttemptStatus.FAILED_TERMINAL, EngineOutcome.REJECTED,
-                        FailureClass.ENGINE_REJECTED, "rejected", current.engineRequestReference())
+                    transition(
+                        AttemptStatus.FAILED_TERMINAL,
+                        EngineOutcome.REJECTED,
+                        FailureClass.ENGINE_REJECTED,
+                        "rejected",
+                        current.engineRequestReference()
+                    )
                 );
             };
             transactionOpen = false;
