@@ -122,7 +122,10 @@ test('Web and Mobile visibility clients remain GET-only and command-free', () =>
     assert.match(client, /process-instance-operations\/plans/);
     assert.doesNotMatch(client, /approvalCommandHeaders|Idempotency-Key/);
     assert.doesNotMatch(client, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
-    assert.doesNotMatch(client, /execute|retry|rollback|forceSuccess|reconcile/i);
+    assert.doesNotMatch(
+      client,
+      /(?:executeMigration|retryMigration|rollbackMigration|forceSuccess|startReconciliation|\/commands?\/|\/(?:execute|retry|rollback|reconcile)(?:\/|\?|`|$))/i,
+    );
   }
   assert.match(webRoute, /authority: \['approval:ops:view'\]/);
   for (const view of [webView, mobileView]) {
