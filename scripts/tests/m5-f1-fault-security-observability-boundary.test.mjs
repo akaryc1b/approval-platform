@@ -24,6 +24,10 @@ const operationsAdvice = read(
   'apps/server/src/main/java/io/github/akaryc1b/approval/api/'
     + 'ApprovalMigrationOperationsObservabilityAdvice.java',
 );
+const operationsClassifier = read(
+  'apps/server/src/main/java/io/github/akaryc1b/approval/api/'
+    + 'ApprovalMigrationOperationsTelemetryClassifier.java',
+);
 const safetyMetrics = read(
   'apps/server/src/main/java/io/github/akaryc1b/approval/config/'
     + 'ApprovalMigrationSafetyMetricsConfiguration.java',
@@ -33,7 +37,13 @@ const operationsQuery = read(
     + 'JdbcApprovalMigrationOperationsQuery.java',
 );
 
-const f1Production = [operationsAdvice, safetyMetrics, controller, operationsQuery].join('\n');
+const f1Production = [
+  operationsAdvice,
+  operationsClassifier,
+  safetyMetrics,
+  controller,
+  operationsQuery,
+].join('\n');
 
 test('F1 retains every migration execution feature as explicit opt-in', () => {
   for (const environmentName of [
@@ -72,17 +82,21 @@ test('F1 freezes durable UNKNOWN and no-second-write fault semantics', () => {
 });
 
 test('F1 Operations observability is structured and low cardinality', () => {
-  assert.match(operationsAdvice, /approval\.migration\.operations\.read/);
+  assert.match(operationsClassifier, /READ_COUNT_METRIC = "approval\.migration\.operations\.read"/);
+  assert.match(
+    operationsAdvice,
+    /ApprovalMigrationOperationsTelemetryClassifier\.READ_COUNT_METRIC/,
+  );
   assert.match(operationsAdvice, /MAX_MESSAGE_CODE_POINTS = 512/);
   assert.match(operationsAdvice, /MAX_EVIDENCE_CODE_POINTS = 128/);
   assert.match(operationsAdvice, /MDC\.get\("requestId"\)/);
   assert.match(operationsAdvice, /MDC\.get\("traceId"\)/);
-  assert.match(operationsAdvice, /"operation", operation\.metricValue\(\)/);
-  assert.match(operationsAdvice, /"result", success \? "success" : "failure"/);
-  assert.match(operationsAdvice, /"failure_class"/);
+  assert.match(operationsAdvice, /"operation", classification\.operation\(\)\.metricValue\(\)/);
+  assert.match(operationsAdvice, /"result", classification\.result\(\)\.metricValue\(\)/);
+  assert.match(operationsAdvice, /"failure_class", classification\.failureClass\(\)\.metricValue\(\)/);
   assert.match(operationsAdvice, /Map\.of\("failureClass", failureClass\.metricValue\(\)\)/);
   assert.doesNotMatch(
-    operationsAdvice,
+    f1Production,
     /"tenantId"\s*,|"operatorId"\s*,|"planId"\s*,|"intentId"\s*,|"attemptId"\s*,|"instanceId"\s*,|"requestId"\s*,|"traceId"\s*,|"reason"\s*,/,
   );
 });
