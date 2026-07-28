@@ -17,7 +17,7 @@ import java.util.Objects;
 
 /**
  * Records bounded read latency with closed tags. Telemetry failures are fail-open and cannot
- * change the HTTP or migration safety outcome.
+ * change the HTTP or migration safety outcome. Diagnostics are explicitly non-cacheable.
  */
 @Component
 public final class ApprovalMigrationOperationsTelemetryFilter extends OncePerRequestFilter {
@@ -48,6 +48,9 @@ public final class ApprovalMigrationOperationsTelemetryFilter extends OncePerReq
         HttpServletResponse response,
         FilterChain filterChain
     ) throws ServletException, IOException {
+        response.setHeader("Cache-Control", "no-store, max-age=0");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0L);
         Timer.Sample sample = safeStart();
         boolean failedBeforeResponse = false;
         try {
