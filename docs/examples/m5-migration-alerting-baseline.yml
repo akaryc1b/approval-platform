@@ -42,7 +42,7 @@ alerts:
     response: inspect authority conflicts and durable evidence; do not force a second outcome
 
   - id: m5-kill-switch-enabled
-    signal: approval_migration_kill_switch_enabled
+    signal: approval_migration_safety_feature_enabled{feature="kill_switch"}
     condition: equals 1
     response: informational high-priority state; verify new dispatch is blocked and evidence remains readable
 
