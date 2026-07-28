@@ -60,7 +60,11 @@ const production = [
 test('E1 exposes exactly four tenant-scoped GET operations handlers', () => {
   assert.match(
     controller,
-    /@RequestMapping\("\/api\/approval\/management\/process-instance-operations"\)/,
+    /"\/api\/approval\/management\/process-instance-operations"/,
+  );
+  assert.match(
+    controller,
+    /"\/api\/approval\/mobile\/process-instance-operations"/,
   );
   assert.equal((controller.match(/@GetMapping/g) ?? []).length, 4);
   assert.doesNotMatch(controller, /@(?:Post|Put|Patch|Delete)Mapping/);
@@ -109,8 +113,9 @@ test('E1 reads bounded durable evidence without mutation or Flowable access', ()
 });
 
 test('Web and Mobile visibility clients remain GET-only and command-free', () => {
+  assert.match(webApi, /\/approval\/management\/process-instance-operations\/summary/);
+  assert.match(mobileApi, /\/approval\/mobile\/process-instance-operations\/summary/);
   for (const client of [webApi, mobileApi]) {
-    assert.match(client, /process-instance-operations\/summary/);
     assert.match(client, /process-instance-operations\/plans/);
     assert.doesNotMatch(client, /approvalCommandHeaders|Idempotency-Key/);
     assert.doesNotMatch(client, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
