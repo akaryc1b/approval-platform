@@ -111,6 +111,9 @@ jobs:
           node --test scripts/tests/m5-g1-production-readiness-boundary.test.mjs \
             >>m5-migration-boundary.log 2>&1 \
             || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-g2-final-acceptance-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
           cat m5-migration-boundary.log
       - name: Upload repository governance logs
         if: always()
