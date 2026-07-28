@@ -155,7 +155,7 @@ Allowed diagnostic evidence is limited to:
 - A stale revision or enabled switch prevents new dispatch.
 - Existing prepared/finalized evidence remains readable and is not deleted.
 - The switch does not rewrite completed evidence.
-- `kill_switch_blocked` is an identity-free event; the current configured state remains a zero-label gauge.
+- `kill_switch_blocked` is an identity-free event; the current configured state remains the closed `approval.migration.safety.feature.enabled{feature="kill_switch"}` gauge.
 - Operations views display switch state but contain no switch mutation control.
 
 ## 10. Alerting and SLO baseline
