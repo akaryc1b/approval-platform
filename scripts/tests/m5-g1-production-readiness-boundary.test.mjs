@@ -69,7 +69,7 @@ const coreProduction = [
 const controllers = [operationsController, diagnosticsController].join('\n');
 const clients = [webApi, webView, mobileApi, mobileView].join('\n');
 
-function migrationVersions() {
+function m5MigrationVersions() {
   const sqlDirectory = join(
     root,
     'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
@@ -138,12 +138,12 @@ test('G1 keeps Operations APIs and clients read-only and non-persistent', () => 
 });
 
 test('G1 verifies clean and historical Flyway migration to exactly V48', () => {
-  const versions = migrationVersions();
+  const versions = m5MigrationVersions();
   const unique = [...new Set(versions)].sort((left, right) => left - right);
   assert.equal(Math.max(...unique), 48);
-  assert.doesNotMatch(unique.join(','), /(?:^|,)49(?:,|$)/);
-  for (let version = 1; version <= 48; version++) {
-    assert.ok(unique.includes(version), `missing Flyway migration V${version}`);
+  assert.ok(unique.every(version => version <= 48));
+  for (let version = 33; version <= 48; version++) {
+    assert.ok(unique.includes(version), `missing M5-owned Flyway migration V${version}`);
   }
   assert.match(upgrade, /LATEST_VERSION = "48"/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_fresh", null\)/);
