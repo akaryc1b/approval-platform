@@ -2,8 +2,11 @@ package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationAttemptPipeline;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationBindingRevisionReader;
-import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.BindingCasResult;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationExactVerificationStore.StoredVerification;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.BindingCasException;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore.BindingCasResult;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry.Event;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttempt;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationExactVerification.ExactClassification;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationOrchestrationEvidence.AttemptDisposition;
@@ -19,12 +22,29 @@ public final class ApprovalMigrationAttemptPipelineService
     private final ApprovalMigrationExactVerificationService verifier;
     private final ApprovalMigrationRuntimeBindingCasService bindingCas;
     private final ApprovalMigrationBindingRevisionReader bindingRevisions;
+    private final ApprovalMigrationSafetyTelemetry telemetry;
 
     public ApprovalMigrationAttemptPipelineService(
         ApprovalMigrationSingleInstanceExecutor executor,
         ApprovalMigrationExactVerificationService verifier,
         ApprovalMigrationRuntimeBindingCasService bindingCas,
         ApprovalMigrationBindingRevisionReader bindingRevisions
+    ) {
+        this(
+            executor,
+            verifier,
+            bindingCas,
+            bindingRevisions,
+            ApprovalMigrationSafetyTelemetry.NOOP
+        );
+    }
+
+    public ApprovalMigrationAttemptPipelineService(
+        ApprovalMigrationSingleInstanceExecutor executor,
+        ApprovalMigrationExactVerificationService verifier,
+        ApprovalMigrationRuntimeBindingCasService bindingCas,
+        ApprovalMigrationBindingRevisionReader bindingRevisions,
+        ApprovalMigrationSafetyTelemetry telemetry
     ) {
         this.executor = Objects.requireNonNull(executor, "executor must not be null");
         this.verifier = Objects.requireNonNull(verifier, "verifier must not be null");
@@ -33,6 +53,7 @@ public final class ApprovalMigrationAttemptPipelineService
             bindingRevisions,
             "bindingRevisions must not be null"
         );
+        this.telemetry = ApprovalMigrationSafetyTelemetry.require(telemetry);
     }
 
     @Override
@@ -50,6 +71,12 @@ public final class ApprovalMigrationAttemptPipelineService
             )
         ).attempt();
         if (executed.status() != AttemptStatus.VERIFYING) {
+            if (executed.status() == AttemptStatus.BLOCKED_STALE) {
+                ApprovalMigrationSafetyTelemetry.safeRecord(
+                    telemetry,
+                    Event.STALE_OWNERSHIP_REJECTED
+                );
+            }
             return new PipelineResult(
                 executed.attemptId(),
                 disposition(executed.status()),
@@ -72,6 +99,10 @@ public final class ApprovalMigrationAttemptPipelineService
         );
         if (verified.evidence().classification() != ExactClassification.EXACT_TARGET_RUNTIME
             || !verified.evidence().exactTargetRuntime()) {
+            ApprovalMigrationSafetyTelemetry.safeRecord(
+                telemetry,
+                Event.VERIFICATION_MISMATCH
+            );
             return new PipelineResult(
                 executed.attemptId(),
                 AttemptDisposition.RECONCILING,
@@ -85,19 +116,28 @@ public final class ApprovalMigrationAttemptPipelineService
             verified.attempt().tenantId(),
             verified.attempt().attemptId()
         );
-        BindingCasResult result = bindingCas.complete(
-            new ApprovalMigrationRuntimeBindingCasService.CompletionCommand(
-                verified.attempt().tenantId(),
-                verified.attempt().attemptId(),
-                verified.evidence().verificationId(),
-                request.workerId(),
-                verified.attempt().revision(),
-                request.fence().revision(),
-                bindingRevision,
-                stageRequestId(request.requestId(), "d5"),
-                request.traceId()
-            )
-        );
+        BindingCasResult result;
+        try {
+            result = bindingCas.complete(
+                new ApprovalMigrationRuntimeBindingCasService.CompletionCommand(
+                    verified.attempt().tenantId(),
+                    verified.attempt().attemptId(),
+                    verified.evidence().verificationId(),
+                    request.workerId(),
+                    verified.attempt().revision(),
+                    request.fence().revision(),
+                    bindingRevision,
+                    stageRequestId(request.requestId(), "d5"),
+                    request.traceId()
+                )
+            );
+        } catch (BindingCasException exception) {
+            ApprovalMigrationSafetyTelemetry.safeRecord(
+                telemetry,
+                Event.COMPLETION_EVIDENCE_FAILED
+            );
+            throw exception;
+        }
         if (result.completed()) {
             return new PipelineResult(
                 executed.attemptId(),
@@ -107,6 +147,10 @@ public final class ApprovalMigrationAttemptPipelineService
                 null
             );
         }
+        ApprovalMigrationSafetyTelemetry.safeRecord(
+            telemetry,
+            Event.RUNTIME_BINDING_CAS_FAILED
+        );
         return new PipelineResult(
             executed.attemptId(),
             AttemptDisposition.BINDING_CONFLICT,
