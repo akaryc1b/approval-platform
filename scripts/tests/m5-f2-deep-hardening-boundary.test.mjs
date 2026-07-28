@@ -26,6 +26,10 @@ const safetyAdapter = read(
   'apps/server/src/main/java/io/github/akaryc1b/approval/config/'
     + 'MicrometerApprovalMigrationSafetyTelemetry.java',
 );
+const safetyGauge = read(
+  'apps/server/src/main/java/io/github/akaryc1b/approval/config/'
+    + 'ApprovalMigrationSafetyMetricsConfiguration.java',
+);
 const executor = read(
   'server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/'
     + 'ApprovalMigrationSingleInstanceExecutor.java',
@@ -60,7 +64,14 @@ const catalog = read('docs/M5_F2_OBSERVABILITY_METRIC_CATALOG.md');
 const alerts = read('docs/examples/m5-migration-alerting-baseline.yml');
 const workflow = read('.github/workflows/approval-platform-validation.yml');
 
-const telemetryProduction = [classifier, advice, filter, safetyPort, safetyAdapter].join('\n');
+const telemetryProduction = [
+  classifier,
+  advice,
+  filter,
+  safetyPort,
+  safetyAdapter,
+  safetyGauge,
+].join('\n');
 const coreProduction = [executor, pipeline, reconciliation, orchestration, aggregation].join('\n');
 const apiProduction = [operationsController, diagnosticsController].join('\n');
 
@@ -105,8 +116,14 @@ test('F2 exposes bounded latency and stable fail-open metric writes', () => {
   assert.match(safetyPort, /catch \(RuntimeException ignored\)/);
   assert.match(safetyAdapter, /startup remains fail-open/);
   assert.match(safetyAdapter, /migration semantics remain unchanged/);
-  assert.doesNotMatch(telemetryProduction, /\.tag\("(?:tenant|plan|intent|attempt|instance|request|trace|message|exception)/i);
-  assert.doesNotMatch(telemetryProduction, /"(?:tenantId|planId|intentId|attemptId|instanceId|requestId|traceId)",/);
+  assert.doesNotMatch(
+    telemetryProduction,
+    /\.tag\("(?:tenant|plan|intent|attempt|instance|request|trace|message|exception)/i,
+  );
+  assert.doesNotMatch(
+    telemetryProduction,
+    /"(?:tenantId|planId|intentId|attemptId|instanceId|requestId|traceId)",/,
+  );
 });
 
 test('F2 registers the full closed safety-event catalog in existing control flow', () => {
@@ -167,18 +184,29 @@ test('F2 metric catalog and alert baseline remain bounded and environment config
     'approval.migration.operations.read',
     'approval.migration.operations.read.latency',
     'approval.migration.safety.event',
-    'approval.migration.execution.enabled',
-    'approval.migration.execution.worker.enabled',
-    'approval.migration.orchestration.enabled',
-    'approval.migration.reconciliation.automatic.enabled',
-    'approval.migration.kill_switch.enabled',
+    'approval.migration.safety.feature.enabled',
   ]) {
     assert.match(catalog, new RegExp(metric.replaceAll('.', '\\.')));
+  }
+  for (const feature of [
+    'execution',
+    'worker',
+    'orchestration',
+    'aggregation',
+    'automatic_reconciliation',
+    'kill_switch',
+  ]) {
+    assert.match(catalog, new RegExp(`\\b${feature}\\b`));
+    assert.match(safetyGauge, new RegExp(`"${feature}"`));
   }
   assert.match(catalog, /not.*background cross-tenant scanner/is);
   assert.match(catalog, /not.*emitted as gauges labelled by tenant or plan/is);
   assert.equal((alerts.match(/^  - id:/gm) ?? []).length, 14);
   assert.match(alerts, /production_execution: NOT_AUTHORIZED/);
+  assert.match(
+    alerts,
+    /approval_migration_safety_feature_enabled\{feature="kill_switch"\}/,
+  );
   assert.match(alerts, /\$\{M5_ALERT_/);
   assert.doesNotMatch(alerts, /(?:password|token|secret|authorization):\s*[^$\s]/i);
   assert.doesNotMatch(alerts, /https?:\/\/(?!127\.0\.0\.1)/i);
@@ -191,8 +219,14 @@ test('F2 actuator CORS workflow migration and Flowable boundaries remain governe
     /include:.*(?:env|configprops|heapdump|threaddump|loggers|mappings|shutdown)/,
   );
   assert.doesNotMatch(apiProduction, /Access-Control-Allow-Origin|allowedOrigins\("\*"\)/);
-  assert.doesNotMatch([telemetryProduction, coreProduction, apiProduction].join('\n'), /\bACT_[A-Z0-9_]+\b/);
-  assert.doesNotMatch([telemetryProduction, coreProduction, apiProduction].join('\n'), /V49__/);
+  assert.doesNotMatch(
+    [telemetryProduction, coreProduction, apiProduction].join('\n'),
+    /\bACT_[A-Z0-9_]+\b/,
+  );
+  assert.doesNotMatch(
+    [telemetryProduction, coreProduction, apiProduction].join('\n'),
+    /V49__/,
+  );
   assert.equal((workflow.match(/pull_request:/g) ?? []).length, 1);
   assert.equal((workflow.match(/push:/g) ?? []).length, 1);
 });
