@@ -86,7 +86,8 @@ public final class CredentialMaterialLease implements AutoCloseable {
             throw new CredentialMaterialLeaseException(failure);
         }
 
-        byte[] scopedCopy = copyMaterial();
+        byte[] scopedCopy = new byte[ownedMaterial.capacity()];
+        copyMaterialInto(scopedCopy);
         Throwable callbackFailure = null;
         try {
             use.accept(scopedCopy);
@@ -150,12 +151,10 @@ public final class CredentialMaterialLease implements AutoCloseable {
             + ", state=" + state.get() + "]";
     }
 
-    private byte[] copyMaterial() {
+    private void copyMaterialInto(byte[] target) {
         ByteBuffer view = ownedMaterial.asReadOnlyBuffer();
         view.position(0);
-        byte[] copy = new byte[view.remaining()];
-        view.get(copy);
-        return copy;
+        view.get(target);
     }
 
     private void completeUse(Throwable callbackFailure) {
