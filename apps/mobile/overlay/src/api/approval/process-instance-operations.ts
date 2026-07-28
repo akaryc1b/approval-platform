@@ -1,4 +1,4 @@
-import { approvalRequest } from '@/api/approval/transport'
+import { mobileApprovalRequest } from '@/api/approval/transport'
 
 export interface MigrationOperationsSummary {
   activePlans: number
@@ -72,7 +72,7 @@ export interface MigrationInstancePage {
 }
 
 export function findMigrationOperationsSummary() {
-  return approvalRequest<MigrationOperationsSummary>(
+  return mobileApprovalRequest<MigrationOperationsSummary>(
     '/approval/management/process-instance-operations/summary',
   )
 }
@@ -85,14 +85,14 @@ export function findMigrationOperationPlans(limit = 50, offset = 0) {
     throw new Error('偏移量必须为非负整数')
   }
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) })
-  return approvalRequest<MigrationPlanPage>(
+  return mobileApprovalRequest<MigrationPlanPage>(
     `/approval/management/process-instance-operations/plans?${query.toString()}`,
   )
 }
 
 export function findMigrationOperationInstances(planId: string, limit = 200, offset = 0) {
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) })
-  return approvalRequest<MigrationInstancePage>(
+  return mobileApprovalRequest<MigrationInstancePage>(
     `/approval/management/process-instance-operations/plans/${encodeURIComponent(planId)}/instances?${query.toString()}`,
   )
 }
