@@ -224,7 +224,8 @@ test('G1 readiness checklist contains every auditable acceptance item', () => {
     'production execution NOT_AUTHORIZED',
   ];
   for (const item of checklistItems) {
-    assert.match(runbook, new RegExp(`- \\[ \\] \\`${item.replaceAll('*', '\\*')}\\``));
+    const marker = '- [ ] `' + item + '`';
+    assert.ok(runbook.includes(marker), `missing readiness item ${item}`);
   }
   assert.equal((runbook.match(/^- \[ \] `/gm) ?? []).length, checklistItems.length);
 });
