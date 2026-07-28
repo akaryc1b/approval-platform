@@ -34,4 +34,12 @@ public interface ApprovalMigrationSafetyTelemetry {
     ) {
         return Objects.requireNonNull(telemetry, "telemetry must not be null");
     }
+
+    static void safeRecord(ApprovalMigrationSafetyTelemetry telemetry, Event event) {
+        try {
+            require(telemetry).record(Objects.requireNonNull(event, "event must not be null"));
+        } catch (RuntimeException ignored) {
+            // Observability is non-authoritative and must never affect migration safety state.
+        }
+    }
 }
