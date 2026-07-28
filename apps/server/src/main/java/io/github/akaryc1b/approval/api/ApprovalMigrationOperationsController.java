@@ -21,9 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-/** Read-only M5-E1 migration operations visibility. No command mapping exists in this controller. */
+/** Read-only M5-E1 process-instance operations visibility. No command mapping exists here. */
 @RestController
-@RequestMapping("/api/approval/management/migrations")
+@RequestMapping("/api/approval/management/process-instance-operations")
 @ApprovalManagementPermission(
     value = ApprovalManagementPermission.Requirement.MIGRATION_OPERATIONS_READ,
     resourceScope = ApprovalManagementPermission.ResourceScope.TENANT
