@@ -108,6 +108,26 @@ public interface ApprovalMigrationOperationsQuery {
             nonNegative(exactSuccessCount, "exactSuccessCount");
             nonNegative(terminalFailedCount, "terminalFailedCount");
             nonNegative(unresolvedCount, "unresolvedCount");
+            if (aggregateRevision == null) {
+                boolean unexpectedAggregateEvidence = aggregateStatus != null
+                    || terminalOutcome != null
+                    || exactSuccessCount != 0
+                    || terminalFailedCount != 0
+                    || canaryStatus != null
+                    || orchestrationStatus != null
+                    || paused
+                    || (pauseReason != null && pauseReason != PauseReason.NONE)
+                    || killSwitchObserved
+                    || latestAggregatedAt != null
+                    || completionStatus != null
+                    || completedAt != null;
+                if (unexpectedAggregateEvidence) {
+                    throw new IllegalArgumentException(
+                        "plan without aggregate revision cannot expose aggregate evidence"
+                    );
+                }
+                unresolvedCount = selectedInstanceCount;
+            }
             if (exactSuccessCount + terminalFailedCount + unresolvedCount > selectedInstanceCount) {
                 throw new IllegalArgumentException("plan operation counts exceed selected instances");
             }
