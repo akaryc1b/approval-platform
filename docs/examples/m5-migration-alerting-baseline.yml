@@ -1,0 +1,92 @@
+# Example only. This file is not connected to a production alerting platform.
+# Every threshold/window is supplied by the target environment after risk review.
+version: m5-f2-example-v1
+production_execution: NOT_AUTHORIZED
+
+variables:
+  evaluation_window: ${M5_ALERT_EVALUATION_WINDOW}
+  sustained_window: ${M5_ALERT_SUSTAINED_WINDOW}
+  unknown_growth_threshold: ${M5_ALERT_UNKNOWN_GROWTH_THRESHOLD}
+  reconciliation_manual_review_threshold: ${M5_ALERT_RECONCILIATION_MANUAL_REVIEW_THRESHOLD}
+  stale_ownership_threshold: ${M5_ALERT_STALE_OWNERSHIP_THRESHOLD}
+  duplicate_prevention_threshold: ${M5_ALERT_DUPLICATE_PREVENTION_THRESHOLD}
+  verification_mismatch_threshold: ${M5_ALERT_VERIFICATION_MISMATCH_THRESHOLD}
+  binding_cas_threshold: ${M5_ALERT_BINDING_CAS_THRESHOLD}
+  operations_5xx_ratio_threshold: ${M5_ALERT_OPERATIONS_5XX_RATIO_THRESHOLD}
+  auth_failure_threshold: ${M5_ALERT_AUTH_FAILURE_THRESHOLD}
+  rate_limited_threshold: ${M5_ALERT_RATE_LIMITED_THRESHOLD}
+  canary_limit_threshold: ${M5_ALERT_CANARY_LIMIT_THRESHOLD}
+  orchestration_stop_threshold: ${M5_ALERT_ORCHESTRATION_STOP_THRESHOLD}
+  aggregation_stall_window: ${M5_ALERT_AGGREGATION_STALL_WINDOW}
+  observability_absence_window: ${M5_ALERT_OBSERVABILITY_ABSENCE_WINDOW}
+
+alerts:
+  - id: m5-unknown-growth
+    signal: increase(approval_migration_safety_event_total{event="unknown_entered"}[${M5_ALERT_EVALUATION_WINDOW}])
+    condition: greater_than ${M5_ALERT_UNKNOWN_GROWTH_THRESHOLD}
+    response: stop-the-line; inspect tenant-scoped E2 UNKNOWN diagnostics; never auto-retry
+
+  - id: m5-reconciliation-manual-backlog-pressure
+    signal: increase(approval_migration_safety_event_total{event="reconciliation_manual_review_required"}[${M5_ALERT_EVALUATION_WINDOW}])
+    condition: greater_than ${M5_ALERT_RECONCILIATION_MANUAL_REVIEW_THRESHOLD}
+    response: require human reconciliation review; do not redispatch migration
+
+  - id: m5-repeated-stale-ownership
+    signal: increase(approval_migration_safety_event_total{event="stale_ownership_rejected"}[${M5_ALERT_EVALUATION_WINDOW}])
+    condition: greater_than ${M5_ALERT_STALE_OWNERSHIP_THRESHOLD}
+    response: inspect lease and fencing evidence; keep stale worker rejected
+
+  - id: m5-duplicate-outcome-prevention
+    signal: increase(approval_migration_safety_event_total{event="duplicate_outcome_prevented"}[${M5_ALERT_EVALUATION_WINDOW}])
+    condition: greater_than ${M5_ALERT_DUPLICATE_PREVENTION_THRESHOLD}
+    response: inspect authority conflicts and durable evidence; do not force a second outcome
+
+  - id: m5-kill-switch-enabled
+    signal: approval_migration_safety_feature_enabled{feature="kill_switch"}
+    condition: equals 1
+    response: informational high-priority state; verify new dispatch is blocked and evidence remains readable
+
+  - id: m5-verification-mismatch
+    signal: increase(approval_migration_safety_event_total{event="verification_mismatch"}[${M5_ALERT_EVALUATION_WINDOW}])
+    condition: greater_than ${M5_ALERT_VERIFICATION_MISMATCH_THRESHOLD}
+    response: inspect exact verification evidence; route to governed reconciliation only
+
+  - id: m5-runtime-binding-cas-failure
+    signal: increase(approval_migration_safety_event_total{event="runtime_binding_cas_failed"}[${M5_ALERT_EVALUATION_WINDOW}])
+    condition: greater_than ${M5_ALERT_BINDING_CAS_THRESHOLD}
+    response: preserve conflict evidence; do not overwrite runtime binding
+
+  - id: m5-operations-api-5xx
+    signal: ratio(rate(approval_migration_operations_read_total{result="failure",failure_class="server_error"}[${M5_ALERT_EVALUATION_WINDOW}]), rate(approval_migration_operations_read_total[${M5_ALERT_EVALUATION_WINDOW}]))
+    condition: greater_than ${M5_ALERT_OPERATIONS_5XX_RATIO_THRESHOLD}
+    response: inspect bounded server logs and database health; no execution enablement
+
+  - id: m5-operations-auth-failure-growth
+    signal: sum(increase(approval_migration_operations_read_total{failure_class=~"unauthenticated|forbidden"}[${M5_ALERT_EVALUATION_WINDOW}]))
+    condition: greater_than ${M5_ALERT_AUTH_FAILURE_THRESHOLD}
+    response: inspect identity and tenant authorization; do not reveal resource existence
+
+  - id: m5-operations-rate-limited-growth
+    signal: increase(approval_migration_operations_read_total{failure_class="rate_limited"}[${M5_ALERT_EVALUATION_WINDOW}])
+    condition: greater_than ${M5_ALERT_RATE_LIMITED_THRESHOLD}
+    response: inspect gateway policy and client behavior; do not raise page-size limits
+
+  - id: m5-canary-boundary-reached
+    signal: increase(approval_migration_safety_event_total{event="canary_limit_reached"}[${M5_ALERT_EVALUATION_WINDOW}])
+    condition: greater_than ${M5_ALERT_CANARY_LIMIT_THRESHOLD}
+    response: verify exactly one deterministic canary was processed before any broader batch
+
+  - id: m5-orchestration-unexpected-stop
+    signal: increase(approval_migration_safety_event_total{event="orchestration_bounded_stop"}[${M5_ALERT_EVALUATION_WINDOW}])
+    condition: greater_than ${M5_ALERT_ORCHESTRATION_STOP_THRESHOLD}
+    response: inspect kill switch, canary, failure and boundary evidence; never create an unbounded loop
+
+  - id: m5-plan-aggregation-stalled
+    signal: absent_over_time(approval_migration_safety_event_total{event="plan_aggregation_completed"}[${M5_ALERT_AGGREGATION_STALL_WINDOW}])
+    condition: only_when an authorized non-production rehearsal explicitly expects aggregation
+    response: inspect one-shot aggregation evidence; aggregation must not trigger instance execution
+
+  - id: m5-observability-pipeline-degraded
+    signal: absent_over_time(approval_migration_operations_read_total[${M5_ALERT_OBSERVABILITY_ABSENCE_WINDOW}]) AND expected_read_probe_present
+    condition: sustained for ${M5_ALERT_SUSTAINED_WINDOW}
+    response: treat metrics as degraded; continue fail-closed migration controls and use retained evidence/logs

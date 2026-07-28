@@ -261,7 +261,7 @@ final class JdbcRuntimeBindingStartTestFixture {
         );
     }
 
-    private static void insertPackage(
+    static void insertPackage(
         DataSource dataSource,
         ApprovalReleasePackage releasePackage
     ) {

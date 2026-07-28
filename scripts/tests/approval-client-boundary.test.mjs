@@ -40,11 +40,22 @@ test('browser and mobile overlays cannot forge trusted management authorities', 
   assert.deepEqual(offenders, []);
 });
 
-test('mobile participant overlay cannot reference tenant management endpoints', async () => {
+test('mobile overlay cannot reference tenant management endpoints', async () => {
   const offenders = (await sources(mobileRoot))
     .filter(file => file.content.includes('/approval/management/'))
     .map(file => displayPath(file.path));
   assert.deepEqual(offenders, []);
+
+  const operations = await readFile(
+    join(mobileRoot, 'api/approval/process-instance-operations.ts'),
+    'utf8',
+  );
+  assert.match(operations, /@\/api\/approval\/transport/);
+  assert.match(operations, /\/approval\/mobile\/process-instance-operations\/summary/);
+  assert.match(operations, /\/approval\/mobile\/process-instance-operations\/plans/);
+  assert.doesNotMatch(operations, /uni\.request\s*\(/);
+  assert.doesNotMatch(operations, /approvalCommandHeaders|Idempotency-Key/);
+  assert.doesNotMatch(operations, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
 });
 
 test('web management API modules use the governed approval transport', async () => {
@@ -92,6 +103,7 @@ test('mobile participant API modules use the governed approval transport', async
     'identities.ts',
     'index.ts',
     'notifications.ts',
+    'process-instance-operations.ts',
     'task-collaboration.ts',
   ]) {
     const content = await readFile(join(apiRoot, modulePath), 'utf8');
@@ -145,10 +157,15 @@ test('management routes declare host-side capability hints', async () => {
     join(webRoot, 'router/routes/modules/approval.ts'),
     'utf8',
   );
+  const operationsRoutes = await readFile(
+    join(webRoot, 'router/routes/modules/approval-process-instance-operations.ts'),
+    'utf8',
+  );
   assert.match(auditRoutes, /authority: \['approval:audit:view'\]/);
   assert.match(approvalRoutes, /name: 'ApprovalHandovers'[\s\S]*authority: \['approval:ops:view'\]/);
   assert.match(approvalRoutes, /name: 'ApprovalOperations'[\s\S]*authority: \['approval:ops:view'\]/);
   assert.match(approvalRoutes, /name: 'ApprovalOperationalFailures'[\s\S]*authority: \['approval:ops:view'\]/);
+  assert.match(operationsRoutes, /authority: \['approval:ops:view'\]/);
 });
 
 test('process release mutations require explicit bounded reason headers', async () => {

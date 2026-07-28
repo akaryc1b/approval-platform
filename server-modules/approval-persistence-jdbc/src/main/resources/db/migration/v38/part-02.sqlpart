@@ -1,0 +1,95 @@
+ idempotency_key varchar(200) not null,
+ selected_instance_count integer not null,
+ source_release_version integer not null,
+ source_package_hash char(64) not null,
+ target_release_version integer not null,
+ target_package_hash char(64) not null,
+ authorization_policy varchar(128) not null,
+ authorization_policy_version varchar(64) not null,
+ authorization_evidence_hash char(64) not null,
+ authorized_by varchar(256) not null,
+ reason varchar(1000) not null,
+ decided_at timestamptz not null,
+ expires_at timestamptz not null,
+ request_id varchar(256) not null,
+ trace_id varchar(256),
+ audit_chain_reference varchar(256) not null,
+ payload_json jsonb not null,
+ primary key (tenant_id,authorization_id),
+ unique (tenant_id,plan_id),
+ unique (tenant_id,idempotency_key),
+ unique (tenant_id,authorization_id,authorization_evidence_hash),
+ foreign key (tenant_id,plan_id,plan_hash)
+  references ap_process_migration_plan (tenant_id,plan_id,plan_hash),
+ check (plan_hash ~ '^[0-9a-f]{64}$'
+  and authorization_evidence_hash ~ '^[0-9a-f]{64}$'),
+ check (source_package_hash ~ '^[0-9a-f]{64}$'
+  and target_package_hash ~ '^[0-9a-f]{64}$'),
+ check (selected_instance_count between 1 and 1000),
+ check (source_release_version > 0 and target_release_version > 0
+  and source_release_version <> target_release_version),
+ check (expires_at > decided_at),
+ check (jsonb_typeof(payload_json)='object')
+);
+
+alter table ap_process_migration_plan
+ add constraint fk_process_migration_plan_current_authorization_v38
+ foreign key (tenant_id,authorization_id,authorization_evidence_hash)
+ references ap_process_migration_plan_authorization (
+  tenant_id,authorization_id,authorization_evidence_hash
+ ) deferrable initially deferred;
+
+create table ap_process_migration_plan_event (
+ tenant_id varchar(128) not null,
+ event_id uuid not null,
+ plan_id uuid not null,
+ plan_hash char(64) not null,
+ revision bigint not null,
+ from_status varchar(16),
+ to_status varchar(16) not null,
+ actor_id varchar(256) not null,
+ reason varchar(1000) not null,
+ authorization_id uuid,
+ authorization_evidence_hash char(64),
+ happened_at timestamptz not null,
+ request_id varchar(256) not null,
+ trace_id varchar(256),
+ audit_chain_reference varchar(256) not null,
+ payload_json jsonb not null,
+ primary key (tenant_id,event_id),
+ unique (tenant_id,plan_id,revision),
+ foreign key (tenant_id,plan_id,plan_hash)
+  references ap_process_migration_plan (tenant_id,plan_id,plan_hash),
+ foreign key (tenant_id,authorization_id,authorization_evidence_hash)
+  references ap_process_migration_plan_authorization (
+   tenant_id,authorization_id,authorization_evidence_hash
+  ) deferrable initially deferred,
+ check (plan_hash ~ '^[0-9a-f]{64}$'),
+ check (revision > 0),
+ check (to_status in ('PROPOSED','AUTHORIZED','EXPIRED','CANCELLED','CONSUMED')),
+ check (from_status is null
+  or from_status in ('PROPOSED','AUTHORIZED','EXPIRED','CANCELLED','CONSUMED')),
+ check ((authorization_id is null and authorization_evidence_hash is null)
+  or (authorization_id is not null
+   and authorization_evidence_hash ~ '^[0-9a-f]{64}$')),
+ check (jsonb_typeof(payload_json)='object')
+);
+
+create index idx_process_migration_plan_status_v38
+ on ap_process_migration_plan (tenant_id,status,expires_at,plan_id);
+create index idx_process_migration_plan_assessment_v38
+ on ap_process_migration_plan (tenant_id,assessment_id,assessment_report_hash);
+create index idx_process_migration_plan_instance_v38
+ on ap_process_migration_plan_instance (tenant_id,plan_id,sequence_no);
+create index idx_process_migration_plan_event_v38
+ on ap_process_migration_plan_event (tenant_id,plan_id,revision);
+
+create function ap_validate_process_migration_plan_payload_v38()
+returns trigger language plpgsql as $$
+declare deployment_row ap_approval_release_deployment%rowtype;
+begin
+ if (new.payload_json->>'tenantId') is distinct from new.tenant_id
+  or (new.payload_json->>'planId')::uuid is distinct from new.plan_id
+  or (new.payload_json->>'assessmentId')::uuid is distinct from new.assessment_id
+  or (new.payload_json->>'assessmentReportHash') is distinct from new.assessment_report_hash
+  or (new.payload_json->>'definitionKey') is distinct from new.definition_key

@@ -39,6 +39,24 @@ class AuditEventTest {
     }
 
     @Test
+    void canonicalizesMigrationPlanAggregateTypeBeforeAuditPersistence() {
+        AuditEvent event = new AuditEvent(
+            UUID.randomUUID(),
+            "tenant-a",
+            "operator-a",
+            "PROCESS_MIGRATION_PLAN_AGGREGATED",
+            "APPROVAl_MIGRATION_PLAN",
+            UUID.randomUUID().toString(),
+            "request-migration-aggregation",
+            "trace-migration-aggregation",
+            Instant.parse("2026-07-27T12:00:00Z"),
+            Map.of()
+        );
+
+        assertEquals("APPROVAL_MIGRATION_PLAN", event.aggregateType());
+    }
+
+    @Test
     void managementAuthorizationRequiresVersionedGovernanceEvidence() {
         Map<String, String> attributes = Map.of(
             "requirement", "publish",

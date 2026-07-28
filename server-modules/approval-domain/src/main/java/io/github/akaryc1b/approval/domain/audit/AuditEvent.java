@@ -27,6 +27,7 @@ public record AuditEvent(
     private static final int MAX_ATTRIBUTE_COUNT = 128;
     private static final int MAX_ATTRIBUTE_KEY_LENGTH = 128;
     private static final int MAX_ATTRIBUTE_VALUE_LENGTH = 32_768;
+    private static final String APPROVAL_MIGRATION_PLAN = "APPROVAL_MIGRATION_PLAN";
 
     /**
      * Compatibility constructor for existing emitters. Every newly constructed event still receives
@@ -65,7 +66,7 @@ public record AuditEvent(
         tenantId = requireText(tenantId, "tenantId");
         operatorId = requireText(operatorId, "operatorId");
         action = requireText(action, "action");
-        aggregateType = requireText(aggregateType, "aggregateType");
+        aggregateType = normalizeAggregateType(aggregateType);
         aggregateId = requireText(aggregateId, "aggregateId");
         schemaName = requireText(schemaName, "schemaName");
         if (schemaVersion < 1) {
@@ -76,6 +77,13 @@ public record AuditEvent(
         occurredAt = Objects.requireNonNull(occurredAt, "occurredAt must not be null");
         attributes = normalizeAttributes(attributes);
         AuditEventContract.resolve(action).validate(schemaName, schemaVersion, attributes);
+    }
+
+    private static String normalizeAggregateType(String value) {
+        String normalized = requireText(value, "aggregateType");
+        return APPROVAL_MIGRATION_PLAN.equalsIgnoreCase(normalized)
+            ? APPROVAL_MIGRATION_PLAN
+            : normalized;
     }
 
     private static Map<String, String> normalizeAttributes(Map<String, String> values) {

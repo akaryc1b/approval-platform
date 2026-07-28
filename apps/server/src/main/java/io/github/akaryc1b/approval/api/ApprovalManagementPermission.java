@@ -43,6 +43,10 @@ public @interface ApprovalManagementPermission {
             "release-migration-assess",
             true
         ),
+        MIGRATION_OPERATIONS_READ(
+            "approval.management.migration.operations.read",
+            "migration-operations-read"
+        ),
         TRANSFER("approval.management.transfer", "transfer", true),
         AUDIT_READ("approval.management.audit.read", "audit-read"),
         AUDIT_EXPORT("approval.management.audit.export", "audit-export", true),
