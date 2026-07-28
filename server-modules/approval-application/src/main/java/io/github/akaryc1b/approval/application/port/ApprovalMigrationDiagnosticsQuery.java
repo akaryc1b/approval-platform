@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.application.port;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -76,8 +77,8 @@ public interface ApprovalMigrationDiagnosticsQuery {
         AttemptStatusFilter attemptStatus,
         FailureClass failureClass,
         ReconciliationState reconciliationState,
-        Instant from,
-        Instant to,
+        OffsetDateTime from,
+        OffsetDateTime to,
         InstanceSort sort,
         int page,
         int pageSize
