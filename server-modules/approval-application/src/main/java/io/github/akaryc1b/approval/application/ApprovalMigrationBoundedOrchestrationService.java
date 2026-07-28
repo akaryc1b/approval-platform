@@ -13,6 +13,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrati
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore.FinalizedOrchestration;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore.PrepareRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore.PreparedOrchestration;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry.Event;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttempt;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationCommandFence;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationOrchestrationEvidence.AttemptDisposition;
@@ -32,6 +34,7 @@ public final class ApprovalMigrationBoundedOrchestrationService {
     private final ApprovalMigrationAttemptPipeline pipeline;
     private final ApprovalMigrationKillSwitch killSwitch;
     private final Clock clock;
+    private final ApprovalMigrationSafetyTelemetry telemetry;
 
     public ApprovalMigrationBoundedOrchestrationService(
         ApprovalMigrationOrchestrationStore store,
@@ -40,11 +43,30 @@ public final class ApprovalMigrationBoundedOrchestrationService {
         ApprovalMigrationKillSwitch killSwitch,
         Clock clock
     ) {
+        this(
+            store,
+            claims,
+            pipeline,
+            killSwitch,
+            clock,
+            ApprovalMigrationSafetyTelemetry.NOOP
+        );
+    }
+
+    public ApprovalMigrationBoundedOrchestrationService(
+        ApprovalMigrationOrchestrationStore store,
+        ApprovalMigrationBoundedClaimCoordinator claims,
+        ApprovalMigrationAttemptPipeline pipeline,
+        ApprovalMigrationKillSwitch killSwitch,
+        Clock clock,
+        ApprovalMigrationSafetyTelemetry telemetry
+    ) {
         this.store = Objects.requireNonNull(store, "store must not be null");
         this.claims = Objects.requireNonNull(claims, "claims must not be null");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline must not be null");
         this.killSwitch = Objects.requireNonNull(killSwitch, "killSwitch must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.telemetry = ApprovalMigrationSafetyTelemetry.require(telemetry);
     }
 
     public RunResult runOnce(RunCommand command) {
@@ -71,6 +93,12 @@ public final class ApprovalMigrationBoundedOrchestrationService {
             );
         }
         if (prepared.replayed() || prepared.finalized() || !prepared.dispatchEligible()) {
+            if (!prepared.dispatchEligible() && initialSwitch.enabled()) {
+                ApprovalMigrationSafetyTelemetry.safeRecord(
+                    telemetry,
+                    Event.KILL_SWITCH_BLOCKED
+                );
+            }
             FinalizedOrchestration finalized = store.finalizeRun(new FinalizeRequest(
                 prepared,
                 null,
@@ -93,9 +121,17 @@ public final class ApprovalMigrationBoundedOrchestrationService {
             command.traceId()
         );
         requireCanonicalCanary(prepared, claimed);
+        if (prepared.run().phase() == OrchestrationPhase.CANARY
+            && claimed.attempts().size() == 1) {
+            ApprovalMigrationSafetyTelemetry.safeRecord(
+                telemetry,
+                Event.CANARY_LIMIT_REACHED
+            );
+        }
 
         List<PipelineResult> results = new ArrayList<>();
         List<UUID> processed = new ArrayList<>();
+        boolean boundedStop = false;
         for (int index = 0; index < claimed.attempts().size(); index++) {
             ApprovalMigrationAttempt attempt = claimed.attempts().get(index);
             ApprovalMigrationCommandFence fence = claimed.fences().get(index);
@@ -111,6 +147,13 @@ public final class ApprovalMigrationBoundedOrchestrationService {
                 command.traceId()
             ));
             if (!authorization.allowed()) {
+                boundedStop = true;
+                if (observedSwitch.enabled()) {
+                    ApprovalMigrationSafetyTelemetry.safeRecord(
+                        telemetry,
+                        Event.KILL_SWITCH_BLOCKED
+                    );
+                }
                 break;
             }
             PipelineResult result = pipeline.process(new PipelineRequest(
@@ -123,8 +166,18 @@ public final class ApprovalMigrationBoundedOrchestrationService {
             results.add(result);
             processed.add(attempt.attemptId());
             if (result.disposition() != AttemptDisposition.EXACTLY_COMPLETED) {
+                boundedStop = true;
                 break;
             }
+        }
+        if (processed.size() >= claimLimit && !claimed.attempts().isEmpty()) {
+            boundedStop = true;
+        }
+        if (boundedStop) {
+            ApprovalMigrationSafetyTelemetry.safeRecord(
+                telemetry,
+                Event.ORCHESTRATION_BOUNDED_STOP
+            );
         }
 
         FinalizedOrchestration finalized = store.finalizeRun(new FinalizeRequest(
@@ -233,7 +286,9 @@ public final class ApprovalMigrationBoundedOrchestrationService {
         Objects.requireNonNull(value, name + " must not be null");
         String normalized = value.trim();
         if (normalized.isEmpty() || normalized.length() > maximum) {
-            throw new IllegalArgumentException(name + " is blank or exceeds maximum length " + maximum);
+            throw new IllegalArgumentException(
+                name + " is blank or exceeds maximum length " + maximum
+            );
         }
         return normalized;
     }
