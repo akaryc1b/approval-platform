@@ -3,6 +3,8 @@ package io.github.akaryc1b.approval.application;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore.AggregationRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore.AggregationResult;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry.Event;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 
 import java.time.Clock;
@@ -14,24 +16,39 @@ public final class ApprovalMigrationPlanAggregationService {
 
     private final ApprovalMigrationPlanAggregationStore store;
     private final Clock clock;
+    private final ApprovalMigrationSafetyTelemetry telemetry;
 
     public ApprovalMigrationPlanAggregationService(
         ApprovalMigrationPlanAggregationStore store,
         Clock clock
     ) {
+        this(store, clock, ApprovalMigrationSafetyTelemetry.NOOP);
+    }
+
+    public ApprovalMigrationPlanAggregationService(
+        ApprovalMigrationPlanAggregationStore store,
+        Clock clock,
+        ApprovalMigrationSafetyTelemetry telemetry
+    ) {
         this.store = Objects.requireNonNull(store, "store must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.telemetry = ApprovalMigrationSafetyTelemetry.require(telemetry);
     }
 
     public AggregationResult aggregateOnce(AggregateCommand command) {
         Objects.requireNonNull(command, "command must not be null");
-        return store.aggregate(new AggregationRequest(
+        AggregationResult result = store.aggregate(new AggregationRequest(
             command.context(),
             command.planId(),
             command.expectedAggregateRevision(),
             command.reason(),
             clock.instant()
         ));
+        ApprovalMigrationSafetyTelemetry.safeRecord(
+            telemetry,
+            Event.PLAN_AGGREGATION_COMPLETED
+        );
+        return result;
     }
 
     public record AggregateCommand(
