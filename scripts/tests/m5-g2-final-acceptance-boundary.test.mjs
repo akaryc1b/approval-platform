@@ -33,6 +33,8 @@ const mobileView = read(
   'apps/mobile/overlay/src/pages/operations/migrations.vue',
 );
 const workflow = read('.github/workflows/approval-platform-validation.yml');
+const docsIndex = read('docs/README.md');
+const finalEvidence = read('docs/M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md');
 const g1Runbook = read('docs/M5_G1_RELEASE_REHEARSAL_AND_PRODUCTION_READINESS.md');
 const f2Hardening = read('docs/M5_F2_FAULT_SECURITY_OBSERVABILITY_HARDENING.md');
 const metricCatalog = read('docs/M5_F2_OBSERVABILITY_METRIC_CATALOG.md');
@@ -84,7 +86,7 @@ function m5MigrationVersions() {
     .map(match => Number(match[1]));
 }
 
-test('G2 has a complete permanent M5 evidence lineage before final metadata', () => {
+test('G2 has a complete permanent M5 evidence lineage', () => {
   const requiredDocuments = [
     'docs/M5_D1_AUTHORIZED_PLAN_ADMISSION_EVIDENCE.md',
     'docs/M5_D2_GOVERNANCE_ACCEPTANCE.md',
@@ -100,11 +102,43 @@ test('G2 has a complete permanent M5 evidence lineage before final metadata', ()
     'docs/M5_F2_DEEP_HARDENING_PERMANENT_EVIDENCE.md',
     'docs/M5_G1_RELEASE_REHEARSAL_PERMANENT_EVIDENCE.md',
     'docs/M5_G1_RELEASE_REHEARSAL_AND_PRODUCTION_READINESS.md',
+    'docs/M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md',
   ];
   for (const document of requiredDocuments) {
     assert.ok(existsSync(join(root, document)), `missing M5 acceptance record ${document}`);
     const content = read(document);
     assert.match(content, /NOT_AUTHORIZED|PERMANENTLY_VALIDATED|Governance result|Acceptance/i);
+  }
+  assert.match(docsIndex, /M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE\.md/);
+  assert.match(docsIndex, /pre-merge final permanent acceptance/i);
+});
+
+test('G2 final evidence records exact regression artifacts and non-authorization', () => {
+  assert.match(finalEvidence, /9c567a30e7430ee43d7b4ad418a70923edf5c360/);
+  assert.match(finalEvidence, /Run ID: `30338254460`/);
+  assert.match(finalEvidence, /Run number: `#864`/);
+  assert.match(finalEvidence, /tests: `704`/);
+  assert.match(finalEvidence, /tests: `138`/);
+  for (const artifactId of ['8680189169', '8680036270', '8680019534', '8679998281']) {
+    assert.match(finalEvidence, new RegExp(`\\b${artifactId}\\b`));
+  }
+  for (const digest of [
+    '8dbb0a0a0c7f665ed56eed5f767cff49d5fb99dbfb6a353adbd87f8c63d64c84',
+    '6c207ef2e36afa8e253c8a822c52e795080227909a8e610b3ca535f4d684328c',
+    'b2e3695b2bfd00229eaa1cf5d3ee90aad6e750703c516427f5232415f149ab4b',
+    'ddacc72c25945b90d3a6c1f2de97fcaa4ef57e1755209a25c6d0ee3a7b844f9d',
+  ]) {
+    assert.match(finalEvidence, new RegExp(digest));
+  }
+  assert.match(finalEvidence, /Production migration execution remains:[\s\S]*NOT_AUTHORIZED/);
+  assert.match(finalEvidence, /no V49 exists/i);
+  for (const head of [
+    '4f59b12dff8b9988c4509b54fbbcb61046069fc9',
+    '330dbdd035e436459ffdedf0d2b0c8e07dac7e6c',
+    '72acb3ba18602c09c28bfe08b58f8b91e6efe6e4',
+    '9d588215e869c8f1332c0bc1a2809fbd235c2efa',
+  ]) {
+    assert.match(finalEvidence, new RegExp(head));
   }
 });
 
