@@ -39,6 +39,8 @@ approval:
       automatic:
         enabled: ${APPROVAL_MIGRATION_RECONCILIATION_AUTOMATIC_ENABLED:false}
   connector:
+    tenant-routing:
+      enabled: false
     generic:
       enabled: ${APPROVAL_GENERIC_CONNECTOR_ENABLED:false}
       connector-key: ${APPROVAL_GENERIC_CONNECTOR_KEY:generic-rest}

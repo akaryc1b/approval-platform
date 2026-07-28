@@ -36,6 +36,21 @@
         </dependency>
         <dependency>
             <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-connector-dingtalk</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-connector-credential-core</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-connector-routing-core</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
             <artifactId>approval-integration-core</artifactId>
             <version>${revision}</version>
         </dependency>
@@ -73,6 +88,11 @@
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5</artifactId>
             <version>${archunit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

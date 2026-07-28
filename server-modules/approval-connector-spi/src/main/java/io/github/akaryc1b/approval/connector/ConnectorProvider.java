@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.connector;
 
+import io.github.akaryc1b.approval.connector.contract.ProviderDescriptor;
 import io.github.akaryc1b.approval.connector.port.AuthenticationConnector;
 import io.github.akaryc1b.approval.connector.port.BusinessCallbackConnector;
 import io.github.akaryc1b.approval.connector.port.ExternalTodoConnector;
@@ -8,6 +9,7 @@ import io.github.akaryc1b.approval.connector.port.FormDataSourceConnector;
 import io.github.akaryc1b.approval.connector.port.NotificationConnector;
 import io.github.akaryc1b.approval.connector.port.OrganizationConnector;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -19,6 +21,13 @@ import java.util.Set;
 public interface ConnectorProvider {
 
     ConnectorDescriptor descriptor();
+
+    /**
+     * M6-A provider-neutral descriptor. Existing providers remain source compatible.
+     */
+    default ProviderDescriptor providerDescriptor() {
+        return ProviderDescriptor.fromLegacy(descriptor());
+    }
 
     default Optional<AuthenticationConnector> authentication() {
         return Optional.empty();
@@ -71,7 +80,19 @@ public interface ConnectorProvider {
         NOTIFICATION,
         BUSINESS_CALLBACK,
         FORM_DATA_SOURCE,
-        EXTERNAL_TODO
+        EXTERNAL_TODO;
+
+        public static Capability parse(String value) {
+            String normalized = requireText(value, "capability").toUpperCase(Locale.ROOT);
+            try {
+                return valueOf(normalized);
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException(
+                    "unknown connector capability: " + normalized,
+                    exception
+                );
+            }
+        }
     }
 
     private static String requireText(String value, String name) {
