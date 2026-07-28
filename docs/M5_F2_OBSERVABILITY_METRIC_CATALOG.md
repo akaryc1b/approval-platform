@@ -26,11 +26,9 @@ Request and trace IDs may appear only in bounded, redacted response headers or s
 | `approval.migration.operations.read` | Counter | `operation`, `result`, `failure_class` | `operation`: `summary`, `plan_list`, `plan_detail`, `instance_list`, `plan_diagnostics`, `diagnostic_instance_list`, `instance_diagnostics`; `result`: `success`, `failure`; `failure_class`: `none`, `invalid_request`, `unauthenticated`, `forbidden`, `not_found`, `method_not_allowed`, `conflict`, `rate_limited`, `server_error` | Any recognized E1/E2 GET response body | Low: fixed 7 × 2 × 9 maximum combinations | 5xx, auth failures, forbidden growth, rate limiting | No |
 | `approval.migration.operations.read.latency` | Timer | same three labels | same closed sets | Any recognized E1/E2 GET request, including failed requests | Low: same fixed combinations; histogram publication disabled | Latency SLO and degraded read diagnostics | No |
 | `approval.migration.safety.event` | Counter | `event` | `unknown_entered`, `reconciliation_observation_recorded`, `reconciliation_manual_review_required`, `canary_limit_reached`, `orchestration_bounded_stop`, `kill_switch_blocked`, `plan_aggregation_completed`, `stale_ownership_rejected`, `duplicate_outcome_prevented`, `verification_mismatch`, `runtime_binding_cas_failed`, `completion_evidence_failed` | Existing governed state transitions or prevented unsafe writes | Low: exactly 12 pre-registered values | UNKNOWN growth, manual backlog pressure, stale authority, duplicate prevention, verification/CAS/completion failures, canary/orchestration stops | No |
-| `approval.migration.execution.enabled` | Gauge | none | n/a | Effective server configuration | None | Production-safety configuration drift | No |
-| `approval.migration.execution.worker.enabled` | Gauge | none | n/a | Effective server configuration | None | Worker drift | No |
-| `approval.migration.orchestration.enabled` | Gauge | none | n/a | Effective server configuration | None | Orchestration drift | No |
-| `approval.migration.reconciliation.automatic.enabled` | Gauge | none | n/a | Effective server configuration | None | Automatic-reconciliation drift | No |
-| `approval.migration.kill_switch.enabled` | Gauge | none | n/a | Effective server configuration | None | Kill-switch state | No |
+| `approval.migration.safety.feature.enabled` | Gauge | `feature` | `execution`, `worker`, `orchestration`, `aggregation`, `automatic_reconciliation`, `kill_switch` | Effective server configuration at application startup | Low: exactly 6 pre-registered values | Execution/worker/orchestration/aggregation/reconciliation drift and Kill Switch state | No |
+
+The feature gauge reports configuration state only. A value of `1` is not an execution authorization token and cannot bypass the one-shot gates, tenant authorization, ownership, lease, fencing, verification, CAS or evidence requirements.
 
 ## Current-count diagnostics and cross-tenant safety
 
@@ -39,7 +37,7 @@ M5-E2 exposes current `unknownCount`, `ambiguousUnknownCount`, `manualReviewCoun
 Operational alerting therefore uses:
 
 1. growth rates of the closed safety-event counters for early warning;
-2. the feature and kill-switch gauges for configuration state;
+2. the closed feature-state gauge for default-disabled controls and Kill Switch state;
 3. tenant-scoped E2 diagnostics for operator confirmation and backlog enumeration;
 4. no global tenant-enumerating scheduled query.
 
