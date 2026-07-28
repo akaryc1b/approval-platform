@@ -1,6 +1,8 @@
 package io.github.akaryc1b.approval.api;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
@@ -26,6 +28,9 @@ import java.util.UUID;
 public final class ApprovalMigrationOperationsObservabilityAdvice
     implements ResponseBodyAdvice<Object> {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(
+        ApprovalMigrationOperationsObservabilityAdvice.class
+    );
     private static final int MAX_MESSAGE_CODE_POINTS = 512;
     private static final int MAX_EVIDENCE_CODE_POINTS = 128;
 
@@ -67,12 +72,7 @@ public final class ApprovalMigrationOperationsObservabilityAdvice
             return body;
         }
 
-        meters.counter(
-            ApprovalMigrationOperationsTelemetryClassifier.READ_COUNT_METRIC,
-            "operation", classification.operation().metricValue(),
-            "result", classification.result().metricValue(),
-            "failure_class", classification.failureClass().metricValue()
-        ).increment();
+        safeIncrement(classification);
 
         if (classification.result()
             == ApprovalMigrationOperationsTelemetryClassifier.Result.FAILURE
@@ -80,6 +80,21 @@ public final class ApprovalMigrationOperationsObservabilityAdvice
             return governedError(error, classification.failureClass(), request, response);
         }
         return body;
+    }
+
+    private void safeIncrement(
+        ApprovalMigrationOperationsTelemetryClassifier.Classification classification
+    ) {
+        try {
+            meters.counter(
+                ApprovalMigrationOperationsTelemetryClassifier.READ_COUNT_METRIC,
+                "operation", classification.operation().metricValue(),
+                "result", classification.result().metricValue(),
+                "failure_class", classification.failureClass().metricValue()
+            ).increment();
+        } catch (RuntimeException exception) {
+            LOGGER.warn("migration operations counter failed; response remains fail-open");
+        }
     }
 
     private OperationsApiError governedError(
