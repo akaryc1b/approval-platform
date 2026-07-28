@@ -5,8 +5,11 @@ import io.github.akaryc1b.approval.application.port.ApprovalMigrationReconciliat
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationReconciliationStore.PrepareRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationReconciliationStore.PreparedReconciliation;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationReconciliationStore.StoredReconciliation;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry.Event;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationEngineSnapshot;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationExactVerification;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationReconciliationObservation.ReconciliationDisposition;
 import io.github.akaryc1b.approval.engine.ProcessInstanceVerificationPort;
 import io.github.akaryc1b.approval.engine.ProcessInstanceVerificationPort.VerificationReadException;
 
@@ -26,12 +29,29 @@ public final class ApprovalMigrationReconciliationService {
     private final ProcessInstanceVerificationPort engineVerification;
     private final Clock clock;
     private final Duration leaseDuration;
+    private final ApprovalMigrationSafetyTelemetry telemetry;
 
     public ApprovalMigrationReconciliationService(
         ApprovalMigrationReconciliationStore reconciliationStore,
         ProcessInstanceVerificationPort engineVerification,
         Clock clock,
         Duration leaseDuration
+    ) {
+        this(
+            reconciliationStore,
+            engineVerification,
+            clock,
+            leaseDuration,
+            ApprovalMigrationSafetyTelemetry.NOOP
+        );
+    }
+
+    public ApprovalMigrationReconciliationService(
+        ApprovalMigrationReconciliationStore reconciliationStore,
+        ProcessInstanceVerificationPort engineVerification,
+        Clock clock,
+        Duration leaseDuration,
+        ApprovalMigrationSafetyTelemetry telemetry
     ) {
         this.reconciliationStore = Objects.requireNonNull(
             reconciliationStore,
@@ -42,10 +62,16 @@ public final class ApprovalMigrationReconciliationService {
             "engineVerification must not be null"
         );
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
-        this.leaseDuration = Objects.requireNonNull(leaseDuration, "leaseDuration must not be null");
+        this.leaseDuration = Objects.requireNonNull(
+            leaseDuration,
+            "leaseDuration must not be null"
+        );
+        this.telemetry = ApprovalMigrationSafetyTelemetry.require(telemetry);
         if (leaseDuration.isZero() || leaseDuration.isNegative()
             || leaseDuration.compareTo(Duration.ofMinutes(15)) > 0) {
-            throw new IllegalArgumentException("leaseDuration must be positive and at most 15 minutes");
+            throw new IllegalArgumentException(
+                "leaseDuration must be positive and at most 15 minutes"
+            );
         }
     }
 
@@ -87,12 +113,25 @@ public final class ApprovalMigrationReconciliationService {
             prepared.attempt().sourceEngineDefinitionId(),
             prepared.attempt().targetEngineDefinitionId()
         );
-        return reconciliationStore.finalizeObservation(new FinalizeRequest(
-            prepared,
-            snapshot,
-            classification,
-            clock.instant()
-        ));
+        StoredReconciliation stored = reconciliationStore.finalizeObservation(
+            new FinalizeRequest(
+                prepared,
+                snapshot,
+                classification,
+                clock.instant()
+            )
+        );
+        ApprovalMigrationSafetyTelemetry.safeRecord(
+            telemetry,
+            Event.RECONCILIATION_OBSERVATION_RECORDED
+        );
+        if (stored.disposition() == ReconciliationDisposition.MANUAL_REVIEW_REQUIRED) {
+            ApprovalMigrationSafetyTelemetry.safeRecord(
+                telemetry,
+                Event.RECONCILIATION_MANUAL_REVIEW_REQUIRED
+            );
+        }
+        return stored;
     }
 
     public record ReconciliationRequest(
@@ -161,7 +200,9 @@ public final class ApprovalMigrationReconciliationService {
         Objects.requireNonNull(value, name + " must not be null");
         String normalized = value.trim();
         if (normalized.isEmpty() || normalized.length() > maximum) {
-            throw new IllegalArgumentException(name + " is blank or exceeds maximum length " + maximum);
+            throw new IllegalArgumentException(
+                name + " is blank or exceeds maximum length " + maximum
+            );
         }
         return normalized;
     }
