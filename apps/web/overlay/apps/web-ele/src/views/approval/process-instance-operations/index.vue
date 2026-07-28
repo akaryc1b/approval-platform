@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type {
   MigrationAggregateStatus,
-  MigrationInstanceItem,
+  MigrationInstancePage,
   MigrationOperationsSummary,
   MigrationPlanDetail,
   MigrationPlanItem,
@@ -38,7 +38,14 @@ const loading = ref(false);
 const detailLoading = ref(false);
 const detailVisible = ref(false);
 const selected = ref<MigrationPlanDetail>();
-const instances = ref<MigrationInstanceItem[]>([]);
+const instancePage = ref<MigrationInstancePage>({
+  hasMore: false,
+  items: [],
+  limit: 50,
+  offset: 0,
+  planId: '',
+  total: 0,
+});
 const summary = ref<MigrationOperationsSummary>({
   activePlans: 0,
   completedPlans: 0,
@@ -130,14 +137,37 @@ async function showEvidence(plan: MigrationPlanItem) {
   detailVisible.value = true;
   detailLoading.value = true;
   selected.value = undefined;
-  instances.value = [];
+  instancePage.value = {
+    hasMore: false,
+    items: [],
+    limit: 50,
+    offset: 0,
+    planId: plan.planId,
+    total: 0,
+  };
   try {
-    const [detail, instancePage] = await Promise.all([
+    const [detail, nextInstancePage] = await Promise.all([
       findMigrationOperationPlan(plan.planId),
-      findMigrationOperationInstances(plan.planId, 200, 0),
+      findMigrationOperationInstances(plan.planId, instancePage.value.limit, 0),
     ]);
     selected.value = detail;
-    instances.value = instancePage.items;
+    instancePage.value = nextInstancePage;
+  } catch (error) {
+    ElMessage.error(errorMessage(error));
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+async function loadInstancePage(offset: number) {
+  if (!selected.value) return;
+  detailLoading.value = true;
+  try {
+    instancePage.value = await findMigrationOperationInstances(
+      selected.value.plan.planId,
+      instancePage.value.limit,
+      offset,
+    );
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -147,6 +177,10 @@ async function showEvidence(plan: MigrationPlanItem) {
 
 function pageChanged(pageNumber: number) {
   void load((pageNumber - 1) * page.value.limit);
+}
+
+function instancePageChanged(pageNumber: number) {
+  void loadInstancePage((pageNumber - 1) * instancePage.value.limit);
 }
 
 void load();
@@ -274,7 +308,14 @@ void load();
         <span>Request <b>{{ selected.requestId }}</b></span>
         <span>Audit <b>{{ selected.auditReference }}</b></span>
       </div>
-      <ElTable v-loading="detailLoading" :data="instances" row-key="approvalInstanceId">
+      <ElAlert
+        v-if="instancePage.total > instancePage.items.length"
+        :closable="false"
+        show-icon
+        :title="`实例证据共 ${instancePage.total} 条，当前显示第 ${instancePage.offset + 1}–${Math.min(instancePage.offset + instancePage.items.length, instancePage.total)} 条。`"
+        type="info"
+      />
+      <ElTable v-loading="detailLoading" :data="instancePage.items" row-key="approvalInstanceId">
         <ElTableColumn label="#" width="60" prop="sequenceNo" />
         <ElTableColumn label="Canary" width="90">
           <template #default="scope"><ElTag>{{ scope.row.canary ? 'YES' : 'NO' }}</ElTag></template>
@@ -302,7 +343,19 @@ void load();
           <template #default="scope">{{ dateTime(scope.row.latestEvidenceAt) }}</template>
         </ElTableColumn>
       </ElTable>
-      <ElEmpty v-if="!instances.length && !detailLoading" description="计划没有选定实例证据" />
+      <ElEmpty
+        v-if="!instancePage.items.length && !detailLoading"
+        description="计划没有选定实例证据"
+      />
+      <ElPagination
+        v-if="instancePage.total > instancePage.limit"
+        class="pagination"
+        :current-page="Math.floor(instancePage.offset / instancePage.limit) + 1"
+        :page-size="instancePage.limit"
+        :total="instancePage.total"
+        layout="prev, pager, next, total"
+        @current-change="instancePageChanged"
+      />
     </ElDialog>
   </Page>
 </template>
