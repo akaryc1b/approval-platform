@@ -19,8 +19,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Adds bounded tracing and closed low-cardinality metrics to the M5-E1 read-only Operations API.
- * Tenant, plan, instance, request and trace identities never become metric tags.
+ * Adds bounded tracing and closed low-cardinality metrics to the M5-E1/E2 read-only
+ * Operations API. Tenant, plan, instance, request and trace identities never become tags.
  */
 @RestControllerAdvice
 public final class ApprovalMigrationOperationsObservabilityAdvice
@@ -28,11 +28,6 @@ public final class ApprovalMigrationOperationsObservabilityAdvice
 
     private static final int MAX_MESSAGE_CODE_POINTS = 512;
     private static final int MAX_EVIDENCE_CODE_POINTS = 128;
-    private static final String METRIC = "approval.migration.operations.read";
-    private static final String MANAGEMENT_PREFIX =
-        "/api/approval/management/process-instance-operations";
-    private static final String MOBILE_PREFIX =
-        "/api/approval/mobile/process-instance-operations";
 
     private final MeterRegistry meters;
     private final Clock clock;
@@ -62,30 +57,34 @@ public final class ApprovalMigrationOperationsObservabilityAdvice
         ServerHttpRequest request,
         ServerHttpResponse response
     ) {
-        Operation operation = Operation.resolve(request.getURI().getPath());
-        if (operation == Operation.NONE || body == null) {
+        int status = responseStatus(response);
+        var classification = ApprovalMigrationOperationsTelemetryClassifier.classify(
+            request.getURI().getPath(),
+            status
+        );
+        if (classification.operation()
+            == ApprovalMigrationOperationsTelemetryClassifier.Operation.NONE || body == null) {
             return body;
         }
 
-        int status = responseStatus(response);
-        FailureClass failureClass = FailureClass.resolve(status);
-        boolean success = status >= 200 && status < 400;
         meters.counter(
-            METRIC,
-            "operation", operation.metricValue(),
-            "result", success ? "success" : "failure",
-            "failure_class", success ? "none" : failureClass.metricValue()
+            ApprovalMigrationOperationsTelemetryClassifier.READ_COUNT_METRIC,
+            "operation", classification.operation().metricValue(),
+            "result", classification.result().metricValue(),
+            "failure_class", classification.failureClass().metricValue()
         ).increment();
 
-        if (!success && body instanceof ApprovalMigrationOperationsApiExceptionHandler.ApiError error) {
-            return governedError(error, failureClass, request, response);
+        if (classification.result()
+            == ApprovalMigrationOperationsTelemetryClassifier.Result.FAILURE
+            && body instanceof ApprovalMigrationOperationsApiExceptionHandler.ApiError error) {
+            return governedError(error, classification.failureClass(), request, response);
         }
         return body;
     }
 
     private OperationsApiError governedError(
         ApprovalMigrationOperationsApiExceptionHandler.ApiError legacy,
-        FailureClass failureClass,
+        ApprovalMigrationOperationsTelemetryClassifier.FailureClass failureClass,
         ServerHttpRequest request,
         ServerHttpResponse response
     ) {
@@ -191,96 +190,6 @@ public final class ApprovalMigrationOperationsObservabilityAdvice
             traceId = Objects.requireNonNull(traceId, "traceId must not be null");
             timestamp = Objects.requireNonNull(timestamp, "timestamp must not be null");
             details = details == null ? Map.of() : Map.copyOf(details);
-        }
-    }
-
-    private enum Operation {
-        NONE("none"),
-        SUMMARY("summary"),
-        PLAN_LIST("plan_list"),
-        PLAN_DETAIL("plan_detail"),
-        INSTANCE_LIST("instance_list");
-
-        private final String metricValue;
-
-        Operation(String metricValue) {
-            this.metricValue = metricValue;
-        }
-
-        static Operation resolve(String path) {
-            String relative = relativePath(path);
-            if (relative == null) {
-                return NONE;
-            }
-            if ("/summary".equals(relative)) {
-                return SUMMARY;
-            }
-            if ("/plans".equals(relative)) {
-                return PLAN_LIST;
-            }
-            if (!relative.startsWith("/plans/")) {
-                return NONE;
-            }
-            String remainder = relative.substring("/plans/".length());
-            if (!remainder.isEmpty() && !remainder.contains("/")) {
-                return PLAN_DETAIL;
-            }
-            String instancesSuffix = "/instances";
-            if (!remainder.endsWith(instancesSuffix)) {
-                return NONE;
-            }
-            String planId = remainder.substring(0, remainder.length() - instancesSuffix.length());
-            return !planId.isEmpty() && !planId.contains("/") ? INSTANCE_LIST : NONE;
-        }
-
-        private static String relativePath(String path) {
-            if (path == null) {
-                return null;
-            }
-            if (path.startsWith(MANAGEMENT_PREFIX)) {
-                return path.substring(MANAGEMENT_PREFIX.length());
-            }
-            if (path.startsWith(MOBILE_PREFIX)) {
-                return path.substring(MOBILE_PREFIX.length());
-            }
-            return null;
-        }
-
-        String metricValue() {
-            return metricValue;
-        }
-    }
-
-    private enum FailureClass {
-        NONE("none"),
-        INVALID_REQUEST("invalid_request"),
-        UNAUTHENTICATED("unauthenticated"),
-        FORBIDDEN("forbidden"),
-        NOT_FOUND("not_found"),
-        CONFLICT("conflict"),
-        RATE_LIMITED("rate_limited"),
-        INTERNAL("internal");
-
-        private final String metricValue;
-
-        FailureClass(String metricValue) {
-            this.metricValue = metricValue;
-        }
-
-        static FailureClass resolve(int status) {
-            return switch (status) {
-                case 400, 405, 422 -> INVALID_REQUEST;
-                case 401 -> UNAUTHENTICATED;
-                case 403 -> FORBIDDEN;
-                case 404 -> NOT_FOUND;
-                case 409 -> CONFLICT;
-                case 429 -> RATE_LIMITED;
-                default -> status >= 400 ? INTERNAL : NONE;
-            };
-        }
-
-        String metricValue() {
-            return metricValue;
         }
     }
 }
