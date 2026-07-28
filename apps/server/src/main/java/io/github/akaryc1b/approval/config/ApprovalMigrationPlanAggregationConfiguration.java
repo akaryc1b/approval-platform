@@ -3,6 +3,7 @@ package io.github.akaryc1b.approval.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalMigrationPlanAggregationService;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore;
+import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationPlanAggregationStore;
 import io.github.akaryc1b.approval.persistence.jdbc.PostgresSerializedApprovalMigrationPlanAggregationStore;
@@ -52,9 +53,14 @@ public class ApprovalMigrationPlanAggregationConfiguration {
 
     @Bean
     ApprovalMigrationPlanAggregationService approvalMigrationPlanAggregationService(
-        ApprovalMigrationPlanAggregationStore store
+        ApprovalMigrationPlanAggregationStore store,
+        ApprovalMigrationSafetyTelemetry telemetry
     ) {
-        return new ApprovalMigrationPlanAggregationService(store, Clock.systemUTC());
+        return new ApprovalMigrationPlanAggregationService(
+            store,
+            Clock.systemUTC(),
+            telemetry
+        );
     }
 
     @Bean
