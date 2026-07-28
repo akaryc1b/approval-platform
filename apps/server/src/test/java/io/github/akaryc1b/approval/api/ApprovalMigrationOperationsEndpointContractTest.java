@@ -29,8 +29,11 @@ class ApprovalMigrationOperationsEndpointContractTest {
             RequestMapping.class
         );
         assertEquals(
-            "/api/approval/management/process-instance-operations",
-            mapping.value()[0]
+            Set.of(
+                "/api/approval/management/process-instance-operations",
+                "/api/approval/mobile/process-instance-operations"
+            ),
+            Set.of(mapping.value())
         );
         Method[] handlers = Arrays.stream(
             ApprovalMigrationOperationsController.class.getDeclaredMethods()
