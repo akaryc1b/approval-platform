@@ -144,7 +144,7 @@ class M6CredentialBindingFoundationBoundaryTest {
     }
 
     @Test
-    void foundationAddsNoWorkflowMigrationM5OrApprovalMutation() throws IOException {
+    void foundationAddsNoWorkflowPostM5MigrationOrApprovalMutation() throws IOException {
         List<String> automaticWorkflows = new ArrayList<>();
         for (Path workflow : filesUnder(ROOT.resolve(".github/workflows"))) {
             String name = workflow.getFileName().toString();
@@ -174,7 +174,7 @@ class M6CredentialBindingFoundationBoundaryTest {
             var matcher = flywayVersion.matcher(migration.getFileName().toString());
             if (matcher.matches()) {
                 assertTrue(
-                    Integer.parseInt(matcher.group(1)) <= 32,
+                    Integer.parseInt(matcher.group(1)) <= 48,
                     "unexpected M6 migration " + normalized
                 );
             }

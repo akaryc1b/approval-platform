@@ -26,7 +26,7 @@ class M6ConnectorFoundationBoundaryTest {
     private static final Pattern FLYWAY_VERSION = Pattern.compile("V(\\d+)__.*\\.sql");
 
     @Test
-    void connectorSliceAddsNoV33OrOtherFlywayMigration() throws IOException {
+    void connectorSliceAddsNoV49OrOtherPostM5FlywayMigration() throws IOException {
         List<Path> migrations = filesUnder(ROOT).stream()
             .filter(path -> path.toString().replace('\\', '/').contains(
                 "/src/main/resources/db/migration/"
@@ -39,24 +39,42 @@ class M6ConnectorFoundationBoundaryTest {
             var matcher = FLYWAY_VERSION.matcher(migration.getFileName().toString());
             if (matcher.matches()) {
                 int version = Integer.parseInt(matcher.group(1));
-                assertTrue(version <= 32, "unexpected Flyway migration: " + relative(migration));
+                assertTrue(version <= 48, "unexpected Flyway migration: " + relative(migration));
             }
         }
         assertFalse(
-            migrations.stream().anyMatch(path -> path.getFileName().toString().startsWith("V33__")),
-            "M6-A must not create V33"
+            migrations.stream().anyMatch(path -> {
+                var matcher = FLYWAY_VERSION.matcher(path.getFileName().toString());
+                return matcher.matches() && Integer.parseInt(matcher.group(1)) >= 49;
+            }),
+            "M6-A must not create V49 or a higher migration"
         );
     }
 
     @Test
-    void connectorSliceDoesNotCopyOrModifyM5MigrationSources() {
-        for (String forbidden : List.of(
+    void connectorSliceRetainsMergedM5SourcesWithoutOwningMigrationSemantics() throws IOException {
+        for (String required : List.of(
             "docs/M5_PROCESS_INSTANCE_MIGRATION_FEASIBILITY.md",
             "scripts/tests/m5-migration-boundary.test.mjs",
             "server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationCapabilityTest.java",
             "server-modules/approval-engine-flowable/src/test/java/io/github/akaryc1b/approval/engine/flowable/FlowableProcessInstanceMigrationEvidenceCapabilityTest.java"
         )) {
-            assertFalse(Files.exists(ROOT.resolve(forbidden)), "M5 source crossed into M6-A: " + forbidden);
+            assertTrue(Files.exists(ROOT.resolve(required)), "merged M5 source is missing: " + required);
+        }
+        for (Path source : connectorFoundationProductionSources()) {
+            String content = Files.readString(source);
+            for (String forbidden : List.of(
+                "io.github.akaryc1b.approval.domain.migration",
+                "ProcessInstanceMigrationPort",
+                "ProcessInstanceVerificationPort",
+                "ApprovalMigrationAttempt",
+                "ApprovalMigrationPlan"
+            )) {
+                assertFalse(
+                    content.contains(forbidden),
+                    relative(source) + " assumes ownership of merged M5 semantics through " + forbidden
+                );
+            }
         }
     }
 

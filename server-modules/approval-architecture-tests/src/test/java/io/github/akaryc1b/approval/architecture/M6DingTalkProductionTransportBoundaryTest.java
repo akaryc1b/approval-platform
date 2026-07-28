@@ -152,7 +152,7 @@ class M6DingTalkProductionTransportBoundaryTest {
     }
 
     @Test
-    void p3AddsNoWorkflowMigrationM5OrExecutionCoordinator() throws IOException {
+    void p3AddsNoWorkflowPostM5MigrationOrExecutionCoordinator() throws IOException {
         List<String> automaticWorkflows = new ArrayList<>();
         for (Path workflow : filesUnder(ROOT.resolve(".github/workflows"))) {
             String name = workflow.getFileName().toString();
@@ -182,7 +182,7 @@ class M6DingTalkProductionTransportBoundaryTest {
             var matcher = flywayVersion.matcher(migration.getFileName().toString());
             if (matcher.matches()) {
                 assertTrue(
-                    Integer.parseInt(matcher.group(1)) <= 32,
+                    Integer.parseInt(matcher.group(1)) <= 48,
                     "unexpected M6 migration " + normalized
                 );
             }
