@@ -102,12 +102,12 @@ final class ApprovalMigrationDiagnosticsParameters {
         }
     }
 
-    private static java.time.Instant timestamp(String value, String name) {
+    private static OffsetDateTime timestamp(String value, String name) {
         if (value == null) {
             return null;
         }
         try {
-            return OffsetDateTime.parse(value).toInstant();
+            return OffsetDateTime.parse(value);
         } catch (DateTimeParseException exception) {
             throw invalid(name + " must include an explicit ISO-8601 offset");
         }
