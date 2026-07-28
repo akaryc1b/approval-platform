@@ -25,6 +25,7 @@ class ApprovalMigrationOperationsTelemetryFilterTest {
         ApprovalMigrationOperationsTelemetryFilter filter = new ApprovalMigrationOperationsTelemetryFilter(
             meters
         );
+        MockHttpServletResponse lastResponse = null;
 
         for (int index = 0; index < 100; index++) {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", PATH);
@@ -32,6 +33,7 @@ class ApprovalMigrationOperationsTelemetryFilterTest {
             filter.doFilter(request, response, (incoming, outgoing) ->
                 ((MockHttpServletResponse) outgoing).setStatus(200)
             );
+            lastResponse = response;
         }
 
         assertEquals(
@@ -53,6 +55,9 @@ class ApprovalMigrationOperationsTelemetryFilterTest {
                 ))
                 .count()
         );
+        assertEquals("no-store, max-age=0", lastResponse.getHeader("Cache-Control"));
+        assertEquals("no-cache", lastResponse.getHeader("Pragma"));
+        assertEquals("Thu, 01 Jan 1970 00:00:00 GMT", lastResponse.getHeader("Expires"));
         assertLowCardinalityTagKeys(meters);
     }
 
@@ -117,6 +122,7 @@ class ApprovalMigrationOperationsTelemetryFilterTest {
         assertFalse(meters.getMeters().stream().anyMatch(meter -> meter.getId().getName().equals(
             ApprovalMigrationOperationsTelemetryClassifier.READ_LATENCY_METRIC
         )));
+        assertFalse(response.containsHeader("Cache-Control"));
     }
 
     private static void assertLowCardinalityTagKeys(SimpleMeterRegistry meters) {
