@@ -44,7 +44,11 @@ class ApprovalConnectorOperationsDiagnosticsConfigurationTest {
             assertNotNull(context.getBean(BoundedConnectorOperationsDiagnosticsStore.class));
             assertNotNull(context.getBean(ConnectorDiagnosticsPageTokenCodec.class));
             assertNotNull(context.getBean(ConnectorOperationsDiagnosticsQueryService.class));
-            assertEquals(1, context.getBeansOfType(ConnectorInvocationObservationSink.class).size());
+            assertEquals(2, context.getBeansOfType(ConnectorInvocationObservationSink.class).size());
+            assertTrue(
+                context.getBean(ConnectorInvocationObservationSink.class)
+                    instanceof MicrometerConnectorOperationsObservationSink
+            );
         });
     }
 
