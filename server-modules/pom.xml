@@ -21,6 +21,7 @@
         <module>approval-connector-dingtalk</module>
         <module>approval-connector-credential-core</module>
         <module>approval-connector-routing-core</module>
+        <module>approval-connector-dingtalk-token</module>
         <module>approval-connector-dingtalk-http</module>
         <module>approval-integration-core</module>
         <module>approval-connector-generic</module>

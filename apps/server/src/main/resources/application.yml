@@ -42,6 +42,14 @@ approval:
     secret-material:
       enabled: false
       backend-selection: BLOCKED_PENDING_BACKEND_SELECTION
+    dingtalk-token:
+      enabled: false
+      policy-version: dingtalk-token-policy-v1
+      refresh-before-expiry: 5m
+      minimum-validity: 30s
+      maximum-lifetime: 2h
+      single-flight-wait: 5s
+      maximum-entries: 256
     tenant-routing:
       enabled: false
     generic:
