@@ -97,6 +97,20 @@ public final class DingTalkTokenCoordinator implements AutoCloseable {
         }
 
         try {
+            DingTalkTokenEntry handedOff = cache.get(request.cacheKeyHash());
+            Instant handoffAt = clock.instant();
+            if (handedOff != null && handedOff.usableWithoutRefreshAt(handoffAt)) {
+                securityValidator.validate(request, handoffAt);
+                DingTalkAccessTokenLease lease = handedOff.issueLease(
+                    DingTalkTokenOutcome.CACHE_HIT,
+                    request,
+                    false,
+                    handoffAt
+                );
+                created.complete(handedOff);
+                return lease;
+            }
+
             DingTalkTokenEntry loaded = loadAndInstall(request);
             created.complete(loaded);
             return loaded.issueLease(
