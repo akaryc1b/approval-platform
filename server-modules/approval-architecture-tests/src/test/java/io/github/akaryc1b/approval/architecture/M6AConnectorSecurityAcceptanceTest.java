@@ -203,8 +203,8 @@ class M6AConnectorSecurityAcceptanceTest {
 
     private static void inspectSecretLiterals(Path path, List<String> findings) throws IOException {
         String source = Files.readString(path);
-        if (source.contains("-----BEGIN PRIVATE KEY-----")
-            || source.contains("-----BEGIN RSA PRIVATE KEY-----")) {
+        if (source.contains("-----BEGIN " + "PRIVATE KEY-----")
+            || source.contains("-----BEGIN RSA " + "PRIVATE KEY-----")) {
             findings.add(path + ":private-key");
         }
         if (BEARER_LITERAL.matcher(source).find()) {
