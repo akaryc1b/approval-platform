@@ -58,6 +58,11 @@ approval:
       timeout: 5s
       kill-switch-revision: kill-switch-v1
       token-policy-version: dingtalk-token-policy-v1
+    operations-diagnostics:
+      enabled: false
+      maximum-entries: 1024
+      maximum-entries-per-tenant: 256
+      maximum-response-bytes: 262144
     tenant-routing:
       enabled: false
     generic:

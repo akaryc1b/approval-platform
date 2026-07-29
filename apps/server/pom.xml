@@ -13,96 +13,29 @@
     <description>Approval Platform executable application</description>
 
     <dependencies>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-application</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-engine-flowable</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-persistence-jdbc</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-connector-generic</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-connector-credential-core</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-connector-routing-core</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-connector-dingtalk-token</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-connector-invocation-core</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-integration-core</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.akaryc1b.approval</groupId>
-            <artifactId>approval-integration-jdbc</artifactId>
-            <version>${revision}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-application</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-engine-flowable</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-persistence-jdbc</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-generic</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-credential-core</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-routing-core</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-dingtalk-token</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-invocation-core</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-operations-core</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-integration-core</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-integration-jdbc</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
+        <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>runtime</scope></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers-junit-jupiter</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers-postgresql</artifactId><scope>test</scope></dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
+            <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
         </plugins>
     </build>
 </project>
