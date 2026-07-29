@@ -50,6 +50,11 @@
         </dependency>
         <dependency>
             <groupId>io.github.akaryc1b.approval</groupId>
+            <artifactId>approval-connector-invocation-core</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.akaryc1b.approval</groupId>
             <artifactId>approval-integration-core</artifactId>
             <version>${revision}</version>
         </dependency>

@@ -50,6 +50,14 @@ approval:
       maximum-lifetime: 2h
       single-flight-wait: 5s
       maximum-entries: 256
+    invocation:
+      enabled: false
+      policy-version: connector-invocation-policy-v1
+      maximum-request-bytes: 65536
+      maximum-response-bytes: 262144
+      timeout: 5s
+      kill-switch-revision: kill-switch-v1
+      token-policy-version: dingtalk-token-policy-v1
     tenant-routing:
       enabled: false
     generic:
