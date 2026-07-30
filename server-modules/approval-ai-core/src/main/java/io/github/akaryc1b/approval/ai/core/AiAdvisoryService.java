@@ -318,19 +318,7 @@ public final class AiAdvisoryService implements AutoCloseable {
             descriptor.providerType(),
             policyResult
         ));
-        auditSink.record(new AiAuditRecord(
-            request.context().requestId(),
-            request.context().traceId(),
-            request.context().tenantId(),
-            request.context().operatorId(),
-            request.resource().resourceType(),
-            request.resource().resourceId(),
-            request.capability(),
-            request.versions().policy(),
-            request.versions(),
-            outcome.classification(),
-            null
-        ));
+        auditSink.record(AiAuditRecord.create(request, outcome.classification()));
     }
 
     private static AiAdvisoryMetrics.PolicyResult policyResult(
