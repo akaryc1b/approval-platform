@@ -9,9 +9,12 @@ Tracking:
 - branch: `agent/m6-d-ai-foundation`
 - Draft PR: #70
 - target branch: `main`
-- implementation baseline `main`: `d769722cf7dd5418739a91ad4c45ca1a1c147502`
-- Flyway remains V1–V32
-- automatic validation remains `.github/workflows/approval-platform-validation.yml`
+- original implementation baseline `main`: `d769722cf7dd5418739a91ad4c45ca1a1c147502`
+- formal rebaseline `main`: `735e41526371ea481b31af377e3410d085160f7e`
+- controlled synchronization Merge Commit: `c0078be9669c4936edb73f3c195f75fc0f6bc9e8`
+- current-main Flyway set: `V2` through `V37`, plus `V39` through `V48`
+- M6-D adds no Flyway migration relative to the formal rebaseline
+- the only automatic PR/main validation remains `.github/workflows/approval-platform-validation.yml`
 
 ## Purpose
 
@@ -106,7 +109,7 @@ The combined M6-D work still contains:
 - no DNS/TLS/network operation;
 - no retry or post-invocation fallback;
 - no production Prompt/customer knowledge;
-- no persistence or V33;
+- no persistence and no Flyway migration added by M6-D relative to current main;
 - no executable activation lease/plan;
 - no approval-state command or M6-E/M6-F behavior.
 
