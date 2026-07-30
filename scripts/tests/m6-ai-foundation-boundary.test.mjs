@@ -72,7 +72,7 @@ test('AI production code has no network client, credentials, provider adapter or
   }
 });
 
-test('AI foundation has no persistence, V33, customer knowledge data or production mock', () => {
+test('AI foundation has no persistence, customer knowledge data or production mock', () => {
   const production = aiMainJava.map(text).join('\n');
   for (const pattern of [
     /import\s+java\.sql\./,
@@ -91,15 +91,6 @@ test('AI foundation has no persistence, V33, customer knowledge data or producti
   assert.ok(
     aiTestJava.some((file) => path.basename(file) === 'DeterministicMockAiProvider.java'),
     'deterministic mock must remain test-only',
-  );
-
-  const migrations = filesUnder(
-    path.join(root, 'server-modules/approval-persistence-jdbc/src/main/resources/db/migration'),
-  );
-  assert.equal(
-    migrations.some((file) => /^V33__/.test(path.basename(file))),
-    false,
-    'M6-D must not create V33',
   );
 });
 
@@ -226,7 +217,6 @@ test('AI configuration preflight and dry-run assembly are zero-call and non-auth
   assert.match(dryRunReport, /cannot authorize approval automation/);
 });
 
-
 test('AI deployment readiness, external references and fault drills remain zero-call', () => {
   const secretReference = coreSource('AiExternalSecretReference');
   const endpoint = coreSource('AiProviderEndpointDescriptor');
@@ -310,7 +300,7 @@ test('only the permanent validation workflow is automatic', () => {
   );
 });
 
-test('M6-D branch diff preserves M5, runtime binding and frozen governance boundaries', () => {
+test('M6-D branch diff preserves migration, runtime binding and frozen governance boundaries', () => {
   if (process.env.GITHUB_HEAD_REF !== 'agent/m6-d-ai-foundation') return;
 
   const changed = execFileSync(
@@ -325,5 +315,14 @@ test('M6-D branch diff preserves M5, runtime binding and frozen governance bound
     /^docs\/M3_FINAL_ACCEPTANCE\.md$/.test(file) ||
     /^docs\/M4_.*GOVERNANCE\.md$/.test(file));
   assert.deepEqual(forbidden, []);
-  assert.equal(changed.some((file) => /V33__/.test(file)), false);
+
+  const migrationChanges = changed.filter((file) =>
+    file.startsWith(
+      'server-modules/approval-persistence-jdbc/src/main/resources/db/migration/',
+    ));
+  assert.deepEqual(
+    migrationChanges,
+    [],
+    'M6-D must not add or modify a Flyway migration relative to current main',
+  );
 });
