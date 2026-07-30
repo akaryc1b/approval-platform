@@ -116,23 +116,27 @@ class AiContractBoundaryTest {
     }
 
     @Test
-    void auditContractCarriesRequiredTraceabilityAndOptionalHumanDecisionLink() {
+    void auditContractCarriesHashOnlyTraceabilityAndOptionalHumanDecisionEvidence() {
         Set<String> names = Arrays.stream(AiAuditRecord.class.getRecordComponents())
             .map(component -> component.getName())
             .collect(Collectors.toSet());
 
-        assertTrue(names.containsAll(Set.of(
-            "requestId",
-            "traceId",
-            "tenantId",
-            "operatorId",
-            "resourceType",
-            "resourceId",
+        assertEquals(Set.of(
+            "requestEvidenceHash",
+            "subjectEvidenceHash",
+            "resourceEvidenceHash",
             "capability",
             "inputPolicyVersion",
             "versions",
             "resultClassification",
-            "humanDecisionReference"
-        )));
+            "humanDecisionEvidenceHash",
+            "auditEvidenceHash"
+        ), names);
+        assertFalse(names.contains("requestId"));
+        assertFalse(names.contains("traceId"));
+        assertFalse(names.contains("tenantId"));
+        assertFalse(names.contains("operatorId"));
+        assertFalse(names.contains("resourceId"));
+        assertFalse(names.contains("humanDecisionReference"));
     }
 }
