@@ -1,0 +1,93 @@
+{
+  "fixtureVersion": "1",
+  "nowEpochSeconds": 1784811000,
+  "endpoint": {
+    "bindingVersion": "1",
+    "endpointId": "fixture-generic-rest",
+    "adapterKind": "generic_rest",
+    "audience": "approval-host",
+    "supportedOperations": ["approval.task.read"],
+    "credentialReference": {
+      "providerId": "fixture-provider",
+      "credentialId": "fixture-credential",
+      "kind": "signed_request_reference"
+    }
+  },
+  "authenticationContext": {
+    "contextId": "authctx-fixture-001",
+    "tenantId": "tenant_server_001",
+    "operatorId": "operator_server_001",
+    "permissionSnapshotHash": "sha256:fixture-permissions",
+    "auditReference": "audit_fixture_001",
+    "authenticatedAtEpochSeconds": 1784810900,
+    "expiresAtEpochSeconds": 1784811600
+  },
+  "credentialLease": {
+    "leaseId": "lease-fixture-001",
+    "providerId": "fixture-provider",
+    "credentialId": "fixture-credential",
+    "kind": "signed_request_reference",
+    "endpointId": "fixture-generic-rest",
+    "authenticationContextId": "authctx-fixture-001",
+    "operation": "approval.task.read",
+    "bindingId": "fixture-generic-rest\nauthctx-fixture-001\nfixture-credential\napproval.task.read",
+    "issuedAtEpochSeconds": 1784811000,
+    "expiresAtEpochSeconds": 1784811300
+  },
+  "request": {
+    "operation": "approval.task.read",
+    "payload": {"taskId": "task_9001"},
+    "correlation": {"requestId": "req-binding-1", "traceId": "trace-binding-1"},
+    "idempotencyKey": "idem-binding-1"
+  },
+  "policy": {
+    "policyVersion": "1",
+    "operation": "approval.task.read",
+    "retryMode": "idempotent",
+    "budget": {
+      "maxAttempts": 3,
+      "totalBudgetMillis": 5000,
+      "attemptTimeoutMillis": 2000,
+      "baseBackoffMillis": 500,
+      "maxBackoffMillis": 2000
+    },
+    "retryableStatusCodes": [503]
+  },
+  "script": [
+    {
+      "durationMillis": 400,
+      "response": {
+        "statusCode": 503,
+        "payload": null,
+        "errorCode": "temporary_unavailable",
+        "errorMessage": "Retry later",
+        "retryAfterMillis": 600
+      }
+    },
+    {
+      "durationMillis": 350,
+      "response": {
+        "statusCode": 200,
+        "payload": {"taskId": "task_9001", "state": "PENDING"},
+        "errorCode": null,
+        "errorMessage": null,
+        "retryAfterMillis": null
+      }
+    }
+  ],
+  "expectations": {
+    "bindingStatus": "executed",
+    "transportStatus": "succeeded",
+    "lifecycle": ["created", "open", "closed"],
+    "credentialReleased": true,
+    "credentialReleaseReason": "completed",
+    "resolverInvocations": 1,
+    "providerAcquisitions": 1,
+    "providerReleases": 1,
+    "adapterInvocations": 2,
+    "totalElapsedMillis": 1350,
+    "endpointId": "fixture-generic-rest",
+    "authenticationContextId": "authctx-fixture-001",
+    "credentialLeaseId": "lease-fixture-001"
+  }
+}

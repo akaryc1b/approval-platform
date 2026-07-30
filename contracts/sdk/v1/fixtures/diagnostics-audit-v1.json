@@ -1,0 +1,83 @@
+{
+  "fixtureVersion": "1",
+  "configuration": {
+    "contractVersion": "1",
+    "sourceKind": "fixture",
+    "sourceId": "fixture-sdk-config",
+    "revision": "rev-2026-07-23",
+    "loadedAtEpochSeconds": 1784811600,
+    "entries": [
+      {
+        "key": "adapter.mode",
+        "value": "diagnostic-only",
+        "classification": "public"
+      },
+      {
+        "key": "credential.reference",
+        "value": "fixture-credential-ref",
+        "classification": "public"
+      },
+      {
+        "key": "oauth.clientSecret",
+        "value": "fixture-secret-DO-NOT-LEAK",
+        "classification": "sensitive"
+      },
+      {
+        "key": "authorization.header",
+        "value": "Bearer fixture-token-DO-NOT-LEAK",
+        "classification": "sensitive"
+      }
+    ]
+  },
+  "diagnostic": {
+    "contractVersion": "1",
+    "code": "adapter.binding.failed",
+    "severity": "error",
+    "message": "binding failed using fixture-secret-DO-NOT-LEAK",
+    "context": {
+      "endpointId": "fixture-generic-rest",
+      "authorization.header": "Bearer fixture-token-DO-NOT-LEAK",
+      "detail": "retry with fixture-secret-DO-NOT-LEAK"
+    }
+  },
+  "audit": {
+    "contractVersion": "1",
+    "eventId": "audit-fixture-001",
+    "eventType": "adapter.binding.failed",
+    "endpointId": "fixture-generic-rest",
+    "operation": "approval.task.get",
+    "requestId": "req-fixture-001",
+    "traceId": "trace-fixture-001",
+    "bindingId": "binding-fixture-001",
+    "authenticationContextId": "authctx-fixture-001",
+    "outcome": "failed",
+    "reasonCode": "adapter_timeout",
+    "occurredAtEpochSeconds": 1784811601
+  },
+  "expectations": {
+    "contentDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36",
+    "publicValues": {
+      "adapter.mode": "diagnostic-only",
+      "credential.reference": "fixture-credential-ref"
+    },
+    "sensitiveReferences": {
+      "authorization.header": "sensitive:fixture-sdk-config:authorization.header:783899849d52ef26",
+      "oauth.clientSecret": "sensitive:fixture-sdk-config:oauth.clientSecret:d1205f5acc4567bb"
+    },
+    "safeDiagnostic": {
+      "contractVersion": "1",
+      "code": "adapter.binding.failed",
+      "severity": "error",
+      "message": "binding failed using [REDACTED]",
+      "context": {
+        "authorization.header": "[REDACTED]",
+        "detail": "retry with [REDACTED]",
+        "endpointId": "fixture-generic-rest"
+      },
+      "redactionCount": 3,
+      "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36"
+    },
+    "auditProvenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36",
+    "sinkCount": 1
+  }
+}
