@@ -182,8 +182,8 @@ export class InMemoryNonceReplayGuard implements NonceReplayGuard {
   private readonly reservations = new Map<string, number>();
 
   reserve(keyReference: string, nonce: string, expiresAt: number, now: number): boolean {
-    for (const [key, expiry] of this.reservations) if (expiry <= now) this.reservations.delete(key);
-    const key = `${keyReference}:${nonce}`;
+    for (const [key, expiry] of this.reservations) if (expiry < now) this.reservations.delete(key);
+    const key = JSON.stringify([keyReference, nonce]);
     if (this.reservations.has(key)) return false;
     this.reservations.set(key, expiresAt);
     return true;
@@ -274,7 +274,18 @@ function optionalString(value: unknown, field: string): void {
 }
 function requireInstant(value: unknown, field: string): string {
   const string = requireString(value, field);
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(string) || Number.isNaN(Date.parse(string))) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z$/.exec(string);
+  const parsed = Date.parse(string);
+  if (!match || Number.isNaN(parsed)) throw new TypeError(`${field} must be an RFC 3339 UTC instant`);
+  const instant = new Date(parsed);
+  if (
+    instant.getUTCFullYear() !== Number(match[1])
+    || instant.getUTCMonth() + 1 !== Number(match[2])
+    || instant.getUTCDate() !== Number(match[3])
+    || instant.getUTCHours() !== Number(match[4])
+    || instant.getUTCMinutes() !== Number(match[5])
+    || instant.getUTCSeconds() !== Number(match[6])
+  ) {
     throw new TypeError(`${field} must be an RFC 3339 UTC instant`);
   }
   return string;
