@@ -18,8 +18,6 @@
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-definition-compiler</artifactId><version>${revision}</version></dependency>
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-engine-spi</artifactId><version>${revision}</version></dependency>
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-spi</artifactId><version>${revision}</version></dependency>
-        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-ai-spi</artifactId><version>${revision}</version></dependency>
-        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-ai-core</artifactId><version>${revision}</version></dependency>
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-dingtalk</artifactId><version>${revision}</version></dependency>
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-credential-core</artifactId><version>${revision}</version></dependency>
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-routing-core</artifactId><version>${revision}</version></dependency>
