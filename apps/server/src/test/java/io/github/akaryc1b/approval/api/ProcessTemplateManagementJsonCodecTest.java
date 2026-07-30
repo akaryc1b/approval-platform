@@ -14,9 +14,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
+import static io.github.akaryc1b.approval.application.ProcessTemplateContracts.MAX_PACKAGE_BYTES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProcessTemplateManagementJsonCodecTest {
 
@@ -109,6 +111,40 @@ class ProcessTemplateManagementJsonCodecTest {
             () -> codec.decodePreview(mapper.writeValueAsBytes(root), "tenant-a"));
     }
 
+    @Test
+    void rawTemplatePackageBytesArePreservedBeforeNormalization() throws Exception {
+        String packageJson = mapper.writeValueAsString(templatePackage);
+        String paddedPackage = "{" + " ".repeat(1024) + packageJson.substring(1);
+        byte[] body = previewBody(paddedPackage).getBytes(StandardCharsets.UTF_8);
+
+        var decoded = codec.decodePreview(body, "tenant-a");
+
+        assertEquals(
+            paddedPackage.getBytes(StandardCharsets.UTF_8).length,
+            decoded.packageBytes()
+        );
+        assertTrue(decoded.packageBytes() > mapper.writeValueAsBytes(templatePackage).length);
+    }
+
+    @Test
+    void oversizedRawTemplatePackageIsRejectedBeforeNormalization() throws Exception {
+        String packageJson = mapper.writeValueAsString(templatePackage);
+        String paddedPackage = "{" + " ".repeat(MAX_PACKAGE_BYTES)
+            + packageJson.substring(1);
+        byte[] body = previewBody(paddedPackage).getBytes(StandardCharsets.UTF_8);
+
+        ProcessTemplateException.PackageTooLarge failure = assertThrows(
+            ProcessTemplateException.PackageTooLarge.class,
+            () -> codec.decodePreview(body, "tenant-a")
+        );
+
+        assertEquals(
+            "template package bytes exceed " + MAX_PACKAGE_BYTES,
+            failure.getMessage()
+        );
+        assertTrue(body.length < ProcessTemplateManagementJsonCodec.MAX_REQUEST_BYTES);
+    }
+
     private ObjectNode previewRoot() {
         ObjectNode root = mapper.createObjectNode();
         root.set("templatePackage", templatePackage);
@@ -122,5 +158,17 @@ class ProcessTemplateManagementJsonCodecTest {
         formPackage.put("targetResourceKey", "expenseImported");
         formPackage.put("targetVersion", 3);
         return root;
+    }
+
+    private static String previewBody(String packageJson) {
+        return "{\"templatePackage\":" + packageJson
+            + ",\"targetDefinitionKey\":\"expenseImported\""
+            + ",\"targetDefinitionVersion\":5"
+            + ",\"targetDraftName\":\"Imported expense\""
+            + ",\"bindings\":[{"
+            + "\"kind\":\"FORM_PACKAGE\","
+            + "\"sourceKey\":\"source-form\","
+            + "\"targetResourceKey\":\"expenseImported\","
+            + "\"targetVersion\":3}]}";
     }
 }
