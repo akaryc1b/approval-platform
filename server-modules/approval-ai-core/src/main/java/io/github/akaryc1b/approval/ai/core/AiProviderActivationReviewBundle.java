@@ -141,16 +141,33 @@ public record AiProviderActivationReviewBundle(
     }
 
     public record ReviewerApproval(
-        String reviewerId,
+        String reviewerEvidenceHash,
         Role role,
         Decision decision,
         String evidenceHash
     ) {
         public ReviewerApproval {
-            reviewerId = requireText(reviewerId, "reviewerId", 160);
+            reviewerEvidenceHash = requireSha256(
+                reviewerEvidenceHash,
+                "reviewerEvidenceHash"
+            );
             role = Objects.requireNonNull(role, "role must not be null");
             decision = Objects.requireNonNull(decision, "decision must not be null");
             evidenceHash = requireSha256(evidenceHash, "evidenceHash");
+        }
+
+        public static ReviewerApproval create(
+            String reviewerId,
+            Role role,
+            Decision decision,
+            String evidenceHash
+        ) {
+            return new ReviewerApproval(
+                hash("reviewer", requireText(reviewerId, "reviewerId", 160)),
+                role,
+                decision,
+                evidenceHash
+            );
         }
     }
 
@@ -186,7 +203,7 @@ public record AiProviderActivationReviewBundle(
             if (approval.decision() != Decision.APPROVED) {
                 return false;
             }
-            reviewers.add(approval.reviewerId());
+            reviewers.add(approval.reviewerEvidenceHash());
             roles.add(approval.role());
         }
         return reviewers.size() >= 2 && roles.size() >= 2;
@@ -221,12 +238,17 @@ public record AiProviderActivationReviewBundle(
             requireSha256(killSwitchEvidenceHash, "killSwitchEvidenceHash"),
             status.name(),
             approvals.stream()
-                .sorted(java.util.Comparator.comparing(ReviewerApproval::reviewerId))
-                .map(value -> value.reviewerId() + ':' + value.role().name() + ':'
+                .sorted(java.util.Comparator.comparing(ReviewerApproval::reviewerEvidenceHash))
+                .map(value -> value.reviewerEvidenceHash() + ':' + value.role().name() + ':'
                     + value.decision().name() + ':' + value.evidenceHash())
                 .toList()
                 .toString()
         );
+        return hash(canonical);
+    }
+
+    private static String hash(String... values) {
+        String canonical = String.join("|", values);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(
