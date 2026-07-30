@@ -80,7 +80,7 @@ test('two-person activation review remains hash-only and non-authorizing', () =>
   assert.match(review, /two distinct approved reviewers and roles/);
   assert.match(review, /REVIEW_COMPLETE/);
   assert.match(review, /reviewerEvidenceHash/);
-  assert.match(review, /ReviewerApproval\.create/);
+  assert.match(review, /static ReviewerApproval create/);
   assert.doesNotMatch(review, /\bString\s+reviewerId\b/);
   assert.match(review, /activation review cannot authorize execution/);
   assert.match(review, /cannot authorize production enablement/);
