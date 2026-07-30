@@ -328,25 +328,11 @@ public final class AiAdvisoryCoordinator {
         AiCapability capability,
         AiCoordinatedAdvisoryOutcome coordinated
     ) {
-        AiProviderRoute route = coordinated.selectedRoute();
-        evidenceSink.record(new AiAdvisoryExecutionEvidence(
-            context.requestId(),
-            context.traceId(),
-            context.tenantId(),
-            context.operatorId(),
-            resource.resourceType().name(),
-            resource.resourceId(),
-            resource.authorizationReference(),
+        evidenceSink.record(AiAdvisoryExecutionEvidence.create(
+            context,
+            resource,
             capability,
-            route == null ? null : route.routeId(),
-            route == null ? null : route.versions(),
-            coordinated.outcome().classification(),
-            coordinated.usageEvidence(),
-            coordinated.circuitStateBefore(),
-            coordinated.circuitStateAfter(),
-            coordinated.skippedCandidates(),
-            coordinated.providerInvocationStarted(),
-            coordinated.postInvocationFallbackAttempted()
+            coordinated
         ));
     }
 
