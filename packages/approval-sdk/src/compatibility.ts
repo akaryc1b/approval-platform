@@ -63,7 +63,7 @@ export interface SemanticVersion {
 }
 
 const SEMANTIC_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-const UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
+const UTC_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z$/;
 
 export function parseSemanticVersion(value: string): SemanticVersion {
   requireString(value, 'semantic version');
@@ -229,9 +229,20 @@ function requireString(value: unknown, field: string): asserts value is string {
 
 function parseUtcInstant(value: string, field: string): number {
   requireString(value, field);
-  if (!UTC_INSTANT.test(value)) throw new TypeError(`${field} must be an RFC 3339 UTC instant`);
+  const match = UTC_INSTANT.exec(value);
   const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) throw new TypeError(`${field} must be an RFC 3339 UTC instant`);
+  if (!match || !Number.isFinite(parsed)) throw new TypeError(`${field} must be an RFC 3339 UTC instant`);
+  const instant = new Date(parsed);
+  if (
+    instant.getUTCFullYear() !== Number(match[1])
+    || instant.getUTCMonth() + 1 !== Number(match[2])
+    || instant.getUTCDate() !== Number(match[3])
+    || instant.getUTCHours() !== Number(match[4])
+    || instant.getUTCMinutes() !== Number(match[5])
+    || instant.getUTCSeconds() !== Number(match[6])
+  ) {
+    throw new TypeError(`${field} must be an RFC 3339 UTC instant`);
+  }
   return parsed;
 }
 
