@@ -18,6 +18,8 @@
         <module>approval-definition-compiler</module>
         <module>approval-engine-spi</module>
         <module>approval-connector-spi</module>
+        <module>approval-ai-spi</module>
+        <module>approval-ai-core</module>
         <module>approval-connector-dingtalk</module>
         <module>approval-connector-credential-core</module>
         <module>approval-connector-routing-core</module>
