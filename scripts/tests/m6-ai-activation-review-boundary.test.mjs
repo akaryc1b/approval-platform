@@ -74,11 +74,14 @@ test('kill switch and activation lease cannot grant execution authority', () => 
   assert.match(lease, /cannot authorize production enablement/);
 });
 
-test('two-person activation review remains non-authorizing', () => {
+test('two-person activation review remains hash-only and non-authorizing', () => {
   const review = source(coreRoot, 'AiProviderActivationReviewBundle');
 
   assert.match(review, /two distinct approved reviewers and roles/);
   assert.match(review, /REVIEW_COMPLETE/);
+  assert.match(review, /reviewerEvidenceHash/);
+  assert.match(review, /ReviewerApproval\.create/);
+  assert.doesNotMatch(review, /\bString\s+reviewerId\b/);
   assert.match(review, /activation review cannot authorize execution/);
   assert.match(review, /cannot authorize production enablement/);
   assert.doesNotMatch(review, /\.advise\s*\(/);
