@@ -68,6 +68,55 @@ jobs:
             >m4-release-governance-boundary.log 2>&1 \
             || { cat m4-release-governance-boundary.log; exit 1; }
           cat m4-release-governance-boundary.log
+      - name: Verify M5 migration capability boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m5-migration-boundary.test.mjs \
+            >m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-migration-parallel-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-migration-history-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d3-engine-execution-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d4-exact-verification-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d5-runtime-binding-cas-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d6-durable-unknown-reconciliation-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d7-canary-orchestration-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d8-plan-aggregation-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-e1-operations-visibility-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-f1-fault-security-observability-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-e2-advanced-diagnostics-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-f2-deep-hardening-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-g1-production-readiness-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-g2-final-acceptance-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          cat m5-migration-boundary.log
       - name: Verify M6 AI foundation boundaries
         shell: bash
         run: |
@@ -97,6 +146,7 @@ jobs:
           path: |
             m4-sla-calendar-boundary.log
             m4-release-governance-boundary.log
+            m5-migration-boundary.log
             m6-ai-foundation-boundary.log
             m6-ai-activation-review-boundary.log
             m6-ai-transport-review-boundary.log
