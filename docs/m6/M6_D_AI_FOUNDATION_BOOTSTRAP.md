@@ -1,6 +1,6 @@
-# M6-D AI Foundation — External References and Offline Deployment Readiness
+# M6-D AI Foundation — Rebaselined Safe-Slice Overview
 
-Status: `FIFTH_SAFE_SLICE_IMPLEMENTED`
+Status: `SEVENTH_SAFE_SLICE_IMPLEMENTED_REBASELINED`
 
 Tracking:
 
@@ -9,449 +9,179 @@ Tracking:
 - branch: `agent/m6-d-ai-foundation`
 - Draft PR: #70
 - target branch: `main`
-- implementation baseline `main`: `d769722cf7dd5418739a91ad4c45ca1a1c147502`
-- Flyway remains V1–V32
-- automatic PR/main validation remains `.github/workflows/approval-platform-validation.yml`
+- original implementation baseline `main`: `d769722cf7dd5418739a91ad4c45ca1a1c147502`
+- original implementation head: `9d588215e869c8f1332c0bc1a2809fbd235c2efa`
+- formal rebaseline `main`: `735e41526371ea481b31af377e3410d085160f7e`
+- controlled synchronization Merge Commit: `c0078be9669c4936edb73f3c195f75fc0f6bc9e8`
+- current-main Flyway set: `V2` through `V37`, plus `V39` through `V48`
+- M6-D adds no Flyway migration relative to the formal rebaseline
+- the only workflow with automatic `pull_request` or `push` triggers remains `.github/workflows/approval-platform-validation.yml`
+
+This document consolidates the seven previously implemented M6-D safe slices against the current main baseline. The original implementation commits and permanent Runs remain historical evidence; they are not reused as formal-acceptance evidence after rebaseline.
 
 ## Repository boundary
 
-M6-D remains independent from M5 Issue #56 / Draft PR #58. The AI modules remain framework neutral and are not wired to participant endpoints, management endpoints, task completion, process migration, persistence or a production provider adapter.
+M6-D remains provider-neutral, advisory-only, tenant-safe, zero-call for all deployment and activation review paths, and independent from M5 execution. The AI modules are not wired to participant endpoints, management endpoints, task completion, process migration, persistence or a production Provider adapter.
 
-The first two safe slices remain authoritative:
+Every structured result remains:
 
-- provider-neutral advisory SPI and exact failure classifications;
-- server-owned tenant, operator, request, trace and authorized-resource evidence;
-- Form/UI field permission, masking and bounded minimization;
-- structured advisory-only output with complete version lineage;
-- exact provider registry, deterministic server-owned routing, budgets and circuit breaker;
-- no retry or provider fallback after one invocation starts;
-- contract-only audit, usage and low-cardinality metrics evidence;
-- deterministic test-only provider and permanent security boundaries.
+- `ADVISORY`;
+- `UNVERIFIED_ADVISORY`;
+- `needsHumanReview = true`.
 
-Every result remains `ADVISORY`, `UNVERIFIED_ADVISORY` and `needsHumanReview = true`.
+No M6-D type represents a verified approval decision, grants execution authority or produces an approval/process command.
 
-## Third safe slice
+## Safe slice 1 — Provider-neutral advisory SPI
 
-### Metadata-only Prompt registry
+The SPI defines closed Provider, model, capability, request, outcome, cancellation, version and usage contracts without Spring, Flowable, HTTP, JDBC or Provider-specific dependencies.
 
-`AiPromptTemplateDescriptor` authorizes only:
+The production tree contains no real OpenAI, Anthropic, Azure OpenAI, Gemini or other Provider adapter. Deterministic Provider behavior remains test-only.
 
-- exact prompt-template ID;
-- exact version;
-- exact content hash;
-- allowed advisory capabilities;
-- metadata availability classification.
+Provider outcomes are advisory evidence only. Failure, timeout, cancellation, low confidence and unknown results fail closed and require human review.
 
-It contains no Prompt body, message list, instructions or template text. The repository still has no production Prompt resource directory.
+## Safe slice 2 — Server-owned identity and data minimization
 
-Supported availability is limited to:
+Tenant, operator, permission, request and trace identity comes only from server-owned context. Client request data cannot manufacture or override identity, authority, audit, worker, lease or engine identity.
 
-- `METADATA_ONLY`;
-- `TEST_FIXTURE_METADATA`.
+Field permission and tenant isolation execute before Provider mapping. Unauthorized data cannot enter a Provider payload.
 
-Registration of metadata is not equivalent to approval of Prompt content or production use.
+Data minimization and masking execute before mapping. Confidential or restricted fields must be rejected or redacted. Prompt injection controls, bounded field/character limits and stable classifications remain mandatory.
 
-### Knowledge-source metadata boundary
+Audit and metrics evidence stores only bounded classifications, stable codes, hashes, versions and low-cardinality counters. It stores no raw Prompt, business input, Provider request/response, header value, token, API key or credential.
 
-`AiKnowledgeSourceDescriptor` records only exact source identity/version/hash, allowed capabilities and a closed source kind.
+## Safe slice 3 — Provenance, artifact registry and offline evaluation
 
-The M6-D constructor rejects:
+Advisory evidence binds exact:
 
-- `containsCustomerData = true`;
-- `retrievalEnabled = true`;
-- a `NONE` kind that does not match the exact `none` version;
-- non-`NONE` metadata represented as the `none` version.
+- Provider identity, type and capability;
+- model version;
+- Prompt metadata version and hash;
+- knowledge-source metadata version and hash;
+- policy version and hash;
+- output-schema version;
+- request/envelope and canonical payload hashes;
+- audit evidence hash.
 
-No retrieval implementation, embedding, document content, vector store or customer data is added.
+`AiPromptTemplateDescriptor` contains metadata only and no Prompt body, message list or instructions.
 
-### Policy and output-schema metadata
+`AiKnowledgeSourceDescriptor` rejects customer data and retrieval enablement. No RAG, embeddings, vector store or customer knowledge source exists.
 
-`AiPolicyDescriptor` requires:
+`AiPolicyDescriptor` requires human review, rejects authoritative decisions and prohibits post-invocation retry. `AiOutputSchemaDescriptor` requires advisory-only output.
 
-- exact policy ID/version/hash;
-- allowed advisory capabilities;
-- `humanReviewRequired = true`;
-- `authoritativeDecisionAllowed = false`;
-- `postInvocationRetryAllowed = false`.
+`AiEvaluationRunner` consumes already-produced fixture observations. It performs no Provider invocation and cannot authorize production or approval automation.
 
-`AiOutputSchemaDescriptor` requires:
+## Safe slice 4 — Deterministic routing and immutable configuration
 
-- exact output schema ID/version;
-- allowed advisory capabilities;
-- advisory-only output;
-- mandatory human review;
-- the foundation sections for summary, confidence, limitations, version provenance and human-review evidence.
+Provider routing is deterministic and server-owned. Invocation budgets, timeout and cancellation semantics are bounded.
 
-Neither descriptor can authorize approval automation or authority escalation.
+At most one Provider may be invoked for a request. Pre-invocation candidate selection is distinct from fallback after invocation. Post-invocation fallback and unsafe retry are prohibited.
 
-### Exact artifact authorization
+Circuit Breaker state is operational evidence only and never an authority source.
 
-`AiAdvisoryArtifactRegistry` indexes exact:
+`AiAdvisoryConfigurationSnapshot` is immutable and hash-bound. It contains no endpoint, credential, Secret, API key, Prompt body or customer data. Its stage remains `DRY_RUN_ONLY`.
 
-- prompt-template metadata;
-- knowledge-source metadata;
-- policy metadata;
-- output-schema metadata.
+Startup preflight validates exact configuration, policy, Provider and artifact metadata without invoking a Provider. Dry-run assembly is zero-call and non-authorizing.
 
-It rejects duplicate exact registrations.
+## Safe slice 5 — External references and offline deployment readiness
 
-A route is authorized only when all four exact version references exist and each descriptor allows the requested capability. Missing or mismatched metadata fails closed before a route can match a Provider.
+`AiExternalSecretReference` stores external reference metadata only. It contains no Secret material and cannot authorize runtime Secret resolution or Provider invocation.
 
-The public `AiProviderRegistry` constructor now requires an artifact registry. Its route match includes exact artifact authorization.
+Endpoint and egress descriptors are metadata-only. They require exact HTTPS/public-DNS/port/path constraints, reject redirects and private-address authority, and do not perform DNS, TLS or network operations.
 
-A package-private compatibility constructor exists only for deterministic test providers. It rejects every non-`DETERMINISTIC_MOCK` provider type. Permanent boundaries continue to prove that deterministic mocks do not exist in production source.
+Protocol-validation SPIs are structural and zero-call. No production validator implementation exists.
 
-### Offline evaluation protocol
+`AiProviderDeploymentSnapshot` is immutable, hash-bound and permanently `FAULT_DRILL_ONLY`. Deployment readiness consumes metadata and fixture evidence only. `READY_FOR_FAULT_DRILL` does not mean production-ready or active.
 
-The third slice adds metadata-only evaluation contracts:
+Failure drills compare precomputed observations. Deployment change sets are non-applying and require human review for changes.
 
-- `AiEvaluationCase`;
-- `AiEvaluationSuite`;
-- `AiEvaluationObservation`;
-- `AiEvaluationReport`;
-- `AiEvaluationRunner`.
+## Safe slice 6 — Runtime trust and non-executable activation review
 
-Evaluation cases bind:
+`AiExternalSecretResolver` exposes metadata inspection rather than Secret retrieval. The deterministic resolver remains test-only.
 
-- bounded case ID;
-- capability;
-- exact Provider/model/Prompt/knowledge/policy/output versions;
-- expected result classifications;
-- criticality;
-- whether one Provider invocation is required;
-- minimum confidence;
-- minimum evidence-reference count;
-- maximum observed platform latency.
+DNS and TLS evidence is precomputed. No lookup, handshake, socket, certificate material or raw address is produced by M6-D.
 
-Observations contain only:
+Kill Switch states remain `DISABLED` or `FAULT_DRILL_ONLY`. Activation lease states cannot grant authority.
 
-- case ID;
-- bounded fixture hash;
-- an already-produced coordinated outcome.
+Two-person review requires distinct approved reviewers and roles. `REVIEW_COMPLETE` is review evidence only.
 
-The evaluator is pure and offline. It has no Provider call site, no secret access and no network dependency.
+`AiProviderActivationPlan` remains permanently `NON_EXECUTABLE_REVIEW_ONLY`. It cannot grant a lease, resolve a Secret, access a network, invoke a Provider, apply a change, enable production or authorize approval automation.
 
-### Evaluation gate semantics
+See `M6_D_RUNTIME_TRUST_ACTIVATION_REVIEW.md` for the detailed contract inventory.
 
-A case fails when evidence shows:
+## Safe slice 7 — Offline Provider transport review
 
-- a missing observation;
-- a post-invocation fallback attempt;
-- an invocation/no-invocation mismatch;
-- selected-route or result version mismatch;
-- unexpected classification;
-- platform latency over the case limit;
-- non-advisory authority;
-- missing human review;
-- confidence below the gate;
-- evidence references below the gate;
-- missing structured result when one is required.
+Transport mapping contracts contain exact Provider/capability/endpoint/profile identity, hashes, byte/field counts, timeout and cancellation metadata only. They contain no raw request body, response body, header value or Secret material.
 
-The report contains only bounded classifications and hashes, not Prompt or model-response content.
+Canonical payload evidence stores JSON pointer, value type, SHA-256 hash, byte count, classification and redaction evidence. It stores no raw field value.
 
-The report hash is deterministic over:
+Signing-input evidence stores hashes and safe header names only. It computes no signature and rejects sensitive header names such as `authorization`, `cookie`, `proxy-authorization` and `x-api-key`.
 
-- suite ID/version and allowed failure count;
-- sorted case expectations;
-- exact version references;
-- sorted case results;
-- fixture hashes;
-- classifications and failure codes.
+Transport lifecycle evaluation consumes precomputed fixture observations and fails closed for cancellation, timeout, mapping rejection, malformed JSON, schema drift, unknown fields, oversized/empty body evidence, connection error and unknown response.
 
-### Non-authorizing report
+Transport audit evidence is hash-only and redaction-safe. The acceptance checklist remains permanently `NON_EXECUTABLE_TRANSPORT_ACCEPTANCE`.
 
-Even a passing report can only state that the M6-D foundation evaluation passed.
+See `M6_D_PROVIDER_TRANSPORT_REVIEW.md` for the detailed contract inventory.
 
-`AiEvaluationReport` permanently requires:
+## Deterministic evidence and reproducibility
 
-- `productionEnablementAuthorized = false`;
-- `approvalAutomationAuthorized = false`.
+Configuration, deployment, route, payload, request, envelope, lifecycle, audit, review and checklist evidence uses canonical, deterministic hashing over bounded metadata.
 
-The constructor rejects either flag being true.
+Equivalent input and version metadata must produce identical evidence. Hash mismatch, identity mismatch, missing registration, unknown classification or authority escalation fails closed.
 
-A passing offline suite does not authorize:
+The permanent Node boundaries continue to prove:
 
-- production Provider configuration;
-- network egress;
-- production Prompt activation;
-- customer knowledge retrieval;
-- participant or management API exposure;
-- an approval-state command;
-- M6-E or M6-F behavior.
+- production AI code has no network client, credentials, Provider adapter or Prompt asset;
+- AI code has no persistence dependency;
+- AI contracts cannot execute approval or migration commands;
+- routing invokes at most one Provider and prohibits post-invocation fallback;
+- artifact and evaluation metadata cannot contain Prompt content or authorize production;
+- preflight and dry-run remain zero-call;
+- deployment, external-reference and failure-drill paths remain zero-call;
+- activation review and transport review remain non-executable;
+- deterministic implementations remain test-only;
+- only the established permanent validation workflow is automatic;
+- M6-D adds or modifies no Flyway migration relative to current main;
+- M5 migration, runtime-binding and frozen governance boundaries remain untouched.
 
-## Fourth safe slice
+## Historical validation retained
 
-### Immutable server configuration snapshot
+The pre-rebaseline implementation head `9d588215e869c8f1332c0bc1a2809fbd235c2efa` was permanently validated by Run `30067321892` / #511. That Run remains historical evidence only and is not accepted for the rebaselined or documented Head.
 
-`AiAdvisoryConfigurationSnapshot` captures only server-owned metadata and policy:
-
-- bounded snapshot identity and version;
-- deterministic declared SHA-256 content hash;
-- exact routing policy and ordered route semantics;
-- exact data-minimization policies keyed by policy version;
-- permanent `DRY_RUN_ONLY` stage;
-- `productionEnablementAuthorized = false`;
-- `approvalAutomationAuthorized = false`.
-
-The snapshot contains no credential, endpoint, Provider secret, Prompt body, customer knowledge, network client or runtime activation switch. Its constructor rejects both production-enablement and approval-automation authority.
-
-### Deterministic configuration hash
-
-The content hash is computed over canonical, length-prefixed metadata:
-
-- snapshot identity and version;
-- routing enablement and fallback flags;
-- routes sorted by route ID;
-- route priority, capabilities, exact Provider/model/Prompt/knowledge/policy/output versions and invocation budgets;
-- data policies sorted by exact policy identity;
-- field rules sorted by field key;
-- all input limits and Prompt-injection blocking state.
-
-Map, Set and route input order do not change the hash when the effective configuration is identical. A declared/computed mismatch remains representable as evidence so startup preflight can fail closed instead of silently normalizing tampered configuration.
-
-### Startup preflight
-
-`AiAdvisoryStartupPreflight` inspects one snapshot without calling a Provider. Every enabled route must resolve:
-
-- the exact data-minimization policy;
-- the exact Provider version;
-- the exact model and capability descriptor;
-- the exact Prompt, knowledge, policy and output-schema metadata bundle;
-- the route budget allowed by the Provider descriptor.
-
-A snapshot is `READY_FOR_DRY_RUN` only when the declared hash matches and every enabled route is fully authorized. Missing Provider, policy or artifact metadata, version mismatch, descriptor mismatch, or a snapshot with no ready route produces `BLOCKED`. A disabled routing snapshot produces `DISABLED` and remains non-authorizing.
-
-`AiAdvisoryPreflightReport` contains bounded route checks and issue codes only. It permanently rejects:
-
-- `providerInvocationAttempted = true`;
-- `productionEnablementAuthorized = true`;
-- `approvalAutomationAuthorized = true`.
-
-### Zero-call dry-run assembly
-
-`AiAdvisoryDryRunAssembler` accepts only a matching snapshot and preflight report. It creates deterministic per-capability plans containing:
-
-- the advisory capability;
-- the primary route selected by priority and stable route ID;
-- the ordered pre-invocation candidate route IDs.
-
-It does not receive Provider instances or a Provider registry and has no `.advise(...)` call site. A blocked or mismatched preflight cannot produce a ready plan.
-
-`AiAdvisoryDryRunReport` permanently rejects Provider invocation, production enablement and approval automation. A `READY` dry run proves configuration assembly consistency only; it does not activate a Provider, Prompt, customer knowledge source, API surface or process command.
-
-## Fifth safe slice
-
-### External secret reference metadata
-
-`AiExternalSecretReference` represents only an external reference identity, version, store kind, exact Provider version, purpose and rotation state. It has no secret value, token, password, private key or client-secret field.
-
-The constructor rejects:
-
-- inline secret material;
-- runtime secret-resolution authority;
-- an empty or unbounded purpose set.
-
-Supported store kinds are closed metadata values:
-
-- `EXTERNAL_SECRET_MANAGER`;
-- `KMS_WRAPPED_REFERENCE`;
-- `PLATFORM_SECRET_REFERENCE`.
-
-A reference can be `CURRENT`, `ROTATION_DUE`, `EXPIRED` or `REVOKED`. Deployment readiness requires `CURRENT`, but M6-D never resolves the referenced material.
-
-### Exact endpoint and egress allowlist metadata
-
-`AiProviderEndpointDescriptor` accepts only exact HTTPS metadata with:
-
-- a public DNS host name;
-- port `443`;
-- a bounded exact base-path prefix;
-- mandatory TLS;
-- redirects disabled;
-- private-address authorization disabled.
-
-Wildcards, localhost, IP literals, private-name suffixes, user information, query/fragment components, unsafe path traversal and encoded separator forms are rejected without DNS or network access.
-
-`AiProviderEgressPolicy` binds a deterministic SHA-256 hash to an exact set of endpoint descriptors. It requires DNS-rebinding protection and certificate validation metadata, rejects proxy bypass, and permanently sets `networkEgressAuthorized = false`.
-
-### Provider protocol-validation SPI
-
-The framework-neutral SPI adds:
-
-- `AiProviderProtocolValidator`;
-- `AiProviderProtocolProfile`;
-- `AiProviderProtocolValidationRequest`;
-- `AiProviderProtocolValidationResult`.
-
-Profiles bind exact Provider version, capability set, request/response schema hashes, payload-size limits and mandatory structured-output behavior. Unknown response fields must be rejected.
-
-Validation requests carry only version, capability, endpoint-policy identity and size evidence. They contain no Prompt, business input, model response or secret.
-
-Validation results are closed as `VALID`, `INVALID`, `UNSUPPORTED` or `UNKNOWN`. Neither requests nor results can record Provider invocation, secret resolution, network access, production enablement or approval automation.
-
-`AiProviderProtocolValidatorRegistry` performs exact profile-key registration. There is no production validator implementation; the deterministic implementation remains under test source only.
-
-### Deployment snapshot and readiness gate
-
-`AiProviderDeploymentSnapshot` is separate from `AiAdvisoryConfigurationSnapshot`, preserving the earlier rule that the advisory snapshot contains no endpoint or secret field. The deployment snapshot contains only:
-
-- deterministic snapshot identity/version/hash;
-- the exact advisory-configuration hash;
-- Provider-version deployment bindings;
-- endpoint and egress metadata;
-- external secret references;
-- protocol-validation profiles;
-- permanent `FAULT_DRILL_ONLY` stage.
-
-It permanently rejects Provider invocation, secret resolution, network egress, production enablement and approval automation.
-
-`AiProviderDeploymentReadinessGate` consumes a successful advisory preflight and validates deployment metadata without a Provider registry, secret resolver or network client. Every enabled route must resolve:
-
-- the exact deployment binding;
-- exact HTTPS endpoint metadata;
-- an exact valid egress-policy hash and allowlist entry;
-- at least one current Provider-authentication secret reference;
-- an exact protocol profile and exact registered structural validator;
-- `VALID` protocol-validation evidence.
-
-The closed readiness statuses are:
-
-- `READY_FOR_FAULT_DRILL`;
-- `DISABLED`;
-- `BLOCKED`.
-
-Fault classifications distinguish advisory/deployment hash mismatches, missing bindings, endpoint/egress failures, secret-reference failures, validator/profile failures and no-ready-route outcomes. Reports permanently prove zero Provider calls, zero secret resolutions and zero network calls.
-
-### Offline failure-drill protocol
-
-The fifth slice adds:
-
-- `AiProviderFailureDrillCase`;
-- `AiProviderFailureDrillObservation`;
-- `AiProviderFailureDrillReport`;
-- `AiProviderFailureDrillRunner`.
-
-The runner compares expected fail-closed startup faults with already-produced readiness reports. It has no Provider, resolver or network dependency. Report hashes are deterministic over sorted expectations, fixture hashes and bounded result codes.
-
-Even a passing fault-drill report cannot authorize Provider activation, production use or approval automation. Missing or mismatched observations fail the drill.
-
-### Configuration change-risk contract
-
-`AiProviderDeploymentChangeSet` compares two immutable deployment snapshots and produces deterministic, non-applying change evidence. Closed change types cover:
-
-- advisory-configuration changes;
-- Provider binding additions/removals;
-- endpoint and egress selection or metadata changes;
-- secret-reference set, rotation and metadata changes;
-- validation-profile selection, schema and limit changes;
-- operational-stage changes;
-- invalid source or target snapshot hashes.
-
-Risk is classified as `NONE`, `LOW`, `MEDIUM`, `HIGH` or `CRITICAL`. Any non-empty change set requires human approval. The contract permanently rejects `applyAuthorized`, production enablement and approval automation.
-
-## Evaluation coverage
-
-The third slice adds deterministic tests for:
-
-- exact artifact-bundle authorization;
-- unknown prompt version rejection;
-- customer knowledge rejection;
-- knowledge retrieval rejection;
-- policy human-review enforcement;
-- policy authority-escalation rejection;
-- output-schema advisory enforcement;
-- duplicate artifact registration rejection;
-- Provider route matching with complete artifact metadata;
-- Provider route mismatch with missing artifact metadata;
-- passing foundation evaluation;
-- missing critical observation;
-- unexpected classification;
-- deterministic report hash;
-- fixture hash affecting the report hash;
-- production and automation authorization remaining false.
-
-The fourth slice adds deterministic tests for:
-
-- stable snapshot hashing across equivalent route and policy ordering;
-- tampered declared-hash detection;
-- permanent dry-run-only stage;
-- configuration authority flags rejected;
-- exact complete startup preflight;
-- missing data policy and Prompt metadata rejection;
-- missing Provider rejection;
-- disabled routing safety;
-- deterministic primary/fallback route planning;
-- zero Provider invocations during preflight and dry run;
-- blocked preflight never producing a ready dry run;
-- dry-run invocation and authority flags rejected.
-
-The fifth slice adds deterministic tests for:
-
-- stable deployment snapshot hashing across Map/Set ordering;
-- tampered deployment-hash detection;
-- HTTPS/public-DNS/port/path restrictions;
-- inline secret and network-egress authority rejection;
-- complete zero-call deployment readiness;
-- expired secret, endpoint allowlist and missing-validator blocking;
-- invalid protocol evidence blocking;
-- deterministic passing and failing startup fault drills;
-- non-authorizing fault-drill reports;
-- identical deployment diff behavior;
-- endpoint, secret-rotation and validation-schema risk detection;
-- mandatory human approval and permanent no-apply semantics.
-
-The permanent Node boundary additionally proves:
-
-- Prompt metadata classes contain no Prompt body or instructions field;
-- knowledge retrieval and customer data remain prohibited;
-- policy and output descriptors retain advisory/human-review constraints;
-- public Provider registration includes artifact authorization;
-- offline evaluation has no `.advise(...)` call;
-- startup preflight and dry-run assembly have no `.advise(...)` call;
-- configuration snapshots contain no endpoint, credential or secret field;
-- preflight and dry-run reports cannot authorize production or automation;
-- evaluation reports cannot authorize production or automation;
-- external secret references contain no secret material;
-- endpoint/egress metadata authorizes no network access;
-- protocol validation, deployment readiness and failure drills have no `.advise(...)` call;
-- no production `AiProviderProtocolValidator` implementation exists;
-- deployment/fault-diff reports cannot authorize activation or apply;
-- no second automatic workflow, V33, M5 source or frozen governance change appears.
+Retained historical failures include the Checkstyle, endpoint-trust hash and workflow-directory assumption failures recorded in PR #70. They remain visible and were corrected with append-only commits; no Run or history was deleted.
 
 ## Permanent safety boundary
 
-The combined M6-D slices still contain:
+The combined M6-D work contains:
 
-- no real Provider network call or network client;
-- no production Provider implementation or Spring wiring;
-- no production credential, secret material or API key;
-- no secret resolver, endpoint connector or authorized network egress;
-- no production Prompt content or Prompt resource;
-- no customer knowledge data, retrieval or embeddings;
-- no attachment-content extraction;
-- no database persistence or durable circuit/evaluation/configuration/deployment state;
-- no Flyway `V33`;
-- no approval, rejection, return, transfer, withdrawal, termination or migration command;
+- no real Provider adapter, transport client or network call;
+- no real request/response serialization or parsing;
+- no production protocol validator, transport mapper or Secret resolver;
+- no runtime Secret material, signature computation, DNS lookup or TLS handshake;
+- no production credential, API key, Prompt content or customer knowledge;
+- no attachment extraction, RAG, vector database or embeddings;
+- no database persistence, durable AI state, Outbox, Queue, Worker or Scheduler;
+- no Flyway migration added or modified by M6-D relative to current main;
 - no retry or post-invocation Provider fallback;
-- no production deterministic mock;
+- no granted activation lease, executable activation plan or executable transport acceptance;
+- no participant/management AI endpoint or Web/Mobile AI page;
+- no approve, reject, return, transfer, withdraw, terminate or migrate command path;
 - no second automatic workflow;
-- no M5 migration, runtime-binding or frozen M3/M4 governance modification.
+- no modification to M5 migration/runtime binding, M6-A connector invocation, M6-B event delivery or M6-C Draft-only template/component semantics;
+- no M6-E or M6-F behavior.
 
-## Still blocked
+## Still blocked / not implemented
 
-This slice does not add:
+M6-D does not implement:
 
-- concrete Provider/model network adapters;
-- production secret management or runtime secret resolution;
-- real endpoint connectivity, DNS resolution or network egress;
-- production Prompt registration or content;
-- customer knowledge retrieval;
-- provider-reported token, latency or cost integration;
-- durable AI audit, evaluation, configuration, deployment or circuit persistence;
-- provider retry/background workers;
-- participant or management AI endpoints;
-- Web or Mobile AI controls;
-- AI-driven approval-state changes;
-- M6-E or M6-F behavior.
+- concrete production Provider/model adapters;
+- runtime request/response serialization or malformed-response handling against a real Provider;
+- production Secret resolution, signing or credential rotation;
+- real DNS/TLS/egress enforcement;
+- production Prompt or customer knowledge registration;
+- durable Provider activation, lease, idempotency or audit persistence;
+- AI summary, risk recommendation or material-check product entry points;
+- participant or management AI APIs;
+- Web/Mobile AI controls;
+- controlled automation or AI-driven approval-state changes.
 
-A production adapter requires a separate accepted gate covering external secret resolution, endpoint and network-egress enforcement, exact model/artifact/configuration/deployment authorization, Provider-specific request/response adapters, certificate and DNS controls, operational disablement, usage verification, startup failure handling and independently reviewed failure drills. Controlled automation remains a later independent gate requiring human confirmation, server-side reauthorization, bounded reason, idempotency, audit and risk acceptance.
+A production Provider gate remains a separate, explicitly reviewed future scope. Controlled automation remains a later independent gate requiring human confirmation, server-side reauthorization, bounded reason, idempotency, audit and risk acceptance. Neither M6-E nor M6-F is started by this rebaseline.
