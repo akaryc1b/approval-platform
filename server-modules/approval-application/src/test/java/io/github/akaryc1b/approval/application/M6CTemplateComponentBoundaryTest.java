@@ -6,6 +6,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -13,14 +17,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class M6CTemplateComponentBoundaryTest {
 
+    private static final int CURRENT_MAIN_FLYWAY_MAX = 48;
+    private static final Pattern VERSIONED_MIGRATION = Pattern.compile(
+        "^V([1-9][0-9]*)__.+\\.sql$"
+    );
+
     @Test
-    void preservesMigrationAndPermanentWorkflowBoundaries() throws IOException {
+    void preservesMigrationContinuityAndPermanentWorkflowBoundaries() throws IOException {
         Path root = repositoryRoot();
         Path migrations = root.resolve(
             "server-modules/approval-persistence-jdbc/src/main/resources/db/migration");
+        List<Integer> actualVersions;
         try (var files = Files.list(migrations)) {
-            assertFalse(files.anyMatch(path -> path.getFileName().toString().startsWith("V33__")));
+            actualVersions = files.filter(Files::isRegularFile)
+                .map(path -> migrationVersion(path.getFileName().toString()))
+                .filter(Objects::nonNull)
+                .sorted()
+                .toList();
         }
+        List<Integer> expectedVersions = IntStream.rangeClosed(1, CURRENT_MAIN_FLYWAY_MAX)
+            .boxed()
+            .toList();
+        assertEquals(expectedVersions, actualVersions);
+
         try (var files = Files.list(root.resolve(".github/workflows"))) {
             List<String> automatic = files.filter(Files::isRegularFile)
                 .filter(M6CTemplateComponentBoundaryTest::runsAutomatically)
@@ -60,6 +79,14 @@ class M6CTemplateComponentBoundaryTest {
         assertTrue(source.contains("RegistryEvidence"));
         assertTrue(source.contains("process-template-tenant-registry-v1"));
         assertTrue(source.contains("process-template-import-plan-v2"));
+    }
+
+    private static Integer migrationVersion(String fileName) {
+        Matcher matcher = VERSIONED_MIGRATION.matcher(fileName);
+        if (!matcher.matches()) {
+            return null;
+        }
+        return Integer.valueOf(matcher.group(1));
     }
 
     private static boolean runsAutomatically(Path workflow) {
