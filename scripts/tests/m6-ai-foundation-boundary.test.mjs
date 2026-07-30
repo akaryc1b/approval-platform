@@ -153,6 +153,41 @@ test('AI routing invokes at most one provider and forbids post-invocation fallba
   }
 });
 
+test('AI audit and execution evidence store controlled hashes instead of raw identities', () => {
+  const auditRecord = text(path.join(
+    root,
+    'server-modules/approval-ai-spi/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/spi/AiAuditRecord.java',
+  ));
+  const executionEvidence = coreSource('AiAdvisoryExecutionEvidence');
+  const advisoryService = coreSource('AiAdvisoryService');
+  const coordinator = coreSource('AiAdvisoryCoordinator');
+
+  for (const evidenceSource of [auditRecord, executionEvidence]) {
+    for (const rawField of [
+      /\bString\s+requestId\b/,
+      /\bString\s+traceId\b/,
+      /\bString\s+tenantId\b/,
+      /\bString\s+operatorId\b/,
+      /\bString\s+resourceId\b/,
+      /\bString\s+authorizationReference\b/,
+      /\bString\s+humanDecisionReference\b/,
+      /\bString\s+routeId\b/,
+    ]) {
+      assert.doesNotMatch(evidenceSource, rawField);
+    }
+    assert.match(evidenceSource, /requestEvidenceHash/);
+    assert.match(evidenceSource, /subjectEvidenceHash/);
+    assert.match(evidenceSource, /resourceEvidenceHash/);
+    assert.match(evidenceSource, /SHA-256/);
+  }
+  assert.match(auditRecord, /auditEvidenceHash/);
+  assert.match(executionEvidence, /routeEvidenceHash/);
+  assert.match(executionEvidence, /evidenceHash/);
+  assert.match(advisoryService, /AiAuditRecord\.create/);
+  assert.match(coordinator, /AiAdvisoryExecutionEvidence\.create/);
+});
+
 test('AI artifact metadata and offline evaluation cannot contain prompts or authorize production', () => {
   const prompt = coreSource('AiPromptTemplateDescriptor');
   const knowledge = coreSource('AiKnowledgeSourceDescriptor');
