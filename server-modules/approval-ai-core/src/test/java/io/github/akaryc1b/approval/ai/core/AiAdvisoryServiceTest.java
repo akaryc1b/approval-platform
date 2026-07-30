@@ -15,12 +15,13 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AiAdvisoryServiceTest {
 
     @Test
-    void deterministicSuccessProducesAdvisoryAuditAndLowCardinalityMetrics() {
+    void deterministicSuccessProducesHashOnlyAuditAndLowCardinalityMetrics() {
         List<AiAuditRecord> audits = new ArrayList<>();
         List<AiAdvisoryMetrics.MetricEvent> metrics = new ArrayList<>();
         DeterministicMockAiProvider provider = provider(
@@ -29,11 +30,12 @@ class AiAdvisoryServiceTest {
             Set.of(AiCapability.APPROVAL_SUMMARY),
             "hiddenSecret"
         );
+        AiProviderRequest request = AiTestFixtures.request();
 
         try (AiAdvisoryService service = service(audits, metrics)) {
             AiProviderOutcome outcome = service.advise(
                 provider,
-                AiTestFixtures.request(),
+                request,
                 AiTestFixtures.policy(true)
             );
 
@@ -46,7 +48,18 @@ class AiAdvisoryServiceTest {
             );
             assertEquals(1, provider.invocations());
             assertEquals(1, audits.size());
-            assertEquals("tenant-a", audits.get(0).tenantId());
+            AiAuditRecord audit = audits.get(0);
+            assertTrue(audit.requestEvidenceHash().matches("[0-9a-f]{64}"));
+            assertTrue(audit.subjectEvidenceHash().matches("[0-9a-f]{64}"));
+            assertTrue(audit.resourceEvidenceHash().matches("[0-9a-f]{64}"));
+            assertTrue(audit.auditEvidenceHash().matches("[0-9a-f]{64}"));
+            assertFalse(audit.toString().contains("tenant-a"));
+            assertFalse(audit.toString().contains("operator-a"));
+            assertFalse(audit.toString().contains("request-a"));
+            assertEquals(
+                AiAuditRecord.create(request, AiOutcomeClassification.SUCCESS),
+                audit
+            );
             assertEquals(1, metrics.size());
             assertEquals(AiCapability.APPROVAL_SUMMARY, metrics.get(0).capability());
         }
