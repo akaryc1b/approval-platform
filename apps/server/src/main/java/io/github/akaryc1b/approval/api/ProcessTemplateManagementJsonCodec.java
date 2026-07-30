@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.api;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,6 +25,7 @@ import java.util.Set;
 import static io.github.akaryc1b.approval.application.ProcessTemplateContracts.MAX_DEPENDENCIES;
 import static io.github.akaryc1b.approval.application.ProcessTemplateContracts.MAX_JSON_DEPTH;
 import static io.github.akaryc1b.approval.application.ProcessTemplateContracts.MAX_JSON_ELEMENTS;
+import static io.github.akaryc1b.approval.application.ProcessTemplateContracts.MAX_PACKAGE_BYTES;
 import static io.github.akaryc1b.approval.application.ProcessTemplateContracts.MAX_STRING_LENGTH;
 
 /** Strict management decoder that never accepts trusted tenant or registry evidence from clients. */
@@ -75,8 +77,8 @@ final class ProcessTemplateManagementJsonCodec {
     }
 
     DecodedPreview decodePreview(byte[] body, String trustedTenantId) {
-        JsonNode root = readRoot(body, PREVIEW_FIELDS);
-        DecodedBase base = decodeBase(root, trustedTenantId);
+        DecodedRoot decodedRoot = readRoot(body, PREVIEW_FIELDS);
+        DecodedBase base = decodeBase(decodedRoot, trustedTenantId);
         return new DecodedPreview(
             base.templatePackage(),
             base.packageBytes(),
@@ -85,8 +87,9 @@ final class ProcessTemplateManagementJsonCodec {
     }
 
     DecodedCreateDraft decodeCreateDraft(byte[] body, String trustedTenantId) {
-        JsonNode root = readRoot(body, CREATE_FIELDS);
-        DecodedBase base = decodeBase(root, trustedTenantId);
+        DecodedRoot decodedRoot = readRoot(body, CREATE_FIELDS);
+        DecodedBase base = decodeBase(decodedRoot, trustedTenantId);
+        JsonNode root = decodedRoot.root();
         return new DecodedCreateDraft(
             base.templatePackage(),
             base.packageBytes(),
@@ -96,11 +99,12 @@ final class ProcessTemplateManagementJsonCodec {
         );
     }
 
-    private DecodedBase decodeBase(JsonNode root, String trustedTenantId) {
+    private DecodedBase decodeBase(DecodedRoot decodedRoot, String trustedTenantId) {
+        JsonNode root = decodedRoot.root();
         JsonNode packageNode = required(root, "templatePackage");
         requireObject(packageNode, "templatePackage");
-        byte[] packageBytes = write(packageNode, "templatePackage");
-        TemplatePackage templatePackage = packageCodec.decode(packageBytes);
+        byte[] normalizedPackage = write(packageNode, "templatePackage");
+        TemplatePackage templatePackage = packageCodec.decode(normalizedPackage);
         PreviewRequest request = new PreviewRequest(
             trustedTenantId,
             text(root, "targetDefinitionKey"),
@@ -108,7 +112,11 @@ final class ProcessTemplateManagementJsonCodec {
             text(root, "targetDraftName"),
             bindings(required(root, "bindings"), trustedTenantId)
         );
-        return new DecodedBase(templatePackage, packageBytes.length, request);
+        return new DecodedBase(
+            templatePackage,
+            decodedRoot.rawTemplatePackageBytes(),
+            request
+        );
     }
 
     private TransferEnvelope decodeEnvelope(JsonNode envelope, PreviewRequest previewRequest) {
@@ -152,7 +160,7 @@ final class ProcessTemplateManagementJsonCodec {
         return List.copyOf(result);
     }
 
-    private JsonNode readRoot(byte[] body, Set<String> fields) {
+    private DecodedRoot readRoot(byte[] body, Set<String> fields) {
         if (body == null || body.length == 0) {
             throw invalid("management import request body must not be empty");
         }
@@ -160,17 +168,49 @@ final class ProcessTemplateManagementJsonCodec {
             throw tooLarge("management import request exceeds the 4 MiB maximum");
         }
         try {
+            int rawTemplatePackageBytes = rawTemplatePackageBytes(body);
             JsonNode root = mapper.readTree(body);
             requireObject(root, "management import request");
             rejectUnknownFields(root, fields, "management import request");
             if (countElements(root, 0) > MAX_JSON_ELEMENTS) {
                 throw tooLarge("management import JSON element count exceeds " + MAX_JSON_ELEMENTS);
             }
-            return root;
+            return new DecodedRoot(root, rawTemplatePackageBytes);
         } catch (ProcessTemplateException exception) {
             throw exception;
         } catch (IOException | RuntimeException exception) {
             throw invalid("management import request is not valid strict JSON");
+        }
+    }
+
+    private int rawTemplatePackageBytes(byte[] body) throws IOException {
+        try (JsonParser parser = mapper.getFactory().createParser(body)) {
+            if (parser.nextToken() != JsonToken.START_OBJECT) {
+                return 0;
+            }
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                if (parser.currentToken() != JsonToken.FIELD_NAME) {
+                    return 0;
+                }
+                String fieldName = parser.currentName();
+                JsonToken valueToken = parser.nextToken();
+                if (valueToken == null) {
+                    return 0;
+                }
+                long start = parser.getTokenLocation().getByteOffset();
+                parser.skipChildren();
+                long end = parser.getCurrentLocation().getByteOffset();
+                if ("templatePackage".equals(fieldName)) {
+                    long rawBytes = Math.max(0L, end - start);
+                    if (rawBytes > MAX_PACKAGE_BYTES) {
+                        throw tooLarge(
+                            "template package bytes exceed " + MAX_PACKAGE_BYTES
+                        );
+                    }
+                    return Math.toIntExact(rawBytes);
+                }
+            }
+            return 0;
         }
     }
 
@@ -294,6 +334,9 @@ final class ProcessTemplateManagementJsonCodec {
         String expectedGovernedPreviewHash,
         TransferEnvelope artifactEnvelope
     ) {
+    }
+
+    private record DecodedRoot(JsonNode root, int rawTemplatePackageBytes) {
     }
 
     private record DecodedBase(
