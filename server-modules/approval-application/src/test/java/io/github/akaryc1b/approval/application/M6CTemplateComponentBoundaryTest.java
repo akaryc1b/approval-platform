@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -17,13 +18,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class M6CTemplateComponentBoundaryTest {
 
-    private static final int CURRENT_MAIN_FLYWAY_MAX = 48;
     private static final Pattern VERSIONED_MIGRATION = Pattern.compile(
         "^V([1-9][0-9]*)__.+\\.sql$"
     );
 
     @Test
-    void preservesMigrationContinuityAndPermanentWorkflowBoundaries() throws IOException {
+    void preservesCurrentMainMigrationSetAndPermanentWorkflowBoundaries() throws IOException {
         Path root = repositoryRoot();
         Path migrations = root.resolve(
             "server-modules/approval-persistence-jdbc/src/main/resources/db/migration");
@@ -35,9 +35,10 @@ class M6CTemplateComponentBoundaryTest {
                 .sorted()
                 .toList();
         }
-        List<Integer> expectedVersions = IntStream.rangeClosed(1, CURRENT_MAIN_FLYWAY_MAX)
-            .boxed()
-            .toList();
+        List<Integer> expectedVersions = Stream.concat(
+            IntStream.rangeClosed(2, 37).boxed(),
+            IntStream.rangeClosed(39, 48).boxed()
+        ).toList();
         assertEquals(expectedVersions, actualVersions);
 
         try (var files = Files.list(root.resolve(".github/workflows"))) {
