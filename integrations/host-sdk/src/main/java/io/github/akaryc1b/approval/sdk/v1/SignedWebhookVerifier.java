@@ -181,7 +181,7 @@ public final class SignedWebhookVerifier {
     }
 
     public static final class InMemoryNonceReplayGuard implements NonceReplayGuard {
-        private final Map<String, Instant> reservations = new ConcurrentHashMap<>();
+        private final Map<ReplayKey, Instant> reservations = new ConcurrentHashMap<>();
 
         @Override
         public synchronized boolean reserve(
@@ -190,13 +190,20 @@ public final class SignedWebhookVerifier {
             Instant expiresAt,
             Instant now
         ) {
-            reservations.entrySet().removeIf(entry -> !entry.getValue().isAfter(now));
-            String key = keyReference + ':' + nonce;
+            reservations.entrySet().removeIf(entry -> entry.getValue().isBefore(now));
+            ReplayKey key = new ReplayKey(keyReference, nonce);
             if (reservations.containsKey(key)) {
                 return false;
             }
             reservations.put(key, expiresAt);
             return true;
+        }
+
+        private record ReplayKey(String keyReference, String nonce) {
+            private ReplayKey {
+                Objects.requireNonNull(keyReference, "keyReference");
+                Objects.requireNonNull(nonce, "nonce");
+            }
         }
     }
 }
