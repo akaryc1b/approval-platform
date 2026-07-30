@@ -1,0 +1,63 @@
+   message='migration plan current row requires matching durable event';
+ end if;
+ return null;
+end $$;
+
+create function ap_require_process_migration_plan_selection_v38()
+returns trigger language plpgsql as $$
+declare tenant varchar(128);
+ plan uuid;
+ expected_count integer;
+ actual_count integer;
+begin
+ tenant:=coalesce(new.tenant_id,old.tenant_id);
+ plan:=coalesce(new.plan_id,old.plan_id);
+ select selected_instance_count into expected_count from ap_process_migration_plan
+  where tenant_id=tenant and plan_id=plan;
+ if expected_count is null then return null; end if;
+ select count(*) into actual_count from ap_process_migration_plan_instance
+  where tenant_id=tenant and plan_id=plan;
+ if actual_count<>expected_count then
+  raise exception using errcode='23514',
+   message='migration plan selected instance count must match immutable plan';
+ end if;
+ return null;
+end $$;
+
+create function ap_reject_process_migration_plan_evidence_mutation_v38()
+returns trigger language plpgsql as $$
+begin
+ raise exception using errcode='55000',
+  message='migration plan evidence is append-only';
+end $$;
+
+create trigger trg_process_migration_plan_payload_v38
+ before insert or update on ap_process_migration_plan
+ for each row execute function ap_validate_process_migration_plan_payload_v38();
+create trigger trg_process_migration_plan_guard_v38
+ before update or delete on ap_process_migration_plan
+ for each row execute function ap_guard_process_migration_plan_v38();
+create trigger trg_process_migration_plan_instance_validate_v38
+ before insert on ap_process_migration_plan_instance
+ for each row execute function ap_validate_process_migration_plan_instance_v38();
+create trigger trg_process_migration_plan_instance_append_only_v38
+ before update or delete on ap_process_migration_plan_instance
+ for each row execute function ap_reject_process_migration_plan_evidence_mutation_v38();
+create trigger trg_process_migration_plan_authorization_guard_v38
+ before insert or update or delete on ap_process_migration_plan_authorization
+ for each row execute function ap_guard_process_migration_plan_authorization_v38();
+create trigger trg_process_migration_plan_event_guard_v38
+ before insert or update or delete on ap_process_migration_plan_event
+ for each row execute function ap_guard_process_migration_plan_event_v38();
+create constraint trigger trg_process_migration_plan_require_event_v38
+ after insert or update on ap_process_migration_plan
+ deferrable initially deferred
+ for each row execute function ap_require_process_migration_plan_event_v38();
+create constraint trigger trg_process_migration_plan_require_selection_v38
+ after insert or update on ap_process_migration_plan
+ deferrable initially deferred
+ for each row execute function ap_require_process_migration_plan_selection_v38();
+create constraint trigger trg_process_migration_plan_instance_require_count_v38
+ after insert or delete on ap_process_migration_plan_instance
+ deferrable initially deferred
+ for each row execute function ap_require_process_migration_plan_selection_v38();

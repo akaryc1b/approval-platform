@@ -1,0 +1,290 @@
+{
+  "contractVersion": "1",
+  "telemetryPolicy": {
+    "contractVersion": "1",
+    "allowedSignalNames": [
+      "approval.adapter.attempts",
+      "approval.adapter.completions"
+    ],
+    "allowedAttributeKeys": [
+      "adapterKind",
+      "reasonCode",
+      "severity"
+    ],
+    "maxAttributeCount": 3,
+    "maxAttributeValueLength": 64,
+    "maxBatchSize": 2,
+    "allowedAttributeValues": {
+      "adapterKind": [
+        "generic-rest",
+        "ruoyi5",
+        "ruoyi6"
+      ],
+      "reasonCode": [
+        "retryable",
+        "success",
+        "failed",
+        "rejected"
+      ],
+      "severity": [
+        "info",
+        "warning",
+        "error"
+      ]
+    }
+  },
+  "telemetrySignals": [
+    {
+      "contractVersion": "1",
+      "signalId": "telemetry-fixture-001",
+      "signalName": "approval.adapter.attempts",
+      "signalKind": "counter",
+      "endpointId": "fixture-generic-rest",
+      "operation": "approval.task.read",
+      "requestId": "req-fixture-001",
+      "traceId": "trace-fixture-001",
+      "bindingId": "binding-fixture-001",
+      "authenticationContextId": "authctx-fixture-001",
+      "outcome": "retry_then_success",
+      "quantity": 2,
+      "ordinal": 10,
+      "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36",
+      "attributes": {
+        "adapterKind": "generic-rest",
+        "reasonCode": "retryable",
+        "severity": "warning"
+      }
+    },
+    {
+      "contractVersion": "1",
+      "signalId": "telemetry-fixture-002",
+      "signalName": "approval.adapter.completions",
+      "signalKind": "counter",
+      "endpointId": "fixture-generic-rest",
+      "operation": "approval.task.read",
+      "requestId": "req-fixture-001",
+      "traceId": "trace-fixture-001",
+      "bindingId": "binding-fixture-001",
+      "authenticationContextId": "authctx-fixture-001",
+      "outcome": "succeeded",
+      "quantity": 1,
+      "ordinal": 11,
+      "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36",
+      "attributes": {
+        "adapterKind": "generic-rest",
+        "reasonCode": "success",
+        "severity": "info"
+      }
+    }
+  ],
+  "telemetryExporter": {
+    "capacity": 2,
+    "failureBatchNumbers": []
+  },
+  "auditProof": {
+    "contractVersion": "1",
+    "recordCount": 4,
+    "attemptCount": 2,
+    "firstEventId": "audit-start-001",
+    "terminalEventId": "audit-terminal-001",
+    "identityDigest": "c915940364de75b2cdec36dbcc4b8a07d7a657ac2aae06f49a0146c50f93852e",
+    "batchDigest": "2e2fb8d7bc061ac0f7e0a0dbffd8816b63dd3ab1e23498707c0f2a117a6135ab"
+  },
+  "auditHandoff": {
+    "contractVersion": "1",
+    "handoffId": "handoff-fixture-001",
+    "destinationReference": "audit-queue-fixture",
+    "handoffOrdinal": 20,
+    "queueCapacity": 1,
+    "scriptedOutcomes": [
+      "nack",
+      "timeout_like",
+      "ack"
+    ]
+  },
+  "expectations": {
+    "telemetrySignals": [
+      {
+        "aggregationIdentityDigest": "ec25ff3e382d70b1dc6ac0d83e71785972046ee57f6d821cafb86307c59e0c8c",
+        "attributes": {
+          "adapterKind": "generic-rest",
+          "reasonCode": "retryable",
+          "severity": "warning"
+        },
+        "authenticationContextId": "authctx-fixture-001",
+        "bindingId": "binding-fixture-001",
+        "contractVersion": "1",
+        "endpointId": "fixture-generic-rest",
+        "operation": "approval.task.read",
+        "ordinal": 10,
+        "outcome": "retry_then_success",
+        "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36",
+        "quantity": 2,
+        "requestId": "req-fixture-001",
+        "signalDigest": "77c97b8e11e7adcdedd11f399cc296f9f2ca5942d8c710a73625540c643a531b",
+        "signalId": "telemetry-fixture-001",
+        "signalKind": "counter",
+        "signalName": "approval.adapter.attempts",
+        "traceId": "trace-fixture-001"
+      },
+      {
+        "aggregationIdentityDigest": "0f60f3de2c03d889e55e3b4d6aea57ff7b13864862a6f30257affa1f08d4fa33",
+        "attributes": {
+          "adapterKind": "generic-rest",
+          "reasonCode": "success",
+          "severity": "info"
+        },
+        "authenticationContextId": "authctx-fixture-001",
+        "bindingId": "binding-fixture-001",
+        "contractVersion": "1",
+        "endpointId": "fixture-generic-rest",
+        "operation": "approval.task.read",
+        "ordinal": 11,
+        "outcome": "succeeded",
+        "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36",
+        "quantity": 1,
+        "requestId": "req-fixture-001",
+        "signalDigest": "db1539be18ced03cb548a3e4988c92f23dd6853d64d9846d6b36604963ed9860",
+        "signalId": "telemetry-fixture-002",
+        "signalKind": "counter",
+        "signalName": "approval.adapter.completions",
+        "traceId": "trace-fixture-001"
+      }
+    ],
+    "telemetryExport": {
+      "contractVersion": "1",
+      "exportedSignalCount": 2,
+      "exporterSize": 2,
+      "proof": {
+        "batchDigest": "c9cb0c6909978b6830f152c62e1ce956591a1db4a9282da5cc27f42942a0e9c7",
+        "contractVersion": "1",
+        "firstSignalId": "telemetry-fixture-001",
+        "lastSignalId": "telemetry-fixture-002",
+        "signalCount": 2
+      },
+      "reasonCode": "telemetry_batch_exported",
+      "status": "exported"
+    },
+    "auditHandoffEnvelope": {
+      "attemptCount": 2,
+      "auditBatchDigest": "2e2fb8d7bc061ac0f7e0a0dbffd8816b63dd3ab1e23498707c0f2a117a6135ab",
+      "auditIdentityDigest": "c915940364de75b2cdec36dbcc4b8a07d7a657ac2aae06f49a0146c50f93852e",
+      "contractVersion": "1",
+      "destinationReference": "audit-queue-fixture",
+      "envelopeDigest": "528ee4640104c345b06ef6c05c8ae55941056312d48543052e356cceef1fc456",
+      "firstEventId": "audit-start-001",
+      "handoffId": "handoff-fixture-001",
+      "handoffOrdinal": 20,
+      "recordCount": 4,
+      "terminalEventId": "audit-terminal-001"
+    },
+    "auditHandoffResults": [
+      {
+        "acknowledgedCount": 0,
+        "acknowledgement": null,
+        "contractVersion": "1",
+        "deliveryAttempt": 1,
+        "envelope": {
+          "attemptCount": 2,
+          "auditBatchDigest": "2e2fb8d7bc061ac0f7e0a0dbffd8816b63dd3ab1e23498707c0f2a117a6135ab",
+          "auditIdentityDigest": "c915940364de75b2cdec36dbcc4b8a07d7a657ac2aae06f49a0146c50f93852e",
+          "contractVersion": "1",
+          "destinationReference": "audit-queue-fixture",
+          "envelopeDigest": "528ee4640104c345b06ef6c05c8ae55941056312d48543052e356cceef1fc456",
+          "firstEventId": "audit-start-001",
+          "handoffId": "handoff-fixture-001",
+          "handoffOrdinal": 20,
+          "recordCount": 4,
+          "terminalEventId": "audit-terminal-001"
+        },
+        "pendingCount": 1,
+        "reasonCode": "audit_handoff_nack",
+        "status": "pending"
+      },
+      {
+        "acknowledgedCount": 0,
+        "acknowledgement": null,
+        "contractVersion": "1",
+        "deliveryAttempt": 2,
+        "envelope": {
+          "attemptCount": 2,
+          "auditBatchDigest": "2e2fb8d7bc061ac0f7e0a0dbffd8816b63dd3ab1e23498707c0f2a117a6135ab",
+          "auditIdentityDigest": "c915940364de75b2cdec36dbcc4b8a07d7a657ac2aae06f49a0146c50f93852e",
+          "contractVersion": "1",
+          "destinationReference": "audit-queue-fixture",
+          "envelopeDigest": "528ee4640104c345b06ef6c05c8ae55941056312d48543052e356cceef1fc456",
+          "firstEventId": "audit-start-001",
+          "handoffId": "handoff-fixture-001",
+          "handoffOrdinal": 20,
+          "recordCount": 4,
+          "terminalEventId": "audit-terminal-001"
+        },
+        "pendingCount": 1,
+        "reasonCode": "audit_handoff_timeout_like",
+        "status": "pending"
+      },
+      {
+        "acknowledgedCount": 1,
+        "acknowledgement": {
+          "acknowledgedOrdinal": 23,
+          "acknowledgementId": "ab17fc318192860f9e5dfe2dc6722905da027708dd8dab5faea92127bb0367b2",
+          "auditBatchDigest": "2e2fb8d7bc061ac0f7e0a0dbffd8816b63dd3ab1e23498707c0f2a117a6135ab",
+          "contractVersion": "1",
+          "deliveryAttempt": 3,
+          "destinationReference": "audit-queue-fixture",
+          "envelopeDigest": "528ee4640104c345b06ef6c05c8ae55941056312d48543052e356cceef1fc456",
+          "handoffId": "handoff-fixture-001"
+        },
+        "contractVersion": "1",
+        "deliveryAttempt": 3,
+        "envelope": {
+          "attemptCount": 2,
+          "auditBatchDigest": "2e2fb8d7bc061ac0f7e0a0dbffd8816b63dd3ab1e23498707c0f2a117a6135ab",
+          "auditIdentityDigest": "c915940364de75b2cdec36dbcc4b8a07d7a657ac2aae06f49a0146c50f93852e",
+          "contractVersion": "1",
+          "destinationReference": "audit-queue-fixture",
+          "envelopeDigest": "528ee4640104c345b06ef6c05c8ae55941056312d48543052e356cceef1fc456",
+          "firstEventId": "audit-start-001",
+          "handoffId": "handoff-fixture-001",
+          "handoffOrdinal": 20,
+          "recordCount": 4,
+          "terminalEventId": "audit-terminal-001"
+        },
+        "pendingCount": 0,
+        "reasonCode": "audit_handoff_acknowledged",
+        "status": "acknowledged"
+      },
+      {
+        "acknowledgedCount": 1,
+        "acknowledgement": {
+          "acknowledgedOrdinal": 23,
+          "acknowledgementId": "ab17fc318192860f9e5dfe2dc6722905da027708dd8dab5faea92127bb0367b2",
+          "auditBatchDigest": "2e2fb8d7bc061ac0f7e0a0dbffd8816b63dd3ab1e23498707c0f2a117a6135ab",
+          "contractVersion": "1",
+          "deliveryAttempt": 3,
+          "destinationReference": "audit-queue-fixture",
+          "envelopeDigest": "528ee4640104c345b06ef6c05c8ae55941056312d48543052e356cceef1fc456",
+          "handoffId": "handoff-fixture-001"
+        },
+        "contractVersion": "1",
+        "deliveryAttempt": 3,
+        "envelope": {
+          "attemptCount": 2,
+          "auditBatchDigest": "2e2fb8d7bc061ac0f7e0a0dbffd8816b63dd3ab1e23498707c0f2a117a6135ab",
+          "auditIdentityDigest": "c915940364de75b2cdec36dbcc4b8a07d7a657ac2aae06f49a0146c50f93852e",
+          "contractVersion": "1",
+          "destinationReference": "audit-queue-fixture",
+          "envelopeDigest": "528ee4640104c345b06ef6c05c8ae55941056312d48543052e356cceef1fc456",
+          "firstEventId": "audit-start-001",
+          "handoffId": "handoff-fixture-001",
+          "handoffOrdinal": 20,
+          "recordCount": 4,
+          "terminalEventId": "audit-terminal-001"
+        },
+        "pendingCount": 0,
+        "reasonCode": "audit_handoff_duplicate_acknowledged",
+        "status": "duplicate_acknowledged"
+      }
+    ]
+  }
+}

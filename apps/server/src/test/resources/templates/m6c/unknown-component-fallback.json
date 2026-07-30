@@ -1,0 +1,108 @@
+{
+  "manifest": {
+    "format": "PROCESS_TEMPLATE_PACKAGE",
+    "formatVersion": 1,
+    "templateKey": "expenseApproval",
+    "templateVersion": 1,
+    "title": "Expense approval",
+    "summary": "Tenant-safe expense approval template",
+    "category": "FINANCE",
+    "compatibility": {
+      "minimum": "1.0.0",
+      "maximum": "1.9.0"
+    },
+    "producer": {
+      "product": "approval-platform",
+      "version": "1.0.0",
+      "protocol": "template-v1"
+    },
+    "capabilityRequirements": [
+      "approval-dsl",
+      "form-schema",
+      "ui-schema"
+    ]
+  },
+  "dependencyManifest": {
+    "dependencies": [
+      {
+        "kind": "FORM_FIELD",
+        "key": "amount",
+        "minimumVersion": null,
+        "required": true
+      },
+      {
+        "kind": "CONNECTOR_CAPABILITY",
+        "key": "finance.submit",
+        "minimumVersion": "1.0.0",
+        "required": true
+      },
+      {
+        "kind": "BUSINESS_REFERENCE_TYPE",
+        "key": "invoice",
+        "minimumVersion": null,
+        "required": true
+      },
+      {
+        "kind": "ORGANIZATION_PLACEHOLDER",
+        "key": "financeDepartment",
+        "minimumVersion": null,
+        "required": true
+      },
+      {
+        "kind": "IDENTITY_PLACEHOLDER",
+        "key": "approver",
+        "minimumVersion": null,
+        "required": true
+      },
+      {
+        "kind": "PLATFORM_PROTOCOL",
+        "key": "approval-template",
+        "minimumVersion": "1.0.0",
+        "required": true
+      },
+      {
+        "kind": "COMPONENT",
+        "key": "customSelector",
+        "minimumVersion": "1.0.0",
+        "required": true
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "kind": "APPROVAL_DSL",
+      "resourceName": "approval/expense.dsl.json",
+      "contentHash": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "kind": "UI_SCHEMA",
+      "resourceName": "forms/expense.ui.json",
+      "contentHash": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ],
+  "componentDescriptors": [
+    {
+      "componentKey": "customSelector",
+      "componentVersion": 1,
+      "supportedFieldTypes": [
+        "TEXT"
+      ],
+      "propertySchema": [
+        {
+          "key": "selectionMode",
+          "type": "STRING",
+          "required": false,
+          "maximumLength": 32
+        }
+      ],
+      "renderingSupport": [
+        "PC",
+        "H5",
+        "WECHAT"
+      ],
+      "readonlyFallback": "TEXT_READONLY",
+      "unsupportedVersionBehavior": "READONLY_FALLBACK"
+    }
+  ],
+  "contentHash": "80abf6caf5e2d57addda69964dd62cbb96b446719c227490af9c6f3bfb8249f9"
+}
