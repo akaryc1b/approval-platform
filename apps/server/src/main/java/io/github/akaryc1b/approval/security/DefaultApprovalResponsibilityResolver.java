@@ -122,6 +122,7 @@ public final class DefaultApprovalResponsibilityResolver
                 Requirement.ACTIVATE,
                 Requirement.RELEASE_LIFECYCLE,
                 Requirement.RELEASE_MIGRATION_ASSESS,
+                Requirement.MIGRATION_OPERATIONS_READ,
                 Requirement.SLA_READ,
                 Requirement.SLA_PUBLISH,
                 Requirement.SLA_ACTIVATE
@@ -134,6 +135,7 @@ public final class DefaultApprovalResponsibilityResolver
                 Requirement.AUDIT_READ,
                 Requirement.AUDIT_EXPORT,
                 Requirement.AUDIT_VERIFY,
+                Requirement.MIGRATION_OPERATIONS_READ,
                 Requirement.SLA_READ
             )
         );
@@ -145,6 +147,7 @@ public final class DefaultApprovalResponsibilityResolver
                 Requirement.CONSISTENCY_RUN,
                 Requirement.OPERATIONAL_FAILURE_READ,
                 Requirement.OPERATIONAL_FAILURE_REPLAY,
+                Requirement.MIGRATION_OPERATIONS_READ,
                 Requirement.SLA_READ
             )
         );

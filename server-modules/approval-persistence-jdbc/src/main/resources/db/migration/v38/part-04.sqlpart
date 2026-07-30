@@ -1,0 +1,87 @@
+end $$;
+
+create function ap_guard_process_migration_plan_v38()
+returns trigger language plpgsql as $$
+declare authorization_row ap_process_migration_plan_authorization%rowtype;
+begin
+ if tg_op='DELETE' then
+  raise exception using errcode='55000',message='migration plan cannot be deleted';
+ end if;
+ if new.tenant_id is distinct from old.tenant_id
+  or new.plan_id is distinct from old.plan_id
+  or new.idempotency_key is distinct from old.idempotency_key
+  or new.plan_hash is distinct from old.plan_hash
+  or new.assessment_id is distinct from old.assessment_id
+  or new.assessment_report_hash is distinct from old.assessment_report_hash
+  or new.definition_key is distinct from old.definition_key
+  or new.source_release_version is distinct from old.source_release_version
+  or new.source_package_hash is distinct from old.source_package_hash
+  or new.target_release_version is distinct from old.target_release_version
+  or new.target_package_hash is distinct from old.target_package_hash
+  or new.target_deployment_record_id is distinct from old.target_deployment_record_id
+  or new.target_engine_deployment_id is distinct from old.target_engine_deployment_id
+  or new.target_engine_definition_id is distinct from old.target_engine_definition_id
+  or new.target_engine_version is distinct from old.target_engine_version
+  or new.selected_instance_count is distinct from old.selected_instance_count
+  or new.requested_by is distinct from old.requested_by
+  or new.operation_reason is distinct from old.operation_reason
+  or new.assessed_at is distinct from old.assessed_at
+  or new.created_at is distinct from old.created_at
+  or new.expires_at is distinct from old.expires_at
+  or new.request_id is distinct from old.request_id
+  or new.trace_id is distinct from old.trace_id
+  or new.audit_chain_reference is distinct from old.audit_chain_reference
+ then
+  raise exception using errcode='55000',message='migration plan identity evidence is immutable';
+ end if;
+ if new.revision<>old.revision+1 then
+  raise exception using errcode='40001',
+   message='migration plan revision must advance exactly once';
+ end if;
+ if not (old.status='PROPOSED' and new.status='AUTHORIZED') then
+  raise exception using errcode='23514',
+   message='M5-C1 migration plan transition is not permitted';
+ end if;
+ if new.updated_at is distinct from new.authorized_at
+  or new.authorization_id is null or new.authorization_evidence_hash is null
+  or new.authorized_by is null or new.authorization_expires_at is null then
+  raise exception using errcode='23514',
+   message='authorized migration plan requires complete current authorization evidence';
+ end if;
+ select * into authorization_row
+  from ap_process_migration_plan_authorization
+  where tenant_id=new.tenant_id and authorization_id=new.authorization_id;
+ if not found
+  or authorization_row.plan_id<>new.plan_id
+  or authorization_row.plan_hash<>new.plan_hash
+  or authorization_row.authorization_evidence_hash<>new.authorization_evidence_hash
+  or authorization_row.authorized_by<>new.authorized_by
+  or authorization_row.decided_at<>new.authorized_at
+  or authorization_row.expires_at<>new.authorization_expires_at then
+  raise exception using errcode='23514',
+   message='migration plan current authorization does not match append-only decision evidence';
+ end if;
+ return new;
+end $$;
+
+create function ap_validate_process_migration_plan_instance_v38()
+returns trigger language plpgsql as $$
+declare plan_row ap_process_migration_plan%rowtype;
+ ordered_keys text[];
+ sorted_keys text[];
+begin
+ if exists (
+  select 1 from jsonb_array_elements(new.active_task_definition_keys) item
+   where jsonb_typeof(item)<>'string'
+ ) then
+  raise exception using errcode='23514',
+   message='migration plan task keys must contain only strings';
+ end if;
+ if (new.payload_json->>'approvalInstanceId')::uuid
+    is distinct from new.approval_instance_id
+  or (new.payload_json->>'expectedInstanceStatus')
+    is distinct from new.expected_instance_status
+  or (new.payload_json->>'expectedBindingEvidenceHash')
+    is distinct from new.expected_binding_evidence_hash
+  or (new.payload_json->>'instanceEvidenceHash')
+    is distinct from new.instance_evidence_hash

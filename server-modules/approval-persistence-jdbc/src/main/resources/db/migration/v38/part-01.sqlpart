@@ -1,0 +1,97 @@
+create table ap_process_migration_plan (
+ tenant_id varchar(128) not null,
+ plan_id uuid not null,
+ idempotency_key varchar(200) not null,
+ plan_hash char(64) not null,
+ assessment_id uuid not null,
+ assessment_report_hash char(64) not null,
+ definition_key varchar(64) not null,
+ source_release_version integer not null,
+ source_package_hash char(64) not null,
+ target_release_version integer not null,
+ target_package_hash char(64) not null,
+ target_deployment_record_id uuid not null,
+ target_engine_deployment_id varchar(256) not null,
+ target_engine_definition_id varchar(256) not null,
+ target_engine_version integer not null,
+ selected_instance_count integer not null,
+ status varchar(16) not null,
+ revision bigint not null,
+ requested_by varchar(256) not null,
+ operation_reason varchar(1000) not null,
+ assessed_at timestamptz not null,
+ created_at timestamptz not null,
+ expires_at timestamptz not null,
+ updated_at timestamptz not null,
+ authorization_id uuid,
+ authorization_evidence_hash char(64),
+ authorized_by varchar(256),
+ authorized_at timestamptz,
+ authorization_expires_at timestamptz,
+ request_id varchar(256) not null,
+ trace_id varchar(256),
+ audit_chain_reference varchar(256) not null,
+ payload_json jsonb not null,
+ primary key (tenant_id,plan_id),
+ unique (tenant_id,idempotency_key),
+ unique (tenant_id,plan_hash),
+ unique (tenant_id,plan_id,plan_hash),
+ foreign key (tenant_id,definition_key,source_release_version,source_package_hash)
+  references ap_approval_release_package (tenant_id,definition_key,release_version,package_hash),
+ foreign key (tenant_id,definition_key,target_release_version,target_package_hash)
+  references ap_approval_release_package (tenant_id,definition_key,release_version,package_hash),
+ check (plan_hash ~ '^[0-9a-f]{64}$' and assessment_report_hash ~ '^[0-9a-f]{64}$'),
+ check (source_package_hash ~ '^[0-9a-f]{64}$' and target_package_hash ~ '^[0-9a-f]{64}$'),
+ check (source_release_version > 0 and target_release_version > 0
+  and source_release_version <> target_release_version),
+ check (source_package_hash <> target_package_hash),
+ check (target_engine_version > 0),
+ check (btrim(target_engine_deployment_id)<>''
+  and btrim(target_engine_definition_id)<>''),
+ check (selected_instance_count between 1 and 1000),
+ check (status in ('PROPOSED','AUTHORIZED','EXPIRED','CANCELLED','CONSUMED')),
+ check (revision > 0 and created_at >= assessed_at and expires_at > created_at
+  and updated_at >= created_at and updated_at <= expires_at),
+ check (jsonb_typeof(payload_json)='object'),
+ check (
+  (status='PROPOSED' and authorization_id is null
+   and authorization_evidence_hash is null and authorized_by is null
+   and authorized_at is null and authorization_expires_at is null)
+  or
+  (status<>'PROPOSED' and authorization_id is not null
+   and authorization_evidence_hash ~ '^[0-9a-f]{64}$'
+   and authorized_by is not null and authorized_at is not null
+   and authorization_expires_at is not null
+   and authorization_expires_at > authorized_at
+   and authorization_expires_at <= expires_at)
+ )
+);
+
+create table ap_process_migration_plan_instance (
+ tenant_id varchar(128) not null,
+ plan_id uuid not null,
+ approval_instance_id uuid not null,
+ sequence_no integer not null,
+ expected_instance_status varchar(16) not null,
+ expected_binding_evidence_hash char(64) not null,
+ active_task_definition_keys jsonb not null,
+ instance_evidence_hash char(64) not null,
+ payload_json jsonb not null,
+ primary key (tenant_id,plan_id,approval_instance_id),
+ unique (tenant_id,plan_id,sequence_no),
+ foreign key (tenant_id,plan_id)
+  references ap_process_migration_plan (tenant_id,plan_id),
+ check (sequence_no between 1 and 1000),
+ check (expected_instance_status='RUNNING'),
+ check (expected_binding_evidence_hash ~ '^[0-9a-f]{64}$'
+  and instance_evidence_hash ~ '^[0-9a-f]{64}$'),
+ check (jsonb_typeof(active_task_definition_keys)='array'
+  and jsonb_array_length(active_task_definition_keys) between 1 and 100),
+ check (jsonb_typeof(payload_json)='object')
+);
+
+create table ap_process_migration_plan_authorization (
+ tenant_id varchar(128) not null,
+ authorization_id uuid not null,
+ plan_id uuid not null,
+ plan_hash char(64) not null,

@@ -41,6 +41,14 @@ function openDelegations() {
   uni.navigateTo({ url: '/pages/delegation/index' })
 }
 
+function openMigrationOperations() {
+  uni.navigateTo({ url: '/pages/operations/migrations' })
+}
+
+function openMigrationDiagnostics() {
+  uni.navigateTo({ url: '/pages/operations/migration-diagnostics' })
+}
+
 function openInitiate() {
   uni.switchTab({ url: '/pages/initiate/index' })
 }
@@ -111,6 +119,20 @@ onShow(loadUnreadMessages)
         <view class="entry-row__content">
           <text>代理规则</text>
           <text class="entry-row__hint">请假或出差期间自动分派新任务</text>
+        </view>
+        <text class="entry-row__value">›</text>
+      </view>
+      <view class="entry-row" @click="openMigrationOperations">
+        <view class="entry-row__content">
+          <text>流程实例迁移运维</text>
+          <text class="entry-row__hint">只读查看计划、Canary、验证、对账与完成证据</text>
+        </view>
+        <text class="entry-row__value">›</text>
+      </view>
+      <view class="entry-row" @click="openMigrationDiagnostics">
+        <view class="entry-row__content">
+          <text>迁移高级诊断</text>
+          <text class="entry-row__hint">小屏卡片查看 UNKNOWN、Kill Switch、对账与生命周期</text>
         </view>
         <text class="entry-row__value">›</text>
       </view>

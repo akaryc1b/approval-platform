@@ -1,0 +1,134 @@
+{
+  "fixtureOnly": true,
+  "policy": {
+    "contractVersion": "1",
+    "minimumSeverity": "warning",
+    "sampleNumerator": 2,
+    "sampleDenominator": 4,
+    "sampleSalt": "fixture-emission-salt-v1",
+    "deduplicationWindowOrdinals": 5,
+    "deduplicationCapacity": 2
+  },
+  "diagnostic": {
+    "contractVersion": "1",
+    "code": "adapter.binding.retry",
+    "severity": "warning",
+    "message": "binding retry scheduled",
+    "context": {
+      "endpointId": "fixture-generic-rest",
+      "reasonCode": "retryable_503"
+    },
+    "redactionCount": 0,
+    "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36"
+  },
+  "emission": {
+    "contractVersion": "1",
+    "emissionId": "diag-emission-001",
+    "sampleKey": "sample-b",
+    "ordinal": 10
+  },
+  "auditPolicy": {
+    "contractVersion": "1",
+    "expectedAttemptCount": 2,
+    "startedEventType": "adapter.binding.started",
+    "attemptEventType": "adapter.attempt.completed",
+    "terminalEventTypes": [
+      "adapter.binding.succeeded",
+      "adapter.binding.failed",
+      "adapter.binding.rejected"
+    ]
+  },
+  "auditRecords": [
+    {
+      "contractVersion": "1",
+      "sequence": 0,
+      "phase": "started",
+      "event": {
+        "contractVersion": "1",
+        "eventId": "audit-seq-000",
+        "eventType": "adapter.binding.started",
+        "endpointId": "fixture-generic-rest",
+        "operation": "task.list",
+        "requestId": "req-fixture-001",
+        "traceId": "trace-fixture-001",
+        "bindingId": "bind-fixture-001",
+        "authenticationContextId": "authctx-fixture-001",
+        "outcome": "succeeded",
+        "reasonCode": "binding_started",
+        "occurredAtEpochSeconds": 1000,
+        "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36"
+      }
+    },
+    {
+      "contractVersion": "1",
+      "sequence": 1,
+      "phase": "attempt",
+      "event": {
+        "contractVersion": "1",
+        "eventId": "audit-seq-001",
+        "eventType": "adapter.attempt.completed",
+        "endpointId": "fixture-generic-rest",
+        "operation": "task.list",
+        "requestId": "req-fixture-001",
+        "traceId": "trace-fixture-001",
+        "bindingId": "bind-fixture-001",
+        "authenticationContextId": "authctx-fixture-001",
+        "outcome": "failed",
+        "reasonCode": "retryable_503",
+        "occurredAtEpochSeconds": 1001,
+        "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36"
+      }
+    },
+    {
+      "contractVersion": "1",
+      "sequence": 2,
+      "phase": "attempt",
+      "event": {
+        "contractVersion": "1",
+        "eventId": "audit-seq-002",
+        "eventType": "adapter.attempt.completed",
+        "endpointId": "fixture-generic-rest",
+        "operation": "task.list",
+        "requestId": "req-fixture-001",
+        "traceId": "trace-fixture-001",
+        "bindingId": "bind-fixture-001",
+        "authenticationContextId": "authctx-fixture-001",
+        "outcome": "succeeded",
+        "reasonCode": "response_200",
+        "occurredAtEpochSeconds": 1002,
+        "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36"
+      }
+    },
+    {
+      "contractVersion": "1",
+      "sequence": 3,
+      "phase": "terminal",
+      "event": {
+        "contractVersion": "1",
+        "eventId": "audit-seq-003",
+        "eventType": "adapter.binding.succeeded",
+        "endpointId": "fixture-generic-rest",
+        "operation": "task.list",
+        "requestId": "req-fixture-001",
+        "traceId": "trace-fixture-001",
+        "bindingId": "bind-fixture-001",
+        "authenticationContextId": "authctx-fixture-001",
+        "outcome": "succeeded",
+        "reasonCode": "binding_succeeded",
+        "occurredAtEpochSeconds": 1003,
+        "provenanceDigest": "2921ac664030019b37b6cae1f676cc787572cd8427c0e5ae56e2b2360c628d36"
+      }
+    }
+  ],
+  "expectations": {
+    "diagnosticFingerprint": "f41e920268cbe411335463b67d62cabb8b71123a62bf9c5c8220e0ce23337929",
+    "sampleBucket": 0,
+    "sampledOutKey": "sample-c",
+    "sampledOutBucket": 3,
+    "diagnosticStatus": "emitted",
+    "identityDigest": "c915940364de75b2cdec36dbcc4b8a07d7a657ac2aae06f49a0146c50f93852e",
+    "batchDigest": "2e2fb8d7bc061ac0f7e0a0dbffd8816b63dd3ab1e23498707c0f2a117a6135ab",
+    "auditStatus": "committed",
+    "auditRecordCount": 4
+  }
+}
