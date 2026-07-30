@@ -1,0 +1,19 @@
+package io.github.akaryc1b.approval.connector.credential;
+
+public enum CredentialResolutionStatus {
+    RESOLVED,
+    REFERENCE_NOT_FOUND,
+    REFERENCE_MISMATCH,
+    PROVIDER_MISMATCH,
+    TENANT_MISMATCH,
+    CREDENTIAL_DISABLED,
+    CREDENTIAL_REVOKED,
+    NOT_YET_VALID,
+    EXPIRED,
+    ROTATION_PENDING,
+    OPERATION_NOT_ALLOWED,
+    VERSION_MISMATCH,
+    MATERIAL_SOURCE_UNAVAILABLE,
+    MATERIAL_INVALID,
+    UNKNOWN
+}

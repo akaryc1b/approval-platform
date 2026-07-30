@@ -39,6 +39,32 @@ approval:
       automatic:
         enabled: ${APPROVAL_MIGRATION_RECONCILIATION_AUTOMATIC_ENABLED:false}
   connector:
+    secret-material:
+      enabled: false
+      backend-selection: BLOCKED_PENDING_BACKEND_SELECTION
+    dingtalk-token:
+      enabled: false
+      policy-version: dingtalk-token-policy-v1
+      refresh-before-expiry: 5m
+      minimum-validity: 30s
+      maximum-lifetime: 2h
+      single-flight-wait: 5s
+      maximum-entries: 256
+    invocation:
+      enabled: false
+      policy-version: connector-invocation-policy-v1
+      maximum-request-bytes: 65536
+      maximum-response-bytes: 262144
+      timeout: 5s
+      kill-switch-revision: kill-switch-v1
+      token-policy-version: dingtalk-token-policy-v1
+    operations-diagnostics:
+      enabled: false
+      maximum-entries: 1024
+      maximum-entries-per-tenant: 256
+      maximum-response-bytes: 262144
+    tenant-routing:
+      enabled: false
     generic:
       enabled: ${APPROVAL_GENERIC_CONNECTOR_ENABLED:false}
       connector-key: ${APPROVAL_GENERIC_CONNECTOR_KEY:generic-rest}
