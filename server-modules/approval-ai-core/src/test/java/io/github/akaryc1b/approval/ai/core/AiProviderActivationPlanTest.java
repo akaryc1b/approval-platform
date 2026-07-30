@@ -155,13 +155,13 @@ class AiProviderActivationPlanTest {
             "6".repeat(64),
             killSwitchHash,
             List.of(
-                new AiProviderActivationReviewBundle.ReviewerApproval(
+                AiProviderActivationReviewBundle.ReviewerApproval.create(
                     "security-reviewer",
                     AiProviderActivationReviewBundle.Role.SECURITY,
                     AiProviderActivationReviewBundle.Decision.APPROVED,
                     "a".repeat(64)
                 ),
-                new AiProviderActivationReviewBundle.ReviewerApproval(
+                AiProviderActivationReviewBundle.ReviewerApproval.create(
                     "platform-reviewer",
                     AiProviderActivationReviewBundle.Role.PLATFORM,
                     AiProviderActivationReviewBundle.Decision.APPROVED,
