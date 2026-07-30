@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AiProviderActivationReviewBundleTest {
 
@@ -27,6 +28,11 @@ class AiProviderActivationReviewBundleTest {
         );
         assertFalse(bundle.applyAuthorized());
         assertFalse(bundle.productionEnablementAuthorized());
+        assertTrue(bundle.approvals().stream().allMatch(
+            approval -> approval.reviewerEvidenceHash().matches("[0-9a-f]{64}")
+        ));
+        assertFalse(bundle.toString().contains("security-reviewer"));
+        assertFalse(bundle.toString().contains("platform-reviewer"));
     }
 
     @Test
@@ -59,7 +65,7 @@ class AiProviderActivationReviewBundleTest {
         AiProviderActivationReviewBundle rejected = bundle(
             List.of(
                 approval("security-reviewer", AiProviderActivationReviewBundle.Role.SECURITY),
-                new AiProviderActivationReviewBundle.ReviewerApproval(
+                AiProviderActivationReviewBundle.ReviewerApproval.create(
                     "platform-reviewer",
                     AiProviderActivationReviewBundle.Role.PLATFORM,
                     AiProviderActivationReviewBundle.Decision.REJECTED,
@@ -127,7 +133,7 @@ class AiProviderActivationReviewBundleTest {
         String reviewer,
         AiProviderActivationReviewBundle.Role role
     ) {
-        return new AiProviderActivationReviewBundle.ReviewerApproval(
+        return AiProviderActivationReviewBundle.ReviewerApproval.create(
             reviewer,
             role,
             AiProviderActivationReviewBundle.Decision.APPROVED,
