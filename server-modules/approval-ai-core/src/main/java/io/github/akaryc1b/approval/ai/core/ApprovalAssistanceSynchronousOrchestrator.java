@@ -407,8 +407,12 @@ public final class ApprovalAssistanceSynchronousOrchestrator {
             classification,
             circuitState
         ));
+        AiProviderRoute acceptedRoute = route != null
+            && route.versions().equals(request.expectedVersions())
+            ? route
+            : null;
         AiCoordinatedAdvisoryOutcome coordinated = new AiCoordinatedAdvisoryOutcome(
-            route,
+            acceptedRoute,
             providerOutcome,
             usageEvidence,
             0,
