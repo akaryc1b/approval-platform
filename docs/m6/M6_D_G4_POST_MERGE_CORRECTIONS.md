@@ -1,39 +1,36 @@
 # M6-D G4 Post-Merge Review Corrections
 
-Status: `FORMAL_CORRECTION_DOCUMENTED`
+Status: `SEVEN_FINDINGS_CORRECTED_FINAL_DOCUMENTATION_PENDING_VALIDATION`
 
-## 1. Baseline and purpose
+## 1. Exact correction identity
 
 - repository: `akaryc1b/approval-platform`
 - source Pull Request: #70
 - source documented Head: `8a62d3c8037ad5720e30b6918153750dd591c6e5`
-- M6-D Merge Commit / correction base: `21c086e57bc5814d8083076550d9fda71adabb4a`
+- source M6-D Merge Commit: `21c086e57bc5814d8083076550d9fda71adabb4a`
 - source natural `push -> main` Run: `30542735901`
 - correction branch: `agent/m6-d-g4-post-merge-review-corrections`
 - correction Pull Request: #77
+- correction base: `main` at `21c086e57bc5814d8083076550d9fda71adabb4a`
 - tracked Issue: #66
 - parent Issue: #62
 
-This is a bounded post-merge correction. It does not modify the history of merged PR #70. It addresses only five actionable correctness/security findings submitted after PR #70 merged.
+This is an append-only bounded post-merge correction. It does not alter the history of merged PR #70 and does not add new AI product capability.
 
-The commit containing this document is the final documented correction Head. Its exact SHA, permanent Run and artifact digests are recorded in PR #77 after validation because a commit cannot contain its own SHA.
+The commit containing this document is the final documented correction Head. Its exact SHA, permanent Run, test evidence and artifact digests are recorded in PR #77 after validation because a Git commit cannot contain its own SHA.
 
-## 2. Source main verification
+## 2. Source main permanent verification
 
-Run `30542735901` is bound to:
+Run `30542735901` is the natural `push -> main` Run for M6-D Merge Commit `21c086e57bc5814d8083076550d9fda71adabb4a`.
 
-- branch: `main`
-- Head: `21c086e57bc5814d8083076550d9fda71adabb4a`
-- workflow: `.github/workflows/approval-platform-validation.yml`
-
-All jobs completed successfully:
+Jobs:
 
 - Java 21 / Maven / PostgreSQL: `success`
 - Vben TypeScript / production build: `success`
 - UniApp TypeScript / H5 / WeChat: `success`
 - Repository hygiene: `success`
 
-Source-main Maven evidence:
+Maven evidence:
 
 - aggregate: `1389 / 0 / 0 / 0`
 - AI SPI: `12 / 12`
@@ -46,118 +43,94 @@ Source-main Maven evidence:
 - ArchUnit module boundaries: `10 / 10`
 - `BUILD SUCCESS`: present
 
-Source-main artifact verification:
+Artifacts, independently downloaded and SHA-256 matched:
 
-| Artifact | ID | Size | GitHub digest / downloaded ZIP SHA-256 |
+| Artifact | ID | Size | SHA-256 |
 |---|---:|---:|---|
-| `approval-maven-30542735901` | `8759612602` | `26744` | `6c2135630e42074496aac9b8f743ad15c4e85011ed2b89e97d6e3aa65187a38d` |
-| `approval-vben-30542735901` | `8759417655` | `18885` | `a1ac3ea294ced4fb954ba7c15c815e197c16a9c80d5ac107ec0d03052162ea70` |
-| `approval-mobile-30542735901` | `8759398739` | `9795` | `6db7c0daf676721971e4fd4b8fcd869e0ad21b1f095f420f8064ab5788d5520d` |
-| `approval-hygiene-30542735901` | `8759375862` | `9239` | `9f9421f5c9489f3570da98a8912819cda0f3ec39f76f03a9edc86d1b637c00b7` |
+| Maven | `8759612602` | `26744` | `6c2135630e42074496aac9b8f743ad15c4e85011ed2b89e97d6e3aa65187a38d` |
+| Vben | `8759417655` | `18885` | `a1ac3ea294ced4fb954ba7c15c815e197c16a9c80d5ac107ec0d03052162ea70` |
+| Mobile | `8759398739` | `9795` | `6db7c0daf676721971e4fd4b8fcd869e0ad21b1f095f420f8064ab5788d5520d` |
+| Hygiene | `8759375862` | `9239` | `9f9421f5c9489f3570da98a8912819cda0f3ec39f76f03a9edc86d1b637c00b7` |
 
-Every source-main ZIP was independently downloaded. Each local SHA-256 exactly matched the GitHub artifact digest.
-
-## 3. Actionable post-merge findings and corrections
+## 3. Original post-merge findings on PR #70
 
 ### Finding 1 — stale circuit completion closes a newer circuit generation
 
 Severity: `P1`
 
-A successful completion from an earlier CLOSED permit could arrive after a concurrent failure opened the circuit and unconditionally close it.
-
 Correction:
 
-- circuit state now carries a monotonically increasing generation;
-- each permit binds the generation in which it was acquired;
-- stale records and stale releases cannot mutate a newer circuit generation;
-- only a current HALF_OPEN probe may close a HALF_OPEN circuit;
-- current CLOSED healthy completions reset only the current failure counter.
+- circuit state carries a monotonically increasing generation;
+- permits bind the generation in which they were acquired;
+- stale record/release operations cannot mutate a newer circuit generation;
+- only a current HALF_OPEN probe may close a HALF_OPEN circuit.
 
 Commits:
 
 - `2a434f02a6747f0ba04707e5cd5eb67d17c83ab0`
 - `66cc7231acae329c9d1acd0e3e4f4f640db976e4`
 
-Regression:
+Regression: `AiProviderCircuitBreakerGenerationTest` — `1 / 1`.
 
-- `AiProviderCircuitBreakerGenerationTest`: `1 / 1`
-
-### Finding 2 — protocol Provider/capability changes omitted from deployment changes
+### Finding 2 — protocol Provider/capability changes omitted from deployment evidence
 
 Severity: `P1`
-
-For an existing validation-profile key, Provider-version or capability-set changes could be omitted from the change list even though the deployment snapshot hash changed.
 
 Correction:
 
 - added `VALIDATION_PROVIDER_CHANGED`;
 - added `VALIDATION_CAPABILITIES_CHANGED`;
-- profile fingerprints now bind Provider version, sorted capabilities, request/response schema hashes, byte limits and closed protocol flags;
-- either metadata change produces critical change evidence and mandatory human review.
+- profile fingerprints bind Provider, sorted capabilities, schemas, limits and closed protocol flags;
+- either change is critical and requires human review.
 
 Commits:
 
 - `80c2b627f3fbd430a10a2f4fdcf010ba8e57ea20`
 - `39945da0fd1095d813f446cd1d982b71e5e1161b`
 
-Regression:
-
-- `AiProviderDeploymentProfileMetadataChangeTest`: `1 / 1`
+Regression: `AiProviderDeploymentProfileMetadataChangeTest` — `1 / 1`.
 
 ### Finding 3 — activation review constructor accepts unrelated bundle hash
 
 Severity: `P2`
 
-The public canonical record constructor validated only the SHA-256 syntax of `bundleHash`.
-
 Correction:
 
-- the canonical constructor recomputes the deterministic bundle hash after normalizing all fields;
-- any mismatch fails closed;
-- `REVIEW_COMPLETE` evidence cannot be altered while retaining an unrelated hash.
+- canonical construction recomputes the normalized bundle hash;
+- a mismatched hash fails closed.
 
 Commits:
 
 - `881bb744731246401d277dd5d4e997fe3a432126`
 - `dd4841b85aab913910a63413a1aeb9456b633b12`
 
-Regression:
-
-- `AiProviderActivationReviewBundleHashTest`: `1 / 1`
+Regression was initially `1 / 1` and is extended by Finding 6 below.
 
 ### Finding 4 — delimiter ambiguity in audit evidence hashing
 
 Severity: `P2`
 
-Audit input fields allowed delimiter characters that were also used to join hash inputs.
-
 Correction:
 
-- all audit hash tuples use deterministic length framing;
-- Provider/model/Prompt-metadata/knowledge-metadata/policy/schema version tuples are length-framed;
-- delimiter placement cannot change field boundaries or produce an equivalent canonical tuple.
+- audit tuples use deterministic length framing;
+- the complete Provider/model/Prompt-metadata/knowledge-metadata/policy/schema tuple is length-framed.
 
 Commits:
 
 - `7a23ac288e0584be2e8aae83b6edd125fa9d4f4a`
 - `820a8ae5899e0c0e1e0d74b53bfe57eb671cb2a1`
 
-Regression:
+Regression: `AiAuditRecordFramingTest` — `1 / 1`.
 
-- `AiAuditRecordFramingTest`: `1 / 1`
-
-### Finding 5 — Provider collection/depth limits omitted from preflight
+### Finding 5 — Provider collection/depth limits omitted from Startup Preflight
 
 Severity: `P2`
 
-Route matching enforced Provider character limits but not the Provider capability's collection-size and depth limits.
-
 Correction:
 
-- Provider matching can consume the exact server-owned data-minimization policy;
-- `maximumCollectionSize` and `maximumDepth` must not exceed the Provider capability contract;
-- startup preflight uses the data-policy-aware match;
-- nesting-limit mismatch blocks the route before any Provider invocation.
+- Provider matching can consume the exact data-minimization policy;
+- `maximumCollectionSize` and `maximumDepth` must fit the Provider capability;
+- Startup Preflight uses the data-policy-aware match.
 
 Commits:
 
@@ -165,20 +138,82 @@ Commits:
 - `b9843ac80abd61904325eb7dd3a6cd4c82fcb0bb`
 - `4944c3e285b7740e67670d2fa63a8fe40eda3db2`
 
+Regression: `AiProviderRegistryNestingLimitTest` — `1 / 1`.
+
+All five PR #70 threads were answered with correction evidence and resolved.
+
+## 4. First correction validation and Ready review
+
+Corrected code Head `39945da0fd1095d813f446cd1d982b71e5e1161b` passed Run `30597183681` / #950:
+
+- all four jobs: `success`
+- Maven: `1394 / 0 / 0 / 0`
+- AI SPI: `12 / 12`
+- AI Core: `90 / 90`
+- five finding regressions: `5 / 5`
+- four artifacts independently SHA-256 matched.
+
+The first documented correction Head `8f0899594bb11182c814f6c5025558bfee6fb638` passed Run `30597595375` / #951 with the same Maven/focused result and four new exact artifact matches.
+
+Run #951 is retained successful evidence, but it is not the final merge evidence because the subsequent Ready-for-Review Codex review found Findings 6 and 7. PR #77 was immediately returned to Draft before merge.
+
+## 5. Ready-review findings on PR #77
+
+### Finding 6 — activation review hash still used delimiter joins
+
+Severity: `P2`
+
+The canonical constructor recomputed the hash, but adjacent identifiers containing `|` could still redistribute field boundaries.
+
+Correction:
+
+- every activation-review canonical field is length-framed;
+- every sorted reviewer tuple is independently length-framed;
+- `ReviewerApproval.create` also benefits from the framed hash function;
+- delimiter redistribution cannot reuse an existing bundle hash.
+
+Commits:
+
+- `877cb4618be5c3be6476dfb56de257434905ae88`
+- `41ac7ec2d769186f75d3252a8107a705902f1dae`
+
 Regression:
 
-- `AiProviderRegistryNestingLimitTest`: `1 / 1`
+- `AiProviderActivationReviewBundleHashTest`: `2 / 2`, including `delimiterRedistributionCannotReuseBundleHash`.
 
-## 4. Correction code-Head permanent verification
+### Finding 7 — invocation-time matcher omitted the exact data policy
 
-Correction code Head:
+Severity: `P2`
 
-`39945da0fd1095d813f446cd1d982b71e5e1161b`
+Startup Preflight enforced collection/depth limits, but the Coordinator invocation path still called the legacy two-argument matcher.
+
+Correction:
+
+- `AiAdvisoryCoordinator` passes the exact server-owned `dataPolicy` to `registry.matches(provider, route, dataPolicy)`;
+- an incompatible collection/depth policy blocks route selection even when Startup Preflight is not an enforced dependency;
+- Provider invocation count remains zero.
+
+Commits:
+
+- `5cca9afb088c0575aff7a21f71e2246a34c89da5`
+- `b38eea8a59a4be19444eac823dc55dc83070d9c3`
+
+Regression:
+
+- `AiAdvisoryCoordinatorProviderNestingLimitTest`: `1 / 1`.
+
+Both PR #77 Ready-review threads were answered with Run #955 evidence and resolved.
+
+## 6. Seven-finding code-Head permanent verification
+
+Exact code Head:
+
+`b38eea8a59a4be19444eac823dc55dc83070d9c3`
 
 Permanent workflow:
 
-- Run ID: `30597183681`
-- Run number: `950`
+- Run ID: `30598769246`
+- Run number: `955`
 - conclusion: `success`
 - Java 21 / Maven / PostgreSQL: `success`
 - Vben TypeScript / production build: `success`
@@ -187,64 +222,61 @@ Permanent workflow:
 
 Maven evidence recalculated from `maven-verify.log`:
 
-- aggregate: `1394 / 0 / 0 / 0`
+- aggregate: `1396 / 0 / 0 / 0`
 - AI SPI: `12 / 12`
-- AI Core: `90 / 90`
-- five new finding regressions: `5 / 5`
+- AI Core: `92 / 92`
+- seven finding regressions: `7 / 7`
 - request security/minimization: `6 / 6`
-- evidence hashing plus framing regression: `3 / 3`
-- activation review bundle tests including hash regression: `5 / 5`
-- Circuit Breaker tests including generation regression: `3 / 3`
-- deployment change tests including protocol metadata regression: `4 / 4`
-- Provider registry tests including nesting regression: `3 / 3`
-- activation/runtime trust: `16 / 16`
+- evidence hashing/framing: `3 / 3`
+- activation-review bundle/hash/framing: `6 / 6`
+- Circuit Breaker including generation: `3 / 3`
+- deployment change including protocol metadata: `4 / 4`
+- Provider registry including nesting: `3 / 3`
+- Coordinator including invocation-time nesting: `6 / 6`
+- activation/runtime trust: `17 / 17`
 - transport review: `21 / 21`
 - deployment/readiness: `19 / 19`
 - ArchUnit module boundaries: `10 / 10`
 - `BUILD SUCCESS`: present
 
-Correction code-Head artifact verification:
+Artifacts, independently downloaded and SHA-256 matched:
 
-| Artifact | ID | Size | GitHub digest / downloaded ZIP SHA-256 |
+| Artifact | ID | Size | SHA-256 |
 |---|---:|---:|---|
-| `approval-maven-30597183681` | `8780684018` | `26848` | `b11fbddf84c887868fb7cf08c42939547f44ad81167bd27c3fa19be024679851` |
-| `approval-vben-30597183681` | `8780586798` | `18933` | `27cd834ddcc9007738c97bfff3982dedce2de041b71e3e124cfa5cc8d39fb8b1` |
-| `approval-mobile-30597183681` | `8780574119` | `9786` | `2639b77fe8e734318b13a070244f4c2d1adea7ffe893087592c35d32bf5cd678` |
-| `approval-hygiene-30597183681` | `8780559458` | `9254` | `d2fa15de28c98a57c49b41e8ef15cf1ff60b1e56d8a8f6d2389ec3c38f06cfc1` |
+| Maven | `8781232591` | `26769` | `dd8139d288b16b4bfb1ff265336cccc7d5d679602802add512c6b3446bfaa838` |
+| Vben | `8781133003` | `18841` | `6e73502976f3b49168c1ed427327a994ad9e336f3af00843088e994d0c97f7e4` |
+| Mobile | `8781122868` | `9796` | `837a3d4676b661895ef6fe190f876409ff1f3912db70d2d49a1ddd593cff816d` |
+| Hygiene | `8781109911` | `9242` | `e363fd9a20bdb48681b0dbca037ab3a60a574b838050998bd08a103015092ff3` |
 
-Every correction code-Head ZIP was independently downloaded. Each local SHA-256 exactly matched the GitHub artifact digest.
+Artifacts expire `2026-10-29T02:21:40Z` and are currently unexpired.
 
-## 5. Safety and compatibility conclusion
-
-The five fixes strengthen correctness and fail-closed behavior without adding product capability.
+## 7. Permanent scope boundary
 
 The correction contains no:
 
-- real Provider adapter or HTTP client;
-- DNS, TLS or network egress;
-- runtime Secret material or signature calculation;
-- production credential, Prompt or customer knowledge;
+- real OpenAI, Anthropic, Azure OpenAI, Gemini or other Provider adapter;
+- real HTTP client, DNS lookup, TLS handshake or network egress;
+- runtime Secret retrieval, Secret material or signature calculation;
+- production credential, Prompt content or customer knowledge;
 - attachment extraction, RAG, embeddings or vector database;
 - AI persistence, durable state, Outbox, Queue, Worker or Scheduler;
-- participant or management AI endpoint;
+- participant or management AI endpoint or Web/Mobile AI surface;
 - AI-driven approval decision or process command;
 - executable activation or transport acceptance;
 - Flyway migration;
 - second automatic workflow;
 - M6-E or M6-F capability.
 
-M6-D remains advisory-only, `UNVERIFIED_ADVISORY`, human-review-required and non-executable. The correction does not modify M5 migration/runtime-binding behavior, M6-A connector invocation, M6-B event delivery or M6-C Draft-only template/component semantics.
+M6-D remains `ADVISORY`, `UNVERIFIED_ADVISORY`, `needsHumanReview = true` and non-executable. M5 migration/runtime binding, M6-A connector invocation, M6-B event delivery and M6-C Draft-only semantics are unchanged.
 
-## 6. Remaining closure gates
+## 8. Remaining closure gates
 
-PR #77 must remain Draft until the exact documented correction Head:
+PR #77 must remain Draft until this final documented correction Head:
 
-- completes the full permanent workflow successfully;
+- completes a new full permanent workflow successfully;
 - produces four independently SHA-256-matched artifacts;
 - has recalculated Maven and focused evidence;
-- has no unresolved actionable Review finding;
-- is behind `0` relative to current `main`.
+- is behind `0` relative to current `main`;
+- has no unresolved actionable Review finding.
 
-The five original PR #70 threads must be answered and resolved with links to PR #77 evidence.
-
-Final integration may use only a Merge Commit with exact expected Head. Issue #66 remains Open after correction-PR merge until the natural correction `push -> main` Run, four correction-main artifacts, final Maven/focused evidence and final Review closure are complete.
+Ready and merge remain separate. Final integration may use only a Merge Commit with exact expected Head. Issue #66 remains Open after correction merge until the natural correction `push -> main` Run, four correction-main artifact matches, final Maven/focused evidence and final Review closure are complete.
