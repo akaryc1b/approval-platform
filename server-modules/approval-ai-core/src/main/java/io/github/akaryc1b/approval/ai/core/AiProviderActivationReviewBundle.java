@@ -82,6 +82,23 @@ public record AiProviderActivationReviewBundle(
             );
         }
         validateStatus(status, approvals);
+        String expectedHash = computeHash(
+            bundleId,
+            bundleVersion,
+            providerVersion,
+            deploymentSnapshotHash,
+            readinessReportHash,
+            faultDrillReportHash,
+            changeSetHash,
+            endpointTrustAssessmentHash,
+            secretReferenceEvidenceHash,
+            killSwitchEvidenceHash,
+            approvals,
+            status
+        );
+        if (!bundleHash.equals(expectedHash)) {
+            throw new IllegalArgumentException("bundleHash must match canonical review evidence");
+        }
     }
 
     public static AiProviderActivationReviewBundle create(
