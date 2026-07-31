@@ -47,6 +47,11 @@ const advisoryContractPath = path.join(
   'server-modules/approval-ai-core/src/main/java/' +
     'io/github/akaryc1b/approval/ai/core/ApprovalAssistanceAdvisoryContract.java',
 );
+const orchestratorPath = path.join(
+  root,
+  'server-modules/approval-ai-core/src/main/java/' +
+    'io/github/akaryc1b/approval/ai/core/ApprovalAssistanceSynchronousOrchestrator.java',
+);
 
 const productionRoots = [
   path.join(root, 'server-modules/approval-ai-spi/src/main/java'),
@@ -222,6 +227,58 @@ test('P2 advisory contract is bounded, evidence-backed and non-executable', () =
     /@Scheduled\b/,
   ]) {
     assert.doesNotMatch(contract, forbidden);
+  }
+});
+
+test('P3 orchestration is synchronous, single-attempt and deterministic-test-only', () => {
+  assert.equal(existsSync(orchestratorPath), true);
+  const orchestrator = text(orchestratorPath);
+
+  for (const required of [
+    /InvocationMode\.DETERMINISTIC_TEST_ONLY/,
+    /maximumProviderAttempts != 1/,
+    /P3 approval assistance permits no Provider fallback/,
+    /candidates\.size\(\) != 1/,
+    /route\.versions\(\)\.equals\(request\.expectedVersions\(\)\)/,
+    /expectedKillSwitchGeneration/,
+    /expectedKillSwitchEvidenceHash/,
+    /killSwitch\.permitsReviewOnly\(\)/,
+    /AiProviderType\.DETERMINISTIC_MOCK/,
+    /production waits for P6/,
+    /route\.budget\(\)\.timeout\(\)\.compareTo\(control\.maximumTimeout\(\)\)/,
+    /route\.budget\(\)\.maximumInputFields\(\)/,
+    /route\.budget\(\)\.maximumInputCharacters\(\)/,
+    /circuitBreaker\.tryAcquire/,
+    /new Result\(request, providerOutcome\.result\(\)\)/,
+    /AI_ASSISTANCE_SERVICE_BOUNDARY_EXCEPTION/,
+    /providerAttempts must be zero or one/,
+    /P3 Provider retry is prohibited/,
+    /postInvocationFallbackAttempted/,
+    /projection\.providerFields\(\)/,
+  ]) {
+    assert.match(orchestrator, required);
+  }
+
+  const serviceInvocations = orchestrator.match(/advisoryService\.advise\s*\(/g) ?? [];
+  assert.equal(serviceInvocations.length, 1);
+
+  for (const forbidden of [
+    /provider\.advise\s*\(/,
+    /for\s*\(\s*AiProviderRoute\b/,
+    /while\s*\(/,
+    /Thread\.sleep\s*\(/,
+    /import\s+java\.sql\./,
+    /import\s+javax\.sql\./,
+    /import\s+org\.springframework\./,
+    /import\s+io\.github\.akaryc1b\.approval\.application\./,
+    /import\s+io\.github\.akaryc1b\.approval\.engine\./,
+    /import\s+java\.net\./,
+    /import\s+java\.net\.http\./,
+    /@RestController\b/,
+    /@Scheduled\b/,
+    /\bApprovalCommand(?:Service)?\b/,
+  ]) {
+    assert.doesNotMatch(orchestrator, forbidden);
   }
 });
 
