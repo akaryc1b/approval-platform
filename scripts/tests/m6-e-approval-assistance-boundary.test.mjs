@@ -185,12 +185,15 @@ test('P2 advisory contract is bounded, evidence-backed and non-executable', () =
   const contract = text(advisoryContractPath);
 
   for (const required of [
-    /SUMMARY\(AiCapability\.APPROVAL_SUMMARY\)/,
-    /MATERIAL_COMPLETENESS\(AiCapability\.MATERIAL_COMPLETENESS\)/,
-    /RISK_REVIEW\(AiCapability\.RISK_SIGNALS\)/,
+    /SUMMARY\(AiCapability\.APPROVAL_SUMMARY,\s*"approval-summary"\)/,
+    /MATERIAL_COMPLETENESS\(\s*AiCapability\.MATERIAL_COMPLETENESS,\s*"approval-material-completeness"\s*\)/,
+    /RISK_REVIEW\(AiCapability\.RISK_SIGNALS,\s*"approval-risk-review"\)/,
+    /OUTPUT_SCHEMA_ID = "approval-assistance"/,
     /KnowledgeSourceVersion\.none\(\)/,
     /ProjectionProvenance/,
     /expectedVersions/,
+    /prompt template must match the exact approval-assistance use case/,
+    /output schema must use the approval-assistance contract/,
     /requestedAt\.isBefore\(provenance\.resourceObservedAt\(\)\)/,
     /P2_MAXIMUM_ITEM_LIMIT = 25/,
     /P2_MAXIMUM_EVIDENCE_LIMIT = 64/,
