@@ -178,6 +178,8 @@ public record AiProviderDeploymentChangeSet(
         SECRET_METADATA_CHANGED,
         VALIDATION_PROFILE_ADDED,
         VALIDATION_PROFILE_REMOVED,
+        VALIDATION_PROVIDER_CHANGED,
+        VALIDATION_CAPABILITIES_CHANGED,
         VALIDATION_SCHEMA_CHANGED,
         VALIDATION_LIMIT_CHANGED
     }
@@ -434,6 +436,24 @@ public record AiProviderDeploymentChangeSet(
                     RiskLevel.HIGH
                 ));
             } else {
+                if (!before.providerVersion().equals(after.providerVersion())) {
+                    changes.add(change(
+                        ChangeType.VALIDATION_PROVIDER_CHANGED,
+                        key,
+                        providerKey(before.providerVersion()),
+                        providerKey(after.providerVersion()),
+                        RiskLevel.CRITICAL
+                    ));
+                }
+                if (!before.capabilities().equals(after.capabilities())) {
+                    changes.add(change(
+                        ChangeType.VALIDATION_CAPABILITIES_CHANGED,
+                        key,
+                        sortedCapabilities(before),
+                        sortedCapabilities(after),
+                        RiskLevel.CRITICAL
+                    ));
+                }
                 if (!before.requestSchemaHash().equals(after.requestSchemaHash())
                     || !before.responseSchemaHash().equals(after.responseSchemaHash())) {
                     changes.add(change(
@@ -537,13 +557,25 @@ public record AiProviderDeploymentChangeSet(
     private static String profileFingerprint(AiProviderProtocolProfile value) {
         return providerKey(value.providerVersion())
             + "|"
+            + sortedCapabilities(value)
+            + "|"
             + value.requestSchemaHash()
             + "|"
             + value.responseSchemaHash()
             + "|"
             + value.maximumRequestBytes()
             + "|"
-            + value.maximumResponseBytes();
+            + value.maximumResponseBytes()
+            + "|"
+            + value.structuredOutputRequired()
+            + "|"
+            + value.unknownResponseFieldsRejected()
+            + "|"
+            + value.providerInvocationAllowed();
+    }
+
+    private static String sortedCapabilities(AiProviderProtocolProfile value) {
+        return value.capabilities().stream().map(Enum::name).sorted().toList().toString();
     }
 
     private static String providerKey(AiVersionReferences.ProviderVersion value) {
