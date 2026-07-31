@@ -32,6 +32,16 @@ const resultContractPath = path.join(
   'server-modules/approval-ai-spi/src/main/java/' +
     'io/github/akaryc1b/approval/ai/spi/AiAdvisoryResult.java',
 );
+const projectionPath = path.join(
+  root,
+  'server-modules/approval-ai-core/src/main/java/' +
+    'io/github/akaryc1b/approval/ai/core/ApprovalAssistanceContextProjection.java',
+);
+const assemblerPath = path.join(
+  root,
+  'server-modules/approval-ai-core/src/main/java/' +
+    'io/github/akaryc1b/approval/ai/core/ApprovalAssistanceContextAssembler.java',
+);
 
 const productionRoots = [
   path.join(root, 'server-modules/approval-ai-spi/src/main/java'),
@@ -121,6 +131,41 @@ test('M6-E and AI production code cannot directly acquire approval or Flowable a
     /\bACT_[A-Z0-9_]+\b/,
   ]) {
     assert.doesNotMatch(production, forbidden);
+  }
+});
+
+test('P1 projection is server-owned, minimized and side-effect free', () => {
+  assert.equal(existsSync(projectionPath), true);
+  assert.equal(existsSync(assemblerPath), true);
+  const projection = text(projectionPath);
+  const assembler = text(assemblerPath);
+  const p1 = `${projection}\n${assembler}`;
+
+  assert.match(projection, /stateVersion/);
+  assert.match(projection, /formContentHash/);
+  assert.match(projection, /uiSchemaHash/);
+  assert.match(projection, /submissionRevision/);
+  assert.match(projection, /attachmentMetadataOnly/);
+  assert.match(projection, /attachmentExtractionAttempted/);
+  assert.match(assembler, /AiDataMinimizer/);
+  assert.match(assembler, /allowedFieldKeys/);
+  assert.match(assembler, /FieldAccess\.HIDDEN/);
+  assert.match(assembler, /AttachmentMetadata/);
+  assert.match(assembler, /AI_ASSISTANCE_CROSS_TENANT_CONTEXT/);
+  assert.match(assembler, /AI_ASSISTANCE_TASK_STATE_MISMATCH/);
+  assert.match(assembler, /AI_ASSISTANCE_FORM_UI_SCHEMA_MISMATCH/);
+
+  for (const forbidden of [
+    /import\s+java\.sql\./,
+    /import\s+javax\.sql\./,
+    /import\s+org\.springframework\./,
+    /import\s+io\.github\.akaryc1b\.approval\.application\./,
+    /import\s+io\.github\.akaryc1b\.approval\.engine\./,
+    /\.advise\s*\(/,
+    /@RestController\b/,
+    /@Scheduled\b/,
+  ]) {
+    assert.doesNotMatch(p1, forbidden);
   }
 });
 
