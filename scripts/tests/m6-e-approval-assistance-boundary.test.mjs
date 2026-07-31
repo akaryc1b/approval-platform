@@ -253,7 +253,7 @@ test('P3 orchestration is synchronous, single-attempt and deterministic-test-onl
     /AI_ASSISTANCE_SERVICE_BOUNDARY_EXCEPTION/,
     /providerAttempts must be zero or one/,
     /P3 Provider retry is prohibited/,
-    /postInvocationFallbackAttempted/,
+    /postInvocationFallbackAuthorized/,
     /projection\.providerFields\(\)/,
   ]) {
     assert.match(orchestrator, required);
