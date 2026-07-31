@@ -143,14 +143,20 @@ test('P1 projection is server-owned, minimized and side-effect free', () => {
 
   assert.match(projection, /stateVersion/);
   assert.match(projection, /formContentHash/);
+  assert.match(projection, /schemaFieldCount/);
   assert.match(projection, /uiSchemaHash/);
   assert.match(projection, /submissionRevision/);
+  assert.match(projection, /maximumTextCharactersPerValue/);
+  assert.match(projection, /maximumTotalTextCharacters/);
+  assert.match(projection, /ATTACHMENT_METADATA_KEYS/);
   assert.match(projection, /attachmentMetadataOnly/);
   assert.match(projection, /attachmentExtractionAttempted/);
+  assert.match(projection, /schema field count does not match projection evidence/);
   assert.match(assembler, /AiDataMinimizer/);
   assert.match(assembler, /allowedFieldKeys/);
   assert.match(assembler, /FieldAccess\.HIDDEN/);
   assert.match(assembler, /AttachmentMetadata/);
+  assert.match(assembler, /countProviderAttachmentMetadata/);
   assert.match(assembler, /AI_ASSISTANCE_CROSS_TENANT_CONTEXT/);
   assert.match(assembler, /AI_ASSISTANCE_TASK_STATE_MISMATCH/);
   assert.match(assembler, /AI_ASSISTANCE_FORM_UI_SCHEMA_MISMATCH/);
