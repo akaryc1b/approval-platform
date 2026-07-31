@@ -141,7 +141,7 @@ test('M6-E remains synchronous and contains no autonomous execution role', () =>
   assert.match(bootstrap, /no unsafe retry or post-invocation fallback/);
 });
 
-test('the permanent workflow runs the M6-E boundary without a second automatic workflow', () => {
+test('the permanent workflow loads M6-E checks through the existing hygiene gate', () => {
   const workflowRoot = path.join(root, '.github/workflows');
   const workflows = filesUnder(workflowRoot).filter((file) => /\.ya?ml$/.test(file));
   const automatic = workflows.filter((file) => {
@@ -154,6 +154,8 @@ test('the permanent workflow runs the M6-E boundary without a second automatic w
   );
 
   const permanent = text(path.join(workflowRoot, 'approval-platform-validation.yml'));
-  assert.match(permanent, /m6-e-approval-assistance-boundary\.test\.mjs/);
-  assert.match(permanent, /m6-e-approval-assistance-boundary\.log/);
+  assert.match(permanent, /m3-repository-hygiene\.test\.mjs/);
+
+  const hygieneGate = text(path.join(root, 'scripts/tests/m3-repository-hygiene.test.mjs'));
+  assert.match(hygieneGate, /m6-e-approval-assistance-boundary\.test\.mjs/);
 });
