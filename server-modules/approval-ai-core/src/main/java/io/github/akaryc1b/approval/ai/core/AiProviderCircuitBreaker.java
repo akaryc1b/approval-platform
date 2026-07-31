@@ -33,20 +33,21 @@ public final class AiProviderCircuitBreaker {
             if (entry.state == State.OPEN) {
                 Instant retryAt = entry.openedAt.plus(configuration.openDuration());
                 if (current.isBefore(retryAt)) {
-                    return new Permit(key, false, State.OPEN, false);
+                    return new Permit(key, false, State.OPEN, false, entry.generation);
                 }
                 entry.state = State.HALF_OPEN;
+                entry.generation++;
                 entry.probeInFlight = true;
-                return new Permit(key, true, State.HALF_OPEN, true);
+                return new Permit(key, true, State.HALF_OPEN, true, entry.generation);
             }
             if (entry.state == State.HALF_OPEN) {
                 if (entry.probeInFlight) {
-                    return new Permit(key, false, State.HALF_OPEN, false);
+                    return new Permit(key, false, State.HALF_OPEN, false, entry.generation);
                 }
                 entry.probeInFlight = true;
-                return new Permit(key, true, State.HALF_OPEN, true);
+                return new Permit(key, true, State.HALF_OPEN, true, entry.generation);
             }
-            return new Permit(key, true, State.CLOSED, false);
+            return new Permit(key, true, State.CLOSED, false, entry.generation);
         }
     }
 
@@ -63,20 +64,36 @@ public final class AiProviderCircuitBreaker {
             if (!permit.allowed()) {
                 return entry.state;
             }
-            entry.probeInFlight = false;
+            if (permit.generation() != entry.generation) {
+                return entry.state;
+            }
+            if (permit.probe()) {
+                entry.probeInFlight = false;
+            }
             if (isHealthy(classification)) {
-                close(entry);
-                return State.CLOSED;
+                if (permit.probe() && entry.state == State.HALF_OPEN) {
+                    close(entry);
+                    return State.CLOSED;
+                }
+                if (entry.state == State.CLOSED) {
+                    entry.consecutiveFailures = 0;
+                }
+                return entry.state;
             }
             if (!isProviderHealthFailure(classification)) {
-                if (permit.probe() || entry.state == State.HALF_OPEN) {
+                if (permit.probe() && entry.state == State.HALF_OPEN) {
                     close(entry);
                 }
                 return entry.state;
             }
-            if (permit.probe() || entry.state == State.HALF_OPEN) {
-                open(entry, current);
-                return State.OPEN;
+            if (permit.probe()) {
+                if (entry.state == State.HALF_OPEN) {
+                    open(entry, current);
+                }
+                return entry.state;
+            }
+            if (entry.state != State.CLOSED) {
+                return entry.state;
             }
             entry.consecutiveFailures++;
             if (entry.consecutiveFailures >= configuration.failureThreshold()) {
@@ -94,7 +111,9 @@ public final class AiProviderCircuitBreaker {
         }
         Entry entry = entries.computeIfAbsent(permit.key(), ignored -> new Entry());
         synchronized (entry) {
-            entry.probeInFlight = false;
+            if (permit.generation() == entry.generation && entry.state == State.HALF_OPEN) {
+                entry.probeInFlight = false;
+            }
         }
     }
 
@@ -122,6 +141,7 @@ public final class AiProviderCircuitBreaker {
 
     private static void close(Entry entry) {
         entry.state = State.CLOSED;
+        entry.generation++;
         entry.consecutiveFailures = 0;
         entry.openedAt = null;
         entry.probeInFlight = false;
@@ -129,6 +149,7 @@ public final class AiProviderCircuitBreaker {
 
     private static void open(Entry entry, Instant now) {
         entry.state = State.OPEN;
+        entry.generation++;
         entry.consecutiveFailures = 0;
         entry.openedAt = now;
         entry.probeInFlight = false;
@@ -150,13 +171,17 @@ public final class AiProviderCircuitBreaker {
         AiProviderRegistry.ProviderKey key,
         boolean allowed,
         State stateBefore,
-        boolean probe
+        boolean probe,
+        long generation
     ) {
         public Permit {
             key = Objects.requireNonNull(key, "key must not be null");
             stateBefore = Objects.requireNonNull(stateBefore, "stateBefore must not be null");
             if (!allowed && probe) {
                 throw new IllegalArgumentException("blocked permit cannot be a probe");
+            }
+            if (generation < 0) {
+                throw new IllegalArgumentException("generation must not be negative");
             }
         }
     }
@@ -169,6 +194,7 @@ public final class AiProviderCircuitBreaker {
 
     private static final class Entry {
         private State state = State.CLOSED;
+        private long generation;
         private int consecutiveFailures;
         private Instant openedAt;
         private boolean probeInFlight;
