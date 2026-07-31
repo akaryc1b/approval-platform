@@ -50,6 +50,7 @@ class ApprovalAssistanceContextAssemblerTest {
         assertEquals(2, projection.process().definitionVersion());
         assertEquals("purchase-payment-form", projection.form().formKey());
         assertEquals(3, projection.form().formVersion());
+        assertEquals(4, projection.form().schemaFieldCount());
         assertEquals(2, projection.form().uiSchemaVersion());
         assertEquals(TASK_CONTEXT, projection.form().contextKey());
         assertEquals(4, projection.form().submissionRevision());
@@ -90,6 +91,35 @@ class ApprovalAssistanceContextAssemblerTest {
             Set.of(AiCapability.APPROVAL_SUMMARY, AiCapability.MATERIAL_COMPLETENESS),
             projection.providerRequirements().capabilities()
         );
+    }
+
+    @Test
+    void omittedAttachmentDoesNotInflateProviderEvidence() {
+        ServerOwnedInput input = baseInput();
+        AiDataMinimizationPolicy policy = new AiDataMinimizationPolicy(
+            input.dataPolicy().version(),
+            Map.of(
+                "supplier", AiDataMinimizationPolicy.FieldRule.MASK,
+                "attachments", AiDataMinimizationPolicy.FieldRule.OMIT
+            ),
+            input.dataPolicy().limits(),
+            true
+        );
+
+        ApprovalAssistanceContextProjection projection = assembler.assemble(
+            copy(input, policy)
+        );
+
+        assertEquals(
+            List.of("amount", "supplier"),
+            projection.providerFields().stream()
+                .map(AiProviderRequest.InputField::key)
+                .toList()
+        );
+        assertEquals(3, projection.evidence().authorizedVisibleFieldCount());
+        assertEquals(2, projection.evidence().providerFieldCount());
+        assertEquals(2, projection.evidence().omittedFieldCount());
+        assertEquals(0, projection.evidence().attachmentMetadataCount());
     }
 
     @Test
@@ -418,6 +448,27 @@ class ApprovalAssistanceContextAssemblerTest {
             values,
             sensitiveFields,
             input.dataPolicy(),
+            input.requiredProviderCapabilities(),
+            input.submissionRevision()
+        );
+    }
+
+    private static ServerOwnedInput copy(
+        ServerOwnedInput input,
+        AiDataMinimizationPolicy policy
+    ) {
+        return new ServerOwnedInput(
+            input.requestContext(),
+            input.authorizedResource(),
+            input.process(),
+            input.resourceState(),
+            input.formDefinition(),
+            input.formContentHash(),
+            input.uiSchema(),
+            input.permissions(),
+            input.values(),
+            input.sensitiveFieldKeys(),
+            policy,
             input.requiredProviderCapabilities(),
             input.submissionRevision()
         );
