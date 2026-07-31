@@ -327,8 +327,12 @@ public final class ApprovalAssistanceSynchronousOrchestrator {
                 executionPolicy
             );
         } catch (RuntimeException exception) {
-            circuitBreaker.release(permit);
-            throw exception;
+            providerOutcome = AiProviderOutcome.failure(
+                AiOutcomeClassification.UNKNOWN,
+                "AI_ASSISTANCE_SERVICE_BOUNDARY_EXCEPTION",
+                "approval-assistance service boundary failed without trusted output",
+                false
+            );
         }
         long elapsedNanos = Math.max(0L, nanoTime.getAsLong() - startedNanos);
         long observedLatencyMillis = TimeUnit.NANOSECONDS.toMillis(elapsedNanos);
