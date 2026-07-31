@@ -114,7 +114,7 @@ public final class AiAdvisoryCoordinator {
         boolean circuitBlocked = false;
         for (AiProviderRoute route : candidates) {
             AiAdvisoryProvider provider = registry.find(route.versions().provider()).orElse(null);
-            if (provider == null || !registry.matches(provider, route)) {
+            if (provider == null || !registry.matches(provider, route, dataPolicy)) {
                 skippedCandidates++;
                 if (!routingPolicy.allowPreInvocationCandidateFallback()) {
                     return selectionFailure(

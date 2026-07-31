@@ -157,8 +157,7 @@ public record AiAuditRecord(
     }
 
     private static String versionKey(AiVersionReferences versions) {
-        return String.join(
-            "/",
+        return frame(
             versions.provider().providerId(),
             versions.provider().version(),
             versions.model().providerId(),
@@ -180,7 +179,7 @@ public record AiAuditRecord(
     }
 
     private static String hash(String... values) {
-        String canonical = String.join("|", values);
+        String canonical = frame(values);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(
@@ -189,6 +188,17 @@ public record AiAuditRecord(
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 must be available", exception);
         }
+    }
+
+    private static String frame(String... values) {
+        StringBuilder canonical = new StringBuilder();
+        for (String value : values) {
+            String normalized = value == null ? "" : value;
+            canonical.append(normalized.length())
+                .append(':')
+                .append(normalized);
+        }
+        return canonical.toString();
     }
 
     private static String requireSha256(String value, String name) {

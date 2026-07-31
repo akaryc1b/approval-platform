@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.ai.spi.AiVersionReferences;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
@@ -82,6 +83,23 @@ public record AiProviderActivationReviewBundle(
             );
         }
         validateStatus(status, approvals);
+        String expectedHash = computeHash(
+            bundleId,
+            bundleVersion,
+            providerVersion,
+            deploymentSnapshotHash,
+            readinessReportHash,
+            faultDrillReportHash,
+            changeSetHash,
+            endpointTrustAssessmentHash,
+            secretReferenceEvidenceHash,
+            killSwitchEvidenceHash,
+            approvals,
+            status
+        );
+        if (!bundleHash.equals(expectedHash)) {
+            throw new IllegalArgumentException("bundleHash must match canonical review evidence");
+        }
     }
 
     public static AiProviderActivationReviewBundle create(
@@ -223,32 +241,33 @@ public record AiProviderActivationReviewBundle(
         List<ReviewerApproval> approvals,
         Status status
     ) {
-        String canonical = String.join(
-            "|",
-            requireText(bundleId, "bundleId", 160),
-            requireText(bundleVersion, "bundleVersion", 120),
-            providerVersion.providerId(),
-            providerVersion.version(),
-            requireSha256(deploymentSnapshotHash, "deploymentSnapshotHash"),
-            requireSha256(readinessReportHash, "readinessReportHash"),
-            requireSha256(faultDrillReportHash, "faultDrillReportHash"),
-            requireSha256(changeSetHash, "changeSetHash"),
-            requireSha256(endpointTrustAssessmentHash, "endpointTrustAssessmentHash"),
-            requireSha256(secretReferenceEvidenceHash, "secretReferenceEvidenceHash"),
-            requireSha256(killSwitchEvidenceHash, "killSwitchEvidenceHash"),
-            status.name(),
-            approvals.stream()
-                .sorted(java.util.Comparator.comparing(ReviewerApproval::reviewerEvidenceHash))
-                .map(value -> value.reviewerEvidenceHash() + ':' + value.role().name() + ':'
-                    + value.decision().name() + ':' + value.evidenceHash())
-                .toList()
-                .toString()
-        );
-        return hash(canonical);
+        List<String> fields = new ArrayList<>();
+        fields.add(requireText(bundleId, "bundleId", 160));
+        fields.add(requireText(bundleVersion, "bundleVersion", 120));
+        fields.add(providerVersion.providerId());
+        fields.add(providerVersion.version());
+        fields.add(requireSha256(deploymentSnapshotHash, "deploymentSnapshotHash"));
+        fields.add(requireSha256(readinessReportHash, "readinessReportHash"));
+        fields.add(requireSha256(faultDrillReportHash, "faultDrillReportHash"));
+        fields.add(requireSha256(changeSetHash, "changeSetHash"));
+        fields.add(requireSha256(endpointTrustAssessmentHash, "endpointTrustAssessmentHash"));
+        fields.add(requireSha256(secretReferenceEvidenceHash, "secretReferenceEvidenceHash"));
+        fields.add(requireSha256(killSwitchEvidenceHash, "killSwitchEvidenceHash"));
+        fields.add(status.name());
+        approvals.stream()
+            .sorted(java.util.Comparator.comparing(ReviewerApproval::reviewerEvidenceHash))
+            .map(value -> frame(
+                value.reviewerEvidenceHash(),
+                value.role().name(),
+                value.decision().name(),
+                value.evidenceHash()
+            ))
+            .forEach(fields::add);
+        return hash(fields.toArray(String[]::new));
     }
 
     private static String hash(String... values) {
-        String canonical = String.join("|", values);
+        String canonical = frame(values);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(
@@ -257,6 +276,17 @@ public record AiProviderActivationReviewBundle(
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 must be available", exception);
         }
+    }
+
+    private static String frame(String... values) {
+        StringBuilder canonical = new StringBuilder();
+        for (String value : values) {
+            String normalized = value == null ? "" : value;
+            canonical.append(normalized.length())
+                .append(':')
+                .append(normalized);
+        }
+        return canonical.toString();
     }
 
     private static String requireSha256(String value, String name) {

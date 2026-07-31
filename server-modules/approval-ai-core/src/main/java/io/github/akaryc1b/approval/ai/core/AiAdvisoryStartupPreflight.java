@@ -123,12 +123,14 @@ public final class AiAdvisoryStartupPreflight {
                 }
             }
 
-            if (provider != null && !providerRegistry.matches(provider, route)) {
+            if (provider != null
+                && dataPolicy != null
+                && !providerRegistry.matches(provider, route, dataPolicy)) {
                 addRouteIssue(
                     issues,
                     routeCodes,
                     "AI_PROVIDER_ROUTE_NOT_AUTHORIZED",
-                    "Provider descriptor, model, capability, budget or artifact metadata does not authorize the route",
+                    "Provider descriptor, model, capability, budget, nesting limits or artifact metadata does not authorize the route",
                     route,
                     null
                 );

@@ -80,12 +80,23 @@ public final class AiProviderRegistry {
     }
 
     public boolean matches(AiAdvisoryProvider provider, AiProviderRoute route) {
+        return matches(provider, route, null);
+    }
+
+    public boolean matches(
+        AiAdvisoryProvider provider,
+        AiProviderRoute route,
+        AiDataMinimizationPolicy dataPolicy
+    ) {
         Objects.requireNonNull(provider, "provider must not be null");
         Objects.requireNonNull(route, "route must not be null");
         AiProviderDescriptor descriptor = Objects.requireNonNull(
             provider.descriptor(),
             "provider descriptor must not be null"
         );
+        AiDataMinimizationPolicy.InputLimits limits = dataPolicy == null
+            ? null
+            : Objects.requireNonNull(dataPolicy.limits(), "data policy limits must not be null");
         return descriptor.providerVersion().equals(route.versions().provider())
             && descriptor.supports(route.versions().model())
             && route.capabilities().stream().allMatch(capability -> descriptor
@@ -93,6 +104,11 @@ public final class AiProviderRegistry {
                 .filter(AiProviderDescriptor.CapabilityDescriptor::enabled)
                 .filter(capabilityDescriptor -> route.budget().maximumInputCharacters()
                     <= capabilityDescriptor.maximumInputCharacters())
+                .filter(capabilityDescriptor -> limits == null
+                    || limits.maximumCollectionSize()
+                        <= capabilityDescriptor.maximumCollectionSize())
+                .filter(capabilityDescriptor -> limits == null
+                    || limits.maximumDepth() <= capabilityDescriptor.maximumDepth())
                 .filter(ignored -> !artifactAuthorizationRequired
                     || artifactRegistry.authorize(route.versions(), capability).allowed())
                 .isPresent());
