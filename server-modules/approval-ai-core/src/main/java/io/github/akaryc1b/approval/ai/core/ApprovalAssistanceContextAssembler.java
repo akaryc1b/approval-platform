@@ -38,10 +38,8 @@ public final class ApprovalAssistanceContextAssembler {
         validateTenantAndResource(input);
         validateSchemaBinding(input);
 
-        Map<String, FormDefinition.FormField> formFields = indexedFields(
-            input.formDefinition()
-        );
-        validateFieldKeys(input, formFields.keySet());
+        Set<String> schemaFields = indexedFields(input.formDefinition()).keySet();
+        validateFieldKeys(input, schemaFields);
 
         List<AiSourceField> sourceFields = new ArrayList<>();
         int attachmentMetadataCount = 0;
@@ -49,13 +47,12 @@ public final class ApprovalAssistanceContextAssembler {
             String key = definition.key();
             FieldAccess access = input.permissions().fieldAccess()
                 .getOrDefault(key, FieldAccess.HIDDEN);
+            Object value = input.values().get(key);
             if (!input.authorizedResource().allowedFieldKeys().contains(key)
                 || access == FieldAccess.HIDDEN
-                || !input.values().containsKey(key)
-                || input.values().get(key) == null) {
+                || value == null) {
                 continue;
             }
-            Object value = input.values().get(key);
             if (definition.type() == FormDefinition.FieldType.ATTACHMENT) {
                 attachmentMetadataCount += validateAttachmentMetadata(value);
             }
@@ -92,8 +89,8 @@ public final class ApprovalAssistanceContextAssembler {
                 == AiProviderRequest.MaskingDisposition.MASKED)
             .count();
         int omittedFields = input.formDefinition().fields().size() - providerFields.size();
-
         AiDataMinimizationPolicy.InputLimits limits = input.dataPolicy().limits();
+
         return new ApprovalAssistanceContextProjection(
             input.requestContext(),
             input.authorizedResource(),
@@ -113,6 +110,8 @@ public final class ApprovalAssistanceContextAssembler {
             new ProviderRequirements(
                 input.requiredProviderCapabilities(),
                 limits.maximumFields(),
+                limits.maximumTextCharactersPerValue(),
+                limits.maximumTotalTextCharacters(),
                 limits.maximumCollectionSize(),
                 limits.maximumDepth(),
                 true,
@@ -139,7 +138,6 @@ public final class ApprovalAssistanceContextAssembler {
                 "approval assistance tenant evidence does not match"
             );
         }
-
         if (input.authorizedResource().resourceType()
             == AiAuthorizedResource.ResourceType.APPROVAL_TASK) {
             if (input.resourceState().state() != ResourceState.TASK_PENDING
@@ -159,7 +157,6 @@ public final class ApprovalAssistanceContextAssembler {
             }
             return;
         }
-
         if (input.authorizedResource().resourceType()
             == AiAuthorizedResource.ResourceType.PROCESS_INSTANCE) {
             if (input.resourceState().state() != ResourceState.INSTANCE_RUNNING
@@ -172,7 +169,6 @@ public final class ApprovalAssistanceContextAssembler {
             }
             return;
         }
-
         throw new AiPolicyViolationException(
             "AI_ASSISTANCE_RESOURCE_TYPE_UNSUPPORTED",
             "approval assistance supports task or process-instance resources only"
@@ -184,7 +180,6 @@ public final class ApprovalAssistanceContextAssembler {
         UiSchemaDefinition uiSchema = input.uiSchema();
         ProcessSnapshot process = input.process();
         ResolvedFieldPermissions permissions = input.permissions();
-
         if (!process.formKey().equals(form.formKey())
             || process.formVersion() != form.version()) {
             throw new AiPolicyViolationException(
@@ -234,11 +229,7 @@ public final class ApprovalAssistanceContextAssembler {
         ServerOwnedInput input,
         Set<String> schemaFields
     ) {
-        rejectUnknown(
-            input.values().keySet(),
-            schemaFields,
-            "AI_ASSISTANCE_UNKNOWN_VALUE_FIELD"
-        );
+        rejectUnknown(input.values().keySet(), schemaFields, "AI_ASSISTANCE_UNKNOWN_VALUE_FIELD");
         rejectUnknown(
             input.permissions().fieldAccess().keySet(),
             schemaFields,
@@ -321,33 +312,20 @@ public final class ApprovalAssistanceContextAssembler {
         int submissionRevision
     ) {
         public ServerOwnedInput {
-            requestContext = Objects.requireNonNull(
-                requestContext,
-                "requestContext must not be null"
-            );
+            requestContext = Objects.requireNonNull(requestContext, "requestContext must not be null");
             authorizedResource = Objects.requireNonNull(
                 authorizedResource,
                 "authorizedResource must not be null"
             );
             process = Objects.requireNonNull(process, "process must not be null");
-            resourceState = Objects.requireNonNull(
-                resourceState,
-                "resourceState must not be null"
-            );
+            resourceState = Objects.requireNonNull(resourceState, "resourceState must not be null");
             formDefinition = Objects.requireNonNull(
                 formDefinition,
                 "formDefinition must not be null"
             );
-            formContentHash = requireText(
-                formContentHash,
-                "formContentHash",
-                160
-            );
+            formContentHash = requireText(formContentHash, "formContentHash", 160);
             uiSchema = Objects.requireNonNull(uiSchema, "uiSchema must not be null");
-            permissions = Objects.requireNonNull(
-                permissions,
-                "permissions must not be null"
-            );
+            permissions = Objects.requireNonNull(permissions, "permissions must not be null");
             values = values == null ? Map.of() : Map.copyOf(values);
             sensitiveFieldKeys = sensitiveFieldKeys == null
                 ? Set.of()
@@ -357,9 +335,7 @@ public final class ApprovalAssistanceContextAssembler {
                 ? Set.of()
                 : Set.copyOf(requiredProviderCapabilities);
             if (submissionRevision < 0) {
-                throw new IllegalArgumentException(
-                    "submissionRevision must not be negative"
-                );
+                throw new IllegalArgumentException("submissionRevision must not be negative");
             }
         }
     }
