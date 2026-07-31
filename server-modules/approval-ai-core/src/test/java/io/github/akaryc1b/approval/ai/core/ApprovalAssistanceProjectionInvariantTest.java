@@ -7,11 +7,14 @@ import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceContextProjection.P
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceContextProjection.ResourceState;
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceContextProjection.ResourceStateSnapshot;
 import io.github.akaryc1b.approval.ai.spi.AiCapability;
+import io.github.akaryc1b.approval.ai.spi.AiProviderRequest.InputField;
+import io.github.akaryc1b.approval.ai.spi.AiProviderRequest.MaskingDisposition;
 import io.github.akaryc1b.approval.ai.spi.AiVersionReferences.PolicyVersion;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -21,30 +24,39 @@ class ApprovalAssistanceProjectionInvariantTest {
     @Test
     void rejectsDirectProcessAndFormMismatch() {
         assertThrows(IllegalArgumentException.class, () -> projection(
-            taskResource("task-1"),
+            taskResource("task-1", Set.of()),
             taskState("task-1", "managerApproval"),
             process("purchase-form", 3),
-            form("other-form", 3, "managerApproval")
+            form("other-form", 3, "managerApproval"),
+            List.of(),
+            requirements(8, 100, 1000),
+            evidence(0, 0, 0)
         ));
     }
 
     @Test
     void rejectsDirectTaskIdentityMismatch() {
         assertThrows(IllegalArgumentException.class, () -> projection(
-            taskResource("task-1"),
+            taskResource("task-1", Set.of()),
             taskState("task-2", "managerApproval"),
             process("purchase-form", 3),
-            form("purchase-form", 3, "managerApproval")
+            form("purchase-form", 3, "managerApproval"),
+            List.of(),
+            requirements(8, 100, 1000),
+            evidence(0, 0, 0)
         ));
     }
 
     @Test
     void rejectsDirectTaskPermissionContextMismatch() {
         assertThrows(IllegalArgumentException.class, () -> projection(
-            taskResource("task-1"),
+            taskResource("task-1", Set.of()),
             taskState("task-1", "managerApproval"),
             process("purchase-form", 3),
-            form("purchase-form", 3, "financeApproval")
+            form("purchase-form", 3, "financeApproval"),
+            List.of(),
+            requirements(8, 100, 1000),
+            evidence(0, 0, 0)
         ));
     }
 
@@ -61,15 +73,117 @@ class ApprovalAssistanceProjectionInvariantTest {
             formSubmission,
             taskState("task-1", "managerApproval"),
             process("purchase-form", 3),
-            form("purchase-form", 3, "managerApproval")
+            form("purchase-form", 3, "managerApproval"),
+            List.of(),
+            requirements(8, 100, 1000),
+            evidence(0, 0, 0)
         ));
+    }
+
+    @Test
+    void rejectsFieldsBeyondDeclaredProviderLimit() {
+        List<InputField> fields = List.of(
+            new InputField("summary", "TEXT", "one", MaskingDisposition.INCLUDED),
+            new InputField("supplier", "TEXT", "two", MaskingDisposition.INCLUDED)
+        );
+        assertThrows(IllegalArgumentException.class, () -> validProjection(
+            Set.of("summary", "supplier"),
+            fields,
+            requirements(1, 100, 1000),
+            evidence(2, 0, 0)
+        ));
+    }
+
+    @Test
+    void rejectsTextBeyondDeclaredCharacterBudget() {
+        List<InputField> fields = List.of(
+            new InputField("summary", "TEXT", "four", MaskingDisposition.INCLUDED)
+        );
+        assertThrows(IllegalArgumentException.class, () -> validProjection(
+            Set.of("summary"),
+            fields,
+            requirements(1, 3, 10),
+            evidence(1, 0, 0)
+        ));
+    }
+
+    @Test
+    void rejectsAttachmentValueContainingRawContent() {
+        Map<String, Object> unsafe = Map.of(
+            "attachmentId", "attachment-1",
+            "fileName", "invoice.pdf",
+            "contentType", "application/pdf",
+            "sizeBytes", 4096L,
+            "sha256", "sha256-invoice",
+            "content", "raw-content"
+        );
+        List<InputField> fields = List.of(
+            new InputField(
+                "attachments",
+                "ATTACHMENT",
+                List.of(unsafe),
+                MaskingDisposition.INCLUDED
+            )
+        );
+        assertThrows(IllegalArgumentException.class, () -> validProjection(
+            Set.of("attachments"),
+            fields,
+            requirements(1, 100, 1000),
+            evidence(1, 0, 1)
+        ));
+    }
+
+    @Test
+    void rejectsMaskedAndAttachmentEvidenceMismatch() {
+        Map<String, Object> metadata = Map.of(
+            "attachmentId", "attachment-1",
+            "fileName", "invoice.pdf",
+            "contentType", "application/pdf",
+            "sizeBytes", 4096L,
+            "sha256", "sha256-invoice"
+        );
+        List<InputField> fields = List.of(
+            new InputField("supplier", "TEXT", "***", MaskingDisposition.MASKED),
+            new InputField(
+                "attachments",
+                "ATTACHMENT",
+                List.of(metadata),
+                MaskingDisposition.INCLUDED
+            )
+        );
+        assertThrows(IllegalArgumentException.class, () -> validProjection(
+            Set.of("supplier", "attachments"),
+            fields,
+            requirements(2, 100, 1000),
+            evidence(2, 0, 0)
+        ));
+    }
+
+    private static ApprovalAssistanceContextProjection validProjection(
+        Set<String> allowedFields,
+        List<InputField> fields,
+        ProviderRequirements requirements,
+        ProjectionEvidence evidence
+    ) {
+        return projection(
+            taskResource("task-1", allowedFields),
+            taskState("task-1", "managerApproval"),
+            process("purchase-form", 3),
+            form("purchase-form", 3, "managerApproval"),
+            fields,
+            requirements,
+            evidence
+        );
     }
 
     private static ApprovalAssistanceContextProjection projection(
         AiAuthorizedResource resource,
         ResourceStateSnapshot state,
         ProcessSnapshot process,
-        FormSnapshot form
+        FormSnapshot form,
+        List<InputField> providerFields,
+        ProviderRequirements requirements,
+        ProjectionEvidence evidence
     ) {
         return new ApprovalAssistanceContextProjection(
             new AiServerRequestContext("tenant-a", "operator-a", "request-1", "trace-1"),
@@ -77,27 +191,55 @@ class ApprovalAssistanceProjectionInvariantTest {
             process,
             state,
             form,
-            List.of(),
-            new ProviderRequirements(
-                Set.of(AiCapability.APPROVAL_SUMMARY),
-                8,
-                8,
-                3,
-                true,
-                true
-            ),
+            providerFields,
+            requirements,
             new PolicyVersion("approval-assistance", "v1", "policy-hash-v1"),
-            new ProjectionEvidence(0, 0, 0, 0, 0, false)
+            evidence
         );
     }
 
-    private static AiAuthorizedResource taskResource(String taskId) {
+    private static ProviderRequirements requirements(
+        int maximumFields,
+        int maximumTextCharactersPerValue,
+        int maximumTotalTextCharacters
+    ) {
+        return new ProviderRequirements(
+            Set.of(AiCapability.APPROVAL_SUMMARY),
+            maximumFields,
+            maximumTextCharactersPerValue,
+            maximumTotalTextCharacters,
+            8,
+            3,
+            true,
+            true
+        );
+    }
+
+    private static ProjectionEvidence evidence(
+        int providerFields,
+        int maskedFields,
+        int attachmentMetadata
+    ) {
+        return new ProjectionEvidence(
+            providerFields,
+            providerFields,
+            maskedFields,
+            0,
+            attachmentMetadata,
+            false
+        );
+    }
+
+    private static AiAuthorizedResource taskResource(
+        String taskId,
+        Set<String> allowedFields
+    ) {
         return new AiAuthorizedResource(
             "tenant-a",
             AiAuthorizedResource.ResourceType.APPROVAL_TASK,
             taskId,
             "authz-ref",
-            Set.of()
+            allowedFields
         );
     }
 
