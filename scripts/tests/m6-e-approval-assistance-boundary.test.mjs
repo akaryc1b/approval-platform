@@ -1,0 +1,159 @@
+import assert from 'node:assert/strict';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+function filesUnder(directory) {
+  if (!existsSync(directory)) return [];
+  const files = [];
+  for (const entry of readdirSync(directory)) {
+    const absolute = path.join(directory, entry);
+    if (statSync(absolute).isDirectory()) files.push(...filesUnder(absolute));
+    else files.push(absolute);
+  }
+  return files;
+}
+
+function relative(file) {
+  return path.relative(root, file).split(path.sep).join('/');
+}
+
+function text(file) {
+  return readFileSync(file, 'utf8');
+}
+
+const bootstrapPath = path.join(root, 'docs/m6/M6_E_APPROVAL_ASSISTANCE_BOOTSTRAP.md');
+const threatModelPath = path.join(root, 'docs/m6/M6_E_APPROVAL_ASSISTANCE_THREAT_MODEL.md');
+const resultContractPath = path.join(
+  root,
+  'server-modules/approval-ai-spi/src/main/java/' +
+    'io/github/akaryc1b/approval/ai/spi/AiAdvisoryResult.java',
+);
+
+const productionRoots = [
+  path.join(root, 'server-modules/approval-ai-spi/src/main/java'),
+  path.join(root, 'server-modules/approval-ai-core/src/main/java'),
+  path.join(root, 'server-modules/approval-application/src/main/java'),
+  path.join(root, 'apps/server/src/main/java'),
+];
+
+const allProductionJava = productionRoots
+  .flatMap(filesUnder)
+  .filter((file) => file.endsWith('.java'));
+
+const m6eProductionJava = allProductionJava.filter((file) => {
+  const name = path.basename(file);
+  const source = text(file);
+  const location = relative(file);
+  return location.includes('/approval-ai-') ||
+    /(?:Ai|AI|ApprovalAssistance|Advisory)/.test(name) ||
+    /package\s+io\.github\.akaryc1b\.approval\.(?:ai|assistance)/.test(source);
+});
+
+test('M6-E P0 records the exact baseline, data flow and required future gates', () => {
+  assert.equal(existsSync(bootstrapPath), true);
+  assert.equal(existsSync(threatModelPath), true);
+
+  const bootstrap = text(bootstrapPath);
+  assert.match(bootstrap, /fcf031da9e6e04b15a1255044021a7fdd6637421/);
+  assert.match(bootstrap, /30612812090/);
+  assert.match(bootstrap, /Issue #78, closed \/ completed/);
+  assert.match(bootstrap, /Issue #80/);
+  assert.match(bootstrap, /server identity context/);
+  assert.match(bootstrap, /field-permission projection/);
+  assert.match(bootstrap, /bounded at-most-one Provider invocation/);
+  assert.match(bootstrap, /durable minimal assistance evidence is required/);
+  assert.match(bootstrap, /one real production Provider gate is required/);
+  assert.match(bootstrap, /M6-E is synchronous and bounded/);
+  assert.match(bootstrap, /AI_IS_NOT_AN_OPERATOR/);
+  assert.match(bootstrap, /PROVIDER_TO_DIRECT_COMMAND_IS_PROHIBITED/);
+});
+
+test('M6-E threat model covers tenant, injection, Provider and authority-confusion threats', () => {
+  const threatModel = text(threatModelPath);
+  for (const required of [
+    /forged tenant or operator/,
+    /unauthorized field leakage/,
+    /prompt injection/,
+    /tool or command injection/,
+    /cross-tenant Provider route/,
+    /SSRF\/DNS rebinding\/redirect/,
+    /stale approval state/,
+    /feedback poisoning/,
+    /background autonomous execution/,
+    /confused deputy/,
+    /UI authority confusion/,
+    /Provider -> application command/,
+  ]) {
+    assert.match(threatModel, required);
+  }
+  assert.match(threatModel, /ADVISORY_NOT_AUTHORITY/);
+  assert.match(threatModel, /HUMAN_REVIEW_REQUIRED/);
+});
+
+test('advisory result remains explicitly unverified and human-reviewed', () => {
+  const resultContract = text(resultContractPath);
+  assert.match(resultContract, /ADVISORY/);
+  assert.match(resultContract, /UNVERIFIED_ADVISORY/);
+  assert.match(resultContract, /needsHumanReview/);
+  assert.doesNotMatch(
+    resultContract,
+    /\b(?:ApprovalCommand|ApprovalDecision|ExecutableAction|CommandCredential)\b/,
+  );
+});
+
+test('M6-E and AI production code cannot directly acquire approval or Flowable authority', () => {
+  assert.ok(m6eProductionJava.length > 0, 'AI production sources must be present');
+  const production = m6eProductionJava.map((file) => `\n// ${relative(file)}\n${text(file)}`).join('\n');
+
+  for (const forbidden of [
+    /import\s+org\.flowable\./,
+    /import\s+io\.github\.akaryc1b\.approval\.engine\./,
+    /\bRuntimeService\b/,
+    /\bTaskService\b/,
+    /\bProcessMigrationService\b/,
+    /\bProcessInstanceMigrationPort\b/,
+    /\bApprovalCommandService\b/,
+    /\bApprovalTaskCommandService\b/,
+    /\bACT_[A-Z0-9_]+\b/,
+  ]) {
+    assert.doesNotMatch(production, forbidden);
+  }
+});
+
+test('M6-E remains synchronous and contains no autonomous execution role', () => {
+  const m6eSources = m6eProductionJava.map(text).join('\n');
+  for (const forbidden of [
+    /@Scheduled\b/,
+    /SchedulingConfigurer/,
+    /class\s+\w*(?:Ai|ApprovalAssistance)\w*(?:Worker|Scheduler|Listener)\b/,
+    /interface\s+\w*(?:Ai|ApprovalAssistance)\w*(?:Queue|Worker|Scheduler)\b/,
+    /package\s+[^;]*\.(?:queue|worker|scheduler)\s*;/,
+  ]) {
+    assert.doesNotMatch(m6eSources, forbidden);
+  }
+
+  const bootstrap = text(bootstrapPath);
+  assert.match(bootstrap, /no AI Queue, Worker, Scheduler, listener, polling/);
+  assert.match(bootstrap, /no unsafe retry or post-invocation fallback/);
+});
+
+test('the permanent workflow runs the M6-E boundary without a second automatic workflow', () => {
+  const workflowRoot = path.join(root, '.github/workflows');
+  const workflows = filesUnder(workflowRoot).filter((file) => /\.ya?ml$/.test(file));
+  const automatic = workflows.filter((file) => {
+    const content = text(file);
+    return /^\s{0,4}(pull_request|push):\s*$/m.test(content);
+  });
+  assert.deepEqual(
+    automatic.map(relative).sort(),
+    ['.github/workflows/approval-platform-validation.yml'],
+  );
+
+  const permanent = text(path.join(workflowRoot, 'approval-platform-validation.yml'));
+  assert.match(permanent, /m6-e-approval-assistance-boundary\.test\.mjs/);
+  assert.match(permanent, /m6-e-approval-assistance-boundary\.log/);
+});
