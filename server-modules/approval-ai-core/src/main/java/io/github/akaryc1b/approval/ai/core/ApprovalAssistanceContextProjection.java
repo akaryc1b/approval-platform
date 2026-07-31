@@ -400,14 +400,38 @@ public record ApprovalAssistanceContextProjection(
                     "attachment provider value contains non-metadata content"
                 );
             }
-            validateAttachmentText(metadata.get("attachmentId"), requirements, budget);
-            validateAttachmentText(metadata.get("fileName"), requirements, budget);
-            validateAttachmentText(metadata.get("contentType"), requirements, budget);
-            validateAttachmentText(metadata.get("sha256"), requirements, budget);
+            validateAttachmentText(
+                metadata.get("attachmentId"),
+                "attachmentId",
+                200,
+                requirements,
+                budget
+            );
+            validateAttachmentText(
+                metadata.get("fileName"),
+                "fileName",
+                255,
+                requirements,
+                budget
+            );
+            validateAttachmentText(
+                metadata.get("contentType"),
+                "contentType",
+                160,
+                requirements,
+                budget
+            );
+            validateAttachmentText(
+                metadata.get("sha256"),
+                "sha256",
+                128,
+                requirements,
+                budget
+            );
             Object sizeBytes = metadata.get("sizeBytes");
-            if (!(sizeBytes instanceof Number number) || number.longValue() < 0) {
+            if (!(sizeBytes instanceof Long size) || size < 0) {
                 throw new IllegalArgumentException(
-                    "attachment size metadata must be a non-negative number"
+                    "attachment size metadata must be a non-negative long"
                 );
             }
         }
@@ -416,12 +440,16 @@ public record ApprovalAssistanceContextProjection(
 
     private static void validateAttachmentText(
         Object value,
+        String name,
+        int maximumLength,
         ProviderRequirements requirements,
         TextBudget budget
     ) {
-        if (!(value instanceof String text)) {
+        if (!(value instanceof String text)
+            || text.isBlank()
+            || text.length() > maximumLength) {
             throw new IllegalArgumentException(
-                "attachment text metadata must be a string"
+                name + " attachment metadata must be non-blank and bounded"
             );
         }
         validateText(text, requirements, budget);
