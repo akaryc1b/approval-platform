@@ -1,3 +1,5 @@
+import './m6-e-approval-assistance-boundary.test.mjs';
+
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
