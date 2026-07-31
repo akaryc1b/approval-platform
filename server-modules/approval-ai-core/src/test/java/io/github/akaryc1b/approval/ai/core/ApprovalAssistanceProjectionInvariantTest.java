@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ApprovalAssistanceProjectionInvariantTest {
@@ -156,6 +157,31 @@ class ApprovalAssistanceProjectionInvariantTest {
             fields,
             requirements(2, 100, 1000),
             evidence(2, 0, 0)
+        ));
+    }
+
+    @Test
+    void acceptsAttachmentMetadataAtExactMinimizerTextBudget() {
+        Map<String, Object> metadata = Map.of(
+            "attachmentId", "a",
+            "fileName", "b",
+            "contentType", "c",
+            "sizeBytes", 1L,
+            "sha256", "d"
+        );
+        List<InputField> fields = List.of(
+            new InputField(
+                "attachments",
+                "ATTACHMENT",
+                List.of(metadata),
+                MaskingDisposition.INCLUDED
+            )
+        );
+        assertDoesNotThrow(() -> validProjection(
+            Set.of("attachments"),
+            fields,
+            requirements(1, 1, 4),
+            evidence(1, 0, 1)
         ));
     }
 
