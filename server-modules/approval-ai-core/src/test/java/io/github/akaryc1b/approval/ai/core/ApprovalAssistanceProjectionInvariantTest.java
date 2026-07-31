@@ -28,10 +28,10 @@ class ApprovalAssistanceProjectionInvariantTest {
             taskResource("task-1", Set.of()),
             taskState("task-1", "managerApproval"),
             process("purchase-form", 3),
-            form("other-form", 3, "managerApproval"),
+            form("other-form", 3, "managerApproval", 1),
             List.of(),
             requirements(8, 100, 1000),
-            evidence(0, 0, 0)
+            evidence(0, 0, 0, 1)
         ));
     }
 
@@ -41,10 +41,10 @@ class ApprovalAssistanceProjectionInvariantTest {
             taskResource("task-1", Set.of()),
             taskState("task-2", "managerApproval"),
             process("purchase-form", 3),
-            form("purchase-form", 3, "managerApproval"),
+            form("purchase-form", 3, "managerApproval", 1),
             List.of(),
             requirements(8, 100, 1000),
-            evidence(0, 0, 0)
+            evidence(0, 0, 0, 1)
         ));
     }
 
@@ -54,10 +54,10 @@ class ApprovalAssistanceProjectionInvariantTest {
             taskResource("task-1", Set.of()),
             taskState("task-1", "managerApproval"),
             process("purchase-form", 3),
-            form("purchase-form", 3, "financeApproval"),
+            form("purchase-form", 3, "financeApproval", 1),
             List.of(),
             requirements(8, 100, 1000),
-            evidence(0, 0, 0)
+            evidence(0, 0, 0, 1)
         ));
     }
 
@@ -74,10 +74,10 @@ class ApprovalAssistanceProjectionInvariantTest {
             formSubmission,
             taskState("task-1", "managerApproval"),
             process("purchase-form", 3),
-            form("purchase-form", 3, "managerApproval"),
+            form("purchase-form", 3, "managerApproval", 1),
             List.of(),
             requirements(8, 100, 1000),
-            evidence(0, 0, 0)
+            evidence(0, 0, 0, 1)
         ));
     }
 
@@ -91,7 +91,7 @@ class ApprovalAssistanceProjectionInvariantTest {
             Set.of("summary", "supplier"),
             fields,
             requirements(1, 100, 1000),
-            evidence(2, 0, 0)
+            evidence(2, 0, 0, 0)
         ));
     }
 
@@ -104,7 +104,7 @@ class ApprovalAssistanceProjectionInvariantTest {
             Set.of("summary"),
             fields,
             requirements(1, 3, 10),
-            evidence(1, 0, 0)
+            evidence(1, 0, 0, 0)
         ));
     }
 
@@ -130,19 +130,13 @@ class ApprovalAssistanceProjectionInvariantTest {
             Set.of("attachments"),
             fields,
             requirements(1, 100, 1000),
-            evidence(1, 0, 1)
+            evidence(1, 0, 1, 0)
         ));
     }
 
     @Test
     void rejectsMaskedAndAttachmentEvidenceMismatch() {
-        Map<String, Object> metadata = Map.of(
-            "attachmentId", "attachment-1",
-            "fileName", "invoice.pdf",
-            "contentType", "application/pdf",
-            "sizeBytes", 4096L,
-            "sha256", "sha256-invoice"
-        );
+        Map<String, Object> metadata = attachmentMetadata();
         List<InputField> fields = List.of(
             new InputField("supplier", "TEXT", "***", MaskingDisposition.MASKED),
             new InputField(
@@ -156,7 +150,7 @@ class ApprovalAssistanceProjectionInvariantTest {
             Set.of("supplier", "attachments"),
             fields,
             requirements(2, 100, 1000),
-            evidence(2, 0, 0)
+            evidence(2, 0, 0, 0)
         ));
     }
 
@@ -181,7 +175,57 @@ class ApprovalAssistanceProjectionInvariantTest {
             Set.of("attachments"),
             fields,
             requirements(1, 1, 4),
-            evidence(1, 0, 1)
+            evidence(1, 0, 1, 0)
+        ));
+    }
+
+    @Test
+    void rejectsSchemaAndOmittedCountMismatch() {
+        List<InputField> fields = List.of(
+            new InputField("summary", "TEXT", "ok", MaskingDisposition.INCLUDED)
+        );
+        assertThrows(IllegalArgumentException.class, () -> projection(
+            taskResource("task-1", Set.of("summary")),
+            taskState("task-1", "managerApproval"),
+            process("purchase-form", 3),
+            form("purchase-form", 3, "managerApproval", 1),
+            fields,
+            requirements(1, 100, 1000),
+            evidence(1, 0, 0, 1)
+        ));
+    }
+
+    @Test
+    void rejectsProviderRequirementsBeyondFoundationBounds() {
+        assertThrows(IllegalArgumentException.class, () -> new ProviderRequirements(
+            Set.of(AiCapability.APPROVAL_SUMMARY),
+            501,
+            100,
+            1000,
+            8,
+            3,
+            true,
+            true
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new ProviderRequirements(
+            Set.of(AiCapability.APPROVAL_SUMMARY),
+            1,
+            100_001,
+            400_000,
+            8,
+            3,
+            true,
+            true
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new ProviderRequirements(
+            Set.of(AiCapability.APPROVAL_SUMMARY),
+            1,
+            100,
+            400_001,
+            8,
+            3,
+            true,
+            true
         ));
     }
 
@@ -195,7 +239,7 @@ class ApprovalAssistanceProjectionInvariantTest {
             taskResource("task-1", allowedFields),
             taskState("task-1", "managerApproval"),
             process("purchase-form", 3),
-            form("purchase-form", 3, "managerApproval"),
+            form("purchase-form", 3, "managerApproval", Math.max(1, fields.size())),
             fields,
             requirements,
             evidence
@@ -244,13 +288,14 @@ class ApprovalAssistanceProjectionInvariantTest {
     private static ProjectionEvidence evidence(
         int providerFields,
         int maskedFields,
-        int attachmentMetadata
+        int attachmentMetadata,
+        int omittedFields
     ) {
         return new ProjectionEvidence(
             providerFields,
             providerFields,
             maskedFields,
-            0,
+            omittedFields,
             attachmentMetadata,
             false
         );
@@ -300,17 +345,29 @@ class ApprovalAssistanceProjectionInvariantTest {
     private static FormSnapshot form(
         String formKey,
         int formVersion,
-        String contextKey
+        String contextKey,
+        int schemaFieldCount
     ) {
         return new FormSnapshot(
             formKey,
             formVersion,
             "1.0",
             "form-hash-v3",
+            schemaFieldCount,
             2,
             "ui-hash-v2",
             contextKey,
             4
+        );
+    }
+
+    private static Map<String, Object> attachmentMetadata() {
+        return Map.of(
+            "attachmentId", "attachment-1",
+            "fileName", "invoice.pdf",
+            "contentType", "application/pdf",
+            "sizeBytes", 4096L,
+            "sha256", "sha256-invoice"
         );
     }
 }
