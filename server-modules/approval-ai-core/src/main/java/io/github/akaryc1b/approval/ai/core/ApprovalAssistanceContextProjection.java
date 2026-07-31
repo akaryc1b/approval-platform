@@ -99,6 +99,11 @@ public record ApprovalAssistanceContextProjection(
             if (formVersion < 1) {
                 throw new IllegalArgumentException("formVersion must be positive");
             }
+            releasePackageHash = normalizeOptional(
+                releasePackageHash,
+                "releasePackageHash",
+                160
+            );
             boolean anyRelease = releaseVersion != null || releasePackageHash != null;
             boolean completeRelease = releaseVersion != null && releasePackageHash != null;
             if (anyRelease && !completeRelease) {
@@ -109,11 +114,6 @@ public record ApprovalAssistanceContextProjection(
             if (releaseVersion != null && releaseVersion < 1) {
                 throw new IllegalArgumentException("releaseVersion must be positive");
             }
-            releasePackageHash = normalizeOptional(
-                releasePackageHash,
-                "releasePackageHash",
-                160
-            );
         }
     }
 
