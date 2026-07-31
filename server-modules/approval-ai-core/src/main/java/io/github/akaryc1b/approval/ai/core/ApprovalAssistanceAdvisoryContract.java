@@ -23,23 +23,33 @@ public final class ApprovalAssistanceAdvisoryContract {
 
     private static final double MEDIUM_CONFIDENCE_MINIMUM = 0.50d;
     private static final double HIGH_CONFIDENCE_MINIMUM = 0.80d;
+    private static final String OUTPUT_SCHEMA_ID = "approval-assistance";
 
     private ApprovalAssistanceAdvisoryContract() {
     }
 
     public enum UseCase {
-        SUMMARY(AiCapability.APPROVAL_SUMMARY),
-        MATERIAL_COMPLETENESS(AiCapability.MATERIAL_COMPLETENESS),
-        RISK_REVIEW(AiCapability.RISK_SIGNALS);
+        SUMMARY(AiCapability.APPROVAL_SUMMARY, "approval-summary"),
+        MATERIAL_COMPLETENESS(
+            AiCapability.MATERIAL_COMPLETENESS,
+            "approval-material-completeness"
+        ),
+        RISK_REVIEW(AiCapability.RISK_SIGNALS, "approval-risk-review");
 
         private final AiCapability capability;
+        private final String promptTemplateId;
 
-        UseCase(AiCapability capability) {
+        UseCase(AiCapability capability, String promptTemplateId) {
             this.capability = capability;
+            this.promptTemplateId = promptTemplateId;
         }
 
         public AiCapability capability() {
             return capability;
+        }
+
+        public String promptTemplateId() {
+            return promptTemplateId;
         }
     }
 
@@ -168,6 +178,18 @@ public final class ApprovalAssistanceAdvisoryContract {
             )) {
                 throw new IllegalArgumentException(
                     "P2 approval assistance does not permit a knowledge source"
+                );
+            }
+            if (!expectedVersions.promptTemplate().templateId().equals(
+                useCase.promptTemplateId()
+            )) {
+                throw new IllegalArgumentException(
+                    "prompt template must match the exact approval-assistance use case"
+                );
+            }
+            if (!expectedVersions.outputSchema().schemaId().equals(OUTPUT_SCHEMA_ID)) {
+                throw new IllegalArgumentException(
+                    "output schema must use the approval-assistance contract"
                 );
             }
             if (!provenance.equals(ProjectionProvenance.from(projection))) {
