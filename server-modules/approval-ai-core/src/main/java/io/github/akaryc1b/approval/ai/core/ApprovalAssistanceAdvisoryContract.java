@@ -51,9 +51,9 @@ public final class ApprovalAssistanceAdvisoryContract {
         int maximumEvidenceReferences,
         int maximumLimitations
     ) {
-        private static final int ABSOLUTE_ITEM_LIMIT = 100;
-        private static final int ABSOLUTE_EVIDENCE_LIMIT = 200;
-        private static final int ABSOLUTE_LIMITATION_LIMIT = 20;
+        private static final int P2_MAXIMUM_ITEM_LIMIT = 25;
+        private static final int P2_MAXIMUM_EVIDENCE_LIMIT = 64;
+        private static final int P2_MAXIMUM_LIMITATION_LIMIT = 12;
 
         public ResultLimits {
             requirePositive(maximumObservations, "maximumObservations");
@@ -62,14 +62,14 @@ public final class ApprovalAssistanceAdvisoryContract {
             requirePositive(maximumRecommendations, "maximumRecommendations");
             requirePositive(maximumEvidenceReferences, "maximumEvidenceReferences");
             requirePositive(maximumLimitations, "maximumLimitations");
-            if (maximumObservations > ABSOLUTE_ITEM_LIMIT
-                || maximumRiskSignals > ABSOLUTE_ITEM_LIMIT
-                || maximumMissingMaterials > ABSOLUTE_ITEM_LIMIT
-                || maximumRecommendations > ABSOLUTE_ITEM_LIMIT
-                || maximumEvidenceReferences > ABSOLUTE_EVIDENCE_LIMIT
-                || maximumLimitations > ABSOLUTE_LIMITATION_LIMIT) {
+            if (maximumObservations > P2_MAXIMUM_ITEM_LIMIT
+                || maximumRiskSignals > P2_MAXIMUM_ITEM_LIMIT
+                || maximumMissingMaterials > P2_MAXIMUM_ITEM_LIMIT
+                || maximumRecommendations > P2_MAXIMUM_ITEM_LIMIT
+                || maximumEvidenceReferences > P2_MAXIMUM_EVIDENCE_LIMIT
+                || maximumLimitations > P2_MAXIMUM_LIMITATION_LIMIT) {
                 throw new IllegalArgumentException(
-                    "approval-assistance result limits exceed the accepted advisory bounds"
+                    "approval-assistance result limits exceed the P2 advisory bounds"
                 );
             }
         }
@@ -175,6 +175,11 @@ public final class ApprovalAssistanceAdvisoryContract {
                     "request provenance must match the exact context projection"
                 );
             }
+            if (requestedAt.isBefore(provenance.resourceObservedAt())) {
+                throw new IllegalArgumentException(
+                    "request time must not precede the observed resource state"
+                );
+            }
         }
     }
 
@@ -268,6 +273,11 @@ public final class ApprovalAssistanceAdvisoryContract {
                 duplicate
             );
         }
+        if (evidenceById.isEmpty()) {
+            throw new IllegalArgumentException(
+                "approval assistance requires Provider-safe evidence references"
+            );
+        }
 
         for (AiAdvisoryResult.EvidenceReference evidence : evidenceById.values()) {
             if (!providerFieldKeys.contains(evidence.fieldKey())) {
@@ -277,24 +287,39 @@ public final class ApprovalAssistanceAdvisoryContract {
             }
         }
 
+        Set<String> usedEvidenceIds = new HashSet<>();
         advisory.observations().forEach(item -> requireEvidence(
             item.evidenceReferenceIds(),
-            evidenceById
+            evidenceById,
+            usedEvidenceIds
         ));
         advisory.riskSignals().forEach(item -> requireEvidence(
             item.evidenceReferenceIds(),
-            evidenceById
+            evidenceById,
+            usedEvidenceIds
         ));
         advisory.recommendations().forEach(item -> requireEvidence(
             item.evidenceReferenceIds(),
-            evidenceById
+            evidenceById,
+            usedEvidenceIds
         ));
+        if (!usedEvidenceIds.equals(evidenceById.keySet())) {
+            throw new IllegalArgumentException(
+                "every declared evidence reference must support an advisory item"
+            );
+        }
     }
 
     private static void requireEvidence(
         List<String> evidenceReferenceIds,
-        Map<String, AiAdvisoryResult.EvidenceReference> evidenceById
+        Map<String, AiAdvisoryResult.EvidenceReference> evidenceById,
+        Set<String> usedEvidenceIds
     ) {
+        if (evidenceReferenceIds.isEmpty()) {
+            throw new IllegalArgumentException(
+                "observations, risk signals and recommendations require evidence"
+            );
+        }
         Set<String> local = new HashSet<>();
         for (String id : evidenceReferenceIds) {
             if (!local.add(id)) {
@@ -307,6 +332,7 @@ public final class ApprovalAssistanceAdvisoryContract {
                     "advisory item contains an unresolved evidence reference ID"
                 );
             }
+            usedEvidenceIds.add(id);
         }
     }
 
