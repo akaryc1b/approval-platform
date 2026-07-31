@@ -42,12 +42,16 @@ class ApprovalAssistanceAdvisoryContractTest {
     @Test
     void acceptsAllThreeBoundedUseCases() {
         for (UseCase useCase : UseCase.values()) {
+            AiVersionReferences expectedVersions = versions(useCase);
             Request request = request(
                 projection(Set.of(useCase.capability())),
                 useCase,
-                versions()
+                expectedVersions
             );
-            assertDoesNotThrow(() -> new Result(request, advisory(versions())));
+            assertDoesNotThrow(() -> new Result(
+                request,
+                advisory(expectedVersions)
+            ));
         }
     }
 
@@ -78,16 +82,51 @@ class ApprovalAssistanceAdvisoryContractTest {
 
     @Test
     void rejectsCustomerOrGeneralKnowledgeSourcesInP2() {
-        AiVersionReferences withKnowledge = versions(new KnowledgeSourceVersion(
-            "case-history",
-            "v1",
-            "case-history-hash",
-            true
-        ), POLICY);
+        AiVersionReferences withKnowledge = versions(
+            "approval-summary",
+            "approval-assistance",
+            new KnowledgeSourceVersion(
+                "case-history",
+                "v1",
+                "case-history-hash",
+                true
+            ),
+            POLICY
+        );
         assertThrows(IllegalArgumentException.class, () -> request(
             projection(Set.of(AiCapability.APPROVAL_SUMMARY)),
             UseCase.SUMMARY,
             withKnowledge
+        ));
+    }
+
+    @Test
+    void rejectsAPromptTemplateForAnotherUseCase() {
+        AiVersionReferences riskPrompt = versions(
+            "approval-risk-review",
+            "approval-assistance",
+            KnowledgeSourceVersion.none(),
+            POLICY
+        );
+        assertThrows(IllegalArgumentException.class, () -> request(
+            projection(Set.of(AiCapability.APPROVAL_SUMMARY)),
+            UseCase.SUMMARY,
+            riskPrompt
+        ));
+    }
+
+    @Test
+    void rejectsAResultSchemaOutsideTheP2Contract() {
+        AiVersionReferences otherSchema = versions(
+            "approval-summary",
+            "generic-advisory",
+            KnowledgeSourceVersion.none(),
+            POLICY
+        );
+        assertThrows(IllegalArgumentException.class, () -> request(
+            projection(Set.of(AiCapability.APPROVAL_SUMMARY)),
+            UseCase.SUMMARY,
+            otherSchema
         ));
     }
 
@@ -98,7 +137,12 @@ class ApprovalAssistanceAdvisoryContractTest {
             "v2",
             "policy-hash-v2"
         );
-        AiVersionReferences mismatched = versions(KnowledgeSourceVersion.none(), otherPolicy);
+        AiVersionReferences mismatched = versions(
+            "approval-summary",
+            "approval-assistance",
+            KnowledgeSourceVersion.none(),
+            otherPolicy
+        );
         assertThrows(IllegalArgumentException.class, () -> request(
             projection(Set.of(AiCapability.APPROVAL_SUMMARY)),
             UseCase.SUMMARY,
@@ -182,7 +226,11 @@ class ApprovalAssistanceAdvisoryContractTest {
         AiVersionReferences other = new AiVersionReferences(
             new ProviderVersion("provider-a", "v2"),
             new ModelVersion("provider-a", "model-a", "v2"),
-            new PromptTemplateVersion("approval-summary", "v2", "prompt-hash-v2"),
+            new PromptTemplateVersion(
+                "approval-summary",
+                "v2",
+                "prompt-hash-v2"
+            ),
             KnowledgeSourceVersion.none(),
             POLICY,
             new OutputSchemaVersion("approval-assistance", 2)
@@ -480,10 +528,21 @@ class ApprovalAssistanceAdvisoryContractTest {
     }
 
     private static AiVersionReferences versions() {
-        return versions(KnowledgeSourceVersion.none(), POLICY);
+        return versions(UseCase.SUMMARY);
+    }
+
+    private static AiVersionReferences versions(UseCase useCase) {
+        return versions(
+            useCase.promptTemplateId(),
+            "approval-assistance",
+            KnowledgeSourceVersion.none(),
+            POLICY
+        );
     }
 
     private static AiVersionReferences versions(
+        String promptTemplateId,
+        String outputSchemaId,
         KnowledgeSourceVersion knowledge,
         PolicyVersion policy
     ) {
@@ -491,13 +550,13 @@ class ApprovalAssistanceAdvisoryContractTest {
             new ProviderVersion("provider-a", "v1"),
             new ModelVersion("provider-a", "model-a", "v1"),
             new PromptTemplateVersion(
-                "approval-summary",
+                promptTemplateId,
                 "v1",
                 "prompt-hash-v1"
             ),
             knowledge,
             policy,
-            new OutputSchemaVersion("approval-assistance", 1)
+            new OutputSchemaVersion(outputSchemaId, 1)
         );
     }
 
