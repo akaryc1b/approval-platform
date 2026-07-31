@@ -70,7 +70,7 @@ public record ApprovalAssistanceContextProjection(
             authorizedResource,
             providerRequirements
         );
-        validateEvidence(providerFields, evidence, valueEvidence);
+        validateEvidence(form, providerFields, evidence, valueEvidence);
     }
 
     public record ProcessSnapshot(
@@ -165,6 +165,7 @@ public record ApprovalAssistanceContextProjection(
         int formVersion,
         String formSchemaVersion,
         String formContentHash,
+        int schemaFieldCount,
         int uiSchemaVersion,
         String uiSchemaHash,
         String contextKey,
@@ -181,6 +182,11 @@ public record ApprovalAssistanceContextProjection(
                 120
             );
             formContentHash = requireText(formContentHash, "formContentHash", 160);
+            if (schemaFieldCount < 1 || schemaFieldCount > 500) {
+                throw new IllegalArgumentException(
+                    "schemaFieldCount must be positive and bounded"
+                );
+            }
             if (uiSchemaVersion < 1) {
                 throw new IllegalArgumentException("uiSchemaVersion must be positive");
             }
@@ -204,6 +210,12 @@ public record ApprovalAssistanceContextProjection(
         boolean structuredOutputRequired,
         boolean attachmentMetadataOnly
     ) {
+        private static final int MAXIMUM_INPUT_FIELDS = 500;
+        private static final int MAXIMUM_TEXT_CHARACTERS_PER_VALUE = 100_000;
+        private static final int MAXIMUM_TOTAL_TEXT_CHARACTERS = 400_000;
+        private static final int MAXIMUM_COLLECTION_SIZE = 5_000;
+        private static final int MAXIMUM_DEPTH = 32;
+
         public ProviderRequirements {
             capabilities = capabilities == null ? Set.of() : Set.copyOf(capabilities);
             if (capabilities.isEmpty() || capabilities.size() > 16) {
@@ -211,13 +223,16 @@ public record ApprovalAssistanceContextProjection(
                     "provider capabilities must be non-empty and bounded"
                 );
             }
-            if (maximumInputFields < 1
+            if (maximumInputFields < 1 || maximumInputFields > MAXIMUM_INPUT_FIELDS
                 || maximumTextCharactersPerValue < 1
+                || maximumTextCharactersPerValue > MAXIMUM_TEXT_CHARACTERS_PER_VALUE
                 || maximumTotalTextCharacters < 1
+                || maximumTotalTextCharacters > MAXIMUM_TOTAL_TEXT_CHARACTERS
                 || maximumCollectionSize < 1
-                || maximumDepth < 1) {
+                || maximumCollectionSize > MAXIMUM_COLLECTION_SIZE
+                || maximumDepth < 1 || maximumDepth > MAXIMUM_DEPTH) {
                 throw new IllegalArgumentException(
-                    "provider input requirements must be positive"
+                    "provider input requirements must be positive and bounded"
                 );
             }
             if (maximumTextCharactersPerValue > maximumTotalTextCharacters) {
@@ -487,6 +502,7 @@ public record ApprovalAssistanceContextProjection(
     }
 
     private static void validateEvidence(
+        FormSnapshot form,
         List<AiProviderRequest.InputField> providerFields,
         ProjectionEvidence evidence,
         ProviderValueEvidence valueEvidence
@@ -494,6 +510,17 @@ public record ApprovalAssistanceContextProjection(
         if (providerFields.size() != evidence.providerFieldCount()) {
             throw new IllegalArgumentException(
                 "provider field count does not match projection evidence"
+            );
+        }
+        if (form.schemaFieldCount()
+            != evidence.providerFieldCount() + evidence.omittedFieldCount()) {
+            throw new IllegalArgumentException(
+                "schema field count does not match projection evidence"
+            );
+        }
+        if (evidence.authorizedVisibleFieldCount() > form.schemaFieldCount()) {
+            throw new IllegalArgumentException(
+                "authorized visible fields cannot exceed schema fields"
             );
         }
         if (valueEvidence.maskedFieldCount() != evidence.maskedFieldCount()) {
