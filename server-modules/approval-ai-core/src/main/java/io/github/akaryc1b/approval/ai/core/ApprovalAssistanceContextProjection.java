@@ -52,10 +52,10 @@ public record ApprovalAssistanceContextProjection(
         );
         evidence = Objects.requireNonNull(evidence, "evidence must not be null");
 
-        if (!requestContext.tenantId().equals(authorizedResource.tenantId())
-            || !requestContext.tenantId().equals(resourceState.tenantId())) {
-            throw new IllegalArgumentException("projection tenant evidence must match");
-        }
+        validateTenantBinding(requestContext, authorizedResource, resourceState);
+        validateProcessAndFormBinding(process, form);
+        validateResourceBinding(authorizedResource, resourceState, form);
+
         Set<String> fieldKeys = new HashSet<>();
         for (AiProviderRequest.InputField field : providerFields) {
             if (!fieldKeys.add(field.key())) {
@@ -262,6 +262,60 @@ public record ApprovalAssistanceContextProjection(
                 );
             }
         }
+    }
+
+    private static void validateTenantBinding(
+        AiServerRequestContext requestContext,
+        AiAuthorizedResource authorizedResource,
+        ResourceStateSnapshot resourceState
+    ) {
+        if (!requestContext.tenantId().equals(authorizedResource.tenantId())
+            || !requestContext.tenantId().equals(resourceState.tenantId())) {
+            throw new IllegalArgumentException("projection tenant evidence must match");
+        }
+    }
+
+    private static void validateProcessAndFormBinding(
+        ProcessSnapshot process,
+        FormSnapshot form
+    ) {
+        if (!process.formKey().equals(form.formKey())
+            || process.formVersion() != form.formVersion()) {
+            throw new IllegalArgumentException(
+                "projection process and form evidence must match"
+            );
+        }
+    }
+
+    private static void validateResourceBinding(
+        AiAuthorizedResource authorizedResource,
+        ResourceStateSnapshot resourceState,
+        FormSnapshot form
+    ) {
+        if (authorizedResource.resourceType()
+            == AiAuthorizedResource.ResourceType.APPROVAL_TASK) {
+            if (resourceState.state() != ResourceState.TASK_PENDING
+                || !authorizedResource.resourceId().equals(resourceState.taskId())
+                || !form.contextKey().equals(resourceState.taskDefinitionKey())) {
+                throw new IllegalArgumentException(
+                    "projection task authorization and state evidence must match"
+                );
+            }
+            return;
+        }
+        if (authorizedResource.resourceType()
+            == AiAuthorizedResource.ResourceType.PROCESS_INSTANCE) {
+            if (resourceState.state() != ResourceState.INSTANCE_RUNNING
+                || !authorizedResource.resourceId().equals(resourceState.instanceId())) {
+                throw new IllegalArgumentException(
+                    "projection instance authorization and state evidence must match"
+                );
+            }
+            return;
+        }
+        throw new IllegalArgumentException(
+            "approval assistance projection supports task or instance resources only"
+        );
     }
 
     private static String requireText(String value, String name, int maximumLength) {
