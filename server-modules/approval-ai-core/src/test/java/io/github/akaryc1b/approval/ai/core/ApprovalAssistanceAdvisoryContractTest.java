@@ -42,14 +42,20 @@ class ApprovalAssistanceAdvisoryContractTest {
     @Test
     void acceptsAllThreeBoundedUseCases() {
         for (UseCase useCase : UseCase.values()) {
-            Request request = request(projection(Set.of(useCase.capability())), useCase, versions());
+            Request request = request(
+                projection(Set.of(useCase.capability())),
+                useCase,
+                versions()
+            );
             assertDoesNotThrow(() -> new Result(request, advisory(versions())));
         }
     }
 
     @Test
     void rejectsAUseCaseThatDoesNotMatchTheProjectionCapability() {
-        ApprovalAssistanceContextProjection projection = projection(Set.of(AiCapability.RISK_SIGNALS));
+        ApprovalAssistanceContextProjection projection = projection(Set.of(
+            AiCapability.RISK_SIGNALS
+        ));
         assertThrows(IllegalArgumentException.class, () -> request(
             projection,
             UseCase.SUMMARY,
@@ -124,6 +130,49 @@ class ApprovalAssistanceAdvisoryContractTest {
     }
 
     @Test
+    void rejectsARequestTimeBeforeTheObservedResourceState() {
+        ApprovalAssistanceContextProjection projection = projection(Set.of(
+            AiCapability.APPROVAL_SUMMARY
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new Request(
+            projection,
+            UseCase.SUMMARY,
+            versions(),
+            ResultLimits.conservativeDefaults(),
+            ProjectionProvenance.from(projection),
+            Instant.parse("2026-07-31T07:59:59Z")
+        ));
+    }
+
+    @Test
+    void rejectsLimitsBeyondTheP2ContractMaximums() {
+        assertThrows(IllegalArgumentException.class, () -> new ResultLimits(
+            26,
+            25,
+            25,
+            25,
+            64,
+            12
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new ResultLimits(
+            25,
+            25,
+            25,
+            25,
+            65,
+            12
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new ResultLimits(
+            25,
+            25,
+            25,
+            25,
+            64,
+            13
+        ));
+    }
+
+    @Test
     void rejectsResultVersionsThatDoNotMatchTheRequest() {
         Request request = request(
             projection(Set.of(AiCapability.APPROVAL_SUMMARY)),
@@ -172,8 +221,38 @@ class ApprovalAssistanceAdvisoryContractTest {
         );
         AiAdvisoryResult result = advisoryWithEvidence(
             versions(),
-            List.of(),
+            List.of(evidence()),
             List.of("missing-evidence")
+        );
+        assertThrows(IllegalArgumentException.class, () -> new Result(request, result));
+    }
+
+    @Test
+    void rejectsAnAdvisoryItemWithoutEvidence() {
+        Request request = request(
+            projection(Set.of(AiCapability.APPROVAL_SUMMARY)),
+            UseCase.SUMMARY,
+            versions()
+        );
+        AiAdvisoryResult result = advisoryWithEvidence(
+            versions(),
+            List.of(evidence()),
+            List.of()
+        );
+        assertThrows(IllegalArgumentException.class, () -> new Result(request, result));
+    }
+
+    @Test
+    void rejectsAnUnusedDeclaredEvidenceReference() {
+        Request request = request(
+            projection(Set.of(AiCapability.APPROVAL_SUMMARY)),
+            UseCase.SUMMARY,
+            versions()
+        );
+        AiAdvisoryResult result = advisoryWithEvidence(
+            versions(),
+            List.of(evidence(), secondEvidence()),
+            List.of("evidence-1")
         );
         assertThrows(IllegalArgumentException.class, () -> new Result(request, result));
     }
@@ -216,7 +295,10 @@ class ApprovalAssistanceAdvisoryContractTest {
                 List.of("evidence-1")
             )),
             List.of(evidence()),
-            new AiAdvisoryResult.Confidence(0.85d, AiAdvisoryResult.ConfidenceBand.HIGH),
+            new AiAdvisoryResult.Confidence(
+                0.85d,
+                AiAdvisoryResult.ConfidenceBand.HIGH
+            ),
             List.of("Unverified advisory material requires human review"),
             true,
             versions(),
@@ -240,7 +322,10 @@ class ApprovalAssistanceAdvisoryContractTest {
             List.of(),
             List.of(),
             List.of(),
-            new AiAdvisoryResult.Confidence(0.40d, AiAdvisoryResult.ConfidenceBand.HIGH),
+            new AiAdvisoryResult.Confidence(
+                0.40d,
+                AiAdvisoryResult.ConfidenceBand.HIGH
+            ),
             List.of("Unverified advisory material requires human review"),
             true,
             versions(),
@@ -266,14 +351,25 @@ class ApprovalAssistanceAdvisoryContractTest {
         AiAdvisoryResult result = new AiAdvisoryResult(
             "Bounded summary",
             List.of(
-                new AiAdvisoryResult.Observation("observation-1", "First", List.of()),
-                new AiAdvisoryResult.Observation("observation-2", "Second", List.of())
+                new AiAdvisoryResult.Observation(
+                    "observation-1",
+                    "First",
+                    List.of("evidence-1")
+                ),
+                new AiAdvisoryResult.Observation(
+                    "observation-2",
+                    "Second",
+                    List.of("evidence-1")
+                )
             ),
             List.of(),
             List.of(),
             List.of(),
-            List.of(),
-            new AiAdvisoryResult.Confidence(0.60d, AiAdvisoryResult.ConfidenceBand.MEDIUM),
+            List.of(evidence()),
+            new AiAdvisoryResult.Confidence(
+                0.60d,
+                AiAdvisoryResult.ConfidenceBand.MEDIUM
+            ),
             List.of("Unverified advisory material requires human review"),
             true,
             versions(),
@@ -297,8 +393,11 @@ class ApprovalAssistanceAdvisoryContractTest {
             List.of(),
             List.of(),
             List.of(),
-            List.of(),
-            new AiAdvisoryResult.Confidence(0.60d, AiAdvisoryResult.ConfidenceBand.MEDIUM),
+            List.of(evidence()),
+            new AiAdvisoryResult.Confidence(
+                0.60d,
+                AiAdvisoryResult.ConfidenceBand.MEDIUM
+            ),
             List.of(limitation, limitation),
             true,
             versions(),
@@ -352,7 +451,10 @@ class ApprovalAssistanceAdvisoryContractTest {
                 referencedIds
             )),
             evidenceReferences,
-            new AiAdvisoryResult.Confidence(0.85d, AiAdvisoryResult.ConfidenceBand.HIGH),
+            new AiAdvisoryResult.Confidence(
+                0.85d,
+                AiAdvisoryResult.ConfidenceBand.HIGH
+            ),
             List.of("Unverified advisory material requires human review"),
             true,
             versions,
@@ -369,6 +471,14 @@ class ApprovalAssistanceAdvisoryContractTest {
         );
     }
 
+    private static AiAdvisoryResult.EvidenceReference secondEvidence() {
+        return new AiAdvisoryResult.EvidenceReference(
+            "evidence-2",
+            "amount",
+            "Second authorized amount reference"
+        );
+    }
+
     private static AiVersionReferences versions() {
         return versions(KnowledgeSourceVersion.none(), POLICY);
     }
@@ -380,7 +490,11 @@ class ApprovalAssistanceAdvisoryContractTest {
         return new AiVersionReferences(
             new ProviderVersion("provider-a", "v1"),
             new ModelVersion("provider-a", "model-a", "v1"),
-            new PromptTemplateVersion("approval-summary", "v1", "prompt-hash-v1"),
+            new PromptTemplateVersion(
+                "approval-summary",
+                "v1",
+                "prompt-hash-v1"
+            ),
             knowledge,
             policy,
             new OutputSchemaVersion("approval-assistance", 1)
