@@ -42,6 +42,11 @@ const assemblerPath = path.join(
   'server-modules/approval-ai-core/src/main/java/' +
     'io/github/akaryc1b/approval/ai/core/ApprovalAssistanceContextAssembler.java',
 );
+const advisoryContractPath = path.join(
+  root,
+  'server-modules/approval-ai-core/src/main/java/' +
+    'io/github/akaryc1b/approval/ai/core/ApprovalAssistanceAdvisoryContract.java',
+);
 
 const productionRoots = [
   path.join(root, 'server-modules/approval-ai-spi/src/main/java'),
@@ -172,6 +177,48 @@ test('P1 projection is server-owned, minimized and side-effect free', () => {
     /@Scheduled\b/,
   ]) {
     assert.doesNotMatch(p1, forbidden);
+  }
+});
+
+test('P2 advisory contract is bounded, evidence-backed and non-executable', () => {
+  assert.equal(existsSync(advisoryContractPath), true);
+  const contract = text(advisoryContractPath);
+
+  for (const required of [
+    /SUMMARY\(AiCapability\.APPROVAL_SUMMARY\)/,
+    /MATERIAL_COMPLETENESS\(AiCapability\.MATERIAL_COMPLETENESS\)/,
+    /RISK_REVIEW\(AiCapability\.RISK_SIGNALS\)/,
+    /KnowledgeSourceVersion\.none\(\)/,
+    /ProjectionProvenance/,
+    /expectedVersions/,
+    /requestedAt\.isBefore\(provenance\.resourceObservedAt\(\)\)/,
+    /P2_MAXIMUM_ITEM_LIMIT = 25/,
+    /P2_MAXIMUM_EVIDENCE_LIMIT = 64/,
+    /P2_MAXIMUM_LIMITATION_LIMIT = 12/,
+    /needsHumanReview/,
+    /Authority\.ADVISORY/,
+    /AssertionStatus\.UNVERIFIED_ADVISORY/,
+    /observations, risk signals and recommendations require evidence/,
+    /every declared evidence reference must support an advisory item/,
+    /evidence reference field is not present in the Provider-safe projection/,
+  ]) {
+    assert.match(contract, required);
+  }
+
+  for (const forbidden of [
+    /SIMILAR_CASES/,
+    /APPROVAL_OPINION_SUGGESTION/,
+    /import\s+java\.sql\./,
+    /import\s+javax\.sql\./,
+    /import\s+org\.springframework\./,
+    /import\s+io\.github\.akaryc1b\.approval\.application\./,
+    /import\s+io\.github\.akaryc1b\.approval\.engine\./,
+    /\bApprovalCommand(?:Service)?\b/,
+    /\.advise\s*\(/,
+    /@RestController\b/,
+    /@Scheduled\b/,
+  ]) {
+    assert.doesNotMatch(contract, forbidden);
   }
 });
 
