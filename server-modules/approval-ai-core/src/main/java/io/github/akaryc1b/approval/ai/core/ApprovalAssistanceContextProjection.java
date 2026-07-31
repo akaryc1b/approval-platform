@@ -385,9 +385,31 @@ public record ApprovalAssistanceContextProjection(
                     "attachment provider value contains non-metadata content"
                 );
             }
-            validateProviderValue(metadata, 2, requirements, budget);
+            validateAttachmentText(metadata.get("attachmentId"), requirements, budget);
+            validateAttachmentText(metadata.get("fileName"), requirements, budget);
+            validateAttachmentText(metadata.get("contentType"), requirements, budget);
+            validateAttachmentText(metadata.get("sha256"), requirements, budget);
+            Object sizeBytes = metadata.get("sizeBytes");
+            if (!(sizeBytes instanceof Number number) || number.longValue() < 0) {
+                throw new IllegalArgumentException(
+                    "attachment size metadata must be a non-negative number"
+                );
+            }
         }
         return collection.size();
+    }
+
+    private static void validateAttachmentText(
+        Object value,
+        ProviderRequirements requirements,
+        TextBudget budget
+    ) {
+        if (!(value instanceof String text)) {
+            throw new IllegalArgumentException(
+                "attachment text metadata must be a string"
+            );
+        }
+        validateText(text, requirements, budget);
     }
 
     private static void validateProviderValue(
@@ -407,8 +429,7 @@ public record ApprovalAssistanceContextProjection(
             return;
         }
         if (value instanceof Number || value instanceof Boolean) {
-            String rendered = value.toString();
-            validateText(rendered, requirements, budget);
+            validateText(value.toString(), requirements, budget);
             return;
         }
         if (value instanceof Map<?, ?> map) {
