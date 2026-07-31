@@ -42,7 +42,6 @@ public final class ApprovalAssistanceContextAssembler {
         validateFieldKeys(input, schemaFields);
 
         List<AiSourceField> sourceFields = new ArrayList<>();
-        int attachmentMetadataCount = 0;
         for (FormDefinition.FormField definition : input.formDefinition().fields()) {
             String key = definition.key();
             FieldAccess access = input.permissions().fieldAccess()
@@ -54,7 +53,7 @@ public final class ApprovalAssistanceContextAssembler {
                 continue;
             }
             if (definition.type() == FormDefinition.FieldType.ATTACHMENT) {
-                attachmentMetadataCount += validateAttachmentMetadata(value);
+                validateAttachmentMetadata(value);
             }
             sourceFields.add(new AiSourceField(
                 key,
@@ -88,6 +87,7 @@ public final class ApprovalAssistanceContextAssembler {
             .filter(field -> field.maskingDisposition()
                 == AiProviderRequest.MaskingDisposition.MASKED)
             .count();
+        int attachmentMetadataCount = countProviderAttachmentMetadata(providerFields);
         int omittedFields = input.formDefinition().fields().size() - providerFields.size();
         AiDataMinimizationPolicy.InputLimits limits = input.dataPolicy().limits();
 
@@ -101,6 +101,7 @@ public final class ApprovalAssistanceContextAssembler {
                 input.formDefinition().version(),
                 input.formDefinition().schemaVersion(),
                 input.formContentHash(),
+                input.formDefinition().fields().size(),
                 input.uiSchema().version(),
                 input.permissions().uiSchemaHash(),
                 input.permissions().contextKey(),
@@ -262,7 +263,7 @@ public final class ApprovalAssistanceContextAssembler {
         }
     }
 
-    private static int validateAttachmentMetadata(Object value) {
+    private static void validateAttachmentMetadata(Object value) {
         if (!(value instanceof Collection<?> collection)) {
             throw new AiPolicyViolationException(
                 "AI_ATTACHMENT_CONTENT_NOT_ALLOWED",
@@ -277,7 +278,25 @@ public final class ApprovalAssistanceContextAssembler {
                 );
             }
         }
-        return collection.size();
+    }
+
+    private static int countProviderAttachmentMetadata(
+        List<AiProviderRequest.InputField> providerFields
+    ) {
+        int count = 0;
+        for (AiProviderRequest.InputField field : providerFields) {
+            if (!"ATTACHMENT".equals(field.type())) {
+                continue;
+            }
+            if (!(field.value() instanceof Collection<?> collection)) {
+                throw new AiPolicyViolationException(
+                    "AI_ATTACHMENT_CONTENT_NOT_ALLOWED",
+                    "Provider-safe attachment fields must contain metadata only"
+                );
+            }
+            count += collection.size();
+        }
+        return count;
     }
 
     public record ResolvedFieldPermissions(
