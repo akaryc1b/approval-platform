@@ -138,7 +138,10 @@ test('M6-E remains synchronous and contains no autonomous execution role', () =>
 
   const bootstrap = text(bootstrapPath);
   assert.match(bootstrap, /no AI Queue, Worker, Scheduler, listener, polling/);
-  assert.match(bootstrap, /no unsafe retry or post-invocation fallback/);
+  assert.match(
+    bootstrap,
+    /No partial invocation\s+may trigger Provider fallback or an approval command/,
+  );
 });
 
 test('the permanent workflow loads M6-E checks through the existing hygiene gate', () => {
