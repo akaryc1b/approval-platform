@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class M6AGovernedReadOnlyInvocationArchitectureTest {
 
     private static final Pattern MIGRATION_VERSION = Pattern.compile("^V([0-9]+)__.*\\.sql$");
+    private static final String GOVERNED_M6_E_V49 =
+        "V49__create_ai_approval_assistance_durable_evidence.sql";
 
     @Test
     void invocationCoreDoesNotDependOnPersistenceFlowableWebOrScheduling() {
@@ -92,22 +94,26 @@ class M6AGovernedReadOnlyInvocationArchitectureTest {
     }
 
     @Test
-    void flywayRemainsAtV48AndNoSecondAutomaticWorkflowExists() throws IOException {
+    void flywayRecognizesOnlyGovernedM6EV49AndKeepsOneAutomaticWorkflow()
+        throws IOException {
         Path root = repositoryRoot();
         Path migrationRoot = root.resolve(
             "server-modules/approval-persistence-jdbc/src/main/resources/db/migration"
         );
         int highest;
+        List<String> v49;
         try (Stream<Path> paths = Files.list(migrationRoot)) {
-            highest = paths
-                .map(path -> path.getFileName().toString())
+            List<String> names = paths.map(path -> path.getFileName().toString()).toList();
+            highest = names.stream()
                 .map(MIGRATION_VERSION::matcher)
                 .filter(Matcher::matches)
                 .mapToInt(matcher -> Integer.parseInt(matcher.group(1)))
                 .max()
                 .orElseThrow();
+            v49 = names.stream().filter(name -> name.startsWith("V49__")).toList();
         }
-        assertEquals(48, highest);
+        assertEquals(49, highest);
+        assertEquals(List.of(GOVERNED_M6_E_V49), v49);
 
         Path workflowRoot = root.resolve(".github/workflows");
         List<Path> automatic;
