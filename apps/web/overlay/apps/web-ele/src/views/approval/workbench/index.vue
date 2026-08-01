@@ -53,6 +53,7 @@ import {
 } from '#/api/approval';
 import { findTaskDelegation } from '#/api/approval/delegations';
 import { findTaskFormRuntime, resubmitFormTask } from '#/api/approval/forms';
+import ApprovalAssistancePanel from '#/components/approval/ApprovalAssistancePanel.vue';
 import ApprovalFormRenderer from '#/components/approval/ApprovalFormRenderer.vue';
 
 type WorkbenchTab = 'pending' | 'processed' | 'started';
@@ -373,6 +374,7 @@ onMounted(refreshWorkbench);
             <ElDescriptionsItem label="代理规则">{{ taskDelegation.delegationRuleId }}</ElDescriptionsItem>
           </template>
         </ElDescriptions>
+        <ApprovalAssistancePanel v-if="!revisionTask" :task-id="selectedTask.taskId"/>
         <section v-if="formRuntime" class="detail-section">
           <div class="section-header"><h3>申请表单</h3><ElTag effect="plain">{{ formRuntime.defaultedUiSchema ? '安全默认' : `UI v${formRuntime.uiSchema.version}` }}</ElTag></div>
           <ApprovalFormRenderer v-model="formValues" :field-permissions="formRuntime.fieldPermissions" :required-fields="formRuntime.requiredFields" :readonly="!revisionTask" :schema="formRuntime.definition" :ui-schema="formRuntime.uiSchema"/>
