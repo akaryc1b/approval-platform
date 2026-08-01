@@ -73,7 +73,9 @@ public interface ApprovalAssistanceDurableEvidenceStore {
             if (revision < 1) {
                 throw new IllegalArgumentException("revision must be positive");
             }
-            if (state != EvidenceState.ACTIVE || revision != 1) {
+            boolean accepted = disposition == StoreDisposition.STORED
+                || disposition == StoreDisposition.REPLAYED;
+            if (accepted && (state != EvidenceState.ACTIVE || revision != 1)) {
                 throw new IllegalArgumentException(
                     "stored or replayed evidence must return active revision one"
                 );
@@ -126,12 +128,31 @@ public interface ApprovalAssistanceDurableEvidenceStore {
                 "disposition must not be null"
             );
             evidenceId = Objects.requireNonNull(evidenceId, "evidenceId must not be null");
-            state = Objects.requireNonNull(state, "state must not be null");
             if (revision < 0) {
                 throw new IllegalArgumentException("revision must not be negative");
             }
             boolean completed = disposition == TombstoneDisposition.TOMBSTONED
                 || disposition == TombstoneDisposition.REPLAYED;
+            if (disposition == TombstoneDisposition.NOT_FOUND) {
+                if (revision != 0
+                    || state != null
+                    || deleteReason != null
+                    || tombstonedAt != null
+                    || deletionRequestHash != null
+                    || tombstoneHash != null
+                    || eventHash != null) {
+                    throw new IllegalArgumentException(
+                        "not-found tombstone result must contain no stored evidence"
+                    );
+                }
+                return;
+            }
+            state = Objects.requireNonNull(state, "stored tombstone result requires state");
+            if (revision < 1) {
+                throw new IllegalArgumentException(
+                    "stored tombstone result requires a positive revision"
+                );
+            }
             if (completed) {
                 deleteReason = Objects.requireNonNull(
                     deleteReason,
@@ -147,9 +168,9 @@ public interface ApprovalAssistanceDurableEvidenceStore {
                 );
                 tombstoneHash = Hashes.requireSha256(tombstoneHash, "tombstoneHash");
                 eventHash = Hashes.requireSha256(eventHash, "eventHash");
-                if (state != EvidenceState.TOMBSTONED || revision < 2) {
+                if (state != EvidenceState.TOMBSTONED || revision != 2) {
                     throw new IllegalArgumentException(
-                        "completed tombstone must return a tombstoned revision"
+                        "completed tombstone must return tombstoned revision two"
                     );
                 }
             } else if (deleteReason != null
@@ -203,9 +224,9 @@ public interface ApprovalAssistanceDurableEvidenceStore {
                     "deletionRequestHash"
                 );
                 tombstoneHash = Hashes.requireSha256(tombstoneHash, "tombstoneHash");
-                if (revision < 2) {
+                if (revision != 2) {
                     throw new IllegalArgumentException(
-                        "tombstoned evidence must advance the CAS revision"
+                        "tombstoned evidence must use revision two"
                     );
                 }
             }
