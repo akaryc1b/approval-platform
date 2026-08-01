@@ -53,15 +53,13 @@ test('P5 server surface is tenant-scoped GET-only and unavailable before P6', ()
 
   const contract = text(contractPath);
   for (const required of [
-    /SUMMARY/,
-    /MATERIAL_COMPLETENESS/,
-    /RISK_REVIEW/,
+    /List\.of\(UseCase\.values\(\)\)/,
     /PROVIDER_NOT_CONFIGURED/,
     /AI_ASSISTANCE_P6_PROVIDER_REQUIRED/,
     /Authority\.ADVISORY/,
     /AssertionStatus\.UNVERIFIED_ADVISORY/,
     /HUMAN_REVIEW_REQUIRED/,
-    /No deterministic mock is used in production/,
+    /no deterministic mock is used in production/i,
     /providerInvocationStarted/,
     /providerSelectable/,
     /commandAvailable/,
@@ -120,6 +118,7 @@ test('P5 server surface is tenant-scoped GET-only and unavailable before P6', ()
     /authorizedPendingTaskReturnsNoStoreProviderRequiredView/,
     /everyClosedP2UseCaseCanBeRequestedWithoutProviderInvocation/,
     /tenantOperatorOrTaskMismatchReturnsNoStoreNotFound/,
+    /List\.of\(UseCase\.values\(\)\)/,
     /assertFalse\(body\.providerInvocationStarted\(\)\)/,
     /assertFalse\(body\.providerSelectable\(\)\)/,
     /assertFalse\(body\.commandAvailable\(\)\)/,
