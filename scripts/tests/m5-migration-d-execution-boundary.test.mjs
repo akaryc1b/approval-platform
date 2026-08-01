@@ -45,14 +45,14 @@ test('D1 consumes an exact authorized plan without an engine invocation', () => 
   assert.doesNotMatch(jdbc, /org\.flowable|ProcessMigrationService|\.migrate\(/);
 });
 
-test('V39 linkage remains frozen while later D slices advance the schema', () => {
+test('V39 linkage remains frozen while later independent slices advance the schema', () => {
   assert.match(migration, /ap_process_migration_plan_consumption/);
   assert.match(migration, /AUTHORIZED' and new\.status='CONSUMED/);
   assert.match(migration, /intent for governed migration plan requires exact consumption evidence/);
   assert.match(migration, /consumed migration plan requires exact admitted intent evidence/);
   assert.match(migration, /append-only/);
   assert.doesNotMatch(migration, /ACT_[A-Z_]+/);
-  assert.match(upgrade, /LATEST_VERSION = "48"/);
+  assert.match(upgrade, /LATEST_VERSION = "49"/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v38", "38"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v39", "39"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v40", "40"\)/);
@@ -63,7 +63,9 @@ test('V39 linkage remains frozen while later D slices advance the schema', () =>
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v45", "45"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v46", "46"\)/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v47", "47"\)/);
+  assert.match(upgrade, /new UpgradeCase\("approval_latest_v48", "48"\)/);
   assert.match(upgrade, /assertNoExecutionSideEffects/);
+  assert.match(upgrade, /assertP4Empty/);
   assert.match(lineage, /ck_process_migration_attempt_request_v46/);
   assert.match(lineage, /BLOCKED_STALE/);
   assert.match(lineage, /FAILED_TERMINAL/);
