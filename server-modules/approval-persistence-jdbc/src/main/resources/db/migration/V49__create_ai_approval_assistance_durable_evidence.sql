@@ -211,31 +211,35 @@ $$;
 create function ap_guard_ai_assistance_state_v49()
 returns trigger language plpgsql as $$
 declare
+ evidence_recorded_at timestamptz;
  retained_until timestamptz;
 begin
  if tg_op='DELETE' then
   raise exception using errcode='55000',
    message='M6-E P4 evidence state cannot be deleted';
  end if;
+ select recorded_at,retention_until
+ into evidence_recorded_at,retained_until
+ from ap_ai_approval_assistance_evidence
+ where tenant_id=new.tenant_id and evidence_id=new.evidence_id;
+ if evidence_recorded_at is null then
+  raise exception using errcode='23503',message='P4 evidence does not exist';
+ end if;
  if tg_op='INSERT' then
-  if new.state<>'ACTIVE' or new.revision<>1 then
+  if new.state<>'ACTIVE' or new.revision<>1
+   or new.updated_at<>evidence_recorded_at then
    raise exception using errcode='23514',
-    message='P4 evidence state must begin active at revision one';
+    message='P4 evidence state must begin active at recorded revision one';
   end if;
   return new;
  end if;
  if old.tenant_id<>new.tenant_id or old.evidence_id<>new.evidence_id
   or old.state<>'ACTIVE' or old.revision<>1
   or new.state<>'TOMBSTONED' or new.revision<>2
-  or new.updated_at<>new.tombstoned_at then
+  or new.updated_at<>new.tombstoned_at
+  or new.tombstoned_at<evidence_recorded_at then
   raise exception using errcode='23514',
-   message='P4 evidence state permits one CAS tombstone transition only';
- end if;
- select retention_until into retained_until
- from ap_ai_approval_assistance_evidence
- where tenant_id=new.tenant_id and evidence_id=new.evidence_id;
- if retained_until is null then
-  raise exception using errcode='23503',message='P4 evidence does not exist';
+   message='P4 evidence state permits one ordered CAS tombstone transition only';
  end if;
  if new.delete_reason='RETENTION_EXPIRED'
   and new.tombstoned_at<retained_until then
@@ -250,28 +254,42 @@ create function ap_guard_ai_assistance_event_v49()
 returns trigger language plpgsql as $$
 declare
  stored_event_hash char(64);
+ evidence_recorded_at timestamptz;
  retained_until timestamptz;
 begin
  if tg_op<>'INSERT' then
   raise exception using errcode='55000',
    message='M6-E P4 evidence events are append-only';
  end if;
- if new.event_type='TOMBSTONED' then
-  select event_hash into stored_event_hash
-  from ap_ai_approval_assistance_evidence_event
-  where tenant_id=new.tenant_id and evidence_id=new.evidence_id
-   and revision=1 and event_type='STORED';
-  select retention_until into retained_until
-  from ap_ai_approval_assistance_evidence
-  where tenant_id=new.tenant_id and evidence_id=new.evidence_id;
-  if stored_event_hash is null or new.predecessor_hash<>stored_event_hash then
+ select recorded_at,retention_until
+ into evidence_recorded_at,retained_until
+ from ap_ai_approval_assistance_evidence
+ where tenant_id=new.tenant_id and evidence_id=new.evidence_id;
+ if evidence_recorded_at is null then
+  raise exception using errcode='23503',message='P4 evidence does not exist';
+ end if;
+ if new.happened_at<evidence_recorded_at then
+  raise exception using errcode='23514',
+   message='P4 evidence event precedes durable evidence';
+ end if;
+ if new.event_type='STORED' then
+  if new.happened_at<>evidence_recorded_at then
    raise exception using errcode='23514',
-    message='P4 tombstone event predecessor mismatch';
+    message='P4 stored event must match evidence recorded time';
   end if;
-  if new.delete_reason='RETENTION_EXPIRED' and new.happened_at<retained_until then
-   raise exception using errcode='23514',
-    message='P4 retention-expired event is premature';
-  end if;
+  return new;
+ end if;
+ select event_hash into stored_event_hash
+ from ap_ai_approval_assistance_evidence_event
+ where tenant_id=new.tenant_id and evidence_id=new.evidence_id
+  and revision=1 and event_type='STORED';
+ if stored_event_hash is null or new.predecessor_hash<>stored_event_hash then
+  raise exception using errcode='23514',
+   message='P4 tombstone event predecessor mismatch';
+ end if;
+ if new.delete_reason='RETENTION_EXPIRED' and new.happened_at<retained_until then
+  raise exception using errcode='23514',
+   message='P4 retention-expired event is premature';
  end if;
  return new;
 end;
@@ -288,6 +306,7 @@ begin
   and event.evidence_id=new.evidence_id
   and event.revision=new.revision
   and event.event_hash=new.current_event_hash
+  and event.happened_at=new.updated_at
   and event.event_type=case when new.state='ACTIVE' then 'STORED' else 'TOMBSTONED' end
   and (new.state='ACTIVE'
    or (event.delete_reason=new.delete_reason
@@ -296,6 +315,31 @@ begin
  if matching_event<>1 then
   raise exception using errcode='23514',
    message='P4 evidence state lacks matching append-only event';
+ end if;
+ return null;
+end;
+$$;
+
+create function ap_verify_ai_assistance_event_state_v49()
+returns trigger language plpgsql as $$
+declare
+ matching_state integer;
+begin
+ select count(*) into matching_state
+ from ap_ai_approval_assistance_evidence_state state
+ where state.tenant_id=new.tenant_id
+  and state.evidence_id=new.evidence_id
+  and state.revision=new.revision
+  and state.current_event_hash=new.event_hash
+  and state.updated_at=new.happened_at
+  and state.state=case when new.event_type='STORED' then 'ACTIVE' else 'TOMBSTONED' end
+  and (new.event_type='STORED'
+   or (state.delete_reason=new.delete_reason
+    and state.deletion_request_hash=new.deletion_request_hash
+    and state.tombstoned_at=new.happened_at));
+ if matching_state<>1 then
+  raise exception using errcode='23514',
+   message='P4 append-only event lacks matching evidence state';
  end if;
  return null;
 end;
@@ -317,3 +361,8 @@ create constraint trigger trg_ai_assistance_state_event_v49
  after insert or update on ap_ai_approval_assistance_evidence_state
  deferrable initially deferred
  for each row execute function ap_verify_ai_assistance_state_event_v49();
+
+create constraint trigger trg_ai_assistance_event_state_v49
+ after insert on ap_ai_approval_assistance_evidence_event
+ deferrable initially deferred
+ for each row execute function ap_verify_ai_assistance_event_state_v49();
