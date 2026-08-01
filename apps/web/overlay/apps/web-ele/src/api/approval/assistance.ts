@@ -25,7 +25,7 @@ export interface ApprovalAssistanceTaskSnapshot {
 }
 
 export interface ApprovalAssistanceReadView {
-  advisoryResult?: never;
+  advisoryResult: null;
   assertionStatus: 'UNVERIFIED_ADVISORY';
   authority: 'ADVISORY';
   availability: 'PROVIDER_NOT_CONFIGURED';
