@@ -71,7 +71,7 @@ function m5ProductionJava() {
     });
 }
 
-function m5MigrationVersions() {
+function migrationEntries() {
   const sqlDirectory = join(
     root,
     'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
@@ -81,9 +81,11 @@ function m5MigrationVersions() {
     'server-modules/approval-persistence-jdbc/src/main/java/db/migration',
   );
   return [...readdirSync(sqlDirectory), ...readdirSync(javaDirectory)]
-    .map(name => name.match(/^V(\d+)__/))
-    .filter(Boolean)
-    .map(match => Number(match[1]));
+    .map(name => {
+      const match = name.match(/^V(\d+)__/);
+      return match ? { name, version: Number(match[1]) } : null;
+    })
+    .filter(Boolean);
 }
 
 test('G2 has a complete permanent M5 evidence lineage', () => {
@@ -184,7 +186,7 @@ test('G2 Operations and client surfaces remain tenant-scoped GET-only and comman
   );
 });
 
-test('G2 repository contains no direct Flowable table access or unauthorized V49', () => {
+test('G2 preserves M5 V33-V48 ownership and permits only governed M6-E V49', () => {
   const productionPaths = m5ProductionJava();
   for (const path of productionPaths) {
     const content = readFileSync(path, 'utf8');
@@ -194,12 +196,18 @@ test('G2 repository contains no direct Flowable table access or unauthorized V49
       `direct Flowable table reference in ${relative(root, path)}`,
     );
   }
-  const versions = [...new Set(m5MigrationVersions())].sort((left, right) => left - right);
+  const entries = migrationEntries();
+  const versions = [...new Set(entries.map(({ version }) => version))]
+    .sort((left, right) => left - right);
   for (let version = 33; version <= 48; version++) {
     assert.ok(versions.includes(version), `missing M5 migration V${version}`);
   }
-  assert.equal(Math.max(...versions), 48);
-  assert.ok(versions.every(version => version <= 48));
+  assert.equal(Math.max(...versions), 49);
+  assert.deepEqual(
+    entries.filter(({ version }) => version === 49).map(({ name }) => name),
+    ['V49__create_ai_approval_assistance_durable_evidence.sql'],
+  );
+  assert.deepEqual(entries.filter(({ version }) => version >= 50), []);
 });
 
 test('G2 fault security observability and release readiness records remain complete', () => {
