@@ -5,6 +5,10 @@ import io.github.akaryc1b.approval.ai.spi.AiAdvisoryResult.AssertionStatus;
 import io.github.akaryc1b.approval.ai.spi.AiAdvisoryResult.Authority;
 import io.github.akaryc1b.approval.api.ApprovalAssistanceReadContracts.Availability;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskCriteria;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskDetails;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskIdentity;
+import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskPage;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
