@@ -21,6 +21,32 @@ const controllerTestPath = path.join(
     'ApprovalAssistanceReadControllerTest.java',
 );
 const serverPomPath = path.join(root, 'apps/server/pom.xml');
+const webApiPath = path.join(
+  root,
+  'apps/web/overlay/apps/web-ele/src/api/approval/assistance.ts',
+);
+const mobileApiPath = path.join(
+  root,
+  'apps/mobile/overlay/src/api/approval/assistance.ts',
+);
+const webPanelPath = path.join(
+  root,
+  'apps/web/overlay/apps/web-ele/src/components/approval/' +
+    'ApprovalAssistancePanel.vue',
+);
+const mobilePanelPath = path.join(
+  root,
+  'apps/mobile/overlay/src/components/approval/' +
+    'ApprovalAssistancePanel.vue',
+);
+const webDetailPath = path.join(
+  root,
+  'apps/web/overlay/apps/web-ele/src/views/approval/workbench/index.vue',
+);
+const mobileDetailPath = path.join(
+  root,
+  'apps/mobile/overlay/src/pages/task/detail.vue',
+);
 const migrationRoot = path.join(
   root,
   'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
@@ -142,4 +168,95 @@ test('P5 server surface is tenant-scoped GET-only and unavailable before P6', ()
     ['V49__create_ai_approval_assistance_durable_evidence.sql'],
   );
   assert.deepEqual(versioned.filter(({ version }) => version >= 50), []);
+});
+
+test('P5 Web and Mobile clients expose only read-only advisory presentation', () => {
+  for (const requiredPath of [
+    webApiPath,
+    mobileApiPath,
+    webPanelPath,
+    mobilePanelPath,
+    webDetailPath,
+    mobileDetailPath,
+  ]) {
+    assert.equal(existsSync(requiredPath), true, `missing P5 client source ${requiredPath}`);
+  }
+
+  const webApi = text(webApiPath);
+  const mobileApi = text(mobileApiPath);
+  const clients = `${webApi}\n${mobileApi}`;
+  for (const required of [
+    /MATERIAL_COMPLETENESS/,
+    /RISK_REVIEW/,
+    /SUMMARY/,
+    /advisoryResult: null/,
+    /assertionStatus: 'UNVERIFIED_ADVISORY'/,
+    /authority: 'ADVISORY'/,
+    /availability: 'PROVIDER_NOT_CONFIGURED'/,
+    /commandAvailable: false/,
+    /needsHumanReview: true/,
+    /providerInvocationStarted: false/,
+    /providerSelectable: false/,
+    /resultAvailable: false/,
+    /\/approval\/tasks\/\$\{encodeURIComponent\(taskId\)\}\/assistance/,
+    /method: 'GET'/,
+  ]) {
+    assert.match(clients, required);
+  }
+  for (const forbidden of [
+    /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i,
+    /Idempotency-Key/i,
+    /X-Approval-Reason/i,
+    /approveTask|rejectTask|transferTask|resubmitTask|withdrawInstance|retrieveTask/,
+    /providerId|modelId|routeId|promptTemplateId|secret/i,
+  ]) {
+    assert.doesNotMatch(clients, forbidden);
+  }
+
+  const webPanel = text(webPanelPath);
+  const mobilePanel = text(mobilePanelPath);
+  const panels = `${webPanel}\n${mobilePanel}`;
+  for (const required of [
+    /AI 辅助（未验证）/,
+    /ADVISORY/,
+    /UNVERIFIED_ADVISORY/,
+    /必须人工复核/,
+    /AI 不拥有审批权限/,
+    /生产 AI Provider 尚未配置/,
+    /当前不会生成或伪造任何 AI 内容/,
+    /本区域不会填写审批意见/,
+    /不提供同意、驳回、转办或其他命令/,
+    /findApprovalAssistance/,
+    /DEFAULT_USE_CASES/,
+  ]) {
+    assert.match(panels, required);
+  }
+  for (const forbidden of [
+    /v-model=['"](?:opinion|approvalComment|formValues)/,
+    /approveTask|rejectTask|transferTask|resubmitTask|withdrawInstance|retrieveTask/,
+    /@click=['"]submit(?:Approval|Rejection|Transfer|Resubmission)/,
+    /providerId|modelId|routeId|promptTemplateId|secret/i,
+  ]) {
+    assert.doesNotMatch(panels, forbidden);
+  }
+
+  const webDetail = text(webDetailPath);
+  assert.match(
+    webDetail,
+    /import ApprovalAssistancePanel from '#\/components\/approval\/ApprovalAssistancePanel\.vue'/,
+  );
+  assert.match(
+    webDetail,
+    /<ApprovalAssistancePanel v-if="!revisionTask" :task-id="selectedTask\.taskId"\/>/,
+  );
+
+  const mobileDetail = text(mobileDetailPath);
+  assert.match(
+    mobileDetail,
+    /import ApprovalAssistancePanel from '@\/components\/approval\/ApprovalAssistancePanel\.vue'/,
+  );
+  assert.match(
+    mobileDetail,
+    /<ApprovalAssistancePanel v-if="!revisionTask" :task-id="details\.taskId" \/>/,
+  );
 });
