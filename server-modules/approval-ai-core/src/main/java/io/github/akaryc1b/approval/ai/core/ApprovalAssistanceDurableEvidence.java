@@ -14,8 +14,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -24,7 +26,7 @@ import java.util.regex.Pattern;
  * Hash-only durable evidence for one bounded approval-assistance outcome.
  *
  * <p>No Provider-safe field value, Prompt body, summary, observation, risk text, recommendation,
- * limitation, failure message or raw Provider response is represented by this contract.</p>
+ * limitation, failure message or raw Provider response is retained by this contract.</p>
  */
 public record ApprovalAssistanceDurableEvidence(
     UUID evidenceId,
@@ -72,7 +74,7 @@ public record ApprovalAssistanceDurableEvidence(
             executionEvidenceHash,
             "executionEvidenceHash"
         );
-        routeEvidenceHash = normalizeOptionalSha256(routeEvidenceHash, "routeEvidenceHash");
+        routeEvidenceHash = optionalSha256(routeEvidenceHash, "routeEvidenceHash");
         versionEvidenceHash = requireSha256(versionEvidenceHash, "versionEvidenceHash");
         outcomeEvidenceHash = requireSha256(outcomeEvidenceHash, "outcomeEvidenceHash");
         useCase = Objects.requireNonNull(useCase, "useCase must not be null");
@@ -93,88 +95,25 @@ public record ApprovalAssistanceDurableEvidence(
         );
         evidenceHash = requireSha256(evidenceHash, "evidenceHash");
 
-        if (!versions.knowledgeSource().equals(
-            AiVersionReferences.KnowledgeSourceVersion.none()
-        )) {
-            throw new IllegalArgumentException(
-                "P4 durable evidence does not permit customer knowledge metadata"
-            );
-        }
-        if (!versionEvidenceHash.equals(versionEvidenceHash(versions))) {
-            throw new IllegalArgumentException(
-                "versionEvidenceHash must match exact Provider/model/Prompt/policy/schema versions"
-            );
-        }
-        if (providerAttempts < 0 || providerAttempts > 1) {
-            throw new IllegalArgumentException("providerAttempts must be zero or one");
-        }
-        if (providerInvocationStarted != (providerAttempts == 1)) {
-            throw new IllegalArgumentException(
-                "providerAttempts must match invocation-started evidence"
-            );
-        }
-        if (retryAttempted || postInvocationFallbackAttempted) {
-            throw new IllegalArgumentException(
-                "P4 evidence cannot represent retry or post-invocation fallback"
-            );
-        }
-        if (killSwitchGeneration < 1) {
-            throw new IllegalArgumentException("killSwitchGeneration must be positive");
-        }
-        if (providerInvocationStarted && routeEvidenceHash == null) {
-            throw new IllegalArgumentException(
-                "started Provider invocation requires exact route evidence"
-            );
-        }
+        requireVersionEvidence(versions, versionEvidenceHash);
+        requireInvocationEvidence(
+            providerAttempts,
+            providerInvocationStarted,
+            retryAttempted,
+            postInvocationFallbackAttempted,
+            killSwitchGeneration,
+            routeEvidenceHash
+        );
+        requireResultEvidence(
+            classification,
+            advisoryResultPresent,
+            advisoryCounts,
+            confidenceScore,
+            confidenceBand
+        );
+        requireRetention(requestedAt, recordedAt, retentionUntil);
 
-        boolean resultClassification = classification == AiOutcomeClassification.SUCCESS
-            || classification == AiOutcomeClassification.LOW_CONFIDENCE;
-        if (advisoryResultPresent != resultClassification) {
-            throw new IllegalArgumentException(
-                "advisoryResultPresent must match the final result classification"
-            );
-        }
-        if (advisoryResultPresent) {
-            if (confidenceScore == null || confidenceBand == null) {
-                throw new IllegalArgumentException(
-                    "advisory result evidence requires confidence metadata"
-                );
-            }
-            if (Double.isNaN(confidenceScore)
-                || confidenceScore < 0.0d
-                || confidenceScore > 1.0d) {
-                throw new IllegalArgumentException(
-                    "confidenceScore must be between zero and one"
-                );
-            }
-            if (advisoryCounts.evidenceReferenceCount() < 1) {
-                throw new IllegalArgumentException(
-                    "advisory result evidence requires at least one evidence reference"
-                );
-            }
-        } else if (!advisoryCounts.empty()
-            || confidenceScore != null
-            || confidenceBand != null) {
-            throw new IllegalArgumentException(
-                "failure evidence must not manufacture advisory result metadata"
-            );
-        }
-
-        if (recordedAt.isBefore(requestedAt)) {
-            throw new IllegalArgumentException(
-                "recordedAt must not precede the approval-assistance request"
-            );
-        }
-        Duration retention = Duration.between(recordedAt, retentionUntil);
-        if (retention.isZero()
-            || retention.isNegative()
-            || retention.compareTo(MAXIMUM_RETENTION) > 0) {
-            throw new IllegalArgumentException(
-                "retentionUntil must be after recordedAt and within ten years"
-            );
-        }
-
-        String expectedHash = computeEvidenceHash(
+        String expected = computeEvidenceHash(
             evidenceId,
             tenantId,
             requestEvidenceHash,
@@ -200,7 +139,7 @@ public record ApprovalAssistanceDurableEvidence(
             recordedAt,
             retentionUntil
         );
-        if (!evidenceHash.equals(expectedHash)) {
+        if (!evidenceHash.equals(expected)) {
             throw new IllegalArgumentException(
                 "evidenceHash must match canonical P4 durable evidence"
             );
@@ -222,22 +161,7 @@ public record ApprovalAssistanceDurableEvidence(
         Request request = outcome.request();
         AiOutcomeClassification classification = outcome.coordinated()
             .outcome().classification();
-        if (executionEvidence.capability() != request.useCase().capability()
-            || executionEvidence.resultClassification() != classification
-            || executionEvidence.providerInvocationStarted()
-                != outcome.coordinated().providerInvocationStarted()
-            || executionEvidence.postInvocationFallbackAttempted()
-                != outcome.coordinated().postInvocationFallbackAttempted()) {
-            throw new IllegalArgumentException(
-                "execution evidence must match the exact P3 outcome"
-            );
-        }
-        if (executionEvidence.versions() != null
-            && !executionEvidence.versions().equals(request.expectedVersions())) {
-            throw new IllegalArgumentException(
-                "execution evidence versions must match the exact P2 request"
-            );
-        }
+        requireExecutionMatch(request, outcome, executionEvidence, classification);
 
         AiAdvisoryResult advisory = outcome.acceptedResult() == null
             ? null
@@ -250,9 +174,10 @@ public record ApprovalAssistanceDurableEvidence(
         String projectionHash = projectionEvidenceHash(request);
         String versionsHash = versionEvidenceHash(request.expectedVersions());
         String outcomeHash = outcomeEvidenceHash(outcome, advisory, counts);
+        String tenantId = request.projection().requestContext().tenantId();
         String canonicalHash = computeEvidenceHash(
             evidenceId,
-            request.projection().requestContext().tenantId(),
+            tenantId,
             executionEvidence.requestEvidenceHash(),
             executionEvidence.subjectEvidenceHash(),
             executionEvidence.resourceEvidenceHash(),
@@ -278,7 +203,7 @@ public record ApprovalAssistanceDurableEvidence(
         );
         return new ApprovalAssistanceDurableEvidence(
             evidenceId,
-            request.projection().requestContext().tenantId(),
+            tenantId,
             executionEvidence.requestEvidenceHash(),
             executionEvidence.subjectEvidenceHash(),
             executionEvidence.resourceEvidenceHash(),
@@ -306,6 +231,130 @@ public record ApprovalAssistanceDurableEvidence(
         );
     }
 
+    private static void requireExecutionMatch(
+        Request request,
+        Outcome outcome,
+        AiAdvisoryExecutionEvidence execution,
+        AiOutcomeClassification classification
+    ) {
+        if (execution.capability() != request.useCase().capability()
+            || execution.resultClassification() != classification
+            || execution.providerInvocationStarted()
+                != outcome.coordinated().providerInvocationStarted()
+            || execution.postInvocationFallbackAttempted()
+                != outcome.coordinated().postInvocationFallbackAttempted()) {
+            throw new IllegalArgumentException(
+                "execution evidence must match the exact P3 outcome"
+            );
+        }
+        if (execution.versions() != null
+            && !execution.versions().equals(request.expectedVersions())) {
+            throw new IllegalArgumentException(
+                "execution evidence versions must match the exact P2 request"
+            );
+        }
+    }
+
+    private static void requireVersionEvidence(
+        AiVersionReferences versions,
+        String versionsHash
+    ) {
+        if (!versions.knowledgeSource().equals(
+            AiVersionReferences.KnowledgeSourceVersion.none()
+        )) {
+            throw new IllegalArgumentException(
+                "P4 durable evidence does not permit customer knowledge metadata"
+            );
+        }
+        if (!versionsHash.equals(versionEvidenceHash(versions))) {
+            throw new IllegalArgumentException(
+                "versionEvidenceHash must match exact Provider/model/Prompt/policy/schema versions"
+            );
+        }
+    }
+
+    private static void requireInvocationEvidence(
+        int attempts,
+        boolean invocationStarted,
+        boolean retryAttempted,
+        boolean fallbackAttempted,
+        long killSwitchGeneration,
+        String routeHash
+    ) {
+        if (attempts < 0 || attempts > 1 || invocationStarted != (attempts == 1)) {
+            throw new IllegalArgumentException(
+                "Provider attempts must be zero or one and match invocation evidence"
+            );
+        }
+        if (retryAttempted || fallbackAttempted) {
+            throw new IllegalArgumentException(
+                "P4 evidence cannot represent retry or post-invocation fallback"
+            );
+        }
+        if (killSwitchGeneration < 1) {
+            throw new IllegalArgumentException("killSwitchGeneration must be positive");
+        }
+        if (invocationStarted && routeHash == null) {
+            throw new IllegalArgumentException(
+                "started Provider invocation requires exact route evidence"
+            );
+        }
+    }
+
+    private static void requireResultEvidence(
+        AiOutcomeClassification classification,
+        boolean resultPresent,
+        AdvisoryCounts counts,
+        Double confidenceScore,
+        AiAdvisoryResult.ConfidenceBand confidenceBand
+    ) {
+        boolean resultClassification = classification == AiOutcomeClassification.SUCCESS
+            || classification == AiOutcomeClassification.LOW_CONFIDENCE;
+        if (resultPresent != resultClassification) {
+            throw new IllegalArgumentException(
+                "advisoryResultPresent must match the final result classification"
+            );
+        }
+        if (resultPresent) {
+            if (confidenceScore == null
+                || confidenceBand == null
+                || Double.isNaN(confidenceScore)
+                || confidenceScore < 0.0d
+                || confidenceScore > 1.0d
+                || counts.evidenceReferenceCount() < 1) {
+                throw new IllegalArgumentException(
+                    "advisory result evidence requires bounded confidence and evidence metadata"
+                );
+            }
+        } else if (!counts.empty()
+            || confidenceScore != null
+            || confidenceBand != null) {
+            throw new IllegalArgumentException(
+                "failure evidence must not manufacture advisory result metadata"
+            );
+        }
+    }
+
+    private static void requireRetention(
+        Instant requestedAt,
+        Instant recordedAt,
+        Instant retentionUntil
+    ) {
+        if (recordedAt.isBefore(requestedAt)) {
+            throw new IllegalArgumentException(
+                "recordedAt must not precede the approval-assistance request"
+            );
+        }
+        Duration retention = Duration.between(recordedAt, retentionUntil);
+        if (retention.isZero()
+            || retention.isNegative()
+            || retention.compareTo(MAXIMUM_RETENTION) > 0) {
+            throw new IllegalArgumentException(
+                "retentionUntil must be after recordedAt and within ten years"
+            );
+        }
+    }
+
     private static String projectionEvidenceHash(Request request) {
         ApprovalAssistanceContextProjection projection = request.projection();
         MessageDigest digest = digest();
@@ -321,36 +370,88 @@ public record ApprovalAssistanceDurableEvidence(
         updateFramed(digest, Integer.toString(projection.process().definitionVersion()));
         updateFramed(digest, Integer.toString(projection.process().releaseVersion()));
         updateFramed(digest, projection.resourceState().state().name());
-        updateFramed(
-            digest,
-            Integer.toString(projection.providerFields().size())
-        );
         projection.providerFields().stream()
             .sorted(Comparator.comparing(AiProviderRequest.InputField::key))
             .forEach(field -> {
                 updateFramed(digest, field.key());
                 updateFramed(digest, field.type());
                 updateFramed(digest, field.maskingDisposition().name());
+                updateFramed(digest, valueEvidenceHash(field.value()));
             });
+        ApprovalAssistanceContextProjection.ProviderRequirements requirements =
+            projection.providerRequirements();
+        updateFramed(digest, Integer.toString(requirements.maximumInputFields()));
         updateFramed(
             digest,
-            Integer.toString(projection.providerRequirements().maximumFieldCount())
+            Integer.toString(requirements.maximumTextCharactersPerValue())
         );
         updateFramed(
             digest,
-            Integer.toString(
-                projection.providerRequirements().maximumTotalTextCharacters()
-            )
+            Integer.toString(requirements.maximumTotalTextCharacters())
         );
-        updateFramed(
-            digest,
-            Integer.toString(projection.providerRequirements().maximumCollectionSize())
-        );
-        updateFramed(
-            digest,
-            Integer.toString(projection.providerRequirements().maximumDepth())
-        );
+        updateFramed(digest, Integer.toString(requirements.maximumCollectionSize()));
+        updateFramed(digest, Integer.toString(requirements.maximumDepth()));
+        updateFramed(digest, Boolean.toString(requirements.structuredOutputRequired()));
+        updateFramed(digest, Boolean.toString(requirements.attachmentMetadataOnly()));
+        ApprovalAssistanceContextProjection.ProjectionEvidence evidence =
+            projection.evidence();
+        updateFramed(digest, Integer.toString(evidence.authorizedVisibleFieldCount()));
+        updateFramed(digest, Integer.toString(evidence.providerFieldCount()));
+        updateFramed(digest, Integer.toString(evidence.maskedFieldCount()));
+        updateFramed(digest, Integer.toString(evidence.omittedFieldCount()));
+        updateFramed(digest, Integer.toString(evidence.attachmentMetadataCount()));
         return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private static String valueEvidenceHash(Object value) {
+        MessageDigest digest = digest();
+        updateFramed(digest, "M6-E-P4-PROVIDER-VALUE-EVIDENCE-V1");
+        updateCanonicalValue(digest, value);
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private static void updateCanonicalValue(MessageDigest digest, Object value) {
+        Objects.requireNonNull(value, "Provider-safe value must not be null");
+        if (value instanceof String text) {
+            updateFramed(digest, "STRING");
+            updateFramed(digest, text);
+            return;
+        }
+        if (value instanceof Number number) {
+            updateFramed(digest, "NUMBER");
+            updateFramed(digest, number.toString());
+            return;
+        }
+        if (value instanceof Boolean flag) {
+            updateFramed(digest, "BOOLEAN");
+            updateFramed(digest, flag.toString());
+            return;
+        }
+        if (value instanceof Map<?, ?> map) {
+            updateFramed(digest, "MAP");
+            updateFramed(digest, Integer.toString(map.size()));
+            map.entrySet().stream()
+                .sorted(Comparator.comparing(entry -> String.valueOf(entry.getKey())))
+                .forEach(entry -> {
+                    if (!(entry.getKey() instanceof String key)) {
+                        throw new IllegalArgumentException(
+                            "Provider-safe map key must be a string"
+                        );
+                    }
+                    updateFramed(digest, key);
+                    updateCanonicalValue(digest, entry.getValue());
+                });
+            return;
+        }
+        if (value instanceof Collection<?> collection) {
+            updateFramed(digest, "COLLECTION");
+            updateFramed(digest, Integer.toString(collection.size()));
+            collection.forEach(item -> updateCanonicalValue(digest, item));
+            return;
+        }
+        throw new IllegalArgumentException(
+            "Provider-safe value contains an unsupported runtime type"
+        );
     }
 
     private static String versionEvidenceHash(AiVersionReferences versions) {
@@ -381,34 +482,67 @@ public record ApprovalAssistanceDurableEvidence(
         AiAdvisoryResult advisory,
         AdvisoryCounts counts
     ) {
-        if (advisory == null) {
-            return hash(
-                "M6-E-P4-OUTCOME-EVIDENCE-V1",
-                outcome.coordinated().outcome().classification().name(),
-                outcome.coordinated().outcome().failure().code(),
-                Boolean.toString(outcome.coordinated().outcome().failure().retryable()),
-                Integer.toString(outcome.providerAttempts()),
-                Boolean.toString(outcome.retryAttempted())
-            );
-        }
         MessageDigest digest = digest();
         updateFramed(digest, "M6-E-P4-OUTCOME-EVIDENCE-V1");
-        updateFramed(
-            digest,
-            outcome.coordinated().outcome().classification().name()
-        );
+        updateFramed(digest, outcome.coordinated().outcome().classification().name());
+        if (advisory == null) {
+            updateFramed(digest, outcome.coordinated().outcome().failure().code());
+            updateFramed(digest, outcome.coordinated().outcome().failure().message());
+            updateFramed(
+                digest,
+                Boolean.toString(outcome.coordinated().outcome().failure().retryable())
+            );
+            return HexFormat.of().formatHex(digest.digest());
+        }
+        updateFramed(digest, advisory.summary());
         updateFramed(digest, counts.canonical());
         updateFramed(digest, Double.toString(advisory.confidence().score()));
         updateFramed(digest, advisory.confidence().band().name());
         updateFramed(digest, Boolean.toString(advisory.needsHumanReview()));
         updateFramed(digest, advisory.authority().name());
         updateFramed(digest, advisory.assertionStatus().name());
+        advisory.observations().stream()
+            .sorted(Comparator.comparing(AiAdvisoryResult.Observation::id))
+            .forEach(item -> {
+                updateFramed(digest, item.id());
+                updateFramed(digest, item.text());
+                item.evidenceReferenceIds().stream().sorted()
+                    .forEach(id -> updateFramed(digest, id));
+            });
+        advisory.riskSignals().stream()
+            .sorted(Comparator.comparing(AiAdvisoryResult.RiskSignal::id))
+            .forEach(item -> {
+                updateFramed(digest, item.id());
+                updateFramed(digest, item.severity().name());
+                updateFramed(digest, item.text());
+                item.evidenceReferenceIds().stream().sorted()
+                    .forEach(id -> updateFramed(digest, id));
+            });
+        advisory.missingMaterials().stream()
+            .sorted(Comparator.comparing(AiAdvisoryResult.MissingMaterial::id))
+            .forEach(item -> {
+                updateFramed(digest, item.id());
+                updateFramed(digest, item.materialType());
+                updateFramed(digest, item.reason());
+            });
+        advisory.recommendations().stream()
+            .sorted(Comparator.comparing(AiAdvisoryResult.Recommendation::id))
+            .forEach(item -> {
+                updateFramed(digest, item.id());
+                updateFramed(digest, item.type().name());
+                updateFramed(digest, item.text());
+                item.evidenceReferenceIds().stream().sorted()
+                    .forEach(id -> updateFramed(digest, id));
+            });
         advisory.evidenceReferences().stream()
             .sorted(Comparator.comparing(AiAdvisoryResult.EvidenceReference::id))
-            .forEach(reference -> {
-                updateFramed(digest, reference.id());
-                updateFramed(digest, reference.fieldKey());
+            .forEach(item -> {
+                updateFramed(digest, item.id());
+                updateFramed(digest, item.fieldKey());
+                updateFramed(digest, item.description());
             });
+        advisory.limitations().stream().sorted()
+            .forEach(value -> updateFramed(digest, value));
         return HexFormat.of().formatHex(digest.digest());
     }
 
@@ -507,7 +641,7 @@ public record ApprovalAssistanceDurableEvidence(
         return normalized;
     }
 
-    private static String normalizeOptionalSha256(String value, String name) {
+    private static String optionalSha256(String value, String name) {
         return value == null || value.isBlank() ? null : requireSha256(value, name);
     }
 
@@ -580,11 +714,7 @@ public record ApprovalAssistanceDurableEvidence(
             );
         }
 
-        private static void requireBounded(
-            int value,
-            String name,
-            int maximum
-        ) {
+        private static void requireBounded(int value, String name, int maximum) {
             if (value < 0 || value > maximum) {
                 throw new IllegalArgumentException(name + " must be bounded");
             }
