@@ -131,9 +131,10 @@ public interface ApprovalAssistanceDurableEvidenceStore {
             if (revision < 0) {
                 throw new IllegalArgumentException("revision must not be negative");
             }
+            boolean notFound = disposition == TombstoneDisposition.NOT_FOUND;
             boolean completed = disposition == TombstoneDisposition.TOMBSTONED
                 || disposition == TombstoneDisposition.REPLAYED;
-            if (disposition == TombstoneDisposition.NOT_FOUND) {
+            if (notFound) {
                 if (revision != 0
                     || state != null
                     || deleteReason != null
@@ -145,42 +146,48 @@ public interface ApprovalAssistanceDurableEvidenceStore {
                         "not-found tombstone result must contain no stored evidence"
                     );
                 }
-                return;
-            }
-            state = Objects.requireNonNull(state, "stored tombstone result requires state");
-            if (revision < 1) {
-                throw new IllegalArgumentException(
-                    "stored tombstone result requires a positive revision"
+            } else {
+                state = Objects.requireNonNull(
+                    state,
+                    "stored tombstone result requires state"
                 );
-            }
-            if (completed) {
-                deleteReason = Objects.requireNonNull(
-                    deleteReason,
-                    "completed tombstone requires deleteReason"
-                );
-                tombstonedAt = Objects.requireNonNull(
-                    tombstonedAt,
-                    "completed tombstone requires tombstonedAt"
-                );
-                deletionRequestHash = Hashes.requireSha256(
-                    deletionRequestHash,
-                    "deletionRequestHash"
-                );
-                tombstoneHash = Hashes.requireSha256(tombstoneHash, "tombstoneHash");
-                eventHash = Hashes.requireSha256(eventHash, "eventHash");
-                if (state != EvidenceState.TOMBSTONED || revision != 2) {
+                if (revision < 1) {
                     throw new IllegalArgumentException(
-                        "completed tombstone must return tombstoned revision two"
+                        "stored tombstone result requires a positive revision"
                     );
                 }
-            } else if (deleteReason != null
-                || tombstonedAt != null
-                || deletionRequestHash != null
-                || tombstoneHash != null
-                || eventHash != null) {
-                throw new IllegalArgumentException(
-                    "non-completed tombstone result must not manufacture deletion evidence"
-                );
+                if (completed) {
+                    deleteReason = Objects.requireNonNull(
+                        deleteReason,
+                        "completed tombstone requires deleteReason"
+                    );
+                    tombstonedAt = Objects.requireNonNull(
+                        tombstonedAt,
+                        "completed tombstone requires tombstonedAt"
+                    );
+                    deletionRequestHash = Hashes.requireSha256(
+                        deletionRequestHash,
+                        "deletionRequestHash"
+                    );
+                    tombstoneHash = Hashes.requireSha256(
+                        tombstoneHash,
+                        "tombstoneHash"
+                    );
+                    eventHash = Hashes.requireSha256(eventHash, "eventHash");
+                    if (state != EvidenceState.TOMBSTONED || revision != 2) {
+                        throw new IllegalArgumentException(
+                            "completed tombstone must return tombstoned revision two"
+                        );
+                    }
+                } else if (deleteReason != null
+                    || tombstonedAt != null
+                    || deletionRequestHash != null
+                    || tombstoneHash != null
+                    || eventHash != null) {
+                    throw new IllegalArgumentException(
+                        "non-completed tombstone result must not manufacture deletion evidence"
+                    );
+                }
             }
         }
     }
