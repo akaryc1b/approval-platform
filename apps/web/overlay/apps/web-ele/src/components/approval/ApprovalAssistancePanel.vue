@@ -4,7 +4,7 @@ import type {
   ApprovalAssistanceUseCase,
 } from '#/api/approval/assistance';
 
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import {
   ElAlert,
@@ -18,10 +18,19 @@ import { findApprovalAssistance } from '#/api/approval/assistance';
 
 const props = defineProps<{ taskId: string }>();
 
+const DEFAULT_USE_CASES: ApprovalAssistanceUseCase[] = [
+  'SUMMARY',
+  'MATERIAL_COMPLETENESS',
+  'RISK_REVIEW',
+];
+
 const selectedUseCase = ref<ApprovalAssistanceUseCase>('SUMMARY');
 const loading = ref(false);
 const loadError = ref('');
 const assistance = ref<ApprovalAssistanceReadView>();
+const availableUseCases = computed(
+  () => assistance.value?.availableUseCases || DEFAULT_USE_CASES,
+);
 
 const useCaseLabels: Record<ApprovalAssistanceUseCase, string> = {
   MATERIAL_COMPLETENESS: '材料完整性',
@@ -82,7 +91,7 @@ watch(
 
     <div class="use-case-list" aria-label="AI 辅助类型">
       <ElButton
-        v-for="useCase in assistance?.availableUseCases || ['SUMMARY', 'MATERIAL_COMPLETENESS', 'RISK_REVIEW']"
+        v-for="useCase in availableUseCases"
         :key="useCase"
         :loading="loading && selectedUseCase === useCase"
         :plain="selectedUseCase !== useCase"
