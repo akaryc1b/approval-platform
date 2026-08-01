@@ -120,7 +120,7 @@ test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure
     /M6-E-P4-OUTCOME-EVIDENCE-V1/,
     /KnowledgeSourceVersion\.none\(\)/,
     /MAXIMUM_RETENTION/,
-    /providerAttempts must be zero or one/,
+    /Provider attempts must be zero or one/,
     /P4 evidence cannot represent retry or post-invocation fallback/,
     /evidenceHash must match canonical P4 durable evidence/,
     /TombstoneDisposition/,
