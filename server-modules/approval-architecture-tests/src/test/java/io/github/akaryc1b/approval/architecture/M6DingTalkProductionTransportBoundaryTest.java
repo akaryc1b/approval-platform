@@ -30,6 +30,8 @@ class M6DingTalkProductionTransportBoundaryTest {
         "(?m)^\\s*(private|protected|public)\\s+(static\\s+)?(final\\s+)?"
             + "(byte|char)\\[\\]\\s+\\w+"
     );
+    private static final String GOVERNED_M6_E_V49 =
+        "V49__create_ai_approval_assistance_durable_evidence.sql";
 
     @Test
     void productionTransportDependsOnlyOnDingTalkCredentialCoreAndTests() throws IOException {
@@ -152,7 +154,7 @@ class M6DingTalkProductionTransportBoundaryTest {
     }
 
     @Test
-    void p3AddsNoWorkflowPostM5MigrationOrExecutionCoordinator() throws IOException {
+    void p3OwnsNoMigrationAndRecognizesOnlyGovernedM6EV49() throws IOException {
         List<String> automaticWorkflows = new ArrayList<>();
         for (Path workflow : filesUnder(ROOT.resolve(".github/workflows"))) {
             String name = workflow.getFileName().toString();
@@ -173,6 +175,7 @@ class M6DingTalkProductionTransportBoundaryTest {
         );
 
         Pattern flywayVersion = Pattern.compile("V(\\d+)__.*\\.sql");
+        List<String> v49 = new ArrayList<>();
         for (Path migration : filesUnder(ROOT)) {
             String normalized = relative(migration);
             if (!normalized.contains("/src/main/resources/db/migration/")
@@ -180,13 +183,18 @@ class M6DingTalkProductionTransportBoundaryTest {
                 continue;
             }
             var matcher = flywayVersion.matcher(migration.getFileName().toString());
-            if (matcher.matches()) {
-                assertTrue(
-                    Integer.parseInt(matcher.group(1)) <= 48,
-                    "unexpected M6 migration " + normalized
-                );
+            if (!matcher.matches()) {
+                continue;
+            }
+            int version = Integer.parseInt(matcher.group(1));
+            if (version == 49) {
+                v49.add(migration.getFileName().toString());
+                assertEquals(GOVERNED_M6_E_V49, migration.getFileName().toString());
+            } else {
+                assertTrue(version <= 48, "unexpected M6 migration " + normalized);
             }
         }
+        assertEquals(List.of(GOVERNED_M6_E_V49), v49);
 
         String source = mainSource(HTTP);
         for (String forbidden : List.of(
