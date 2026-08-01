@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import test from 'node:test';
 
 const root = process.cwd();
@@ -69,7 +69,7 @@ const coreProduction = [
 const controllers = [operationsController, diagnosticsController].join('\n');
 const clients = [webApi, webView, mobileApi, mobileView].join('\n');
 
-function m5MigrationVersions() {
+function migrationEntries() {
   const sqlDirectory = join(
     root,
     'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
@@ -78,14 +78,14 @@ function m5MigrationVersions() {
     root,
     'server-modules/approval-persistence-jdbc/src/main/java/db/migration',
   );
-  const names = [
-    ...readdirSync(sqlDirectory),
-    ...readdirSync(javaDirectory),
-  ];
-  return names
-    .map(name => name.match(/^V(\d+)__/))
-    .filter(Boolean)
-    .map(match => Number(match[1]));
+  return [
+    ...readdirSync(sqlDirectory).map(name => join(sqlDirectory, name)),
+    ...readdirSync(javaDirectory).map(name => join(javaDirectory, name)),
+  ].map(path => {
+    const name = basename(path);
+    const match = name.match(/^V(\d+)__/);
+    return match ? { name, version: Number(match[1]) } : null;
+  }).filter(Boolean);
 }
 
 test('G1 retains every executable M5 feature as default disabled', () => {
@@ -137,25 +137,31 @@ test('G1 keeps Operations APIs and clients read-only and non-persistent', () => 
   assert.match(mobileView, /只读/);
 });
 
-test('G1 verifies clean and historical Flyway migration to exactly V48', () => {
-  const versions = m5MigrationVersions();
+test('G1 freezes M5-owned Flyway V33-V48 while repository upgrades to exact V49', () => {
+  const entries = migrationEntries();
+  const versions = entries.map(({ version }) => version);
   const unique = [...new Set(versions)].sort((left, right) => left - right);
-  assert.equal(Math.max(...unique), 48);
-  assert.ok(unique.every(version => version <= 48));
+  assert.equal(Math.max(...unique), 49);
   for (let version = 33; version <= 48; version++) {
     assert.ok(unique.includes(version), `missing M5-owned Flyway migration V${version}`);
   }
-  assert.match(upgrade, /LATEST_VERSION = "48"/);
+  assert.deepEqual(
+    entries.filter(({ version }) => version === 49).map(({ name }) => name),
+    ['V49__create_ai_approval_assistance_durable_evidence.sql'],
+  );
+  assert.deepEqual(entries.filter(({ version }) => version >= 50), []);
+  assert.match(upgrade, /LATEST_VERSION = "49"/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_fresh", null\)/);
-  for (const version of ['1', '13', '23', '31', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47']) {
+  for (const version of ['1', '13', '23', '31', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48']) {
     assert.match(upgrade, new RegExp(`new UpgradeCase\\("approval_latest_v${version}", "${version}"\\)`));
   }
-  assert.match(upgrade, /freshAndHistoricalUpgradePathsReachV48WithoutExecutionSideEffects/);
+  assert.match(upgrade, /freshAndHistoricalUpgradePathsReachV49WithoutExecutionSideEffects/);
   assert.match(upgrade, /upgradesV27WithFiveThousandInstancesAndTasksWithoutChangingEvidence/);
   assert.match(upgrade, /assertNoExecutionSideEffects/);
   assert.match(upgrade, /assertD6Empty\(jdbc\)/);
   assert.match(upgrade, /assertD7Empty\(jdbc\)/);
   assert.match(upgrade, /assertD8Empty\(jdbc\)/);
+  assert.match(upgrade, /assertP4Empty\(jdbc\)/);
 });
 
 test('G1 repository and production-authority boundaries remain closed', () => {
