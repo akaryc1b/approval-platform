@@ -41,6 +41,11 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         "ap_process_migration_plan_aggregate_event",
         "ap_process_migration_plan_completion"
     );
+    private static final Set<String> M6_E_P4_TABLES = Set.of(
+        "ap_ai_approval_assistance_evidence",
+        "ap_ai_approval_assistance_evidence_state",
+        "ap_ai_approval_assistance_evidence_event"
+    );
     private static final Set<String> M4_INDEXES = Set.of(
         "idx_work_calendar_active_lookup", "idx_sla_policy_active_lookup",
         "idx_sla_instance_responsible_active_due", "idx_sla_instance_active_due",
@@ -84,6 +89,13 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         "idx_process_migration_plan_aggregate_event_plan_v48",
         "idx_process_migration_plan_completion_time_v48"
     );
+    private static final Set<String> M6_E_P4_INDEXES = Set.of(
+        "idx_ai_assistance_evidence_retention_v49",
+        "idx_ai_assistance_evidence_resource_v49",
+        "idx_ai_assistance_evidence_class_v49",
+        "idx_ai_assistance_evidence_state_v49",
+        "idx_ai_assistance_evidence_event_v49"
+    );
 
     private JdbcApprovalMigrationUpgradeAssertions() {
     }
@@ -98,10 +110,23 @@ final class JdbcApprovalMigrationUpgradeAssertions {
             M5_TABLES,
             queryNames(jdbc, "table_name", "information_schema.tables", M5_TABLES)
         );
+        assertEquals(
+            M6_E_P4_TABLES,
+            queryNames(
+                jdbc,
+                "table_name",
+                "information_schema.tables",
+                M6_E_P4_TABLES
+            )
+        );
         assertEquals(M4_INDEXES, queryNames(jdbc, "indexname", "pg_indexes", M4_INDEXES));
         assertEquals(
             M5_PLAN_INDEXES,
             queryNames(jdbc, "indexname", "pg_indexes", M5_PLAN_INDEXES)
+        );
+        assertEquals(
+            M6_E_P4_INDEXES,
+            queryNames(jdbc, "indexname", "pg_indexes", M6_E_P4_INDEXES)
         );
     }
 
