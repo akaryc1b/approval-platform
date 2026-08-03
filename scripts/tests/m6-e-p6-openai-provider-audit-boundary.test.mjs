@@ -155,6 +155,10 @@ test('P6-A profile permits only the P6-B Secret source and still no transport or
     restControllerAnnotation,
   );
   assert.match('@RestController\nfinal class ForbiddenController {}', restControllerAnnotation);
+  assert.match(
+    '    @RestController\n    static final class ForbiddenController {}',
+    restControllerAnnotation,
+  );
 
   for (const forbidden of [
     /api\.openai\.com/,
