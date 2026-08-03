@@ -152,6 +152,9 @@ public final class OpenAiResponsesProtocol {
     ) {
         public DecodedResponse {
             advisory = Objects.requireNonNull(advisory, "advisory must not be null");
+            if (!confidenceBandMatches(advisory.confidence())) {
+                throw failure(Failure.RESULT_INVALID);
+            }
             usage = Objects.requireNonNull(usage, "usage must not be null");
             requestIdHash = requireSha256(requestIdHash, "requestIdHash");
             responseIdHash = requireSha256(responseIdHash, "responseIdHash");
@@ -229,6 +232,15 @@ public final class OpenAiResponsesProtocol {
             throw new IllegalArgumentException(name + " must be a lowercase SHA-256");
         }
         return normalized;
+    }
+
+    private static boolean confidenceBandMatches(AiAdvisoryResult.Confidence confidence) {
+        double score = confidence.score();
+        return switch (confidence.band()) {
+            case LOW -> score < (1.0d / 3.0d);
+            case MEDIUM -> score >= (1.0d / 3.0d) && score < (2.0d / 3.0d);
+            case HIGH -> score >= (2.0d / 3.0d);
+        };
     }
 
     private static void requirePositive(int value, String name) {
