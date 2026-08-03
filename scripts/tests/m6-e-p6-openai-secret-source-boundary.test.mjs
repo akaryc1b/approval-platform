@@ -65,6 +65,7 @@ test('P6-B OpenAI environment source is exact callback-scoped and redaction-safe
     modulePomPath,
     modulesPomPath,
     architecturePomPath,
+    serverPomPath,
     connectorProviderPath,
     connectorOperationPath,
     materialTypePath,
@@ -101,7 +102,13 @@ test('P6-B OpenAI environment source is exact callback-scoped and redaction-safe
     assert.match(source, required);
   }
 
-  const retainedSecretField = /^\s*(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?(?:byte|char)\[\]\s+\w+/m;
+  const retainedSecretField = /^\s*(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?(?:byte|char)\[\]\s+\w+\s*(?:=|;)/m;
+  assert.match('private final char[] retained = null;', retainedSecretField);
+  assert.match('private byte[] retained;', retainedSecretField);
+  assert.doesNotMatch(
+    'private char[] readSecretCharacters() { return null; }',
+    retainedSecretField,
+  );
   assert.doesNotMatch(source, retainedSecretField);
   for (const forbidden of [
     /api\.openai\.com/,
