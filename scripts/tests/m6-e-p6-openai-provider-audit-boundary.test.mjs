@@ -26,6 +26,7 @@ const productionRoots = [
   path.join(root, 'server-modules/approval-ai-openai/src/main/java'),
   path.join(root, 'apps/server/src/main/java'),
 ];
+const restControllerAnnotation = /(?:^|\n)\s*@RestController\b/;
 
 function filesUnder(directory) {
   if (!existsSync(directory)) return [];
@@ -149,6 +150,12 @@ test('P6-A profile permits only the P6-B Secret source and still no transport or
     .map(text)
     .join('\n');
 
+  assert.doesNotMatch(
+    '/** This SPI must never become a @RestController. */',
+    restControllerAnnotation,
+  );
+  assert.match('@RestController\nfinal class ForbiddenController {}', restControllerAnnotation);
+
   for (const forbidden of [
     /api\.openai\.com/,
     /java\.net\./,
@@ -158,7 +165,7 @@ test('P6-A profile permits only the P6-B Secret source and still no transport or
     /Authorization\s*[:=]/,
     /Bearer\s+/,
     /@PostMapping\([^\n]*assistance/i,
-    /@RestController\b/,
+    restControllerAnnotation,
     /@Scheduled\b/,
     /ApprovalAssistanceSynchronousOrchestrator/,
     /ApprovalAssistanceDurableEvidenceStore/,
