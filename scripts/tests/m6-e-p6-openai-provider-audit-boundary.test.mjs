@@ -9,6 +9,13 @@ const auditPath = path.join(
   root,
   'docs/m6/M6_E_P6_OPENAI_PROVIDER_ACTIVATION_AUDIT.md',
 );
+const openAiSourcePath = path.join(
+  root,
+  'server-modules/approval-ai-openai/src/main/java/' +
+    'io/github/akaryc1b/approval/ai/openai/' +
+    'OpenAiEnvironmentCredentialMaterialSource.java',
+);
+const serverPomPath = path.join(root, 'apps/server/pom.xml');
 const migrationRoot = path.join(
   root,
   'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
@@ -16,6 +23,7 @@ const migrationRoot = path.join(
 const productionRoots = [
   path.join(root, 'server-modules/approval-ai-spi/src/main/java'),
   path.join(root, 'server-modules/approval-ai-core/src/main/java'),
+  path.join(root, 'server-modules/approval-ai-openai/src/main/java'),
   path.join(root, 'apps/server/src/main/java'),
 ];
 
@@ -89,12 +97,48 @@ test('P6-A selects one exact OpenAI Responses profile without implementation aut
   }
 });
 
-test('P6-A adds no OpenAI network Secret or invocation implementation', () => {
+test('P6-A profile permits only the P6-B Secret source and still no transport or invocation', () => {
   const productionFiles = productionRoots
     .flatMap(filesUnder)
     .filter(file => file.endsWith('.java'));
-  const openAiNamedFiles = productionFiles.filter(file => /openai/i.test(path.basename(file)));
-  assert.deepEqual(openAiNamedFiles, []);
+  const openAiNamedFiles = productionFiles
+    .filter(file => /openai/i.test(path.basename(file)))
+    .map(file => path.relative(root, file).replaceAll('\\', '/'));
+  assert.deepEqual(openAiNamedFiles, [
+    'server-modules/approval-ai-openai/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/openai/' +
+      'OpenAiEnvironmentCredentialMaterialSource.java',
+  ]);
+
+  const environmentTokenFiles = productionFiles
+    .filter(file => /OPENAI_API_KEY(?:_VERSION)?/.test(text(file)))
+    .map(file => path.relative(root, file).replaceAll('\\', '/'));
+  assert.deepEqual(environmentTokenFiles, [
+    'server-modules/approval-ai-openai/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/openai/' +
+      'OpenAiEnvironmentCredentialMaterialSource.java',
+  ]);
+
+  const systemEnvironmentFiles = productionFiles
+    .filter(file => /System\.getenv/.test(text(file)))
+    .map(file => path.relative(root, file).replaceAll('\\', '/'));
+  assert.deepEqual(systemEnvironmentFiles, [
+    'server-modules/approval-ai-openai/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/openai/' +
+      'OpenAiEnvironmentCredentialMaterialSource.java',
+  ]);
+
+  const openAiSource = text(openAiSourcePath);
+  for (const required of [
+    /implements CredentialMaterialSource/,
+    /OPENAI_API_KEY/,
+    /OPENAI_API_KEY_VERSION/,
+    /CredentialMaterialLease\.takeOwnership/,
+    /AI_ADVISORY_GENERATE/,
+    /CredentialMaterialType\.API_KEY/,
+  ]) {
+    assert.match(openAiSource, required);
+  }
 
   const aiRelevantSource = productionFiles
     .filter(file => {
@@ -107,16 +151,22 @@ test('P6-A adds no OpenAI network Secret or invocation implementation', () => {
 
   for (const forbidden of [
     /api\.openai\.com/,
-    /OPENAI_API_KEY/,
-    /OPENAI_API_KEY_VERSION/,
-    /java\.net\.http/,
-    /HttpClient\.newHttpClient/,
-    /Authorization\s*:\s*Bearer/,
+    /java\.net\./,
+    /HttpClient/,
+    /WebClient/,
+    /RestClient/,
+    /Authorization\s*[:=]/,
+    /Bearer\s+/,
     /@PostMapping\([^\n]*assistance/i,
+    /@RestController\b/,
     /@Scheduled\b/,
+    /ApprovalAssistanceSynchronousOrchestrator/,
+    /ApprovalAssistanceDurableEvidenceStore/,
   ]) {
     assert.doesNotMatch(aiRelevantSource, forbidden);
   }
+
+  assert.doesNotMatch(text(serverPomPath), /approval-ai-openai/);
 
   const versioned = filesUnder(migrationRoot).map((file) => {
     const name = path.basename(file);
