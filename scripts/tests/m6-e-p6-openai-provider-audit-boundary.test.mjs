@@ -105,17 +105,30 @@ test('P6-A selects one exact OpenAI Responses profile without implementation aut
   }
 });
 
-test('P6-A profile permits only the P6-B Secret source and still no transport or invocation', () => {
+test('P6-A profile permits only accepted P6-B and P6-C source with no sender', () => {
   const productionFiles = productionRoots
     .flatMap(filesUnder)
     .filter(file => file.endsWith('.java'));
   const openAiNamedFiles = productionFiles
     .filter(file => /openai/i.test(path.basename(file)))
-    .map(file => path.relative(root, file).replaceAll('\\', '/'));
+    .map(file => path.relative(root, file).replaceAll('\\', '/'))
+    .sort();
   assert.deepEqual(openAiNamedFiles, [
     'server-modules/approval-ai-openai/src/main/java/' +
       'io/github/akaryc1b/approval/ai/openai/' +
       'OpenAiEnvironmentCredentialMaterialSource.java',
+    'server-modules/approval-ai-openai/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/openai/' +
+      'OpenAiResponsesProtocol.java',
+    'server-modules/approval-ai-openai/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/openai/' +
+      'OpenAiResponsesRequestEncoder.java',
+    'server-modules/approval-ai-openai/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/openai/' +
+      'OpenAiResponsesResponseDecoder.java',
+    'server-modules/approval-ai-openai/src/main/java/' +
+      'io/github/akaryc1b/approval/ai/openai/' +
+      'OpenAiResponsesTransportPort.java',
   ]);
 
   const environmentTokenFiles = productionFiles
