@@ -9,10 +9,13 @@ const auditPath = path.join(
   root,
   'docs/m6/M6_E_P6_OPENAI_PROVIDER_ACTIVATION_AUDIT.md',
 );
-const openAiSourcePath = path.join(
+const openAiProductionRoot = path.join(
   root,
-  'server-modules/approval-ai-openai/src/main/java/' +
-    'io/github/akaryc1b/approval/ai/openai/' +
+  'server-modules/approval-ai-openai/src/main/java',
+);
+const openAiSourcePath = path.join(
+  openAiProductionRoot,
+  'io/github/akaryc1b/approval/ai/openai/' +
     'OpenAiEnvironmentCredentialMaterialSource.java',
 );
 const serverPomPath = path.join(root, 'apps/server/pom.xml');
@@ -23,7 +26,7 @@ const migrationRoot = path.join(
 const productionRoots = [
   path.join(root, 'server-modules/approval-ai-spi/src/main/java'),
   path.join(root, 'server-modules/approval-ai-core/src/main/java'),
-  path.join(root, 'server-modules/approval-ai-openai/src/main/java'),
+  openAiProductionRoot,
   path.join(root, 'apps/server/src/main/java'),
 ];
 const restControllerAnnotation = /^[ \t]*@RestController\b/m;
@@ -141,6 +144,10 @@ test('P6-A profile permits only the P6-B Secret source and still no transport or
     assert.match(openAiSource, required);
   }
 
+  const openAiProviderSource = filesUnder(openAiProductionRoot)
+    .filter(file => file.endsWith('.java'))
+    .map(text)
+    .join('\n');
   const aiRelevantSource = productionFiles
     .filter(file => {
       const name = path.basename(file);
@@ -159,6 +166,7 @@ test('P6-A profile permits only the P6-B Secret source and still no transport or
     '    @RestController\n    static final class ForbiddenController {}',
     restControllerAnnotation,
   );
+  assert.doesNotMatch(openAiProviderSource, restControllerAnnotation);
 
   for (const forbidden of [
     /api\.openai\.com/,
@@ -169,7 +177,6 @@ test('P6-A profile permits only the P6-B Secret source and still no transport or
     /Authorization\s*[:=]/,
     /Bearer\s+/,
     /@PostMapping\([^\n]*assistance/i,
-    restControllerAnnotation,
     /@Scheduled\b/,
     /ApprovalAssistanceSynchronousOrchestrator/,
     /ApprovalAssistanceDurableEvidenceStore/,
