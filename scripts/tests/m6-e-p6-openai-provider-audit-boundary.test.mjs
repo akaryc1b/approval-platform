@@ -26,7 +26,7 @@ const productionRoots = [
   path.join(root, 'server-modules/approval-ai-openai/src/main/java'),
   path.join(root, 'apps/server/src/main/java'),
 ];
-const restControllerAnnotation = /(?:^|\n)\s*@RestController\b/;
+const restControllerAnnotation = /^[ \t]*@RestController\b/m;
 
 function filesUnder(directory) {
   if (!existsSync(directory)) return [];
