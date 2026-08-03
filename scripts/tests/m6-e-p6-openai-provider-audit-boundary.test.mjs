@@ -30,6 +30,10 @@ const productionRoots = [
   path.join(root, 'apps/server/src/main/java'),
 ];
 const restControllerAnnotation = /^[ \t]*@RestController\b/m;
+const forbiddenProviderCouplings = [
+  /ApprovalAssistanceSynchronousOrchestrator/,
+  /ApprovalAssistanceDurableEvidenceStore/,
+];
 
 function filesUnder(directory) {
   if (!existsSync(directory)) return [];
@@ -168,6 +172,18 @@ test('P6-A profile permits only the P6-B Secret source and still no transport or
   );
   assert.doesNotMatch(openAiProviderSource, restControllerAnnotation);
 
+  assert.match(
+    'private ApprovalAssistanceSynchronousOrchestrator orchestrator;',
+    forbiddenProviderCouplings[0],
+  );
+  assert.match(
+    'private ApprovalAssistanceDurableEvidenceStore evidenceStore;',
+    forbiddenProviderCouplings[1],
+  );
+  for (const forbidden of forbiddenProviderCouplings) {
+    assert.doesNotMatch(openAiProviderSource, forbidden);
+  }
+
   for (const forbidden of [
     /api\.openai\.com/,
     /java\.net\./,
@@ -178,8 +194,6 @@ test('P6-A profile permits only the P6-B Secret source and still no transport or
     /Bearer\s+/,
     /@PostMapping\([^\n]*assistance/i,
     /@Scheduled\b/,
-    /ApprovalAssistanceSynchronousOrchestrator/,
-    /ApprovalAssistanceDurableEvidenceStore/,
   ]) {
     assert.doesNotMatch(aiRelevantSource, forbidden);
   }
