@@ -80,7 +80,8 @@ public interface ConnectorProvider {
         NOTIFICATION,
         BUSINESS_CALLBACK,
         FORM_DATA_SOURCE,
-        EXTERNAL_TODO;
+        EXTERNAL_TODO,
+        AI_ADVISORY;
 
         public static Capability parse(String value) {
             String normalized = requireText(value, "capability").toUpperCase(Locale.ROOT);
