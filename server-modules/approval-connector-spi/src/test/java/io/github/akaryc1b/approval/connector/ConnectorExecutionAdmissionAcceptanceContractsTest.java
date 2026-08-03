@@ -478,7 +478,8 @@ class ConnectorExecutionAdmissionAcceptanceContractsTest {
             generic(
                 "business.callback.deliver.v1",
                 ConnectorOperation.BUSINESS_CALLBACK_DELIVER
-            )
+            ),
+            generic("ai.advisory.generate.v1", ConnectorOperation.AI_ADVISORY_GENERATE)
         );
     }
 
