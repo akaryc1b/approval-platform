@@ -101,7 +101,7 @@ test('P6-B OpenAI environment source is exact callback-scoped and redaction-safe
     assert.match(source, required);
   }
 
-  const retainedSecretField = /(?m)^\s*(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?(?:byte|char)\[\]\s+\w+/;
+  const retainedSecretField = /^\s*(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?(?:byte|char)\[\]\s+\w+/m;
   assert.doesNotMatch(source, retainedSecretField);
   for (const forbidden of [
     /api\.openai\.com/,
