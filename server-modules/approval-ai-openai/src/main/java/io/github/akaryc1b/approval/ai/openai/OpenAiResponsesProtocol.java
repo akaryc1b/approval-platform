@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 public final class OpenAiResponsesProtocol {
 
     public static final String PROVIDER_ID = "openai-responses";
+    public static final String PROVIDER_VERSION = "responses-v1";
     public static final String MODEL_ID = "gpt-5-mini";
     public static final String MODEL_VERSION = "2025-08-07";
     public static final String MODEL_SNAPSHOT = "gpt-5-mini-2025-08-07";
@@ -26,6 +27,8 @@ public final class OpenAiResponsesProtocol {
     public static final int MAXIMUM_PROMPT_CHARACTERS = 12_000;
     public static final int MAXIMUM_STRUCTURED_OUTPUT_CHARACTERS = 240_000;
 
+    private static final double MEDIUM_CONFIDENCE_MINIMUM = 0.50d;
+    private static final double HIGH_CONFIDENCE_MINIMUM = 0.80d;
     private static final Pattern SHA_256 = Pattern.compile("[0-9a-f]{64}");
     private static final Set<String> PROMPT_TEMPLATE_IDS = Set.of(
         "approval-summary",
@@ -237,9 +240,10 @@ public final class OpenAiResponsesProtocol {
     private static boolean confidenceBandMatches(AiAdvisoryResult.Confidence confidence) {
         double score = confidence.score();
         return switch (confidence.band()) {
-            case LOW -> score < (1.0d / 3.0d);
-            case MEDIUM -> score >= (1.0d / 3.0d) && score < (2.0d / 3.0d);
-            case HIGH -> score >= (2.0d / 3.0d);
+            case LOW -> score < MEDIUM_CONFIDENCE_MINIMUM;
+            case MEDIUM -> score >= MEDIUM_CONFIDENCE_MINIMUM
+                && score < HIGH_CONFIDENCE_MINIMUM;
+            case HIGH -> score >= HIGH_CONFIDENCE_MINIMUM;
         };
     }
 
