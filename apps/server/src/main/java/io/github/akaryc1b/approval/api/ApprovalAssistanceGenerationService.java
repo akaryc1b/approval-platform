@@ -159,6 +159,11 @@ public final class ApprovalAssistanceGenerationService
             return GenerationOutcome.failure(GenerationStatus.UNKNOWN);
         }
 
+        Optional<PendingTaskDetails> postInvocation = taskQuery.findPendingTask(identity);
+        if (postInvocation.isEmpty() || !task.equals(postInvocation.orElseThrow())) {
+            return GenerationOutcome.failure(GenerationStatus.STALE_TASK);
+        }
+
         Instant recordedAt = latest(clock.instant(), requestedAt);
         ApprovalAssistanceDurableEvidence evidence;
         try {
