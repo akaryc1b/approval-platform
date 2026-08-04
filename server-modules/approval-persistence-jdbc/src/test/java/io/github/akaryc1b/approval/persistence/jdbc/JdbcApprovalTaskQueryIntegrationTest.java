@@ -22,7 +22,6 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -37,14 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JdbcApprovalTaskQueryIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-07-18T01:00:00Z");
-    private static final int FORM_VERSION = 1;
-    private static final int FORM_PACKAGE_VERSION = 7;
-    private static final String FORM_PACKAGE_HASH = "c".repeat(64);
-    private static final String FORM_CONTENT_HASH = "d".repeat(64);
-    private static final int UI_SCHEMA_VERSION = 5;
-    private static final String UI_SCHEMA_HASH = "e".repeat(64);
-    private static final String FORM_SCHEMA_VERSION = "form-schema-2026-08";
-    private static final int FORM_SCHEMA_FIELD_COUNT = 17;
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
@@ -77,11 +68,7 @@ class JdbcApprovalTaskQueryIntegrationTest {
             truncate table
                 ap_approval_task,
                 ap_approval_instance,
-                ap_definition_version,
-                ap_form_package,
-                ap_form_design_draft,
-                ap_form_ui_schema,
-                ap_form_definition
+                ap_definition_version
             cascade
             """);
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
@@ -89,8 +76,6 @@ class JdbcApprovalTaskQueryIntegrationTest {
         taskQuery = new JdbcApprovalTaskQuery(dataSource, objectMapper);
         saveDefinition("tenant-a");
         saveDefinition("tenant-b");
-        saveSchemaProvenance("tenant-a");
-        saveSchemaProvenance("tenant-b");
     }
 
     @Test
@@ -165,13 +150,13 @@ class JdbcApprovalTaskQueryIntegrationTest {
         assertEquals(List.of("attachment-1"), pending.attachmentIds());
         assertNull(pending.releaseVersion());
         assertNull(pending.releasePackageHash());
-        assertEquals(FORM_PACKAGE_VERSION, pending.formPackageVersion());
-        assertEquals(FORM_PACKAGE_HASH, pending.formPackageHash());
-        assertEquals(FORM_CONTENT_HASH, pending.formContentHash());
-        assertEquals(UI_SCHEMA_VERSION, pending.uiSchemaVersion());
-        assertEquals(UI_SCHEMA_HASH, pending.uiSchemaHash());
-        assertEquals(FORM_SCHEMA_VERSION, pending.formSchemaVersion());
-        assertEquals(FORM_SCHEMA_FIELD_COUNT, pending.formSchemaFieldCount());
+        assertNull(pending.formPackageVersion());
+        assertNull(pending.formPackageHash());
+        assertNull(pending.formContentHash());
+        assertNull(pending.uiSchemaVersion());
+        assertNull(pending.uiSchemaHash());
+        assertNull(pending.formSchemaVersion());
+        assertNull(pending.formSchemaFieldCount());
 
         assertTrue(taskQuery.findPendingTask(new PendingTaskIdentity(
             "tenant-a",
@@ -253,7 +238,7 @@ class JdbcApprovalTaskQueryIntegrationTest {
             "purchase-payment",
             1,
             "purchase-payment-form",
-            FORM_VERSION,
+            1,
             "approval-compiler-v1",
             "a".repeat(64),
             "deployment-" + tenantId,
@@ -262,98 +247,6 @@ class JdbcApprovalTaskQueryIntegrationTest {
             "publisher",
             NOW
         ));
-    }
-
-    private void saveSchemaProvenance(String tenantId) {
-        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
-        jdbc.update(
-            """
-            insert into ap_form_definition (
-                tenant_id, form_key, form_version, schema_version, name,
-                field_count, schema_json, content_hash, published_by, published_at
-            ) values (?, ?, ?, ?, ?, ?, cast(? as jsonb), ?, ?, ?)
-            """,
-            tenantId,
-            "purchase-payment-form",
-            FORM_VERSION,
-            FORM_SCHEMA_VERSION,
-            "Purchase payment form",
-            FORM_SCHEMA_FIELD_COUNT,
-            "{}",
-            FORM_CONTENT_HASH,
-            "publisher",
-            Timestamp.from(NOW)
-        );
-        jdbc.update(
-            """
-            insert into ap_form_ui_schema (
-                tenant_id, form_key, form_version, ui_schema_version, schema_version,
-                name, section_count, schema_json, content_hash, published_by, published_at
-            ) values (?, ?, ?, ?, ?, ?, ?, cast(? as jsonb), ?, ?, ?)
-            """,
-            tenantId,
-            "purchase-payment-form",
-            FORM_VERSION,
-            UI_SCHEMA_VERSION,
-            "ui-schema-2026-08",
-            "Purchase payment UI",
-            1,
-            "{}",
-            UI_SCHEMA_HASH,
-            "publisher",
-            Timestamp.from(NOW)
-        );
-        UUID formDraftId = UUID.randomUUID();
-        jdbc.update(
-            """
-            insert into ap_form_design_draft (
-                tenant_id, draft_id, form_key, name, form_version,
-                ui_schema_version, form_schema_json, ui_schema_json,
-                revision, status, created_by, updated_by, created_at, updated_at
-            ) values (?, ?, ?, ?, ?, ?, cast(? as jsonb), cast(? as jsonb),
-                      1, 'DRAFT', 'publisher', 'publisher', ?, ?)
-            """,
-            tenantId,
-            formDraftId,
-            "purchase-payment-form",
-            "Purchase payment form",
-            FORM_VERSION,
-            UI_SCHEMA_VERSION,
-            "{}",
-            "{}",
-            Timestamp.from(NOW),
-            Timestamp.from(NOW)
-        );
-        jdbc.update(
-            """
-            insert into ap_form_package (
-                tenant_id, form_key, package_version, form_version, form_hash,
-                ui_schema_version, ui_schema_hash, package_hash, source_draft_id,
-                published_by, published_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            tenantId,
-            "purchase-payment-form",
-            FORM_PACKAGE_VERSION,
-            FORM_VERSION,
-            FORM_CONTENT_HASH,
-            UI_SCHEMA_VERSION,
-            UI_SCHEMA_HASH,
-            FORM_PACKAGE_HASH,
-            formDraftId,
-            "publisher",
-            Timestamp.from(NOW)
-        );
-        jdbc.update(
-            """
-            update ap_form_design_draft
-            set status = 'PUBLISHED', published_package_version = ?
-            where tenant_id = ? and draft_id = ?
-            """,
-            FORM_PACKAGE_VERSION,
-            tenantId,
-            formDraftId
-        );
     }
 
     private void createInstance(
@@ -375,16 +268,9 @@ class JdbcApprovalTaskQueryIntegrationTest {
             "purchase-payment",
             1,
             "purchase-payment-form",
-            FORM_VERSION,
+            1,
             "approval-compiler-v1",
             "a".repeat(64),
-            null,
-            null,
-            FORM_PACKAGE_VERSION,
-            FORM_PACKAGE_HASH,
-            UI_SCHEMA_VERSION,
-            UI_SCHEMA_HASH,
-            "definition-" + tenantId,
             "initiator-" + sequence,
             new BigDecimal("1000.00").add(BigDecimal.valueOf(sequence)),
             supplier,
