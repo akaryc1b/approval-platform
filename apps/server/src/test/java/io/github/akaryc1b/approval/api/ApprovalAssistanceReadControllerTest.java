@@ -33,8 +33,8 @@ class ApprovalAssistanceReadControllerTest {
     private static final Instant NOW = Instant.parse("2026-08-01T16:00:00Z");
 
     @Test
-    void authorizedPendingTaskReturnsNoStoreProviderRequiredView() {
-        ApprovalAssistanceReadController controller = controller();
+    void authorizedPendingTaskReturnsNoStoreProviderRequiredViewWhenRuntimeIsAbsent() {
+        ApprovalAssistanceReadController controller = controller(false);
 
         var response = controller.findAssistance(
             "tenant-a",
@@ -63,7 +63,16 @@ class ApprovalAssistanceReadControllerTest {
         assertFalse(body.commandAvailable());
         assertFalse(body.resultAvailable());
         assertNull(body.advisoryResult());
-        assertEquals(3, body.limitations().size());
+        assertEquals(
+            List.of(
+                "PRODUCTION_PROVIDER_NOT_CONFIGURED",
+                "EXPLICIT_GENERATION_UNAVAILABLE",
+                "HUMAN_REVIEW_REQUIRED"
+            ),
+            body.limitations().stream()
+                .map(ApprovalAssistanceReadContracts.Limitation::code)
+                .toList()
+        );
         assertEquals("purchase-payment", body.taskSnapshot().definitionKey());
         assertEquals(3, body.taskSnapshot().definitionVersion());
         assertEquals("purchase-payment-form", body.taskSnapshot().formKey());
@@ -72,27 +81,60 @@ class ApprovalAssistanceReadControllerTest {
     }
 
     @Test
-    void everyClosedP2UseCaseCanBeRequestedWithoutProviderInvocation() {
-        ApprovalAssistanceReadController controller = controller();
+    void authorizedPendingTaskReportsExplicitGenerationAvailableWhenRuntimeExists() {
+        ApprovalAssistanceReadController controller = controller(true);
 
-        for (UseCase useCase : UseCase.values()) {
-            var response = controller.findAssistance(
-                "tenant-a",
-                "operator-a",
-                TASK_ID,
-                useCase
-            );
-            var body = response.getBody();
-            assertEquals(useCase, body.requestedUseCase());
-            assertEquals(Availability.PROVIDER_NOT_CONFIGURED, body.availability());
-            assertFalse(body.providerInvocationStarted());
-            assertNull(body.advisoryResult());
+        var response = controller.findAssistance(
+            "tenant-a",
+            "operator-a",
+            TASK_ID,
+            UseCase.SUMMARY
+        );
+        var body = response.getBody();
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("no-store", response.getHeaders().getCacheControl());
+        assertEquals(Availability.AVAILABLE, body.availability());
+        assertEquals(ApprovalAssistanceReadContracts.AVAILABLE_CODE, body.code());
+        assertEquals(
+            List.of("EXPLICIT_GENERATION_REQUIRED", "HUMAN_REVIEW_REQUIRED"),
+            body.limitations().stream()
+                .map(ApprovalAssistanceReadContracts.Limitation::code)
+                .toList()
+        );
+        assertFalse(body.providerInvocationStarted());
+        assertFalse(body.providerSelectable());
+        assertFalse(body.commandAvailable());
+        assertFalse(body.resultAvailable());
+        assertNull(body.advisoryResult());
+    }
+
+    @Test
+    void everyClosedP2UseCaseCanBeReadWithoutProviderInvocation() {
+        for (boolean configured : List.of(false, true)) {
+            ApprovalAssistanceReadController controller = controller(configured);
+            for (UseCase useCase : UseCase.values()) {
+                var response = controller.findAssistance(
+                    "tenant-a",
+                    "operator-a",
+                    TASK_ID,
+                    useCase
+                );
+                var body = response.getBody();
+                assertEquals(useCase, body.requestedUseCase());
+                assertEquals(
+                    configured ? Availability.AVAILABLE : Availability.PROVIDER_NOT_CONFIGURED,
+                    body.availability()
+                );
+                assertFalse(body.providerInvocationStarted());
+                assertNull(body.advisoryResult());
+            }
         }
     }
 
     @Test
     void tenantOperatorOrTaskMismatchReturnsNoStoreNotFound() {
-        ApprovalAssistanceReadController controller = controller();
+        ApprovalAssistanceReadController controller = controller(true);
 
         var wrongTenant = controller.findAssistance(
             "tenant-b",
@@ -120,8 +162,11 @@ class ApprovalAssistanceReadControllerTest {
         }
     }
 
-    private static ApprovalAssistanceReadController controller() {
-        return new ApprovalAssistanceReadController(new FakeTaskQuery());
+    private static ApprovalAssistanceReadController controller(boolean configured) {
+        return new ApprovalAssistanceReadController(
+            new FakeTaskQuery(),
+            () -> configured
+        );
     }
 
     private static PendingTaskDetails task() {
