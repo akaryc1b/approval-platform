@@ -22,6 +22,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JdbcApprovalTaskQueryIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-07-18T01:00:00Z");
+    private static final int RELEASE_VERSION = 11;
+    private static final String RELEASE_HASH = "c".repeat(64);
+    private static final int FORM_PACKAGE_VERSION = 7;
+    private static final String FORM_HASH = "d".repeat(64);
+    private static final int UI_SCHEMA_VERSION = 5;
+    private static final String UI_SCHEMA_HASH = "e".repeat(64);
+    private static final String FORM_SCHEMA_VERSION = "form-schema-2026-08";
+    private static final int FORM_SCHEMA_FIELD_COUNT = 17;
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
@@ -67,7 +76,9 @@ class JdbcApprovalTaskQueryIntegrationTest {
             truncate table
                 ap_approval_task,
                 ap_approval_instance,
-                ap_definition_version
+                ap_definition_version,
+                ap_form_ui_schema,
+                ap_form_definition
             cascade
             """);
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
@@ -75,6 +86,8 @@ class JdbcApprovalTaskQueryIntegrationTest {
         taskQuery = new JdbcApprovalTaskQuery(dataSource, objectMapper);
         saveDefinition("tenant-a");
         saveDefinition("tenant-b");
+        saveSchemaProvenance("tenant-a");
+        saveSchemaProvenance("tenant-b");
     }
 
     @Test
@@ -144,8 +157,17 @@ class JdbcApprovalTaskQueryIntegrationTest {
             identifier(1001)
         ));
         assertTrue(details.isPresent());
-        assertEquals("PO-SEARCH-001", details.orElseThrow().businessKey());
-        assertEquals(List.of("attachment-1"), details.orElseThrow().attachmentIds());
+        var pending = details.orElseThrow();
+        assertEquals("PO-SEARCH-001", pending.businessKey());
+        assertEquals(List.of("attachment-1"), pending.attachmentIds());
+        assertEquals(RELEASE_VERSION, pending.releaseVersion());
+        assertEquals(RELEASE_HASH, pending.releasePackageHash());
+        assertEquals(FORM_PACKAGE_VERSION, pending.formPackageVersion());
+        assertEquals(FORM_HASH, pending.formPackageHash());
+        assertEquals(UI_SCHEMA_VERSION, pending.uiSchemaVersion());
+        assertEquals(UI_SCHEMA_HASH, pending.uiSchemaHash());
+        assertEquals(FORM_SCHEMA_VERSION, pending.formSchemaVersion());
+        assertEquals(FORM_SCHEMA_FIELD_COUNT, pending.formSchemaFieldCount());
 
         assertTrue(taskQuery.findPendingTask(new PendingTaskIdentity(
             "tenant-a",
@@ -238,6 +260,47 @@ class JdbcApprovalTaskQueryIntegrationTest {
         ));
     }
 
+    private void saveSchemaProvenance(String tenantId) {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.update(
+            """
+            insert into ap_form_definition (
+                tenant_id, form_key, form_version, schema_version, name,
+                field_count, schema_json, content_hash, published_by, published_at
+            ) values (?, ?, ?, ?, ?, ?, cast(? as jsonb), ?, ?, ?)
+            """,
+            tenantId,
+            "purchase-payment-form",
+            FORM_PACKAGE_VERSION,
+            FORM_SCHEMA_VERSION,
+            "Purchase payment form",
+            FORM_SCHEMA_FIELD_COUNT,
+            "{}",
+            FORM_HASH,
+            "publisher",
+            Timestamp.from(NOW)
+        );
+        jdbc.update(
+            """
+            insert into ap_form_ui_schema (
+                tenant_id, form_key, form_version, ui_schema_version, schema_version,
+                name, section_count, schema_json, content_hash, published_by, published_at
+            ) values (?, ?, ?, ?, ?, ?, ?, cast(? as jsonb), ?, ?, ?)
+            """,
+            tenantId,
+            "purchase-payment-form",
+            FORM_PACKAGE_VERSION,
+            UI_SCHEMA_VERSION,
+            "ui-schema-2026-08",
+            "Purchase payment UI",
+            1,
+            "{}",
+            UI_SCHEMA_HASH,
+            "publisher",
+            Timestamp.from(NOW)
+        );
+    }
+
     private void createInstance(
         int sequence,
         String tenantId,
@@ -260,6 +323,13 @@ class JdbcApprovalTaskQueryIntegrationTest {
             1,
             "approval-compiler-v1",
             "a".repeat(64),
+            RELEASE_VERSION,
+            RELEASE_HASH,
+            FORM_PACKAGE_VERSION,
+            FORM_HASH,
+            UI_SCHEMA_VERSION,
+            UI_SCHEMA_HASH,
+            "definition-" + tenantId,
             "initiator-" + sequence,
             new BigDecimal("1000.00").add(BigDecimal.valueOf(sequence)),
             supplier,
