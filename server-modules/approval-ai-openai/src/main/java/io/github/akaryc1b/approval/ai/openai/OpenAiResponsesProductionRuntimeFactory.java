@@ -66,7 +66,7 @@ public final class OpenAiResponsesProductionRuntimeFactory {
     }
 
     public Binding bind(String trustedTenantId) {
-        String tenantId = requireText(trustedTenantId, "trustedTenantId", 120);
+        String tenantId = requireText(trustedTenantId, "trustedTenantId", 128);
         Binding existing = bindings.get(tenantId);
         if (existing != null) {
             return existing;
