@@ -6,7 +6,6 @@ import io.github.akaryc1b.approval.api.ApprovalAssistanceGenerationContracts.Gen
 import io.github.akaryc1b.approval.api.ApprovalAssistanceGenerationContracts.InvalidGenerationRequestException;
 import io.github.akaryc1b.approval.api.ApprovalAssistanceGenerationContracts.ResultStatus;
 import io.github.akaryc1b.approval.api.ApprovalAssistanceGenerationService.GenerationOutcome;
-import io.github.akaryc1b.approval.api.ApprovalAssistanceGenerationService.GenerationStatus;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
