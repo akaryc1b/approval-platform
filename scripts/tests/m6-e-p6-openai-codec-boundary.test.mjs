@@ -133,7 +133,7 @@ test('P6-C request encoder and strict decoder freeze one stateless Responses pro
   assert.match(port, /record TransportEvidence/);
 });
 
-test('P6-C codec stays isolated while P6-D adds exactly one unwired sender', () => {
+test('P6-C codec stays isolated while P6-D supplies one sender and P6-E one caller', () => {
   const productionFiles = filesUnder(sourceRoot)
     .filter(file => file.endsWith('.java'));
   const codecProduction = sourceFiles.map(text).join('\n');
@@ -149,8 +149,12 @@ test('P6-C codec stays isolated while P6-D adds exactly one unwired sender', () 
     productionFiles
       .filter(file => path.basename(file) !== 'OpenAiResponsesTransportPort.java')
       .filter(file => /\.exchange\s*\(/.test(text(file)))
-      .map(file => path.basename(file)),
-    ['OpenAiResponsesSecureHttpSender.java'],
+      .map(file => path.basename(file))
+      .sort(),
+    [
+      'OpenAiResponsesAdvisoryProvider.java',
+      'OpenAiResponsesSecureHttpSender.java',
+    ],
   );
 
   for (const forbidden of [
@@ -190,7 +194,8 @@ test('P6-C codec stays isolated while P6-D adds exactly one unwired sender', () 
     /flowable/,
     /httpclient/i,
   ]) assert.doesNotMatch(modulePom, forbidden);
-  assert.doesNotMatch(text(serverPomPath), /approval-ai-openai/);
+  const serverPom = text(serverPomPath);
+  assert.equal((serverPom.match(/<artifactId>approval-ai-openai<\/artifactId>/g) || []).length, 1);
 
   const versioned = filesUnder(migrationRoot).map((file) => {
     const name = path.basename(file);
@@ -206,6 +211,8 @@ test('P6-C codec stays isolated while P6-D adds exactly one unwired sender', () 
   const production = productionFiles.map(text).join('\n');
   for (const required of [
     /OpenAiEnvironmentCredentialMaterialSource/,
+    /OpenAiResponsesAdvisoryProvider/,
+    /OpenAiResponsesProductionRuntimeFactory/,
     /OpenAiResponsesRequestEncoder/,
     /OpenAiResponsesResponseDecoder/,
     /OpenAiResponsesTransportPort/,
