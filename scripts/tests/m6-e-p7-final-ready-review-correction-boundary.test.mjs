@@ -94,7 +94,7 @@ test('post-Provider drift tests prove one attempt and zero evidence writes', () 
   );
   assert.equal(
     (serviceTest.match(/assertEquals\(1, providerCalls\.get\(\)\)/g) || []).length,
-    4,
+    5,
   );
   assert.equal(
     (serviceTest.match(/assertEquals\(0, store\.writes\.get\(\)\)/g) || []).length >= 3,
