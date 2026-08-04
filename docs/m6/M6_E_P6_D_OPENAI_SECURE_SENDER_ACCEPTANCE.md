@@ -1,6 +1,6 @@
 # M6-E P6-D OpenAI Secure Sender Acceptance
 
-Status: `M6_E_P6_D_FORMALLY_ACCEPTED_PENDING_DOCUMENTED_HEAD_VALIDATION`
+Status: `M6_E_P6_D_FORMALLY_ACCEPTED`
 
 Date: `2026-08-04`
 
@@ -14,43 +14,43 @@ Tracking:
 - target: `main`;
 - exact base/current main: `fcf031da9e6e04b15a1255044021a7fdd6637421`;
 - P6-D implementation Head: `fea6f5db39ea36faf3b721dff5637b2b20e23455`;
-- P6-D implementation Run: `30874932152` / run number `1120`, success;
-- implementation compare: ahead `163`, behind `0`.
+- P6-D implementation Run: `30874932152` / #1120, success;
+- accepted documented Head before this status-only correction: `00d3a8b93da2023350b9af112841adc5f4d9242a`;
+- accepted documented-Head Run: `30875527717` / #1121, success.
 
-This record accepts only the P6-D exact OpenAI Responses endpoint policy, DNS/TCP/TLS-bound secure
-sender, strict HTTP framing and pre-dispatch kill-switch, circuit, rate, cost and Secret admission.
+This record formally accepts only the P6-D exact OpenAI Responses endpoint policy, canonical request
+binding, DNS/TCP/TLS-bound secure sender, strict HTTP framing and pre-dispatch kill-switch, circuit,
+rate, cost and Secret admission.
+
 The sender remains isolated in `approval-ai-openai` and is not wired into `apps/server`.
 
-This record does not authorize P6-E, a public invocation endpoint, Provider orchestration binding,
-P4 evidence writes, runtime enablement, an actual OpenAI call, a database migration, an approval
-command, an automation proposal, PR Ready or merge.
+This record does not authorize P6-E, a generation API, Provider orchestration binding, P4 evidence
+writes, runtime enablement, a real OpenAI call in CI, a database migration, an approval command, an
+automation proposal, PR Ready or merge.
 
-## 1. P6-C entry gate
+## 1. Entry gate and accepted basis
 
-P6-D began only after P6-C completed its independent documented-Head acceptance and the user
-separately authorized P6-D.
+P6-D began only after P6-C completed independent documented-Head acceptance and the user separately
+authorized P6-D.
 
-Accepted P6-C evidence:
+Accepted P6-C basis:
 
-- exact documented Head: `86019d05cfbfa78d14ed275b280feeaa269fe2fe`;
+- documented Head: `86019d05cfbfa78d14ed275b280feeaa269fe2fe`;
 - permanent Run: `30868641009` / #1088;
-- all four permanent jobs: success;
+- all four jobs: success;
 - all four artifacts independently downloaded and SHA-256 matched;
 - Maven aggregate: `1500 / 0 / 0 / 0`;
 - OpenAI Provider module: `23 / 23`;
 - P6-C codec-focused tests: `16 / 16`;
 - architecture module: `138 / 138`;
-- repository hygiene: `25 / 25`;
-- PR #83 remained Open + Draft;
-- Issue #80 remained open.
+- repository hygiene: `25 / 25`.
 
-The P6-C request encoder, strict response decoder and transport-port contracts remain the exact
-protocol basis for P6-D. P6-D does not redefine the Provider-safe payload, output Schema or response
-contract.
+P6-D preserves the accepted P6-C request encoder, strict response decoder and transport-port
+contracts. It does not redefine the Provider-safe payload, output Schema or advisory-result contract.
 
-## 2. Accepted P6-D production scope
+## 2. Accepted production scope
 
-P6-D adds or advances only isolated Provider-transport infrastructure:
+P6-D adds or advances only isolated Provider transport infrastructure:
 
 1. `OpenAiResponsesEndpointPolicy`;
 2. `OpenAiResponsesHttpCodec`;
@@ -61,7 +61,7 @@ P6-D adds or advances only isolated Provider-transport infrastructure:
 7. `OpenAiResponsesTransportAdmission`;
 8. `OpenAiResponsesTransportControls`;
 9. `OpenAiResponsesTransportException`;
-10. the P6-D extensions to `OpenAiResponsesTransportPort`.
+10. P6-D extensions to `OpenAiResponsesTransportPort`.
 
 P6-D adds deterministic tests:
 
@@ -71,160 +71,82 @@ P6-D adds deterministic tests:
 4. `OpenAiResponsesHttpFramingTest`;
 5. shared deterministic sender test support.
 
-P6-D adds one permanent repository boundary:
+Permanent repository evidence is provided by:
 
-- `scripts/tests/m6-e-p6-openai-sender-boundary.test.mjs`.
+- `scripts/tests/m6-e-p6-openai-sender-boundary.test.mjs`;
+- the existing P6-A Provider audit boundary;
+- the existing P6-C codec boundaries;
+- permanent ArchUnit module boundaries.
 
-The existing Provider audit and P6-C codec boundary were advanced only to recognize this exact
-isolated sender path. No second automatic workflow was added.
+No second automatic workflow was added.
 
-## 3. Exact endpoint policy
+## 3. Exact endpoint and canonical request binding
 
-The sender accepts exactly one endpoint:
+The sender accepts exactly:
 
-`https://api.openai.com:443/v1/responses`
+`POST https://api.openai.com:443/v1/responses`
 
-The policy freezes:
+The policy freezes HTTPS, `api.openai.com`, port `443`, `/v1/responses`, no userinfo, no query, no
+fragment, no redirect and no alternate compatible, regional, local or fallback endpoint.
 
-- scheme: HTTPS only;
-- host: `api.openai.com` only;
-- port: `443` only;
-- path: `/v1/responses` only;
-- method: POST only;
-- userinfo: absent;
-- query: absent;
-- fragment: absent;
-- redirects: prohibited;
-- endpoint configuration from clients: prohibited;
-- alternate OpenAI-compatible endpoint: prohibited;
-- regional, Azure-compatible, local or fallback Provider endpoint: prohibited.
+`OpenAiResponsesRequestProfileValidator` parses the exact request bytes with duplicate-property
+detection, requires the exact P6-C stateless profile, strictly parses the embedded Provider-safe
+payload, reconstructs the accepted capability and version references, derives the accepted output
+limits and re-encodes through `OpenAiResponsesRequestEncoder`.
 
-The sender constructor requires the exact singleton endpoint policy. An alternate policy object or
-endpoint identity is rejected before DNS, Secret acquisition or dispatch.
+Before any admission, DNS or Secret access, it requires exact equality of:
 
-## 4. Canonical P6-C request binding
+- encoded bytes;
+- request-body SHA-256;
+- connect timeout;
+- total timeout;
+- output-token ceiling, with `maximumOutputTokens <= 16384`.
 
-P6-D does not trust a transport request merely because its root fields look correct.
+Arbitrary, weakened, empty or drifted output Schema, unknown embedded payload fields, version drift or
+noncanonical bytes fail closed before egress.
 
-`OpenAiResponsesRequestProfileValidator`:
+## 4. Fail-closed admission order
 
-1. parses the exact request bytes with duplicate-property detection;
-2. requires the exact P6-C root property set;
-3. requires the exact stateless profile:
-   - model `gpt-5-mini-2025-08-07`;
-   - `store=false`;
-   - `background=false`;
-   - `stream=false`;
-   - `tools=[]`;
-   - `tool_choice=none`;
-   - `truncation=disabled`;
-4. requires one user message and one `input_text` item;
-5. strictly parses the embedded Provider-safe payload;
-6. rejects unknown or duplicate embedded fields;
-7. reconstructs exact capability, Prompt, policy, output-Schema and Provider-safe input fields;
-8. reconstructs the exact accepted version references;
-9. derives the accepted P2 output limits from the supplied Schema;
-10. rebuilds the request through the accepted P6-C `OpenAiResponsesRequestEncoder`;
-11. requires exact equality of:
-    - encoded bytes;
-    - request-body SHA-256;
-    - connect timeout;
-    - total timeout;
-12. requires `maximumOutputTokens <= 16384`.
+The accepted sequence is:
 
-Any arbitrary, weakened, empty or drifted JSON Schema fails before admission, DNS or Secret access.
-Any unknown embedded payload field or version drift fails before admission, DNS or Secret access.
-
-This re-encode comparison keeps P6-D bound to the already accepted P6-C canonicalization and avoids a
-second independent Schema implementation.
-
-## 5. Pre-dispatch admission sequence
-
-The accepted sequence is fail-closed and ordered:
-
-1. exact canonical request validation;
+1. canonical request validation;
 2. cancellation and deadline validation;
 3. exact kill-switch generation/evidence validation;
-4. authoritative kill-switch enabled check;
+4. kill-switch enabled check;
 5. circuit-breaker permit;
 6. tenant/global rate-limit permit;
 7. current server-owned pricing-policy validation;
-8. estimated maximum request-cost validation;
+8. maximum estimated request-cost validation;
 9. DNS resolution;
 10. public-address and resolution-age validation;
 11. direct TCP connection to one admitted address;
 12. TLS handshake and hostname verification;
 13. connected-address evidence binding;
-14. second kill-switch/cost/cancellation revalidation;
+14. second kill-switch, cost and cancellation validation;
 15. callback-scoped Secret lease acquisition;
 16. API-key byte validation;
 17. final pre-dispatch revalidation;
-18. exactly one HTTP write/read attempt;
-19. bounded response evidence and circuit outcome recording.
+18. exactly one HTTP exchange;
+19. bounded response and circuit outcome recording.
 
-Kill-switch, circuit, rate and cost checks occur before DNS and Secret acquisition. DNS and TLS are
-completed before Secret acquisition. Secret material is unavailable to endpoint admission and
-connection establishment.
+Kill-switch, circuit, rate and cost controls execute before DNS and Secret acquisition. DNS and TLS
+complete before Secret acquisition. A permit is request-hash-bound and single-use.
 
-## 6. Kill switch, circuit, rate and cost controls
+## 5. DNS, SSRF, TCP and TLS boundary
 
-### Kill switch
+DNS runs only for the exact allowlisted host inside a deadline-bounded virtual-thread task.
 
-The sender requires exact Provider ID, Provider version, generation and evidence hash. It revalidates
-the snapshot before Secret access and immediately before dispatch. Drift or disablement fails closed.
+The implementation rejects empty, oversized, stale, future, local, private, link-local, multicast,
+unspecified, documentation, benchmarking, carrier-grade NAT, transition and other special-purpose
+address sets.
 
-### Circuit breaker
+It sorts and deduplicates addresses, records hash-only resolution evidence and connects directly to
+one admitted `InetAddress`. It does not reconnect by hostname after admission.
 
-The circuit breaker has closed, open and half-open behavior with a bounded failure threshold and open
-interval. A permit is request-bound and single-use. An exception after dispatch records `UNKNOWN` and
-cannot authorize a second attempt.
+DNS, TCP and TLS share a connect-stage deadline no greater than two seconds. The complete exchange
+remains under the total request deadline no greater than fifteen seconds.
 
-### Rate limiter
-
-The rate limiter enforces both tenant and global windows using server-owned tenant hashes. A permit
-cannot be replayed for another request hash.
-
-### Cost policy
-
-The server-owned cost policy freezes:
-
-- pricing-policy ID/version evidence;
-- exact model snapshot;
-- input and output token prices;
-- maximum estimated request cost;
-- effective and expiry timestamps.
-
-Unknown, stale, future, expired or model-drift pricing fails closed. Cost is re-estimated immediately
-before dispatch.
-
-No client controls kill-switch, circuit, rate, pricing, endpoint, model or token ceiling values.
-
-## 7. DNS and SSRF boundary
-
-DNS is performed only for the exact allowlisted host and within the connect-stage deadline.
-
-The implementation:
-
-- runs blocking resolution inside a deadline-bounded virtual-thread task;
-- rejects empty results;
-- sorts and deduplicates addresses;
-- bounds the resolution set;
-- rejects stale or future resolution evidence;
-- rejects loopback, link-local, site-local/private, multicast, unspecified, documentation,
-  benchmarking, carrier-grade NAT, reserved transition and other special-purpose ranges;
-- calculates hash-only address-set and resolution evidence;
-- connects directly to one admitted `InetAddress` rather than reconnecting by hostname;
-- requires the connected address hash to be a member of the admitted set.
-
-The connection path therefore does not perform a second host lookup after admission. String
-allowlisting alone is not treated as SSRF evidence.
-
-## 8. TCP and TLS binding
-
-DNS, TCP connection and TLS handshake share one connect-stage deadline no greater than two seconds.
-The HTTP exchange remains under the total request deadline no greater than fifteen seconds.
-
-TLS uses the JDK default trusted certificate validation with:
+TLS uses the JDK default trust store with:
 
 - SNI for `api.openai.com`;
 - HTTPS endpoint identification;
@@ -232,203 +154,74 @@ TLS uses the JDK default trusted certificate validation with:
 - trusted certificate-chain validation;
 - TLS 1.2 or TLS 1.3 only;
 - no trust-all manager;
-- no hostname-verifier bypass;
+- no hostname bypass;
 - no plaintext fallback.
 
-The TLS socket wraps the same TCP socket connected to the admitted IP address. The secure channel
-records only connected-address and certificate-chain hashes, never certificate bodies or endpoint
-input from a client.
+The TLS socket wraps the same TCP socket connected to the admitted address. Connected-address and TLS
+peer evidence is hash-only.
 
-If the connected address, TLS verification or endpoint evidence cannot be proven, the sender fails
-closed before Secret material or HTTP dispatch.
+## 6. Secret material boundary
 
-## 9. Secret material boundary
-
-P6-D reuses the accepted P6-B `CredentialMaterialLease` and exact production credential request.
+P6-D reuses the accepted P6-B `CredentialMaterialLease`.
 
 The API key:
 
-- is acquired only after DNS and TLS verification;
+- is acquired only after verified DNS/TCP/TLS evidence;
 - is available only inside the bounded send callback;
-- is validated as non-empty bounded printable ASCII;
+- must be non-empty, bounded printable ASCII;
 - cannot contain CR, LF, NUL or control bytes;
-- is written only to the `Authorization: Bearer` header;
-- is zeroized by the lease callback and close path;
-- is absent from exceptions, evidence, `toString`, metrics and durable storage.
+- is written only to `Authorization: Bearer`;
+- is zeroized by callback and close paths;
+- is absent from evidence, exceptions, metrics, `toString` and durable storage.
 
-A malformed API key fails before the HTTP header is written. Concurrent or stale lease access remains
-closed under the accepted P6-B behavior.
+Malformed or stale Secret material fails before dispatch. The sender never owns long-lived raw Secret
+state.
 
-## 10. Strict HTTP framing
+## 7. Strict one-attempt HTTP framing
 
-The sender writes one HTTP/1.1 POST request with:
-
-- exact Host header;
-- `Authorization: Bearer <callback-scoped-secret>`;
-- `Content-Type: application/json`;
-- `Accept: application/json`;
-- `Accept-Encoding: identity`;
-- bounded client-request ID;
-- exact Content-Length;
-- `Connection: close`.
+The request uses exact HTTP/1.1 framing with Host, Authorization, JSON content type, JSON accept,
+`Accept-Encoding: identity`, bounded client-request ID, exact Content-Length and `Connection: close`.
 
 The response parser:
 
 - accepts HTTP/1.0 or HTTP/1.1 status framing only;
-- rejects redirects before body processing;
-- rejects header folding;
-- rejects duplicate headers;
-- rejects whitespace before the header colon;
+- rejects redirects;
+- rejects header folding, duplicate headers and whitespace before the colon;
 - accepts token syntax only for header names;
 - rejects control, NUL, DEL and non-ASCII header values;
 - bounds header line, total-header and header-count sizes;
-- rejects simultaneous Content-Length and Transfer-Encoding;
-- accepts only identity content encoding;
+- rejects Content-Length plus Transfer-Encoding ambiguity;
+- accepts identity content encoding only;
 - accepts bounded Content-Length or strict bounded chunked framing;
-- rejects unsupported transfer encodings;
-- rejects oversized bodies before allocation;
+- rejects unsupported transfer encoding and oversized bodies;
 - checks cancellation and deadline while reading;
 - never includes response bodies in failures.
 
-## 11. One-attempt and unknown-outcome semantics
+The sender performs exactly one exchange after `markDispatched`. It has no redirect follow, automatic
+retry, alternate address retry, Provider fallback, polling, Queue, Worker or Scheduler.
 
-The sender performs exactly one exchange call after `markDispatched`.
+A failure after dispatch is recorded as ambiguous `UNKNOWN` circuit evidence and never authorizes a
+second send.
 
-There is no:
+## 8. Architecture and runtime isolation
 
-- automatic retry;
-- alternate address retry;
-- alternate Provider;
-- pre- or post-invocation fallback;
-- redirect follow;
-- polling;
-- background continuation;
-- Queue, Worker or Scheduler.
-
-A failure before dispatch records no Provider attempt. A failure after dispatch is treated as
-ambiguous/`UNKNOWN` circuit evidence and never causes a second send. A non-200 response is returned as
-bounded transport evidence for the later strict decoder/invocation layer; P6-D itself does not create
-an advisory success.
-
-## 12. Redaction-safe transport evidence
-
-Successful transport evidence contains only bounded hashes for:
-
-- endpoint policy;
-- admission decision;
-- DNS resolution;
-- connected address;
-- TLS peer chain;
-- client request ID;
-- response body.
-
-The transport response retains the raw Provider request ID only in the in-memory response contract
-needed by the strict P6-C decoder. `toString` renders only its hash. No raw request body, response body,
-API key, tenant, operator, task or instance identity is persisted.
-
-## 13. Architecture and runtime isolation
-
-P6-D production network authority is isolated to:
+Production network authority is isolated to:
 
 `io.github.akaryc1b.approval.ai.openai..`
 
 Permanent ArchUnit rules require:
 
-- all AI packages remain independent from Spring, Flowable, SQL/JDBC, PostgreSQL and host
-  frameworks;
+- all AI packages remain independent from Spring, Flowable, SQL/JDBC, PostgreSQL and host frameworks;
 - every AI package outside `ai.openai` remains prohibited from depending on `java.net`.
 
-The OpenAI adapter module remains absent from `apps/server/pom.xml`. P6-D adds no Spring component,
-`@Bean`, Controller, service wiring, public endpoint, P3 orchestrator dependency, P4 store dependency,
-JDBC dependency or Flowable dependency.
+`apps/server/pom.xml` has no dependency on `approval-ai-openai`. P6-D adds no Spring component,
+`@Bean`, Controller, public endpoint, P3 production Provider registration, P4 store dependency, JDBC
+dependency or Flowable dependency.
 
-The accepted P5 GET status endpoint remains zero-egress and cannot invoke the sender.
+The accepted P5 GET endpoint remains zero-egress and cannot invoke the sender. P6-D production
+network code has no runtime caller through this slice.
 
-## 14. Deterministic test evidence
-
-The final OpenAI Provider module passes `50 / 50` tests.
-
-Existing accepted tests remain green:
-
-- P6-B Secret source: `7 / 7`;
-- P6-C codec and transport port: `16 / 16`.
-
-P6-D-focused tests pass `27 / 27`:
-
-| Test class | Result |
-| --- | ---: |
-| `OpenAiResponsesTransportAdmissionTest` | `8 / 8` |
-| `OpenAiResponsesSecureHttpSenderTest` | `6 / 6` |
-| `OpenAiResponsesSecureHttpSenderSecurityTest` | `7 / 7` |
-| `OpenAiResponsesHttpFramingTest` | `6 / 6` |
-
-Deterministic tests cover:
-
-- kill-switch, circuit, rate and cost admission;
-- permit replay and request-hash drift;
-- canonical P6-C request re-encoding;
-- arbitrary Schema and embedded-payload drift rejection before egress;
-- DNS special-purpose address rejection;
-- stale/future DNS evidence;
-- connected-address and TLS evidence drift;
-- Secret acquisition only after TLS;
-- Secret zeroization;
-- malformed API-key header-injection rejection;
-- one exchange only and no retry/fallback;
-- 200, 401/403, 429, 5xx and ambiguous failures;
-- redirect rejection;
-- Content-Length and chunked framing;
-- duplicate and ambiguous headers;
-- compressed and oversized response rejection;
-- cancellation and timeout behavior;
-- redaction-safe errors and evidence.
-
-Tests inject deterministic DNS/TLS/network/Secret boundaries. They do not read a real
-`OPENAI_API_KEY`, resolve `api.openai.com`, open an external socket, use customer data or require a
-paid Provider account.
-
-## 15. Permanent repository boundaries
-
-The combined repository-hygiene entrypoint passes `29 / 29`.
-
-P6-D-specific permanent evidence passes `4 / 4`:
-
-1. exact endpoint, admission order and one-attempt sender;
-2. network and Secret authority isolated to one Provider path;
-3. deterministic zero-egress tests and fail-closed ordering;
-4. no server wiring, migration or P6-E capability.
-
-Retained M6 boundaries remain green:
-
-- M6 AI foundation: `10 / 10`;
-- M6 AI activation review: `6 / 6`;
-- M6 AI transport review: `7 / 7`.
-
-The architecture module passes `139 / 139`. `ModuleBoundariesTest` passes `11 / 11`, including the
-new rule that isolates `java.net` authority to the OpenAI adapter.
-
-## 16. Retained append-only failure and correction evidence
-
-No failed Run was rerun, hidden or used as acceptance evidence.
-
-| Head | Run | Number | Retained outcome |
-| --- | ---: | ---: | --- |
-| `abbb30b987109f0ff80260629e06d267aea9d40c` | `30872883978` | #1108 | Hygiene exposed a `Content-Encoding` static-evidence mismatch; Vben and Mobile succeeded |
-| `6ee332673cf5e5bb8438956756c3deb169e5d0c8` | `30873765866` | #1116 | Hygiene passed `28 / 29`; explicit output-token-ceiling evidence was missing |
-| `019aa6d92ed679b112f8c5bc5fda665c73450d2a` | `30873866527` | #1117 | Hygiene passed `28 / 29`; normalized `content-encoding` evidence was missing |
-| `27613a504778bb49ce6e1bf02bc5d47755b5b682` | `30874011403` | #1118 | Hygiene, Vben and Mobile succeeded; Maven exposed the old global AI network prohibition |
-| `10bba67ee47fe3b5f5f575a00e662a59833277cc` | `30874508586` | #1119 | Hygiene, Vben and Mobile succeeded; Maven exposed an unsupported ArchUnit rule-composition API |
-
-The final corrections:
-
-- bound every transmitted request byte to canonical P6-C re-encoding;
-- replaced fake `{}` test payloads with real encoder output;
-- made DNS, TCP and TLS share the two-second connect budget;
-- hardened HTTP header and body framing;
-- retained explicit static evidence for token and content-encoding controls;
-- split architecture isolation into two supported permanent ArchUnit rules.
-
-## 17. Implementation Run and artifacts
+## 9. Deterministic implementation verification
 
 Implementation Head:
 
@@ -436,7 +229,7 @@ Implementation Head:
 
 Permanent Run:
 
-`30874932152` / #1120 — `pull_request`, attempt 1, `success`.
+`30874932152` / #1120 — all four jobs success.
 
 | Job | Job ID | Result |
 | --- | ---: | --- |
@@ -445,35 +238,120 @@ Permanent Run:
 | UniApp TypeScript / H5 / WeChat | `91884403801` | success |
 | Repository hygiene | `91884403855` | success |
 
-Recalculated Maven evidence:
+Implementation evidence:
 
-- aggregate: `1528 / 0 / 0 / 0`;
+- Maven aggregate: `1528 / 0 / 0 / 0`;
 - AI SPI: `12 / 12`;
 - AI Core: `156 / 156`;
 - OpenAI Provider module: `50 / 50`;
-- P6-D focused: `27 / 27`;
+- P6-B Secret source: `7 / 7`;
+- P6-C codec-focused: `16 / 16`;
+- P6-D sender/admission/HTTP-focused: `27 / 27`;
 - approval-application: `233 / 233`;
 - Persistence JDBC: `295 / 295`;
 - architecture module: `139 / 139`;
 - `ModuleBoundariesTest`: `11 / 11`;
 - approval-server: `156 / 156`;
 - all 26 Maven reactor projects: success;
-- `BUILD SUCCESS`: present;
-- Maven time: `08:19 min`.
+- `BUILD SUCCESS` present.
 
-Every implementation artifact ZIP was independently downloaded and SHA-256 hashed. Every local value
-exactly matches GitHub:
+Implementation artifacts were independently downloaded and SHA-256 matched:
 
-| Artifact | ID | Size | SHA-256 | Match |
-| --- | ---: | ---: | --- | --- |
-| Maven | `8879320115` | `27388` | `a713c1542f182854f70098ca9ce97e0163ca1111ee1b5cbb2d1557a9e738bd05` | exact |
-| Vben | `8879209921` | `18897` | `9f573241a2396054a4f814c1230143069db0a61d50ddf9226dd5f79b544977d3` | exact |
-| Mobile | `8879195908` | `9755` | `0bd438b8c6aaabe2f1038f5bca968d04eb83dcd252aeca860545126e3fd5378a` | exact |
-| Hygiene | `8879186277` | `9248` | `c11c41b655c7d08aa59ea546e1b5198bbb0801905fb6d96f7aaf20b1ab431804` | exact |
+| Artifact | ID | Size | SHA-256 |
+| --- | ---: | ---: | --- |
+| Maven | `8879320115` | `27388` | `a713c1542f182854f70098ca9ce97e0163ca1111ee1b5cbb2d1557a9e738bd05` |
+| Vben | `8879209921` | `18897` | `9f573241a2396054a4f814c1230143069db0a61d50ddf9226dd5f79b544977d3` |
+| Mobile | `8879195908` | `9755` | `0bd438b8c6aaabe2f1038f5bca968d04eb83dcd252aeca860545126e3fd5378a` |
+| Hygiene | `8879186277` | `9248` | `c11c41b655c7d08aa59ea546e1b5198bbb0801905fb6d96f7aaf20b1ab431804` |
 
-All four are unexpired and expire `2026-11-02T03:30:11Z`.
+## 10. Accepted documented-Head verification
 
-## 18. Explicitly absent through P6-D
+Accepted documented Head before this status-only correction:
+
+`00d3a8b93da2023350b9af112841adc5f4d9242a`
+
+Permanent Run:
+
+`30875527717` / #1121 — all four jobs success.
+
+| Job | Job ID | Result |
+| --- | ---: | --- |
+| Java 21 / Maven / PostgreSQL | `91886101774` | success |
+| Vben TypeScript / production build | `91886101758` | success |
+| UniApp TypeScript / H5 / WeChat | `91886101772` | success |
+| Repository hygiene | `91886101777` | success |
+
+Recalculated documented-Head evidence:
+
+- Maven aggregate: `1528 / 0 / 0 / 0`;
+- AI SPI: `12 / 12`;
+- AI Core: `156 / 156`;
+- OpenAI Provider module: `50 / 50`;
+- P6-B Secret source: `7 / 7`;
+- P6-C codec-focused: `16 / 16`;
+- P6-D sender/admission/HTTP-focused: `27 / 27`;
+- transport admission: `8 / 8`;
+- secure sender: `6 / 6`;
+- secure sender security: `7 / 7`;
+- HTTP framing: `6 / 6`;
+- approval-application: `233 / 233`;
+- Persistence JDBC: `295 / 295`;
+- architecture module: `139 / 139`;
+- `ModuleBoundariesTest`: `11 / 11`;
+- approval-server: `156 / 156`;
+- all 26 Maven reactor projects: success;
+- `BUILD SUCCESS` present;
+- Maven time: `06:18 min`;
+- repository hygiene: `29 / 29`;
+- P6-D permanent sender boundaries: `4 / 4`;
+- M6 AI foundation: `10 / 10`;
+- M6 AI activation review: `6 / 6`;
+- M6 AI transport review: `7 / 7`;
+- Vben type-check and production build: success;
+- UniApp type-check, H5 and WeChat builds: success.
+
+Final documented-Head artifacts were independently downloaded and SHA-256 matched:
+
+| Artifact | ID | Size | SHA-256 |
+| --- | ---: | ---: | --- |
+| Maven | `8879486950` | `27234` | `2fb206b1f5970d94079c1d4113cc2b6737680794a35bed081852cc2d4e4dec4a` |
+| Vben | `8879410964` | `18930` | `22940bb9f048eb3d29b90bdea08a0ff51d91b61d0b41c513fc0b2c2f1c6b9fd6` |
+| Mobile | `8879396267` | `9795` | `33e87502a3fafa4095fcf7568672be0e487b7cce4211b5003cc0716dc57564b3` |
+| Hygiene | `8879384579` | `9225` | `157e1516fd0bf9c5918553c5964b9844683d516fb1892206f5b6e3f0d647eafb` |
+
+All four are unexpired and expire `2026-11-02T03:42:39Z`.
+
+## 11. Retained append-only failure evidence
+
+No failed Run was rerun, hidden or used as acceptance evidence.
+
+| Head | Run | Number | Retained outcome |
+| --- | ---: | ---: | --- |
+| `abbb30b987109f0ff80260629e06d267aea9d40c` | `30872883978` | #1108 | Hygiene exposed `Content-Encoding` static-evidence drift |
+| `6ee332673cf5e5bb8438956756c3deb169e5d0c8` | `30873765866` | #1116 | Hygiene passed `28 / 29`; explicit token-ceiling evidence missing |
+| `019aa6d92ed679b112f8c5bc5fda665c73450d2a` | `30873866527` | #1117 | Hygiene passed `28 / 29`; normalized content-encoding evidence missing |
+| `27613a504778bb49ce6e1bf02bc5d47755b5b682` | `30874011403` | #1118 | three jobs succeeded; Maven exposed stale global AI network prohibition |
+| `10bba67ee47fe3b5f5f575a00e662a59833277cc` | `30874508586` | #1119 | three jobs succeeded; Maven exposed unsupported ArchUnit composition |
+| `fea6f5db39ea36faf3b721dff5637b2b20e23455` | `30874932152` | #1120 | final implementation Head, all four jobs success |
+| `00d3a8b93da2023350b9af112841adc5f4d9242a` | `30875527717` | #1121 | accepted documented Head, all four jobs success |
+
+## 12. Status-only correction
+
+The file created at `00d3a8b93da2023350b9af112841adc5f4d9242a` retained the stale heading
+`M6_E_P6_D_FORMALLY_ACCEPTED_PENDING_DOCUMENTED_HEAD_VALIDATION` after #1121 had completed
+successfully and PR/Issue metadata had recorded formal acceptance.
+
+This append-only correction changes documentation only:
+
+- status is now `M6_E_P6_D_FORMALLY_ACCEPTED`;
+- exact #1121 jobs, evidence and artifacts are frozen in this record;
+- no production, test, workflow, migration, dependency or runtime behavior changes;
+- no P6-E authority is introduced.
+
+The exact correction Head receives its own natural four-job permanent validation before PR/Issue
+metadata is finalized.
+
+## 13. Explicitly absent through P6-D
 
 P6-D contains no:
 
@@ -488,19 +366,19 @@ P6-D contains no:
 - retry, fallback, redirect follow, polling, Queue, Worker or Scheduler;
 - conversation, tool, file, vector, MCP or hosted Prompt state;
 - browser/mobile Provider or Secret selection;
-- approval, rejection, return, transfer, withdrawal, termination, migration, publication or activation
-  command;
+- approval, rejection, return, transfer, withdrawal, termination, migration, publication or activation command;
 - P6-E invocation service;
 - M6-F capability.
 
-## 19. Formal decision and next gate
+## 14. Formal decision and next gate
 
-P6-D is accepted as one isolated, exact-endpoint, fail-closed production sender and admission
+P6-D is formally accepted as one isolated, exact-endpoint, fail-closed production sender and admission
 foundation. Its code may open a network connection only when deliberately constructed by a future
-server-owned caller, but no such caller or runtime route exists through P6-D.
+server-owned caller, but no caller or runtime route exists through P6-D.
 
-PR #83 must remain Open + Draft. Issue #80 must remain open. No Ready or merge action is authorized.
+PR #83 must remain Open + Draft. Issue #80 must remain Open. No Ready, auto-merge or merge action is
+authorized.
 
 P6-E remains gated. It requires separate explicit user authorization and a new append-only safe slice
-for the server-owned invocation service, distinct API and P4 evidence integration. This P6-D
-acceptance does not start P6-E.
+for a server-owned invocation service, distinct API and P4 evidence integration. This P6-D acceptance
+does not start P6-E.
