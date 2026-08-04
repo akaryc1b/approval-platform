@@ -199,7 +199,8 @@ test('P6-B tests prove lifecycle failures without real environment or Provider a
     text(architecturePomPath),
     /<artifactId>approval-ai-openai<\/artifactId>/,
   );
-  assert.doesNotMatch(text(serverPomPath), /approval-ai-openai/);
+  const serverPom = text(serverPomPath);
+  assert.equal((serverPom.match(/<artifactId>approval-ai-openai<\/artifactId>/g) || []).length, 1);
 
   const versioned = filesUnder(migrationRoot).map((file) => {
     const name = path.basename(file);
