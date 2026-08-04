@@ -130,9 +130,19 @@ Objects.requireNonNull(expectations, "expectations must not be null");
 if (response.statusCode() != 200) {
 throw OpenAiResponsesProtocol.failure(HTTP_STATUS_REJECTED);
 }
-String requestId = exactText(response.requestId(), 200, REQUEST_ID_MISSING);
-String requestIdHash = OpenAiResponsesProtocol.sha256Utf8(requestId);
-if (!requestIdHash.equals(expectations.admittedRequestIdHash())) {
+String providerRequestId = exactText(
+response.requestId(),
+200,
+REQUEST_ID_MISSING
+);
+String providerRequestIdHash = OpenAiResponsesProtocol.sha256Utf8(
+providerRequestId
+);
+String admittedClientRequestIdHash = response.transportEvidence()
+.clientRequestIdHash();
+if (!admittedClientRequestIdHash.equals(
+expectations.admittedRequestIdHash()
+)) {
 throw OpenAiResponsesProtocol.failure(REQUEST_ID_MISMATCH);
 }
 byte[] body = response.bodyCopy();
@@ -206,7 +216,7 @@ OpenAiResponsesProtocol.Usage usage = usage(objectField(root, "usage"));
 return new OpenAiResponsesProtocol.DecodedResponse(
 advisory,
 usage,
-requestIdHash,
+providerRequestIdHash,
 OpenAiResponsesProtocol.sha256Utf8(responseId)
 );
 }
