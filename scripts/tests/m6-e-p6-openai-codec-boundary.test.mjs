@@ -15,16 +15,16 @@ const migrationRoot = path.join(
   'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
 );
 
+const packageRoot = path.join(
+  sourceRoot,
+  'io/github/akaryc1b/approval/ai/openai',
+);
 const sourceFiles = [
   'OpenAiResponsesProtocol.java',
   'OpenAiResponsesRequestEncoder.java',
   'OpenAiResponsesResponseDecoder.java',
   'OpenAiResponsesTransportPort.java',
-].map(name => path.join(
-  sourceRoot,
-  'io/github/akaryc1b/approval/ai/openai',
-  name,
-));
+].map(name => path.join(packageRoot, name));
 const testFiles = [
   'OpenAiResponsesRequestEncoderTest.java',
   'OpenAiResponsesResponseDecoderTest.java',
@@ -80,9 +80,7 @@ test('P6-C request encoder and strict decoder freeze one stateless Responses pro
     /UNKNOWN_PROPERTY/,
     /VERSION_MISMATCH/,
     /RESULT_INVALID/,
-  ]) {
-    assert.match(protocol, required);
-  }
+  ]) assert.match(protocol, required);
 
   for (const required of [
     /root\.put\("model", OpenAiResponsesProtocol\.MODEL_SNAPSHOT\)/,
@@ -99,9 +97,7 @@ test('P6-C request encoder and strict decoder freeze one stateless Responses pro
     /sorted\(Comparator\.comparing\(AiProviderRequest\.InputField::key\)\)/,
     /OpenAiResponsesProtocol\.sha256\(body\)/,
     /MAXIMUM_REQUEST_BYTES/,
-  ]) {
-    assert.match(encoder, required);
-  }
+  ]) assert.match(encoder, required);
 
   for (const forbidden of [
     /previous_response_id/,
@@ -109,9 +105,7 @@ test('P6-C request encoder and strict decoder freeze one stateless Responses pro
     /root\.set\("metadata"/,
     /request\.context\(\)/,
     /request\.resource\(\)/,
-  ]) {
-    assert.doesNotMatch(encoder, forbidden);
-  }
+  ]) assert.doesNotMatch(encoder, forbidden);
 
   for (const required of [
     /STRICT_DUPLICATE_DETECTION/,
@@ -128,9 +122,7 @@ test('P6-C request encoder and strict decoder freeze one stateless Responses pro
     /validateItemIds/,
     /new AiAdvisoryResult/,
     /sha256Utf8\(responseId\)/,
-  ]) {
-    assert.match(decoder, required);
-  }
+  ]) assert.match(decoder, required);
 
   assert.match(port, /public interface OpenAiResponsesTransportPort/);
   assert.match(port, /Response exchange\(Request request\)/);
@@ -138,12 +130,12 @@ test('P6-C request encoder and strict decoder freeze one stateless Responses pro
   assert.match(port, /MAXIMUM_TOTAL_TIMEOUT = Duration\.ofSeconds\(15\)/);
   assert.match(port, /Arrays\.copyOf/);
   assert.match(port, /requestIdHash=/);
+  assert.match(port, /record TransportEvidence/);
 });
 
-test('P6-C has no production sender invocation endpoint persistence or command authority', () => {
+test('P6-C codec stays isolated while P6-D adds exactly one unwired sender', () => {
   const productionFiles = filesUnder(sourceRoot)
     .filter(file => file.endsWith('.java'));
-  const production = productionFiles.map(text).join('\n');
   const codecProduction = sourceFiles.map(text).join('\n');
   const tests = testFiles.map(text).join('\n');
 
@@ -151,19 +143,20 @@ test('P6-C has no production sender invocation endpoint persistence or command a
     productionFiles
       .filter(file => /implements\s+OpenAiResponsesTransportPort/.test(text(file)))
       .map(file => path.basename(file)),
-    [],
+    ['OpenAiResponsesSecureHttpSender.java'],
   );
-  assert.doesNotMatch(
+  assert.deepEqual(
     productionFiles
       .filter(file => path.basename(file) !== 'OpenAiResponsesTransportPort.java')
-      .map(text)
-      .join('\n'),
-    /\.exchange\s*\(/,
+      .filter(file => /\.exchange\s*\(/.test(text(file)))
+      .map(file => path.basename(file)),
+    ['OpenAiResponsesSecureHttpSender.java'],
   );
 
   for (const forbidden of [
     /api\.openai\.com/,
     /import\s+java\.net\./,
+    /import\s+javax\.net\.ssl\./,
     /HttpClient/,
     /WebClient/,
     /RestClient/,
@@ -179,9 +172,7 @@ test('P6-C has no production sender invocation endpoint persistence or command a
     /JdbcTemplate/,
     /DataSource/,
     /\.(approve|reject|returnTask|transfer|withdraw|terminate|migrate|publish|activate)\s*\(/,
-  ]) {
-    assert.doesNotMatch(codecProduction, forbidden);
-  }
+  ]) assert.doesNotMatch(codecProduction, forbidden);
 
   assert.doesNotMatch(tests, /System\.getenv/);
   assert.doesNotMatch(tests, /api\.openai\.com/);
@@ -198,9 +189,7 @@ test('P6-C has no production sender invocation endpoint persistence or command a
     /approval-persistence-jdbc/,
     /flowable/,
     /httpclient/i,
-  ]) {
-    assert.doesNotMatch(modulePom, forbidden);
-  }
+  ]) assert.doesNotMatch(modulePom, forbidden);
   assert.doesNotMatch(text(serverPomPath), /approval-ai-openai/);
 
   const versioned = filesUnder(migrationRoot).map((file) => {
@@ -214,8 +203,13 @@ test('P6-C has no production sender invocation endpoint persistence or command a
   );
   assert.deepEqual(versioned.filter(({ version }) => version >= 50), []);
 
-  assert.match(production, /OpenAiEnvironmentCredentialMaterialSource/);
-  assert.match(production, /OpenAiResponsesRequestEncoder/);
-  assert.match(production, /OpenAiResponsesResponseDecoder/);
-  assert.match(production, /OpenAiResponsesTransportPort/);
+  const production = productionFiles.map(text).join('\n');
+  for (const required of [
+    /OpenAiEnvironmentCredentialMaterialSource/,
+    /OpenAiResponsesRequestEncoder/,
+    /OpenAiResponsesResponseDecoder/,
+    /OpenAiResponsesTransportPort/,
+    /OpenAiResponsesSecureHttpSender/,
+    /OpenAiResponsesTransportAdmission/,
+  ]) assert.match(production, required);
 });
