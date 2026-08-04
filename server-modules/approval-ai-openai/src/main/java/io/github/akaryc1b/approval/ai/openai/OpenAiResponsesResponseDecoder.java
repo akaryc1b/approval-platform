@@ -90,7 +90,7 @@ private static final Set<String> CONTENT_FIELDS = Set.of(
 "text",
 "type"
 );
-private static final Set<String> TEXT_FIELDS = Set.of("format");
+private static final Set<String> TEXT_FIELDS = Set.of("format", "verbosity");
 private static final Set<String> FORMAT_FIELDS = Set.of(
 "description",
 "name",
@@ -490,6 +490,9 @@ throw OpenAiResponsesProtocol.failure(USAGE_INVALID);
 private static void requireTextFormat(ObjectNode root) {
 ObjectNode text = objectField(root, "text");
 requireAllowed(text, TEXT_FIELDS);
+if (text.has("verbosity")) {
+requireExactText(text, "verbosity", "medium", SCHEMA_MISMATCH);
+}
 ObjectNode format = objectField(text, "format");
 requireAllowed(format, FORMAT_FIELDS);
 requireExactText(format, "type", "json_schema", SCHEMA_MISMATCH);
