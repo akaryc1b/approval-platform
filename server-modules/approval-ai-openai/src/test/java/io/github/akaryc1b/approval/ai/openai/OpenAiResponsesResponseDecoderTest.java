@@ -24,14 +24,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OpenAiResponsesResponseDecoderTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final String REQUEST_ID = "req_test_123";
-    private static final String REQUEST_ID_HASH =
-        OpenAiResponsesProtocol.sha256Utf8(REQUEST_ID);
+    private static final String PROVIDER_REQUEST_ID = "req_provider_123";
+    private static final String PROVIDER_REQUEST_ID_HASH =
+        OpenAiResponsesProtocol.sha256Utf8(PROVIDER_REQUEST_ID);
+    private static final String CLIENT_REQUEST_ID_HASH =
+        OpenAiResponsesProtocol.sha256Utf8("client_request_123");
 
     @Test
     void completedStructuredResponseDecodesToBoundedHashOnlyEvidence() throws Exception {
         OpenAiResponsesProtocol.DecodedResponse decoded = decoder().decode(
-            response(200, REQUEST_ID, completedBody()),
+            response(200, PROVIDER_REQUEST_ID, completedBody()),
             expectations()
         );
 
@@ -48,18 +50,18 @@ class OpenAiResponsesResponseDecoderTest {
         assertEquals(20, decoded.usage().inputTokens());
         assertEquals(10, decoded.usage().outputTokens());
         assertEquals(30, decoded.usage().totalTokens());
-        assertEquals(REQUEST_ID_HASH, decoded.requestIdHash());
+        assertEquals(PROVIDER_REQUEST_ID_HASH, decoded.requestIdHash());
         assertEquals(64, decoded.responseIdHash().length());
-        assertFalse(decoded.toString().contains(REQUEST_ID));
+        assertFalse(decoded.toString().contains(PROVIDER_REQUEST_ID));
         assertFalse(decoded.toString().contains("resp_test_123"));
     }
 
     @Test
-    void httpAndRequestIdentifierEvidenceFailClosed() throws Exception {
+    void httpAndCorrelationIdentifierEvidenceFailClosed() throws Exception {
         OpenAiResponsesProtocol.ProtocolException status = assertThrows(
             OpenAiResponsesProtocol.ProtocolException.class,
             () -> decoder().decode(
-                response(429, REQUEST_ID, completedBody()),
+                response(429, PROVIDER_REQUEST_ID, completedBody()),
                 expectations()
             )
         );
@@ -80,10 +82,25 @@ class OpenAiResponsesResponseDecoderTest {
             missing.failure()
         );
 
+        OpenAiResponsesProtocol.DecodedResponse differentProviderRequestId =
+            decoder().decode(
+                response(200, "req_provider_other", completedBody()),
+                expectations()
+            );
+        assertEquals(
+            OpenAiResponsesProtocol.sha256Utf8("req_provider_other"),
+            differentProviderRequestId.requestIdHash()
+        );
+
         OpenAiResponsesProtocol.ProtocolException mismatch = assertThrows(
             OpenAiResponsesProtocol.ProtocolException.class,
             () -> decoder().decode(
-                response(200, "req_other", completedBody()),
+                response(
+                    200,
+                    PROVIDER_REQUEST_ID,
+                    completedBody(),
+                    OpenAiResponsesProtocol.sha256Utf8("client_request_other")
+                ),
                 expectations()
             )
         );
@@ -203,16 +220,47 @@ class OpenAiResponsesResponseDecoderTest {
             versions(),
             new OpenAiResponsesProtocol.OutputLimits(4, 4, 4, 4, 8, 4),
             Set.of("amount"),
-            REQUEST_ID_HASH
+            CLIENT_REQUEST_ID_HASH
         );
     }
 
     private static OpenAiResponsesTransportPort.Response response(
         int statusCode,
-        String requestId,
+        String providerRequestId,
         byte[] body
     ) {
-        return new OpenAiResponsesTransportPort.Response(statusCode, requestId, body);
+        return response(
+            statusCode,
+            providerRequestId,
+            body,
+            CLIENT_REQUEST_ID_HASH
+        );
+    }
+
+    private static OpenAiResponsesTransportPort.Response response(
+        int statusCode,
+        String providerRequestId,
+        byte[] body,
+        String clientRequestIdHash
+    ) {
+        return new OpenAiResponsesTransportPort.Response(
+            statusCode,
+            providerRequestId,
+            body,
+            OpenAiResponsesTransportPort.TransportEvidence.verified(
+                hash("endpoint"),
+                hash("admission"),
+                hash("dns"),
+                hash("address"),
+                hash("tls"),
+                clientRequestIdHash,
+                OpenAiResponsesProtocol.sha256(body)
+            )
+        );
+    }
+
+    private static String hash(String value) {
+        return OpenAiResponsesProtocol.sha256Utf8(value);
     }
 
     private static byte[] completedBody() throws Exception {
@@ -410,7 +458,10 @@ class OpenAiResponsesResponseDecoderTest {
     ) {
         OpenAiResponsesProtocol.ProtocolException failure = assertThrows(
             OpenAiResponsesProtocol.ProtocolException.class,
-            () -> decoder().decode(response(200, REQUEST_ID, body), expectations())
+            () -> decoder().decode(
+                response(200, PROVIDER_REQUEST_ID, body),
+                expectations()
+            )
         );
         assertEquals(expected, failure.failure());
     }
