@@ -109,10 +109,18 @@ test('generation projects actual release form content and UI provenance fail clo
     service,
     /task\.formKey\(\),\s*task\.formVersion\(\),\s*task\.formSchemaVersion\(\),\s*task\.formContentHash\(\),\s*task\.formSchemaFieldCount\(\),\s*task\.uiSchemaVersion\(\),\s*task\.uiSchemaHash\(\)/,
   );
-  assert.doesNotMatch(service, /task\.definitionVersion\(\),\s*task\.contentHash\(\)\s*\n\s*\)/);
   assert.doesNotMatch(service, /"ui-v1"/);
   assert.match(service, /task\.formSchemaFieldCount\(\) >= 1/);
   assert.match(service, /task\.formSchemaFieldCount\(\) <= 500/);
+  assert.match(
+    service,
+    /int omittedFieldCount = task\.formSchemaFieldCount\(\) - fields\.size\(\)/,
+  );
+  assert.match(service, /Provider-safe fields cannot exceed the trusted form schema field count/);
+  assert.match(
+    service,
+    /fields\.size\(\),\s*fields\.size\(\),\s*0,\s*omittedFieldCount,\s*0,\s*false/,
+  );
 });
 
 test('all hashed evidence instants are normalized before construction and storage', () => {
@@ -129,18 +137,19 @@ test('all hashed evidence instants are normalized before construction and storag
   assert.match(serviceTest, /store\.lastEvidence\.retentionUntil\(\)\.getNano\(\) % 1_000/);
 });
 
-test('directed tests prove exact package chain and no fabricated release fallback', () => {
+test('directed tests prove actual values and legacy snapshots remain fail closed', () => {
   assert.match(serviceTest, /missingTrustedSchemaProvenanceFailsBeforeRuntimeBinding/);
   assert.match(serviceTest, /projectionUsesExactTrustedReleaseFormAndUiProvenance/);
   assert.match(serviceTest, /FORM_PACKAGE_HASH/);
   assert.match(serviceTest, /FORM_CONTENT_HASH/);
   assert.match(serviceTest, /assertEquals\(RELEASE_VERSION, projection\.process\(\)\.releaseVersion\(\)\)/);
-  assert.match(jdbcTest, /insert into ap_form_package/);
-  assert.match(jdbcTest, /FORM_PACKAGE_HASH/);
-  assert.match(jdbcTest, /FORM_CONTENT_HASH/);
+  assert.match(serviceTest, /assertEquals\(FORM_CONTENT_HASH, projection\.form\(\)\.formContentHash\(\)\)/);
   assert.match(jdbcTest, /assertNull\(pending\.releaseVersion\(\)\)/);
   assert.match(jdbcTest, /assertNull\(pending\.releasePackageHash\(\)\)/);
-  assert.match(jdbcTest, /assertEquals\(FORM_CONTENT_HASH, pending\.formContentHash\(\)\)/);
+  assert.match(jdbcTest, /assertNull\(pending\.formPackageVersion\(\)\)/);
+  assert.match(jdbcTest, /assertNull\(pending\.formContentHash\(\)\)/);
+  assert.match(jdbcTest, /assertNull\(pending\.uiSchemaVersion\(\)\)/);
+  assert.doesNotMatch(jdbcTest, /new InstanceProjection\([\s\S]*?FORM_PACKAGE_HASH/);
 });
 
 test('correction preserves migration workflow and non-operator boundaries', () => {
