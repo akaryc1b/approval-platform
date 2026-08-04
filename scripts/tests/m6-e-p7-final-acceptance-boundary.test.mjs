@@ -108,7 +108,10 @@ test('P7 proves per-request one Provider attempt and no retry after persistence 
 
 test('P7 clients prevent in-flight duplicate generation and never auto-generate', () => {
   for (const panel of [webPanel, mobilePanel]) {
-    assert.match(panel, /if \(!props\.taskId \|\| generating\.value\) return/);
+    assert.match(
+      panel,
+      /if\s*\(\s*!props\.taskId\s*\|\|\s*generating\.value\s*\|\|\s*assistance\.value\?\.availability\s*!==\s*'AVAILABLE'\s*\)\s*return/,
+    );
     assert.match(panel, /generating\.value = true/);
     assert.match(panel, /generating\.value = false/);
     assert.match(panel, /@click="generateAssistance"/);
