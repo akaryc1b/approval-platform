@@ -35,6 +35,21 @@ const integrationTestPath = path.join(
     'io/github/akaryc1b/approval/persistence/jdbc/' +
     'JdbcApprovalAssistanceDurableEvidenceStoreIntegrationTest.java',
 );
+const generationServicePath = path.join(
+  root,
+  'apps/server/src/main/java/io/github/akaryc1b/approval/api/' +
+    'ApprovalAssistanceGenerationService.java',
+);
+const generationControllerPath = path.join(
+  root,
+  'apps/server/src/main/java/io/github/akaryc1b/approval/api/' +
+    'ApprovalAssistanceGenerationController.java',
+);
+const productionConfigPath = path.join(
+  root,
+  'apps/server/src/main/java/io/github/akaryc1b/approval/config/' +
+    'ApprovalAssistanceProductionConfiguration.java',
+);
 
 function filesUnder(directory) {
   if (!existsSync(directory)) return [];
@@ -58,6 +73,9 @@ test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure
     storePortPath,
     jdbcStorePath,
     integrationTestPath,
+    generationServicePath,
+    generationControllerPath,
+    productionConfigPath,
   ]) {
     assert.equal(existsSync(requiredPath), true, `missing P4 source ${requiredPath}`);
   }
@@ -167,13 +185,19 @@ test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure
     assert.doesNotMatch(jdbcStore, forbidden);
   }
 
-  const serverSources = filesUnder(path.join(root, 'apps/server/src/main/java'))
-    .filter((file) => file.endsWith('.java'))
-    .map(text)
-    .join('\n');
+  const productionConfig = text(productionConfigPath);
+  assert.match(productionConfig, /new JdbcApprovalAssistanceDurableEvidenceStore\(/);
+  assert.match(productionConfig, /ApprovalAssistanceDurableEvidenceStore/);
+
+  const generationService = text(generationServicePath);
+  assert.equal((generationService.match(/evidenceStore\.store\s*\(/g) ?? []).length, 1);
+  assert.match(generationService, /StoreDisposition\.CONFLICT/);
+  assert.doesNotMatch(generationService, /JdbcApprovalAssistanceDurableEvidenceStore/);
+
+  const generationController = text(generationControllerPath);
   assert.doesNotMatch(
-    serverSources,
-    /(?:Jdbc)?ApprovalAssistanceDurableEvidenceStore/,
+    generationController,
+    /(?:Jdbc)?ApprovalAssistanceDurableEvidenceStore|evidenceStore\.store/,
   );
 
   const integration = text(integrationTestPath);
