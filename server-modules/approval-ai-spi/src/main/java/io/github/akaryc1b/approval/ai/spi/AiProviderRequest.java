@@ -5,13 +5,15 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-/** Provider-ready request built only from server-owned authorization and minimized input. */
+/**
+ * Provider-safe request assembled from server-owned identity, authorization and minimized fields.
+ */
 public record AiProviderRequest(
     AuthorizedContext context,
     AuthorizedResource resource,
     AiCapability capability,
-    Set<String> allowedFields,
-    List<InputField> inputFields,
+    Set<String> allowedFieldKeys,
+    List<InputField> fields,
     AiVersionReferences versions,
     Duration timeout
 ) {
@@ -20,27 +22,23 @@ public record AiProviderRequest(
         context = Objects.requireNonNull(context, "context must not be null");
         resource = Objects.requireNonNull(resource, "resource must not be null");
         capability = Objects.requireNonNull(capability, "capability must not be null");
-        allowedFields = allowedFields == null ? Set.of() : Set.copyOf(allowedFields);
-        inputFields = inputFields == null ? List.of() : List.copyOf(inputFields);
+        allowedFieldKeys = allowedFieldKeys == null ? Set.of() : Set.copyOf(allowedFieldKeys);
+        fields = fields == null ? List.of() : List.copyOf(fields);
         versions = Objects.requireNonNull(versions, "versions must not be null");
         timeout = Objects.requireNonNull(timeout, "timeout must not be null");
         if (timeout.isZero() || timeout.isNegative()) {
             throw new IllegalArgumentException("timeout must be positive");
         }
         if (!context.tenantId().equals(resource.tenantId())) {
-            throw new IllegalArgumentException("request context and resource tenant must match");
+            throw new IllegalArgumentException("request tenant evidence must match");
         }
-        if (inputFields.size() > 200) {
-            throw new IllegalArgumentException("inputFields must be bounded");
+        if (fields.size() > 500 || allowedFieldKeys.size() > 500) {
+            throw new IllegalArgumentException("request fields must be bounded");
         }
-        java.util.Set<String> fieldKeys = new java.util.HashSet<>();
-        for (InputField field : inputFields) {
-            if (!fieldKeys.add(field.key())) {
-                throw new IllegalArgumentException("input field keys must be unique");
-            }
-            if (!allowedFields.contains(field.key())) {
+        for (InputField field : fields) {
+            if (!allowedFieldKeys.contains(field.key())) {
                 throw new IllegalArgumentException(
-                    "input field is not present in the allowed field set: " + field.key()
+                    "provider field is not authorized: " + field.key()
                 );
             }
         }
@@ -53,10 +51,10 @@ public record AiProviderRequest(
         String traceId
     ) {
         public AuthorizedContext {
-            tenantId = requireText(tenantId, "tenantId", 120);
+            tenantId = requireText(tenantId, "tenantId", 128);
             operatorId = requireText(operatorId, "operatorId", 200);
             requestId = requireText(requestId, "requestId", 128);
-            traceId = normalizeOptional(traceId, 128);
+            traceId = normalizeOptional(traceId, "traceId", 128);
         }
     }
 
@@ -67,8 +65,8 @@ public record AiProviderRequest(
         String authorizationReference
     ) {
         public AuthorizedResource {
-            tenantId = requireText(tenantId, "tenantId", 120);
-            resourceType = requireText(resourceType, "resourceType", 80);
+            tenantId = requireText(tenantId, "tenantId", 128);
+            resourceType = requireText(resourceType, "resourceType", 64);
             resourceId = requireText(resourceId, "resourceId", 200);
             authorizationReference = requireText(
                 authorizationReference,
@@ -85,9 +83,9 @@ public record AiProviderRequest(
         MaskingDisposition maskingDisposition
     ) {
         public InputField {
-            key = requireText(key, "field.key", 160);
-            type = requireText(type, "field.type", 80);
-            value = Objects.requireNonNull(value, "field.value must not be null");
+            key = requireText(key, "key", 160);
+            type = requireText(type, "type", 64);
+            value = Objects.requireNonNull(value, "value must not be null");
             maskingDisposition = Objects.requireNonNull(
                 maskingDisposition,
                 "maskingDisposition must not be null"
@@ -109,13 +107,17 @@ public record AiProviderRequest(
         return normalized;
     }
 
-    private static String normalizeOptional(String value, int maximumLength) {
+    private static String normalizeOptional(
+        String value,
+        String name,
+        int maximumLength
+    ) {
         if (value == null || value.isBlank()) {
             return null;
         }
         String normalized = value.trim();
         if (normalized.length() > maximumLength) {
-            throw new IllegalArgumentException("optional value must be bounded");
+            throw new IllegalArgumentException(name + " must be bounded");
         }
         return normalized;
     }
