@@ -171,11 +171,25 @@ class OpenAiResponsesCodecHardeningTest {
 
     private static OpenAiResponsesTransportPort.Response response(ObjectNode body)
         throws Exception {
+        byte[] responseBody = MAPPER.writeValueAsBytes(body);
         return new OpenAiResponsesTransportPort.Response(
             200,
             REQUEST_ID,
-            MAPPER.writeValueAsBytes(body)
+            responseBody,
+            OpenAiResponsesTransportPort.TransportEvidence.verified(
+                hash("endpoint"),
+                hash("admission"),
+                hash("dns"),
+                hash("address"),
+                hash("tls"),
+                REQUEST_ID_HASH,
+                OpenAiResponsesProtocol.sha256(responseBody)
+            )
         );
+    }
+
+    private static String hash(String value) {
+        return OpenAiResponsesProtocol.sha256Utf8(value);
     }
 
     private static ObjectNode responseBody() throws Exception {
