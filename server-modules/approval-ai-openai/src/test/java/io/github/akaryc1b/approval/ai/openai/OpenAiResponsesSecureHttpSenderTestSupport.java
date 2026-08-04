@@ -1,5 +1,18 @@
 package io.github.akaryc1b.approval.ai.openai;
 
+import io.github.akaryc1b.approval.ai.spi.AiCapability;
+import io.github.akaryc1b.approval.ai.spi.AiProviderRequest;
+import io.github.akaryc1b.approval.ai.spi.AiProviderRequest.AuthorizedContext;
+import io.github.akaryc1b.approval.ai.spi.AiProviderRequest.AuthorizedResource;
+import io.github.akaryc1b.approval.ai.spi.AiProviderRequest.InputField;
+import io.github.akaryc1b.approval.ai.spi.AiProviderRequest.MaskingDisposition;
+import io.github.akaryc1b.approval.ai.spi.AiVersionReferences;
+import io.github.akaryc1b.approval.ai.spi.AiVersionReferences.KnowledgeSourceVersion;
+import io.github.akaryc1b.approval.ai.spi.AiVersionReferences.ModelVersion;
+import io.github.akaryc1b.approval.ai.spi.AiVersionReferences.OutputSchemaVersion;
+import io.github.akaryc1b.approval.ai.spi.AiVersionReferences.PolicyVersion;
+import io.github.akaryc1b.approval.ai.spi.AiVersionReferences.PromptTemplateVersion;
+import io.github.akaryc1b.approval.ai.spi.AiVersionReferences.ProviderVersion;
 import io.github.akaryc1b.approval.connector.contract.CanonicalPayloadHash;
 import io.github.akaryc1b.approval.connector.contract.ConnectorOperation;
 import io.github.akaryc1b.approval.connector.contract.CredentialReference;
@@ -16,6 +29,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -28,6 +42,8 @@ final class OpenAiResponsesSecureHttpSenderTestSupport {
 
     static final Instant NOW = Instant.parse("2026-08-04T01:45:00Z");
     static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+    private static final OpenAiResponsesTransportPort.Request CANONICAL_REQUEST =
+        canonicalRequest();
 
     private OpenAiResponsesSecureHttpSenderTestSupport() {
     }
@@ -117,33 +133,81 @@ final class OpenAiResponsesSecureHttpSenderTestSupport {
     }
 
     static OpenAiResponsesTransportPort.Request request() {
-        byte[] body = requestBody().getBytes(StandardCharsets.UTF_8);
         return new OpenAiResponsesTransportPort.Request(
-            body,
-            OpenAiResponsesProtocol.sha256(body),
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(10)
+            CANONICAL_REQUEST.bodyCopy(),
+            CANONICAL_REQUEST.bodyHash(),
+            CANONICAL_REQUEST.connectTimeout(),
+            CANONICAL_REQUEST.totalTimeout()
         );
     }
 
     static String requestBody() {
-        return "{"
-            + "\"background\":false,"
-            + "\"input\":[{\"role\":\"user\",\"content\":[{"
-            + "\"type\":\"input_text\",\"text\":\"{}\"}]}],"
-            + "\"instructions\":\"bounded\","
-            + "\"max_output_tokens\":100,"
-            + "\"model\":\"" + OpenAiResponsesProtocol.MODEL_SNAPSHOT + "\","
-            + "\"store\":false,"
-            + "\"stream\":false,"
-            + "\"text\":{\"format\":{"
-            + "\"type\":\"json_schema\","
-            + "\"name\":\"" + OpenAiResponsesProtocol.RESPONSE_FORMAT_NAME + "\","
-            + "\"strict\":true,\"schema\":{}}},"
-            + "\"tool_choice\":\"none\","
-            + "\"tools\":[],"
-            + "\"truncation\":\"disabled\""
-            + "}";
+        return new String(CANONICAL_REQUEST.bodyCopy(), StandardCharsets.UTF_8);
+    }
+
+    private static OpenAiResponsesTransportPort.Request canonicalRequest() {
+        AiVersionReferences versions = new AiVersionReferences(
+            new ProviderVersion(
+                OpenAiResponsesProtocol.PROVIDER_ID,
+                OpenAiResponsesProtocol.PROVIDER_VERSION
+            ),
+            new ModelVersion(
+                OpenAiResponsesProtocol.PROVIDER_ID,
+                OpenAiResponsesProtocol.MODEL_ID,
+                OpenAiResponsesProtocol.MODEL_VERSION
+            ),
+            new PromptTemplateVersion(
+                "approval-summary",
+                "v1",
+                "prompt-hash-v1"
+            ),
+            KnowledgeSourceVersion.none(),
+            new PolicyVersion(
+                "approval-data-policy",
+                "v3",
+                "policy-hash-v3"
+            ),
+            new OutputSchemaVersion(
+                OpenAiResponsesProtocol.OUTPUT_SCHEMA_ID,
+                OpenAiResponsesProtocol.OUTPUT_SCHEMA_VERSION
+            )
+        );
+        InputField field = new InputField(
+            "amount",
+            "NUMBER",
+            "1000.00",
+            MaskingDisposition.INCLUDED
+        );
+        AiProviderRequest providerRequest = new AiProviderRequest(
+            new AuthorizedContext(
+                "tenant-secret",
+                "operator-secret",
+                "request-secret",
+                "trace-secret"
+            ),
+            new AuthorizedResource(
+                "tenant-secret",
+                "APPROVAL_TASK",
+                "task-secret",
+                "authorization-secret"
+            ),
+            AiCapability.APPROVAL_SUMMARY,
+            Set.of(field.key()),
+            List.of(field),
+            versions,
+            Duration.ofSeconds(10)
+        );
+        return new OpenAiResponsesRequestEncoder().encode(
+            providerRequest,
+            new OpenAiResponsesProtocol.ServerPrompt(
+                "approval-summary",
+                "v1",
+                "prompt-hash-v1",
+                "bounded"
+            ),
+            new OpenAiResponsesProtocol.OutputLimits(4, 4, 4, 4, 8, 4),
+            100
+        );
     }
 
     private static CredentialMaterialRequest credentialRequest() {
