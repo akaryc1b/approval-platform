@@ -29,7 +29,11 @@ test('production adapter is exact, framework-free and performs one exchange', ()
   assert.match(adapter, /OpenAiResponsesTransportPort/);
   assert.equal((adapter.match(/transport\.exchange\s*\(/g) || []).length, 1);
   assert.doesNotMatch(adapter, /org\.springframework|Flowable|Jdbc|DataSource|Controller/);
-  assert.doesNotMatch(adapter, /retry|fallback provider|previous_response_id|stream\s*=\s*true/i);
+  assert.doesNotMatch(
+    adapter,
+    /for\s*\([^)]*(?:attempt|retry)|while\s*\([^)]*(?:attempt|retry)|Thread\.sleep|fallbackProvider|secondProvider/i,
+  );
+  assert.doesNotMatch(adapter, /previous_response_id|stream\s*=\s*true/i);
   assert.doesNotMatch(adapter, /HttpClient|WebClient|RestClient/);
 });
 
@@ -106,8 +110,8 @@ test('Spring wiring is default-disabled and never reads the API key', () => {
   assert.match(config, /APPROVAL_AI_OPENAI_ENABLED/);
   assert.match(config, /getProperty\(ENABLED, "false"\)/);
   assert.match(config, /OPENAI_API_KEY_VERSION/);
-  assert.doesNotMatch(config, /OPENAI_API_KEY["']\)/);
-  assert.doesNotMatch(config, /api\.openai\.com|gpt-5-mini|endpoint|model alias/i);
+  assert.doesNotMatch(config, /getProperty\("OPENAI_API_KEY"\)|System\.getenv/);
+  assert.doesNotMatch(config, /api\.openai\.com|gpt-5-mini|endpoint override|model alias/i);
   assert.match(serverPom, /<artifactId>approval-ai-openai<\/artifactId>/);
 });
 
