@@ -98,26 +98,32 @@ public final class OpenAiResponsesSecureHttpSender
     @Override
     public Response exchange(Request request) {
         Objects.requireNonNull(request, "request must not be null");
-        Deadline deadline = Deadline.start(request.totalTimeout());
+        Deadline totalDeadline = Deadline.start(request.totalTimeout());
         int maximumOutputTokens = OpenAiResponsesRequestProfileValidator.requireExact(request);
-        deadline.requireRemaining();
+        totalDeadline.requireRemaining();
         try (OpenAiResponsesTransportAdmission.Permit permit =
                  admission.admit(request, maximumOutputTokens)) {
-            Resolution resolution = secureNetwork.resolve(endpoint, request, deadline);
-            requireResolution(resolution, deadline);
+            Deadline connectDeadline = Deadline.start(request.connectTimeout());
+            Resolution resolution = secureNetwork.resolve(
+                endpoint,
+                request,
+                connectDeadline
+            );
+            requireResolution(resolution, connectDeadline);
             try (SecureChannel channel = secureNetwork.connect(
                 endpoint,
                 resolution,
                 request,
-                deadline
+                connectDeadline
             )) {
                 requireChannel(channel, resolution);
+                totalDeadline.requireRemaining();
                 permit.revalidateBeforeSecret(request);
                 ExchangeResult result = exchangeWithSecret(
                     channel,
                     request,
                     permit,
-                    deadline
+                    totalDeadline
                 );
                 if (result.statusCode() >= 300 && result.statusCode() <= 399) {
                     throw failure(
@@ -172,17 +178,17 @@ public final class OpenAiResponsesSecureHttpSender
                     deadline
                 ));
             });
-        } catch (CredentialMaterialSourceException failure) {
+        } catch (CredentialMaterialSourceException exception) {
             throw failure(OpenAiResponsesTransportException.Failure.SECRET_UNAVAILABLE);
-        } catch (OpenAiResponsesTransportException failure) {
-            throw failure;
-        } catch (RuntimeException failure) {
+        } catch (OpenAiResponsesTransportException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
             throw failure(OpenAiResponsesTransportException.Failure.UNKNOWN);
         }
-        ExchangeResult completed = Objects.requireNonNull(
-            result.get(),
-            "secure channel returned no response"
-        );
+        ExchangeResult completed = result.get();
+        if (completed == null) {
+            throw failure(OpenAiResponsesTransportException.Failure.UNKNOWN);
+        }
         OpenAiResponsesTransportControls.Outcome outcome = completed.statusCode() == 200
             ? OpenAiResponsesTransportControls.Outcome.SUCCESS
             : OpenAiResponsesTransportControls.Outcome.HTTP_REJECTED;
