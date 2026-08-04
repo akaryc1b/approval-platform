@@ -52,12 +52,14 @@ private static final Set<String> ROOT_FIELDS = Set.of(
 "incomplete_details",
 "instructions",
 "max_output_tokens",
+"max_tool_calls",
 "metadata",
 "model",
 "object",
 "output",
 "parallel_tool_calls",
 "previous_response_id",
+"prompt",
 "prompt_cache_key",
 "prompt_cache_retention",
 "reasoning",
@@ -69,6 +71,7 @@ private static final Set<String> ROOT_FIELDS = Set.of(
 "text",
 "tool_choice",
 "tools",
+"top_logprobs",
 "top_p",
 "truncation",
 "usage",
@@ -159,6 +162,14 @@ requireBoolean(root, "store", false, SCHEMA_MISMATCH);
 requireBoolean(root, "background", false, SCHEMA_MISMATCH);
 requireNull(root, "previous_response_id");
 requireNull(root, "conversation");
+requireAbsentOrNull(root, "prompt");
+requireAbsentOrNull(root, "prompt_cache_key");
+requireAbsentOrNull(root, "prompt_cache_retention");
+requireAbsentOrNull(root, "safety_identifier");
+requireAbsentOrNull(root, "user");
+requireAbsentOrNull(root, "max_tool_calls");
+requireAbsentOrZero(root, "top_logprobs");
+requireAbsentOrEmptyObject(root, "metadata");
 requireEmptyArray(root, "tools");
 requireExactText(root, "tool_choice", "none", SCHEMA_MISMATCH);
 requireTextFormat(root);
@@ -710,6 +721,30 @@ throw OpenAiResponsesProtocol.failure(failure);
 private static void requireNull(ObjectNode object, String name) {
 JsonNode value = required(object, name);
 if (!value.isNull()) {
+throw OpenAiResponsesProtocol.failure(SCHEMA_MISMATCH);
+}
+}
+private static void requireAbsentOrNull(ObjectNode object, String name) {
+JsonNode value = object.get(name);
+if (value != null && !value.isNull()) {
+throw OpenAiResponsesProtocol.failure(SCHEMA_MISMATCH);
+}
+}
+private static void requireAbsentOrZero(ObjectNode object, String name) {
+JsonNode value = object.get(name);
+if (value == null || value.isNull()) {
+return;
+}
+if (!value.isIntegralNumber() || value.longValue() != 0L) {
+throw OpenAiResponsesProtocol.failure(SCHEMA_MISMATCH);
+}
+}
+private static void requireAbsentOrEmptyObject(ObjectNode object, String name) {
+JsonNode value = object.get(name);
+if (value == null || value.isNull()) {
+return;
+}
+if (!(value instanceof ObjectNode nested) || !nested.isEmpty()) {
 throw OpenAiResponsesProtocol.failure(SCHEMA_MISMATCH);
 }
 }
