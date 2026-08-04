@@ -68,7 +68,11 @@ async function selectUseCase(useCase: ApprovalAssistanceUseCase) {
 }
 
 async function generateAssistance() {
-  if (!props.taskId || generating.value) return
+  if (
+    !props.taskId
+    || generating.value
+    || assistance.value?.availability !== 'AVAILABLE'
+  ) return
   generating.value = true
   generationError.value = ''
   generation.value = undefined
@@ -142,7 +146,7 @@ watch(
 
       <view class="generation-action">
         <wd-button
-          :disabled="generating"
+          :disabled="generating || assistance.availability !== 'AVAILABLE'"
           :loading="generating"
           block
           type="warning"
