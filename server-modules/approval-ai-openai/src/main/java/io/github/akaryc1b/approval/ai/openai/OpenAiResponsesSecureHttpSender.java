@@ -124,10 +124,6 @@ public final class OpenAiResponsesSecureHttpSender
                         OpenAiResponsesTransportException.Failure.REDIRECT_REJECTED
                     );
                 }
-                OpenAiResponsesTransportControls.Outcome outcome = result.statusCode() == 200
-                    ? OpenAiResponsesTransportControls.Outcome.SUCCESS
-                    : OpenAiResponsesTransportControls.Outcome.HTTP_REJECTED;
-                permit.record(outcome);
                 TransportEvidence evidence = TransportEvidence.verified(
                     endpoint.endpointHash(),
                     permit.admissionEvidenceHash(),
@@ -183,10 +179,15 @@ public final class OpenAiResponsesSecureHttpSender
         } catch (RuntimeException failure) {
             throw failure(OpenAiResponsesTransportException.Failure.UNKNOWN);
         }
-        return Objects.requireNonNull(
+        ExchangeResult completed = Objects.requireNonNull(
             result.get(),
             "secure channel returned no response"
         );
+        OpenAiResponsesTransportControls.Outcome outcome = completed.statusCode() == 200
+            ? OpenAiResponsesTransportControls.Outcome.SUCCESS
+            : OpenAiResponsesTransportControls.Outcome.HTTP_REJECTED;
+        permit.record(outcome);
+        return completed;
     }
 
     private void requireResolution(Resolution resolution, Deadline deadline) {
