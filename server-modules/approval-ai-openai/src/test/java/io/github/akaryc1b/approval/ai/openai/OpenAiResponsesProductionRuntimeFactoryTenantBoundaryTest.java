@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.ai.openai;
 
+import io.github.akaryc1b.approval.connector.contract.CanonicalPayloadHash;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -24,6 +25,10 @@ class OpenAiResponsesProductionRuntimeFactoryTenantBoundaryTest {
         var first = factory.bind(tenantId);
         var replay = factory.bind(tenantId);
 
+        assertEquals(
+            CanonicalPayloadHash.sha256Utf8("tenant\n" + tenantId),
+            first.tenantHash()
+        );
         assertEquals(64, first.tenantHash().length());
         assertSame(first, replay);
     }
