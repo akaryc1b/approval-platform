@@ -26,6 +26,10 @@ const senderPath = path.join(
   'OpenAiResponsesSecureHttpSender.java',
 );
 const serverPomPath = path.join(root, 'apps/server/pom.xml');
+const serverRuntimeConfigPath = path.join(
+  root,
+  'apps/server/src/main/java/io/github/akaryc1b/approval/config/ApprovalAssistanceProductionConfiguration.java',
+);
 const migrationRoot = path.join(
   root,
   'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
@@ -57,7 +61,7 @@ function text(file) {
   return readFileSync(file, 'utf8');
 }
 
-test('P6-A selects one exact OpenAI Responses profile without implementation authority', () => {
+test('P6-A frozen profile remains exact after the later P6-E activation slice', () => {
   assert.equal(existsSync(auditPath), true, 'missing P6 OpenAI activation audit');
   const audit = text(auditPath);
 
@@ -112,7 +116,7 @@ test('P6-A selects one exact OpenAI Responses profile without implementation aut
   }
 });
 
-test('P6-A permits only the accepted P6-B through P6-D OpenAI implementation path', () => {
+test('accepted implementation inventory permits only P6-B through P6-E OpenAI classes', () => {
   const productionFiles = productionRoots
     .flatMap(filesUnder)
     .filter(file => file.endsWith('.java'));
@@ -124,10 +128,12 @@ test('P6-A permits only the accepted P6-B through P6-D OpenAI implementation pat
     + 'io/github/akaryc1b/approval/ai/openai/';
   assert.deepEqual(openAiNamedFiles, [
     `${prefix}OpenAiEnvironmentCredentialMaterialSource.java`,
+    `${prefix}OpenAiResponsesAdvisoryProvider.java`,
     `${prefix}OpenAiResponsesEndpointPolicy.java`,
     `${prefix}OpenAiResponsesHttpCodec.java`,
     `${prefix}OpenAiResponsesJdkSecureNetwork.java`,
     `${prefix}OpenAiResponsesNetworkSupport.java`,
+    `${prefix}OpenAiResponsesProductionRuntimeFactory.java`,
     `${prefix}OpenAiResponsesProtocol.java`,
     `${prefix}OpenAiResponsesRequestEncoder.java`,
     `${prefix}OpenAiResponsesRequestProfileValidator.java`,
@@ -141,8 +147,10 @@ test('P6-A permits only the accepted P6-B through P6-D OpenAI implementation pat
 
   const environmentTokenFiles = productionFiles
     .filter(file => /OPENAI_API_KEY(?:_VERSION)?/.test(text(file)))
-    .map(file => path.relative(root, file).replaceAll('\\', '/'));
+    .map(file => path.relative(root, file).replaceAll('\\', '/'))
+    .sort();
   assert.deepEqual(environmentTokenFiles, [
+    'apps/server/src/main/java/io/github/akaryc1b/approval/config/ApprovalAssistanceProductionConfiguration.java',
     `${prefix}OpenAiEnvironmentCredentialMaterialSource.java`,
   ]);
 
@@ -211,7 +219,13 @@ test('P6-A permits only the accepted P6-B through P6-D OpenAI implementation pat
   assert.deepEqual(implementations, ['OpenAiResponsesSecureHttpSender.java']);
   assert.equal(existsSync(senderPath), true);
 
-  assert.doesNotMatch(text(serverPomPath), /approval-ai-openai/);
+  const serverPom = text(serverPomPath);
+  assert.equal((serverPom.match(/<artifactId>approval-ai-openai<\/artifactId>/g) || []).length, 1);
+
+  const runtimeConfig = text(serverRuntimeConfigPath);
+  assert.match(runtimeConfig, /getProperty\(ENABLED, "false"\)/);
+  assert.match(runtimeConfig, /OPENAI_API_KEY_VERSION/);
+  assert.doesNotMatch(runtimeConfig, /getProperty\("OPENAI_API_KEY"\)|System\.getenv/);
 
   const versioned = filesUnder(migrationRoot).map((file) => {
     const name = path.basename(file);
