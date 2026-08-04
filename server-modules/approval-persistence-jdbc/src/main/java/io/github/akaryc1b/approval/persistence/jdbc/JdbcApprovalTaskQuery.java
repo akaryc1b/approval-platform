@@ -141,27 +141,48 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
                 task.updated_at as task_updated_at,
                 instance.release_version,
                 instance.release_package_hash,
-                form_definition.form_version as form_package_version,
-                form_definition.content_hash as form_package_hash,
-                ui_schema.ui_schema_version,
-                ui_schema.content_hash as ui_schema_hash,
-                form_definition.schema_version as form_schema_version,
-                form_definition.field_count as form_schema_field_count
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_package.package_version end as form_package_version,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_package.package_hash end as form_package_hash,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_definition.content_hash end as form_content_hash,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then ui_schema.ui_schema_version end as ui_schema_version,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then ui_schema.content_hash end as ui_schema_hash,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_definition.schema_version end as form_schema_version,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_definition.field_count end as form_schema_field_count
             from ap_approval_task task
             join ap_approval_instance instance
               on instance.tenant_id = task.tenant_id
              and instance.instance_id = task.instance_id
+            left join ap_form_package form_package
+              on form_package.tenant_id = instance.tenant_id
+             and form_package.form_key = instance.form_key
+             and form_package.package_version = instance.form_package_version
+             and form_package.package_hash = instance.form_package_hash
+             and form_package.form_version = instance.form_version
             left join ap_form_definition form_definition
-              on form_definition.tenant_id = instance.tenant_id
-             and form_definition.form_key = instance.form_key
-             and form_definition.form_version = instance.form_package_version
-             and form_definition.content_hash = instance.form_package_hash
+              on form_definition.tenant_id = form_package.tenant_id
+             and form_definition.form_key = form_package.form_key
+             and form_definition.form_version = form_package.form_version
+             and form_definition.content_hash = form_package.form_hash
             left join ap_form_ui_schema ui_schema
-              on ui_schema.tenant_id = instance.tenant_id
-             and ui_schema.form_key = instance.form_key
-             and ui_schema.form_version = instance.form_package_version
-             and ui_schema.ui_schema_version = instance.ui_schema_version
-             and ui_schema.content_hash = instance.ui_schema_hash
+              on ui_schema.tenant_id = form_package.tenant_id
+             and ui_schema.form_key = form_package.form_key
+             and ui_schema.form_version = form_package.form_version
+             and ui_schema.ui_schema_version = form_package.ui_schema_version
+             and ui_schema.content_hash = form_package.ui_schema_hash
             where task.tenant_id = :tenantId
               and task.assignee_id = :assigneeId
               and task.task_id = :taskId
@@ -238,6 +259,7 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
             resultSet.getString("release_package_hash"),
             nullableInteger(resultSet, "form_package_version"),
             resultSet.getString("form_package_hash"),
+            resultSet.getString("form_content_hash"),
             nullableInteger(resultSet, "ui_schema_version"),
             resultSet.getString("ui_schema_hash"),
             resultSet.getString("form_schema_version"),
