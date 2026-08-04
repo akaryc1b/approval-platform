@@ -40,7 +40,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /** Server-owned P6-E application service for explicit advisory generation only. */
-public final class ApprovalAssistanceGenerationService {
+public final class ApprovalAssistanceGenerationService
+    implements ApprovalAssistanceRuntimeAvailability {
 
     private static final Duration PROVIDER_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration EVIDENCE_RETENTION = Duration.ofDays(365);
@@ -82,6 +83,11 @@ public final class ApprovalAssistanceGenerationService {
             evidenceIdSource,
             "evidenceIdSource must not be null"
         );
+    }
+
+    @Override
+    public boolean providerConfigured() {
+        return runtimeFactory.isPresent();
     }
 
     public GenerationOutcome generate(
