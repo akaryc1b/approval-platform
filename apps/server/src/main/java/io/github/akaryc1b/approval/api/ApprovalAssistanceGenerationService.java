@@ -293,6 +293,12 @@ public final class ApprovalAssistanceGenerationService
         if (fieldKeys.isEmpty()) {
             throw new IllegalArgumentException("Provider-safe projection must not be empty");
         }
+        int omittedFieldCount = task.formSchemaFieldCount() - fields.size();
+        if (omittedFieldCount < 0) {
+            throw new IllegalArgumentException(
+                "Provider-safe fields cannot exceed the trusted form schema field count"
+            );
+        }
         String authorizationReference = sha256(String.join(
             "/",
             "approval-task-participant-v1",
@@ -357,7 +363,7 @@ public final class ApprovalAssistanceGenerationService
                 fields.size(),
                 fields.size(),
                 0,
-                0,
+                omittedFieldCount,
                 0,
                 false
             )
