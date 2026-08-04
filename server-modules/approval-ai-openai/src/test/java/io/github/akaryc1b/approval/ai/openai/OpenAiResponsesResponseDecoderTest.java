@@ -57,6 +57,35 @@ class OpenAiResponsesResponseDecoderTest {
     }
 
     @Test
+    void defaultTextVerbosityIsAcceptedButDriftFailsClosed() throws Exception {
+        ObjectNode absent = bodyNode();
+        ((ObjectNode) absent.get("text")).remove("verbosity");
+        assertEquals(
+            "Bounded summary",
+            decoder().decode(
+                response(
+                    200,
+                    PROVIDER_REQUEST_ID,
+                    MAPPER.writeValueAsBytes(absent)
+                ),
+                expectations()
+            ).advisory().summary()
+        );
+
+        ObjectNode low = bodyNode();
+        ((ObjectNode) low.get("text")).put("verbosity", "low");
+        assertFailure(low, OpenAiResponsesProtocol.Failure.SCHEMA_MISMATCH);
+
+        ObjectNode high = bodyNode();
+        ((ObjectNode) high.get("text")).put("verbosity", "high");
+        assertFailure(high, OpenAiResponsesProtocol.Failure.SCHEMA_MISMATCH);
+
+        ObjectNode invalidType = bodyNode();
+        ((ObjectNode) invalidType.get("text")).put("verbosity", 1);
+        assertFailure(invalidType, OpenAiResponsesProtocol.Failure.SCHEMA_MISMATCH);
+    }
+
+    @Test
     void httpAndCorrelationIdentifierEvidenceFailClosed() throws Exception {
         OpenAiResponsesProtocol.ProtocolException status = assertThrows(
             OpenAiResponsesProtocol.ProtocolException.class,
@@ -287,10 +316,10 @@ class OpenAiResponsesResponseDecoderTest {
         format.put("name", OpenAiResponsesProtocol.RESPONSE_FORMAT_NAME);
         format.put("strict", true);
         format.set("schema", MAPPER.createObjectNode());
-        root.set(
-            "text",
-            MAPPER.createObjectNode().set("format", format)
-        );
+        ObjectNode text = MAPPER.createObjectNode();
+        text.set("format", format);
+        text.put("verbosity", "medium");
+        root.set("text", text);
 
         ObjectNode outputText = MAPPER.createObjectNode();
         outputText.put("type", "output_text");
