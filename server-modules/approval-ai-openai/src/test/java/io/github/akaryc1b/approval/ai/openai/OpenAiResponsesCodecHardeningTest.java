@@ -2,7 +2,6 @@ package io.github.akaryc1b.approval.ai.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.akaryc1b.approval.ai.spi.AiAdvisoryResult;
 import io.github.akaryc1b.approval.ai.spi.AiCapability;
@@ -16,7 +15,6 @@ import io.github.akaryc1b.approval.ai.spi.AiVersionReferences.PromptTemplateVers
 import io.github.akaryc1b.approval.ai.spi.AiVersionReferences.ProviderVersion;
 import org.junit.jupiter.api.Test;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
