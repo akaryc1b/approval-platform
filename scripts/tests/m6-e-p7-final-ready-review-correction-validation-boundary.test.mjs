@@ -100,7 +100,7 @@ test('validated stale-state tests retain one Provider attempt and zero writes', 
   );
   assert.equal(
     (serviceTest.match(/assertEquals\(1, providerCalls\.get\(\)\)/g) || []).length,
-    4,
+    5,
   );
   assert.equal(
     (serviceTest.match(/assertEquals\(0, store\.writes\.get\(\)\)/g) || []).length >= 3,
