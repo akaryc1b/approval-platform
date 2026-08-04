@@ -19,15 +19,23 @@ import java.util.UUID;
 import static io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter.OPERATOR_ID_HEADER;
 import static io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter.TENANT_ID_HEADER;
 
-/** GET-only P5 approval-assistance presentation for one authorized pending task. */
+/** GET-only approval-assistance presentation for one authorized pending task. */
 @RestController
 @RequestMapping("/api/approval/tasks")
 public final class ApprovalAssistanceReadController {
 
     private final ApprovalTaskQuery taskQuery;
+    private final ApprovalAssistanceRuntimeAvailability runtimeAvailability;
 
-    public ApprovalAssistanceReadController(ApprovalTaskQuery taskQuery) {
+    public ApprovalAssistanceReadController(
+        ApprovalTaskQuery taskQuery,
+        ApprovalAssistanceRuntimeAvailability runtimeAvailability
+    ) {
         this.taskQuery = Objects.requireNonNull(taskQuery, "taskQuery must not be null");
+        this.runtimeAvailability = Objects.requireNonNull(
+            runtimeAvailability,
+            "runtimeAvailability must not be null"
+        );
     }
 
     @GetMapping("/{taskId}/assistance")
@@ -49,6 +57,10 @@ public final class ApprovalAssistanceReadController {
         }
         return ResponseEntity.ok()
             .cacheControl(CacheControl.noStore())
-            .body(AssistanceView.providerRequired(task.orElseThrow(), useCase));
+            .body(AssistanceView.current(
+                task.orElseThrow(),
+                useCase,
+                runtimeAvailability.providerConfigured()
+            ));
     }
 }
