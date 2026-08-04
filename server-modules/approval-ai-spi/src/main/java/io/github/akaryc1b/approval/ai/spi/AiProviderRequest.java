@@ -13,7 +13,7 @@ public record AiProviderRequest(
     AuthorizedResource resource,
     AiCapability capability,
     Set<String> allowedFieldKeys,
-    List<InputField> fields,
+    List<InputField> inputFields,
     AiVersionReferences versions,
     Duration timeout
 ) {
@@ -23,7 +23,7 @@ public record AiProviderRequest(
         resource = Objects.requireNonNull(resource, "resource must not be null");
         capability = Objects.requireNonNull(capability, "capability must not be null");
         allowedFieldKeys = allowedFieldKeys == null ? Set.of() : Set.copyOf(allowedFieldKeys);
-        fields = fields == null ? List.of() : List.copyOf(fields);
+        inputFields = inputFields == null ? List.of() : List.copyOf(inputFields);
         versions = Objects.requireNonNull(versions, "versions must not be null");
         timeout = Objects.requireNonNull(timeout, "timeout must not be null");
         if (timeout.isZero() || timeout.isNegative()) {
@@ -32,10 +32,10 @@ public record AiProviderRequest(
         if (!context.tenantId().equals(resource.tenantId())) {
             throw new IllegalArgumentException("request tenant evidence must match");
         }
-        if (fields.size() > 500 || allowedFieldKeys.size() > 500) {
+        if (inputFields.size() > 500 || allowedFieldKeys.size() > 500) {
             throw new IllegalArgumentException("request fields must be bounded");
         }
-        for (InputField field : fields) {
+        for (InputField field : inputFields) {
             if (!allowedFieldKeys.contains(field.key())) {
                 throw new IllegalArgumentException(
                     "provider field is not authorized: " + field.key()
