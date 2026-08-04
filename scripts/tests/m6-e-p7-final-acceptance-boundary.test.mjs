@@ -103,7 +103,7 @@ test('P7 proves per-request one Provider attempt and no retry after persistence 
   assert.match(publicFailures, /retryAttempted\(\)/);
   assert.match(publicFailures, /fallbackAttempted\(\)/);
   assert.match(finalAcceptance, /exactly-once external Provider execution across two distinct explicit HTTP requests is not claimed/i);
-  assert.match(finalAcceptance, /rate, cost and circuit controls bound that residual case/i);
+  assert.match(finalAcceptance, /tenant\/global rate, cost and circuit controls bound\s+that residual case/i);
 });
 
 test('P7 clients prevent in-flight duplicate generation and never auto-generate', () => {
