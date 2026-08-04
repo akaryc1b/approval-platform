@@ -80,11 +80,18 @@ function testSource(name) {
   return text(path.join(packageTestRoot, name));
 }
 
+function assertOrder(source, markers) {
+  let previous = -1;
+  for (const marker of markers) {
+    const index = source.indexOf(marker);
+    assert.ok(index > previous, `${marker} must retain P6-D ordering`);
+    previous = index;
+  }
+}
+
 test('P6-D freezes one exact endpoint, admission sequence and one-attempt sender', () => {
   for (const name of [...p6dProductionNames, ...p6dTestNames]) {
-    const directory = name.includes('Test')
-      ? packageTestRoot
-      : packageRoot;
+    const directory = name.includes('Test') ? packageTestRoot : packageRoot;
     assert.equal(existsSync(path.join(directory, name)), true, `missing ${name}`);
   }
 
@@ -158,27 +165,27 @@ test('P6-D freezes one exact endpoint, admission sequence and one-attempt sender
     /requireExactFields/,
   ]) assert.match(profile, required);
 
-  const senderOrdering = [
+  assertOrder(sender, [
     'admission.admit',
     'secureNetwork.resolve',
     'secureNetwork.connect',
     'permit.revalidateBeforeSecret',
+    'exchangeWithSecret',
+    'TransportEvidence.verified',
+  ]);
+  const secretHelper = sender.slice(
+    sender.indexOf('private ExchangeResult exchangeWithSecret'),
+  );
+  assertOrder(secretHelper, [
     'credentialSource.openLease',
     'lease.useMaterial',
     'permit.revalidateBeforeDispatch',
     'permit.markDispatched',
     'channel.exchange',
     'permit.record',
-  ];
-  let previous = -1;
-  for (const marker of senderOrdering) {
-    const index = sender.indexOf(marker);
-    assert.ok(index > previous, `${marker} must retain P6-D ordering`);
-    previous = index;
-  }
+  ]);
   assert.match(sender, /implements OpenAiResponsesTransportPort/);
-  assert.match(sender, /TransportEvidence\.verified/);
-  assert.match(sender, /statusCode\(\) >= 300 && result\.statusCode\(\) <= 399/);
+  assert.match(sender, /result\.statusCode\(\) >= 300 && result\.statusCode\(\) <= 399/);
   assert.doesNotMatch(sender, /for\s*\([^)]*attempt|while\s*\([^)]*retry|fallback/i);
 
   for (const required of [
@@ -198,10 +205,10 @@ test('P6-D freezes one exact endpoint, admission sequence and one-attempt sender
     /X-Client-Request-Id/,
     /Content-Length/,
     /headers\.get\("transfer-encoding"\)/,
+    /headers\.get\("content-encoding"\)/,
     /headers\.putIfAbsent/,
     /MAXIMUM_TRANSPORT_RESPONSE_BYTES/,
     /REDIRECT_REJECTED/,
-    /Content-Encoding/,
   ]) assert.match(http, required);
 
   assert.match(support, /isPublicAddress/);
@@ -214,8 +221,7 @@ test('P6-D freezes one exact endpoint, admission sequence and one-attempt sender
 });
 
 test('P6-D grants network and Secret authority to one exact isolated path only', () => {
-  const allProduction = filesUnder(sourceRoot)
-    .filter(file => file.endsWith('.java'));
+  const allProduction = filesUnder(sourceRoot).filter(file => file.endsWith('.java'));
   const openAiNamed = allProduction
     .filter(file => /openai/i.test(path.basename(file)))
     .map(file => path.basename(file))
@@ -252,10 +258,7 @@ test('P6-D grants network and Secret authority to one exact isolated path only',
     .map(file => path.basename(file));
   assert.deepEqual(implementations, ['OpenAiResponsesSecureHttpSender.java']);
 
-  const providerProduction = allProduction
-    .filter(file => file.startsWith(sourceRoot))
-    .map(text)
-    .join('\n');
+  const providerProduction = allProduction.map(text).join('\n');
   for (const forbidden of [
     /@Component\b/,
     /@Service\b/,
