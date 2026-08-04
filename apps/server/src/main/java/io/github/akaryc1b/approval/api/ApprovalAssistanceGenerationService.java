@@ -317,7 +317,7 @@ public final class ApprovalAssistanceGenerationService
                 task.compilerVersion(),
                 task.contentHash(),
                 task.formKey(),
-                task.formPackageVersion(),
+                task.formVersion(),
                 task.releaseVersion(),
                 task.releasePackageHash()
             ),
@@ -332,9 +332,9 @@ public final class ApprovalAssistanceGenerationService
             ),
             new ApprovalAssistanceContextProjection.FormSnapshot(
                 task.formKey(),
-                task.formPackageVersion(),
+                task.formVersion(),
                 task.formSchemaVersion(),
-                task.formPackageHash(),
+                task.formContentHash(),
                 task.formSchemaFieldCount(),
                 task.uiSchemaVersion(),
                 task.uiSchemaHash(),
@@ -367,10 +367,13 @@ public final class ApprovalAssistanceGenerationService
     private static boolean hasTrustedSchemaProvenance(PendingTaskDetails task) {
         return task.formPackageVersion() != null
             && task.formPackageHash() != null
+            && task.formContentHash() != null
             && task.uiSchemaVersion() != null
             && task.uiSchemaHash() != null
             && task.formSchemaVersion() != null
-            && task.formSchemaFieldCount() != null;
+            && task.formSchemaFieldCount() != null
+            && task.formSchemaFieldCount() >= 1
+            && task.formSchemaFieldCount() <= 500;
     }
 
     private static AiVersionReferences versions(AiCapability capability) {
