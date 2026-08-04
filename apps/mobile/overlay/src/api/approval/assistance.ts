@@ -28,9 +28,9 @@ export interface ApprovalAssistanceReadView {
   advisoryResult: null
   assertionStatus: 'UNVERIFIED_ADVISORY'
   authority: 'ADVISORY'
-  availability: 'PROVIDER_NOT_CONFIGURED'
+  availability: 'AVAILABLE' | 'PROVIDER_NOT_CONFIGURED'
   availableUseCases: ApprovalAssistanceUseCase[]
-  code: 'AI_ASSISTANCE_P6_PROVIDER_REQUIRED'
+  code: 'AI_ASSISTANCE_AVAILABLE' | 'AI_ASSISTANCE_PROVIDER_REQUIRED'
   commandAvailable: false
   instanceId: string
   limitations: ApprovalAssistanceLimitation[]
