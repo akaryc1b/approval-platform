@@ -184,7 +184,8 @@ public final class OpenAiResponsesRequestEncoder {
         if (value instanceof Map<?, ?> map) {
             TreeMap<String, Object> sorted = new TreeMap<>();
             for (Map.Entry<?, ?> entry : map.entrySet()) {
-                if (!(entry.getKey() instanceof String key) || sorted.put(key, entry.getValue()) != null) {
+                if (!(entry.getKey() instanceof String key)
+                    || sorted.put(key, entry.getValue()) != null) {
                     throw OpenAiResponsesProtocol.failure(REQUEST_INVALID);
                 }
             }
@@ -260,7 +261,7 @@ public final class OpenAiResponsesRequestEncoder {
             "missingMaterials",
             arraySchema(missingMaterialSchema(), 0, limits.maximumMissingMaterials())
         );
-        properties.put("needsHumanReview", BooleanNode.TRUE);
+        properties.put("needsHumanReview", booleanConstant(true));
         properties.put(
             "observations",
             arraySchema(observationSchema(), 0, limits.maximumObservations())
@@ -342,7 +343,7 @@ public final class OpenAiResponsesRequestEncoder {
             "knowledgeSource",
             objectSchema(Map.of(
                 "containsCustomerData",
-                BooleanNode.valueOf(versions.knowledgeSource().containsCustomerData()),
+                booleanConstant(versions.knowledgeSource().containsCustomerData()),
                 "contentHash",
                 enumString(versions.knowledgeSource().contentHash()),
                 "sourceId",
@@ -429,6 +430,13 @@ public final class OpenAiResponsesRequestEncoder {
         return schema;
     }
 
+    private static ObjectNode booleanConstant(boolean value) {
+        ObjectNode schema = JSON.objectNode();
+        schema.put("type", "boolean");
+        schema.set("enum", JSON.arrayNode().add(value));
+        return schema;
+    }
+
     private static ObjectNode integerConstant(int value) {
         ObjectNode schema = JSON.objectNode();
         schema.put("type", "integer");
@@ -448,6 +456,7 @@ public final class OpenAiResponsesRequestEncoder {
         OutputSchemaVersion outputSchema = versions.outputSchema();
 
         boolean invalid = !OpenAiResponsesProtocol.PROVIDER_ID.equals(provider.providerId())
+            || !OpenAiResponsesProtocol.PROVIDER_VERSION.equals(provider.version())
             || !OpenAiResponsesProtocol.PROVIDER_ID.equals(model.providerId())
             || !OpenAiResponsesProtocol.MODEL_ID.equals(model.modelId())
             || !OpenAiResponsesProtocol.MODEL_VERSION.equals(model.version())
