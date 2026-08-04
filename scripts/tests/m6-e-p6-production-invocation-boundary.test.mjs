@@ -78,7 +78,8 @@ test('generation API is distinct, closed and advisory-only', () => {
   assert.match(controller, /@PostMapping\("\/\{taskId\}\/assistance\/generations"\)/);
   assert.match(controller, /CacheControl\.noStore\(\)/);
   assert.match(controller, /@RequestBody JsonNode body/);
-  assert.match(contracts, /object\.size\(\) != 1/);
+  assert.match(contracts, /object\.size\(\) != REQUEST_FIELDS\.size\(\)/);
+  assert.match(contracts, /REQUEST_FIELDS\.contains\(object\.fieldNames\(\)\.next\(\)\)/);
   assert.match(contracts, /REQUEST_INVALID/);
   assert.match(contracts, /commandAvailable/);
   assert.match(contracts, /providerSelectable/);
