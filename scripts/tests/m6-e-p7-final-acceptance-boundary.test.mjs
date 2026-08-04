@@ -93,8 +93,8 @@ test('P7 proves per-request one Provider attempt and no retry after persistence 
   assert.match(providerFaults, /OpenAiResponsesTransportException\.Failure\.values\(\)/);
   assert.match(providerFaults, /assertEquals\(1, calls\.get\(\)/);
   assert.match(providerFaults, /assertFalse\(outcome\.failure\(\)\.retryable\(\)/);
-  assert.match(serviceTests, /evidenceConflictDoesNotInvokeProviderTwice/);
-  assert.match(serviceTests, /evidenceUnavailableDoesNotInvokeProviderTwice/);
+  assert.match(serviceTests, /providerRunsOnceAndEvidenceConflictNeverBecomesSuccess/);
+  assert.match(serviceTests, /providerRunsOnceAndEvidenceUnavailableReturnsStableFailure/);
   assert.match(serviceTests, /assertEquals\(1, providerCalls\.get\(\)\)/);
   assert.match(publicFailures, /retryAttempted\(\)/);
   assert.match(publicFailures, /fallbackAttempted\(\)/);
