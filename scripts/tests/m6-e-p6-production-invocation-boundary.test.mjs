@@ -136,7 +136,10 @@ test('PC and Mobile invoke generation only from explicit handlers', () => {
   for (const panel of [webPanel, mobilePanel]) {
     assert.match(panel, /async function generateAssistance\(\)/);
     assert.match(panel, /@click="generateAssistance"/);
-    assert.match(panel, /if \(!props\.taskId \|\| generating\.value\) return/);
+    assert.match(
+      panel,
+      /if\s*\(\s*!props\.taskId\s*\|\|\s*generating\.value\s*\|\|\s*assistance\.value\?\.availability\s*!==\s*'AVAILABLE'\s*\)\s*return/,
+    );
     const watchBody = panel.slice(panel.indexOf('watch('));
     assert.doesNotMatch(watchBody, /generateApprovalAssistance\s*\(/);
     assert.doesNotMatch(panel, /setInterval|poll|autoGenerate/i);
