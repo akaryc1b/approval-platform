@@ -4,6 +4,7 @@ import io.github.akaryc1b.approval.ai.core.AiAdvisoryAuditSink;
 import io.github.akaryc1b.approval.ai.core.AiAdvisoryMetrics;
 import io.github.akaryc1b.approval.ai.core.AiAdvisoryService;
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceAdvisoryContract.UseCase;
+import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceContextProjection;
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceDurableEvidence;
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceDurableEvidenceStore;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesAdvisoryProvider;
@@ -16,6 +17,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTas
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery.PendingTaskPage;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -44,6 +46,14 @@ class ApprovalAssistanceGenerationServiceTest {
     );
     private static final Instant NOW = Instant.parse("2026-08-04T06:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+    private static final int RELEASE_VERSION = 11;
+    private static final String RELEASE_HASH = hash("release-package-11");
+    private static final int FORM_PACKAGE_VERSION = 7;
+    private static final String FORM_HASH = hash("form-package-7");
+    private static final int UI_SCHEMA_VERSION = 5;
+    private static final String UI_SCHEMA_HASH = hash("ui-schema-5");
+    private static final String FORM_SCHEMA_VERSION = "schema-2026-08";
+    private static final int FORM_SCHEMA_FIELD_COUNT = 17;
 
     @Test
     void disabledRuntimeFailsBeforeTaskQueryOrEvidenceStore() {
@@ -74,6 +84,75 @@ class ApprovalAssistanceGenerationServiceTest {
             assertEquals(0, query.singleReads.get());
             assertEquals(0, store.writes.get());
         }
+    }
+
+    @Test
+    void missingTrustedSchemaProvenanceFailsBeforeRuntimeBinding() {
+        CountingTaskQuery query = new CountingTaskQuery(List.of(taskWithoutProvenance()));
+        CountingStore store = new CountingStore(false, false);
+        OpenAiResponsesProductionRuntimeFactory runtime = mock(
+            OpenAiResponsesProductionRuntimeFactory.class
+        );
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            ApprovalAssistanceGenerationService service = service(
+                query,
+                store,
+                Optional.of(runtime),
+                executor
+            );
+
+            var outcome = service.generate(
+                "tenant-a",
+                "operator-a",
+                "request-a",
+                "trace-a",
+                TASK_ID,
+                UseCase.SUMMARY
+            );
+
+            assertEquals(
+                ApprovalAssistanceGenerationService.GenerationStatus.POLICY_BLOCKED,
+                outcome.status()
+            );
+            assertEquals(1, query.singleReads.get());
+            assertEquals(0, store.writes.get());
+            verifyNoInteractions(runtime);
+        }
+    }
+
+    @Test
+    void projectionUsesExactTrustedReleaseFormAndUiProvenance() throws Exception {
+        Instant subMicrosecondUpdate = NOW.plusNanos(987);
+        ApprovalAssistanceContextProjection projection = projection(
+            taskWithUpdate(subMicrosecondUpdate)
+        );
+
+        assertEquals(RELEASE_VERSION, projection.process().releaseVersion());
+        assertEquals(RELEASE_HASH, projection.process().releasePackageHash());
+        assertEquals(FORM_PACKAGE_VERSION, projection.process().formVersion());
+        assertEquals(FORM_PACKAGE_VERSION, projection.form().formVersion());
+        assertEquals(FORM_SCHEMA_VERSION, projection.form().formSchemaVersion());
+        assertEquals(FORM_HASH, projection.form().formContentHash());
+        assertEquals(FORM_SCHEMA_FIELD_COUNT, projection.form().schemaFieldCount());
+        assertEquals(UI_SCHEMA_VERSION, projection.form().uiSchemaVersion());
+        assertEquals(UI_SCHEMA_HASH, projection.form().uiSchemaHash());
+        assertEquals(0, projection.resourceState().observedAt().getNano() % 1_000);
+    }
+
+    @Test
+    void evidenceClockInstantsAreNormalizedToPostgresMicroseconds() throws Exception {
+        Method normalizer = ApprovalAssistanceGenerationService.class.getDeclaredMethod(
+            "postgresTimestamp",
+            Instant.class
+        );
+        normalizer.setAccessible(true);
+        Instant input = Instant.parse("2026-08-04T06:00:00.123456789Z");
+
+        Instant normalized = (Instant) normalizer.invoke(null, input);
+
+        assertEquals(Instant.parse("2026-08-04T06:00:00.123456Z"), normalized);
+        assertEquals(0, normalized.getNano() % 1_000);
     }
 
     @Test
@@ -329,7 +408,65 @@ class ApprovalAssistanceGenerationServiceTest {
             NOW.minusSeconds(120),
             NOW.minusSeconds(30),
             NOW.minusSeconds(90),
-            taskUpdatedAt
+            taskUpdatedAt,
+            RELEASE_VERSION,
+            RELEASE_HASH,
+            FORM_PACKAGE_VERSION,
+            FORM_HASH,
+            UI_SCHEMA_VERSION,
+            UI_SCHEMA_HASH,
+            FORM_SCHEMA_VERSION,
+            FORM_SCHEMA_FIELD_COUNT
+        );
+    }
+
+    private static PendingTaskDetails taskWithoutProvenance() {
+        return new PendingTaskDetails(
+            TASK_ID,
+            INSTANCE_ID,
+            "purchase-payment",
+            3,
+            "purchase-payment-form",
+            2,
+            "compiler-v1",
+            "content-hash-v3",
+            "managerApproval",
+            "部门负责人审批",
+            "PAYMENT-2026-0001",
+            "initiator-a",
+            new BigDecimal("1250.00"),
+            "Supplier A",
+            "PO-2026-0001",
+            List.of("attachment-1"),
+            List.of(),
+            NOW.minusSeconds(120),
+            NOW.minusSeconds(30),
+            NOW.minusSeconds(90),
+            NOW
+        );
+    }
+
+    private static ApprovalAssistanceContextProjection projection(
+        PendingTaskDetails task
+    ) throws Exception {
+        Method projection = ApprovalAssistanceGenerationService.class.getDeclaredMethod(
+            "projection",
+            String.class,
+            String.class,
+            String.class,
+            String.class,
+            PendingTaskDetails.class,
+            UseCase.class
+        );
+        projection.setAccessible(true);
+        return (ApprovalAssistanceContextProjection) projection.invoke(
+            null,
+            "tenant-a",
+            "operator-a",
+            "request-a",
+            "trace-a",
+            task,
+            UseCase.SUMMARY
         );
     }
 
