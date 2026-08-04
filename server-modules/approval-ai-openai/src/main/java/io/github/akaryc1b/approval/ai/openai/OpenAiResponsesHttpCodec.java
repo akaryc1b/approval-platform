@@ -140,9 +140,7 @@ final class OpenAiResponsesHttpCodec {
         OpenAiResponsesTransportPort.Request request,
         Deadline deadline
     ) throws IOException {
-        String encoding = headers.get(
-            CONTENT_ENCODING_HEADER.toLowerCase(Locale.ROOT)
-        );
+        String encoding = headers.get("content-encoding");
         if (encoding != null && !"identity".equalsIgnoreCase(encoding)) {
             throw failure(OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID);
         }
