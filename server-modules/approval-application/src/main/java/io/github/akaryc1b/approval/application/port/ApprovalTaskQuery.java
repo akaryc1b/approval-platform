@@ -97,6 +97,7 @@ public interface ApprovalTaskQuery {
         String releasePackageHash,
         Integer formPackageVersion,
         String formPackageHash,
+        String formContentHash,
         Integer uiSchemaVersion,
         String uiSchemaHash,
         String formSchemaVersion,
@@ -109,6 +110,7 @@ public interface ApprovalTaskQuery {
                 : List.copyOf(transferCandidates);
             releasePackageHash = normalizeOptional(releasePackageHash);
             formPackageHash = normalizeOptional(formPackageHash);
+            formContentHash = normalizeOptional(formContentHash);
             uiSchemaHash = normalizeOptional(uiSchemaHash);
             formSchemaVersion = normalizeOptional(formSchemaVersion);
 
@@ -127,12 +129,14 @@ public interface ApprovalTaskQuery {
 
             boolean anyFormProvenance = formPackageVersion != null
                 || formPackageHash != null
+                || formContentHash != null
                 || uiSchemaVersion != null
                 || uiSchemaHash != null
                 || formSchemaVersion != null
                 || formSchemaFieldCount != null;
             boolean completeFormProvenance = formPackageVersion != null
                 && formPackageHash != null
+                && formContentHash != null
                 && uiSchemaVersion != null
                 && uiSchemaHash != null
                 && formSchemaVersion != null
@@ -200,6 +204,7 @@ public interface ApprovalTaskQuery {
                 instanceUpdatedAt,
                 taskCreatedAt,
                 taskUpdatedAt,
+                null,
                 null,
                 null,
                 null,
