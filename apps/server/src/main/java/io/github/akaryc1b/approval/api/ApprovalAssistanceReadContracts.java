@@ -11,32 +11,42 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Closed P5 read-only presentation contract for one authorized pending task. */
+/** Closed read-only presentation contract for one authorized pending task. */
 public final class ApprovalAssistanceReadContracts {
 
+    public static final String AVAILABLE_CODE = "AI_ASSISTANCE_AVAILABLE";
     public static final String PROVIDER_REQUIRED_CODE =
-        "AI_ASSISTANCE_P6_PROVIDER_REQUIRED";
+        "AI_ASSISTANCE_PROVIDER_REQUIRED";
 
     private static final List<UseCase> USE_CASES = List.of(UseCase.values());
+    private static final Limitation HUMAN_REVIEW_LIMITATION = new Limitation(
+        "HUMAN_REVIEW_REQUIRED",
+        "Any generated assistance remains unverified advisory material requiring human review."
+    );
+    private static final List<Limitation> AVAILABLE_LIMITATIONS = List.of(
+        new Limitation(
+            "EXPLICIT_GENERATION_REQUIRED",
+            "Production assistance is available only after an explicit user request."
+        ),
+        HUMAN_REVIEW_LIMITATION
+    );
     private static final List<Limitation> PROVIDER_REQUIRED_LIMITATIONS = List.of(
         new Limitation(
             "PRODUCTION_PROVIDER_NOT_CONFIGURED",
-            "No production Provider is configured before the M6-E P6 gate."
+            "No validated production Provider runtime is configured."
         ),
         new Limitation(
-            "NO_ADVISORY_RESULT_AVAILABLE",
-            "No advisory content is available and no deterministic mock is used in production."
+            "EXPLICIT_GENERATION_UNAVAILABLE",
+            "Explicit assistance generation is unavailable until a production Provider runtime is configured."
         ),
-        new Limitation(
-            "HUMAN_REVIEW_REQUIRED",
-            "Any future assistance remains unverified advisory material requiring human review."
-        )
+        HUMAN_REVIEW_LIMITATION
     );
 
     private ApprovalAssistanceReadContracts() {
     }
 
     public enum Availability {
+        AVAILABLE,
         PROVIDER_NOT_CONFIGURED
     }
 
@@ -158,7 +168,7 @@ public final class ApprovalAssistanceReadContracts {
             if (!availableUseCases.equals(USE_CASES)
                 || !availableUseCases.contains(requestedUseCase)) {
                 throw new IllegalArgumentException(
-                    "P5 must expose exactly the closed P2 assistance use cases"
+                    "assistance must expose exactly the closed P2 use cases"
                 );
             }
             if (!taskId.equals(taskSnapshot.taskId())
@@ -167,39 +177,53 @@ public final class ApprovalAssistanceReadContracts {
                     "task snapshot must match the authorized assistance resource"
                 );
             }
-            if (availability != Availability.PROVIDER_NOT_CONFIGURED
-                || !PROVIDER_REQUIRED_CODE.equals(code)
-                || authority != Authority.ADVISORY
+            if (authority != Authority.ADVISORY
                 || assertionStatus != AssertionStatus.UNVERIFIED_ADVISORY
                 || !needsHumanReview
                 || providerInvocationStarted
                 || providerSelectable
                 || commandAvailable
                 || resultAvailable
-                || advisoryResult != null
+                || advisoryResult != null) {
+                throw new IllegalArgumentException(
+                    "read-only assistance view must remain non-executing and non-authoritative"
+                );
+            }
+            if (availability == Availability.AVAILABLE) {
+                if (!AVAILABLE_CODE.equals(code)
+                    || !limitations.equals(AVAILABLE_LIMITATIONS)) {
+                    throw new IllegalArgumentException(
+                        "available assistance view must require explicit generation and human review"
+                    );
+                }
+            } else if (!PROVIDER_REQUIRED_CODE.equals(code)
                 || !limitations.equals(PROVIDER_REQUIRED_LIMITATIONS)) {
                 throw new IllegalArgumentException(
-                    "P5 pre-P6 assistance view must remain unavailable and non-authoritative"
+                    "disabled assistance view must report the missing production runtime"
                 );
             }
         }
 
-        public static AssistanceView providerRequired(
+        public static AssistanceView current(
             PendingTaskDetails task,
-            UseCase requestedUseCase
+            UseCase requestedUseCase,
+            boolean providerConfigured
         ) {
             Objects.requireNonNull(task, "task must not be null");
             Objects.requireNonNull(
                 requestedUseCase,
                 "requestedUseCase must not be null"
             );
+            Availability availability = providerConfigured
+                ? Availability.AVAILABLE
+                : Availability.PROVIDER_NOT_CONFIGURED;
             return new AssistanceView(
                 task.taskId(),
                 task.instanceId(),
                 requestedUseCase,
                 USE_CASES,
-                Availability.PROVIDER_NOT_CONFIGURED,
-                PROVIDER_REQUIRED_CODE,
+                availability,
+                providerConfigured ? AVAILABLE_CODE : PROVIDER_REQUIRED_CODE,
                 Authority.ADVISORY,
                 AssertionStatus.UNVERIFIED_ADVISORY,
                 true,
@@ -209,8 +233,22 @@ public final class ApprovalAssistanceReadContracts {
                 false,
                 TaskSnapshot.from(task),
                 null,
-                PROVIDER_REQUIRED_LIMITATIONS
+                providerConfigured ? AVAILABLE_LIMITATIONS : PROVIDER_REQUIRED_LIMITATIONS
             );
+        }
+
+        public static AssistanceView providerRequired(
+            PendingTaskDetails task,
+            UseCase requestedUseCase
+        ) {
+            return current(task, requestedUseCase, false);
+        }
+
+        public static AssistanceView available(
+            PendingTaskDetails task,
+            UseCase requestedUseCase
+        ) {
+            return current(task, requestedUseCase, true);
         }
     }
 
