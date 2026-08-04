@@ -100,8 +100,11 @@ final class OpenAiResponsesRequestProfileValidator {
         ObjectNode schema = requireStrictFormat(root.get("text"));
         int maximumOutputTokens = requirePositiveInt(
             root.get("max_output_tokens"),
-            16_384
+            Integer.MAX_VALUE
         );
+        if (maximumOutputTokens > 16_384) {
+            throw failure();
+        }
         OpenAiResponsesProtocol.OutputLimits limits = outputLimits(schema);
 
         AiVersionReferences versions = new AiVersionReferences(
