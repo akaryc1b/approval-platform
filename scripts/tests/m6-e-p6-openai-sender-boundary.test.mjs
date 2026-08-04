@@ -35,10 +35,12 @@ const p6dProductionNames = [
 ];
 const acceptedOpenAiProductionNames = [
   'OpenAiEnvironmentCredentialMaterialSource.java',
+  'OpenAiResponsesAdvisoryProvider.java',
   'OpenAiResponsesEndpointPolicy.java',
   'OpenAiResponsesHttpCodec.java',
   'OpenAiResponsesJdkSecureNetwork.java',
   'OpenAiResponsesNetworkSupport.java',
+  'OpenAiResponsesProductionRuntimeFactory.java',
   'OpenAiResponsesProtocol.java',
   'OpenAiResponsesRequestEncoder.java',
   'OpenAiResponsesRequestProfileValidator.java',
@@ -274,7 +276,8 @@ test('P6-D grants network and Secret authority to one exact isolated path only',
     /\.(approve|reject|returnTask|transfer|withdraw|terminate|migrate|publish|activate)\s*\(/,
   ]) assert.doesNotMatch(providerProduction, forbidden);
 
-  assert.doesNotMatch(text(serverPomPath), /approval-ai-openai/);
+  const serverPom = text(serverPomPath);
+  assert.equal((serverPom.match(/<artifactId>approval-ai-openai<\/artifactId>/g) || []).length, 1);
 });
 
 test('P6-D tests are deterministic, zero-egress and prove fail-closed ordering', () => {
@@ -311,7 +314,7 @@ test('P6-D tests are deterministic, zero-egress and prove fail-closed ordering',
   assert.match(tests, /allZero\(fixture\.network\(\)\.lastSecret\)/);
 });
 
-test('P6-D remains unwired, migration-free and unable to start P6-E', () => {
+test('P6-E wiring preserves P6-D isolation, migration and workflow boundaries', () => {
   const versioned = filesUnder(migrationRoot).map((file) => {
     const name = path.basename(file);
     const match = /^V(\d+)__/.exec(name);
@@ -325,7 +328,8 @@ test('P6-D remains unwired, migration-free and unable to start P6-E', () => {
   )).filter(file => file.endsWith('.java')).map(text).join('\n');
   assert.doesNotMatch(applicationProduction, /OpenAiResponsesSecureHttpSender/);
   assert.doesNotMatch(applicationProduction, /OpenAiResponsesTransportAdmission/);
-  assert.doesNotMatch(applicationProduction, /approval-ai-openai/);
+  assert.match(applicationProduction, /OpenAiResponsesProductionRuntimeFactory/);
+  assert.match(applicationProduction, /ApprovalAssistanceGenerationController/);
 
   const automaticWorkflows = filesUnder(path.join(root, '.github/workflows'))
     .filter(file => /\.ya?ml$/.test(file))
