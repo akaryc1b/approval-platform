@@ -29,6 +29,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -48,8 +49,10 @@ class ApprovalAssistanceGenerationServiceTest {
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final int RELEASE_VERSION = 11;
     private static final String RELEASE_HASH = hash("release-package-11");
+    private static final int FORM_VERSION = 2;
     private static final int FORM_PACKAGE_VERSION = 7;
-    private static final String FORM_HASH = hash("form-package-7");
+    private static final String FORM_PACKAGE_HASH = hash("form-package-7");
+    private static final String FORM_CONTENT_HASH = hash("form-content-2");
     private static final int UI_SCHEMA_VERSION = 5;
     private static final String UI_SCHEMA_HASH = hash("ui-schema-5");
     private static final String FORM_SCHEMA_VERSION = "schema-2026-08";
@@ -130,10 +133,10 @@ class ApprovalAssistanceGenerationServiceTest {
 
         assertEquals(RELEASE_VERSION, projection.process().releaseVersion());
         assertEquals(RELEASE_HASH, projection.process().releasePackageHash());
-        assertEquals(FORM_PACKAGE_VERSION, projection.process().formVersion());
-        assertEquals(FORM_PACKAGE_VERSION, projection.form().formVersion());
+        assertEquals(FORM_VERSION, projection.process().formVersion());
+        assertEquals(FORM_VERSION, projection.form().formVersion());
         assertEquals(FORM_SCHEMA_VERSION, projection.form().formSchemaVersion());
-        assertEquals(FORM_HASH, projection.form().formContentHash());
+        assertEquals(FORM_CONTENT_HASH, projection.form().formContentHash());
         assertEquals(FORM_SCHEMA_FIELD_COUNT, projection.form().schemaFieldCount());
         assertEquals(UI_SCHEMA_VERSION, projection.form().uiSchemaVersion());
         assertEquals(UI_SCHEMA_HASH, projection.form().uiSchemaHash());
@@ -153,6 +156,46 @@ class ApprovalAssistanceGenerationServiceTest {
 
         assertEquals(Instant.parse("2026-08-04T06:00:00.123456Z"), normalized);
         assertEquals(0, normalized.getNano() % 1_000);
+    }
+
+    @Test
+    void storedEvidenceUsesPostgresMicrosecondPrecision() {
+        AtomicInteger providerCalls = new AtomicInteger();
+        OpenAiResponsesProductionRuntimeFactory runtime = runtime(providerCalls);
+        PendingTaskDetails task = taskWithUpdate(NOW.plusNanos(987));
+        CountingTaskQuery query = new CountingTaskQuery(List.of(task, task, task));
+        CountingStore store = new CountingStore(false, false);
+        Clock subMicrosecondClock = Clock.fixed(NOW.plusNanos(789), ZoneOffset.UTC);
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            ApprovalAssistanceGenerationService service = service(
+                query,
+                store,
+                Optional.of(runtime),
+                subMicrosecondClock,
+                executor
+            );
+
+            var outcome = service.generate(
+                "tenant-a",
+                "operator-a",
+                "request-a",
+                "trace-a",
+                TASK_ID,
+                UseCase.SUMMARY
+            );
+
+            assertEquals(
+                ApprovalAssistanceGenerationService.GenerationStatus.TIMEOUT,
+                outcome.status()
+            );
+            assertEquals(1, providerCalls.get());
+            assertEquals(1, store.writes.get());
+            assertNotNull(store.lastEvidence);
+            assertEquals(0, store.lastEvidence.requestedAt().getNano() % 1_000);
+            assertEquals(0, store.lastEvidence.recordedAt().getNano() % 1_000);
+            assertEquals(0, store.lastEvidence.retentionUntil().getNano() % 1_000);
+        }
     }
 
     @Test
@@ -340,6 +383,16 @@ class ApprovalAssistanceGenerationServiceTest {
         Optional<OpenAiResponsesProductionRuntimeFactory> runtime,
         java.util.concurrent.ExecutorService executor
     ) {
+        return service(query, store, runtime, CLOCK, executor);
+    }
+
+    private static ApprovalAssistanceGenerationService service(
+        ApprovalTaskQuery query,
+        ApprovalAssistanceDurableEvidenceStore store,
+        Optional<OpenAiResponsesProductionRuntimeFactory> runtime,
+        Clock clock,
+        java.util.concurrent.ExecutorService executor
+    ) {
         return new ApprovalAssistanceGenerationService(
             query,
             store,
@@ -349,7 +402,7 @@ class ApprovalAssistanceGenerationServiceTest {
                 AiAdvisoryAuditSink.noop(),
                 AiAdvisoryMetrics.noop()
             ),
-            CLOCK,
+            clock,
             () -> EVIDENCE_ID
         );
     }
@@ -393,7 +446,7 @@ class ApprovalAssistanceGenerationServiceTest {
             "purchase-payment",
             3,
             "purchase-payment-form",
-            2,
+            FORM_VERSION,
             "compiler-v1",
             "content-hash-v3",
             "managerApproval",
@@ -412,7 +465,8 @@ class ApprovalAssistanceGenerationServiceTest {
             RELEASE_VERSION,
             RELEASE_HASH,
             FORM_PACKAGE_VERSION,
-            FORM_HASH,
+            FORM_PACKAGE_HASH,
+            FORM_CONTENT_HASH,
             UI_SCHEMA_VERSION,
             UI_SCHEMA_HASH,
             FORM_SCHEMA_VERSION,
@@ -427,7 +481,7 @@ class ApprovalAssistanceGenerationServiceTest {
             "purchase-payment",
             3,
             "purchase-payment-form",
-            2,
+            FORM_VERSION,
             "compiler-v1",
             "content-hash-v3",
             "managerApproval",
@@ -508,6 +562,7 @@ class ApprovalAssistanceGenerationServiceTest {
         private final boolean conflict;
         private final boolean unavailable;
         private final AtomicInteger writes = new AtomicInteger();
+        private ApprovalAssistanceDurableEvidence lastEvidence;
 
         private CountingStore(boolean conflict, boolean unavailable) {
             this.conflict = conflict;
@@ -517,6 +572,7 @@ class ApprovalAssistanceGenerationServiceTest {
         @Override
         public StoreResult store(ApprovalAssistanceDurableEvidence evidence) {
             writes.incrementAndGet();
+            lastEvidence = evidence;
             if (unavailable) {
                 throw new IllegalStateException("store unavailable");
             }
