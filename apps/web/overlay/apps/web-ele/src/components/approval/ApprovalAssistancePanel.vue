@@ -74,7 +74,11 @@ async function selectUseCase(useCase: ApprovalAssistanceUseCase) {
 }
 
 async function generateAssistance() {
-  if (!props.taskId || generating.value) return;
+  if (
+    !props.taskId ||
+    generating.value ||
+    assistance.value?.availability !== 'AVAILABLE'
+  ) return;
   generating.value = true;
   generationError.value = '';
   generation.value = undefined;
@@ -162,7 +166,7 @@ watch(
 
       <div class="generation-action">
         <ElButton
-          :disabled="generating"
+          :disabled="generating || assistance.availability !== 'AVAILABLE'"
           :loading="generating"
           type="warning"
           @click="generateAssistance"
