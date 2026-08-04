@@ -15,6 +15,7 @@
 
     <properties>
         <approval.persistence.test.fork-count>4</approval.persistence.test.fork-count>
+        <approval.persistence.tests.skip>false</approval.persistence.tests.skip>
     </properties>
 
     <dependencies>
@@ -92,6 +93,7 @@
                 <configuration>
                     <forkCount>${approval.persistence.test.fork-count}</forkCount>
                     <reuseForks>true</reuseForks>
+                    <skipTests>${approval.persistence.tests.skip}</skipTests>
                 </configuration>
             </plugin>
             <plugin>
