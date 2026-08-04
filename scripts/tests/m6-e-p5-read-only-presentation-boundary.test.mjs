@@ -15,6 +15,16 @@ const controllerPath = path.join(
   'apps/server/src/main/java/io/github/akaryc1b/approval/api/' +
     'ApprovalAssistanceReadController.java',
 );
+const availabilityPath = path.join(
+  root,
+  'apps/server/src/main/java/io/github/akaryc1b/approval/api/' +
+    'ApprovalAssistanceRuntimeAvailability.java',
+);
+const generationServicePath = path.join(
+  root,
+  'apps/server/src/main/java/io/github/akaryc1b/approval/api/' +
+    'ApprovalAssistanceGenerationService.java',
+);
 const controllerTestPath = path.join(
   root,
   'apps/server/src/test/java/io/github/akaryc1b/approval/api/' +
@@ -75,35 +85,42 @@ function exportedFunction(source, name) {
   return match[0];
 }
 
-test('P5 server surface remains tenant-scoped GET-only and zero-egress', () => {
+test('assistance GET remains tenant-scoped runtime-aware and zero-egress', () => {
   for (const requiredPath of [
     contractPath,
     controllerPath,
+    availabilityPath,
+    generationServicePath,
     controllerTestPath,
     serverPomPath,
   ]) {
-    assert.equal(existsSync(requiredPath), true, `missing P5 server source ${requiredPath}`);
+    assert.equal(existsSync(requiredPath), true, `missing assistance server source ${requiredPath}`);
   }
 
   const contract = text(contractPath);
   for (const required of [
     /List\.of\(UseCase\.values\(\)\)/,
+    /AVAILABLE/,
     /PROVIDER_NOT_CONFIGURED/,
-    /AI_ASSISTANCE_P6_PROVIDER_REQUIRED/,
-    /Authority\.ADVISORY/,
-    /AssertionStatus\.UNVERIFIED_ADVISORY/,
+    /AI_ASSISTANCE_AVAILABLE/,
+    /AI_ASSISTANCE_PROVIDER_REQUIRED/,
+    /EXPLICIT_GENERATION_REQUIRED/,
+    /EXPLICIT_GENERATION_UNAVAILABLE/,
     /HUMAN_REVIEW_REQUIRED/,
-    /no deterministic mock is used in production/i,
     /providerInvocationStarted/,
     /providerSelectable/,
     /commandAvailable/,
     /resultAvailable/,
     /advisoryResult != null/,
+    /AssistanceView current\(/,
+    /boolean providerConfigured/,
     /TaskSnapshot\.from\(task\)/,
-    /P5 pre-P6 assistance view must remain unavailable and non-authoritative/,
+    /read-only assistance view must remain non-executing and non-authoritative/,
   ]) {
     assert.match(contract, required);
   }
+  assert.doesNotMatch(contract, /NO_ADVISORY_RESULT_AVAILABLE/);
+  assert.doesNotMatch(contract, /AI_ASSISTANCE_P6_PROVIDER_REQUIRED/);
   for (const forbidden of [
     /@(?:Post|Put|Patch|Delete)Mapping/,
     /ApprovalAssistanceSynchronousOrchestrator/,
@@ -117,6 +134,20 @@ test('P5 server surface remains tenant-scoped GET-only and zero-egress', () => {
     assert.doesNotMatch(contract, forbidden);
   }
 
+  const availability = text(availabilityPath);
+  assert.match(availability, /boolean providerConfigured\(\)/);
+  assert.doesNotMatch(availability, /Secret|HttpClient|java\.net\.|bind\s*\(/);
+
+  const generationService = text(generationServicePath);
+  assert.match(
+    generationService,
+    /implements ApprovalAssistanceRuntimeAvailability/,
+  );
+  assert.match(
+    generationService,
+    /public boolean providerConfigured\(\)[\s\S]*?return runtimeFactory\.isPresent\(\)/,
+  );
+
   const controller = text(controllerPath);
   for (const required of [
     /@RequestMapping\("\/api\/approval\/tasks"\)/,
@@ -128,7 +159,9 @@ test('P5 server surface remains tenant-scoped GET-only and zero-egress', () => {
     /trustedOperatorId/,
     /CacheControl\.noStore\(\)/,
     /ResponseEntity\.notFound\(\)/,
-    /AssistanceView\.providerRequired/,
+    /ApprovalAssistanceRuntimeAvailability/,
+    /runtimeAvailability\.providerConfigured\(\)/,
+    /AssistanceView\.current/,
   ]) {
     assert.match(controller, required);
   }
@@ -136,9 +169,11 @@ test('P5 server surface remains tenant-scoped GET-only and zero-egress', () => {
     /@(?:Post|Put|Patch|Delete)Mapping/,
     /@ApprovalManagementPermission/,
     /ApprovalCommand/,
+    /\.generate\s*\(/,
     /ApprovalAssistanceSynchronousOrchestrator/,
     /ApprovalAssistanceDurableEvidenceStore/,
     /AiAdvisoryProvider/,
+    /OpenAi/,
     /SecretMaterial/,
     /HttpClient/,
     /java\.net\./,
@@ -149,10 +184,14 @@ test('P5 server surface remains tenant-scoped GET-only and zero-egress', () => {
 
   const controllerTest = text(controllerTestPath);
   for (const required of [
-    /authorizedPendingTaskReturnsNoStoreProviderRequiredView/,
-    /everyClosedP2UseCaseCanBeRequestedWithoutProviderInvocation/,
+    /authorizedPendingTaskReturnsNoStoreProviderRequiredViewWhenRuntimeIsAbsent/,
+    /authorizedPendingTaskReportsExplicitGenerationAvailableWhenRuntimeExists/,
+    /everyClosedP2UseCaseCanBeReadWithoutProviderInvocation/,
     /tenantOperatorOrTaskMismatchReturnsNoStoreNotFound/,
-    /List\.of\(UseCase\.values\(\)\)/,
+    /Availability\.AVAILABLE/,
+    /Availability\.PROVIDER_NOT_CONFIGURED/,
+    /EXPLICIT_GENERATION_REQUIRED/,
+    /EXPLICIT_GENERATION_UNAVAILABLE/,
     /assertFalse\(body\.providerInvocationStarted\(\)\)/,
     /assertFalse\(body\.providerSelectable\(\)\)/,
     /assertFalse\(body\.commandAvailable\(\)\)/,
@@ -161,6 +200,7 @@ test('P5 server surface remains tenant-scoped GET-only and zero-egress', () => {
   ]) {
     assert.match(controllerTest, required);
   }
+  assert.doesNotMatch(controllerTest, /NO_ADVISORY_RESULT_AVAILABLE/);
 
   const serverPom = text(serverPomPath);
   assert.match(serverPom, /<artifactId>approval-ai-spi<\/artifactId>/);
@@ -179,7 +219,7 @@ test('P5 server surface remains tenant-scoped GET-only and zero-egress', () => {
   assert.deepEqual(versioned.filter(({ version }) => version >= 50), []);
 });
 
-test('P5 GET stays zero-egress while P6-E adds one distinct explicit POST', () => {
+test('GET stays zero-egress while explicit POST remains separate', () => {
   for (const requiredPath of [
     webApiPath,
     mobileApiPath,
@@ -201,7 +241,8 @@ test('P5 GET stays zero-egress while P6-E adds one distinct explicit POST', () =
     /advisoryResult: null/,
     /assertionStatus: 'UNVERIFIED_ADVISORY'/,
     /authority: 'ADVISORY'/,
-    /availability: 'PROVIDER_NOT_CONFIGURED'/,
+    /availability: 'AVAILABLE' \| 'PROVIDER_NOT_CONFIGURED'/,
+    /code: 'AI_ASSISTANCE_AVAILABLE' \| 'AI_ASSISTANCE_PROVIDER_REQUIRED'/,
     /commandAvailable: false/,
     /needsHumanReview: true/,
     /providerInvocationStarted: false/,
@@ -210,6 +251,7 @@ test('P5 GET stays zero-egress while P6-E adds one distinct explicit POST', () =
   ]) {
     assert.match(clients, required);
   }
+  assert.doesNotMatch(clients, /AI_ASSISTANCE_P6_PROVIDER_REQUIRED/);
 
   for (const api of [webApi, mobileApi]) {
     const find = exportedFunction(api, 'findApprovalAssistance');
