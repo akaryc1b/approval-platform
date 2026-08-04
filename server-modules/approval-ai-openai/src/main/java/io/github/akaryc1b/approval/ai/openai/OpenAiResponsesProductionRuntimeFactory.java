@@ -79,7 +79,7 @@ public final class OpenAiResponsesProductionRuntimeFactory {
 
     private Binding newBinding(String tenantId) {
         Instant now = clock.instant();
-        String tenantHash = CanonicalPayloadHash.sha256Utf8(tenantId);
+        String tenantHash = CanonicalPayloadHash.sha256Utf8("tenant\n" + tenantId);
         CredentialMaterialVersion version = new CredentialMaterialVersion(
             profile.secretVersionReference(),
             profile.secretVersionEffectiveFrom(),
