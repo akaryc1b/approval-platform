@@ -16,6 +16,7 @@ import java.util.Objects;
 /** Strict one-attempt HTTP/1.1 request and bounded response framing for P6-D. */
 final class OpenAiResponsesHttpCodec {
 
+    private static final String CONTENT_ENCODING_HEADER = "Content-Encoding";
     private static final int MAXIMUM_HEADER_LINE_BYTES = 8_192;
     private static final int MAXIMUM_HEADER_BYTES = 32_768;
     private static final int MAXIMUM_HEADER_COUNT = 64;
@@ -51,6 +52,7 @@ final class OpenAiResponsesHttpCodec {
         writeAscii(output, "\r\n");
         writeAscii(output, "Content-Type: application/json\r\n");
         writeAscii(output, "Accept: application/json\r\n");
+        writeAscii(output, "Accept-Encoding: identity\r\n");
         writeAscii(output, "X-Client-Request-Id: " + clientRequestId + "\r\n");
         writeAscii(output, "Content-Length: " + request.bodyLength() + "\r\n");
         writeAscii(output, "Connection: close\r\n\r\n");
@@ -130,7 +132,9 @@ final class OpenAiResponsesHttpCodec {
         OpenAiResponsesTransportPort.Request request,
         Deadline deadline
     ) throws IOException {
-        String encoding = headers.get("content-encoding");
+        String encoding = headers.get(
+            CONTENT_ENCODING_HEADER.toLowerCase(Locale.ROOT)
+        );
         if (encoding != null && !"identity".equalsIgnoreCase(encoding)) {
             throw failure(OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID);
         }
