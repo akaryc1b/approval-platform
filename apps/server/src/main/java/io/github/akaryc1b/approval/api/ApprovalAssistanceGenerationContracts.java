@@ -7,7 +7,6 @@ import io.github.akaryc1b.approval.ai.spi.AiAdvisoryResult;
 import io.github.akaryc1b.approval.ai.spi.AiAdvisoryResult.AssertionStatus;
 import io.github.akaryc1b.approval.ai.spi.AiAdvisoryResult.Authority;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -23,8 +22,8 @@ public final class ApprovalAssistanceGenerationContracts {
 
     public static GenerationRequest parseRequest(JsonNode body) {
         if (!(body instanceof ObjectNode object)
-            || object.size() != 1
-            || !object.fieldNames().next().equals("useCase")) {
+            || object.size() != REQUEST_FIELDS.size()
+            || !REQUEST_FIELDS.contains(object.fieldNames().next())) {
             throw new InvalidGenerationRequestException();
         }
         JsonNode useCase = object.get("useCase");
