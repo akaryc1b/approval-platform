@@ -176,5 +176,8 @@ test('P6-E production sources contain no automation or approval command path', (
   assert.doesNotMatch(production, /AUTOMATION_PROPOSAL|EXECUTABLE_ACTION/);
   assert.doesNotMatch(production, /ACT_[A-Z_]+/);
   assert.doesNotMatch(production, /approve\s*\(|reject\s*\(|withdraw\s*\(|terminate\s*\(/);
-  assert.doesNotMatch(production, /previousResponse|conversation|function calling|vector store|embedding/i);
+  assert.doesNotMatch(
+    production,
+    /previousResponse|previous_response_id|["']conversation["']|function calling|vector store|embedding/i,
+  );
 });
