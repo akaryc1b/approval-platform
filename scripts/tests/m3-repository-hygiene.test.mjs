@@ -4,6 +4,7 @@ import './m6-e-p5-read-only-presentation-boundary.test.mjs';
 import './m6-e-p6-openai-provider-audit-boundary.test.mjs';
 import './m6-e-p6-openai-secret-source-boundary.test.mjs';
 import './m6-e-p6-openai-codec-boundary.test.mjs';
+import './m6-e-p6-openai-codec-hardening-boundary.test.mjs';
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
