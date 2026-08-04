@@ -9,6 +9,7 @@ import './m6-e-p6-openai-fault-incident-boundary.test.mjs';
 import './m6-e-p7-final-acceptance-boundary.test.mjs';
 import './m6-e-p7-ready-reaction-boundary.test.mjs';
 import './m6-e-p7-review-correction-boundary.test.mjs';
+import './m6-e-p7-review-correction-rebaseline-boundary.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(
