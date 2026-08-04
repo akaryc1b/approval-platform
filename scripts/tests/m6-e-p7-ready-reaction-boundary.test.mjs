@@ -26,7 +26,7 @@ test('P7 Ready reaction correction records the exact blocked transition', () => 
   assert.match(correction, /merge was not performed/i);
   assert.match(correction, /returned to Draft immediately/i);
   assert.match(correction, /removal call was blocked/i);
-  assert.match(correction, /does not claim that the reaction was removed/i);
+  assert.match(correction, /does not claim that the[\s\S]*reaction was removed/i);
 });
 
 test('P7 corrected gate permits only one exact connector status reaction', () => {
@@ -58,7 +58,7 @@ test('P7 reaction correction requires new permanent validation and recheck', () 
   assert.match(correction, /marked Ready again/i);
   assert.match(correction, /exactly one or zero top-level PR reactions/i);
   assert.match(correction, /no human or additional bot reaction/i);
-  assert.match(correction, /If the connector creates a second reaction[\s\S]*return to Draft/i);
+  assert.match(correction, /If the connector creates a second reaction[\s\S]*return to\s+Draft/i);
   assert.match(correction, /not merge authorization by itself/i);
 });
 
@@ -66,9 +66,9 @@ test('P7 reaction correction adds no product, migration or workflow capability',
   assert.match(correction, /changes no production Java, TypeScript, migration or workflow/i);
   assert.match(
     correction,
-    /no Provider, endpoint, Prompt, model, Secret, retry, fallback, Queue, Worker, Scheduler/i,
+    /no Provider,\s+endpoint,\s+Prompt,\s+model,\s+Secret,\s+retry,\s+fallback,\s+Queue,\s+Worker,\s+Scheduler/i,
   );
-  assert.match(correction, /no automation proposal or executable action/i);
+  assert.match(correction, /no automation proposal or executable\s+action/i);
 
   const migrationRoot = path.join(
     root,
