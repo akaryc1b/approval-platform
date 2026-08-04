@@ -138,11 +138,30 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
                 instance.created_at as instance_created_at,
                 instance.updated_at as instance_updated_at,
                 task.created_at as task_created_at,
-                task.updated_at as task_updated_at
+                task.updated_at as task_updated_at,
+                instance.release_version,
+                instance.release_package_hash,
+                form_definition.form_version as form_package_version,
+                form_definition.content_hash as form_package_hash,
+                ui_schema.ui_schema_version,
+                ui_schema.content_hash as ui_schema_hash,
+                form_definition.schema_version as form_schema_version,
+                form_definition.field_count as form_schema_field_count
             from ap_approval_task task
             join ap_approval_instance instance
               on instance.tenant_id = task.tenant_id
              and instance.instance_id = task.instance_id
+            left join ap_form_definition form_definition
+              on form_definition.tenant_id = instance.tenant_id
+             and form_definition.form_key = instance.form_key
+             and form_definition.form_version = instance.form_package_version
+             and form_definition.content_hash = instance.form_package_hash
+            left join ap_form_ui_schema ui_schema
+              on ui_schema.tenant_id = instance.tenant_id
+             and ui_schema.form_key = instance.form_key
+             and ui_schema.form_version = instance.form_package_version
+             and ui_schema.ui_schema_version = instance.ui_schema_version
+             and ui_schema.content_hash = instance.ui_schema_hash
             where task.tenant_id = :tenantId
               and task.assignee_id = :assigneeId
               and task.task_id = :taskId
@@ -214,7 +233,15 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
             instant(resultSet, "instance_created_at"),
             instant(resultSet, "instance_updated_at"),
             instant(resultSet, "task_created_at"),
-            instant(resultSet, "task_updated_at")
+            instant(resultSet, "task_updated_at"),
+            nullableInteger(resultSet, "release_version"),
+            resultSet.getString("release_package_hash"),
+            nullableInteger(resultSet, "form_package_version"),
+            resultSet.getString("form_package_hash"),
+            nullableInteger(resultSet, "ui_schema_version"),
+            resultSet.getString("ui_schema_hash"),
+            resultSet.getString("form_schema_version"),
+            nullableInteger(resultSet, "form_schema_field_count")
         );
     }
 
@@ -273,6 +300,12 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
             .filter(value -> !value.isBlank())
             .findFirst()
             .orElse(userId);
+    }
+
+    private static Integer nullableInteger(ResultSet resultSet, String column)
+        throws SQLException {
+        int value = resultSet.getInt(column);
+        return resultSet.wasNull() ? null : value;
     }
 
     private static Instant instant(ResultSet resultSet, String column) throws SQLException {
