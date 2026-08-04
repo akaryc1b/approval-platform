@@ -113,10 +113,83 @@ class ApprovalAssistanceGenerationServiceTest {
     }
 
     @Test
-    void durableConflictDoesNotCauseASecondProviderAttempt() {
+    void changedTaskAfterProviderFailsBeforeEvidenceStore() {
+        AtomicInteger providerCalls = new AtomicInteger();
+        OpenAiResponsesProductionRuntimeFactory runtime = runtime(providerCalls);
+        PendingTaskDetails changed = taskWithUpdate(NOW.plusSeconds(1));
+        CountingTaskQuery query = new CountingTaskQuery(
+            List.of(task(), task(), changed)
+        );
+        CountingStore store = new CountingStore(false, false);
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            ApprovalAssistanceGenerationService service = service(
+                query,
+                store,
+                Optional.of(runtime),
+                executor
+            );
+
+            var outcome = service.generate(
+                "tenant-a",
+                "operator-a",
+                "request-a",
+                "trace-a",
+                TASK_ID,
+                UseCase.SUMMARY
+            );
+
+            assertEquals(
+                ApprovalAssistanceGenerationService.GenerationStatus.STALE_TASK,
+                outcome.status()
+            );
+            assertEquals(3, query.singleReads.get());
+            assertEquals(1, providerCalls.get());
+            assertEquals(0, store.writes.get());
+        }
+    }
+
+    @Test
+    void missingTaskAfterProviderFailsBeforeEvidenceStore() {
         AtomicInteger providerCalls = new AtomicInteger();
         OpenAiResponsesProductionRuntimeFactory runtime = runtime(providerCalls);
         CountingTaskQuery query = new CountingTaskQuery(List.of(task(), task()));
+        CountingStore store = new CountingStore(false, false);
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            ApprovalAssistanceGenerationService service = service(
+                query,
+                store,
+                Optional.of(runtime),
+                executor
+            );
+
+            var outcome = service.generate(
+                "tenant-a",
+                "operator-a",
+                "request-a",
+                "trace-a",
+                TASK_ID,
+                UseCase.SUMMARY
+            );
+
+            assertEquals(
+                ApprovalAssistanceGenerationService.GenerationStatus.STALE_TASK,
+                outcome.status()
+            );
+            assertEquals(3, query.singleReads.get());
+            assertEquals(1, providerCalls.get());
+            assertEquals(0, store.writes.get());
+        }
+    }
+
+    @Test
+    void durableConflictDoesNotCauseASecondProviderAttempt() {
+        AtomicInteger providerCalls = new AtomicInteger();
+        OpenAiResponsesProductionRuntimeFactory runtime = runtime(providerCalls);
+        CountingTaskQuery query = new CountingTaskQuery(
+            List.of(task(), task(), task())
+        );
         CountingStore store = new CountingStore(true, false);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -140,7 +213,7 @@ class ApprovalAssistanceGenerationServiceTest {
                 ApprovalAssistanceGenerationService.GenerationStatus.EVIDENCE_CONFLICT,
                 outcome.status()
             );
-            assertEquals(2, query.singleReads.get());
+            assertEquals(3, query.singleReads.get());
             assertEquals(1, providerCalls.get());
             assertEquals(1, store.writes.get());
         }
@@ -150,7 +223,9 @@ class ApprovalAssistanceGenerationServiceTest {
     void unavailableStoreDoesNotCauseASecondProviderAttempt() {
         AtomicInteger providerCalls = new AtomicInteger();
         OpenAiResponsesProductionRuntimeFactory runtime = runtime(providerCalls);
-        CountingTaskQuery query = new CountingTaskQuery(List.of(task(), task()));
+        CountingTaskQuery query = new CountingTaskQuery(
+            List.of(task(), task(), task())
+        );
         CountingStore store = new CountingStore(false, true);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -174,6 +249,7 @@ class ApprovalAssistanceGenerationServiceTest {
                 ApprovalAssistanceGenerationService.GenerationStatus.EVIDENCE_UNAVAILABLE,
                 outcome.status()
             );
+            assertEquals(3, query.singleReads.get());
             assertEquals(1, providerCalls.get());
             assertEquals(1, store.writes.get());
         }
