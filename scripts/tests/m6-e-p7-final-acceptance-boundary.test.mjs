@@ -70,7 +70,11 @@ test('P7 adversarial matrix closes every threat explicitly gated to P7', () => {
   assert.match(finalAcceptance, /unknown evidence reference/i);
   assert.match(finalAcceptance, /oversized and malformed input\/output/i);
   assert.match(finalAcceptance, /stale state and version drift/i);
-  assert.match(finalAcceptance, /Secret, DNS, TLS, SSRF, cost, rate, circuit and kill switch/i);
+  assert.match(finalAcceptance, /Secret leakage/i);
+  assert.match(finalAcceptance, /SSRF, DNS rebinding and redirect/i);
+  assert.match(finalAcceptance, /cost and rate exhaustion/i);
+  assert.match(finalAcceptance, /stale circuit completion/i);
+  assert.match(finalAcceptance, /kill-switch/i);
   assert.match(finalAcceptance, /hash ambiguity and tamper resistance/i);
 });
 
@@ -93,8 +97,8 @@ test('P7 proves per-request one Provider attempt and no retry after persistence 
   assert.match(providerFaults, /OpenAiResponsesTransportException\.Failure\.values\(\)/);
   assert.match(providerFaults, /assertEquals\(1, calls\.get\(\)/);
   assert.match(providerFaults, /assertFalse\(outcome\.failure\(\)\.retryable\(\)/);
-  assert.match(serviceTests, /providerRunsOnceAndEvidenceConflictNeverBecomesSuccess/);
-  assert.match(serviceTests, /providerRunsOnceAndEvidenceUnavailableReturnsStableFailure/);
+  assert.match(serviceTests, /durableConflictDoesNotCauseASecondProviderAttempt/);
+  assert.match(serviceTests, /unavailableStoreDoesNotCauseASecondProviderAttempt/);
   assert.match(serviceTests, /assertEquals\(1, providerCalls\.get\(\)\)/);
   assert.match(publicFailures, /retryAttempted\(\)/);
   assert.match(publicFailures, /fallbackAttempted\(\)/);
@@ -151,7 +155,7 @@ test('P7 final merge and post-main gate remains conditional and auditable', () =
   assert.match(finalAcceptance, /never squash, rebase or force push/i);
   assert.match(finalAcceptance, /natural `push -> main`/);
   assert.match(finalAcceptance, /four post-main artifacts/i);
-  assert.match(finalAcceptance, /Issue #80 closes only after/i);
+  assert.match(finalAcceptance, /close Issue #80 only after/i);
   assert.match(finalAcceptance, /M6-F remains gated until M6-E post-main closure/i);
   assert.match(finalAcceptance, /AI_IS_NOT_AN_OPERATOR/);
 });
