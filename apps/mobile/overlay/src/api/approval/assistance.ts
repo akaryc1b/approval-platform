@@ -138,7 +138,7 @@ export function generateApprovalAssistance(
   return mobileApprovalRequest<ApprovalAssistanceGenerationView>(
     `/approval/tasks/${encodeURIComponent(taskId)}/assistance/generations`,
     {
-      body: JSON.stringify({ useCase }),
+      data: JSON.stringify({ useCase }),
       method: 'POST',
     },
   )
