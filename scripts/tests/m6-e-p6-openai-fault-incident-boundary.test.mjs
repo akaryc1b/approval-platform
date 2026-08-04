@@ -29,7 +29,7 @@ test('P6-F runbook freezes emergency disable rollback and safe evidence', () => 
   assert.match(runbook, /AI_ASSISTANCE_DISABLED/);
   assert.match(runbook, /accepted P5 GET remains zero-egress/i);
   assert.match(runbook, /cannot be recalled/i);
-  assert.match(runbook, /Never send a second Provider request automatically/i);
+  assert.match(runbook, /Never send a second Provider\s+request automatically/i);
   assert.match(runbook, /Do not run a V49 down migration/i);
   assert.match(runbook, /V49 is additive durable evidence/i);
   assert.match(runbook, /two independent human approvals/i);
