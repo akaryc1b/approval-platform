@@ -114,10 +114,18 @@ final class OpenAiResponsesHttpCodec {
                     OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID
                 );
             }
-            String name = line.substring(0, colon).trim().toLowerCase(Locale.ROOT);
-            String value = line.substring(colon + 1).trim();
-            if (name.isEmpty() || value.length() > MAXIMUM_HEADER_LINE_BYTES
-                || headers.putIfAbsent(name, value) != null) {
+            String rawName = line.substring(0, colon);
+            String rawValue = line.substring(colon + 1);
+            if (!validHeaderName(rawName)
+                || !validHeaderValue(rawValue)
+                || rawValue.length() > MAXIMUM_HEADER_LINE_BYTES) {
+                throw failure(
+                    OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID
+                );
+            }
+            String name = rawName.toLowerCase(Locale.ROOT);
+            String value = rawValue.trim();
+            if (headers.putIfAbsent(name, value) != null) {
                 throw failure(
                     OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID
                 );
@@ -251,7 +259,8 @@ final class OpenAiResponsesHttpCodec {
             }
             if (value == '\r') {
                 carriageReturn = true;
-            } else if (value == '\n' || value > 0x7f) {
+            } else if (value == '\n' || value > 0x7e
+                || (value < 0x20 && value != '\t')) {
                 throw failure(
                     OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID
                 );
@@ -260,6 +269,31 @@ final class OpenAiResponsesHttpCodec {
             }
         }
         throw failure(OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID);
+    }
+
+    private static boolean validHeaderName(String value) {
+        if (value.isEmpty()) {
+            return false;
+        }
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            boolean token = Character.isLetterOrDigit(character)
+                || "!#$%&'*+-.^_`|~".indexOf(character) >= 0;
+            if (!token) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean validHeaderValue(String value) {
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (character != '\t' && (character < 0x20 || character > 0x7e)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void writeAscii(OutputStream output, String value) throws IOException {
