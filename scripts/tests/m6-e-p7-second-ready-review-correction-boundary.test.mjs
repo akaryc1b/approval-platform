@@ -81,6 +81,14 @@ test('every trusted AI tenant carrier accepts exactly the platform 128 maximum',
     2,
   );
   assert.match(runtimeFactory, /requireText\(trustedTenantId, "trustedTenantId", 128\)/);
+  assert.match(
+    runtimeFactory,
+    /CanonicalPayloadHash\.sha256Utf8\("tenant\\n" \+ tenantId\)/,
+  );
+  assert.doesNotMatch(
+    runtimeFactory,
+    /CanonicalPayloadHash\.sha256Utf8\(tenantId\)/,
+  );
 
   for (const production of [
     serverContext,
@@ -98,6 +106,10 @@ test('every trusted AI tenant carrier accepts exactly the platform 128 maximum',
   assert.match(tenantTest, /everyTrustedTenantCarrierRejectsAboveThePlatformMaximum/);
   assert.match(runtimeTenantTest, /runtimeBindingAcceptsAndCachesThePlatformMaximumTenant/);
   assert.match(runtimeTenantTest, /runtimeBindingRejectsTenantAboveThePlatformMaximum/);
+  assert.match(
+    runtimeTenantTest,
+    /CanonicalPayloadHash\.sha256Utf8\("tenant\\n" \+ tenantId\)/,
+  );
 });
 
 test('runtime-aware GET exposes only accurate closed availability states', () => {
