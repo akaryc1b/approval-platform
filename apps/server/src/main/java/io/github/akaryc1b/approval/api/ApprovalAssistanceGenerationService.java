@@ -29,6 +29,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -111,6 +112,9 @@ public final class ApprovalAssistanceGenerationService
             return GenerationOutcome.failure(GenerationStatus.NOT_FOUND);
         }
         PendingTaskDetails task = initial.orElseThrow();
+        if (!hasTrustedSchemaProvenance(task)) {
+            return GenerationOutcome.failure(GenerationStatus.POLICY_BLOCKED);
+        }
         ApprovalAssistanceContextProjection projection = projection(
             trustedTenantId,
             trustedOperatorId,
@@ -125,7 +129,10 @@ public final class ApprovalAssistanceGenerationService
         }
 
         AiVersionReferences versions = versions(useCase.capability());
-        Instant requestedAt = latest(clock.instant(), task.taskUpdatedAt());
+        Instant requestedAt = latest(
+            postgresTimestamp(clock.instant()),
+            postgresTimestamp(task.taskUpdatedAt())
+        );
         ApprovalAssistanceAdvisoryContract.Request request =
             new ApprovalAssistanceAdvisoryContract.Request(
                 projection,
@@ -164,7 +171,7 @@ public final class ApprovalAssistanceGenerationService
             return GenerationOutcome.failure(GenerationStatus.STALE_TASK);
         }
 
-        Instant recordedAt = latest(clock.instant(), requestedAt);
+        Instant recordedAt = latest(postgresTimestamp(clock.instant()), requestedAt);
         ApprovalAssistanceDurableEvidence evidence;
         try {
             evidence = ApprovalAssistanceProductionDurableEvidenceFactory.create(
@@ -294,6 +301,7 @@ public final class ApprovalAssistanceGenerationService
             task.taskId().toString()
         ));
         AiVersionReferences.PolicyVersion dataPolicy = POLICY_VERSION;
+        Instant taskObservedAt = postgresTimestamp(task.taskUpdatedAt());
         return new ApprovalAssistanceContextProjection(
             new AiServerRequestContext(tenantId, operatorId, requestId, traceId),
             new AiAuthorizedResource(
@@ -309,9 +317,9 @@ public final class ApprovalAssistanceGenerationService
                 task.compilerVersion(),
                 task.contentHash(),
                 task.formKey(),
-                task.formVersion(),
-                task.definitionVersion(),
-                task.contentHash()
+                task.formPackageVersion(),
+                task.releaseVersion(),
+                task.releasePackageHash()
             ),
             new ApprovalAssistanceContextProjection.ResourceStateSnapshot(
                 tenantId,
@@ -319,17 +327,17 @@ public final class ApprovalAssistanceGenerationService
                 task.taskId().toString(),
                 task.taskDefinitionKey(),
                 ApprovalAssistanceContextProjection.ResourceState.TASK_PENDING,
-                Math.max(0L, task.taskUpdatedAt().toEpochMilli()),
-                task.taskUpdatedAt()
+                Math.max(0L, taskObservedAt.toEpochMilli()),
+                taskObservedAt
             ),
             new ApprovalAssistanceContextProjection.FormSnapshot(
                 task.formKey(),
-                task.formVersion(),
-                "approval-assistance-projection-v1",
-                task.contentHash(),
-                fields.size(),
-                1,
-                sha256("approval-assistance-ui-schema/p6-e-v1"),
+                task.formPackageVersion(),
+                task.formSchemaVersion(),
+                task.formPackageHash(),
+                task.formSchemaFieldCount(),
+                task.uiSchemaVersion(),
+                task.uiSchemaHash(),
                 task.taskDefinitionKey(),
                 0
             ),
@@ -354,6 +362,15 @@ public final class ApprovalAssistanceGenerationService
                 false
             )
         );
+    }
+
+    private static boolean hasTrustedSchemaProvenance(PendingTaskDetails task) {
+        return task.formPackageVersion() != null
+            && task.formPackageHash() != null
+            && task.uiSchemaVersion() != null
+            && task.uiSchemaHash() != null
+            && task.formSchemaVersion() != null
+            && task.formSchemaFieldCount() != null;
     }
 
     private static AiVersionReferences versions(AiCapability capability) {
@@ -402,6 +419,11 @@ public final class ApprovalAssistanceGenerationService
 
     private static Instant latest(Instant left, Instant right) {
         return left.isBefore(right) ? right : left;
+    }
+
+    private static Instant postgresTimestamp(Instant value) {
+        return Objects.requireNonNull(value, "timestamp must not be null")
+            .truncatedTo(ChronoUnit.MICROS);
     }
 
     private static String sha256(String value) {
