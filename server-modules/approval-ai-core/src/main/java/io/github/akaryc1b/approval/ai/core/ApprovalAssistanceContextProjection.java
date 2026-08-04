@@ -126,7 +126,7 @@ public record ApprovalAssistanceContextProjection(
         Instant observedAt
     ) {
         public ResourceStateSnapshot {
-            tenantId = requireText(tenantId, "tenantId", 120);
+            tenantId = requireText(tenantId, "tenantId", 128);
             instanceId = requireText(instanceId, "instanceId", 200);
             taskId = normalizeOptional(taskId, "taskId", 200);
             taskDefinitionKey = normalizeOptional(
