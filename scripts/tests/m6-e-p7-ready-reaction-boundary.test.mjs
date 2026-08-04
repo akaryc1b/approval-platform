@@ -68,7 +68,7 @@ test('P7 reaction correction adds no product, migration or workflow capability',
     correction,
     /no Provider,\s+endpoint,\s+Prompt,\s+model,\s+Secret,\s+retry,\s+fallback,\s+Queue,\s+Worker,\s+Scheduler/i,
   );
-  assert.match(correction, /no automation proposal or executable\s+action/i);
+  assert.match(correction, /Scheduler,\s+automation proposal or executable\s+action/i);
 
   const migrationRoot = path.join(
     root,
