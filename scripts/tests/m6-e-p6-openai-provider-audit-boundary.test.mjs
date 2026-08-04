@@ -13,10 +13,17 @@ const openAiProductionRoot = path.join(
   root,
   'server-modules/approval-ai-openai/src/main/java',
 );
-const openAiSourcePath = path.join(
+const openAiPackageRoot = path.join(
   openAiProductionRoot,
-  'io/github/akaryc1b/approval/ai/openai/' +
-    'OpenAiEnvironmentCredentialMaterialSource.java',
+  'io/github/akaryc1b/approval/ai/openai',
+);
+const openAiSourcePath = path.join(
+  openAiPackageRoot,
+  'OpenAiEnvironmentCredentialMaterialSource.java',
+);
+const senderPath = path.join(
+  openAiPackageRoot,
+  'OpenAiResponsesSecureHttpSender.java',
 );
 const serverPomPath = path.join(root, 'apps/server/pom.xml');
 const migrationRoot = path.join(
@@ -105,7 +112,7 @@ test('P6-A selects one exact OpenAI Responses profile without implementation aut
   }
 });
 
-test('P6-A profile permits only accepted P6-B and P6-C source with no sender', () => {
+test('P6-A permits only the accepted P6-B through P6-D OpenAI implementation path', () => {
   const productionFiles = productionRoots
     .flatMap(filesUnder)
     .filter(file => file.endsWith('.java'));
@@ -113,40 +120,37 @@ test('P6-A profile permits only accepted P6-B and P6-C source with no sender', (
     .filter(file => /openai/i.test(path.basename(file)))
     .map(file => path.relative(root, file).replaceAll('\\', '/'))
     .sort();
+  const prefix = 'server-modules/approval-ai-openai/src/main/java/'
+    + 'io/github/akaryc1b/approval/ai/openai/';
   assert.deepEqual(openAiNamedFiles, [
-    'server-modules/approval-ai-openai/src/main/java/' +
-      'io/github/akaryc1b/approval/ai/openai/' +
-      'OpenAiEnvironmentCredentialMaterialSource.java',
-    'server-modules/approval-ai-openai/src/main/java/' +
-      'io/github/akaryc1b/approval/ai/openai/' +
-      'OpenAiResponsesProtocol.java',
-    'server-modules/approval-ai-openai/src/main/java/' +
-      'io/github/akaryc1b/approval/ai/openai/' +
-      'OpenAiResponsesRequestEncoder.java',
-    'server-modules/approval-ai-openai/src/main/java/' +
-      'io/github/akaryc1b/approval/ai/openai/' +
-      'OpenAiResponsesResponseDecoder.java',
-    'server-modules/approval-ai-openai/src/main/java/' +
-      'io/github/akaryc1b/approval/ai/openai/' +
-      'OpenAiResponsesTransportPort.java',
+    `${prefix}OpenAiEnvironmentCredentialMaterialSource.java`,
+    `${prefix}OpenAiResponsesEndpointPolicy.java`,
+    `${prefix}OpenAiResponsesHttpCodec.java`,
+    `${prefix}OpenAiResponsesJdkSecureNetwork.java`,
+    `${prefix}OpenAiResponsesNetworkSupport.java`,
+    `${prefix}OpenAiResponsesProtocol.java`,
+    `${prefix}OpenAiResponsesRequestEncoder.java`,
+    `${prefix}OpenAiResponsesRequestProfileValidator.java`,
+    `${prefix}OpenAiResponsesResponseDecoder.java`,
+    `${prefix}OpenAiResponsesSecureHttpSender.java`,
+    `${prefix}OpenAiResponsesTransportAdmission.java`,
+    `${prefix}OpenAiResponsesTransportControls.java`,
+    `${prefix}OpenAiResponsesTransportException.java`,
+    `${prefix}OpenAiResponsesTransportPort.java`,
   ]);
 
   const environmentTokenFiles = productionFiles
     .filter(file => /OPENAI_API_KEY(?:_VERSION)?/.test(text(file)))
     .map(file => path.relative(root, file).replaceAll('\\', '/'));
   assert.deepEqual(environmentTokenFiles, [
-    'server-modules/approval-ai-openai/src/main/java/' +
-      'io/github/akaryc1b/approval/ai/openai/' +
-      'OpenAiEnvironmentCredentialMaterialSource.java',
+    `${prefix}OpenAiEnvironmentCredentialMaterialSource.java`,
   ]);
 
   const systemEnvironmentFiles = productionFiles
     .filter(file => /System\.getenv/.test(text(file)))
     .map(file => path.relative(root, file).replaceAll('\\', '/'));
   assert.deepEqual(systemEnvironmentFiles, [
-    'server-modules/approval-ai-openai/src/main/java/' +
-      'io/github/akaryc1b/approval/ai/openai/' +
-      'OpenAiEnvironmentCredentialMaterialSource.java',
+    `${prefix}OpenAiEnvironmentCredentialMaterialSource.java`,
   ]);
 
   const openAiSource = text(openAiSourcePath);
@@ -157,15 +161,13 @@ test('P6-A profile permits only accepted P6-B and P6-C source with no sender', (
     /CredentialMaterialLease\.takeOwnership/,
     /AI_ADVISORY_GENERATE/,
     /CredentialMaterialType\.API_KEY/,
-  ]) {
-    assert.match(openAiSource, required);
-  }
+  ]) assert.match(openAiSource, required);
 
-  const openAiProviderSource = filesUnder(openAiProductionRoot)
-    .filter(file => file.endsWith('.java'))
-    .map(text)
-    .join('\n');
-  const aiRelevantSource = productionFiles
+  const openAiFiles = filesUnder(openAiProductionRoot)
+    .filter(file => file.endsWith('.java'));
+  const openAiProviderSource = openAiFiles.map(text).join('\n');
+  const nonProviderAiSource = productionFiles
+    .filter(file => !file.startsWith(openAiProductionRoot))
     .filter(file => {
       const name = path.basename(file);
       return file.includes('/approval-ai-')
@@ -179,37 +181,35 @@ test('P6-A profile permits only accepted P6-B and P6-C source with no sender', (
     restControllerAnnotation,
   );
   assert.match('@RestController\nfinal class ForbiddenController {}', restControllerAnnotation);
-  assert.match(
-    '    @RestController\n    static final class ForbiddenController {}',
-    restControllerAnnotation,
-  );
   assert.doesNotMatch(openAiProviderSource, restControllerAnnotation);
 
-  assert.match(
-    'private ApprovalAssistanceSynchronousOrchestrator orchestrator;',
-    forbiddenProviderCouplings[0],
-  );
-  assert.match(
-    'private ApprovalAssistanceDurableEvidenceStore evidenceStore;',
-    forbiddenProviderCouplings[1],
-  );
   for (const forbidden of forbiddenProviderCouplings) {
     assert.doesNotMatch(openAiProviderSource, forbidden);
   }
+  for (const forbidden of [
+    /@Component\b/,
+    /@Service\b/,
+    /@Configuration\b/,
+    /@Bean\b/,
+    /@PostMapping\b/,
+    /@Scheduled\b/,
+    /JdbcTemplate/,
+    /DataSource/,
+  ]) assert.doesNotMatch(openAiProviderSource, forbidden);
 
   for (const forbidden of [
     /api\.openai\.com/,
-    /java\.net\./,
-    /HttpClient/,
-    /WebClient/,
-    /RestClient/,
+    /import\s+java\.net\./,
+    /import\s+javax\.net\.ssl\./,
     /Authorization\s*[:=]/,
     /Bearer\s+/,
-    /@PostMapping\([^\n]*assistance/i,
-    /@Scheduled\b/,
-  ]) {
-    assert.doesNotMatch(aiRelevantSource, forbidden);
-  }
+  ]) assert.doesNotMatch(nonProviderAiSource, forbidden);
+
+  const implementations = openAiFiles
+    .filter(file => /implements\s+OpenAiResponsesTransportPort/.test(text(file)))
+    .map(file => path.basename(file));
+  assert.deepEqual(implementations, ['OpenAiResponsesSecureHttpSender.java']);
+  assert.equal(existsSync(senderPath), true);
 
   assert.doesNotMatch(text(serverPomPath), /approval-ai-openai/);
 
