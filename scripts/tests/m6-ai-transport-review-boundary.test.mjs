@@ -13,6 +13,7 @@ import './m6-e-p7-review-correction-rebaseline-boundary.test.mjs';
 import './m6-e-p7-second-ready-review-correction-boundary.test.mjs';
 import './m6-e-p7-canonical-tenant-evidence-correction-boundary.test.mjs';
 import './m6-e-p7-final-ready-review-correction-boundary.test.mjs';
+import './m6-e-p7-final-ready-review-correction-validation-boundary.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(
