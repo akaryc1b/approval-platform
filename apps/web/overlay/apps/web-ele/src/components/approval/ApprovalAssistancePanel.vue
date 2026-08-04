@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type {
+  ApprovalAssistanceGenerationView,
   ApprovalAssistanceReadView,
   ApprovalAssistanceUseCase,
 } from '#/api/approval/assistance';
@@ -14,7 +15,10 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { findApprovalAssistance } from '#/api/approval/assistance';
+import {
+  findApprovalAssistance,
+  generateApprovalAssistance,
+} from '#/api/approval/assistance';
 
 const props = defineProps<{ taskId: string }>();
 
@@ -26,8 +30,11 @@ const DEFAULT_USE_CASES: ApprovalAssistanceUseCase[] = [
 
 const selectedUseCase = ref<ApprovalAssistanceUseCase>('SUMMARY');
 const loading = ref(false);
+const generating = ref(false);
 const loadError = ref('');
+const generationError = ref('');
 const assistance = ref<ApprovalAssistanceReadView>();
+const generation = ref<ApprovalAssistanceGenerationView>();
 const availableUseCases = computed(
   () => assistance.value?.availableUseCases || DEFAULT_USE_CASES,
 );
@@ -39,7 +46,7 @@ const useCaseLabels: Record<ApprovalAssistanceUseCase, string> = {
 };
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'AI 辅助状态加载失败';
+  return error instanceof Error ? error.message : 'AI 辅助请求失败';
 }
 
 async function loadAssistance() {
@@ -61,7 +68,26 @@ async function loadAssistance() {
 
 async function selectUseCase(useCase: ApprovalAssistanceUseCase) {
   selectedUseCase.value = useCase;
+  generation.value = undefined;
+  generationError.value = '';
   await loadAssistance();
+}
+
+async function generateAssistance() {
+  if (!props.taskId || generating.value) return;
+  generating.value = true;
+  generationError.value = '';
+  generation.value = undefined;
+  try {
+    generation.value = await generateApprovalAssistance(
+      props.taskId,
+      selectedUseCase.value,
+    );
+  } catch (error) {
+    generationError.value = errorMessage(error);
+  } finally {
+    generating.value = false;
+  }
 }
 
 watch(
@@ -69,6 +95,8 @@ watch(
   () => {
     selectedUseCase.value = 'SUMMARY';
     assistance.value = undefined;
+    generation.value = undefined;
+    generationError.value = '';
     void loadAssistance();
   },
   { immediate: true },
@@ -95,6 +123,7 @@ watch(
         :key="useCase"
         :loading="loading && selectedUseCase === useCase"
         :plain="selectedUseCase !== useCase"
+        :disabled="generating"
         size="small"
         type="warning"
         @click="selectUseCase(useCase)"
@@ -110,17 +139,11 @@ watch(
       type="error"
     />
     <template v-else-if="assistance">
-      <ElAlert
-        :closable="false"
-        show-icon
-        title="生产 AI Provider 尚未配置；当前不会生成或伪造任何 AI 内容。"
-        type="warning"
-      />
       <ElDescriptions :column="2" border class="snapshot" title="服务端证据快照">
         <ElDescriptionsItem label="辅助类型">
           {{ useCaseLabels[assistance.requestedUseCase] }}
         </ElDescriptionsItem>
-        <ElDescriptionsItem label="状态">
+        <ElDescriptionsItem label="只读状态">
           {{ assistance.code }}
         </ElDescriptionsItem>
         <ElDescriptionsItem label="流程版本">
@@ -136,6 +159,86 @@ watch(
           {{ assistance.taskSnapshot.taskUpdatedAt }}
         </ElDescriptionsItem>
       </ElDescriptions>
+
+      <div class="generation-action">
+        <ElButton
+          :disabled="generating"
+          :loading="generating"
+          type="warning"
+          @click="generateAssistance"
+        >
+          显式生成 AI 建议
+        </ElButton>
+        <span>仅本次点击触发一次；页面加载、切换和刷新不会自动生成。</span>
+      </div>
+
+      <ElAlert
+        v-if="generationError"
+        :closable="false"
+        :title="generationError"
+        type="error"
+      />
+
+      <article
+        v-if="generation?.advisoryResult"
+        class="advisory-result"
+        aria-label="未经验证的 AI 建议"
+      >
+        <div class="result-heading">
+          <strong>AI 建议（未经验证）</strong>
+          <ElTag :type="generation.status === 'LOW_CONFIDENCE' ? 'danger' : 'warning'">
+            {{ generation.status }}
+          </ElTag>
+        </div>
+        <p class="summary">{{ generation.advisoryResult.summary }}</p>
+        <p class="confidence">
+          置信度：{{ generation.advisoryResult.confidence.band }}
+          （{{ generation.advisoryResult.confidence.score }}）
+        </p>
+
+        <section v-if="generation.advisoryResult.observations.length">
+          <h4>观察</h4>
+          <ul>
+            <li v-for="item in generation.advisoryResult.observations" :key="item.id">
+              {{ item.text }}
+            </li>
+          </ul>
+        </section>
+        <section v-if="generation.advisoryResult.riskSignals.length">
+          <h4>风险复核信号</h4>
+          <ul>
+            <li v-for="item in generation.advisoryResult.riskSignals" :key="item.id">
+              [{{ item.severity }}] {{ item.text }}
+            </li>
+          </ul>
+        </section>
+        <section v-if="generation.advisoryResult.missingMaterials.length">
+          <h4>材料提示</h4>
+          <ul>
+            <li v-for="item in generation.advisoryResult.missingMaterials" :key="item.id">
+              {{ item.materialType }}：{{ item.reason }}
+            </li>
+          </ul>
+        </section>
+        <section v-if="generation.advisoryResult.recommendations.length">
+          <h4>人工复核建议</h4>
+          <ul>
+            <li v-for="item in generation.advisoryResult.recommendations" :key="item.id">
+              {{ item.text }}
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h4>限制</h4>
+          <ul>
+            <li v-for="item in generation.advisoryResult.limitations" :key="item">
+              {{ item }}
+            </li>
+          </ul>
+        </section>
+        <p class="evidence-id">证据 ID：{{ generation.evidenceId }}</p>
+      </article>
+
       <ul class="limitations" aria-label="AI 辅助限制">
         <li v-for="limitation in assistance.limitations" :key="limitation.code">
           <strong>{{ limitation.code }}</strong>
@@ -161,24 +264,32 @@ watch(
 
 .assistance-header,
 .assistance-tags,
-.use-case-list {
+.use-case-list,
+.generation-action,
+.result-heading {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.assistance-header {
+.assistance-header,
+.result-heading {
   justify-content: space-between;
 }
 
 .assistance-header h3,
-.assistance-header p {
+.assistance-header p,
+.advisory-result h4,
+.advisory-result p {
   margin: 0;
 }
 
 .assistance-header p,
 .command-boundary,
-.limitations span {
+.limitations span,
+.generation-action span,
+.confidence,
+.evidence-id {
   color: var(--el-text-color-secondary);
   font-size: 13px;
 }
@@ -188,10 +299,25 @@ watch(
   flex-wrap: wrap;
 }
 
-.snapshot {
+.snapshot,
+.advisory-result {
   background: var(--el-bg-color);
 }
 
+.advisory-result {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--el-color-warning-light-5);
+  border-radius: 10px;
+}
+
+.advisory-result section {
+  display: grid;
+  gap: 6px;
+}
+
+.advisory-result ul,
 .limitations {
   display: grid;
   gap: 8px;
@@ -210,7 +336,8 @@ watch(
 }
 
 @media (max-width: 720px) {
-  .assistance-header {
+  .assistance-header,
+  .generation-action {
     align-items: flex-start;
     flex-direction: column;
   }
