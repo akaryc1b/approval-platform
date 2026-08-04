@@ -90,12 +90,24 @@ test('generation API is distinct, closed and advisory-only', () => {
   assert.doesNotMatch(readController, /OpenAi|AiAdvisoryService|\.generate\s*\(/);
 });
 
-test('server-owned service revalidates task before one production execution and P4 store', () => {
+test('server-owned service revalidates before and after one production execution', () => {
   const service = source(`${serverApiRoot}/ApprovalAssistanceGenerationService.java`);
 
-  assert.equal((service.match(/taskQuery\.findPendingTask\s*\(/g) || []).length, 2);
+  assert.equal((service.match(/taskQuery\.findPendingTask\s*\(/g) || []).length, 3);
   assert.equal((service.match(/orchestrator\.execute\s*\(/g) || []).length, 1);
   assert.equal((service.match(/evidenceStore\.store\s*\(/g) || []).length, 1);
+  const execution = service.indexOf('outcome = orchestrator.execute(request)');
+  const postInvocation = service.indexOf(
+    'Optional<PendingTaskDetails> postInvocation = taskQuery.findPendingTask(identity)',
+  );
+  const evidence = service.indexOf(
+    'evidence = ApprovalAssistanceProductionDurableEvidenceFactory.create',
+  );
+  assert.ok(execution >= 0 && postInvocation > execution);
+  assert.ok(evidence > postInvocation);
+  assert.match(service, /postInvocation\.isEmpty\(\)/);
+  assert.match(service, /!task\.equals\(postInvocation\.orElseThrow\(\)\)/);
+  assert.match(service, /GenerationStatus\.STALE_TASK/);
   assert.match(service, /StoreDisposition\.CONFLICT/);
   assert.match(service, /Optional<OpenAiResponsesProductionRuntimeFactory>/);
   assert.doesNotMatch(service, /approve\s*\(|reject\s*\(|returnTask\s*\(|transfer\s*\(/);
