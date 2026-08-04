@@ -1,5 +1,7 @@
 package io.github.akaryc1b.approval.ai.openai;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesSecureHttpSenderTestSupport.Fixture;
 import org.junit.jupiter.api.Test;
 
@@ -8,9 +10,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 
-import static io.github.akaryc1b.approval.ai.openai.OpenAiResponsesSecureHttpSenderTestSupport.fixture;
-import static io.github.akaryc1b.approval.ai.openai.OpenAiResponsesSecureHttpSenderTestSupport.assertFailure;
 import static io.github.akaryc1b.approval.ai.openai.OpenAiResponsesSecureHttpSenderTestSupport.NOW;
+import static io.github.akaryc1b.approval.ai.openai.OpenAiResponsesSecureHttpSenderTestSupport.assertFailure;
+import static io.github.akaryc1b.approval.ai.openai.OpenAiResponsesSecureHttpSenderTestSupport.fixture;
 import static io.github.akaryc1b.approval.ai.openai.OpenAiResponsesSecureHttpSenderTestSupport.requestBody;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenAiResponsesSecureHttpSenderSecurityTest {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Test
     void requestProfileDriftFailsBeforeAdmissionDnsOrSecret() throws Exception {
@@ -88,24 +92,52 @@ class OpenAiResponsesSecureHttpSenderSecurityTest {
         byte[] body = requestBody()
             .replace("\"input_text\"", "\"input_image\"")
             .getBytes(StandardCharsets.UTF_8);
-        OpenAiResponsesTransportPort.Request invalid =
-            new OpenAiResponsesTransportPort.Request(
-                body,
-                OpenAiResponsesProtocol.sha256(body),
-                Duration.ofSeconds(2),
-                Duration.ofSeconds(10)
-            );
+        assertRequestRejectedBeforeEgress(fixture, body);
+    }
 
-        OpenAiResponsesTransportException failure = assertThrows(
-            OpenAiResponsesTransportException.class,
-            () -> fixture.sender().exchange(invalid)
+    @Test
+    void arbitraryOutputSchemaFailsBeforeAdmissionDnsOrSecret() throws Exception {
+        Fixture fixture = fixture(200, "req_unused", "{}");
+        ObjectNode root = (ObjectNode) MAPPER.readTree(requestBody());
+        ObjectNode format = (ObjectNode) root.path("text").path("format");
+        format.set("schema", MAPPER.createObjectNode());
+
+        assertRequestRejectedBeforeEgress(
+            fixture,
+            MAPPER.writeValueAsBytes(root)
         );
-        assertEquals(
-            OpenAiResponsesTransportException.Failure.REQUEST_INVALID,
-            failure.failure()
+    }
+
+    @Test
+    void embeddedPayloadDriftFailsBeforeAdmissionDnsOrSecret() throws Exception {
+        Fixture unknown = fixture(200, "req_unused", "{}");
+        ObjectNode unknownRoot = (ObjectNode) MAPPER.readTree(requestBody());
+        ObjectNode unknownContent = (ObjectNode) unknownRoot.path("input")
+            .path(0).path("content").path(0);
+        ObjectNode unknownPayload = (ObjectNode) MAPPER.readTree(
+            unknownContent.path("text").asText()
         );
-        assertEquals(0, fixture.network().resolveCount.get());
-        assertEquals(0, fixture.environment().secretReads.get());
+        unknownPayload.put("unexpected", "forbidden");
+        unknownContent.put("text", MAPPER.writeValueAsString(unknownPayload));
+        assertRequestRejectedBeforeEgress(
+            unknown,
+            MAPPER.writeValueAsBytes(unknownRoot)
+        );
+
+        Fixture versionDrift = fixture(200, "req_unused", "{}");
+        ObjectNode driftRoot = (ObjectNode) MAPPER.readTree(requestBody());
+        ObjectNode driftContent = (ObjectNode) driftRoot.path("input")
+            .path(0).path("content").path(0);
+        ObjectNode driftPayload = (ObjectNode) MAPPER.readTree(
+            driftContent.path("text").asText()
+        );
+        ((ObjectNode) driftPayload.path("output_schema"))
+            .put("id", "forbidden-schema");
+        driftContent.put("text", MAPPER.writeValueAsString(driftPayload));
+        assertRequestRejectedBeforeEgress(
+            versionDrift,
+            MAPPER.writeValueAsBytes(driftRoot)
+        );
     }
 
     @Test
@@ -143,5 +175,29 @@ class OpenAiResponsesSecureHttpSenderSecurityTest {
         assertTrue(OpenAiResponsesNetworkSupport.isPublicAddress(
             InetAddress.getByName("2606:4700:4700::1111")
         ));
+    }
+
+    private static void assertRequestRejectedBeforeEgress(
+        Fixture fixture,
+        byte[] body
+    ) {
+        OpenAiResponsesTransportPort.Request invalid =
+            new OpenAiResponsesTransportPort.Request(
+                body,
+                OpenAiResponsesProtocol.sha256(body),
+                Duration.ofSeconds(2),
+                Duration.ofSeconds(10)
+            );
+        OpenAiResponsesTransportException failure = assertThrows(
+            OpenAiResponsesTransportException.class,
+            () -> fixture.sender().exchange(invalid)
+        );
+        assertEquals(
+            OpenAiResponsesTransportException.Failure.REQUEST_INVALID,
+            failure.failure()
+        );
+        assertEquals(0, fixture.network().resolveCount.get());
+        assertEquals(0, fixture.network().connectCount.get());
+        assertEquals(0, fixture.environment().secretReads.get());
     }
 }
