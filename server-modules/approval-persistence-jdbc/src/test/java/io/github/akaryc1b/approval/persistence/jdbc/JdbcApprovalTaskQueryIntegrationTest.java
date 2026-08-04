@@ -30,16 +30,17 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalTaskQueryIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-07-18T01:00:00Z");
-    private static final int RELEASE_VERSION = 11;
-    private static final String RELEASE_HASH = "c".repeat(64);
+    private static final int FORM_VERSION = 1;
     private static final int FORM_PACKAGE_VERSION = 7;
-    private static final String FORM_HASH = "d".repeat(64);
+    private static final String FORM_PACKAGE_HASH = "c".repeat(64);
+    private static final String FORM_CONTENT_HASH = "d".repeat(64);
     private static final int UI_SCHEMA_VERSION = 5;
     private static final String UI_SCHEMA_HASH = "e".repeat(64);
     private static final String FORM_SCHEMA_VERSION = "form-schema-2026-08";
@@ -77,6 +78,8 @@ class JdbcApprovalTaskQueryIntegrationTest {
                 ap_approval_task,
                 ap_approval_instance,
                 ap_definition_version,
+                ap_form_package,
+                ap_form_design_draft,
                 ap_form_ui_schema,
                 ap_form_definition
             cascade
@@ -160,10 +163,11 @@ class JdbcApprovalTaskQueryIntegrationTest {
         var pending = details.orElseThrow();
         assertEquals("PO-SEARCH-001", pending.businessKey());
         assertEquals(List.of("attachment-1"), pending.attachmentIds());
-        assertEquals(RELEASE_VERSION, pending.releaseVersion());
-        assertEquals(RELEASE_HASH, pending.releasePackageHash());
+        assertNull(pending.releaseVersion());
+        assertNull(pending.releasePackageHash());
         assertEquals(FORM_PACKAGE_VERSION, pending.formPackageVersion());
-        assertEquals(FORM_HASH, pending.formPackageHash());
+        assertEquals(FORM_PACKAGE_HASH, pending.formPackageHash());
+        assertEquals(FORM_CONTENT_HASH, pending.formContentHash());
         assertEquals(UI_SCHEMA_VERSION, pending.uiSchemaVersion());
         assertEquals(UI_SCHEMA_HASH, pending.uiSchemaHash());
         assertEquals(FORM_SCHEMA_VERSION, pending.formSchemaVersion());
@@ -249,7 +253,7 @@ class JdbcApprovalTaskQueryIntegrationTest {
             "purchase-payment",
             1,
             "purchase-payment-form",
-            1,
+            FORM_VERSION,
             "approval-compiler-v1",
             "a".repeat(64),
             "deployment-" + tenantId,
@@ -271,12 +275,12 @@ class JdbcApprovalTaskQueryIntegrationTest {
             """,
             tenantId,
             "purchase-payment-form",
-            FORM_PACKAGE_VERSION,
+            FORM_VERSION,
             FORM_SCHEMA_VERSION,
             "Purchase payment form",
             FORM_SCHEMA_FIELD_COUNT,
             "{}",
-            FORM_HASH,
+            FORM_CONTENT_HASH,
             "publisher",
             Timestamp.from(NOW)
         );
@@ -289,7 +293,7 @@ class JdbcApprovalTaskQueryIntegrationTest {
             """,
             tenantId,
             "purchase-payment-form",
-            FORM_PACKAGE_VERSION,
+            FORM_VERSION,
             UI_SCHEMA_VERSION,
             "ui-schema-2026-08",
             "Purchase payment UI",
@@ -298,6 +302,57 @@ class JdbcApprovalTaskQueryIntegrationTest {
             UI_SCHEMA_HASH,
             "publisher",
             Timestamp.from(NOW)
+        );
+        UUID formDraftId = UUID.randomUUID();
+        jdbc.update(
+            """
+            insert into ap_form_design_draft (
+                tenant_id, draft_id, form_key, name, form_version,
+                ui_schema_version, form_schema_json, ui_schema_json,
+                revision, status, created_by, updated_by, created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, cast(? as jsonb), cast(? as jsonb),
+                      1, 'DRAFT', 'publisher', 'publisher', ?, ?)
+            """,
+            tenantId,
+            formDraftId,
+            "purchase-payment-form",
+            "Purchase payment form",
+            FORM_VERSION,
+            UI_SCHEMA_VERSION,
+            "{}",
+            "{}",
+            Timestamp.from(NOW),
+            Timestamp.from(NOW)
+        );
+        jdbc.update(
+            """
+            insert into ap_form_package (
+                tenant_id, form_key, package_version, form_version, form_hash,
+                ui_schema_version, ui_schema_hash, package_hash, source_draft_id,
+                published_by, published_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            tenantId,
+            "purchase-payment-form",
+            FORM_PACKAGE_VERSION,
+            FORM_VERSION,
+            FORM_CONTENT_HASH,
+            UI_SCHEMA_VERSION,
+            UI_SCHEMA_HASH,
+            FORM_PACKAGE_HASH,
+            formDraftId,
+            "publisher",
+            Timestamp.from(NOW)
+        );
+        jdbc.update(
+            """
+            update ap_form_design_draft
+            set status = 'PUBLISHED', published_package_version = ?
+            where tenant_id = ? and draft_id = ?
+            """,
+            FORM_PACKAGE_VERSION,
+            tenantId,
+            formDraftId
         );
     }
 
@@ -320,13 +375,13 @@ class JdbcApprovalTaskQueryIntegrationTest {
             "purchase-payment",
             1,
             "purchase-payment-form",
-            1,
+            FORM_VERSION,
             "approval-compiler-v1",
             "a".repeat(64),
-            RELEASE_VERSION,
-            RELEASE_HASH,
+            null,
+            null,
             FORM_PACKAGE_VERSION,
-            FORM_HASH,
+            FORM_PACKAGE_HASH,
             UI_SCHEMA_VERSION,
             UI_SCHEMA_HASH,
             "definition-" + tenantId,
