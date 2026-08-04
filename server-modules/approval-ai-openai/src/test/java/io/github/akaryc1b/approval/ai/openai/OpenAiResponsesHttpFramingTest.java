@@ -17,6 +17,7 @@ class OpenAiResponsesHttpFramingTest {
         OpenAiResponsesNetworkSupport.ExchangeResult result = parse(
             "HTTP/1.1 200 OK\r\n"
                 + "Content-Length: 2\r\n"
+                + "Content-Encoding: identity\r\n"
                 + "X-Request-Id: req_fixture\r\n"
                 + "Content-Type: application/json\r\n"
                 + "\r\n{}"
@@ -65,6 +66,20 @@ class OpenAiResponsesHttpFramingTest {
             "HTTP/1.1 200 OK\r\n"
                 + "Content-Length: 2\r\n"
                 + "Transfer-Encoding: chunked\r\n\r\n{}",
+            OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID
+        );
+    }
+
+    @Test
+    void whitespaceBeforeColonAndControlCharactersFailClosed() {
+        assertFailure(
+            "HTTP/1.1 200 OK\r\nContent-Length : 2\r\n\r\n{}",
+            OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID
+        );
+        assertFailure(
+            "HTTP/1.1 200 OK\r\n"
+                + "Content-Length: 2\r\n"
+                + "X-Ambiguous: bad\u0000value\r\n\r\n{}",
             OpenAiResponsesTransportException.Failure.HTTP_PROTOCOL_INVALID
         );
     }
