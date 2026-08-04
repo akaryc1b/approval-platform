@@ -67,7 +67,15 @@ function filesUnder(directory) {
   return output;
 }
 
-test('P5 server surface is tenant-scoped GET-only and unavailable before P6', () => {
+function exportedFunction(source, name) {
+  const match = source.match(new RegExp(
+    `export function ${name}\\([\\s\\S]*?\\n\\}`,
+  ));
+  assert.ok(match, `missing exported function ${name}`);
+  return match[0];
+}
+
+test('P5 server surface remains tenant-scoped GET-only and zero-egress', () => {
   for (const requiredPath of [
     contractPath,
     controllerPath,
@@ -157,6 +165,7 @@ test('P5 server surface is tenant-scoped GET-only and unavailable before P6', ()
   const serverPom = text(serverPomPath);
   assert.match(serverPom, /<artifactId>approval-ai-spi<\/artifactId>/);
   assert.match(serverPom, /<artifactId>approval-ai-core<\/artifactId>/);
+  assert.match(serverPom, /<artifactId>approval-ai-openai<\/artifactId>/);
 
   const versioned = filesUnder(migrationRoot).map((file) => {
     const name = path.basename(file);
@@ -170,7 +179,7 @@ test('P5 server surface is tenant-scoped GET-only and unavailable before P6', ()
   assert.deepEqual(versioned.filter(({ version }) => version >= 50), []);
 });
 
-test('P5 Web and Mobile clients expose only read-only advisory presentation', () => {
+test('P5 GET stays zero-egress while P6-E adds one distinct explicit POST', () => {
   for (const requiredPath of [
     webApiPath,
     mobileApiPath,
@@ -179,7 +188,7 @@ test('P5 Web and Mobile clients expose only read-only advisory presentation', ()
     webDetailPath,
     mobileDetailPath,
   ]) {
-    assert.equal(existsSync(requiredPath), true, `missing P5 client source ${requiredPath}`);
+    assert.equal(existsSync(requiredPath), true, `missing assistance client ${requiredPath}`);
   }
 
   const webApi = text(webApiPath);
@@ -198,13 +207,23 @@ test('P5 Web and Mobile clients expose only read-only advisory presentation', ()
     /providerInvocationStarted: false/,
     /providerSelectable: false/,
     /resultAvailable: false/,
-    /\/approval\/tasks\/\$\{encodeURIComponent\(taskId\)\}\/assistance/,
-    /method: 'GET'/,
   ]) {
     assert.match(clients, required);
   }
+
+  for (const api of [webApi, mobileApi]) {
+    const find = exportedFunction(api, 'findApprovalAssistance');
+    assert.match(find, /\/approval\/tasks\/\$\{encodeURIComponent\(taskId\)\}\/assistance/);
+    assert.match(find, /method: 'GET'/);
+    assert.doesNotMatch(find, /method: 'POST'|assistance\/generations/);
+
+    const generate = exportedFunction(api, 'generateApprovalAssistance');
+    assert.match(generate, /assistance\/generations/);
+    assert.match(generate, /method: 'POST'/);
+    assert.match(generate, /JSON\.stringify\(\{ useCase \}\)/);
+  }
+
   for (const forbidden of [
-    /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i,
     /Idempotency-Key/i,
     /X-Approval-Reason/i,
     /approveTask|rejectTask|transferTask|resubmitTask|withdrawInstance|retrieveTask/,
@@ -222,8 +241,10 @@ test('P5 Web and Mobile clients expose only read-only advisory presentation', ()
     /UNVERIFIED_ADVISORY/,
     /必须人工复核/,
     /AI 不拥有审批权限/,
-    /生产 AI Provider 尚未配置/,
-    /当前不会生成或伪造任何 AI 内容/,
+    /显式生成 AI 建议/,
+    /仅本次点击触发一次/,
+    /generateApprovalAssistance/,
+    /@click="generateAssistance"/,
     /本区域不会填写审批意见/,
     /不提供同意、驳回、转办或其他命令/,
     /findApprovalAssistance/,
@@ -236,6 +257,7 @@ test('P5 Web and Mobile clients expose only read-only advisory presentation', ()
     /approveTask|rejectTask|transferTask|resubmitTask|withdrawInstance|retrieveTask/,
     /@click=['"]submit(?:Approval|Rejection|Transfer|Resubmission)/,
     /providerId|modelId|routeId|promptTemplateId|secret/i,
+    /setInterval|poll|autoGenerate/i,
   ]) {
     assert.doesNotMatch(panels, forbidden);
   }
