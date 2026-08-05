@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  apply-p4-final-correction:
+  apply-p4-packaging-correction:
     if: github.event.pull_request.head.ref == 'agent/m6-f-controlled-automation-and-ai-governance'
     runs-on: ubuntu-24.04
     env:
@@ -24,7 +24,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Apply exact final P4 correction
+      - name: Apply exact P4 packaging correction
         shell: bash
         run: |
           set -euo pipefail
@@ -44,8 +44,63 @@ jobs:
           )
           replace(
               configuration,
-              "org.springframework.boot.autoconfigure.flyway.FlywayConfigurationCustomizer",
-              "org.springframework.boot.flyway.autoconfigure.FlywayConfigurationCustomizer",
+              "import org.springframework.boot.autoconfigure.flyway."
+              "FlywayConfigurationCustomizer;\n",
+              "",
+          )
+          replace(
+              configuration,
+              "    @Bean\n"
+              "    FlywayConfigurationCustomizer controlledAutomationFlywayLocations() {\n"
+              "        return configuration -> configuration.locations(\n"
+              "            \"classpath:db/migration\",\n"
+              "            \"classpath:m6f/db/migration\"\n"
+              "        );\n"
+              "    }\n\n",
+              "",
+          )
+
+          persistence_pom = "server-modules/approval-persistence-jdbc/pom.xml"
+          replace(
+              persistence_pom,
+              "    <build>\n        <plugins>\n",
+              "    <build>\n"
+              "        <resources>\n"
+              "            <resource>\n"
+              "                <directory>src/main/resources</directory>\n"
+              "                <excludes>\n"
+              "                    <exclude>m6f/db/migration/**</exclude>\n"
+              "                </excludes>\n"
+              "            </resource>\n"
+              "            <resource>\n"
+              "                <directory>src/main/resources/m6f/db/migration</directory>\n"
+              "                <targetPath>db/migration/m6f</targetPath>\n"
+              "                <filtering>false</filtering>\n"
+              "            </resource>\n"
+              "        </resources>\n"
+              "        <plugins>\n",
+          )
+
+          integration = (
+              "server-modules/approval-persistence-jdbc/src/test/java/"
+              "io/github/akaryc1b/approval/persistence/jdbc/"
+              "JdbcControlledAutomationLineageStoreIntegrationTest.java"
+          )
+          replace(
+              integration,
+              '.locations("classpath:db/migration", "classpath:m6f/db/migration")',
+              '.locations("classpath:db/migration")',
+          )
+
+          support = (
+              "server-modules/approval-persistence-jdbc/src/test/java/"
+              "io/github/akaryc1b/approval/persistence/jdbc/"
+              "JdbcApprovalMigrationUpgradeSupport.java"
+          )
+          replace(
+              support,
+              '.locations("classpath:db/migration", "classpath:m6f/db/migration");',
+              '.locations("classpath:db/migration");',
           )
 
           migration = (
@@ -61,11 +116,14 @@ jobs:
               migration,
               "select revision,status,current_event_hash,operator_evidence_hash\n"
               " into current_revision,current_status,current_event_hash,current_operator_hash\n"
-              " from ap_ai_controlled_automation_lineage\n",
-              "select lineage.revision,lineage.status,lineage.current_event_hash,\n"
-              "       lineage.operator_evidence_hash\n"
+              " from ap_ai_controlled_automation_lineage\n"
+              " where tenant_evidence_hash=new.tenant_evidence_hash and proposal_id=new.proposal_id;",
+              "select stored.revision,stored.status,stored.current_event_hash,\n"
+              "       stored.operator_evidence_hash\n"
               " into current_revision,current_status,lineage_event_hash,current_operator_hash\n"
-              " from ap_ai_controlled_automation_lineage lineage\n",
+              " from ap_ai_controlled_automation_lineage stored\n"
+              " where stored.tenant_evidence_hash=new.tenant_evidence_hash\n"
+              "  and stored.proposal_id=new.proposal_id;",
           )
           replace(
               migration,
@@ -88,12 +146,47 @@ jobs:
               "v32BackfillRemainsValidWhenRepositoryAdvancesThroughGovernedV49",
               "v32BackfillRemainsValidWhenRepositoryAdvancesThroughGovernedV50",
           )
-          replace(
-              release_test,
-              '.locations("classpath:db/migration")',
-              '.locations("classpath:db/migration", "classpath:m6f/db/migration")',
-          )
           replace(release_test, 'assertEquals("49",', 'assertEquals("50",')
+
+          boundary = Path("scripts/tests/m6-f-p4-durable-lineage-boundary.test.mjs")
+          boundary_text = boundary.read_text()
+          marker = """const configuration = read(
+            'apps/server/src/main/java/io/github/akaryc1b/approval/config/'
+              + 'ControlledAutomationLineageConfiguration.java',
+          );
+          """
+          addition = marker + """const persistencePom = read(
+            'server-modules/approval-persistence-jdbc/pom.xml',
+          );
+          """
+          if marker not in boundary_text:
+              raise SystemExit("P4 boundary configuration marker is missing")
+          boundary_text = boundary_text.replace(marker, addition, 1)
+          old_assertions = """  assert.match(configuration, /UUID::randomUUID/);
+            assert.doesNotMatch(configuration, /@RestController|@PostMapping|ApprovalMessageService/);
+          """
+          new_assertions = """  assert.match(configuration, /UUID::randomUUID/);
+            assert.doesNotMatch(
+              configuration,
+              /FlywayConfigurationCustomizer|@RestController|@PostMapping|ApprovalMessageService/,
+            );
+            assert.match(persistencePom, /<exclude>m6f\\/db\\/migration\\/\\*\\*<\\/exclude>/);
+            assert.match(persistencePom, /<targetPath>db\\/migration\\/m6f<\\/targetPath>/);
+          """
+          if old_assertions not in boundary_text:
+              raise SystemExit("P4 boundary server assertion marker is missing")
+          boundary.write_text(boundary_text.replace(old_assertions, new_assertions, 1))
+
+          document = "docs/m6/M6_F_P4_DURABLE_LINEAGE_CAS_REPLAY_ACCEPTANCE.md"
+          replace(
+              document,
+              "Flyway scans configured migration locations recursively, allowing the M6-F migration "
+              "to remain in an\nexplicit ownership subdirectory while retaining global version ordering.",
+              "The persistence module keeps V50 in its explicit M6-F source ownership directory and "
+              "maps it during Maven resource processing to runtime `classpath:db/migration/m6f`. "
+              "Flyway therefore remains on the standard migration location while global version "
+              "ordering is retained.",
+          )
           PY
           git fetch origin main --depth=1
           git show origin/main:.github/workflows/approval-platform-validation.yml \
@@ -104,12 +197,12 @@ jobs:
           mvn -B -ntp -pl :approval-persistence-jdbc -am test \
             -Dtest=io.github.akaryc1b.approval.persistence.jdbc.JdbcControlledAutomationLineageStoreIntegrationTest,io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalReleaseLifecycleMigrationIntegrationTest \
             -Dsurefire.failIfNoSpecifiedTests=false
-      - name: Commit final P4 correction
+      - name: Commit verified P4 correction
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "approval-platform automation"
           git config user.email "approval-platform-automation@users.noreply.github.com"
           git add -A
-          git commit -m "fix(m6-f): close P4 Flyway and trigger defects"
+          git commit -m "fix(m6-f): package V50 through standard Flyway location"
           git push origin "HEAD:${TARGET_BRANCH}"
