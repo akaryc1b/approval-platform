@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.ai.openai;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -12,11 +13,13 @@ import java.util.regex.Pattern;
  *
  * <p>The ledger is observational only. It does not authorize, reserve, rate-limit, bill or retry
  * work. Entries are tenant-hash scoped, bounded by the production rate envelope and reset when the
- * process or configured rate window changes.</p>
+ * process restarts. A small fixed number of adjacent admission windows is retained so a dispatch
+ * that crosses a rate-window boundary cannot overwrite newer usage.</p>
  */
 public final class OpenAiResponsesRuntimeUsageLedger {
 
     private static final Pattern SHA256 = Pattern.compile("[0-9a-f]{64}");
+    private static final int MAXIMUM_TRACKED_WINDOWS = 4;
 
     private final int perTenantLimit;
     private final int globalLimit;
@@ -25,8 +28,8 @@ public final class OpenAiResponsesRuntimeUsageLedger {
     private final long maximumRequestMicros;
     private final long tenantEnvelopeMicros;
     private final long globalEnvelopeMicros;
-    private final Map<String, Bucket> tenantBuckets = new HashMap<>();
-    private Bucket globalBucket;
+    private final Map<String, Map<Instant, Bucket>> tenantBuckets = new HashMap<>();
+    private final Map<Instant, Bucket> globalBuckets = new HashMap<>();
 
     public OpenAiResponsesRuntimeUsageLedger(
         int perTenantLimit,
@@ -69,31 +72,32 @@ public final class OpenAiResponsesRuntimeUsageLedger {
         this.maximumRequestMicros = maximumRequestMicros;
     }
 
-    /** Records one request only after the transport admission has been committed for dispatch. */
+    /**
+     * Records one request only after admission is committed, in the original rate window.
+     */
     public synchronized void recordDispatched(
         String tenantHash,
-        Instant dispatchedAt,
+        Instant rateWindowStart,
         long estimatedUpperBoundMicros
     ) {
         String tenant = requireHash(tenantHash, "tenantHash");
-        Instant now = Objects.requireNonNull(dispatchedAt, "dispatchedAt must not be null");
+        Instant start = requireWindowStart(rateWindowStart);
         if (estimatedUpperBoundMicros < 1
             || estimatedUpperBoundMicros > maximumRequestMicros) {
             throw new IllegalArgumentException(
                 "estimatedUpperBoundMicros must be positive and request-bounded"
             );
         }
-        Instant start = windowStart(now, window);
-        tenantBuckets.entrySet().removeIf(entry -> !entry.getValue().start.equals(start));
-        globalBucket = current(globalBucket, start);
-        Bucket tenantBucket = tenantBuckets.get(tenant);
-        if (tenantBucket == null) {
+        Map<Instant, Bucket> tenantWindows = tenantBuckets.get(tenant);
+        if (tenantWindows == null) {
             if (tenantBuckets.size() >= maximumTenants) {
                 throw new IllegalStateException("AI usage tenant capacity exceeded");
             }
-            tenantBucket = new Bucket(start);
-            tenantBuckets.put(tenant, tenantBucket);
+            tenantWindows = new HashMap<>();
+            tenantBuckets.put(tenant, tenantWindows);
         }
+        Bucket tenantBucket = tenantWindows.computeIfAbsent(start, Bucket::new);
+        Bucket globalBucket = globalBuckets.computeIfAbsent(start, Bucket::new);
         if (tenantBucket.committedRequests >= perTenantLimit
             || globalBucket.committedRequests >= globalLimit) {
             throw new IllegalStateException("AI usage ledger drifted beyond rate limits");
@@ -112,6 +116,8 @@ public final class OpenAiResponsesRuntimeUsageLedger {
         tenantBucket.committedUpperBoundMicros = nextTenant;
         globalBucket.committedRequests++;
         globalBucket.committedUpperBoundMicros = nextGlobal;
+        retainNewest(tenantWindows);
+        retainNewest(globalBuckets);
     }
 
     /** Returns a side-effect-free tenant-scoped snapshot without creating a tenant bucket. */
@@ -120,14 +126,14 @@ public final class OpenAiResponsesRuntimeUsageLedger {
         Instant now = Objects.requireNonNull(observedAt, "observedAt must not be null");
         Instant start = windowStart(now, window);
         Instant end = start.plus(window);
-        Bucket tenantBucket = matching(tenantBuckets.get(tenant), start);
-        Bucket global = matching(globalBucket, start);
+        Bucket tenantBucket = bucket(tenantBuckets.get(tenant), start);
+        Bucket globalBucket = globalBuckets.get(start);
         int tenantRequests = tenantBucket == null ? 0 : tenantBucket.committedRequests;
         long tenantMicros = tenantBucket == null
             ? 0
             : tenantBucket.committedUpperBoundMicros;
-        boolean globalSaturated = global != null
-            && global.committedRequests >= globalLimit;
+        boolean globalSaturated = globalBucket != null
+            && globalBucket.committedRequests >= globalLimit;
         String evidenceHash = OpenAiResponsesProtocol.sha256Utf8(String.join(
             "\n",
             "openai-responses-process-usage-v1",
@@ -217,6 +223,20 @@ public final class OpenAiResponsesRuntimeUsageLedger {
         }
     }
 
+    private static Bucket bucket(Map<Instant, Bucket> windows, Instant start) {
+        return windows == null ? null : windows.get(start);
+    }
+
+    private Instant requireWindowStart(Instant value) {
+        Instant start = Objects.requireNonNull(value, "rateWindowStart must not be null");
+        if (!start.equals(windowStart(start, window))) {
+            throw new IllegalArgumentException(
+                "rateWindowStart must align with the configured rate window"
+            );
+        }
+        return start;
+    }
+
     private static long addBounded(long current, long delta, long maximum) {
         try {
             long next = Math.addExact(current, delta);
@@ -229,12 +249,13 @@ public final class OpenAiResponsesRuntimeUsageLedger {
         }
     }
 
-    private static Bucket current(Bucket source, Instant start) {
-        return source == null || !source.start.equals(start) ? new Bucket(start) : source;
-    }
-
-    private static Bucket matching(Bucket source, Instant start) {
-        return source != null && source.start.equals(start) ? source : null;
+    private static void retainNewest(Map<Instant, Bucket> windows) {
+        while (windows.size() > MAXIMUM_TRACKED_WINDOWS) {
+            Instant oldest = windows.keySet().stream()
+                .min(Comparator.naturalOrder())
+                .orElseThrow();
+            windows.remove(oldest);
+        }
     }
 
     private static Instant windowStart(Instant now, Duration window) {
