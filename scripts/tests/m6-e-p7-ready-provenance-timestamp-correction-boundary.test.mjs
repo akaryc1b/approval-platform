@@ -21,11 +21,17 @@ const jdbcQuery = source(
 const jdbcTest = source(
   'server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalTaskQueryIntegrationTest.java',
 );
+const projectionModel = source(
+  'server-modules/approval-ai-core/src/main/java/io/github/akaryc1b/approval/ai/core/ApprovalAssistanceContextProjection.java',
+);
 const service = source(
   'apps/server/src/main/java/io/github/akaryc1b/approval/api/ApprovalAssistanceGenerationService.java',
 );
 const serviceTest = source(
   'apps/server/src/test/java/io/github/akaryc1b/approval/api/ApprovalAssistanceGenerationServiceTest.java',
+);
+const fieldCountTest = source(
+  'apps/server/src/test/java/io/github/akaryc1b/approval/api/ApprovalAssistanceGenerationProjectionFieldCountTest.java',
 );
 
 test('pending task contract carries complete trusted release form and UI provenance', () => {
@@ -80,7 +86,7 @@ test('JDBC resolves the exact instance package before form and UI definitions', 
   );
 });
 
-test('generation projects actual release form content and UI provenance fail closed', () => {
+test('generation separates Provider metadata from trusted Form field counts', () => {
   const provenanceGate = service.indexOf('if (!hasTrustedSchemaProvenance(task))');
   const projection = service.indexOf('ApprovalAssistanceContextProjection projection = projection(');
   const preProviderRead = service.indexOf(
@@ -101,25 +107,45 @@ test('generation projects actual release form content and UI provenance fail clo
   assert.equal((service.match(/orchestrator\.execute\s*\(/g) || []).length, 1);
   assert.equal((service.match(/evidenceStore\.store\s*\(/g) || []).length, 1);
 
+  assert.match(projectionModel, /int formProviderFieldCount/);
   assert.match(
-    service,
-    /task\.formKey\(\),\s*task\.formVersion\(\),\s*task\.releaseVersion\(\),\s*task\.releasePackageHash\(\)/,
+    projectionModel,
+    /providerFieldCount,\s*providerFieldCount,\s*maskedFieldCount/,
   );
   assert.match(
-    service,
-    /task\.formKey\(\),\s*task\.formVersion\(\),\s*task\.formSchemaVersion\(\),\s*task\.formContentHash\(\),\s*task\.formSchemaFieldCount\(\),\s*task\.uiSchemaVersion\(\),\s*task\.uiSchemaHash\(\)/,
+    projectionModel,
+    /formProviderFieldCount\(\) \+ evidence\.omittedFieldCount\(\)/,
   );
-  assert.doesNotMatch(service, /"ui-v1"/);
-  assert.match(service, /task\.formSchemaFieldCount\(\) >= 1/);
-  assert.match(service, /task\.formSchemaFieldCount\(\) <= 500/);
   assert.match(
+    projectionModel,
+    /Form Provider fields cannot exceed total Provider fields/,
+  );
+  assert.match(
+    projectionModel,
+    /Form Provider fields cannot exceed authorized visible Form fields/,
+  );
+
+  assert.match(service, /List<AiProviderRequest\.InputField> metadataFields/);
+  assert.match(service, /List<AiProviderRequest\.InputField> formFields/);
+  assert.match(service, /add\(metadataFields, "definitionKey"/);
+  assert.match(service, /add\(metadataFields, "taskName"/);
+  assert.match(service, /add\(metadataFields, "businessKey"/);
+  assert.match(service, /add\(formFields, "amount"/);
+  assert.match(service, /add\(formFields, "supplier"/);
+  assert.match(service, /formFields,\s*"purchaseOrderReference"/);
+  assert.match(service, /fields\.addAll\(metadataFields\)/);
+  assert.match(service, /fields\.addAll\(formFields\)/);
+  assert.match(
+    service,
+    /int omittedFieldCount = task\.formSchemaFieldCount\(\) - formFields\.size\(\)/,
+  );
+  assert.doesNotMatch(
     service,
     /int omittedFieldCount = task\.formSchemaFieldCount\(\) - fields\.size\(\)/,
   );
-  assert.match(service, /Provider-safe fields cannot exceed the trusted form schema field count/);
   assert.match(
     service,
-    /fields\.size\(\),\s*fields\.size\(\),\s*0,\s*omittedFieldCount,\s*0,\s*false/,
+    /formFields\.size\(\),\s*fields\.size\(\),\s*formFields\.size\(\),\s*0,\s*omittedFieldCount/,
   );
 });
 
@@ -137,13 +163,18 @@ test('all hashed evidence instants are normalized before construction and storag
   assert.match(serviceTest, /store\.lastEvidence\.retentionUntil\(\)\.getNano\(\) % 1_000/);
 });
 
-test('directed tests prove actual values and legacy snapshots remain fail closed', () => {
+test('directed tests prove exact provenance and normal four-field projection', () => {
   assert.match(serviceTest, /missingTrustedSchemaProvenanceFailsBeforeRuntimeBinding/);
   assert.match(serviceTest, /projectionUsesExactTrustedReleaseFormAndUiProvenance/);
   assert.match(serviceTest, /FORM_PACKAGE_HASH/);
   assert.match(serviceTest, /FORM_CONTENT_HASH/);
   assert.match(serviceTest, /assertEquals\(RELEASE_VERSION, projection\.process\(\)\.releaseVersion\(\)\)/);
   assert.match(serviceTest, /assertEquals\(FORM_CONTENT_HASH, projection\.form\(\)\.formContentHash\(\)\)/);
+  assert.match(fieldCountTest, /processMetadataDoesNotConsumeTrustedFormSchemaFieldCount/);
+  assert.match(fieldCountTest, /assertEquals\(6, projection\.providerFields\(\)\.size\(\)\)/);
+  assert.match(fieldCountTest, /assertEquals\(4, projection\.form\(\)\.schemaFieldCount\(\)\)/);
+  assert.match(fieldCountTest, /assertEquals\(3, projection\.evidence\(\)\.formProviderFieldCount\(\)\)/);
+  assert.match(fieldCountTest, /assertEquals\(1, projection\.evidence\(\)\.omittedFieldCount\(\)\)/);
   assert.match(jdbcTest, /assertNull\(pending\.releaseVersion\(\)\)/);
   assert.match(jdbcTest, /assertNull\(pending\.releasePackageHash\(\)\)/);
   assert.match(jdbcTest, /assertNull\(pending\.formPackageVersion\(\)\)/);
