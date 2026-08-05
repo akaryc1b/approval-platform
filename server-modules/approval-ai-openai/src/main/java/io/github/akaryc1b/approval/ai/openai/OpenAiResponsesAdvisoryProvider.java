@@ -164,15 +164,17 @@ public final class OpenAiResponsesAdvisoryProvider implements AiAdvisoryProvider
                     "AI_OPENAI_TRANSPORT_EVIDENCE_MISSING"
                 );
             }
+            OpenAiResponsesTransportPort.Response normalized =
+                OpenAiResponsesOutputNormalizer.normalize(response);
             OpenAiResponsesProtocol.DecodedResponse decoded = decoder.decode(
-                response,
+                normalized,
                 new OpenAiResponsesProtocol.DecodeExpectations(
                     request.versions(),
                     outputLimits,
                     request.inputFields().stream()
                         .map(AiProviderRequest.InputField::key)
                         .collect(Collectors.toUnmodifiableSet()),
-                    response.transportEvidence().clientRequestIdHash()
+                    normalized.transportEvidence().clientRequestIdHash()
                 )
             );
             cancellation.throwIfCancellationRequested();
