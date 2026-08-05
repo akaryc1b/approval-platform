@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -33,7 +34,6 @@ import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ControlledAutomationGovernanceEvaluatorTest {
 
@@ -52,7 +52,7 @@ class ControlledAutomationGovernanceEvaluatorTest {
 
     @Test
     void everyEvaluationReloadsFreshGovernanceAndWhitelistAndRemainsReadOnly() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
+        ControlledAutomationProposal proposal = activeProposal();
         AtomicInteger snapshots = new AtomicInteger();
         AtomicInteger whitelists = new AtomicInteger();
         ControlledAutomationGovernanceEvaluator evaluator = new ControlledAutomationGovernanceEvaluator(
@@ -76,19 +76,9 @@ class ControlledAutomationGovernanceEvaluatorTest {
             proposal
         );
 
-        assertEquals(EvaluationDecision.ELIGIBLE, first.decision());
-        assertEquals(ReasonCode.ELIGIBLE_FRESH, first.reasonCode());
+        assertDecision(first, EvaluationDecision.ELIGIBLE, ReasonCode.ELIGIBLE_FRESH);
         assertEquals(2, snapshots.get());
         assertEquals(2, whitelists.get());
-        assertFalse(first.businessSideEffectProduced());
-        assertFalse(first.providerInvoked());
-        assertFalse(first.connectorInvoked());
-        assertFalse(first.commandAttempted());
-        assertEquals(
-            ControlledAutomationGovernanceEvaluator.PreviewAuthority
-                .READ_ONLY_NON_EXECUTING_PREVIEW,
-            first.authority()
-        );
         assertEquals(first.evidenceHash(), second.evidenceHash());
         assertEquals(proposal.sideEffectSummary(), first.sideEffectSummary());
         assertEquals(proposal.riskClassification(), first.riskClassification());
@@ -96,26 +86,23 @@ class ControlledAutomationGovernanceEvaluatorTest {
 
     @Test
     void currentEmptyWhitelistFailsActionNotWhitelisted() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
-        ControlledAutomationGovernanceEvaluator evaluator = evaluator(
+        ControlledAutomationProposal proposal = activeProposal();
+        ControlledAutomationGovernanceEvaluator.EvaluationResult result = evaluator(
             proposal,
             ignored -> { },
             ControlledAutomationActionWhitelist.empty("test-whitelist-v1")
-        );
+        ).evaluate(context("tenant-a", "operator-a"), proposal);
 
-        ControlledAutomationGovernanceEvaluator.EvaluationResult result = evaluator.evaluate(
-            context("tenant-a", "operator-a"),
-            proposal
+        assertDecision(
+            result,
+            EvaluationDecision.ACTION_NOT_WHITELISTED,
+            ReasonCode.ACTION_MISSING_FROM_WHITELIST
         );
-
-        assertEquals(EvaluationDecision.ACTION_NOT_WHITELISTED, result.decision());
-        assertEquals(ReasonCode.ACTION_MISSING_FROM_WHITELIST, result.reasonCode());
-        assertFalse(result.commandAttempted());
     }
 
     @Test
     void forgedTenantAndOperatorFailClosed() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
+        ControlledAutomationProposal proposal = activeProposal();
         ControlledAutomationGovernanceEvaluator evaluator = evaluator(
             proposal,
             ignored -> { },
@@ -135,23 +122,15 @@ class ControlledAutomationGovernanceEvaluatorTest {
     }
 
     @Test
-    void inactiveExpiredAndTamperedProposalFailClosed() {
-        ControlledAutomationProposal active = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
+    void inactiveExpiredAndLineageTamperedProposalFailClosed() {
+        ControlledAutomationProposal active = activeProposal();
         assertDecision(
-            evaluator(
-                active,
-                mutable -> mutable.proposalStatus = ProposalStatus.CANCELLED,
-                whitelist("test-whitelist-v1", testAction())
-            ).evaluate(context("tenant-a", "operator-a"), active),
+            evaluate(active, mutable -> mutable.proposalStatus = ProposalStatus.CANCELLED),
             EvaluationDecision.INELIGIBLE,
             ReasonCode.PROPOSAL_NOT_ACTIVE
         );
         assertDecision(
-            evaluator(
-                active,
-                mutable -> mutable.proposalLineageHash = "f".repeat(64),
-                whitelist("test-whitelist-v1", testAction())
-            ).evaluate(context("tenant-a", "operator-a"), active),
+            evaluate(active, mutable -> mutable.proposalLineageHash = "f".repeat(64)),
             EvaluationDecision.INELIGIBLE,
             ReasonCode.PROPOSAL_NOT_ACTIVE
         );
@@ -161,11 +140,7 @@ class ControlledAutomationGovernanceEvaluatorTest {
             NOW.minusSeconds(1)
         );
         assertDecision(
-            evaluator(
-                expired,
-                ignored -> { },
-                whitelist("test-whitelist-v1", testAction())
-            ).evaluate(context("tenant-a", "operator-a"), expired),
+            evaluate(expired, ignored -> { }),
             EvaluationDecision.EXPIRED,
             ReasonCode.PROPOSAL_EXPIRED
         );
@@ -173,36 +148,23 @@ class ControlledAutomationGovernanceEvaluatorTest {
 
     @Test
     void deletedMismatchedAndTamperedSourceEvidenceFailClosed() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
-
+        ControlledAutomationProposal proposal = activeProposal();
         assertDecision(
-            evaluator(
-                proposal,
-                mutable -> {
-                    mutable.sourceEvidencePresent = false;
-                    mutable.sourceEvidenceId = null;
-                    mutable.sourceEvidenceHash = null;
-                },
-                whitelist("test-whitelist-v1", testAction())
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
+            evaluate(proposal, mutable -> {
+                mutable.sourceEvidencePresent = false;
+                mutable.sourceEvidenceId = null;
+                mutable.sourceEvidenceHash = null;
+            }),
             EvaluationDecision.SOURCE_EVIDENCE_INVALID,
             ReasonCode.SOURCE_EVIDENCE_MISSING
         );
         assertDecision(
-            evaluator(
-                proposal,
-                mutable -> mutable.sourceEvidenceHash = "f".repeat(64),
-                whitelist("test-whitelist-v1", testAction())
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
+            evaluate(proposal, mutable -> mutable.sourceEvidenceHash = "f".repeat(64)),
             EvaluationDecision.SOURCE_EVIDENCE_INVALID,
             ReasonCode.SOURCE_EVIDENCE_MISMATCH
         );
         assertDecision(
-            evaluator(
-                proposal,
-                mutable -> mutable.sourceEvidenceIntegrityValid = false,
-                whitelist("test-whitelist-v1", testAction())
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
+            evaluate(proposal, mutable -> mutable.sourceEvidenceIntegrityValid = false),
             EvaluationDecision.SOURCE_EVIDENCE_INVALID,
             ReasonCode.SOURCE_EVIDENCE_INTEGRITY_INVALID
         );
@@ -210,7 +172,7 @@ class ControlledAutomationGovernanceEvaluatorTest {
 
     @Test
     void whitelistVersionAndDefinitionDriftFailClosed() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
+        ControlledAutomationProposal proposal = activeProposal();
         assertDecision(
             evaluator(
                 proposal,
@@ -240,161 +202,102 @@ class ControlledAutomationGovernanceEvaluatorTest {
     }
 
     @Test
-    void policyFeatureAndKillSwitchChangesImmediatelyFailClosed() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
-        ControlledAutomationActionWhitelist whitelist = whitelist(
-            "test-whitelist-v1",
-            testAction()
-        );
-
-        assertDecision(
-            evaluator(
-                proposal,
+    void policyAuthorizationStateAndHumanGatesFailClosed() {
+        ControlledAutomationProposal proposal = activeProposal();
+        List<DecisionCase> cases = List.of(
+            decision(
                 mutable -> mutable.currentPolicy = new PolicyEvidence(
                     "test-policy-v2",
                     "f".repeat(64)
                 ),
-                whitelist
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.POLICY_BLOCKED,
-            ReasonCode.POLICY_VERSION_DRIFT
-        );
-        assertDecision(
-            evaluator(proposal, mutable -> mutable.policyAllowed = false, whitelist)
-                .evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.POLICY_BLOCKED,
-            ReasonCode.POLICY_DENIED
-        );
-        assertDecision(
-            evaluator(proposal, mutable -> mutable.featureEnabled = false, whitelist)
-                .evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.POLICY_BLOCKED,
-            ReasonCode.FEATURE_DISABLED
-        );
-        assertDecision(
-            evaluator(proposal, mutable -> mutable.killSwitchActive = true, whitelist)
-                .evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.POLICY_BLOCKED,
-            ReasonCode.KILL_SWITCH_ACTIVE
-        );
-    }
-
-    @Test
-    void revokedPermissionAndResourceAuthorizationFailClosed() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
-        ControlledAutomationActionWhitelist whitelist = whitelist(
-            "test-whitelist-v1",
-            testAction()
-        );
-
-        assertDecision(
-            evaluator(proposal, mutable -> mutable.permissionGranted = false, whitelist)
-                .evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.AUTHORIZATION_DENIED,
-            ReasonCode.PERMISSION_REVOKED
-        );
-        assertDecision(
-            evaluator(proposal, mutable -> mutable.resourceAuthorized = false, whitelist)
-                .evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.AUTHORIZATION_DENIED,
-            ReasonCode.RESOURCE_AUTHORIZATION_DENIED
-        );
-    }
-
-    @Test
-    void resourceIdentityStateAndVersionDriftAreStale() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
-        ControlledAutomationActionWhitelist whitelist = whitelist(
-            "test-whitelist-v1",
-            testAction()
-        );
-
-        assertDecision(
-            evaluator(
-                proposal,
+                EvaluationDecision.POLICY_BLOCKED,
+                ReasonCode.POLICY_VERSION_DRIFT
+            ),
+            decision(
+                mutable -> mutable.policyAllowed = false,
+                EvaluationDecision.POLICY_BLOCKED,
+                ReasonCode.POLICY_DENIED
+            ),
+            decision(
+                mutable -> mutable.featureEnabled = false,
+                EvaluationDecision.POLICY_BLOCKED,
+                ReasonCode.FEATURE_DISABLED
+            ),
+            decision(
+                mutable -> mutable.killSwitchActive = true,
+                EvaluationDecision.POLICY_BLOCKED,
+                ReasonCode.KILL_SWITCH_ACTIVE
+            ),
+            decision(
+                mutable -> mutable.permissionGranted = false,
+                EvaluationDecision.AUTHORIZATION_DENIED,
+                ReasonCode.PERMISSION_REVOKED
+            ),
+            decision(
+                mutable -> mutable.resourceAuthorized = false,
+                EvaluationDecision.AUTHORIZATION_DENIED,
+                ReasonCode.RESOURCE_AUTHORIZATION_DENIED
+            ),
+            decision(
                 mutable -> mutable.currentResource = resource(
                     "f".repeat(64),
                     "PENDING",
                     7
                 ),
-                whitelist
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.STALE,
-            ReasonCode.RESOURCE_EVIDENCE_DRIFT
-        );
-        assertDecision(
-            evaluator(
-                proposal,
+                EvaluationDecision.STALE,
+                ReasonCode.RESOURCE_EVIDENCE_DRIFT
+            ),
+            decision(
                 mutable -> mutable.currentResource = resource(
                     RESOURCE_ID_HASH,
                     "COMPLETED",
                     7
                 ),
-                whitelist
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.STALE,
-            ReasonCode.RESOURCE_STATE_DRIFT
-        );
-        assertDecision(
-            evaluator(
-                proposal,
+                EvaluationDecision.STALE,
+                ReasonCode.RESOURCE_STATE_DRIFT
+            ),
+            decision(
                 mutable -> mutable.currentResource = resource(
                     RESOURCE_ID_HASH,
                     "PENDING",
                     8
                 ),
-                whitelist
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.STALE,
-            ReasonCode.RESOURCE_VERSION_DRIFT
-        );
-    }
-
-    @Test
-    void separationPreconditionsAndReauthenticationFailClosed() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
-        ControlledAutomationActionWhitelist whitelist = whitelist(
-            "test-whitelist-v1",
-            testAction()
-        );
-
-        assertDecision(
-            evaluator(
-                proposal,
+                EvaluationDecision.STALE,
+                ReasonCode.RESOURCE_VERSION_DRIFT
+            ),
+            decision(
                 mutable -> mutable.separationOfDutiesAllowed = false,
-                whitelist
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.INELIGIBLE,
-            ReasonCode.SEPARATION_OF_DUTIES_DENIED
-        );
-        assertDecision(
-            evaluator(
-                proposal,
+                EvaluationDecision.INELIGIBLE,
+                ReasonCode.SEPARATION_OF_DUTIES_DENIED
+            ),
+            decision(
                 mutable -> mutable.commandPreconditionsSatisfied = false,
-                whitelist
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.INELIGIBLE,
-            ReasonCode.COMMAND_PRECONDITION_FAILED
-        );
-        assertDecision(
-            evaluator(
-                proposal,
+                EvaluationDecision.INELIGIBLE,
+                ReasonCode.COMMAND_PRECONDITION_FAILED
+            ),
+            decision(
                 mutable -> mutable.reauthenticationSatisfied = false,
-                whitelist
-            ).evaluate(context("tenant-a", "operator-a"), proposal),
-            EvaluationDecision.REAUTHENTICATION_REQUIRED,
-            ReasonCode.REAUTHENTICATION_REQUIRED
+                EvaluationDecision.REAUTHENTICATION_REQUIRED,
+                ReasonCode.REAUTHENTICATION_REQUIRED
+            )
         );
+
+        for (DecisionCase decisionCase : cases) {
+            assertDecision(
+                evaluate(proposal, decisionCase.changes()),
+                decisionCase.decision(),
+                decisionCase.reasonCode()
+            );
+        }
     }
 
     @Test
     void evaluationEvidenceBindsFreshSnapshotAndStateComparison() {
-        ControlledAutomationProposal proposal = proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
-        ControlledAutomationGovernanceEvaluator.EvaluationResult result = evaluator(
+        ControlledAutomationProposal proposal = activeProposal();
+        ControlledAutomationGovernanceEvaluator.EvaluationResult result = evaluate(
             proposal,
-            ignored -> { },
-            whitelist("test-whitelist-v1", testAction())
-        ).evaluate(context("tenant-a", "operator-a"), proposal);
+            ignored -> { }
+        );
 
         assertEquals(proposal.lineageHash(), result.proposalLineageHash());
         assertEquals(RESOURCE_ID_HASH, result.stateComparison().expectedResourceIdEvidenceHash());
@@ -403,6 +306,17 @@ class ControlledAutomationGovernanceEvaluatorTest {
         assertEquals(7, result.stateComparison().currentVersion());
         assertNotEquals(result.freshSnapshotHash(), result.evidenceHash());
         assertEquals(64, result.evidenceHash().length());
+    }
+
+    private static ControlledAutomationGovernanceEvaluator.EvaluationResult evaluate(
+        ControlledAutomationProposal proposal,
+        Consumer<MutableSnapshot> changes
+    ) {
+        return evaluator(
+            proposal,
+            changes,
+            whitelist("test-whitelist-v1", testAction())
+        ).evaluate(context("tenant-a", "operator-a"), proposal);
     }
 
     private static ControlledAutomationGovernanceEvaluator evaluator(
@@ -445,6 +359,10 @@ class ControlledAutomationGovernanceEvaluatorTest {
             mutable.reauthenticationSatisfied,
             NOW.minusMillis(1)
         );
+    }
+
+    private static ControlledAutomationProposal activeProposal() {
+        return proposal(NOW.minusSeconds(1), NOW.plusSeconds(300));
     }
 
     private static ControlledAutomationProposal proposal(Instant createdAt, Instant expiresAt) {
@@ -550,6 +468,14 @@ class ControlledAutomationGovernanceEvaluatorTest {
         );
     }
 
+    private static DecisionCase decision(
+        Consumer<MutableSnapshot> changes,
+        EvaluationDecision decision,
+        ReasonCode reasonCode
+    ) {
+        return new DecisionCase(changes, decision, reasonCode);
+    }
+
     private static void assertDecision(
         ControlledAutomationGovernanceEvaluator.EvaluationResult result,
         EvaluationDecision decision,
@@ -561,6 +487,13 @@ class ControlledAutomationGovernanceEvaluatorTest {
         assertFalse(result.providerInvoked());
         assertFalse(result.connectorInvoked());
         assertFalse(result.commandAttempted());
+    }
+
+    private record DecisionCase(
+        Consumer<MutableSnapshot> changes,
+        EvaluationDecision decision,
+        ReasonCode reasonCode
+    ) {
     }
 
     private static final class MutableSnapshot {
