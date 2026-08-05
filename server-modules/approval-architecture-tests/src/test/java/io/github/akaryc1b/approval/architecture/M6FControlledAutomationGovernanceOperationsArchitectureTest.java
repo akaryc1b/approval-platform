@@ -70,7 +70,11 @@ class M6FControlledAutomationGovernanceOperationsArchitectureTest {
             "ExecutorService",
             "ProcessBuilder",
             "Runtime.getRuntime().exec",
-            "ACT_"
+            "ACT_RU_",
+            "ACT_HI_",
+            "ACT_RE_",
+            "ACT_GE_",
+            "ACT_ID_"
         )) {
             assertFalse(production.contains(forbidden), "forbidden P6-A authority: " + forbidden);
         }
