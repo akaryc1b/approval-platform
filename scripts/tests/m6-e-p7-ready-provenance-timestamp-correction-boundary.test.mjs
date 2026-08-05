@@ -24,6 +24,12 @@ const jdbcTest = source(
 const projectionModel = source(
   'server-modules/approval-ai-core/src/main/java/io/github/akaryc1b/approval/ai/core/ApprovalAssistanceContextProjection.java',
 );
+const openAiDecoder = source(
+  'server-modules/approval-ai-openai/src/main/java/io/github/akaryc1b/approval/ai/openai/OpenAiResponsesResponseDecoder.java',
+);
+const openAiDecoderTest = source(
+  'server-modules/approval-ai-openai/src/test/java/io/github/akaryc1b/approval/ai/openai/OpenAiResponsesResponseDecoderTest.java',
+);
 const service = source(
   'apps/server/src/main/java/io/github/akaryc1b/approval/api/ApprovalAssistanceGenerationService.java',
 );
@@ -181,6 +187,33 @@ test('directed tests prove exact provenance and normal four-field projection', (
   assert.match(jdbcTest, /assertNull\(pending\.formContentHash\(\)\)/);
   assert.match(jdbcTest, /assertNull\(pending\.uiSchemaVersion\(\)\)/);
   assert.doesNotMatch(jdbcTest, /new InstanceProjection\([\s\S]*?FORM_PACKAGE_HASH/);
+});
+
+test('OpenAI decoder accepts only opaque stateless reasoning plus one assistant message', () => {
+  assert.match(openAiDecoder, /private static final Set<String> REASONING_FIELDS = Set\.of/);
+  assert.match(openAiDecoder, /"encrypted_content"/);
+  assert.match(openAiDecoder, /if \(output\.isEmpty\(\) \|\| output\.size\(\) > 16\)/);
+  assert.match(openAiDecoder, /ObjectNode message = null/);
+  assert.match(openAiDecoder, /"reasoning"\.equals\(type\)/);
+  assert.match(openAiDecoder, /requireReasoning\(outputItem\)/);
+  assert.match(openAiDecoder, /if \(message == null\)/);
+  assert.match(openAiDecoder, /requireExactText\(message, "role", "assistant", OUTPUT_NOT_EXACT\)/);
+  assert.match(openAiDecoder, /requireExactText\(message, "status", "completed", OUTPUT_NOT_EXACT\)/);
+  assert.match(openAiDecoder, /requireExactText\(outputText, "type", "output_text", OUTPUT_NOT_EXACT\)/);
+  assert.match(openAiDecoder, /requireExactText\(reasoning, "type", "reasoning", OUTPUT_NOT_EXACT\)/);
+  assert.match(openAiDecoder, /requireExactText\(reasoning, "status", "completed", OUTPUT_NOT_EXACT\)/);
+  assert.match(openAiDecoder, /exactText\(encrypted\.textValue\(\), 16_384, OUTPUT_NOT_EXACT\)/);
+  assert.match(openAiDecoder, /"summary_text", "reasoning_text", "text"/);
+
+  assert.match(openAiDecoderTest, /statelessReasoningBeforeOrAfterMessageIsAcceptedButNotExposed/);
+  assert.match(openAiDecoderTest, /statelessReasoningOutputShapeFailsClosed/);
+  assert.match(openAiDecoderTest, /reasoningOnly/);
+  assert.match(openAiDecoderTest, /duplicateMessage/);
+  assert.match(openAiDecoderTest, /unknownType/);
+  assert.match(openAiDecoderTest, /unknownReasoningField/);
+  assert.match(openAiDecoderTest, /incompleteReasoning/);
+  assert.match(openAiDecoderTest, /malformedPart/);
+  assert.match(openAiDecoderTest, /assertFalse\(decodedBefore\.toString\(\)\.contains\("opaque-reasoning"\)\)/);
 });
 
 test('correction preserves migration workflow and non-operator boundaries', () => {
