@@ -84,6 +84,18 @@ private static final Set<String> MESSAGE_FIELDS = Set.of(
 "status",
 "type"
 );
+private static final Set<String> REASONING_FIELDS = Set.of(
+"content",
+"encrypted_content",
+"id",
+"status",
+"summary",
+"type"
+);
+private static final Set<String> REASONING_PART_FIELDS = Set.of(
+"text",
+"type"
+);
 private static final Set<String> CONTENT_FIELDS = Set.of(
 "annotations",
 "logprobs",
@@ -184,10 +196,27 @@ requireEmptyArray(root, "tools");
 requireExactText(root, "tool_choice", "none", SCHEMA_MISMATCH);
 requireTextFormat(root);
 ArrayNode output = array(root, "output");
-if (output.size() != 1) {
+if (output.isEmpty() || output.size() > 16) {
 throw OpenAiResponsesProtocol.failure(OUTPUT_NOT_EXACT);
 }
-ObjectNode message = object(output.get(0), OUTPUT_NOT_EXACT);
+ObjectNode message = null;
+for (JsonNode item : output) {
+ObjectNode outputItem = object(item, OUTPUT_NOT_EXACT);
+String type = text(outputItem, "type", 32);
+if ("message".equals(type)) {
+if (message != null) {
+throw OpenAiResponsesProtocol.failure(OUTPUT_NOT_EXACT);
+}
+message = outputItem;
+} else if ("reasoning".equals(type)) {
+requireReasoning(outputItem);
+} else {
+throw OpenAiResponsesProtocol.failure(OUTPUT_NOT_EXACT);
+}
+}
+if (message == null) {
+throw OpenAiResponsesProtocol.failure(OUTPUT_NOT_EXACT);
+}
 requireAllowed(message, MESSAGE_FIELDS);
 requireExactText(message, "type", "message", OUTPUT_NOT_EXACT);
 requireExactText(message, "role", "assistant", OUTPUT_NOT_EXACT);
@@ -219,6 +248,46 @@ usage,
 providerRequestIdHash,
 OpenAiResponsesProtocol.sha256Utf8(responseId)
 );
+}
+private static void requireReasoning(ObjectNode reasoning) {
+requireAllowed(reasoning, REASONING_FIELDS);
+requireExactText(reasoning, "type", "reasoning", OUTPUT_NOT_EXACT);
+text(reasoning, "id", 200);
+if (reasoning.has("status") && !reasoning.get("status").isNull()) {
+requireExactText(reasoning, "status", "completed", OUTPUT_NOT_EXACT);
+}
+requireAbsentOrReasoningParts(reasoning, "summary");
+requireAbsentOrReasoningParts(reasoning, "content");
+JsonNode encrypted = reasoning.get("encrypted_content");
+if (encrypted != null && !encrypted.isNull()) {
+if (!encrypted.isTextual()) {
+throw OpenAiResponsesProtocol.failure(OUTPUT_NOT_EXACT);
+}
+exactText(encrypted.textValue(), 16_384, OUTPUT_NOT_EXACT);
+}
+}
+private static void requireAbsentOrReasoningParts(
+ObjectNode reasoning,
+String name
+) {
+JsonNode value = reasoning.get(name);
+if (value == null || value.isNull()) {
+return;
+}
+if (!(value instanceof ArrayNode parts) || parts.size() > 16) {
+throw OpenAiResponsesProtocol.failure(OUTPUT_NOT_EXACT);
+}
+for (JsonNode part : parts) {
+ObjectNode object = object(part, OUTPUT_NOT_EXACT);
+requireAllowed(object, REASONING_PART_FIELDS);
+String type = text(object, "type", 64);
+if (!Set.of("summary_text", "reasoning_text", "text").contains(type)) {
+throw OpenAiResponsesProtocol.failure(OUTPUT_NOT_EXACT);
+}
+if (object.has("text")) {
+text(object, "text", 4_096);
+}
+}
 }
 private static AiAdvisoryResult advisory(
 ObjectNode result,
