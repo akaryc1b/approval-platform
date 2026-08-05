@@ -126,8 +126,8 @@ public final class OpenAiResponsesRuntimeUsageLedger {
         long tenantMicros = tenantBucket == null
             ? 0
             : tenantBucket.committedUpperBoundMicros;
-        int globalRequests = global == null ? 0 : global.committedRequests;
-        boolean globalSaturated = globalRequests >= globalLimit;
+        boolean globalSaturated = global != null
+            && global.committedRequests >= globalLimit;
         String evidenceHash = OpenAiResponsesProtocol.sha256Utf8(String.join(
             "\n",
             "openai-responses-process-usage-v1",
@@ -139,10 +139,9 @@ public final class OpenAiResponsesRuntimeUsageLedger {
             Integer.toString(perTenantLimit),
             Long.toString(tenantMicros),
             Long.toString(tenantEnvelopeMicros),
-            Integer.toString(globalRequests),
             Integer.toString(globalLimit),
-            Long.toString(global == null ? 0 : global.committedUpperBoundMicros),
             Long.toString(globalEnvelopeMicros),
+            "global-exact-usage-redacted",
             Boolean.toString(globalSaturated)
         ));
         return new UsageSnapshot(
