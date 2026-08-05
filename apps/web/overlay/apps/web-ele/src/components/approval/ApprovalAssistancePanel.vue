@@ -20,6 +20,8 @@ import {
   generateApprovalAssistance,
 } from '#/api/approval/assistance';
 
+import ControlledAutomationConfirmationBoundary from './ControlledAutomationConfirmationBoundary.vue';
+
 const props = defineProps<{ taskId: string }>();
 
 const DEFAULT_USE_CASES: ApprovalAssistanceUseCase[] = [
@@ -242,6 +244,8 @@ watch(
         </section>
         <p class="evidence-id">证据 ID：{{ generation.evidenceId }}</p>
       </article>
+
+      <ControlledAutomationConfirmationBoundary />
 
       <ul class="limitations" aria-label="AI 辅助限制">
         <li v-for="limitation in assistance.limitations" :key="limitation.code">
