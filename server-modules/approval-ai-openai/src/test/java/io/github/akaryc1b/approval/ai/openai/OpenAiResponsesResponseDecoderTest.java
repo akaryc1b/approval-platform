@@ -166,6 +166,78 @@ class OpenAiResponsesResponseDecoderTest {
         assertFailure(multiple, OpenAiResponsesProtocol.Failure.OUTPUT_NOT_EXACT);
     }
 
+
+    @Test
+    void statelessReasoningBeforeOrAfterMessageIsAcceptedButNotExposed() throws Exception {
+        ObjectNode before = bodyNode();
+        ArrayNode beforeOutput = MAPPER.createArrayNode();
+        beforeOutput.add(reasoningItem("rs_before"));
+        beforeOutput.add(message(before).deepCopy());
+        before.set("output", beforeOutput);
+        OpenAiResponsesProtocol.DecodedResponse decodedBefore = decoder().decode(
+            response(200, PROVIDER_REQUEST_ID, MAPPER.writeValueAsBytes(before)),
+            expectations()
+        );
+        assertEquals("Bounded summary", decodedBefore.advisory().summary());
+        assertFalse(decodedBefore.toString().contains("opaque-reasoning"));
+        assertFalse(decodedBefore.advisory().summary().contains("opaque-reasoning"));
+
+        ObjectNode after = bodyNode();
+        ArrayNode afterOutput = (ArrayNode) after.get("output");
+        afterOutput.add(reasoningItem("rs_after"));
+        OpenAiResponsesProtocol.DecodedResponse decodedAfter = decoder().decode(
+            response(200, PROVIDER_REQUEST_ID, MAPPER.writeValueAsBytes(after)),
+            expectations()
+        );
+        assertEquals("Bounded summary", decodedAfter.advisory().summary());
+        assertFalse(decodedAfter.toString().contains("encrypted-reasoning"));
+    }
+
+    @Test
+    void statelessReasoningOutputShapeFailsClosed() throws Exception {
+        ObjectNode reasoningOnly = bodyNode();
+        ((ArrayNode) reasoningOnly.get("output")).removeAll()
+            .add(reasoningItem("rs_only"));
+        assertFailure(reasoningOnly, OpenAiResponsesProtocol.Failure.OUTPUT_NOT_EXACT);
+
+        ObjectNode duplicateMessage = bodyNode();
+        ArrayNode duplicateOutput = (ArrayNode) duplicateMessage.get("output");
+        duplicateOutput.add(message(duplicateMessage).deepCopy());
+        assertFailure(duplicateMessage, OpenAiResponsesProtocol.Failure.OUTPUT_NOT_EXACT);
+
+        ObjectNode unknownType = bodyNode();
+        ObjectNode unknownItem = MAPPER.createObjectNode()
+            .put("id", "tool_1")
+            .put("type", "tool_call")
+            .put("status", "completed");
+        ((ArrayNode) unknownType.get("output")).add(unknownItem);
+        assertFailure(unknownType, OpenAiResponsesProtocol.Failure.OUTPUT_NOT_EXACT);
+
+        ObjectNode unknownReasoningField = bodyNode();
+        ObjectNode withUnknownField = reasoningItem("rs_unknown").put("unexpected", true);
+        ((ArrayNode) unknownReasoningField.get("output")).add(withUnknownField);
+        assertFailure(
+            unknownReasoningField,
+            OpenAiResponsesProtocol.Failure.UNKNOWN_PROPERTY
+        );
+
+        ObjectNode incompleteReasoning = bodyNode();
+        ((ArrayNode) incompleteReasoning.get("output")).add(
+            reasoningItem("rs_incomplete").put("status", "incomplete")
+        );
+        assertFailure(
+            incompleteReasoning,
+            OpenAiResponsesProtocol.Failure.OUTPUT_NOT_EXACT
+        );
+
+        ObjectNode malformedPart = bodyNode();
+        ObjectNode malformedReasoning = reasoningItem("rs_malformed");
+        ((ObjectNode) ((ArrayNode) malformedReasoning.get("summary")).get(0))
+            .put("type", "unsupported");
+        ((ArrayNode) malformedPart.get("output")).add(malformedReasoning);
+        assertFailure(malformedPart, OpenAiResponsesProtocol.Failure.OUTPUT_NOT_EXACT);
+    }
+
     @Test
     void duplicateUnknownMalformedInvalidUtf8AndOversizeFailClosed() throws Exception {
         String duplicate = new String(
@@ -472,6 +544,24 @@ class OpenAiResponsesResponseDecoderTest {
 
     private static ObjectNode outputText(ObjectNode body) {
         return (ObjectNode) ((ArrayNode) message(body).get("content")).get(0);
+    }
+
+
+    private static ObjectNode reasoningItem(String id) {
+        ObjectNode summaryPart = MAPPER.createObjectNode();
+        summaryPart.put("type", "summary_text");
+        summaryPart.put("text", "opaque-reasoning-summary");
+        ObjectNode contentPart = MAPPER.createObjectNode();
+        contentPart.put("type", "reasoning_text");
+        contentPart.put("text", "opaque-reasoning-content");
+        ObjectNode reasoning = MAPPER.createObjectNode();
+        reasoning.put("id", id);
+        reasoning.put("type", "reasoning");
+        reasoning.put("status", "completed");
+        reasoning.set("summary", MAPPER.createArrayNode().add(summaryPart));
+        reasoning.set("content", MAPPER.createArrayNode().add(contentPart));
+        reasoning.put("encrypted_content", "encrypted-reasoning");
+        return reasoning;
     }
 
     private static void assertFailure(
