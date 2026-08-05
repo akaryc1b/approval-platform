@@ -9,6 +9,14 @@ const r0Document = path.join(
   root,
   'docs/m6/M6_F_R0_REBASELINE_AND_AUTHORITY_THREAT_MODEL.md',
 );
+const p0AuditDocument = path.join(
+  root,
+  'docs/m6/M6_F_P0_EXISTING_COMMAND_AUDIT.md',
+);
+const whitelistDecisionDocument = path.join(
+  root,
+  'docs/m6/M6_F_ACTION_WHITELIST_DECISION.md',
+);
 
 function read(relativePath) {
   const file = path.join(root, relativePath);
@@ -161,4 +169,95 @@ test('R0 explicitly excludes every high-risk and arbitrary execution action', ()
   ]) {
     assert.match(document, new RegExp(prohibited.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+});
+
+test('P0 records result A and authorizes no executable Action', () => {
+  const audit = readFileSync(p0AuditDocument, 'utf8');
+  const decision = readFileSync(whitelistDecisionDocument, 'utf8');
+
+  assert.match(audit, /P0_RESULT_A_NO_QUALIFYING_EXISTING_COMMAND/);
+  assert.match(audit, /Each candidate was evaluated against the mandatory twenty-point gate/);
+  assert.match(audit, /C20/);
+  assert.match(audit, /P5-A is skipped and remains prohibited/);
+  assert.match(decision, /m6-f-action-whitelist-v1-empty/);
+  assert.match(decision, /Action count: `0`/);
+  assert.match(decision, /EMPTY_PENDING_EXISTING_COMMAND_AUDIT/);
+  assert.match(decision, /P5_A_SKIPPED_NO_QUALIFYING_EXISTING_COMMAND/);
+  assert.doesNotMatch(decision, /SINGLE_EXISTING_LOW_RISK_ACTION_/);
+});
+
+test('P0 does not confuse session expiry, reason or audit with reauthentication', () => {
+  const principal = read(
+    'apps/server/src/main/java/io/github/akaryc1b/approval/security/ApprovalPrincipal.java',
+  );
+  const identityFilter = read(
+    'apps/server/src/main/java/io/github/akaryc1b/approval/security/ApprovalIdentityContextFilter.java',
+  );
+  const management = read(
+    'apps/server/src/main/java/io/github/akaryc1b/approval/api/ApprovalManagementPermissionInterceptor.java',
+  );
+  const authentication = `${principal}\n${identityFilter}\n${management}`;
+
+  assert.match(principal, /sessionExpiresAt/);
+  assert.match(management, /operationReason/);
+  assert.match(management, /governance\.recordAuthorized/);
+  assert.doesNotMatch(
+    authentication,
+    /\b(reauthentication|reauthenticated|stepUpAuthentication|freshAuthentication|mfaEvidence)\b/i,
+  );
+});
+
+test('P0 low-risk candidates retain their real controls and documented blockers', () => {
+  const messageService = read(
+    'server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalMessageService.java',
+  );
+  const messageController = read(
+    'apps/server/src/main/java/io/github/akaryc1b/approval/api/ApprovalMessageController.java',
+  );
+  const notificationService = read(
+    'server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalNotificationService.java',
+  );
+  const commentService = read(
+    'server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalCommentService.java',
+  );
+  const commentController = read(
+    'apps/server/src/main/java/io/github/akaryc1b/approval/api/ApprovalCommentController.java',
+  );
+
+  assert.match(messageService, /public MessageActionResult urge/);
+  assert.match(messageService, /public MessageActionResult copy/);
+  assert.match(messageService, /public Optional<ReadResult> markRead/);
+  assert.match(messageService, /IdempotencyGuard/);
+  assert.doesNotMatch(messageController, /@ApprovalManagementPermission/);
+
+  assert.match(notificationService, /public PreferenceBundle updatePreferences/);
+  assert.match(notificationService, /expectedVersion/);
+  assert.doesNotMatch(notificationService, /IdempotencyGuard/);
+
+  assert.match(commentService, /IdempotencyGuard/);
+  assert.match(commentService, /expectedVersion/);
+  assert.match(commentService, /appendMentionMessages/);
+  assert.doesNotMatch(commentController, /@ApprovalManagementPermission/);
+});
+
+test('P0 rejects high-risk, replay and connector-adjacent candidates', () => {
+  const templateController = read(
+    'apps/server/src/main/java/io/github/akaryc1b/approval/api/ProcessTemplateManagementController.java',
+  );
+  const collaboration = read(
+    'server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalTaskCollaborationService.java',
+  );
+  const operationalReplay = read(
+    'server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalOperationalFailureService.java',
+  );
+  const audit = readFileSync(p0AuditDocument, 'utf8');
+
+  assert.match(templateController, /Requirement\.TRANSFER/);
+  assert.match(collaboration, /TaskOutcome\.APPROVED/);
+  assert.match(collaboration, /DECIDE_OPERATION/);
+  assert.match(operationalReplay, /replayDeadLetter/);
+  assert.match(operationalReplay, /replayOutboxDead/);
+  assert.match(operationalReplay, /consistency\.run/);
+  assert.match(audit, /approve, reject\/return, resubmit, transfer, withdraw, retrieve/);
+  assert.match(audit, /direct connector commands/);
 });
