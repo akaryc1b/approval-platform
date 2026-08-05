@@ -108,13 +108,12 @@ test('P2 source has no Provider, connector, Flowable, mutation or scheduling aut
 test('P2 tests prove fresh reload and fail-closed decision matrix', () => {
   const tests = source(testRoot, 'ControlledAutomationGovernanceEvaluatorTest');
 
-  assert.match(tests, /everyEvaluationReloadsFreshGovernanceAndWhitelist/);
+  assert.match(tests, /everyEvaluationReloadsFreshGovernanceAndWhitelistAndRemainsReadOnly/);
   assert.match(tests, /currentEmptyWhitelistFailsActionNotWhitelisted/);
   assert.match(tests, /forgedTenantAndOperatorFailClosed/);
+  assert.match(tests, /inactiveExpiredAndLineageTamperedProposalFailClosed/);
   assert.match(tests, /deletedMismatchedAndTamperedSourceEvidenceFailClosed/);
   assert.match(tests, /whitelistVersionAndDefinitionDriftFailClosed/);
-  assert.match(tests, /policyFeatureAndKillSwitchChangesImmediatelyFailClosed/);
-  assert.match(tests, /revokedPermissionAndResourceAuthorizationFailClosed/);
-  assert.match(tests, /resourceIdentityStateAndVersionDriftAreStale/);
-  assert.match(tests, /separationPreconditionsAndReauthenticationFailClosed/);
+  assert.match(tests, /policyAuthorizationStateAndHumanGatesFailClosed/);
+  assert.match(tests, /evaluationEvidenceBindsFreshSnapshotAndStateComparison/);
 });
