@@ -51,7 +51,8 @@ public final class OpenAiResponsesTransportAdmission {
             circuitBreaker,
             rateLimiter,
             costPolicy,
-            (ignoredTenant, ignoredTime, ignoredMicros) -> { },
+            (ignoredTenant, ignoredWindow, ignoredMicros) ->
+                Objects.requireNonNull(ignoredWindow, "ignoredWindow must not be null"),
             clock
         );
     }
@@ -247,7 +248,7 @@ public final class OpenAiResponsesTransportAdmission {
     @FunctionalInterface
     private interface UsageRecorder {
 
-        void record(String tenantHash, Instant dispatchedAt, long estimatedUpperBoundMicros);
+        void record(String tenantHash, Instant rateWindowStart, long estimatedUpperBoundMicros);
     }
 
     public final class Permit implements AutoCloseable {
@@ -310,7 +311,7 @@ public final class OpenAiResponsesTransportAdmission {
             rateLimiter.commit(ratePermit);
             usageRecorder.record(
                 tenantHash,
-                clock.instant(),
+                ratePermit.windowStart(),
                 costEstimate.estimatedMicros()
             );
         }
