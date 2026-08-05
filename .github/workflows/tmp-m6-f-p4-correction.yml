@@ -1,0 +1,245 @@
+name: Temporary M6-F P4 Correction
+
+on:
+  push:
+    branches:
+      - agent/tmp-m6-f-p4-correction
+
+permissions:
+  contents: write
+
+jobs:
+  apply-correction:
+    if: github.event.head_commit.message != 'fix(m6-f): isolate V50 and bind JDBC instants'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply exact P4 correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=-1):
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f"expected text missing in {path}: {old[:120]!r}")
+              updated = text.replace(old, new, count)
+              file.write_text(updated)
+
+          old_migration = Path(
+              "server-modules/approval-persistence-jdbc/src/main/resources/db/migration/m6f/"
+              "V50__create_ai_controlled_automation_lineage.sql"
+          )
+          new_migration = Path(
+              "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/"
+              "V50__create_ai_controlled_automation_lineage.sql"
+          )
+          if not old_migration.is_file():
+              raise SystemExit("expected P4 V50 migration is missing")
+          new_migration.parent.mkdir(parents=True, exist_ok=True)
+          old_migration.rename(new_migration)
+
+          store = (
+              "server-modules/approval-persistence-jdbc/src/main/java/"
+              "io/github/akaryc1b/approval/persistence/jdbc/"
+              "JdbcControlledAutomationLineageStore.java"
+          )
+          replace(
+              store,
+              "import java.sql.ResultSet;\nimport java.sql.SQLException;\n",
+              "import java.sql.ResultSet;\nimport java.sql.SQLException;\nimport java.sql.Timestamp;\n",
+          )
+          replace(
+              store,
+              '.addValue("confirmedAt", command.confirmedAt())\n'
+              '            .addValue("expiresAt", command.expiresAt());',
+              '.addValue("confirmedAt", Timestamp.from(command.confirmedAt()))\n'
+              '            .addValue("expiresAt", Timestamp.from(command.expiresAt()));',
+          )
+          replace(
+              store,
+              '.addValue("happenedAt", command.occurredAt())\n'
+              '            .addValue("commandAttempts", command.commandAttempts());',
+              '.addValue("happenedAt", Timestamp.from(command.occurredAt()))\n'
+              '            .addValue("commandAttempts", command.commandAttempts());',
+          )
+
+          configuration = (
+              "apps/server/src/main/java/io/github/akaryc1b/approval/config/"
+              "ControlledAutomationLineageConfiguration.java"
+          )
+          replace(
+              configuration,
+              "import org.springframework.context.annotation.Bean;\n",
+              "import org.springframework.boot.autoconfigure.flyway."
+              "FlywayConfigurationCustomizer;\n"
+              "import org.springframework.context.annotation.Bean;\n",
+          )
+          replace(
+              configuration,
+              "public class ControlledAutomationLineageConfiguration {\n\n",
+              "public class ControlledAutomationLineageConfiguration {\n\n"
+              "    @Bean\n"
+              "    FlywayConfigurationCustomizer controlledAutomationFlywayLocations() {\n"
+              "        return configuration -> configuration.locations(\n"
+              "            \"classpath:db/migration\",\n"
+              "            \"classpath:m6f/db/migration\"\n"
+              "        );\n"
+              "    }\n\n",
+          )
+
+          integration = (
+              "server-modules/approval-persistence-jdbc/src/test/java/"
+              "io/github/akaryc1b/approval/persistence/jdbc/"
+              "JdbcControlledAutomationLineageStoreIntegrationTest.java"
+          )
+          replace(
+              integration,
+              '.locations("classpath:db/migration")',
+              '.locations("classpath:db/migration", "classpath:m6f/db/migration")',
+          )
+
+          support = (
+              "server-modules/approval-persistence-jdbc/src/test/java/"
+              "io/github/akaryc1b/approval/persistence/jdbc/"
+              "JdbcApprovalMigrationUpgradeSupport.java"
+          )
+          replace(
+              support,
+              '.locations("classpath:db/migration");',
+              '.locations("classpath:db/migration", "classpath:m6f/db/migration");',
+          )
+
+          architecture = (
+              "server-modules/approval-architecture-tests/src/test/java/"
+              "io/github/akaryc1b/approval/architecture/"
+              "M6FControlledAutomationLineageArchitectureTest.java"
+          )
+          replace(
+              architecture,
+              "server-modules/approval-persistence-jdbc/src/main/resources/"
+              "db/migration/m6f/",
+              "server-modules/approval-persistence-jdbc/src/main/resources/"
+              "m6f/db/migration/",
+          )
+
+          document = "docs/m6/M6_F_P4_DURABLE_LINEAGE_CAS_REPLAY_ACCEPTANCE.md"
+          replace(
+              document,
+              "db/migration/m6f/V50__create_ai_controlled_automation_lineage.sql",
+              "m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql",
+          )
+
+          boundary = "scripts/tests/m6-f-p4-durable-lineage-boundary.test.mjs"
+          replace(
+              boundary,
+              "server-modules/approval-persistence-jdbc/src/main/resources/"
+              "db/migration/m6f/",
+              "server-modules/approval-persistence-jdbc/src/main/resources/"
+              "m6f/db/migration/",
+          )
+          replace(
+              boundary,
+              """  const migrationRoot = path.join(
+              root,
+              'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
+            );
+            const versioned = walk(migrationRoot)
+              .map((file) => path.relative(migrationRoot, file).replaceAll(path.sep, '/'))
+              .map((name) => ({ name, match: /(?:^|\\/)V(\\d+)__.+\\.sql$/.exec(name) }))
+          """,
+              """  const resourceRoot = path.join(
+              root,
+              'server-modules/approval-persistence-jdbc/src/main/resources',
+            );
+            const migrationRoots = [
+              path.join(resourceRoot, 'db/migration'),
+              path.join(resourceRoot, 'm6f/db/migration'),
+            ];
+            const versioned = migrationRoots.flatMap(walk)
+              .map((file) => path.relative(resourceRoot, file).replaceAll(path.sep, '/'))
+              .map((name) => ({ name, match: /(?:^|\\/)V(\\d+)__.+\\.sql$/.exec(name) }))
+          """,
+          )
+          replace(
+              boundary,
+              "['V49__create_ai_approval_assistance_durable_evidence.sql']",
+              "['db/migration/V49__create_ai_approval_assistance_durable_evidence.sql']",
+          )
+          replace(
+              boundary,
+              "['m6f/V50__create_ai_controlled_automation_lineage.sql']",
+              "['m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql']",
+          )
+
+          sdk = Path("scripts/tests/m6-sdk-event-boundary.test.mjs")
+          sdk_text = sdk.read_text()
+          start = sdk_text.index("test('Flyway keeps M6-B migration-free")
+          end = sdk_text.index("\ntest('there is exactly one automatic PR/main validation workflow'", start)
+          replacement = """test('Flyway keeps M6-B migration-free while recognizing governed M6-E V49 and M6-F V50', async () => {
+            const migrationRoots = [
+              join(repositoryRoot, 'apps/server/src/main/resources/db/migration'),
+              join(repositoryRoot, 'server-modules'),
+            ];
+            const migrationFiles = (await Promise.all(migrationRoots.map(files))).flat();
+            const versionedMigrations = migrationFiles.map((path) => {
+              const fileName = path.split(/[/\\\\]/).at(-1);
+              const match = /^V(\\d+)__/.exec(fileName ?? '');
+              return match ? { path, fileName, version: Number(match[1]) } : null;
+            }).filter((migration) => migration !== null);
+            assert.ok(versionedMigrations.some(({ version }) => version === 48));
+            const governedV49 = 'V49__create_ai_approval_assistance_durable_evidence.sql';
+            const governedM6FV50 =
+              'server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/'
+                + 'V50__create_ai_controlled_automation_lineage.sql';
+            assert.deepEqual(
+              versionedMigrations.filter(({ version }) => version === 49)
+                .map(({ fileName }) => fileName),
+              [governedV49],
+            );
+            assert.deepEqual(
+              versionedMigrations.filter(({ version }) => version === 50)
+                .map(({ path }) => display(path)),
+              [governedM6FV50],
+            );
+            assert.deepEqual(
+              versionedMigrations.filter(({ version }) => version >= 51)
+                .map(({ path }) => display(path)),
+              [],
+            );
+            assert.deepEqual(
+              versionedMigrations.filter(({ version, fileName, path }) =>
+                version >= 49
+                  && !(version === 49 && fileName === governedV49)
+                  && !(version === 50 && display(path) === governedM6FV50),
+              ).map(({ path }) => display(path)),
+              [],
+            );
+          });
+          """
+          sdk.write_text(sdk_text[:start] + replacement + sdk_text[end:])
+
+          helper = Path('.github/workflows/tmp-m6-f-p4-correction.yml')
+          helper.unlink()
+          PY
+          git diff --check
+          node --check scripts/tests/m6-sdk-event-boundary.test.mjs
+          node --check scripts/tests/m6-f-p4-durable-lineage-boundary.test.mjs
+          node --test scripts/tests/m6-sdk-event-boundary.test.mjs \
+            scripts/tests/m6-f-p4-durable-lineage-boundary.test.mjs
+          test -f server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql
+          test ! -e server-modules/approval-persistence-jdbc/src/main/resources/db/migration/m6f/V50__create_ai_controlled_automation_lineage.sql
+      - name: Commit correction tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "approval-platform automation"
+          git config user.email "approval-platform-automation@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(m6-f): isolate V50 and bind JDBC instants"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
