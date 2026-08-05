@@ -275,28 +275,36 @@ public final class ApprovalAssistanceGenerationService
         PendingTaskDetails task,
         ApprovalAssistanceAdvisoryContract.UseCase useCase
     ) {
-        List<AiProviderRequest.InputField> fields = new ArrayList<>();
-        add(fields, "definitionKey", "TEXT", task.definitionKey());
-        add(fields, "taskName", "TEXT", task.taskName());
-        add(fields, "businessKey", "TEXT", task.businessKey());
-        add(fields, "amount", "NUMBER", task.amount());
-        add(fields, "supplier", "TEXT", task.supplier());
+        List<AiProviderRequest.InputField> metadataFields = new ArrayList<>();
+        add(metadataFields, "definitionKey", "TEXT", task.definitionKey());
+        add(metadataFields, "taskName", "TEXT", task.taskName());
+        add(metadataFields, "businessKey", "TEXT", task.businessKey());
+
+        List<AiProviderRequest.InputField> formFields = new ArrayList<>();
+        add(formFields, "amount", "NUMBER", task.amount());
+        add(formFields, "supplier", "TEXT", task.supplier());
         add(
-            fields,
+            formFields,
             "purchaseOrderReference",
             "TEXT",
             task.purchaseOrderReference()
         );
+
+        List<AiProviderRequest.InputField> fields = new ArrayList<>(
+            metadataFields.size() + formFields.size()
+        );
+        fields.addAll(metadataFields);
+        fields.addAll(formFields);
         Set<String> fieldKeys = fields.stream()
             .map(AiProviderRequest.InputField::key)
             .collect(Collectors.toUnmodifiableSet());
         if (fieldKeys.isEmpty()) {
             throw new IllegalArgumentException("Provider-safe projection must not be empty");
         }
-        int omittedFieldCount = task.formSchemaFieldCount() - fields.size();
+        int omittedFieldCount = task.formSchemaFieldCount() - formFields.size();
         if (omittedFieldCount < 0) {
             throw new IllegalArgumentException(
-                "Provider-safe fields cannot exceed the trusted form schema field count"
+                "Provider-safe Form fields cannot exceed the trusted Form Schema field count"
             );
         }
         String authorizationReference = sha256(String.join(
@@ -360,8 +368,9 @@ public final class ApprovalAssistanceGenerationService
             ),
             dataPolicy,
             new ApprovalAssistanceContextProjection.ProjectionEvidence(
+                formFields.size(),
                 fields.size(),
-                fields.size(),
+                formFields.size(),
                 0,
                 omittedFieldCount,
                 0,
