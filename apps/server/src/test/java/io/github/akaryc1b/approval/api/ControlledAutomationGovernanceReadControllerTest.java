@@ -11,8 +11,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -45,14 +47,13 @@ class ControlledAutomationGovernanceReadControllerTest {
 
         assertThrows(IllegalArgumentException.class, () -> controller.snapshot(" "));
         assertThrows(IllegalArgumentException.class, () -> controller.snapshot(" tenant-a"));
-        assertNotNull(
-            ControlledAutomationGovernanceReadController.class
+        var snapshotMethod = assertDoesNotThrow(
+            () -> ControlledAutomationGovernanceReadController.class
                 .getDeclaredMethod("snapshot", String.class)
-                .getAnnotation(GetMapping.class)
         );
+        assertNotNull(snapshotMethod.getAnnotation(GetMapping.class));
         assertFalse(
-            List.of(ControlledAutomationGovernanceReadController.class.getDeclaredMethods())
-                .stream()
+            Arrays.stream(ControlledAutomationGovernanceReadController.class.getDeclaredMethods())
                 .anyMatch(method -> method.getAnnotation(PostMapping.class) != null)
         );
     }
