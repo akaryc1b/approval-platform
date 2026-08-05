@@ -49,6 +49,14 @@ public class ApprovalAssistanceProductionConfiguration {
     }
 
     @Bean
+    ApprovalAssistanceProductionRuntime approvalAssistanceProductionRuntime(
+        Environment environment,
+        Clock approvalClock
+    ) {
+        return new ApprovalAssistanceProductionRuntime(runtime(environment, approvalClock));
+    }
+
+    @Bean
     ApprovalAssistanceDurableEvidenceStore approvalAssistanceDurableEvidenceStore(
         DataSource dataSource,
         PlatformTransactionManager transactionManager
@@ -65,17 +73,13 @@ public class ApprovalAssistanceProductionConfiguration {
         ApprovalTaskQuery approvalTaskQuery,
         ApprovalAssistanceDurableEvidenceStore approvalAssistanceDurableEvidenceStore,
         AiAdvisoryService approvalAssistanceAdvisoryService,
-        Clock approvalClock,
-        Environment environment
+        ApprovalAssistanceProductionRuntime productionRuntime,
+        Clock approvalClock
     ) {
-        Optional<OpenAiResponsesProductionRuntimeFactory> runtime = runtime(
-            environment,
-            approvalClock
-        );
         return new ApprovalAssistanceGenerationService(
             approvalTaskQuery,
             approvalAssistanceDurableEvidenceStore,
-            runtime,
+            productionRuntime.factory(),
             approvalAssistanceAdvisoryService,
             approvalClock,
             UUID::randomUUID
