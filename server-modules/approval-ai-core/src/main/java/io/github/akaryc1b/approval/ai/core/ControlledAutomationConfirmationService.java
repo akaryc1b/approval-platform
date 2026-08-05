@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.ai.core;
 
 import io.github.akaryc1b.approval.ai.core.ControlledAutomationGovernanceEvaluator.EvaluationDecision;
 import io.github.akaryc1b.approval.ai.core.ControlledAutomationGovernanceEvaluator.EvaluationResult;
+import io.github.akaryc1b.approval.ai.core.ControlledAutomationProposal.ParameterBinding;
 import io.github.akaryc1b.approval.ai.core.ControlledAutomationProposal.ProposalStatus;
 import io.github.akaryc1b.approval.ai.core.ControlledAutomationReauthenticationVerifier.ReauthenticationChallenge;
 import io.github.akaryc1b.approval.ai.core.ControlledAutomationReauthenticationVerifier.Verification;
@@ -459,9 +460,7 @@ public final class ControlledAutomationConfirmationService {
     private static String parameterHash(ControlledAutomationProposal proposal) {
         List<String> values = new ArrayList<>();
         proposal.parameters().values().stream()
-            .sorted(Comparator.comparing(
-                ControlledAutomationProposal.ParameterBinding::name
-            ))
+            .sorted(Comparator.comparing(ParameterBinding::name))
             .forEach(binding -> {
                 values.add(binding.name());
                 values.add(binding.value().type().name());
