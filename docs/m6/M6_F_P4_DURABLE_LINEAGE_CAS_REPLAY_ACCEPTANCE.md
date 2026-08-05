@@ -37,7 +37,7 @@ HTTP body, SQL, script, executable expression or connector payload.
 
 M6-F P4 owns exactly one recursively discovered Flyway migration:
 
-`db/migration/m6f/V50__create_ai_controlled_automation_lineage.sql`
+`m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql`
 
 Historical ownership is unchanged:
 

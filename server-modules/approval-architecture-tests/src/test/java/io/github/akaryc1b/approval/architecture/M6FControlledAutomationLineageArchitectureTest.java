@@ -51,7 +51,7 @@ class M6FControlledAutomationLineageArchitectureTest {
                 + "JdbcControlledAutomationLineageStore.java"
         ));
         String migration = Files.readString(root.resolve(
-            "server-modules/approval-persistence-jdbc/src/main/resources/db/migration/m6f/"
+            "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/"
                 + "V50__create_ai_controlled_automation_lineage.sql"
         ));
         String production = core + jdbc + migration;

@@ -193,7 +193,7 @@ test('telemetry and handoff use reference-only allowlists and deterministic fake
   assert.match(tsHandoff, /pending\.delete[\s\S]*acknowledged\.set/);
 });
 
-test('Flyway keeps M6-B migration-free while allowing the exact governed M6-E V49', async () => {
+test('Flyway keeps M6-B migration-free while recognizing governed M6-E V49 and M6-F V50', async () => {
   const migrationRoots = [
     join(repositoryRoot, 'apps/server/src/main/resources/db/migration'),
     join(repositoryRoot, 'server-modules'),
@@ -206,19 +206,29 @@ test('Flyway keeps M6-B migration-free while allowing the exact governed M6-E V4
   }).filter((migration) => migration !== null);
   assert.ok(versionedMigrations.some(({ version }) => version === 48));
   const governedV49 = 'V49__create_ai_approval_assistance_durable_evidence.sql';
+  const governedM6FV50 =
+    'server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/'
+      + 'V50__create_ai_controlled_automation_lineage.sql';
   assert.deepEqual(
     versionedMigrations.filter(({ version }) => version === 49)
       .map(({ fileName }) => fileName),
     [governedV49],
   );
   assert.deepEqual(
-    versionedMigrations.filter(({ version }) => version >= 50)
+    versionedMigrations.filter(({ version }) => version === 50)
+      .map(({ path }) => display(path)),
+    [governedM6FV50],
+  );
+  assert.deepEqual(
+    versionedMigrations.filter(({ version }) => version >= 51)
       .map(({ path }) => display(path)),
     [],
   );
   assert.deepEqual(
-    versionedMigrations.filter(({ version, fileName }) =>
-      version >= 49 && fileName !== governedV49,
+    versionedMigrations.filter(({ version, fileName, path }) =>
+      version >= 49
+        && !(version === 49 && fileName === governedV49)
+        && !(version === 50 && display(path) === governedM6FV50),
     ).map(({ path }) => display(path)),
     [],
   );

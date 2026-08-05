@@ -4,241 +4,446 @@ on:
   pull_request:
     branches:
       - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: approval-platform-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  apply-p4-correction:
-    if: github.event.pull_request.head.ref == 'agent/m6-f-controlled-automation-and-ai-governance'
-    runs-on: ubuntu-24.04
+  hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-      - name: Apply exact P4 correction
+      - name: Reject temporary PR artifacts
         shell: bash
         run: |
           set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-
-          def replace(path, old, new, count=-1):
-              file = Path(path)
-              text = file.read_text()
-              if old not in text:
-                  raise SystemExit(f"expected text missing in {path}: {old[:120]!r}")
-              file.write_text(text.replace(old, new, count))
-
-          old_migration = Path(
-              "server-modules/approval-persistence-jdbc/src/main/resources/db/migration/m6f/"
-              "V50__create_ai_controlled_automation_lineage.sql"
-          )
-          new_migration = Path(
-              "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/"
-              "V50__create_ai_controlled_automation_lineage.sql"
-          )
-          if not old_migration.is_file():
-              raise SystemExit("expected P4 V50 migration is missing")
-          new_migration.parent.mkdir(parents=True, exist_ok=True)
-          old_migration.rename(new_migration)
-
-          store = (
-              "server-modules/approval-persistence-jdbc/src/main/java/"
-              "io/github/akaryc1b/approval/persistence/jdbc/"
-              "JdbcControlledAutomationLineageStore.java"
-          )
-          replace(
-              store,
-              "import java.sql.ResultSet;\nimport java.sql.SQLException;\n",
-              "import java.sql.ResultSet;\nimport java.sql.SQLException;\nimport java.sql.Timestamp;\n",
-          )
-          replace(
-              store,
-              '.addValue("confirmedAt", command.confirmedAt())\n'
-              '            .addValue("expiresAt", command.expiresAt());',
-              '.addValue("confirmedAt", Timestamp.from(command.confirmedAt()))\n'
-              '            .addValue("expiresAt", Timestamp.from(command.expiresAt()));',
-          )
-          replace(
-              store,
-              '.addValue("happenedAt", command.occurredAt())\n'
-              '            .addValue("commandAttempts", command.commandAttempts());',
-              '.addValue("happenedAt", Timestamp.from(command.occurredAt()))\n'
-              '            .addValue("commandAttempts", command.commandAttempts());',
-          )
-
-          configuration = (
-              "apps/server/src/main/java/io/github/akaryc1b/approval/config/"
-              "ControlledAutomationLineageConfiguration.java"
-          )
-          replace(
-              configuration,
-              "import org.springframework.context.annotation.Bean;\n",
-              "import org.springframework.boot.autoconfigure.flyway."
-              "FlywayConfigurationCustomizer;\n"
-              "import org.springframework.context.annotation.Bean;\n",
-          )
-          replace(
-              configuration,
-              "public class ControlledAutomationLineageConfiguration {\n\n",
-              "public class ControlledAutomationLineageConfiguration {\n\n"
-              "    @Bean\n"
-              "    FlywayConfigurationCustomizer controlledAutomationFlywayLocations() {\n"
-              "        return configuration -> configuration.locations(\n"
-              "            \"classpath:db/migration\",\n"
-              "            \"classpath:m6f/db/migration\"\n"
-              "        );\n"
-              "    }\n\n",
-          )
-
-          integration = (
-              "server-modules/approval-persistence-jdbc/src/test/java/"
-              "io/github/akaryc1b/approval/persistence/jdbc/"
-              "JdbcControlledAutomationLineageStoreIntegrationTest.java"
-          )
-          replace(
-              integration,
-              '.locations("classpath:db/migration")',
-              '.locations("classpath:db/migration", "classpath:m6f/db/migration")',
-          )
-
-          support = (
-              "server-modules/approval-persistence-jdbc/src/test/java/"
-              "io/github/akaryc1b/approval/persistence/jdbc/"
-              "JdbcApprovalMigrationUpgradeSupport.java"
-          )
-          replace(
-              support,
-              '.locations("classpath:db/migration");',
-              '.locations("classpath:db/migration", "classpath:m6f/db/migration");',
-          )
-
-          architecture = (
-              "server-modules/approval-architecture-tests/src/test/java/"
-              "io/github/akaryc1b/approval/architecture/"
-              "M6FControlledAutomationLineageArchitectureTest.java"
-          )
-          replace(
-              architecture,
-              "server-modules/approval-persistence-jdbc/src/main/resources/"
-              "db/migration/m6f/",
-              "server-modules/approval-persistence-jdbc/src/main/resources/"
-              "m6f/db/migration/",
-          )
-
-          document = "docs/m6/M6_F_P4_DURABLE_LINEAGE_CAS_REPLAY_ACCEPTANCE.md"
-          replace(
-              document,
-              "db/migration/m6f/V50__create_ai_controlled_automation_lineage.sql",
-              "m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql",
-          )
-
-          boundary = "scripts/tests/m6-f-p4-durable-lineage-boundary.test.mjs"
-          replace(
-              boundary,
-              "server-modules/approval-persistence-jdbc/src/main/resources/"
-              "db/migration/m6f/",
-              "server-modules/approval-persistence-jdbc/src/main/resources/"
-              "m6f/db/migration/",
-          )
-          replace(
-              boundary,
-              """  const migrationRoot = path.join(
-              root,
-              'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
-            );
-            const versioned = walk(migrationRoot)
-              .map((file) => path.relative(migrationRoot, file).replaceAll(path.sep, '/'))
-              .map((name) => ({ name, match: /(?:^|\\/)V(\\d+)__.+\\.sql$/.exec(name) }))
-          """,
-              """  const resourceRoot = path.join(
-              root,
-              'server-modules/approval-persistence-jdbc/src/main/resources',
-            );
-            const migrationRoots = [
-              path.join(resourceRoot, 'db/migration'),
-              path.join(resourceRoot, 'm6f/db/migration'),
-            ];
-            const versioned = migrationRoots.flatMap(walk)
-              .map((file) => path.relative(resourceRoot, file).replaceAll(path.sep, '/'))
-              .map((name) => ({ name, match: /(?:^|\\/)V(\\d+)__.+\\.sql$/.exec(name) }))
-          """,
-          )
-          replace(
-              boundary,
-              "['V49__create_ai_approval_assistance_durable_evidence.sql']",
-              "['db/migration/V49__create_ai_approval_assistance_durable_evidence.sql']",
-          )
-          replace(
-              boundary,
-              "['m6f/V50__create_ai_controlled_automation_lineage.sql']",
-              "['m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql']",
-          )
-
-          sdk = Path("scripts/tests/m6-sdk-event-boundary.test.mjs")
-          sdk_text = sdk.read_text()
-          start = sdk_text.index("test('Flyway keeps M6-B migration-free")
-          end = sdk_text.index("\ntest('there is exactly one automatic PR/main validation workflow'", start)
-          sdk_block = """test('Flyway keeps M6-B migration-free while recognizing governed M6-E V49 and M6-F V50', async () => {
-            const migrationRoots = [
-              join(repositoryRoot, 'apps/server/src/main/resources/db/migration'),
-              join(repositoryRoot, 'server-modules'),
-            ];
-            const migrationFiles = (await Promise.all(migrationRoots.map(files))).flat();
-            const versionedMigrations = migrationFiles.map((path) => {
-              const fileName = path.split(/[/\\\\]/).at(-1);
-              const match = /^V(\\d+)__/.exec(fileName ?? '');
-              return match ? { path, fileName, version: Number(match[1]) } : null;
-            }).filter((migration) => migration !== null);
-            assert.ok(versionedMigrations.some(({ version }) => version === 48));
-            const governedV49 = 'V49__create_ai_approval_assistance_durable_evidence.sql';
-            const governedM6FV50 =
-              'server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/'
-                + 'V50__create_ai_controlled_automation_lineage.sql';
-            assert.deepEqual(
-              versionedMigrations.filter(({ version }) => version === 49)
-                .map(({ fileName }) => fileName),
-              [governedV49],
-            );
-            assert.deepEqual(
-              versionedMigrations.filter(({ version }) => version === 50)
-                .map(({ path }) => display(path)),
-              [governedM6FV50],
-            );
-            assert.deepEqual(
-              versionedMigrations.filter(({ version }) => version >= 51)
-                .map(({ path }) => display(path)),
-              [],
-            );
-            assert.deepEqual(
-              versionedMigrations.filter(({ version, fileName, path }) =>
-                version >= 49
-                  && !(version === 49 && fileName === governedV49)
-                  && !(version === 50 && display(path) === governedM6FV50),
-              ).map(({ path }) => display(path)),
-              [],
-            );
-          });
-          """
-          sdk.write_text(sdk_text[:start] + sdk_block + sdk_text[end:])
-          PY
-          git show origin/main:.github/workflows/approval-platform-validation.yml \
-            > .github/workflows/approval-platform-validation.yml
           git diff --check
-          node --check scripts/tests/m6-sdk-event-boundary.test.mjs
-          node --check scripts/tests/m6-f-p4-durable-lineage-boundary.test.mjs
-          node --test scripts/tests/m6-sdk-event-boundary.test.mjs \
-            scripts/tests/m6-f-p4-durable-lineage-boundary.test.mjs
-          test -f server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql
-          test ! -e server-modules/approval-persistence-jdbc/src/main/resources/db/migration/m6f/V50__create_ai_controlled_automation_lineage.sql
-      - name: Commit final P4 correction
+          test ! -e .github/workflows/pr53-release-deployment-validation.yml
+          if [ -d .github/scripts ] \
+            && find .github/scripts -type f -name 'apply-pr53-*' -print -quit | grep -q .; then
+            echo 'Temporary PR helper remains in the committed tree.'
+            exit 1
+          fi
+          if find .github -type f \
+            \( -name 'pr53-*' -o -name '*.tgz.b64' -o -name '*.patch' \) \
+            -print -quit | grep -q .; then
+            echo 'Temporary patch payload remains in the committed tree.'
+            exit 1
+          fi
+          if grep -R --line-number --fixed-strings 'default: local' \
+            apps/server/src/main/resources/application.yml; then
+            echo 'Base configuration must not activate the local profile.'
+            exit 1
+          fi
+      - name: Verify final tracked-tree hygiene
+        run: node --test scripts/tests/m3-repository-hygiene.test.mjs
+      - name: Verify persistence CI sharding helpers
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "approval-platform automation"
-          git config user.email "approval-platform-automation@users.noreply.github.com"
-          git add -A
-          git commit -m "fix(m6-f): isolate V50 and bind JDBC instants"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          bash -n scripts/ci/select-persistence-jdbc-tests.sh
+          python3 -m py_compile scripts/ci/verify-persistence-jdbc-shards.py
+          temporary_directory="$(mktemp -d)"
+          trap 'rm -rf "$temporary_directory"' EXIT
+          for shard in 0 1 2 3; do
+            bash scripts/ci/select-persistence-jdbc-tests.sh \
+              "$shard" 4 "${temporary_directory}/selected-tests-${shard}.txt" \
+              >"${temporary_directory}/tests-${shard}.csv"
+          done
+          duplicate="$(
+            cat "${temporary_directory}"/selected-tests-*.txt \
+              | sort \
+              | uniq -d \
+              | head -n 1
+          )"
+          test -z "$duplicate"
+      - name: Verify M4 identity and Flowable boundaries
+        run: node --test scripts/tests/m4-identity-boundary.test.mjs
+      - name: Verify M4 SLA and calendar boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m4-sla-calendar-boundary.test.mjs \
+            >m4-sla-calendar-boundary.log 2>&1 \
+            || { cat m4-sla-calendar-boundary.log; exit 1; }
+          cat m4-sla-calendar-boundary.log
+      - name: Verify M4 release governance observability boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m4-release-governance-boundary.test.mjs \
+            >m4-release-governance-boundary.log 2>&1 \
+            || { cat m4-release-governance-boundary.log; exit 1; }
+          cat m4-release-governance-boundary.log
+      - name: Verify M5 migration capability boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m5-migration-boundary.test.mjs \
+            >m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-migration-parallel-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-migration-history-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d3-engine-execution-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d4-exact-verification-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d5-runtime-binding-cas-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d6-durable-unknown-reconciliation-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d7-canary-orchestration-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-d8-plan-aggregation-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-e1-operations-visibility-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-f1-fault-security-observability-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-e2-advanced-diagnostics-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-f2-deep-hardening-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-g1-production-readiness-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          node --test scripts/tests/m5-g2-final-acceptance-boundary.test.mjs \
+            >>m5-migration-boundary.log 2>&1 \
+            || { cat m5-migration-boundary.log; exit 1; }
+          cat m5-migration-boundary.log
+      - name: Verify M6 AI foundation boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m6-ai-foundation-boundary.test.mjs \
+            >m6-ai-foundation-boundary.log 2>&1 \
+            || { cat m6-ai-foundation-boundary.log; exit 1; }
+          cat m6-ai-foundation-boundary.log
+      - name: Verify M6 AI activation review boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m6-ai-activation-review-boundary.test.mjs \
+            >m6-ai-activation-review-boundary.log 2>&1 \
+            || { cat m6-ai-activation-review-boundary.log; exit 1; }
+          cat m6-ai-activation-review-boundary.log
+      - name: Verify M6 AI transport review boundaries
+        shell: bash
+        run: |
+          node --test scripts/tests/m6-ai-transport-review-boundary.test.mjs \
+            >m6-ai-transport-review-boundary.log 2>&1 \
+            || { cat m6-ai-transport-review-boundary.log; exit 1; }
+          cat m6-ai-transport-review-boundary.log
+      - name: Upload repository governance logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: approval-hygiene-${{ github.run_id }}
+          path: |
+            m4-sla-calendar-boundary.log
+            m4-release-governance-boundary.log
+            m5-migration-boundary.log
+            m6-ai-foundation-boundary.log
+            m6-ai-activation-review-boundary.log
+            m6-ai-transport-review-boundary.log
+          if-no-files-found: ignore
+
+  backend-core:
+    name: Java 21 / Maven core
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: git diff --check
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Verify Maven core reactor
+        shell: bash
+        run: |
+          set +e
+          mvn -B -ntp verify \
+            -Dapproval.persistence.tests.skip=true \
+            >maven-core.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo '--- Maven core failure tail ---'
+            tail -n 240 maven-core.log
+            exit "$status"
+          fi
+          tail -n 100 maven-core.log
+      - name: Upload Maven core evidence part
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: approval-maven-part-core-${{ github.run_id }}
+          path: maven-core.log
+          if-no-files-found: error
+
+  persistence-jdbc:
+    name: Persistence JDBC / shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - 0
+          - 1
+          - 2
+          - 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: git diff --check
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Select deterministic test shard
+        id: selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          shard="${{ matrix.shard }}"
+          output_directory="persistence-shard-${shard}"
+          mkdir -p "$output_directory"
+          tests="$(
+            bash scripts/ci/select-persistence-jdbc-tests.sh \
+              "$shard" 4 "${output_directory}/selected-tests-${shard}.txt"
+          )"
+          printf 'tests=%s\n' "$tests" >>"$GITHUB_OUTPUT"
+          cat "${output_directory}/selected-tests-${shard}.txt"
+      - name: Verify Persistence JDBC shard
+        shell: bash
+        run: |
+          set +e
+          shard="${{ matrix.shard }}"
+          output_directory="persistence-shard-${shard}"
+          log_file="${output_directory}/maven-persistence-shard-${shard}.log"
+          mvn -B -ntp \
+            -pl :approval-persistence-jdbc \
+            -am verify \
+            -Dtest="${{ steps.selection.outputs.tests }}" \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Dapproval.persistence.test.fork-count=2 \
+            >"$log_file" 2>&1
+          status=$?
+          report_directory="server-modules/approval-persistence-jdbc/target/surefire-reports"
+          if [ -d "$report_directory" ]; then
+            mkdir -p "${output_directory}/surefire-reports"
+            cp -R "${report_directory}/." "${output_directory}/surefire-reports/"
+          fi
+          if [ "$status" -ne 0 ]; then
+            echo "--- Persistence JDBC shard ${shard} failure tail ---"
+            tail -n 240 "$log_file"
+            exit "$status"
+          fi
+          tail -n 100 "$log_file"
+      - name: Upload Persistence JDBC evidence part
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: approval-maven-part-persistence-${{ matrix.shard }}-${{ github.run_id }}
+          path: persistence-shard-${{ matrix.shard }}
+          if-no-files-found: error
+
+  backend:
+    name: Java 21 / Maven / PostgreSQL
+    needs:
+      - backend-core
+      - persistence-jdbc
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Maven evidence parts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: approval-maven-part-*-${{ github.run_id }}
+          path: backend-parts
+      - name: Assemble and verify Maven evidence
+        shell: bash
+        env:
+          CORE_RESULT: ${{ needs.backend-core.result }}
+          PERSISTENCE_RESULT: ${{ needs.persistence-jdbc.result }}
+        run: |
+          set +e
+          mkdir -p backend-final
+          python3 scripts/ci/verify-persistence-jdbc-shards.py \
+            backend-parts \
+            backend-final/persistence-jdbc-summary.txt \
+            --expected-shards 4
+          verification_status=$?
+
+          {
+            echo 'Approval Platform Maven verification'
+            echo "backend core result: ${CORE_RESULT}"
+            echo "persistence shard result: ${PERSISTENCE_RESULT}"
+            echo
+            while IFS= read -r -d '' log_file; do
+              echo "===== ${log_file} ====="
+              cat "$log_file"
+              echo
+            done < <(
+              find backend-parts -type f -name 'maven-*.log' -print0 | sort -z
+            )
+            if [ -f backend-final/persistence-jdbc-summary.txt ]; then
+              echo '===== Persistence JDBC shard summary ====='
+              cat backend-final/persistence-jdbc-summary.txt
+            fi
+          } >backend-final/maven-verify.log
+
+          {
+            echo "backend core result: ${CORE_RESULT}"
+            echo "persistence shard result: ${PERSISTENCE_RESULT}"
+            echo "persistence verification status: ${verification_status}"
+          } >backend-final/backend-gate.txt
+
+          cat backend-final/backend-gate.txt
+          if [ -f backend-final/persistence-jdbc-summary.txt ]; then
+            cat backend-final/persistence-jdbc-summary.txt
+          fi
+
+          if [ "$CORE_RESULT" != 'success' ] \
+            || [ "$PERSISTENCE_RESULT" != 'success' ] \
+            || [ "$verification_status" -ne 0 ]; then
+            exit 1
+          fi
+      - name: Upload Maven summary evidence part
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: approval-maven-part-summary-${{ github.run_id }}
+          path: backend-final
+          if-no-files-found: error
+      - name: Merge Maven evidence artifact
+        if: always()
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: approval-maven-${{ github.run_id }}
+          pattern: approval-maven-part-*-${{ github.run_id }}
+          delete-merged: true
+
+  web:
+    name: Vben TypeScript / production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: git diff --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.4 --activate
+      - name: Install root tooling
+        shell: bash
+        run: pnpm install --no-frozen-lockfile >root-install.log 2>&1 || { tail -n 160 root-install.log; exit 1; }
+      - name: Verify client management boundaries
+        shell: bash
+        run: pnpm web:test:client-boundary >client-boundary-test.log 2>&1 || { cat client-boundary-test.log; exit 1; }
+      - name: Verify form renderer semantics
+        shell: bash
+        run: pnpm web:test:form-renderer >form-renderer-test.log 2>&1 || { cat form-renderer-test.log; exit 1; }
+      - name: Verify form designer section operations
+        shell: bash
+        run: pnpm web:test:form-designer >form-designer-test.log 2>&1 || { cat form-designer-test.log; exit 1; }
+      - name: Benchmark designer topology
+        shell: bash
+        run: pnpm web:benchmark:designer >designer-benchmark.log 2>&1 || { cat designer-benchmark.log; exit 1; }
+      - name: Install Vben workspace
+        shell: bash
+        run: pnpm web:install >web-install.log 2>&1 || { tail -n 180 web-install.log; exit 1; }
+      - name: Type-check Vben application
+        shell: bash
+        run: pnpm web:typecheck >web-typecheck.log 2>&1 || { cat web-typecheck.log; exit 1; }
+      - name: Build Vben application
+        shell: bash
+        run: pnpm web:build >web-build.log 2>&1 || { tail -n 220 web-build.log; exit 1; }
+      - name: Upload Vben verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: approval-vben-${{ github.run_id }}
+          path: |
+            root-install.log
+            client-boundary-test.log
+            form-renderer-test.log
+            form-designer-test.log
+            designer-benchmark.log
+            web-install.log
+            web-typecheck.log
+            web-build.log
+          if-no-files-found: ignore
+
+  mobile:
+    name: UniApp TypeScript / H5 / WeChat
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: git diff --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.4 --activate
+      - name: Install root tooling
+        shell: bash
+        run: pnpm install --no-frozen-lockfile >root-install.log 2>&1 || { tail -n 160 root-install.log; exit 1; }
+      - name: Install UniApp workspace
+        shell: bash
+        run: pnpm mobile:install >mobile-install.log 2>&1 || { tail -n 180 mobile-install.log; exit 1; }
+      - name: Type-check UniApp application
+        shell: bash
+        run: pnpm mobile:typecheck >mobile-typecheck.log 2>&1 || { cat mobile-typecheck.log; exit 1; }
+      - name: Build H5 application
+        shell: bash
+        run: pnpm mobile:build:h5 >mobile-h5.log 2>&1 || { tail -n 220 mobile-h5.log; exit 1; }
+      - name: Build WeChat Mini Program
+        shell: bash
+        run: pnpm mobile:build:weixin >mobile-weixin.log 2>&1 || { tail -n 220 mobile-weixin.log; exit 1; }
+      - name: Upload mobile verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: approval-mobile-${{ github.run_id }}
+          path: |
+            root-install.log
+            mobile-install.log
+            mobile-typecheck.log
+            mobile-h5.log
+            mobile-weixin.log
+          if-no-files-found: ignore

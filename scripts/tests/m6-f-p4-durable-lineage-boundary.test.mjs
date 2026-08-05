@@ -28,7 +28,7 @@ const jdbc = read(
     + 'persistence/jdbc/JdbcControlledAutomationLineageStore.java',
 );
 const migration = read(
-  'server-modules/approval-persistence-jdbc/src/main/resources/db/migration/m6f/'
+  'server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/'
     + 'V50__create_ai_controlled_automation_lineage.sql',
 );
 const integration = read(
@@ -131,23 +131,27 @@ test('P4 is server-wired but exposes no API or execution composition', () => {
 });
 
 test('P4 owns exact recursive V50 while historical M5 and M6-E migrations remain frozen', () => {
-  const migrationRoot = path.join(
+  const resourceRoot = path.join(
     root,
-    'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
+    'server-modules/approval-persistence-jdbc/src/main/resources',
   );
-  const versioned = walk(migrationRoot)
-    .map((file) => path.relative(migrationRoot, file).replaceAll(path.sep, '/'))
+  const migrationRoots = [
+    path.join(resourceRoot, 'db/migration'),
+    path.join(resourceRoot, 'm6f/db/migration'),
+  ];
+  const versioned = migrationRoots.flatMap(walk)
+    .map((file) => path.relative(resourceRoot, file).replaceAll(path.sep, '/'))
     .map((name) => ({ name, match: /(?:^|\/)V(\d+)__.+\.sql$/.exec(name) }))
     .filter(({ match }) => match)
     .map(({ name, match }) => ({ name, version: Number(match[1]) }));
   assert.equal(Math.max(...versioned.map(({ version }) => version)), 50);
   assert.deepEqual(
     versioned.filter(({ version }) => version === 49).map(({ name }) => name),
-    ['V49__create_ai_approval_assistance_durable_evidence.sql'],
+    ['db/migration/V49__create_ai_approval_assistance_durable_evidence.sql'],
   );
   assert.deepEqual(
     versioned.filter(({ version }) => version === 50).map(({ name }) => name),
-    ['m6f/V50__create_ai_controlled_automation_lineage.sql'],
+    ['m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql'],
   );
   assert.deepEqual(versioned.filter(({ version }) => version >= 51), []);
 

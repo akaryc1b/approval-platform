@@ -23,6 +23,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
@@ -429,8 +430,8 @@ public final class JdbcControlledAutomationLineageStore
             .addValue("idempotencyKeyHash", command.idempotencyKeyHash())
             .addValue("idempotencyPayloadHash", command.idempotencyPayloadHash())
             .addValue("registrationEvidenceHash", command.evidenceHash())
-            .addValue("confirmedAt", command.confirmedAt())
-            .addValue("expiresAt", command.expiresAt());
+            .addValue("confirmedAt", Timestamp.from(command.confirmedAt()))
+            .addValue("expiresAt", Timestamp.from(command.expiresAt()));
     }
 
     private static MapSqlParameterSource transitionParameters(TransitionCommand command) {
@@ -443,7 +444,7 @@ public final class JdbcControlledAutomationLineageStore
             .addValue("resultEvidenceHash", command.resultEvidenceHash())
             .addValue("idempotencyKeyHash", command.idempotencyKeyHash())
             .addValue("idempotencyPayloadHash", command.idempotencyPayloadHash())
-            .addValue("happenedAt", command.occurredAt())
+            .addValue("happenedAt", Timestamp.from(command.occurredAt()))
             .addValue("commandAttempts", command.commandAttempts());
     }
 
