@@ -122,7 +122,7 @@ public final class ControlledAutomationGovernancePlanContracts {
             p5Decision = requireText(p5Decision, "p5Decision", 160);
             evidenceHash = requireSha256(evidenceHash, "evidenceHash");
 
-            requirePermanentAuthorityBoundary(
+            requireNoAuthority(
                 productionReauthenticationAvailable,
                 providerInvocationAuthorized,
                 secretResolutionAuthorized,
@@ -133,14 +133,7 @@ public final class ControlledAutomationGovernancePlanContracts {
                 commandExecutionAuthorized,
                 automaticRetryAuthorized
             );
-            if (!ControlledAutomationGovernanceReadContracts.EMPTY_ACTION_WHITELIST.equals(
-                    actionWhitelistState
-                )
-                || !ControlledAutomationGovernanceReadContracts.P5_SKIPPED.equals(p5Decision)) {
-                throw new IllegalArgumentException(
-                    "P6-B must preserve the empty Action Whitelist and skipped P5-A decision"
-                );
-            }
+            requireFrozenAutomationBoundary(actionWhitelistState, p5Decision);
             if (mode != Mode.NON_EXECUTABLE_REVIEW_ONLY || plannedTrafficPercent != 0) {
                 throw new IllegalArgumentException(
                     "P6-B plans must remain review-only with zero traffic mutation"
@@ -159,8 +152,7 @@ public final class ControlledAutomationGovernancePlanContracts {
                 rollbackMechanism,
                 operatorStepCodes
             );
-
-            String computed = computeEvidenceHash(
+            String computed = evidence(
                 planVersion,
                 observedAt,
                 operation,
@@ -191,9 +183,12 @@ public final class ControlledAutomationGovernancePlanContracts {
             TargetRuntimeState target = operation == Operation.ROLLBACK
                 ? TargetRuntimeState.DISABLED
                 : TargetRuntimeState.UNCHANGED;
-            RollbackMechanism rollback = rollbackMechanism(operation, source.runtimeState());
+            RollbackMechanism rollback = resolveRollbackMechanism(
+                operation,
+                source.runtimeState()
+            );
             List<String> steps = operatorSteps(operation, source.runtimeState());
-            String evidence = computeEvidenceHash(
+            String evidenceHash = evidence(
                 PLAN_VERSION,
                 source.observedAt(),
                 operation,
@@ -235,7 +230,7 @@ public final class ControlledAutomationGovernancePlanContracts {
                 false,
                 false,
                 false,
-                evidence
+                evidenceHash
             );
         }
     }
@@ -260,7 +255,7 @@ public final class ControlledAutomationGovernancePlanContracts {
         return normalizeCodes(blockers, "blockerCode", 16);
     }
 
-    private static RollbackMechanism rollbackMechanism(
+    private static RollbackMechanism resolveRollbackMechanism(
         Operation operation,
         RuntimeState runtimeState
     ) {
@@ -292,7 +287,7 @@ public final class ControlledAutomationGovernancePlanContracts {
         RollbackMechanism rollbackMechanism,
         List<String> operatorStepCodes
     ) {
-        if (operation == Operation.CANARY || operation == Operation.ROLLOUT) {
+        if (operation != Operation.ROLLBACK) {
             if (status != Status.BLOCKED
                 || targetRuntimeState != TargetRuntimeState.UNCHANGED
                 || rollbackMechanism != RollbackMechanism.NONE
@@ -316,8 +311,9 @@ public final class ControlledAutomationGovernancePlanContracts {
                     "disabled runtime rollback must require no release action"
                 );
             }
-        } else if (rollbackMechanism
-                != RollbackMechanism.DISABLE_RUNTIME_FLAG_AND_REDEPLOY
+            return;
+        }
+        if (rollbackMechanism != RollbackMechanism.DISABLE_RUNTIME_FLAG_AND_REDEPLOY
             || !operatorStepCodes.equals(CONFIGURED_ROLLBACK_STEPS)) {
             throw new IllegalArgumentException(
                 "configured runtime rollback must use the established release process"
@@ -325,28 +321,26 @@ public final class ControlledAutomationGovernancePlanContracts {
         }
     }
 
-    private static void requirePermanentAuthorityBoundary(
-        boolean productionReauthenticationAvailable,
-        boolean providerInvocationAuthorized,
-        boolean secretResolutionAuthorized,
-        boolean trafficMutationAuthorized,
-        boolean configurationMutationAuthorized,
-        boolean deploymentAuthorized,
-        boolean applyAuthorized,
-        boolean commandExecutionAuthorized,
-        boolean automaticRetryAuthorized
+    private static void requireNoAuthority(boolean... values) {
+        for (boolean value : values) {
+            if (value) {
+                throw new IllegalArgumentException(
+                    "P6-B plans cannot grant runtime, deployment or command authority"
+                );
+            }
+        }
+    }
+
+    private static void requireFrozenAutomationBoundary(
+        String actionWhitelistState,
+        String p5Decision
     ) {
-        if (productionReauthenticationAvailable
-            || providerInvocationAuthorized
-            || secretResolutionAuthorized
-            || trafficMutationAuthorized
-            || configurationMutationAuthorized
-            || deploymentAuthorized
-            || applyAuthorized
-            || commandExecutionAuthorized
-            || automaticRetryAuthorized) {
+        if (!ControlledAutomationGovernanceReadContracts.EMPTY_ACTION_WHITELIST.equals(
+                actionWhitelistState
+            )
+            || !ControlledAutomationGovernanceReadContracts.P5_SKIPPED.equals(p5Decision)) {
             throw new IllegalArgumentException(
-                "P6-B plans cannot grant runtime, deployment or command authority"
+                "P6-B must preserve the empty Action Whitelist and skipped P5-A decision"
             );
         }
     }
@@ -397,7 +391,7 @@ public final class ControlledAutomationGovernancePlanContracts {
         return normalized;
     }
 
-    private static String computeEvidenceHash(
+    private static String evidence(
         String planVersion,
         Instant observedAt,
         Operation operation,
