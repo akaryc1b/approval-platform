@@ -30,9 +30,11 @@ class OpenAiResponsesRuntimeUsageLedgerTest {
 
         assertEquals(2, tenantA.committedRequests());
         assertEquals(2, tenantA.requestLimit());
+        assertEquals(3, tenantA.globalRequestLimit());
         assertEquals(0, tenantA.remainingRequests());
         assertEquals(900, tenantA.committedUpperBoundMicros());
         assertEquals(2_000, tenantA.derivedEnvelopeMicros());
+        assertEquals(3_000, tenantA.globalDerivedEnvelopeMicros());
         assertEquals(1_100, tenantA.remainingDerivedEnvelopeMicros());
         assertTrue(tenantA.tenantSaturated());
         assertTrue(tenantA.globalSaturated());
@@ -43,6 +45,23 @@ class OpenAiResponsesRuntimeUsageLedgerTest {
         assertTrue(tenantB.globalSaturated());
         assertNotEquals(tenantA.evidenceHash(), tenantB.evidenceHash());
         assertFalse(tenantA.toString().contains("tenant-a"));
+    }
+
+    @Test
+    void tenantEvidenceDoesNotEncodeNonSaturatedGlobalExactUsage() {
+        OpenAiResponsesRuntimeUsageLedger oneTenant = ledger(10, 10, 10);
+        oneTenant.recordDispatched(TENANT_A, NOW, 100);
+
+        OpenAiResponsesRuntimeUsageLedger twoTenants = ledger(10, 10, 10);
+        twoTenants.recordDispatched(TENANT_A, NOW, 100);
+        twoTenants.recordDispatched(TENANT_B, NOW, 500);
+
+        var oneTenantView = oneTenant.snapshot(TENANT_A, NOW);
+        var twoTenantView = twoTenants.snapshot(TENANT_A, NOW);
+
+        assertFalse(oneTenantView.globalSaturated());
+        assertFalse(twoTenantView.globalSaturated());
+        assertEquals(oneTenantView.evidenceHash(), twoTenantView.evidenceHash());
     }
 
     @Test
