@@ -31,6 +31,7 @@ public final class OpenAiResponsesProductionRuntimeFactory {
     private final OpenAiResponsesTransportControls.CircuitBreaker circuitBreaker;
     private final OpenAiResponsesTransportControls.CostPolicy costPolicy;
     private final OpenAiResponsesTransportControls.KillSwitchSnapshot killSwitch;
+    private final OpenAiResponsesRuntimeUsageLedger usageLedger;
     private final ConcurrentHashMap<String, Binding> bindings = new ConcurrentHashMap<>();
 
     public OpenAiResponsesProductionRuntimeFactory(RuntimeProfile profile, Clock clock) {
@@ -62,6 +63,13 @@ public final class OpenAiResponsesProductionRuntimeFactory {
             true,
             profile.killSwitchPolicyRevision()
         );
+        this.usageLedger = new OpenAiResponsesRuntimeUsageLedger(
+            profile.perTenantRateLimit(),
+            profile.globalRateLimit(),
+            MAXIMUM_TENANT_BINDINGS,
+            profile.rateWindow(),
+            profile.maximumRequestMicros()
+        );
         costPolicy.requireCurrent(clock.instant());
     }
 
@@ -79,7 +87,7 @@ public final class OpenAiResponsesProductionRuntimeFactory {
 
     private Binding newBinding(String tenantId) {
         Instant now = clock.instant();
-        String tenantHash = CanonicalPayloadHash.sha256Utf8("tenant\n" + tenantId);
+        String tenantHash = tenantHash(tenantId);
         CredentialMaterialVersion version = new CredentialMaterialVersion(
             profile.secretVersionReference(),
             profile.secretVersionEffectiveFrom(),
@@ -120,6 +128,7 @@ public final class OpenAiResponsesProductionRuntimeFactory {
             circuitBreaker,
             rateLimiter,
             costPolicy,
+            usageLedger,
             clock
         );
         OpenAiResponsesSecureHttpSender sender = OpenAiResponsesSecureHttpSender.production(
@@ -168,6 +177,16 @@ public final class OpenAiResponsesProductionRuntimeFactory {
             false,
             false
         );
+    }
+
+    /**
+     * Returns one tenant's process-local dispatched usage without creating a runtime binding.
+     */
+    public OpenAiResponsesRuntimeUsageLedger.UsageSnapshot usageSnapshot(
+        String trustedTenantId
+    ) {
+        String tenantId = requireText(trustedTenantId, "trustedTenantId", 128);
+        return usageLedger.snapshot(tenantHash(tenantId), clock.instant());
     }
 
     public record Binding(
@@ -355,6 +374,10 @@ public final class OpenAiResponsesProductionRuntimeFactory {
                 throw new IllegalArgumentException("runtime limits must be positive and coherent");
             }
         }
+    }
+
+    private static String tenantHash(String tenantId) {
+        return CanonicalPayloadHash.sha256Utf8("tenant\n" + tenantId);
     }
 
     private static String requireText(String value, String name, int maximumLength) {
