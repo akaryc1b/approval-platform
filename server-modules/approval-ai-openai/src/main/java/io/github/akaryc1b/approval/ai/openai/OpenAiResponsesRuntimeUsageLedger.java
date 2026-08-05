@@ -151,8 +151,10 @@ public final class OpenAiResponsesRuntimeUsageLedger {
             end,
             tenantRequests,
             perTenantLimit,
+            globalLimit,
             tenantMicros,
             tenantEnvelopeMicros,
+            globalEnvelopeMicros,
             globalSaturated,
             true,
             false,
@@ -168,8 +170,10 @@ public final class OpenAiResponsesRuntimeUsageLedger {
         Instant windowEnd,
         int committedRequests,
         int requestLimit,
+        int globalRequestLimit,
         long committedUpperBoundMicros,
         long derivedEnvelopeMicros,
+        long globalDerivedEnvelopeMicros,
         boolean globalSaturated,
         boolean processLocal,
         boolean durable,
@@ -184,9 +188,11 @@ public final class OpenAiResponsesRuntimeUsageLedger {
             if (!windowStart.isBefore(windowEnd)
                 || committedRequests < 0
                 || requestLimit < 1
+                || globalRequestLimit < requestLimit
                 || committedRequests > requestLimit
                 || committedUpperBoundMicros < 0
                 || derivedEnvelopeMicros < 1
+                || globalDerivedEnvelopeMicros < derivedEnvelopeMicros
                 || committedUpperBoundMicros > derivedEnvelopeMicros) {
                 throw new IllegalArgumentException("usage snapshot must be coherent and bounded");
             }
