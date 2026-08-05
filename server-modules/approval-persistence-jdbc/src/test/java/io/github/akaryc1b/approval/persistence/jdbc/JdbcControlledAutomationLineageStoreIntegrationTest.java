@@ -57,7 +57,7 @@ class JdbcControlledAutomationLineageStoreIntegrationTest {
         );
         Flyway.configure()
             .dataSource(dataSource)
-            .locations("classpath:db/migration", "classpath:m6f/db/migration")
+            .locations("classpath:db/migration")
             .load()
             .migrate();
         jdbc = new JdbcTemplate(dataSource);

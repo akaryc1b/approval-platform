@@ -174,17 +174,19 @@ returns trigger language plpgsql as $$
 declare
  current_revision bigint;
  current_status varchar(16);
- current_event_hash varchar(64);
+ lineage_event_hash varchar(64);
  current_operator_hash varchar(64);
 begin
  if tg_op<>'INSERT' then
   raise exception using errcode='55000',
    message='M6-F P4 controlled-automation events are append-only';
  end if;
- select revision,status,current_event_hash,operator_evidence_hash
- into current_revision,current_status,current_event_hash,current_operator_hash
- from ap_ai_controlled_automation_lineage
- where tenant_evidence_hash=new.tenant_evidence_hash and proposal_id=new.proposal_id;
+ select stored.revision,stored.status,stored.current_event_hash,
+       stored.operator_evidence_hash
+ into current_revision,current_status,lineage_event_hash,current_operator_hash
+ from ap_ai_controlled_automation_lineage stored
+ where stored.tenant_evidence_hash=new.tenant_evidence_hash
+  and stored.proposal_id=new.proposal_id;
  if current_revision is null then
   raise exception using errcode='23503',message='M6-F P4 lineage does not exist';
  end if;
@@ -193,7 +195,7 @@ begin
  end if;
  if new.event_type='REGISTERED' then
   if current_revision<>1 or current_status<>'CONFIRMED'
-   or current_event_hash<>new.event_hash then
+   or lineage_event_hash<>new.event_hash then
    raise exception using errcode='23514',
     message='M6-F P4 registration event does not match lineage revision one';
   end if;
@@ -201,7 +203,7 @@ begin
  end if;
  if current_revision<>1 or current_status<>'CONFIRMED'
   or new.revision<>2 or new.from_status<>'CONFIRMED'
-  or new.predecessor_hash<>current_event_hash then
+  or new.predecessor_hash<>lineage_event_hash then
   raise exception using errcode='23514',
    message='M6-F P4 terminal event predecessor or CAS state mismatch';
  end if;

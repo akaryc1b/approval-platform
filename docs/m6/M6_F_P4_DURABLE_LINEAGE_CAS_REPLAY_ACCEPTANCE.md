@@ -46,8 +46,7 @@ Historical ownership is unchanged:
 - M6-F P4 owns exact V50;
 - no V51 or later migration is introduced.
 
-Flyway scans configured migration locations recursively, allowing the M6-F migration to remain in an
-explicit ownership subdirectory while retaining global version ordering.
+The persistence module keeps V50 in its explicit M6-F source ownership directory and maps it during Maven resource processing to runtime `classpath:db/migration/m6f`. Flyway therefore remains on the standard migration location while global version ordering is retained.
 
 ## 4. CAS and replay semantics
 

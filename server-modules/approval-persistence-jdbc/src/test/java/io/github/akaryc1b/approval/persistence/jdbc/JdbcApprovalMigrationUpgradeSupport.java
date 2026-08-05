@@ -27,7 +27,7 @@ final class JdbcApprovalMigrationUpgradeSupport {
     static Flyway flyway(DataSource dataSource, MigrationVersion target) {
         var configuration = Flyway.configure()
             .dataSource(dataSource)
-            .locations("classpath:db/migration", "classpath:m6f/db/migration");
+            .locations("classpath:db/migration");
         if (target != null) configuration.target(target);
         return configuration.load();
     }

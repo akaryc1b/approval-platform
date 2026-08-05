@@ -43,6 +43,9 @@ const configuration = read(
   'apps/server/src/main/java/io/github/akaryc1b/approval/config/'
     + 'ControlledAutomationLineageConfiguration.java',
 );
+const persistencePom = read(
+  'server-modules/approval-persistence-jdbc/pom.xml',
+);
 const acceptance = read(
   'docs/m6/M6_F_P4_DURABLE_LINEAGE_CAS_REPLAY_ACCEPTANCE.md',
 );
@@ -124,7 +127,12 @@ test('P4 is server-wired but exposes no API or execution composition', () => {
   assert.match(configuration, /ControlledAutomationLineageStore/);
   assert.match(configuration, /JdbcControlledAutomationLineageStore/);
   assert.match(configuration, /UUID::randomUUID/);
-  assert.doesNotMatch(configuration, /@RestController|@PostMapping|ApprovalMessageService/);
+  assert.doesNotMatch(
+    configuration,
+    /FlywayConfigurationCustomizer|@RestController|@PostMapping|ApprovalMessageService/,
+  );
+  assert.match(persistencePom, /<exclude>m6f\/db\/migration\/\*\*<\/exclude>/);
+  assert.match(persistencePom, /<targetPath>db\/migration\/m6f<\/targetPath>/);
   assert.match(architecture, /coreLineagePortCannotDependOnCommandsPersistenceNetworkConnectorOrFlowable/);
   assert.match(architecture, /p4PersistenceContainsOnlyHashLineageAndNoExecutionAuthority/);
   assert.match(architecture, /automaticRetryAllowed/);
