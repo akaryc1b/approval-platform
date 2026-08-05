@@ -6,6 +6,9 @@ import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesProtocol;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesTransportControls;
 import io.github.akaryc1b.approval.ai.spi.AiCapability;
 import io.github.akaryc1b.approval.ai.spi.AiVersionReferences;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceControlHealthContracts
+    .ControlHealthView;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceControlHealthSource;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.InventoryEntry;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.OperationsView;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.RuntimeControls;
@@ -46,6 +49,23 @@ public class ControlledAutomationGovernanceConfiguration {
             inventory,
             controls
         );
+    }
+
+    @Bean
+    ControlledAutomationGovernanceControlHealthSource
+        controlledAutomationGovernanceControlHealthSource(
+            ApprovalAssistanceProductionRuntime productionRuntime,
+            ControlledAutomationGovernanceSnapshotSource snapshotSource
+        ) {
+        return () -> {
+            OperationsView snapshot = snapshotSource.current();
+            return productionRuntime.factory()
+                .map(factory -> ControlHealthView.configured(
+                    snapshot,
+                    factory.controlSnapshot()
+                ))
+                .orElseGet(() -> ControlHealthView.disabled(snapshot));
+        };
     }
 
     static List<InventoryEntry> inventory() {
