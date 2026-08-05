@@ -256,22 +256,48 @@ public record ApprovalAssistanceContextProjection(
     public record ProjectionEvidence(
         int authorizedVisibleFieldCount,
         int providerFieldCount,
+        int formProviderFieldCount,
         int maskedFieldCount,
         int omittedFieldCount,
         int attachmentMetadataCount,
         boolean attachmentExtractionAttempted
     ) {
+        public ProjectionEvidence(
+            int authorizedVisibleFieldCount,
+            int providerFieldCount,
+            int maskedFieldCount,
+            int omittedFieldCount,
+            int attachmentMetadataCount,
+            boolean attachmentExtractionAttempted
+        ) {
+            this(
+                authorizedVisibleFieldCount,
+                providerFieldCount,
+                providerFieldCount,
+                maskedFieldCount,
+                omittedFieldCount,
+                attachmentMetadataCount,
+                attachmentExtractionAttempted
+            );
+        }
+
         public ProjectionEvidence {
             if (authorizedVisibleFieldCount < 0
                 || providerFieldCount < 0
+                || formProviderFieldCount < 0
                 || maskedFieldCount < 0
                 || omittedFieldCount < 0
                 || attachmentMetadataCount < 0) {
                 throw new IllegalArgumentException("projection counts must not be negative");
             }
-            if (providerFieldCount > authorizedVisibleFieldCount) {
+            if (formProviderFieldCount > providerFieldCount) {
                 throw new IllegalArgumentException(
-                    "provider fields cannot exceed authorized visible fields"
+                    "Form Provider fields cannot exceed total Provider fields"
+                );
+            }
+            if (formProviderFieldCount > authorizedVisibleFieldCount) {
+                throw new IllegalArgumentException(
+                    "Form Provider fields cannot exceed authorized visible Form fields"
                 );
             }
             if (maskedFieldCount > providerFieldCount) {
@@ -541,9 +567,9 @@ public record ApprovalAssistanceContextProjection(
             );
         }
         if (form.schemaFieldCount()
-            != evidence.providerFieldCount() + evidence.omittedFieldCount()) {
+            != evidence.formProviderFieldCount() + evidence.omittedFieldCount()) {
             throw new IllegalArgumentException(
-                "schema field count does not match projection evidence"
+                "schema field count does not match Form projection evidence"
             );
         }
         if (evidence.authorizedVisibleFieldCount() > form.schemaFieldCount()) {
