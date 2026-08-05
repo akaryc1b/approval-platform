@@ -24,9 +24,12 @@ class M6ConnectorFoundationBoundaryTest {
 
     private static final Path ROOT = repositoryRoot();
     private static final Pattern FLYWAY_VERSION = Pattern.compile("V(\\d+)__.*\\.sql");
+    private static final String GOVERNED_M6_E_V49 =
+        "V49__create_ai_approval_assistance_durable_evidence.sql";
 
     @Test
-    void connectorSliceAddsNoV49OrOtherPostM5FlywayMigration() throws IOException {
+    void connectorSliceOwnsNoMigrationAndRecognizesOnlyGovernedM6EV49()
+        throws IOException {
         List<Path> migrations = filesUnder(ROOT).stream()
             .filter(path -> path.toString().replace('\\', '/').contains(
                 "/src/main/resources/db/migration/"
@@ -37,17 +40,36 @@ class M6ConnectorFoundationBoundaryTest {
         assertFalse(migrations.isEmpty(), "expected the existing Flyway baseline");
         for (Path migration : migrations) {
             var matcher = FLYWAY_VERSION.matcher(migration.getFileName().toString());
-            if (matcher.matches()) {
-                int version = Integer.parseInt(matcher.group(1));
-                assertTrue(version <= 48, "unexpected Flyway migration: " + relative(migration));
+            if (!matcher.matches()) {
+                continue;
+            }
+            int version = Integer.parseInt(matcher.group(1));
+            if (version == 49) {
+                assertEquals(
+                    GOVERNED_M6_E_V49,
+                    migration.getFileName().toString(),
+                    "only the independent M6-E P4 migration may own V49"
+                );
+            } else {
+                assertTrue(
+                    version <= 48,
+                    "unexpected Flyway migration: " + relative(migration)
+                );
             }
         }
+        assertEquals(
+            List.of(GOVERNED_M6_E_V49),
+            migrations.stream()
+                .filter(path -> path.getFileName().toString().startsWith("V49__"))
+                .map(path -> path.getFileName().toString())
+                .toList()
+        );
         assertFalse(
             migrations.stream().anyMatch(path -> {
                 var matcher = FLYWAY_VERSION.matcher(path.getFileName().toString());
-                return matcher.matches() && Integer.parseInt(matcher.group(1)) >= 49;
+                return matcher.matches() && Integer.parseInt(matcher.group(1)) >= 50;
             }),
-            "M6-A must not create V49 or a higher migration"
+            "no V50 or higher migration is authorized"
         );
     }
 

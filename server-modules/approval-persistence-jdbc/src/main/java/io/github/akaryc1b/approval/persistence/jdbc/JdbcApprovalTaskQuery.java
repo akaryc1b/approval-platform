@@ -138,11 +138,51 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
                 instance.created_at as instance_created_at,
                 instance.updated_at as instance_updated_at,
                 task.created_at as task_created_at,
-                task.updated_at as task_updated_at
+                task.updated_at as task_updated_at,
+                instance.release_version,
+                instance.release_package_hash,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_package.package_version end as form_package_version,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_package.package_hash end as form_package_hash,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_definition.content_hash end as form_content_hash,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then ui_schema.ui_schema_version end as ui_schema_version,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then ui_schema.content_hash end as ui_schema_hash,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_definition.schema_version end as form_schema_version,
+                case when form_definition.form_version is not null
+                           and ui_schema.ui_schema_version is not null
+                     then form_definition.field_count end as form_schema_field_count
             from ap_approval_task task
             join ap_approval_instance instance
               on instance.tenant_id = task.tenant_id
              and instance.instance_id = task.instance_id
+            left join ap_form_package form_package
+              on form_package.tenant_id = instance.tenant_id
+             and form_package.form_key = instance.form_key
+             and form_package.package_version = instance.form_package_version
+             and form_package.package_hash = instance.form_package_hash
+             and form_package.form_version = instance.form_version
+            left join ap_form_definition form_definition
+              on form_definition.tenant_id = form_package.tenant_id
+             and form_definition.form_key = form_package.form_key
+             and form_definition.form_version = form_package.form_version
+             and form_definition.content_hash = form_package.form_hash
+            left join ap_form_ui_schema ui_schema
+              on ui_schema.tenant_id = form_package.tenant_id
+             and ui_schema.form_key = form_package.form_key
+             and ui_schema.form_version = form_package.form_version
+             and ui_schema.ui_schema_version = form_package.ui_schema_version
+             and ui_schema.content_hash = form_package.ui_schema_hash
             where task.tenant_id = :tenantId
               and task.assignee_id = :assigneeId
               and task.task_id = :taskId
@@ -214,7 +254,16 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
             instant(resultSet, "instance_created_at"),
             instant(resultSet, "instance_updated_at"),
             instant(resultSet, "task_created_at"),
-            instant(resultSet, "task_updated_at")
+            instant(resultSet, "task_updated_at"),
+            nullableInteger(resultSet, "release_version"),
+            resultSet.getString("release_package_hash"),
+            nullableInteger(resultSet, "form_package_version"),
+            resultSet.getString("form_package_hash"),
+            resultSet.getString("form_content_hash"),
+            nullableInteger(resultSet, "ui_schema_version"),
+            resultSet.getString("ui_schema_hash"),
+            resultSet.getString("form_schema_version"),
+            nullableInteger(resultSet, "form_schema_field_count")
         );
     }
 
@@ -273,6 +322,12 @@ public final class JdbcApprovalTaskQuery implements ApprovalTaskQuery {
             .filter(value -> !value.isBlank())
             .findFirst()
             .orElse(userId);
+    }
+
+    private static Integer nullableInteger(ResultSet resultSet, String column)
+        throws SQLException {
+        int value = resultSet.getInt(column);
+        return resultSet.wasNull() ? null : value;
     }
 
     private static Instant instant(ResultSet resultSet, String column) throws SQLException {

@@ -55,19 +55,27 @@ class ModuleBoundariesTest {
         );
 
     @ArchTest
-    static final ArchRule AI_FOUNDATION_HAS_NO_FRAMEWORK_NETWORK_OR_PERSISTENCE_DEPENDENCY =
+    static final ArchRule AI_FOUNDATION_HAS_NO_FRAMEWORK_OR_PERSISTENCE_DEPENDENCY =
         noClasses()
             .that().resideInAPackage("io.github.akaryc1b.approval.ai..")
             .should().dependOnClassesThat().resideInAnyPackage(
                 "org.springframework..",
                 "org.flowable..",
-                "java.net..",
                 "java.sql..",
                 "javax.sql..",
                 "org.postgresql..",
                 "cn.dev33..",
                 "org.dromara.."
             );
+
+    @ArchTest
+    static final ArchRule AI_NETWORK_DEPENDENCY_IS_ISOLATED_TO_OPENAI_ADAPTER =
+        noClasses()
+            .that().resideInAPackage("io.github.akaryc1b.approval.ai..")
+            .and().resideOutsideOfPackage(
+                "io.github.akaryc1b.approval.ai.openai.."
+            )
+            .should().dependOnClassesThat().resideInAnyPackage("java.net..");
 
     @ArchTest
     static final ArchRule HOST_SDK_IS_FRAMEWORK_INDEPENDENT = noClasses()

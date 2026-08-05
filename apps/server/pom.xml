@@ -14,6 +14,9 @@
 
     <dependencies>
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-application</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-ai-spi</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-ai-core</artifactId><version>${revision}</version></dependency>
+        <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-ai-openai</artifactId><version>${revision}</version></dependency>
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-engine-flowable</artifactId><version>${revision}</version></dependency>
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-persistence-jdbc</artifactId><version>${revision}</version></dependency>
         <dependency><groupId>io.github.akaryc1b.approval</groupId><artifactId>approval-connector-generic</artifactId><version>${revision}</version></dependency>

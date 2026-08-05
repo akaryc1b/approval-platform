@@ -13,7 +13,7 @@ public record AiAuthorizedResource(
 ) {
 
     public AiAuthorizedResource {
-        tenantId = requireText(tenantId, "tenantId", 120);
+        tenantId = requireText(tenantId, "tenantId", 128);
         resourceType = Objects.requireNonNull(resourceType, "resourceType must not be null");
         resourceId = requireText(resourceId, "resourceId", 200);
         authorizationReference = requireText(

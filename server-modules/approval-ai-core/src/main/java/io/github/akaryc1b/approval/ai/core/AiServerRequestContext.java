@@ -11,7 +11,7 @@ public record AiServerRequestContext(
 ) {
 
     public AiServerRequestContext {
-        tenantId = requireText(tenantId, "tenantId", 120);
+        tenantId = requireText(tenantId, "tenantId", 128);
         operatorId = requireText(operatorId, "operatorId", 200);
         requestId = requireText(requestId, "requestId", 128);
         traceId = normalizeOptional(traceId, 128);

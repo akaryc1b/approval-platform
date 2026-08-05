@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -144,8 +145,18 @@ class JdbcApprovalTaskQueryIntegrationTest {
             identifier(1001)
         ));
         assertTrue(details.isPresent());
-        assertEquals("PO-SEARCH-001", details.orElseThrow().businessKey());
-        assertEquals(List.of("attachment-1"), details.orElseThrow().attachmentIds());
+        var pending = details.orElseThrow();
+        assertEquals("PO-SEARCH-001", pending.businessKey());
+        assertEquals(List.of("attachment-1"), pending.attachmentIds());
+        assertNull(pending.releaseVersion());
+        assertNull(pending.releasePackageHash());
+        assertNull(pending.formPackageVersion());
+        assertNull(pending.formPackageHash());
+        assertNull(pending.formContentHash());
+        assertNull(pending.uiSchemaVersion());
+        assertNull(pending.uiSchemaHash());
+        assertNull(pending.formSchemaVersion());
+        assertNull(pending.formSchemaFieldCount());
 
         assertTrue(taskQuery.findPendingTask(new PendingTaskIdentity(
             "tenant-a",

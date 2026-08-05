@@ -17,6 +17,7 @@ import {
 import { findTaskDelegation } from '@/api/approval/delegations'
 import { findTaskFormRuntime, resubmitFormTask } from '@/api/approval/forms'
 import { findParticipantTaskSla } from '@/api/approval/sla'
+import ApprovalAssistancePanel from '@/components/approval/ApprovalAssistancePanel.vue'
 import ApprovalFormRenderer from '@/components/approval/ApprovalFormRenderer.vue'
 
 defineOptions({ name: 'ApprovalTaskDetail' })
@@ -275,6 +276,8 @@ onLoad((query) => {
           </template>
         </view>
       </view>
+
+      <ApprovalAssistancePanel v-if="!revisionTask" :task-id="details.taskId" />
 
       <view class="sla-card">
         <view class="card-title-row">

@@ -5,5 +5,6 @@ public enum CredentialMaterialType {
     ACCESS_TOKEN,
     OAUTH_CLIENT,
     SIGNING_SECRET,
-    PRIVATE_KEY_REFERENCE
+    PRIVATE_KEY_REFERENCE,
+    API_KEY
 }

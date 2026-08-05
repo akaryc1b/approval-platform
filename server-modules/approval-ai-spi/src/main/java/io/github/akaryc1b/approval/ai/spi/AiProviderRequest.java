@@ -53,7 +53,7 @@ public record AiProviderRequest(
         String traceId
     ) {
         public AuthorizedContext {
-            tenantId = requireText(tenantId, "tenantId", 120);
+            tenantId = requireText(tenantId, "tenantId", 128);
             operatorId = requireText(operatorId, "operatorId", 200);
             requestId = requireText(requestId, "requestId", 128);
             traceId = normalizeOptional(traceId, 128);
@@ -67,7 +67,7 @@ public record AiProviderRequest(
         String authorizationReference
     ) {
         public AuthorizedResource {
-            tenantId = requireText(tenantId, "tenantId", 120);
+            tenantId = requireText(tenantId, "tenantId", 128);
             resourceType = requireText(resourceType, "resourceType", 80);
             resourceId = requireText(resourceId, "resourceId", 200);
             authorizationReference = requireText(

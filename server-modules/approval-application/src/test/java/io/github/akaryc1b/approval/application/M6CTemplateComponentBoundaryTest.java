@@ -21,25 +21,33 @@ class M6CTemplateComponentBoundaryTest {
     private static final Pattern VERSIONED_MIGRATION = Pattern.compile(
         "^V([1-9][0-9]*)__.+\\.sql$"
     );
+    private static final String GOVERNED_M6_E_V49 =
+        "V49__create_ai_approval_assistance_durable_evidence.sql";
 
     @Test
-    void preservesCurrentMainMigrationSetAndPermanentWorkflowBoundaries() throws IOException {
+    void preservesTemplateScopeAcrossTheExactGovernedM6EV49() throws IOException {
         Path root = repositoryRoot();
         Path migrations = root.resolve(
             "server-modules/approval-persistence-jdbc/src/main/resources/db/migration");
-        List<Integer> actualVersions;
+        List<MigrationEntry> actual;
         try (var files = Files.list(migrations)) {
-            actualVersions = files.filter(Files::isRegularFile)
-                .map(path -> migrationVersion(path.getFileName().toString()))
+            actual = files.filter(Files::isRegularFile)
+                .map(path -> migrationEntry(path.getFileName().toString()))
                 .filter(Objects::nonNull)
-                .sorted()
+                .sorted(java.util.Comparator.comparingInt(MigrationEntry::version))
                 .toList();
         }
         List<Integer> expectedVersions = Stream.concat(
             IntStream.rangeClosed(2, 37).boxed(),
-            IntStream.rangeClosed(39, 48).boxed()
+            IntStream.rangeClosed(39, 49).boxed()
         ).toList();
-        assertEquals(expectedVersions, actualVersions);
+        assertEquals(expectedVersions, actual.stream().map(MigrationEntry::version).toList());
+        assertEquals(
+            List.of(GOVERNED_M6_E_V49),
+            actual.stream().filter(entry -> entry.version() == 49)
+                .map(MigrationEntry::fileName).toList()
+        );
+        assertTrue(actual.stream().noneMatch(entry -> entry.version() >= 50));
 
         try (var files = Files.list(root.resolve(".github/workflows"))) {
             List<String> automatic = files.filter(Files::isRegularFile)
@@ -82,12 +90,12 @@ class M6CTemplateComponentBoundaryTest {
         assertTrue(source.contains("process-template-import-plan-v2"));
     }
 
-    private static Integer migrationVersion(String fileName) {
+    private static MigrationEntry migrationEntry(String fileName) {
         Matcher matcher = VERSIONED_MIGRATION.matcher(fileName);
         if (!matcher.matches()) {
             return null;
         }
-        return Integer.valueOf(matcher.group(1));
+        return new MigrationEntry(Integer.parseInt(matcher.group(1)), fileName);
     }
 
     private static boolean runsAutomatically(Path workflow) {
@@ -112,5 +120,8 @@ class M6CTemplateComponentBoundaryTest {
             current = current.getParent();
         }
         throw new IllegalStateException("repository root could not be resolved");
+    }
+
+    private record MigrationEntry(int version, String fileName) {
     }
 }

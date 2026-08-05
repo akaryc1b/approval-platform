@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class M6AConnectorSecurityAcceptanceTest {
 
     private static final Pattern MIGRATION_VERSION = Pattern.compile("^V([0-9]+)__.*\\.sql$");
+    private static final String GOVERNED_M6_E_V49 =
+        "V49__create_ai_approval_assistance_durable_evidence.sql";
     private static final Pattern HARD_CODED_SECRET = Pattern.compile(
         "(?i)\\b(?:appSecret|accessToken|apiKey|clientSecret|privateKey)\\b"
             + "\\s*=\\s*\"([^\"\\r\\n]{12,})\""
@@ -127,21 +129,26 @@ class M6AConnectorSecurityAcceptanceTest {
     }
 
     @Test
-    void flywayAndAutomaticWorkflowRemainFrozen() throws IOException {
+    void connectorAcceptanceRecognizesOnlyGovernedM6EV49AndOneWorkflow()
+        throws IOException {
         Path root = repositoryRoot();
         Path migrationRoot = root.resolve(
             "server-modules/approval-persistence-jdbc/src/main/resources/db/migration"
         );
         int highest;
+        List<String> v49;
         try (Stream<Path> paths = Files.list(migrationRoot)) {
-            highest = paths.map(path -> path.getFileName().toString())
+            List<String> names = paths.map(path -> path.getFileName().toString()).toList();
+            highest = names.stream()
                 .map(MIGRATION_VERSION::matcher)
                 .filter(Matcher::matches)
                 .mapToInt(matcher -> Integer.parseInt(matcher.group(1)))
                 .max()
                 .orElseThrow();
+            v49 = names.stream().filter(name -> name.startsWith("V49__")).toList();
         }
-        assertEquals(48, highest);
+        assertEquals(49, highest);
+        assertEquals(List.of(GOVERNED_M6_E_V49), v49);
         assertFalse(Files.exists(migrationRoot.resolve("V49__m6_a_connector_acceptance.sql")));
 
         Path workflowRoot = root.resolve(".github/workflows");

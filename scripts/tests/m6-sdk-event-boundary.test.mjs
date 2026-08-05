@@ -193,7 +193,7 @@ test('telemetry and handoff use reference-only allowlists and deterministic fake
   assert.match(tsHandoff, /pending\.delete[\s\S]*acknowledged\.set/);
 });
 
-test('Flyway accepts inherited mainline migrations through V48 and rejects V49 or later', async () => {
+test('Flyway keeps M6-B migration-free while allowing the exact governed M6-E V49', async () => {
   const migrationRoots = [
     join(repositoryRoot, 'apps/server/src/main/resources/db/migration'),
     join(repositoryRoot, 'server-modules'),
@@ -202,11 +202,24 @@ test('Flyway accepts inherited mainline migrations through V48 and rejects V49 o
   const versionedMigrations = migrationFiles.map((path) => {
     const fileName = path.split(/[/\\]/).at(-1);
     const match = /^V(\d+)__/.exec(fileName ?? '');
-    return match ? { path, version: Number(match[1]) } : null;
+    return match ? { path, fileName, version: Number(match[1]) } : null;
   }).filter((migration) => migration !== null);
   assert.ok(versionedMigrations.some(({ version }) => version === 48));
+  const governedV49 = 'V49__create_ai_approval_assistance_durable_evidence.sql';
   assert.deepEqual(
-    versionedMigrations.filter(({ version }) => version >= 49).map(({ path }) => display(path)),
+    versionedMigrations.filter(({ version }) => version === 49)
+      .map(({ fileName }) => fileName),
+    [governedV49],
+  );
+  assert.deepEqual(
+    versionedMigrations.filter(({ version }) => version >= 50)
+      .map(({ path }) => display(path)),
+    [],
+  );
+  assert.deepEqual(
+    versionedMigrations.filter(({ version, fileName }) =>
+      version >= 49 && fileName !== governedV49,
+    ).map(({ path }) => display(path)),
     [],
   );
 });

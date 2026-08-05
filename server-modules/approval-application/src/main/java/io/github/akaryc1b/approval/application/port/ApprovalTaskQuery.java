@@ -92,13 +92,128 @@ public interface ApprovalTaskQuery {
         Instant instanceCreatedAt,
         Instant instanceUpdatedAt,
         Instant taskCreatedAt,
-        Instant taskUpdatedAt
+        Instant taskUpdatedAt,
+        Integer releaseVersion,
+        String releasePackageHash,
+        Integer formPackageVersion,
+        String formPackageHash,
+        String formContentHash,
+        Integer uiSchemaVersion,
+        String uiSchemaHash,
+        String formSchemaVersion,
+        Integer formSchemaFieldCount
     ) {
         public PendingTaskDetails {
             attachmentIds = attachmentIds == null ? List.of() : List.copyOf(attachmentIds);
             transferCandidates = transferCandidates == null
                 ? List.of()
                 : List.copyOf(transferCandidates);
+            releasePackageHash = normalizeOptional(releasePackageHash);
+            formPackageHash = normalizeOptional(formPackageHash);
+            formContentHash = normalizeOptional(formContentHash);
+            uiSchemaHash = normalizeOptional(uiSchemaHash);
+            formSchemaVersion = normalizeOptional(formSchemaVersion);
+
+            boolean anyReleaseProvenance = releaseVersion != null
+                || releasePackageHash != null;
+            boolean completeReleaseProvenance = releaseVersion != null
+                && releasePackageHash != null;
+            if (anyReleaseProvenance && !completeReleaseProvenance) {
+                throw new IllegalArgumentException(
+                    "release provenance must be either complete or absent"
+                );
+            }
+            if (releaseVersion != null && releaseVersion < 1) {
+                throw new IllegalArgumentException("releaseVersion must be positive");
+            }
+
+            boolean anyFormProvenance = formPackageVersion != null
+                || formPackageHash != null
+                || formContentHash != null
+                || uiSchemaVersion != null
+                || uiSchemaHash != null
+                || formSchemaVersion != null
+                || formSchemaFieldCount != null;
+            boolean completeFormProvenance = formPackageVersion != null
+                && formPackageHash != null
+                && formContentHash != null
+                && uiSchemaVersion != null
+                && uiSchemaHash != null
+                && formSchemaVersion != null
+                && formSchemaFieldCount != null;
+            if (anyFormProvenance && !completeFormProvenance) {
+                throw new IllegalArgumentException(
+                    "form provenance must be either complete or absent"
+                );
+            }
+            if (formPackageVersion != null && formPackageVersion < 1) {
+                throw new IllegalArgumentException("formPackageVersion must be positive");
+            }
+            if (uiSchemaVersion != null && uiSchemaVersion < 1) {
+                throw new IllegalArgumentException("uiSchemaVersion must be positive");
+            }
+            if (formSchemaFieldCount != null && formSchemaFieldCount < 0) {
+                throw new IllegalArgumentException(
+                    "formSchemaFieldCount must not be negative"
+                );
+            }
+        }
+
+        public PendingTaskDetails(
+            UUID taskId,
+            UUID instanceId,
+            String definitionKey,
+            int definitionVersion,
+            String formKey,
+            int formVersion,
+            String compilerVersion,
+            String contentHash,
+            String taskDefinitionKey,
+            String taskName,
+            String businessKey,
+            String initiatorId,
+            BigDecimal amount,
+            String supplier,
+            String purchaseOrderReference,
+            List<String> attachmentIds,
+            List<TransferCandidate> transferCandidates,
+            Instant instanceCreatedAt,
+            Instant instanceUpdatedAt,
+            Instant taskCreatedAt,
+            Instant taskUpdatedAt
+        ) {
+            this(
+                taskId,
+                instanceId,
+                definitionKey,
+                definitionVersion,
+                formKey,
+                formVersion,
+                compilerVersion,
+                contentHash,
+                taskDefinitionKey,
+                taskName,
+                businessKey,
+                initiatorId,
+                amount,
+                supplier,
+                purchaseOrderReference,
+                attachmentIds,
+                transferCandidates,
+                instanceCreatedAt,
+                instanceUpdatedAt,
+                taskCreatedAt,
+                taskUpdatedAt,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+            );
         }
     }
 

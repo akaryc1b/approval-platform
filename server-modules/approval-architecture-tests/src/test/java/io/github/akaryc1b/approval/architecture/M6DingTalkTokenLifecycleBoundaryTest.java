@@ -26,6 +26,8 @@ class M6DingTalkTokenLifecycleBoundaryTest {
     private static final Path DOCUMENT = ROOT.resolve(
         "docs/m6/M6_A_DINGTALK_TOKEN_LIFECYCLE.md"
     );
+    private static final String GOVERNED_M6_E_V49 =
+        "V49__create_ai_approval_assistance_durable_evidence.sql";
 
     @Test
     void tokenModuleHasNoProductionTransportPersistenceOrFrameworkDependency()
@@ -116,8 +118,9 @@ class M6DingTalkTokenLifecycleBoundaryTest {
     }
 
     @Test
-    void p6AddsNoV49WorkflowOrApprovalStateMutation() throws IOException {
+    void p6OwnsNoMigrationAndRecognizesOnlyGovernedM6EV49() throws IOException {
         Pattern flywayVersion = Pattern.compile("V(\\d+)__.*\\.sql");
+        List<String> v49 = new ArrayList<>();
         for (Path migration : filesUnder(ROOT)) {
             String normalized = relative(migration);
             if (!normalized.contains("/src/main/resources/db/migration/")
@@ -125,13 +128,18 @@ class M6DingTalkTokenLifecycleBoundaryTest {
                 continue;
             }
             var matcher = flywayVersion.matcher(migration.getFileName().toString());
-            if (matcher.matches()) {
-                assertTrue(
-                    Integer.parseInt(matcher.group(1)) <= 48,
-                    "unexpected P6 migration " + normalized
-                );
+            if (!matcher.matches()) {
+                continue;
+            }
+            int version = Integer.parseInt(matcher.group(1));
+            if (version == 49) {
+                v49.add(migration.getFileName().toString());
+                assertEquals(GOVERNED_M6_E_V49, migration.getFileName().toString());
+            } else {
+                assertTrue(version <= 48, "unexpected P6 migration " + normalized);
             }
         }
+        assertEquals(List.of(GOVERNED_M6_E_V49), v49);
 
         List<String> automatic = new ArrayList<>();
         for (Path workflow : filesUnder(ROOT.resolve(".github/workflows"))) {
@@ -182,13 +190,6 @@ class M6DingTalkTokenLifecycleBoundaryTest {
         )) {
             assertTrue(document.contains(required), "missing governance text " + required);
         }
-    }
-
-    private static Path findMainSource(String fileName) throws IOException {
-        return javaFiles(TOKEN.resolve("src/main/java")).stream()
-            .filter(path -> path.getFileName().toString().equals(fileName))
-            .findFirst()
-            .orElseThrow();
     }
 
     private static String mainSource(Path module) throws IOException {
