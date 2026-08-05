@@ -16,6 +16,7 @@ import './m6-e-p7-final-ready-review-correction-boundary.test.mjs';
 import './m6-e-p7-final-ready-review-correction-validation-boundary.test.mjs';
 import './m6-e-p7-ready-provenance-timestamp-correction-boundary.test.mjs';
 import './m6-f-controlled-automation-boundary.test.mjs';
+import './m6-f-p1-proposal-boundary.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(
