@@ -1,8 +1,11 @@
 package io.github.akaryc1b.approval.config;
 
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesProtocol;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceControlHealthContracts
+    .CircuitHealth;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceControlHealthContracts
+    .DriftHealth;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.ActivationState;
-import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.DriftState;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.RuntimeState;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
@@ -23,8 +26,9 @@ class ControlledAutomationGovernanceConfigurationTest {
 
     @Test
     void absentProductionRuntimeProducesBlockedReadOnlySnapshot() {
+        var runtime = runtime(new MockEnvironment());
         var source = new ControlledAutomationGovernanceConfiguration()
-            .controlledAutomationGovernanceSnapshotSource(new MockEnvironment(), CLOCK);
+            .controlledAutomationGovernanceSnapshotSource(runtime, CLOCK);
 
         var view = source.current();
 
@@ -38,14 +42,14 @@ class ControlledAutomationGovernanceConfigurationTest {
 
     @Test
     void completeProductionProfileProducesExactAdvisoryOnlyControlEvidence() {
+        var runtime = runtime(completeEnvironment());
         var source = new ControlledAutomationGovernanceConfiguration()
-            .controlledAutomationGovernanceSnapshotSource(completeEnvironment(), CLOCK);
+            .controlledAutomationGovernanceSnapshotSource(runtime, CLOCK);
 
         var view = source.current();
 
         assertEquals(RuntimeState.CONFIGURED_ADVISORY_ONLY, view.runtimeState());
         assertEquals(ActivationState.ADVISORY_ONLY, view.activationState());
-        assertEquals(DriftState.EXACT_FROZEN_PROFILE, view.driftState());
         assertEquals(7, view.controls().killSwitchGeneration());
         assertEquals(10, view.controls().perTenantRateLimit());
         assertEquals(100, view.controls().globalRateLimit());
@@ -66,6 +70,40 @@ class ControlledAutomationGovernanceConfigurationTest {
         ));
         assertFalse(view.rawSecretExposed());
         assertFalse(view.automaticRetryAuthorized());
+    }
+
+    @Test
+    void controlHealthUsesTheSameSharedRuntimeAsTheGenerationPath() {
+        var productionRuntime = runtime(completeEnvironment());
+        var configuration = new ControlledAutomationGovernanceConfiguration();
+        var snapshotSource = configuration.controlledAutomationGovernanceSnapshotSource(
+            productionRuntime,
+            CLOCK
+        );
+        var healthSource = configuration.controlledAutomationGovernanceControlHealthSource(
+            productionRuntime,
+            snapshotSource
+        );
+
+        var health = healthSource.current();
+
+        assertEquals(RuntimeState.CONFIGURED_ADVISORY_ONLY, health.runtimeState());
+        assertEquals(
+            DriftHealth.EXACT_FROZEN_PROFILE,
+            health.runtimeEvidence().driftHealth()
+        );
+        assertEquals(CircuitHealth.CLOSED, health.runtimeEvidence().circuitHealth());
+        assertEquals(1, health.runtimeEvidence().circuitGeneration());
+        assertFalse(health.runtimeEvidence().rateUsageExposed());
+        assertFalse(health.runtimeEvidence().budgetConsumptionExposed());
+    }
+
+    private static ApprovalAssistanceProductionRuntime runtime(
+        MockEnvironment environment
+    ) {
+        return new ApprovalAssistanceProductionRuntime(
+            ApprovalAssistanceProductionConfiguration.runtime(environment, CLOCK)
+        );
     }
 
     private static MockEnvironment completeEnvironment() {
