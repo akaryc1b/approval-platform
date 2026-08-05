@@ -46,6 +46,10 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         "ap_ai_approval_assistance_evidence_state",
         "ap_ai_approval_assistance_evidence_event"
     );
+    private static final Set<String> M6_F_P4_TABLES = Set.of(
+        "ap_ai_controlled_automation_lineage",
+        "ap_ai_controlled_automation_lineage_event"
+    );
     private static final Set<String> M4_INDEXES = Set.of(
         "idx_work_calendar_active_lookup", "idx_sla_policy_active_lookup",
         "idx_sla_instance_responsible_active_due", "idx_sla_instance_active_due",
@@ -96,6 +100,11 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         "idx_ai_assistance_evidence_state_v49",
         "idx_ai_assistance_evidence_event_v49"
     );
+    private static final Set<String> M6_F_P4_INDEXES = Set.of(
+        "idx_ai_controlled_automation_status_v50",
+        "idx_ai_controlled_automation_resource_v50",
+        "idx_ai_controlled_automation_event_v50"
+    );
 
     private JdbcApprovalMigrationUpgradeAssertions() {
     }
@@ -112,12 +121,11 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         );
         assertEquals(
             M6_E_P4_TABLES,
-            queryNames(
-                jdbc,
-                "table_name",
-                "information_schema.tables",
-                M6_E_P4_TABLES
-            )
+            queryNames(jdbc, "table_name", "information_schema.tables", M6_E_P4_TABLES)
+        );
+        assertEquals(
+            M6_F_P4_TABLES,
+            queryNames(jdbc, "table_name", "information_schema.tables", M6_F_P4_TABLES)
         );
         assertEquals(M4_INDEXES, queryNames(jdbc, "indexname", "pg_indexes", M4_INDEXES));
         assertEquals(
@@ -127,6 +135,10 @@ final class JdbcApprovalMigrationUpgradeAssertions {
         assertEquals(
             M6_E_P4_INDEXES,
             queryNames(jdbc, "indexname", "pg_indexes", M6_E_P4_INDEXES)
+        );
+        assertEquals(
+            M6_F_P4_INDEXES,
+            queryNames(jdbc, "indexname", "pg_indexes", M6_F_P4_INDEXES)
         );
     }
 

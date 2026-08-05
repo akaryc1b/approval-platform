@@ -19,6 +19,7 @@ import './m6-f-controlled-automation-boundary.test.mjs';
 import './m6-f-p1-proposal-boundary.test.mjs';
 import './m6-f-p2-governance-evaluation-boundary.test.mjs';
 import './m6-f-p3-confirmation-boundary.test.mjs';
+import './m6-f-p4-durable-lineage-boundary.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(
