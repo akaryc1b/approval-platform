@@ -12,13 +12,12 @@ import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContrac
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceSnapshotSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 
-/** Composition-root wiring for P6-A read-only AI governance operations. */
+/** Composition-root wiring for P6 read-only AI governance operations. */
 @Configuration(proxyBeanMethods = false)
 public class ControlledAutomationGovernanceConfiguration {
 
@@ -33,11 +32,10 @@ public class ControlledAutomationGovernanceConfiguration {
 
     @Bean
     ControlledAutomationGovernanceSnapshotSource controlledAutomationGovernanceSnapshotSource(
-        Environment environment,
+        ApprovalAssistanceProductionRuntime productionRuntime,
         Clock approvalClock
     ) {
-        Optional<OpenAiResponsesProductionRuntimeFactory> runtime =
-            ApprovalAssistanceProductionConfiguration.runtime(environment, approvalClock);
+        Optional<OpenAiResponsesProductionRuntimeFactory> runtime = productionRuntime.factory();
         List<InventoryEntry> inventory = inventory();
         if (runtime.isEmpty()) {
             return () -> OperationsView.disabled(approvalClock.instant(), inventory);
