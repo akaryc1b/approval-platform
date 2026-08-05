@@ -258,6 +258,6 @@ test('P0 rejects high-risk, replay and connector-adjacent candidates', () => {
   assert.match(operationalReplay, /replayDeadLetter/);
   assert.match(operationalReplay, /replayOutboxDead/);
   assert.match(operationalReplay, /consistency\.run/);
-  assert.match(audit, /approve, reject\/return, resubmit, transfer, withdraw, retrieve/);
+  assert.match(audit, /Approve, reject\/return, resubmit, transfer, withdraw, retrieve/);
   assert.match(audit, /direct connector commands/);
 });
