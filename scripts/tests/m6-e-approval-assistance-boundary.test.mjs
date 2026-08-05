@@ -161,7 +161,7 @@ test('P1 projection is server-owned, minimized and side-effect free', () => {
   assert.match(projection, /ATTACHMENT_METADATA_KEYS/);
   assert.match(projection, /attachmentMetadataOnly/);
   assert.match(projection, /attachmentExtractionAttempted/);
-  assert.match(projection, /schema field count does not match projection evidence/);
+  assert.match(projection, /schema field count does not match (?:Form )?projection evidence/);
   assert.match(assembler, /AiDataMinimizer/);
   assert.match(assembler, /allowedFieldKeys/);
   assert.match(assembler, /FieldAccess\.HIDDEN/);
