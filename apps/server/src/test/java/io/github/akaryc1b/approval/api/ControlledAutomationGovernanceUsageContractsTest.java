@@ -45,11 +45,11 @@ class ControlledAutomationGovernanceUsageContractsTest {
 
     @Test
     void configuredRuntimeReportsTenantOnlyCommittedUpperBounds() {
-        OpenAiResponsesRuntimeUsageLedger ledger = ledger(3, 10);
+        OpenAiResponsesRuntimeUsageLedger ledger = ledger(3, 10, 1_000);
         ledger.recordDispatched(TENANT_HASH, NOW, 250);
 
         UsageView view = UsageView.configured(
-            configuredSource(),
+            configuredSource(3, 10, 1_000),
             ledger.snapshot(TENANT_HASH, NOW)
         );
 
@@ -76,10 +76,10 @@ class ControlledAutomationGovernanceUsageContractsTest {
 
     @Test
     void tenantAndGlobalSaturationProduceOnlyClosedFailClosedStates() {
-        OpenAiResponsesRuntimeUsageLedger tenantLedger = ledger(1, 2);
+        OpenAiResponsesRuntimeUsageLedger tenantLedger = ledger(1, 2, 1_000);
         tenantLedger.recordDispatched(TENANT_HASH, NOW, 100);
         UsageView tenantView = UsageView.configured(
-            configuredSource(),
+            configuredSource(1, 2, 1_000),
             tenantLedger.snapshot(TENANT_HASH, NOW)
         );
         assertEquals(
@@ -90,7 +90,7 @@ class ControlledAutomationGovernanceUsageContractsTest {
             tenantView.blockerCodes().contains("AI_TENANT_RATE_WINDOW_SATURATED")
         );
 
-        OpenAiResponsesRuntimeUsageLedger globalLedger = ledger(2, 2);
+        OpenAiResponsesRuntimeUsageLedger globalLedger = ledger(2, 2, 1_000);
         globalLedger.recordDispatched(TENANT_HASH, NOW, 100);
         globalLedger.recordDispatched(
             OpenAiResponsesProtocol.sha256Utf8("tenant-b"),
@@ -98,7 +98,7 @@ class ControlledAutomationGovernanceUsageContractsTest {
             100
         );
         UsageView globalView = UsageView.configured(
-            configuredSource(),
+            configuredSource(2, 2, 1_000),
             globalLedger.snapshot(TENANT_HASH, NOW)
         );
         assertEquals(
@@ -107,6 +107,26 @@ class ControlledAutomationGovernanceUsageContractsTest {
         );
         assertTrue(
             globalView.blockerCodes().contains("AI_GLOBAL_RATE_WINDOW_SATURATED")
+        );
+    }
+
+    @Test
+    void mismatchedRuntimeUsageProfileFailsClosed() {
+        OpenAiResponsesRuntimeUsageLedger ledger = ledger(3, 10, 1_000);
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> UsageView.configured(
+                configuredSource(4, 10, 1_000),
+                ledger.snapshot(TENANT_HASH, NOW)
+            )
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> UsageView.configured(
+                configuredSource(3, 10, 2_000),
+                ledger.snapshot(TENANT_HASH, NOW)
+            )
         );
     }
 
@@ -137,18 +157,23 @@ class ControlledAutomationGovernanceUsageContractsTest {
 
     private static OpenAiResponsesRuntimeUsageLedger ledger(
         int tenantLimit,
-        int globalLimit
+        int globalLimit,
+        long maximumRequestMicros
     ) {
         return new OpenAiResponsesRuntimeUsageLedger(
             tenantLimit,
             globalLimit,
             10,
             Duration.ofSeconds(60),
-            1_000
+            maximumRequestMicros
         );
     }
 
-    private static OperationsView configuredSource() {
+    private static OperationsView configuredSource(
+        int tenantLimit,
+        int globalLimit,
+        long maximumRequestMicros
+    ) {
         return OperationsView.configured(
             NOW,
             inventory(),
@@ -157,12 +182,12 @@ class ControlledAutomationGovernanceUsageContractsTest {
                 KILL_HASH,
                 COST_HASH,
                 SECRET_HASH,
-                10,
-                100,
+                tenantLimit,
+                globalLimit,
                 60,
                 3,
                 60,
-                1_000_000
+                maximumRequestMicros
             )
         );
     }
