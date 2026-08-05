@@ -13,6 +13,8 @@ import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContrac
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.OperationsView;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.RuntimeControls;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceSnapshotSource;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceUsageContracts.UsageView;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceUsageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -65,6 +67,22 @@ public class ControlledAutomationGovernanceConfiguration {
                     factory.controlSnapshot()
                 ))
                 .orElseGet(() -> ControlHealthView.disabled(snapshot));
+        };
+    }
+
+    @Bean
+    ControlledAutomationGovernanceUsageSource controlledAutomationGovernanceUsageSource(
+        ApprovalAssistanceProductionRuntime productionRuntime,
+        ControlledAutomationGovernanceSnapshotSource snapshotSource
+    ) {
+        return trustedTenantId -> {
+            OperationsView snapshot = snapshotSource.current();
+            return productionRuntime.factory()
+                .map(factory -> UsageView.configured(
+                    snapshot,
+                    factory.usageSnapshot(trustedTenantId)
+                ))
+                .orElseGet(() -> UsageView.disabled(snapshot));
         };
     }
 
