@@ -43,7 +43,12 @@ class M6FControlledAutomationGovernanceOperationsArchitectureTest {
         assertTrue(contracts.contains("LIVE_STATE_NOT_EXPOSED"));
         assertTrue(contracts.contains("rawSecretExposed"));
         assertTrue(contracts.contains("automaticRetryAuthorized"));
-        assertTrue(configuration.contains("ApprovalAssistanceProductionConfiguration.runtime"));
+        assertTrue(configuration.contains(
+            "ApprovalAssistanceProductionRuntime productionRuntime"
+        ));
+        assertFalse(configuration.contains(
+            "ApprovalAssistanceProductionConfiguration.runtime("
+        ));
         assertTrue(configuration.contains("OpenAiResponsesAdvisoryProvider.promptVersion"));
 
         for (String forbidden : List.of(
