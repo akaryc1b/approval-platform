@@ -10,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Stream;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -42,14 +41,16 @@ class M6FControlledAutomationProposalArchitectureTest {
     @Test
     void p1SourceContainsNoCommandProviderPersistenceOrAutomaticExecutionPath()
         throws IOException {
-        Path root = repositoryRoot();
-        String source = readTree(root.resolve(
+        Path core = repositoryRoot().resolve(
             "server-modules/approval-ai-core/src/main/java/io/github/akaryc1b/approval/ai/core"
+        );
+        String p1 = Files.readString(core.resolve(
+            "ControlledAutomationActionWhitelist.java"
+        )) + Files.readString(core.resolve(
+            "ControlledAutomationProposal.java"
+        )) + Files.readString(core.resolve(
+            "ControlledAutomationProposalFactory.java"
         ));
-        String p1 = source.lines()
-            .filter(line -> line.contains("ControlledAutomation")
-                || line.contains("controlled-automation"))
-            .reduce("", (left, right) -> left + '\n' + right);
 
         for (String forbidden : List.of(
             "ApprovalMessageService",
@@ -95,15 +96,5 @@ class M6FControlledAutomationProposalArchitectureTest {
             current = current.getParent();
         }
         throw new IllegalStateException("repository root not found");
-    }
-
-    private static String readTree(Path root) throws IOException {
-        StringBuilder combined = new StringBuilder();
-        try (Stream<Path> paths = Files.walk(root)) {
-            for (Path path : paths.filter(Files::isRegularFile).sorted().toList()) {
-                combined.append(Files.readString(path)).append('\n');
-            }
-        }
-        return combined.toString();
     }
 }
