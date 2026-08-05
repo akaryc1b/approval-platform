@@ -116,7 +116,7 @@ test('P6-A frozen profile remains exact after the later P6-E activation slice', 
   }
 });
 
-test('accepted implementation inventory permits only P6-B through P6-E OpenAI classes', () => {
+test('accepted OpenAI production inventory remains exact', () => {
   const productionFiles = productionRoots
     .flatMap(filesUnder)
     .filter(file => file.endsWith('.java'));
@@ -138,6 +138,7 @@ test('accepted implementation inventory permits only P6-B through P6-E OpenAI cl
     `${prefix}OpenAiResponsesRequestEncoder.java`,
     `${prefix}OpenAiResponsesRequestProfileValidator.java`,
     `${prefix}OpenAiResponsesResponseDecoder.java`,
+    `${prefix}OpenAiResponsesRuntimeUsageLedger.java`,
     `${prefix}OpenAiResponsesSecureHttpSender.java`,
     `${prefix}OpenAiResponsesTransportAdmission.java`,
     `${prefix}OpenAiResponsesTransportControls.java`,
