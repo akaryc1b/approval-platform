@@ -2,11 +2,13 @@ package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesRuntimeUsageLedger.UsageSnapshot;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.OperationsView;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.RuntimeControls;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.RuntimeState;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -214,7 +216,8 @@ public final class ControlledAutomationGovernanceUsageContracts {
                 source,
                 "source must not be null"
             );
-            if (exactSource.runtimeState() != RuntimeState.CONFIGURED_ADVISORY_ONLY) {
+            if (exactSource.runtimeState() != RuntimeState.CONFIGURED_ADVISORY_ONLY
+                || exactSource.controls() == null) {
                 throw new IllegalArgumentException(
                     "configured usage requires configured advisory runtime"
                 );
@@ -223,6 +226,7 @@ public final class ControlledAutomationGovernanceUsageContracts {
                 runtimeUsage,
                 "runtimeUsage must not be null"
             );
+            validateAgainstSource(exactSource.controls(), exactUsage);
             TenantUsage usage = TenantUsage.from(exactUsage);
             UsageHealth health = usage.globalSaturated()
                 ? UsageHealth.GLOBAL_RATE_WINDOW_SATURATED
@@ -255,6 +259,32 @@ public final class ControlledAutomationGovernanceUsageContracts {
                 false,
                 false,
                 hash
+            );
+        }
+    }
+
+    private static void validateAgainstSource(
+        RuntimeControls controls,
+        UsageSnapshot usage
+    ) {
+        long expectedEnvelope;
+        try {
+            expectedEnvelope = Math.multiplyExact(
+                controls.perTenantRateLimit(),
+                controls.maximumRequestMicros()
+            );
+        } catch (ArithmeticException overflow) {
+            throw new IllegalArgumentException("source usage envelope must fit in long", overflow);
+        }
+        Duration runtimeWindow = Duration.between(usage.windowStart(), usage.windowEnd());
+        if (usage.requestLimit() != controls.perTenantRateLimit()
+            || usage.derivedEnvelopeMicros() != expectedEnvelope
+            || runtimeWindow.getNano() != 0
+            || runtimeWindow.getSeconds() != controls.rateWindowSeconds()
+            || usage.observedAt().isBefore(usage.windowStart())
+            || !usage.observedAt().isBefore(usage.windowEnd())) {
+            throw new IllegalArgumentException(
+                "runtime usage must match the exact governance rate and cost profile"
             );
         }
     }
