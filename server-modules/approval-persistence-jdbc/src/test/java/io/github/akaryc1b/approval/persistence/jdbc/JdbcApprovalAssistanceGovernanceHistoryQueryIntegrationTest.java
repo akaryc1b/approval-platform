@@ -270,10 +270,12 @@ class JdbcApprovalAssistanceGovernanceHistoryQueryIntegrationTest {
                   :storedEventHash,:recordedAt
                 )
                 """, parameters);
-            if (tombstoned) {
-                tombstone(parameters, seed, recordedAt.plusSeconds(10));
-            }
         });
+        if (tombstoned) {
+            transactions.executeWithoutResult(
+                status -> tombstone(parameters, seed, recordedAt.plusSeconds(10))
+            );
+        }
     }
 
     private static void tombstone(
