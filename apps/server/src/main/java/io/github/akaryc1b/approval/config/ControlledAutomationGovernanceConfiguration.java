@@ -1,5 +1,7 @@
 package io.github.akaryc1b.approval.config;
 
+import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQuery;
+import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQuery.HistoryWindow;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesAdvisoryProvider;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesProductionRuntimeFactory;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesProtocol;
@@ -9,6 +11,8 @@ import io.github.akaryc1b.approval.ai.spi.AiVersionReferences;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceControlHealthContracts
     .ControlHealthView;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceControlHealthSource;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceHistoryContracts.HistoryView;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceHistorySource;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.InventoryEntry;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.OperationsView;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.RuntimeControls;
@@ -19,6 +23,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -83,6 +88,24 @@ public class ControlledAutomationGovernanceConfiguration {
                     factory.usageSnapshot(trustedTenantId)
                 ))
                 .orElseGet(() -> UsageView.disabled(snapshot));
+        };
+    }
+
+    @Bean
+    ControlledAutomationGovernanceHistorySource controlledAutomationGovernanceHistorySource(
+        ApprovalAssistanceGovernanceHistoryQuery historyQuery,
+        ControlledAutomationGovernanceSnapshotSource snapshotSource,
+        Clock approvalClock
+    ) {
+        return (trustedTenantId, fromInclusive, toExclusive) -> {
+            Instant observedAt = approvalClock.instant();
+            var summary = historyQuery.summarize(new HistoryWindow(
+                trustedTenantId,
+                fromInclusive,
+                toExclusive,
+                observedAt
+            ));
+            return HistoryView.from(snapshotSource.current(), summary);
         };
     }
 
