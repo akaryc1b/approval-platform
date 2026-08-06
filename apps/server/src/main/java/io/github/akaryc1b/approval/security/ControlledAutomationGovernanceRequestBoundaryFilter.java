@@ -53,15 +53,15 @@ public final class ControlledAutomationGovernanceRequestBoundaryFilter
         BASE_PATH + "/snapshot",
         EndpointRule.noParameters(),
         BASE_PATH + "/change-plan",
-        EndpointRule.operation(),
+        EndpointRule.operationEndpoint(),
         BASE_PATH + "/control-health",
         EndpointRule.noParameters(),
         BASE_PATH + "/usage",
         EndpointRule.noParameters(),
         BASE_PATH + "/history",
-        EndpointRule.historyWindow(),
+        EndpointRule.historyWindowEndpoint(),
         BASE_PATH + "/incident-readiness",
-        EndpointRule.historyWindow()
+        EndpointRule.historyWindowEndpoint()
     );
 
     private final Clock clock;
@@ -277,11 +277,11 @@ public final class ControlledAutomationGovernanceRequestBoundaryFilter
             return new EndpointRule(Set.of(), false, false);
         }
 
-        private static EndpointRule operation() {
+        private static EndpointRule operationEndpoint() {
             return new EndpointRule(Set.of("operation"), true, false);
         }
 
-        private static EndpointRule historyWindow() {
+        private static EndpointRule historyWindowEndpoint() {
             return new EndpointRule(Set.of("from", "to"), false, true);
         }
     }
