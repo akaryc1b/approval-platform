@@ -262,8 +262,11 @@ test('P8-G1 verifies V49 and V50 ownership constraints CAS and upgrades', () => 
 
   assert.match(v50, /command_attempts between 0 and 1/);
   assert.match(v50, /not automatic_retry_allowed/);
-  assert.match(v50, /state='CANCELLED'.*command_attempts=0/s);
-  assert.match(v50, /state in \('SUCCEEDED','FAILED','PARTIAL','UNKNOWN'\).*command_attempts=1/s);
+  assert.match(v50, /status='CANCELLED'[\s\S]*command_attempts=0/);
+  assert.match(
+    v50,
+    /status in \('SUCCEEDED','FAILED','PARTIAL','UNKNOWN'\)[\s\S]*command_attempts=1/,
+  );
   assert.match(v50, /lineage events are append-only/);
   assert.match(v50, /deferrable initially deferred/);
   assert.match(jdbcLineage, /for update/);
