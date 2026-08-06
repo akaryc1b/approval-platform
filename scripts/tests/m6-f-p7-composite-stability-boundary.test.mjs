@@ -20,6 +20,10 @@ const stability = read(
   'apps/server/src/test/java/io/github/akaryc1b/approval/config/'
     + 'ControlledAutomationGovernanceRuntimeStabilityAcceptanceTest.java',
 );
+const hashReplacement = read(
+  'apps/server/src/test/java/io/github/akaryc1b/approval/config/'
+    + 'ControlledAutomationGovernanceCompositeHashReplacementAcceptanceTest.java',
+);
 
 test('P7-C revalidates circuit and usage after composite construction', () => {
   assert.match(configuration, /requireStableRuntimeObservation/);
@@ -47,6 +51,19 @@ test('P7-C runtime drift tests fail closed without retry or binding', () => {
   assert.match(stability, /assertEquals\(1, fixture\.snapshotReads\(\)\.get\(\)\)/);
   assert.match(stability, /assertEquals\(0, bindingCount\(fixture\.factory\(\)\)\)/);
   assert.doesNotMatch(stability, /Thread\.sleep|Math\.random|\.bind\s*\(|\.advise\s*\(/);
+});
+
+test('P7-C rejects replacement of every composite evidence reference', () => {
+  assert.match(
+    hashReplacement,
+    /everyComponentHashReplacementInvalidatesTheOriginalCompositeEvidence/,
+  );
+  assert.match(hashReplacement, /assertEquals\(5, replacements\.size\(\)\)/);
+  assert.match(hashReplacement, /snapshotEvidenceHash/);
+  assert.match(hashReplacement, /controlHealthEvidenceHash/);
+  assert.match(hashReplacement, /usageEvidenceHash/);
+  assert.match(hashReplacement, /historyEvidenceHash/);
+  assert.match(hashReplacement, /rollbackPlanEvidenceHash/);
 });
 
 test('P7-C stability recheck cannot mutate or execute production work', () => {
