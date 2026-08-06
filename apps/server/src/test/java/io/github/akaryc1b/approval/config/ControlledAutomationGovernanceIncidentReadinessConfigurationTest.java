@@ -41,12 +41,14 @@ class ControlledAutomationGovernanceIncidentReadinessConfigurationTest {
 
         assertEquals(new HistoryWindow("tenant-a", from, NOW, NOW), captured.get());
         assertEquals(ReadinessState.RUNTIME_NOT_CONFIGURED, view.readinessState());
-        assertEquals(snapshot.evidenceHash(), view.evidenceReferences()
-            .snapshotEvidenceHash());
-        assertEquals(snapshot.evidenceHash(), view.evidenceReferences()
-            .controlHealthEvidenceHash().equals(snapshot.evidenceHash())
-                ? snapshot.evidenceHash()
-                : view.evidenceReferences().snapshotEvidenceHash());
+        assertEquals(
+            snapshot.evidenceHash(),
+            view.evidenceReferences().snapshotEvidenceHash()
+        );
+        assertEquals(64, view.evidenceReferences().controlHealthEvidenceHash().length());
+        assertEquals(64, view.evidenceReferences().usageEvidenceHash().length());
+        assertEquals(64, view.evidenceReferences().historyEvidenceHash().length());
+        assertEquals(64, view.evidenceReferences().rollbackPlanEvidenceHash().length());
         assertFalse(view.incidentMutationAvailable());
         assertFalse(view.providerInvocationAvailable());
         assertFalse(view.rollbackExecutionAvailable());
