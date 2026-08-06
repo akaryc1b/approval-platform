@@ -24,7 +24,8 @@ import java.util.concurrent.atomic.AtomicReference;
 final class OpenAiResponsesP7FaultTestSupport {
 
     static final Instant NOW = Instant.parse("2026-08-06T04:00:00Z");
-    static final String TENANT_HASH = hash("tenant-a");
+    static final String TENANT_ID = "tenant-a";
+    static final String TENANT_HASH = hash("tenant\n" + TENANT_ID);
 
     private OpenAiResponsesP7FaultTestSupport() {
     }
@@ -42,7 +43,7 @@ final class OpenAiResponsesP7FaultTestSupport {
     ) throws Exception {
         MutableClock clock = new MutableClock(NOW);
         CredentialMaterialRequest credentialRequest = credentialRequest(
-            TENANT_HASH,
+            TENANT_ID,
             NOW.minusSeconds(60),
             NOW.plusSeconds(600)
         );
@@ -118,7 +119,7 @@ final class OpenAiResponsesP7FaultTestSupport {
     }
 
     static CredentialMaterialRequest credentialRequest(
-        String tenantHash,
+        String tenantId,
         Instant effectiveFrom,
         Instant expiresAt
     ) {
@@ -127,7 +128,7 @@ final class OpenAiResponsesP7FaultTestSupport {
                 OpenAiEnvironmentCredentialMaterialSource.PROVIDER_KEY,
                 OpenAiEnvironmentCredentialMaterialSource.CREDENTIAL_REFERENCE_ID
             ),
-            tenantHash,
+            tenantId,
             OpenAiEnvironmentCredentialMaterialSource.PROVIDER_KEY,
             hash("p7-route-plan"),
             hash("p7-credential-binding"),
