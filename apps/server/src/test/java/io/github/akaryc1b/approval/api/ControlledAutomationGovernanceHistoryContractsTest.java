@@ -18,6 +18,7 @@ import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContrac
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -159,7 +160,7 @@ class ControlledAutomationGovernanceHistoryContractsTest {
     }
 
     private static List<OutcomeCount> outcomes() {
-        return List.of(AiOutcomeClassification.values()).stream()
+        return Arrays.stream(AiOutcomeClassification.values())
             .map(classification -> new OutcomeCount(
                 classification,
                 classification == AiOutcomeClassification.SUCCESS
