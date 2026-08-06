@@ -33,11 +33,9 @@ class ControlledAutomationGovernanceSecurityConfigurationTest {
             registration.getOrder()
         );
         assertTrue(registration.getOrder() < Ordered.HIGHEST_PRECEDENCE + 20);
-        assertEquals(
-            java.util.Set.of(
-                ControlledAutomationGovernanceRequestBoundaryFilter.BASE_PATH + "/*"
-            ),
-            registration.getUrlPatterns()
-        );
+        assertEquals(1, registration.getUrlPatterns().size());
+        assertTrue(registration.getUrlPatterns().contains(
+            ControlledAutomationGovernanceRequestBoundaryFilter.BASE_PATH + "/*"
+        ));
     }
 }
