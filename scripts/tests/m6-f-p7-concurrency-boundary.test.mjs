@@ -4,6 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import './m6-f-p7-composite-stability-boundary.test.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function read(relativePath) {
