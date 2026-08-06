@@ -33,7 +33,7 @@ class ControlledAutomationGovernanceRequestBoundaryFilterTest {
             requestWithTenant(BASE + "/snapshot", "tenant-a "),
             requestWithTenant(BASE + "/snapshot", "a".repeat(129)),
             requestWithTenant(BASE + "/snapshot", "tenant\nattack"),
-            requestWithTenant(BASE + "/snapshot", "tenant-\u202Eattack"),
+            requestWithTenant(BASE + "/snapshot", unicodeControlTenant()),
             duplicateTenant(BASE + "/snapshot", "tenant-a", "tenant-a"),
             duplicateTenant(BASE + "/snapshot", "tenant-a", "tenant-b")
         );
@@ -220,6 +220,10 @@ class ControlledAutomationGovernanceRequestBoundaryFilterTest {
             Clock.fixed(NOW, ZoneOffset.UTC),
             new ObjectMapper().findAndRegisterModules()
         );
+    }
+
+    private static String unicodeControlTenant() {
+        return "tenant-" + new String(Character.toChars(0x202E)) + "attack";
     }
 
     private static MockHttpServletRequest request(String path) {
