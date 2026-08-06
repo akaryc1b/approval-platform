@@ -35,6 +35,10 @@ const integration = read(
   'server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/'
     + 'persistence/jdbc/JdbcControlledAutomationLineageStoreIntegrationTest.java',
 );
+const instantPrecisionIntegration = read(
+  'server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/'
+    + 'persistence/jdbc/JdbcControlledAutomationLineageInstantPrecisionIntegrationTest.java',
+);
 const architecture = read(
   'server-modules/approval-architecture-tests/src/test/java/io/github/akaryc1b/approval/'
     + 'architecture/M6FControlledAutomationLineageArchitectureTest.java',
@@ -73,10 +77,29 @@ test('P4 lineage is hash-only, confirmation-bound and permanently non-executable
   assert.doesNotMatch(core, /ApprovalMessageService|ConnectorInvocation|ProcessMigrationService/);
 });
 
-test('P4 JDBC provides exact replay, idempotency conflict and row-locked CAS', () => {
+test('P4 JDBC canonicalizes persisted instants before exact replay, hashing and row-locked CAS', () => {
   assert.match(jdbc, /implements ControlledAutomationLineageStore/);
-  assert.match(jdbc, /transactions\.execute\(status -> registerOnce\(command\)\)/);
-  assert.match(jdbc, /transactions\.execute\(status -> transitionOnce\(command\)\)/);
+  assert.match(
+    jdbc,
+    /RegistrationCommand exact = canonicalRegistration\([\s\S]*transactions\.execute\(status -> registerOnce\(exact\)\)/,
+  );
+  assert.match(
+    jdbc,
+    /TransitionCommand exact = canonicalTransition\([\s\S]*transactions\.execute\(status -> transitionOnce\(exact\)\)/,
+  );
+  assert.match(
+    jdbc,
+    /private static RegistrationCommand canonicalRegistration\([\s\S]*RegistrationCommand\.fromEvidence\(/,
+  );
+  assert.match(
+    jdbc,
+    /private static TransitionCommand canonicalTransition\([\s\S]*TransitionCommand\.create\(/,
+  );
+  assert.match(
+    jdbc,
+    /private static Instant postgresInstant\([\s\S]*\.truncatedTo\(ChronoUnit\.MICROS\)/,
+  );
+  assert.doesNotMatch(jdbc, /registerOnce\(command\)|transitionOnce\(command\)/);
   assert.match(jdbc, /on conflict do nothing/);
   assert.match(jdbc, /for update/);
   assert.match(jdbc, /RegistrationDisposition\.REPLAYED/);
@@ -121,6 +144,22 @@ test('P4 real PostgreSQL tests cover replay concurrency cancellation and UNKNOWN
   assert.match(integration, /TransitionDisposition\.REPLAYED/);
   assert.match(integration, /TransitionDisposition\.STATE_CONFLICT/);
   assert.match(integration, /assertEquals\(2, eventCount\(registration\)\)/);
+});
+
+test('P4 PostgreSQL precision regression proves same-microsecond registration and transition replay', () => {
+  for (const scenario of [
+    'registrationReplayNormalizesSubMicrosecondInstantsBeforeHashAndComparison',
+    'transitionReplayNormalizesSubMicrosecondInstantBeforeHashAndComparison',
+  ]) {
+    assert.match(instantPrecisionIntegration, new RegExp(scenario));
+  }
+  assert.match(instantPrecisionIntegration, /ChronoUnit\.MICROS/);
+  assert.match(instantPrecisionIntegration, /RegistrationDisposition\.REPLAYED/);
+  assert.match(instantPrecisionIntegration, /TransitionDisposition\.REPLAYED/);
+  assert.doesNotMatch(
+    instantPrecisionIntegration,
+    /Thread\.sleep|Math\.random|new Random\s*\(/,
+  );
 });
 
 test('P4 is server-wired but exposes no API or execution composition', () => {
