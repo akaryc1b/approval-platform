@@ -23,7 +23,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -94,18 +93,17 @@ public class ControlledAutomationGovernanceConfiguration {
     @Bean
     ControlledAutomationGovernanceHistorySource controlledAutomationGovernanceHistorySource(
         ApprovalAssistanceGovernanceHistoryQuery historyQuery,
-        ControlledAutomationGovernanceSnapshotSource snapshotSource,
-        Clock approvalClock
+        ControlledAutomationGovernanceSnapshotSource snapshotSource
     ) {
         return (trustedTenantId, fromInclusive, toExclusive) -> {
-            Instant observedAt = approvalClock.instant();
+            OperationsView snapshot = snapshotSource.current();
             var summary = historyQuery.summarize(new HistoryWindow(
                 trustedTenantId,
                 fromInclusive,
                 toExclusive,
-                observedAt
+                snapshot.observedAt()
             ));
-            return HistoryView.from(snapshotSource.current(), summary);
+            return HistoryView.from(snapshot, summary);
         };
     }
 
