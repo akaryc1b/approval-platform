@@ -19,9 +19,10 @@ import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /** Read-only repeatable-read P6-E aggregation over immutable V49 evidence. */
@@ -155,15 +156,13 @@ public final class JdbcApprovalAssistanceGovernanceHistoryQuery
                 return useCase;
             });
 
-        List<OutcomeCount> outcomeCounts = List.of(AiOutcomeClassification.values())
-            .stream()
-            .map(classification -> new OutcomeCount(
-                classification,
-                outcomes.get(classification)
-            ))
-            .toList();
-        List<UseCaseCount> useCaseCounts = List.of(UseCase.values())
-            .stream()
+        List<OutcomeCount> outcomeCounts = Arrays.stream(
+            AiOutcomeClassification.values()
+        ).map(classification -> new OutcomeCount(
+            classification,
+            outcomes.get(classification)
+        )).toList();
+        List<UseCaseCount> useCaseCounts = Arrays.stream(UseCase.values())
             .map(useCases::get)
             .toList();
 
@@ -201,8 +200,7 @@ public final class JdbcApprovalAssistanceGovernanceHistoryQuery
         );
     }
 
-    private static java.time.Instant instant(ResultSet result, String name)
-        throws SQLException {
+    private static Instant instant(ResultSet result, String name) throws SQLException {
         Timestamp value = result.getTimestamp(name);
         return value == null ? null : value.toInstant();
     }
@@ -225,8 +223,8 @@ public final class JdbcApprovalAssistanceGovernanceHistoryQuery
         long unsafeRetryCount,
         long postInvocationFallbackCount,
         long retentionDueCount,
-        java.time.Instant earliestRecordedAt,
-        java.time.Instant latestRecordedAt
+        Instant earliestRecordedAt,
+        Instant latestRecordedAt
     ) {
     }
 
