@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.ai.spi.AiOutcomeClassification;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -89,7 +90,13 @@ public interface ApprovalAssistanceGovernanceHistoryQuery {
             );
             if (providerInvocationCount > evidenceCount
                 || advisoryResultCount > evidenceCount
-                || distinctVersionBundleCount > evidenceCount) {
+                || distinctVersionBundleCount > evidenceCount
+                || (evidenceCount == 0 && (
+                    providerInvocationCount != 0
+                        || advisoryResultCount != 0
+                        || distinctVersionBundleCount != 0
+                ))
+                || (evidenceCount > 0 && distinctVersionBundleCount == 0)) {
                 throw new IllegalArgumentException("use-case history counts must be bounded");
             }
             VersionStability expected = evidenceCount == 0
@@ -213,10 +220,10 @@ public interface ApprovalAssistanceGovernanceHistoryQuery {
                 0,
                 null,
                 null,
-                List.of(AiOutcomeClassification.values()).stream()
+                Arrays.stream(AiOutcomeClassification.values())
                     .map(classification -> new OutcomeCount(classification, 0))
                     .toList(),
-                List.of(UseCase.values()).stream()
+                Arrays.stream(UseCase.values())
                     .map(UseCaseCount::empty)
                     .toList()
             );
