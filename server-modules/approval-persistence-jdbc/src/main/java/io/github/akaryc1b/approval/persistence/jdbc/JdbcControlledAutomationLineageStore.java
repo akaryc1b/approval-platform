@@ -26,7 +26,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +38,8 @@ public final class JdbcControlledAutomationLineageStore
     implements ControlledAutomationLineageStore {
 
     private static final String ZERO_HASH = "0".repeat(64);
+    private static final long NANOS_PER_MICROSECOND = 1_000L;
+    private static final long HALF_MICROSECOND_NANOS = NANOS_PER_MICROSECOND / 2;
 
     private final NamedParameterJdbcTemplate jdbc;
     private final TransactionTemplate transactions;
@@ -175,8 +176,12 @@ public final class JdbcControlledAutomationLineageStore
     }
 
     private static Instant postgresInstant(Instant value, String name) {
-        return Objects.requireNonNull(value, name + " must not be null")
-            .truncatedTo(ChronoUnit.MICROS);
+        Instant exact = Objects.requireNonNull(value, name + " must not be null");
+        long remainder = exact.getNano() % NANOS_PER_MICROSECOND;
+        if (remainder < HALF_MICROSECOND_NANOS) {
+            return exact.minusNanos(remainder);
+        }
+        return exact.plusNanos(NANOS_PER_MICROSECOND - remainder);
     }
 
     private RegistrationResult registerOnce(RegistrationCommand command) {

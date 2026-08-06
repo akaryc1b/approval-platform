@@ -77,7 +77,7 @@ test('P4 lineage is hash-only, confirmation-bound and permanently non-executable
   assert.doesNotMatch(core, /ApprovalMessageService|ConnectorInvocation|ProcessMigrationService/);
 });
 
-test('P4 JDBC canonicalizes persisted instants before exact replay, hashing and row-locked CAS', () => {
+test('P4 JDBC rounds PostgreSQL instants before replay, hashing and row-locked CAS', () => {
   assert.match(jdbc, /implements ControlledAutomationLineageStore/);
   assert.match(
     jdbc,
@@ -95,10 +95,16 @@ test('P4 JDBC canonicalizes persisted instants before exact replay, hashing and 
     jdbc,
     /private static TransitionCommand canonicalTransition\([\s\S]*TransitionCommand\.create\(/,
   );
+  assert.match(jdbc, /NANOS_PER_MICROSECOND = 1_000L/);
   assert.match(
     jdbc,
-    /private static Instant postgresInstant\([\s\S]*\.truncatedTo\(ChronoUnit\.MICROS\)/,
+    /HALF_MICROSECOND_NANOS = NANOS_PER_MICROSECOND \/ 2/,
   );
+  assert.match(
+    jdbc,
+    /private static Instant postgresInstant\([\s\S]*long remainder = exact\.getNano\(\) % NANOS_PER_MICROSECOND;[\s\S]*if \(remainder < HALF_MICROSECOND_NANOS\) \{[\s\S]*return exact\.minusNanos\(remainder\);[\s\S]*return exact\.plusNanos\(NANOS_PER_MICROSECOND - remainder\);/,
+  );
+  assert.doesNotMatch(jdbc, /truncatedTo\(ChronoUnit\.MICROS\)/);
   assert.doesNotMatch(jdbc, /registerOnce\(command\)|transitionOnce\(command\)/);
   assert.match(jdbc, /on conflict do nothing/);
   assert.match(jdbc, /for update/);
@@ -146,16 +152,33 @@ test('P4 real PostgreSQL tests cover replay concurrency cancellation and UNKNOWN
   assert.match(integration, /assertEquals\(2, eventCount\(registration\)\)/);
 });
 
-test('P4 PostgreSQL precision regression proves same-microsecond registration and transition replay', () => {
+test('P4 PostgreSQL precision regression proves native rounding and replay boundaries', () => {
   for (const scenario of [
-    'registrationReplayNormalizesSubMicrosecondInstantsBeforeHashAndComparison',
-    'transitionReplayNormalizesSubMicrosecondInstantBeforeHashAndComparison',
+    'postgresqlRoundsToNearestMicrosecondAndCarriesIntoNextSecond',
+    'registrationReplayRoundsBelowHalfMicrosecondDown',
+    'registrationReplayRoundsHalfMicrosecondUp',
+    'registrationDistinctPostgresMicrosecondsConflictAcrossHalfBoundary',
+    'registrationRoundingCarriesIntoNextSecond',
+    'transitionReplayRoundsHalfMicrosecondUp',
+    'transitionDistinctPostgresMicrosecondsConflictAcrossHalfBoundary',
   ]) {
     assert.match(instantPrecisionIntegration, new RegExp(scenario));
   }
-  assert.match(instantPrecisionIntegration, /ChronoUnit\.MICROS/);
+  assert.match(instantPrecisionIntegration, /PostgreSQLContainer/);
+  assert.match(instantPrecisionIntegration, /JdbcTemplate/);
+  assert.match(instantPrecisionIntegration, /Timestamp\.from\(value\)/);
+  assert.match(instantPrecisionIntegration, /OffsetDateTime\.class/);
+  assert.match(instantPrecisionIntegration, /123456499Z/);
+  assert.match(instantPrecisionIntegration, /123456500Z/);
+  assert.match(instantPrecisionIntegration, /999999500Z/);
   assert.match(instantPrecisionIntegration, /RegistrationDisposition\.REPLAYED/);
+  assert.match(instantPrecisionIntegration, /RegistrationDisposition\.CONFLICT/);
   assert.match(instantPrecisionIntegration, /TransitionDisposition\.REPLAYED/);
+  assert.match(
+    instantPrecisionIntegration,
+    /TransitionDisposition\.IDEMPOTENCY_CONFLICT/,
+  );
+  assert.doesNotMatch(instantPrecisionIntegration, /ChronoUnit\.MICROS/);
   assert.doesNotMatch(
     instantPrecisionIntegration,
     /Thread\.sleep|Math\.random|new Random\s*\(/,
