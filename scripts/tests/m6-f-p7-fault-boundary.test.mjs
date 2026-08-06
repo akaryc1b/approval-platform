@@ -24,6 +24,10 @@ const circuit = read(
   'server-modules/approval-ai-openai/src/test/java/io/github/akaryc1b/approval/ai/openai/'
     + 'OpenAiResponsesCircuitFaultAcceptanceTest.java',
 );
+const circuitReadiness = read(
+  'apps/server/src/test/java/io/github/akaryc1b/approval/api/'
+    + 'ControlledAutomationGovernanceCircuitFaultAcceptanceTest.java',
+);
 const usage = read(
   'server-modules/approval-ai-openai/src/test/java/io/github/akaryc1b/approval/ai/openai/'
     + 'OpenAiResponsesRateUsageFaultAcceptanceTest.java',
@@ -48,10 +52,7 @@ const historyCore = read(
 test('P7-B promotes only post-dispatch transport ambiguity to UNKNOWN', () => {
   assert.match(sender, /catch \(OpenAiResponsesTransportException exception\)/);
   assert.match(sender, /if \(permit\.dispatched\(\)\)/);
-  assert.match(
-    sender,
-    /Failure\.UNKNOWN/,
-  );
+  assert.match(sender, /Failure\.UNKNOWN/);
   assert.match(postDispatch, /timeoutAndIoFailureAfterDispatchRemainSingleAttemptUnknown/);
   assert.match(postDispatch, /preDispatchDnsTlsAndSecretFailuresKeepExactClassificationAndZeroUsage/);
   assert.match(postDispatch, /connectionDriftBeforeDispatchDoesNotReadSecretOrRecordUsage/);
@@ -68,6 +69,17 @@ test('P7-B circuit transitions are deterministic and fail closed', () => {
     assert.match(circuit, new RegExp(scenario));
   }
   assert.doesNotMatch(circuit, /Thread\.sleep|Math\.random/);
+});
+
+test('P7-B OPEN and HALF_OPEN readiness remains incident blocked', () => {
+  assert.match(
+    circuitReadiness,
+    /openAndHalfOpenCircuitStatesRemainIncidentBlockedAndNonExecuting/,
+  );
+  assert.match(circuitReadiness, /AI_PROVIDER_CIRCUIT_OPEN/);
+  assert.match(circuitReadiness, /AI_PROVIDER_CIRCUIT_HALF_OPEN/);
+  assert.match(circuitReadiness, /AI_INCIDENT_STEP_DO_NOT_AUTOMATICALLY_RETRY/);
+  assert.match(circuitReadiness, /assertFalse\(view\.rollbackExecutionAvailable\(\)\)/);
 });
 
 test('P7-B usage tests bind dispatch accounting to exact rate windows', () => {
@@ -122,6 +134,22 @@ test('P7-B lineage failures roll back event and state atomically', () => {
   }
   assert.match(lineageFault, /P7 injected lineage event failure/);
   assert.match(lineageFault, /P7 injected lineage state failure/);
+});
+
+test('P7-B retains malformed JSON schema and output fail-closed evidence', () => {
+  const decoder = read(
+    'server-modules/approval-ai-openai/src/test/java/io/github/akaryc1b/approval/ai/openai/'
+      + 'OpenAiResponsesResponseDecoderTest.java',
+  );
+  const codec = read(
+    'server-modules/approval-ai-openai/src/test/java/io/github/akaryc1b/approval/ai/openai/'
+      + 'OpenAiResponsesCodecHardeningTest.java',
+  );
+  assert.match(decoder, /incompleteProviderErrorRefusalAndMultipleOutputsFailClosed/);
+  assert.match(decoder, /statelessReasoningOutputShapeFailsClosed/);
+  assert.match(decoder, /SCHEMA_MISMATCH/);
+  assert.match(codec, /currentKnownResponseFieldsAreAcceptedOnlyInTheStatelessProfile/);
+  assert.match(codec, /assertSchemaMismatch/);
 });
 
 test('P7-B retains provider single-attempt redaction and no automatic retry', () => {
