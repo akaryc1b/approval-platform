@@ -155,6 +155,12 @@ public final class OpenAiResponsesProductionRuntimeFactory {
 
     /** Returns metadata-only process-local control health without reserving any permit. */
     public RuntimeControlSnapshot controlSnapshot() {
+        OpenAiResponsesTransportControls.CircuitBreaker.State circuitState;
+        long circuitGeneration;
+        synchronized (circuitBreaker) {
+            circuitState = circuitBreaker.state();
+            circuitGeneration = circuitBreaker.generation();
+        }
         return new RuntimeControlSnapshot(
             clock.instant(),
             killSwitch.enabled(),
@@ -172,8 +178,8 @@ public final class OpenAiResponsesProductionRuntimeFactory {
             profile.circuitFailureThreshold(),
             profile.circuitOpenDuration().toSeconds(),
             profile.maximumRequestMicros(),
-            circuitBreaker.state(),
-            circuitBreaker.generation(),
+            circuitState,
+            circuitGeneration,
             false,
             false
         );
