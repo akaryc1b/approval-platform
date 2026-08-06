@@ -4,6 +4,8 @@ import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQu
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQuery.HistoryWindow;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesAdvisoryProvider;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesProductionRuntimeFactory;
+import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesProductionRuntimeFactory
+    .RuntimeControlSnapshot;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesProtocol;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesTransportControls;
 import io.github.akaryc1b.approval.ai.spi.AiCapability;
@@ -29,6 +31,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /** Composition-root wiring for P6 read-only AI governance operations. */
@@ -123,18 +126,22 @@ public class ControlledAutomationGovernanceConfiguration {
             OperationsView snapshot = snapshotSource.current();
             Optional<OpenAiResponsesProductionRuntimeFactory> runtime =
                 productionRuntime.factory();
-            ControlHealthView control = runtime
-                .map(factory -> ControlHealthView.configured(
-                    snapshot,
-                    factory.controlSnapshot()
-                ))
-                .orElseGet(() -> ControlHealthView.disabled(snapshot));
-            UsageView usage = runtime
-                .map(factory -> UsageView.configured(
+            ControlHealthView control;
+            UsageView usage;
+            RuntimeControlSnapshot before = null;
+            OpenAiResponsesProductionRuntimeFactory factory = null;
+            if (runtime.isPresent()) {
+                factory = runtime.orElseThrow();
+                before = factory.controlSnapshot();
+                control = ControlHealthView.configured(snapshot, before);
+                usage = UsageView.configured(
                     snapshot,
                     factory.usageSnapshot(trustedTenantId)
-                ))
-                .orElseGet(() -> UsageView.disabled(snapshot));
+                );
+            } else {
+                control = ControlHealthView.disabled(snapshot);
+                usage = UsageView.disabled(snapshot);
+            }
             var summary = historyQuery.summarize(new HistoryWindow(
                 trustedTenantId,
                 fromInclusive,
@@ -143,6 +150,9 @@ public class ControlledAutomationGovernanceConfiguration {
             ));
             HistoryView history = HistoryView.from(snapshot, summary);
             ReviewPlan rollback = ReviewPlan.preview(Operation.ROLLBACK, snapshot);
+            if (factory != null) {
+                requireStableRuntimeControl(before, factory.controlSnapshot());
+            }
             return IncidentReadinessView.from(
                 snapshot,
                 control,
@@ -151,6 +161,44 @@ public class ControlledAutomationGovernanceConfiguration {
                 rollback
             );
         };
+    }
+
+    static void requireStableRuntimeControl(
+        RuntimeControlSnapshot before,
+        RuntimeControlSnapshot after
+    ) {
+        RuntimeControlSnapshot first = Objects.requireNonNull(
+            before,
+            "before must not be null"
+        );
+        RuntimeControlSnapshot second = Objects.requireNonNull(
+            after,
+            "after must not be null"
+        );
+        boolean drift = first.killSwitchEnabled() != second.killSwitchEnabled()
+            || first.killSwitchGeneration() != second.killSwitchGeneration()
+            || !first.killSwitchEvidenceHash().equals(second.killSwitchEvidenceHash())
+            || !first.costPolicyEvidenceHash().equals(second.costPolicyEvidenceHash())
+            || !first.costPolicyEffectiveFrom().equals(second.costPolicyEffectiveFrom())
+            || !first.costPolicyExpiresAt().equals(second.costPolicyExpiresAt())
+            || !first.secretVersionEvidenceHash().equals(second.secretVersionEvidenceHash())
+            || !first.secretVersionEffectiveFrom().equals(second.secretVersionEffectiveFrom())
+            || !first.secretVersionExpiresAt().equals(second.secretVersionExpiresAt())
+            || first.perTenantRateLimit() != second.perTenantRateLimit()
+            || first.globalRateLimit() != second.globalRateLimit()
+            || first.rateWindowSeconds() != second.rateWindowSeconds()
+            || first.circuitFailureThreshold() != second.circuitFailureThreshold()
+            || first.circuitOpenSeconds() != second.circuitOpenSeconds()
+            || first.maximumRequestMicros() != second.maximumRequestMicros()
+            || first.circuitState() != second.circuitState()
+            || first.circuitGeneration() != second.circuitGeneration()
+            || first.rateUsageExposed() != second.rateUsageExposed()
+            || first.budgetConsumptionExposed() != second.budgetConsumptionExposed();
+        if (drift) {
+            throw new IllegalStateException(
+                "AI governance runtime control changed during composite snapshot"
+            );
+        }
     }
 
     static List<InventoryEntry> inventory() {
