@@ -30,6 +30,7 @@ public final class OpenAiResponsesTransportAdmission {
     private final CircuitBreaker circuitBreaker;
     private final RateLimiter rateLimiter;
     private final CostPolicy costPolicy;
+    private final UsageRecorder usageRecorder;
     private final Clock clock;
 
     public OpenAiResponsesTransportAdmission(
@@ -40,6 +41,56 @@ public final class OpenAiResponsesTransportAdmission {
         CircuitBreaker circuitBreaker,
         RateLimiter rateLimiter,
         CostPolicy costPolicy,
+        Clock clock
+    ) {
+        this(
+            tenantHash,
+            killSwitchSource,
+            expectedKillSwitchGeneration,
+            expectedKillSwitchEvidenceHash,
+            circuitBreaker,
+            rateLimiter,
+            costPolicy,
+            (ignoredTenant, ignoredWindow, ignoredMicros) ->
+                Objects.requireNonNull(ignoredWindow, "ignoredWindow must not be null"),
+            clock
+        );
+    }
+
+    public OpenAiResponsesTransportAdmission(
+        String tenantHash,
+        Supplier<KillSwitchSnapshot> killSwitchSource,
+        long expectedKillSwitchGeneration,
+        String expectedKillSwitchEvidenceHash,
+        CircuitBreaker circuitBreaker,
+        RateLimiter rateLimiter,
+        CostPolicy costPolicy,
+        OpenAiResponsesRuntimeUsageLedger usageLedger,
+        Clock clock
+    ) {
+        this(
+            tenantHash,
+            killSwitchSource,
+            expectedKillSwitchGeneration,
+            expectedKillSwitchEvidenceHash,
+            circuitBreaker,
+            rateLimiter,
+            costPolicy,
+            Objects.requireNonNull(usageLedger, "usageLedger must not be null")
+                ::recordDispatched,
+            clock
+        );
+    }
+
+    private OpenAiResponsesTransportAdmission(
+        String tenantHash,
+        Supplier<KillSwitchSnapshot> killSwitchSource,
+        long expectedKillSwitchGeneration,
+        String expectedKillSwitchEvidenceHash,
+        CircuitBreaker circuitBreaker,
+        RateLimiter rateLimiter,
+        CostPolicy costPolicy,
+        UsageRecorder usageRecorder,
         Clock clock
     ) {
         this.tenantHash = requireSha256(tenantHash, "tenantHash");
@@ -66,6 +117,10 @@ public final class OpenAiResponsesTransportAdmission {
             "rateLimiter must not be null"
         );
         this.costPolicy = Objects.requireNonNull(costPolicy, "costPolicy must not be null");
+        this.usageRecorder = Objects.requireNonNull(
+            usageRecorder,
+            "usageRecorder must not be null"
+        );
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -190,6 +245,12 @@ public final class OpenAiResponsesTransportAdmission {
         return value;
     }
 
+    @FunctionalInterface
+    private interface UsageRecorder {
+
+        void record(String tenantHash, Instant rateWindowStart, long estimatedUpperBoundMicros);
+    }
+
     public final class Permit implements AutoCloseable {
 
         private final OpenAiResponsesTransportAdmission owner;
@@ -248,6 +309,11 @@ public final class OpenAiResponsesTransportAdmission {
                 throw failure(OpenAiResponsesTransportException.Failure.REQUEST_INVALID);
             }
             rateLimiter.commit(ratePermit);
+            usageRecorder.record(
+                tenantHash,
+                ratePermit.windowStart(),
+                costEstimate.estimatedMicros()
+            );
         }
 
         public void record(Outcome outcome) {

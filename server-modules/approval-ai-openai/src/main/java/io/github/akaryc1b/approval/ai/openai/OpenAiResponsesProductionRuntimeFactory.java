@@ -31,6 +31,7 @@ public final class OpenAiResponsesProductionRuntimeFactory {
     private final OpenAiResponsesTransportControls.CircuitBreaker circuitBreaker;
     private final OpenAiResponsesTransportControls.CostPolicy costPolicy;
     private final OpenAiResponsesTransportControls.KillSwitchSnapshot killSwitch;
+    private final OpenAiResponsesRuntimeUsageLedger usageLedger;
     private final ConcurrentHashMap<String, Binding> bindings = new ConcurrentHashMap<>();
 
     public OpenAiResponsesProductionRuntimeFactory(RuntimeProfile profile, Clock clock) {
@@ -62,6 +63,13 @@ public final class OpenAiResponsesProductionRuntimeFactory {
             true,
             profile.killSwitchPolicyRevision()
         );
+        this.usageLedger = new OpenAiResponsesRuntimeUsageLedger(
+            profile.perTenantRateLimit(),
+            profile.globalRateLimit(),
+            MAXIMUM_TENANT_BINDINGS,
+            profile.rateWindow(),
+            profile.maximumRequestMicros()
+        );
         costPolicy.requireCurrent(clock.instant());
     }
 
@@ -79,7 +87,7 @@ public final class OpenAiResponsesProductionRuntimeFactory {
 
     private Binding newBinding(String tenantId) {
         Instant now = clock.instant();
-        String tenantHash = CanonicalPayloadHash.sha256Utf8("tenant\n" + tenantId);
+        String tenantHash = tenantHash(tenantId);
         CredentialMaterialVersion version = new CredentialMaterialVersion(
             profile.secretVersionReference(),
             profile.secretVersionEffectiveFrom(),
@@ -120,6 +128,7 @@ public final class OpenAiResponsesProductionRuntimeFactory {
             circuitBreaker,
             rateLimiter,
             costPolicy,
+            usageLedger,
             clock
         );
         OpenAiResponsesSecureHttpSender sender = OpenAiResponsesSecureHttpSender.production(
@@ -142,6 +151,48 @@ public final class OpenAiResponsesProductionRuntimeFactory {
 
     public RuntimeProfile profile() {
         return profile;
+    }
+
+    /** Returns metadata-only process-local control health without reserving any permit. */
+    public RuntimeControlSnapshot controlSnapshot() {
+        OpenAiResponsesTransportControls.CircuitBreaker.State circuitState;
+        long circuitGeneration;
+        synchronized (circuitBreaker) {
+            circuitState = circuitBreaker.state();
+            circuitGeneration = circuitBreaker.generation();
+        }
+        return new RuntimeControlSnapshot(
+            clock.instant(),
+            killSwitch.enabled(),
+            killSwitch.generation(),
+            killSwitch.evidenceHash(),
+            costPolicy.evidenceHash(),
+            profile.costPolicyEffectiveFrom(),
+            profile.costPolicyExpiresAt(),
+            CanonicalPayloadHash.sha256Utf8(profile.secretVersionReference()),
+            profile.secretVersionEffectiveFrom(),
+            profile.secretVersionExpiresAt(),
+            profile.perTenantRateLimit(),
+            profile.globalRateLimit(),
+            profile.rateWindow().toSeconds(),
+            profile.circuitFailureThreshold(),
+            profile.circuitOpenDuration().toSeconds(),
+            profile.maximumRequestMicros(),
+            circuitState,
+            circuitGeneration,
+            false,
+            false
+        );
+    }
+
+    /**
+     * Returns one tenant's process-local dispatched usage without creating a runtime binding.
+     */
+    public OpenAiResponsesRuntimeUsageLedger.UsageSnapshot usageSnapshot(
+        String trustedTenantId
+    ) {
+        String tenantId = requireText(trustedTenantId, "trustedTenantId", 128);
+        return usageLedger.snapshot(tenantHash(tenantId), clock.instant());
     }
 
     public record Binding(
@@ -177,6 +228,87 @@ public final class OpenAiResponsesProductionRuntimeFactory {
                 "secretBindingEvidenceHash"
             );
             boundAt = Objects.requireNonNull(boundAt, "boundAt must not be null");
+        }
+    }
+
+    public record RuntimeControlSnapshot(
+        Instant observedAt,
+        boolean killSwitchEnabled,
+        long killSwitchGeneration,
+        String killSwitchEvidenceHash,
+        String costPolicyEvidenceHash,
+        Instant costPolicyEffectiveFrom,
+        Instant costPolicyExpiresAt,
+        String secretVersionEvidenceHash,
+        Instant secretVersionEffectiveFrom,
+        Instant secretVersionExpiresAt,
+        int perTenantRateLimit,
+        int globalRateLimit,
+        long rateWindowSeconds,
+        int circuitFailureThreshold,
+        long circuitOpenSeconds,
+        long maximumRequestMicros,
+        OpenAiResponsesTransportControls.CircuitBreaker.State circuitState,
+        long circuitGeneration,
+        boolean rateUsageExposed,
+        boolean budgetConsumptionExposed
+    ) {
+        public RuntimeControlSnapshot {
+            observedAt = Objects.requireNonNull(observedAt, "observedAt must not be null");
+            if (killSwitchGeneration < 1 || circuitGeneration < 1) {
+                throw new IllegalArgumentException("control generations must be positive");
+            }
+            killSwitchEvidenceHash = requireHash(
+                killSwitchEvidenceHash,
+                "killSwitchEvidenceHash"
+            );
+            costPolicyEvidenceHash = requireHash(
+                costPolicyEvidenceHash,
+                "costPolicyEvidenceHash"
+            );
+            secretVersionEvidenceHash = requireHash(
+                secretVersionEvidenceHash,
+                "secretVersionEvidenceHash"
+            );
+            costPolicyEffectiveFrom = Objects.requireNonNull(
+                costPolicyEffectiveFrom,
+                "costPolicyEffectiveFrom must not be null"
+            );
+            costPolicyExpiresAt = Objects.requireNonNull(
+                costPolicyExpiresAt,
+                "costPolicyExpiresAt must not be null"
+            );
+            secretVersionEffectiveFrom = Objects.requireNonNull(
+                secretVersionEffectiveFrom,
+                "secretVersionEffectiveFrom must not be null"
+            );
+            secretVersionExpiresAt = Objects.requireNonNull(
+                secretVersionExpiresAt,
+                "secretVersionExpiresAt must not be null"
+            );
+            if (!costPolicyEffectiveFrom.isBefore(costPolicyExpiresAt)
+                || !secretVersionEffectiveFrom.isBefore(secretVersionExpiresAt)) {
+                throw new IllegalArgumentException("control policy windows must be positive");
+            }
+            if (perTenantRateLimit < 1
+                || globalRateLimit < perTenantRateLimit
+                || rateWindowSeconds < 1
+                || circuitFailureThreshold < 1
+                || circuitOpenSeconds < 1
+                || maximumRequestMicros < 1) {
+                throw new IllegalArgumentException(
+                    "runtime control limits must be positive and coherent"
+                );
+            }
+            circuitState = Objects.requireNonNull(
+                circuitState,
+                "circuitState must not be null"
+            );
+            if (rateUsageExposed || budgetConsumptionExposed) {
+                throw new IllegalArgumentException(
+                    "P6-C runtime snapshots cannot expose usage or consumption"
+                );
+            }
         }
     }
 
@@ -248,6 +380,10 @@ public final class OpenAiResponsesProductionRuntimeFactory {
                 throw new IllegalArgumentException("runtime limits must be positive and coherent");
             }
         }
+    }
+
+    private static String tenantHash(String tenantId) {
+        return CanonicalPayloadHash.sha256Utf8("tenant\n" + tenantId);
     }
 
     private static String requireText(String value, String name, int maximumLength) {

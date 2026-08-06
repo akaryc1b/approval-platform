@@ -19,7 +19,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcApprovalMigrationUpgradeIntegrationTest {
 
-    private static final String LATEST_VERSION = "49";
+    private static final String M6_E_ACCEPTED_LATEST_VERSION = "49";
+    private static final String M6_E_ACCEPTED_UPGRADE_TEST =
+        "freshAndHistoricalUpgradePathsReachV49WithoutExecutionSideEffects";
+    private static final String CURRENT_LATEST_VERSION = "50";
     private static final List<UpgradeCase> UPGRADE_CASES = List.of(
         new UpgradeCase("approval_latest_fresh", null),
         new UpgradeCase("approval_latest_v1", "1"),
@@ -38,7 +41,8 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         new UpgradeCase("approval_latest_v45", "45"),
         new UpgradeCase("approval_latest_v46", "46"),
         new UpgradeCase("approval_latest_v47", "47"),
-        new UpgradeCase("approval_latest_v48", "48")
+        new UpgradeCase("approval_latest_v48", "48"),
+        new UpgradeCase("approval_latest_v49", "49")
     );
     private static final String V27_DATABASE = "approval_latest_v27_heavy";
 
@@ -65,7 +69,12 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
     }
 
     @Test
-    void freshAndHistoricalUpgradePathsReachV49WithoutExecutionSideEffects() {
+    void freshAndHistoricalUpgradePathsReachV50WithoutExecutionSideEffects() {
+        assertEquals("49", M6_E_ACCEPTED_LATEST_VERSION);
+        assertEquals(
+            "freshAndHistoricalUpgradePathsReachV49WithoutExecutionSideEffects",
+            M6_E_ACCEPTED_UPGRADE_TEST
+        );
         for (UpgradeCase upgrade : UPGRADE_CASES) {
             assertUpgrade(upgrade);
         }
@@ -91,7 +100,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         Flyway latest = JdbcApprovalMigrationUpgradeSupport.flyway(dataSource, null);
         latest.migrate();
 
-        assertEquals(LATEST_VERSION, latest.info().current().getVersion().getVersion());
+        assertEquals(CURRENT_LATEST_VERSION, latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
         JdbcApprovalMigrationUpgradeSupport.assertProjectionEvidence(jdbc, 5_000);
         assertEquals(0, jdbc.queryForObject(
@@ -126,6 +135,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         assertD7Empty(jdbc);
         assertD8Empty(jdbc);
         assertP4Empty(jdbc);
+        assertM6FLineageEmpty(jdbc);
         JdbcApprovalMigrationUpgradeAssertions.assertLatestSchema(dataSource);
     }
 
@@ -151,7 +161,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
 
         Flyway latest = JdbcApprovalMigrationUpgradeSupport.flyway(dataSource, null);
         latest.migrate();
-        assertEquals(LATEST_VERSION, latest.info().current().getVersion().getVersion());
+        assertEquals(CURRENT_LATEST_VERSION, latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
         assertNoExecutionSideEffects(new JdbcTemplate(dataSource));
         JdbcApprovalMigrationUpgradeAssertions.assertLatestSchema(dataSource);
@@ -198,6 +208,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         assertD7Empty(jdbc);
         assertD8Empty(jdbc);
         assertP4Empty(jdbc);
+        assertM6FLineageEmpty(jdbc);
     }
 
     private static void assertD6Empty(JdbcTemplate jdbc) {
@@ -264,6 +275,17 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
         ));
         assertEquals(0, jdbc.queryForObject(
             "select count(*) from ap_ai_approval_assistance_evidence_event",
+            Integer.class
+        ));
+    }
+
+    private static void assertM6FLineageEmpty(JdbcTemplate jdbc) {
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_ai_controlled_automation_lineage",
+            Integer.class
+        ));
+        assertEquals(0, jdbc.queryForObject(
+            "select count(*) from ap_ai_controlled_automation_lineage_event",
             Integer.class
         ));
     }

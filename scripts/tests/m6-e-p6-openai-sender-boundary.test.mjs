@@ -45,6 +45,7 @@ const acceptedOpenAiProductionNames = [
   'OpenAiResponsesRequestEncoder.java',
   'OpenAiResponsesRequestProfileValidator.java',
   'OpenAiResponsesResponseDecoder.java',
+  'OpenAiResponsesRuntimeUsageLedger.java',
   'OpenAiResponsesSecureHttpSender.java',
   'OpenAiResponsesTransportAdmission.java',
   'OpenAiResponsesTransportControls.java',
