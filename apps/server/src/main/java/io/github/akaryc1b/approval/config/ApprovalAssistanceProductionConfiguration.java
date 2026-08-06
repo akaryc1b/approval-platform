@@ -4,10 +4,12 @@ import io.github.akaryc1b.approval.ai.core.AiAdvisoryAuditSink;
 import io.github.akaryc1b.approval.ai.core.AiAdvisoryMetrics;
 import io.github.akaryc1b.approval.ai.core.AiAdvisoryService;
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceDurableEvidenceStore;
+import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQuery;
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesProductionRuntimeFactory;
 import io.github.akaryc1b.approval.api.ApprovalAssistanceGenerationService;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAssistanceDurableEvidenceStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAssistanceGovernanceHistoryQuery;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -65,6 +67,17 @@ public class ApprovalAssistanceProductionConfiguration {
             dataSource,
             transactionManager,
             UUID::randomUUID
+        );
+    }
+
+    @Bean
+    ApprovalAssistanceGovernanceHistoryQuery approvalAssistanceGovernanceHistoryQuery(
+        DataSource dataSource,
+        PlatformTransactionManager transactionManager
+    ) {
+        return new JdbcApprovalAssistanceGovernanceHistoryQuery(
+            dataSource,
+            transactionManager
         );
     }
 
