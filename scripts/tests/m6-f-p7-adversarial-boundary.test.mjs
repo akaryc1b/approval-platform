@@ -28,9 +28,17 @@ const authorizationTest = read(
   'apps/server/src/test/java/io/github/akaryc1b/approval/api/'
     + 'ControlledAutomationGovernanceAuthorizationAdversarialTest.java',
 );
+const identityTest = read(
+  'apps/server/src/test/java/io/github/akaryc1b/approval/security/'
+    + 'ApprovalIdentityContextFilterTest.java',
+);
 const proposal = read(
   'server-modules/approval-ai-core/src/main/java/io/github/akaryc1b/approval/ai/core/'
     + 'ControlledAutomationProposal.java',
+);
+const confirmationTest = read(
+  'server-modules/approval-ai-core/src/test/java/io/github/akaryc1b/approval/ai/core/'
+    + 'ControlledAutomationConfirmationServiceTest.java',
 );
 const adversarialCoreTest = read(
   'server-modules/approval-ai-core/src/test/java/io/github/akaryc1b/approval/ai/core/'
@@ -76,6 +84,20 @@ test('P7-A exercises tenant query body method and correlation attacks', () => {
   assert.match(rawBoundaryTest, /duplicateParameter/);
   assert.match(rawBoundaryTest, /pollutedChangePlan/);
   assert.match(rawBoundaryTest, /downstream\.get\(\)/);
+});
+
+test('P7-A tenant and reauthentication boundaries remain fail closed', () => {
+  assert.match(identityTest, /principalContextOverridesForgedOperatorAndRemovesPermissionHeader/);
+  assert.match(identityTest, /crossTenantClaimFailsWithoutDisclosingResourceExistence/);
+  assert.match(identityTest, /request must not reach the controller/);
+  assert.match(
+    confirmationTest,
+    /currentUnavailableReauthenticationBlocksConfirmationWithoutAllocatingId/,
+  );
+  assert.match(
+    confirmationTest,
+    /exactProposalEvaluationIdentityAndChallengeBindingsAreMandatory/,
+  );
 });
 
 test('P7-A management authorization denial occurs before every source read', () => {
