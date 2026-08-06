@@ -60,7 +60,7 @@ public final class ControlledAutomationConfirmationService {
         Objects.requireNonNull(evaluation, "evaluation must not be null");
         Objects.requireNonNull(request, "request must not be null");
 
-        Instant now = clock.instant();
+        Instant initialObservedAt = clock.instant();
         if (request.intent() != ConfirmationIntent.EXPLICIT_CLICK) {
             return ConfirmationResult.rejected(ConfirmationDisposition.EXPLICIT_CLICK_REQUIRED);
         }
@@ -83,7 +83,7 @@ public final class ControlledAutomationConfirmationService {
             return ConfirmationResult.rejected(ConfirmationDisposition.IDENTITY_MISMATCH);
         }
         if (proposal.status() != ProposalStatus.PROPOSED
-            || !proposal.expiresAt().isAfter(now)) {
+            || !proposal.expiresAt().isAfter(initialObservedAt)) {
             return ConfirmationResult.rejected(ConfirmationDisposition.PROPOSAL_NOT_ACTIVE);
         }
         if (evaluation.decision() != EvaluationDecision.ELIGIBLE
@@ -106,7 +106,7 @@ public final class ControlledAutomationConfirmationService {
         if (!request.challenge().bindingHash().equals(expectedChallengeBinding)) {
             return ConfirmationResult.rejected(ConfirmationDisposition.BINDING_MISMATCH);
         }
-        if (!request.challenge().expiresAt().isAfter(now)) {
+        if (!request.challenge().expiresAt().isAfter(initialObservedAt)) {
             return ConfirmationResult.rejected(ConfirmationDisposition.REAUTHENTICATION_EXPIRED);
         }
 
@@ -125,12 +125,21 @@ public final class ControlledAutomationConfirmationService {
         if (verification.status() != VerificationStatus.ACCEPTED) {
             return ConfirmationResult.rejected(ConfirmationDisposition.REAUTHENTICATION_FAILED);
         }
+
+        Instant confirmedAt = clock.instant();
+        if (proposal.status() != ProposalStatus.PROPOSED
+            || !proposal.expiresAt().isAfter(confirmedAt)) {
+            return ConfirmationResult.rejected(ConfirmationDisposition.PROPOSAL_NOT_ACTIVE);
+        }
+        if (!request.challenge().expiresAt().isAfter(confirmedAt)) {
+            return ConfirmationResult.rejected(ConfirmationDisposition.REAUTHENTICATION_EXPIRED);
+        }
         if (verification.verifiedAt().isBefore(request.challenge().issuedAt())
-            || verification.verifiedAt().isAfter(now)) {
+            || verification.verifiedAt().isAfter(confirmedAt)) {
             return ConfirmationResult.rejected(ConfirmationDisposition.REAUTHENTICATION_FAILED);
         }
 
-        Instant expiresAt = now.plus(MAXIMUM_CONFIRMATION_LIFETIME);
+        Instant expiresAt = confirmedAt.plus(MAXIMUM_CONFIRMATION_LIFETIME);
         if (expiresAt.isAfter(proposal.expiresAt())) {
             expiresAt = proposal.expiresAt();
         }
@@ -144,7 +153,7 @@ public final class ControlledAutomationConfirmationService {
                 evaluation,
                 request.challenge(),
                 verification,
-                now,
+                confirmedAt,
                 expiresAt
             );
         return ConfirmationResult.confirmed(evidence);
