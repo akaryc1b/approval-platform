@@ -560,11 +560,13 @@ public final class ControlledAutomationProposal {
     }
 
     static String requireSha256(String value, String name) {
-        String normalized = requireText(value, name, 64).toLowerCase();
-        if (!SHA256.matcher(normalized).matches()) {
-            throw new IllegalArgumentException(name + " must be a SHA-256 hex digest");
+        Objects.requireNonNull(value, name + " must not be null");
+        if (!SHA256.matcher(value).matches()) {
+            throw new IllegalArgumentException(
+                name + " must be a canonical lowercase SHA-256 hex digest"
+            );
         }
-        return normalized;
+        return value;
     }
 
     static String hashTuple(String domain, String... values) {
