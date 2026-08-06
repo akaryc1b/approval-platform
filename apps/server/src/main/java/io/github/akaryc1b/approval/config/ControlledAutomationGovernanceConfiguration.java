@@ -13,6 +13,11 @@ import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceControlHeal
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceControlHealthSource;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceHistoryContracts.HistoryView;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceHistorySource;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceIncidentReadinessContracts
+    .IncidentReadinessView;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceIncidentReadinessSource;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernancePlanContracts.Operation;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernancePlanContracts.ReviewPlan;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.InventoryEntry;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.OperationsView;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.RuntimeControls;
@@ -104,6 +109,47 @@ public class ControlledAutomationGovernanceConfiguration {
                 snapshot.observedAt()
             ));
             return HistoryView.from(snapshot, summary);
+        };
+    }
+
+    @Bean
+    ControlledAutomationGovernanceIncidentReadinessSource
+        controlledAutomationGovernanceIncidentReadinessSource(
+            ApprovalAssistanceProductionRuntime productionRuntime,
+            ApprovalAssistanceGovernanceHistoryQuery historyQuery,
+            ControlledAutomationGovernanceSnapshotSource snapshotSource
+        ) {
+        return (trustedTenantId, fromInclusive, toExclusive) -> {
+            OperationsView snapshot = snapshotSource.current();
+            Optional<OpenAiResponsesProductionRuntimeFactory> runtime =
+                productionRuntime.factory();
+            ControlHealthView control = runtime
+                .map(factory -> ControlHealthView.configured(
+                    snapshot,
+                    factory.controlSnapshot()
+                ))
+                .orElseGet(() -> ControlHealthView.disabled(snapshot));
+            UsageView usage = runtime
+                .map(factory -> UsageView.configured(
+                    snapshot,
+                    factory.usageSnapshot(trustedTenantId)
+                ))
+                .orElseGet(() -> UsageView.disabled(snapshot));
+            var summary = historyQuery.summarize(new HistoryWindow(
+                trustedTenantId,
+                fromInclusive,
+                toExclusive,
+                snapshot.observedAt()
+            ));
+            HistoryView history = HistoryView.from(snapshot, summary);
+            ReviewPlan rollback = ReviewPlan.preview(Operation.ROLLBACK, snapshot);
+            return IncidentReadinessView.from(
+                snapshot,
+                control,
+                usage,
+                history,
+                rollback
+            );
         };
     }
 
