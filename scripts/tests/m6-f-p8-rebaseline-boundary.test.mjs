@@ -5,6 +5,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import './m6-f-p8-g1-audit-boundary.test.mjs';
+import './m6-f-p8-g2-formal-acceptance-boundary.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const documentPath = 'docs/m6/M6_F_P8_R0_FINAL_REBASELINE_SCOPE_FREEZE.md';
