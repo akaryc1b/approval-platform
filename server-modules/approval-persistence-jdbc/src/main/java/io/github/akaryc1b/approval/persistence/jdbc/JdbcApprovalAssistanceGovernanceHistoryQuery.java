@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
@@ -59,7 +60,7 @@ public final class JdbcApprovalAssistanceGovernanceHistoryQuery
                 transactions.execute(status -> summarizeOnce(exact)),
                 "history transaction must return a result"
             );
-        } catch (DataAccessException exception) {
+        } catch (DataAccessException | TransactionException exception) {
             throw new HistoryQueryException(
                 "approval-assistance governance history query failed",
                 exception
