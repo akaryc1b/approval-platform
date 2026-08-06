@@ -56,7 +56,7 @@ test('P8-R0 binds final P7 run artifacts reviews and protected issues', () => {
   assert.match(document, /`REQUEST_CHANGES`[^\n]*none/);
   assert.match(document, /Unresolved Review Threads[^\n]*none/);
   for (const issue of ['Issue #81', 'Issue #82', 'Issue #62', 'Issue #13', 'Issue #14']) {
-    assert.match(document, new RegExp(issue.replace('#', '\\#')));
+    assert.match(document, new RegExp(issue));
   }
   assert.match(document, /PR #83[^\n]*Merged \/ Closed/);
 });
