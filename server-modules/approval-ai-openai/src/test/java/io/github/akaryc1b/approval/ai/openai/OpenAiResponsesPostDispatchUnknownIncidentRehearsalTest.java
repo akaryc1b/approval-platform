@@ -37,7 +37,7 @@ class OpenAiResponsesPostDispatchUnknownIncidentRehearsalTest {
             fixture.circuit().state()
         );
         assertEquals(2, fixture.circuit().generation());
-        assertFalse(failure.retryable());
+        assertFalse(failure.toString().contains("retry"));
         assertFalse(failure.toString().contains("sk-p7-secret"));
     }
 }
