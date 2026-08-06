@@ -181,6 +181,9 @@ public final class OpenAiResponsesSecureHttpSender
         } catch (CredentialMaterialSourceException exception) {
             throw failure(OpenAiResponsesTransportException.Failure.SECRET_UNAVAILABLE);
         } catch (OpenAiResponsesTransportException exception) {
+            if (permit.dispatched()) {
+                throw failure(OpenAiResponsesTransportException.Failure.UNKNOWN);
+            }
             throw exception;
         } catch (RuntimeException exception) {
             throw failure(OpenAiResponsesTransportException.Failure.UNKNOWN);
