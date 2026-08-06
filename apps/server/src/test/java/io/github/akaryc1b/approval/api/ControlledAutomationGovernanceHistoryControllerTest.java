@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,7 +57,11 @@ class ControlledAutomationGovernanceHistoryControllerTest {
         );
         assertThrows(
             IllegalArgumentException.class,
-            () -> controller.history("tenant-a", "2026-08-06T00:00:00.000Z", NOW.toString())
+            () -> controller.history(
+                "tenant-a",
+                "2026-08-06T00:00:00.000Z",
+                NOW.toString()
+            )
         );
         assertNotNull(
             ControlledAutomationGovernanceHistoryController.class
@@ -64,9 +69,9 @@ class ControlledAutomationGovernanceHistoryControllerTest {
                 .getAnnotation(GetMapping.class)
         );
         assertFalse(
-            List.of(
+            Arrays.stream(
                 ControlledAutomationGovernanceHistoryController.class.getDeclaredMethods()
-            ).stream().anyMatch(method -> method.getAnnotation(PostMapping.class) != null)
+            ).anyMatch(method -> method.getAnnotation(PostMapping.class) != null)
         );
     }
 
