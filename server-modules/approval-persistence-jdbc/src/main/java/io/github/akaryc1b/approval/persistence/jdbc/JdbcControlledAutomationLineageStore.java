@@ -173,6 +173,15 @@ public final class JdbcControlledAutomationLineageStore
             return new TransitionResult(TransitionDisposition.NOT_FOUND, Optional.empty());
         }
         LineageSnapshot current = locked.orElseThrow();
+
+        Optional<StoredEvent> committedWhileWaiting = findEventByIdempotencyKey(
+            command.tenantEvidenceHash(),
+            command.idempotencyKeyHash()
+        );
+        if (committedWhileWaiting.isPresent()) {
+            return classifyPriorEvent(command, committedWhileWaiting.orElseThrow());
+        }
+
         if (!current.operatorEvidenceHash().equals(command.operatorEvidenceHash())) {
             return result(TransitionDisposition.IDENTITY_MISMATCH, current);
         }
