@@ -131,7 +131,10 @@ test('P8-G1 binds the complete non-executing controlled-automation authority', (
   assert.match(confirmation, /singleUseRequired/);
   assert.match(confirmation, /commandAdmitted/);
   assert.match(reauthentication, /enum VerificationStatus \{[\s\S]*UNAVAILABLE/);
-  assert.match(reauthentication, /return Verification\.unavailable\(\)/);
+  assert.match(
+    reauthentication,
+    /static ControlledAutomationReauthenticationVerifier unavailable\(\)[\s\S]*-> Verification\.unavailable\(\)/,
+  );
   assert.doesNotMatch(
     `${proposal}\n${evaluator}\n${confirmation}\n${reauthentication}`,
     /ApprovalTaskCommandService|ApprovalProcessCommandService|Runtime\.getRuntime\(\)\.exec/,
@@ -279,7 +282,7 @@ test('P8-G1 verifies V49 and V50 ownership constraints CAS and upgrades', () => 
       ),
     );
   }
-  assert.match(v50, /lineage events are append-only/);
+  assert.match(v50, /controlled-automation events are append-only/);
   assert.match(v50, /deferrable initially deferred/);
   assert.match(jdbcLineage, /for update/);
   assert.match(jdbcLineage, /TransactionTemplate/);
