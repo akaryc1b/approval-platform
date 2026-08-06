@@ -1,14 +1,14 @@
 package io.github.akaryc1b.approval.config;
 
+import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQuery;
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQuery.HistorySummary;
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQuery.HistoryWindow;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceHistoryContracts.HistoryHealth;
 import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceReadContracts.OperationsView;
+import io.github.akaryc1b.approval.api.ControlledAutomationGovernanceSnapshotSource;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,23 +20,20 @@ class ControlledAutomationGovernanceHistoryConfigurationTest {
 
     @Test
     void historySourceUsesExactTenantWindowAndCurrentSnapshotWithoutRuntimeBinding() {
-        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         AtomicReference<HistoryWindow> captured = new AtomicReference<>();
         var configuration = new ControlledAutomationGovernanceConfiguration();
-        var snapshotSource = (io.github.akaryc1b.approval.api
-            .ControlledAutomationGovernanceSnapshotSource) () -> OperationsView.disabled(
+        ControlledAutomationGovernanceSnapshotSource snapshotSource =
+            () -> OperationsView.disabled(
                 NOW,
                 ControlledAutomationGovernanceConfiguration.inventory()
             );
-        var query = (io.github.akaryc1b.approval.ai.core
-            .ApprovalAssistanceGovernanceHistoryQuery) window -> {
-                captured.set(window);
-                return HistorySummary.empty(window);
-            };
+        ApprovalAssistanceGovernanceHistoryQuery query = window -> {
+            captured.set(window);
+            return HistorySummary.empty(window);
+        };
         var source = configuration.controlledAutomationGovernanceHistorySource(
             query,
-            snapshotSource,
-            clock
+            snapshotSource
         );
         Instant from = NOW.minusSeconds(3_600);
 
