@@ -293,11 +293,11 @@ public final class ControlledAutomationGovernanceIncidentReadinessContracts {
                 exactHistory
             );
             ReadinessState readiness = readiness(exactSnapshot.runtimeState(), signals);
-            ControlPosture controlPosture = controlPosture(
+            ControlPosture controlPosture = resolveControlPosture(
                 exactSnapshot.runtimeState(),
                 signals
             );
-            RollbackPosture rollbackPosture = rollbackPosture(exactRollback);
+            RollbackPosture rollbackPosture = resolveRollbackPosture(exactRollback);
             List<String> operatorSteps = operatorSteps(readiness, signals);
             List<String> blockers = blockers(signals);
             EvidenceReferences references = new EvidenceReferences(
@@ -485,7 +485,7 @@ public final class ControlledAutomationGovernanceIncidentReadinessContracts {
         };
     }
 
-    private static ControlPosture controlPosture(
+    private static ControlPosture resolveControlPosture(
         RuntimeState runtimeState,
         List<IncidentSignal> signals
     ) {
@@ -504,7 +504,7 @@ public final class ControlledAutomationGovernanceIncidentReadinessContracts {
         return blocked ? ControlPosture.BLOCKED : ControlPosture.HEALTHY;
     }
 
-    private static RollbackPosture rollbackPosture(ReviewPlan rollback) {
+    private static RollbackPosture resolveRollbackPosture(ReviewPlan rollback) {
         return rollback.rollbackMechanism() == RollbackMechanism.ALREADY_DISABLED
             ? RollbackPosture.ALREADY_DISABLED
             : RollbackPosture.REVIEW_READY_MANUAL_RELEASE;
@@ -563,7 +563,7 @@ public final class ControlledAutomationGovernanceIncidentReadinessContracts {
         List<String> rollbackSteps
     ) {
         ReadinessState expectedReadiness = readiness(runtimeState, signals);
-        ControlPosture expectedControl = controlPosture(runtimeState, signals);
+        ControlPosture expectedControl = resolveControlPosture(runtimeState, signals);
         if (readinessState != expectedReadiness || controlPosture != expectedControl) {
             throw new IllegalArgumentException(
                 "readiness and control posture must match the exact incident signals"
