@@ -26,6 +26,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -63,10 +64,12 @@ public final class JdbcControlledAutomationLineageStore
 
     @Override
     public RegistrationResult register(RegistrationCommand command) {
-        Objects.requireNonNull(command, "command must not be null");
+        RegistrationCommand exact = canonicalRegistration(
+            Objects.requireNonNull(command, "command must not be null")
+        );
         try {
             return Objects.requireNonNull(
-                transactions.execute(status -> registerOnce(command)),
+                transactions.execute(status -> registerOnce(exact)),
                 "registration transaction must return a result"
             );
         } catch (DataAccessException exception) {
@@ -79,10 +82,12 @@ public final class JdbcControlledAutomationLineageStore
 
     @Override
     public TransitionResult transition(TransitionCommand command) {
-        Objects.requireNonNull(command, "command must not be null");
+        TransitionCommand exact = canonicalTransition(
+            Objects.requireNonNull(command, "command must not be null")
+        );
         try {
             return Objects.requireNonNull(
-                transactions.execute(status -> transitionOnce(command)),
+                transactions.execute(status -> transitionOnce(exact)),
                 "transition transaction must return a result"
             );
         } catch (DataAccessException exception) {
@@ -121,6 +126,57 @@ public final class JdbcControlledAutomationLineageStore
                 exception
             );
         }
+    }
+
+    private static RegistrationCommand canonicalRegistration(RegistrationCommand command) {
+        Instant confirmedAt = postgresInstant(command.confirmedAt(), "confirmedAt");
+        Instant expiresAt = postgresInstant(command.expiresAt(), "expiresAt");
+        if (confirmedAt.equals(command.confirmedAt())
+            && expiresAt.equals(command.expiresAt())) {
+            return command;
+        }
+        return RegistrationCommand.fromEvidence(
+            command.proposalId(),
+            command.confirmationId(),
+            command.tenantEvidenceHash(),
+            command.operatorEvidenceHash(),
+            command.proposalLineageHash(),
+            command.confirmationEvidenceHash(),
+            command.canonicalActionType(),
+            command.resourceEvidenceHash(),
+            command.whitelistVersion(),
+            command.policyVersion(),
+            command.idempotencyKeyHash(),
+            command.idempotencyPayloadHash(),
+            confirmedAt,
+            expiresAt
+        );
+    }
+
+    private static TransitionCommand canonicalTransition(TransitionCommand command) {
+        Instant occurredAt = postgresInstant(command.occurredAt(), "occurredAt");
+        if (occurredAt.equals(command.occurredAt())) {
+            return command;
+        }
+        return TransitionCommand.create(
+            command.tenantEvidenceHash(),
+            command.operatorEvidenceHash(),
+            command.proposalId(),
+            command.expectedRevision(),
+            command.expectedStatus(),
+            command.targetStatus(),
+            command.outcome(),
+            command.resultEvidenceHash(),
+            command.idempotencyKeyHash(),
+            command.idempotencyPayloadHash(),
+            occurredAt,
+            command.commandAttempts()
+        );
+    }
+
+    private static Instant postgresInstant(Instant value, String name) {
+        return Objects.requireNonNull(value, name + " must not be null")
+            .truncatedTo(ChronoUnit.MICROS);
     }
 
     private RegistrationResult registerOnce(RegistrationCommand command) {
