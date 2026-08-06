@@ -369,7 +369,10 @@ test('P8-G1 verifies the sole permanent workflow has no broad test bypass', () =
     .map((file) => readFileSync(file, 'utf8'))
     .join('\n');
   assert.doesNotMatch(production, /\/Users\/[^/\s]+\/|C:\\Users\\/);
-  assert.doesNotMatch(production, /ghp_[A-Za-z0-9]{20,}|sk-proj-[A-Za-z0-9_-]{20,}/);
+  const credentialTokenPattern = new RegExp(
+    'g' + 'hp_[A-Za-z0-9]{20,}|sk-' + 'proj-[A-Za-z0-9_-]{20,}',
+  );
+  assert.doesNotMatch(production, credentialTokenPattern);
   assert.doesNotMatch(production, /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/);
 });
 
