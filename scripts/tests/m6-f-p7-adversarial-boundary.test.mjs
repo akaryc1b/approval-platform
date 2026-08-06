@@ -24,6 +24,10 @@ const boundaryConfiguration = read(
   'apps/server/src/main/java/io/github/akaryc1b/approval/config/'
     + 'ControlledAutomationGovernanceSecurityConfiguration.java',
 );
+const authorizationTest = read(
+  'apps/server/src/test/java/io/github/akaryc1b/approval/api/'
+    + 'ControlledAutomationGovernanceAuthorizationAdversarialTest.java',
+);
 const proposal = read(
   'server-modules/approval-ai-core/src/main/java/io/github/akaryc1b/approval/ai/core/'
     + 'ControlledAutomationProposal.java',
@@ -72,6 +76,18 @@ test('P7-A exercises tenant query body method and correlation attacks', () => {
   assert.match(rawBoundaryTest, /duplicateParameter/);
   assert.match(rawBoundaryTest, /pollutedChangePlan/);
   assert.match(rawBoundaryTest, /downstream\.get\(\)/);
+});
+
+test('P7-A management authorization denial occurs before every source read', () => {
+  for (const scenario of [
+    'missingReadPermissionNeverReachesGovernanceSource',
+    'departmentScopedResponsibilityCannotReadTenantGovernance',
+    'exactTenantReadAuthorityAllowsOneReadOnlySourceCall',
+  ]) {
+    assert.match(authorizationTest, new RegExp(scenario));
+  }
+  assert.match(authorizationTest, /assertEquals\(0, sourceCalls\.get\(\)\)/);
+  assert.match(authorizationTest, /Requirement\.READ\.authority\(\)/);
 });
 
 test('P7-A strict evidence hashes are canonical lowercase without normalization', () => {
