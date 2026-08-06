@@ -10,6 +10,7 @@ import io.github.akaryc1b.approval.ai.spi.AiOutcomeClassification;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,7 +62,10 @@ class ApprovalAssistanceGovernanceHistoryQueryTest {
         HistorySummary summary = HistorySummary.empty(window());
 
         assertEquals(0, summary.totalEvidence());
-        assertEquals(AiOutcomeClassification.values().length, summary.outcomeCounts().size());
+        assertEquals(
+            AiOutcomeClassification.values().length,
+            summary.outcomeCounts().size()
+        );
         assertEquals(UseCase.values().length, summary.useCaseCounts().size());
         assertFalse(summary.versionDriftDetected());
     }
@@ -139,6 +143,17 @@ class ApprovalAssistanceGovernanceHistoryQueryTest {
                 )
             )
         );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new UseCaseCount(
+                UseCase.SUMMARY,
+                1,
+                0,
+                0,
+                0,
+                VersionStability.MULTIPLE_VERSION_BUNDLES
+            )
+        );
     }
 
     private static HistoryWindow window() {
@@ -151,7 +166,7 @@ class ApprovalAssistanceGovernanceHistoryQueryTest {
     }
 
     private static List<OutcomeCount> outcomes(long success, long rejected) {
-        return List.of(AiOutcomeClassification.values()).stream()
+        return Arrays.stream(AiOutcomeClassification.values())
             .map(classification -> new OutcomeCount(
                 classification,
                 classification == AiOutcomeClassification.SUCCESS
