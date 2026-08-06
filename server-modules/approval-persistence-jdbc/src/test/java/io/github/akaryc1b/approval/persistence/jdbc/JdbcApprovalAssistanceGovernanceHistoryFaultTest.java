@@ -4,7 +4,6 @@ import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQu
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAssistanceGovernanceHistoryQuery
     .HistoryQueryException;
 import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -25,8 +24,7 @@ class JdbcApprovalAssistanceGovernanceHistoryFaultTest {
     @Test
     void connectionFailureIsWrappedAsStableHistoryQueryException() {
         CannotCreateTransactionException injected = new CannotCreateTransactionException(
-            "p7 injected connection failure",
-            new CannotGetJdbcConnectionException("p7 unavailable database")
+            "p7 injected connection failure"
         );
 
         HistoryQueryException failure = assertThrows(
