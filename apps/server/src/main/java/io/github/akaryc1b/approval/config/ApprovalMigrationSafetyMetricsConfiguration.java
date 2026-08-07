@@ -49,7 +49,10 @@ public class ApprovalMigrationSafetyMetricsConfiguration {
             for (Feature feature : Feature.values()) {
                 Gauge.builder(METRIC, this, state -> state.enabled(feature) ? 1.0 : 0.0)
                     .tag("feature", feature.metricValue())
-                    .description("Closed M5 migration safety feature state; 1 means configured enabled")
+                    .description(
+                        "Closed M5 migration safety feature state; 1 means configured enabled"
+                    )
+                    .strongReference(true)
                     .register(meters);
             }
         }
