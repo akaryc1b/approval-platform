@@ -9,17 +9,29 @@ import java.util.Objects;
 /** Resolves and verifies the server-owned database identity from JDBC metadata. */
 public final class ApprovalDatabaseVendorResolver {
 
+    public DatabaseIdentity resolve(DataSource dataSource) {
+        return resolveDetected(dataSource);
+    }
+
     public DatabaseIdentity resolve(
         DataSource dataSource,
         ApprovalDatabaseVendor expectedVendor
     ) {
-        DataSource source = Objects.requireNonNull(
-            dataSource,
-            "dataSource must not be null"
-        );
         ApprovalDatabaseVendor expected = Objects.requireNonNull(
             expectedVendor,
             "expectedVendor must not be null"
+        );
+        DatabaseIdentity identity = resolveDetected(dataSource);
+        if (identity.vendor() != expected) {
+            throw new DatabaseVendorMismatchException(expected, identity.vendor());
+        }
+        return identity;
+    }
+
+    private static DatabaseIdentity resolveDetected(DataSource dataSource) {
+        DataSource source = Objects.requireNonNull(
+            dataSource,
+            "dataSource must not be null"
         );
         try (Connection connection = source.getConnection()) {
             DatabaseMetaData metadata = connection.getMetaData();
@@ -37,9 +49,6 @@ public final class ApprovalDatabaseVendorResolver {
                 productName
             );
             detected.requireSupportedVersion(majorVersion, minorVersion);
-            if (detected != expected) {
-                throw new DatabaseVendorMismatchException(expected, detected);
-            }
             return new DatabaseIdentity(
                 detected,
                 productName,
