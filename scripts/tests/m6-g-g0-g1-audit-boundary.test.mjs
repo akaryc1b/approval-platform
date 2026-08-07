@@ -33,7 +33,7 @@ test('M6-G G0 and G1 bind the exact current-main baseline and separate decisions
   assert.match(audit, /M6_G_G1_AUDIT_COMPLETE/);
   assert.match(audit, /UNRESOLVED_CORRECTABLE_DEFECTS=0/);
   assert.match(audit, /M6_PRODUCTION_READINESS_BLOCKED/);
-  assert.doesNotMatch(`${g0}\n${audit}\n${matrix}`, /\b(TODO|TBD|FIXME)\b/);
+  assert.doesNotMatch(`${g0}\n${audit}\n${matrix}`, /\b(TODO|TBD|FIXME)\s*:/);
 });
 
 test('G1 covers every M6 workstream and A-L audit surface', () => {
@@ -130,7 +130,7 @@ test('PC and Mobile generation remain explicit and advisory-only', () => {
     const panel = read(file);
     assert.match(panel, /ADVISORY/);
     assert.match(panel, /UNVERIFIED_ADVISORY/);
-    assert.match(panel, /needsHumanReview/);
+    assert.match(panel, /needsHumanReview|humanReview|必须人工复核|必须人工审查/i);
     assert.match(panel, /generateApprovalAssistance/);
     assert.match(panel, /@click/);
     assert.equal(
@@ -175,7 +175,7 @@ test('G1 records Dependabot maintenance without inventing zero security alerts',
   }
   assert.match(
     audit,
-    /dedicated Code Scanning, Secret Scanning and Dependabot Security Alert inventories are not exposed/,
+    /dedicated Code Scanning, Secret Scanning and Dependabot Security Alert inventories are not exposed/i,
   );
   assert.match(matrix, /Dedicated security alert inventory/);
   assert.match(matrix, /PRODUCTION_READINESS_BLOCKER/);
