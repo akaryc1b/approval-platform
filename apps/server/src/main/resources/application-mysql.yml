@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: mysql
+  datasource:
+    url: ${APPROVAL_DB_URL}
+    username: ${APPROVAL_DB_USERNAME}
+    password: ${APPROVAL_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    locations: classpath:db/migration/mysql
+    fail-on-missing-locations: true
+
+approval:
+  database:
+    validation-enabled: true
+    expected-vendor: MYSQL
