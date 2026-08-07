@@ -24,7 +24,7 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     private static final MigrationVersion VERSION = MigrationVersion.fromVersion("50");
     private static final String DESCRIPTION = "Baseline approval platform";
-    private static final int BASELINE_CHECKSUM = -392744555;
+    private static final int BASELINE_CHECKSUM = -392744556;
     private static final int MISSING_OBJECT_ERROR_CODE = 1091;
     private static final String TABLE_OPTIONS_MARKER = "\n) ENGINE=InnoDB";
     private static final String REQUIRED_INSTANCE_REFERENCE =
@@ -190,6 +190,7 @@ public final class MySqlV50Baseline implements JavaMigration {
             .replaceAll("add constraint");
         normalized = normalizeNotificationDeduplication(normalized);
         normalized = normalizeConsistencyFindingAggregateIndex(normalized);
+        normalized = normalizeSchemaUniqueConstraintNames(normalized);
         normalized = normalizeEnforcedForeignKeys(normalized);
         normalized = normalizeCommentLifecycle(normalized);
         normalized = normalizeAuditIntegrity(normalized);
@@ -216,6 +217,18 @@ public final class MySqlV50Baseline implements JavaMigration {
         }
         return CONSISTENCY_FINDING_AGGREGATE_COLUMN.matcher(command)
             .replaceFirst("$1aggregate_id(500)$2");
+    }
+
+    private static String normalizeSchemaUniqueConstraintNames(String command) {
+        if (!createsTable(command, "ap_sla_policy_version")) {
+            return command;
+        }
+        return requireReplace(
+            command,
+            "constraint chk_sla_policy_timestamps check",
+            "constraint chk_sla_policy_version_timestamps check",
+            "SLA policy version timestamp check name"
+        );
     }
 
     private static String normalizeEnforcedForeignKeys(String command) {
