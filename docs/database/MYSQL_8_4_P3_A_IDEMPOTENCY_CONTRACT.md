@@ -89,7 +89,8 @@ Required behavior:
 8. replay never rewrites the original `request_id` or `trace_id` evidence;
 9. tenant, operation and case-sensitive key scopes remain independent;
 10. concurrent duplicates execute at most one accepted action;
-11. database storage cannot change a completed result's exact JSON scalar values.
+11. database storage cannot change a completed result's exact JSON scalar values;
+12. unversioned or unknown result encodings cannot be replayed as trusted results.
 
 ## 4. MySQL SQL decision
 
@@ -153,8 +154,8 @@ other scalar values. Replay accepts only:
 - a JSON string payload.
 
 It then applies `JSON_UNQUOTE(JSON_EXTRACT(...))` to recover the original text for the same configured
-Jackson contract. A missing, malformed or differently versioned envelope fails closed instead of
-silently accepting a lossy native-JSON value.
+Jackson contract. A missing, malformed or differently versioned envelope yields no replay payload;
+the coordinator raises a stable `IllegalStateException` before deserialization or action execution.
 
 The connection remains pinned to UTC and `utf8mb4_0900_as_cs`.
 
@@ -169,15 +170,18 @@ The connection remains pinned to UTC and `utf8mb4_0900_as_cs`.
 5. tenant and case-sensitive key scopes remain independent;
 6. MySQL uses narrow admission and the exact versioned canonical-result envelope.
 
-`JdbcIdempotencyGuardMySqlContractIntegrationTest` adds five scenarios:
+`JdbcIdempotencyGuardMySqlContractIntegrationTest` adds seven scenarios:
 
 7. the same idempotency key remains independent across different operations;
 8. replay with a different declared result type conflicts without invoking the action;
 9. concurrent different-payload use of one logical key fails closed after only the accepted action;
-10. Unicode, exact decimal and large-integer JSON values round-trip without a repeated action;
-11. replay with different request/trace identifiers preserves the first immutable evidence.
+10. Unicode, exact decimal and large-integer JSON values round-trip without a repeated action, while
+    the stored envelope retains the exact decimal text;
+11. an unversioned native-JSON completed result is rejected without action execution;
+12. an unknown envelope version is rejected without action execution;
+13. replay with different request/trace identifiers preserves the first immutable evidence.
 
-All eleven scenarios must execute against a real `mysql:8.4` Testcontainers instance configured
+All thirteen scenarios must execute against a real `mysql:8.4` Testcontainers instance configured
 with:
 
 - InnoDB;
@@ -256,8 +260,9 @@ The slice may be recorded as implemented only after one unchanged correction Hea
 
 - all nine physical Jobs successful;
 - both MySQL idempotency integration classes successful;
-- eleven MySQL idempotency scenarios successful;
+- thirteen MySQL idempotency scenarios successful;
 - the exact decimal value `123456789012.123456` replayed unchanged;
+- unversioned and unknown envelope variants rejected without action execution;
 - exact persistence selection/reports coverage;
 - four independently downloaded Artifacts whose local byte counts and SHA-256 values match GitHub;
 - no new actionable Review or security finding.
