@@ -22,9 +22,20 @@ class DatabaseCompatibilityR0BoundaryTest {
     private static final Path INVENTORY_RECORD = ROOT.resolve(
         "docs/database/MYSQL_8_4_R0_INVENTORY.md"
     );
-    private static final Path MYSQL_BASELINE = ROOT.resolve(
-        "server-modules/approval-persistence-jdbc/src/main/java/db/mysqlmigration/"
-            + "MySqlV50Baseline.java"
+    private static final Path MYSQL_MIGRATION_ROOT = ROOT.resolve(
+        "server-modules/approval-persistence-jdbc/src/main/java/db/mysqlmigration"
+    );
+    private static final Path MYSQL_BASELINE = MYSQL_MIGRATION_ROOT.resolve(
+        "MySqlV50Baseline.java"
+    );
+    private static final Path MYSQL_SCRIPT = MYSQL_MIGRATION_ROOT.resolve(
+        "MySqlV50Script.java"
+    );
+    private static final Path MYSQL_NORMALIZER = MYSQL_MIGRATION_ROOT.resolve(
+        "MySqlV50Normalizer.java"
+    );
+    private static final Path MYSQL_EXECUTION_PLAN = MYSQL_MIGRATION_ROOT.resolve(
+        "MySqlV50ExecutionPlan.java"
     );
     private static final String THIS_TEST = "DatabaseCompatibilityR0BoundaryTest.java";
 
@@ -83,15 +94,47 @@ class DatabaseCompatibilityR0BoundaryTest {
         assertTrue(mySqlProfile.contains("preserveInstants: true"));
         assertTrue(mySqlProfile.contains("fail-on-missing-locations: true"));
         assertTrue(mySqlProfile.contains("classpath:db/mysqlmigration"));
-        assertTrue(Files.isRegularFile(MYSQL_BASELINE));
+
+        for (Path path : List.of(
+            MYSQL_BASELINE,
+            MYSQL_SCRIPT,
+            MYSQL_NORMALIZER,
+            MYSQL_EXECUTION_PLAN
+        )) {
+            assertTrue(
+                Files.isRegularFile(path),
+                () -> "missing governed MySQL migration boundary: " + path
+            );
+        }
+
         String baseline = Files.readString(MYSQL_BASELINE);
+        String script = Files.readString(MYSQL_SCRIPT);
+        String normalizer = Files.readString(MYSQL_NORMALIZER);
+        String executionPlan = Files.readString(MYSQL_EXECUTION_PLAN);
+
         assertTrue(baseline.contains("class MySqlV50Baseline implements JavaMigration"));
         assertTrue(baseline.contains("MigrationVersion.fromVersion(\"50\")"));
         assertTrue(baseline.contains("canExecuteInTransaction"));
         assertTrue(baseline.contains("BASELINE_CHECKSUM"));
-        assertTrue(baseline.contains("BASELINE_RESOURCES"));
+        assertTrue(baseline.contains("MySqlV50Script.split"));
+        assertTrue(baseline.contains("MySqlV50ExecutionPlan"));
         assertTrue(baseline.contains("normalizeForMySql84"));
-        assertTrue(baseline.contains("baseline-009.b64"));
+
+        assertTrue(script.contains("BASELINE_RESOURCES"));
+        assertTrue(script.contains("baseline-009.b64"));
+        assertTrue(script.contains("GZIPInputStream"));
+        assertTrue(script.contains("static List<String> split"));
+
+        assertTrue(normalizer.contains("static Optional<String> executable"));
+        assertTrue(normalizer.contains("static String normalize"));
+        assertTrue(normalizer.contains("MySqlV50RelationalNormalizer"));
+        assertTrue(normalizer.contains("MySqlV50EvidenceNormalizer"));
+
+        assertTrue(executionPlan.contains("GOVERNED_IDEMPOTENT_DUPLICATES"));
+        assertTrue(executionPlan.contains("uk_approval_task_tenant_task"));
+        assertTrue(executionPlan.contains(
+            "conflicting active MySQL baseline index declaration"
+        ));
     }
 
     @Test
