@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.port.ApprovalAuditStore;
 import io.github.akaryc1b.approval.domain.audit.AuditEvent;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.JdbcTransactionManager;
@@ -28,6 +27,14 @@ import java.util.UUID;
 public final class JdbcMySqlAuditEventSink implements ApprovalAuditStore {
 
     private static final String ZERO_HASH = "0".repeat(64);
+    private static final String CHAIN_STATE_ADMISSION_SQL = """
+        insert into ap_audit_chain_state (
+            tenant_id, last_sequence, last_hash, updated_at
+        ) values (
+            :tenantId, 0, :zeroHash, :updatedAt
+        )
+        on duplicate key update tenant_id = tenant_id
+        """;
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
@@ -65,8 +72,16 @@ public final class JdbcMySqlAuditEventSink implements ApprovalAuditStore {
 
     @Override
     public void append(AuditEvent event) {
-        Objects.requireNonNull(event, "event must not be null");
-        transaction.executeWithoutResult(status -> appendInTransaction(event));
+        AuditEvent exact = Objects.requireNonNull(event, "event must not be null");
+        Instant occurredAt = AuditHashCanonicalizer.canonicalInstant(
+            exact.occurredAt()
+        );
+        String payloadHash = AuditHashCanonicalizer.payloadHash(exact);
+        transaction.executeWithoutResult(status -> appendInTransaction(
+            exact,
+            occurredAt,
+            payloadHash
+        ));
     }
 
     @Override
@@ -257,25 +272,19 @@ public final class JdbcMySqlAuditEventSink implements ApprovalAuditStore {
         );
     }
 
-    private void appendInTransaction(AuditEvent event) {
+    private void appendInTransaction(
+        AuditEvent event,
+        Instant occurredAt,
+        String payloadHash
+    ) {
         Instant updatedAt = AuditHashCanonicalizer.canonicalInstant(Instant.now());
-        try {
-            jdbc.update(
-                """
-                insert into ap_audit_chain_state (
-                    tenant_id, last_sequence, last_hash, updated_at
-                ) values (
-                    :tenantId, 0, :zeroHash, :updatedAt
-                )
-                """,
-                new MapSqlParameterSource()
-                    .addValue("tenantId", event.tenantId())
-                    .addValue("zeroHash", ZERO_HASH)
-                    .addValue("updatedAt", values.bindInstant(updatedAt))
-            );
-        } catch (DuplicateKeyException ignored) {
-            // The tenant chain already exists; the row lock below owns serialization.
-        }
+        jdbc.update(
+            CHAIN_STATE_ADMISSION_SQL,
+            new MapSqlParameterSource()
+                .addValue("tenantId", event.tenantId())
+                .addValue("zeroHash", ZERO_HASH)
+                .addValue("updatedAt", values.bindInstant(updatedAt))
+        );
         ChainState state = jdbc.queryForObject(
             """
             select last_sequence, last_hash
@@ -293,12 +302,11 @@ public final class JdbcMySqlAuditEventSink implements ApprovalAuditStore {
             throw new IllegalStateException("audit chain state was not created");
         }
         long tenantSequence = state.lastSequence() + 1;
-        String payloadHash = AuditHashCanonicalizer.payloadHash(event);
         String currentHash = AuditHashCanonicalizer.chainHash(
             state.lastHash(),
             payloadHash
         );
-        MapSqlParameterSource parameters = eventParameters(event)
+        MapSqlParameterSource parameters = eventParameters(event, occurredAt)
             .addValue("tenantSequence", tenantSequence)
             .addValue("previousHash", state.lastHash())
             .addValue("payloadHash", payloadHash)
@@ -341,7 +349,14 @@ public final class JdbcMySqlAuditEventSink implements ApprovalAuditStore {
         }
     }
 
-    private MapSqlParameterSource eventParameters(AuditEvent event) {
+    static String chainStateAdmissionSql() {
+        return CHAIN_STATE_ADMISSION_SQL;
+    }
+
+    private MapSqlParameterSource eventParameters(
+        AuditEvent event,
+        Instant occurredAt
+    ) {
         return new MapSqlParameterSource()
             .addValue("eventId", values.bindUuid(event.eventId()))
             .addValue("tenantId", event.tenantId())
@@ -353,12 +368,7 @@ public final class JdbcMySqlAuditEventSink implements ApprovalAuditStore {
             .addValue("schemaVersion", event.schemaVersion())
             .addValue("requestId", event.requestId())
             .addValue("traceId", event.traceId())
-            .addValue(
-                "occurredAt",
-                values.bindInstant(
-                    AuditHashCanonicalizer.canonicalInstant(event.occurredAt())
-                )
-            )
+            .addValue("occurredAt", values.bindInstant(occurredAt))
             .addValue("attributesJson", encodeAttributes(event.attributes()));
     }
 
