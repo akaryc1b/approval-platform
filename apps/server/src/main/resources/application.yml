@@ -16,6 +16,9 @@ flowable:
   history-level: audit
 
 approval:
+  database:
+    validation-enabled: ${APPROVAL_DATABASE_VALIDATION_ENABLED:true}
+    expected-vendor: ${APPROVAL_DATABASE_VENDOR:POSTGRESQL}
   security:
     identity:
       mode: ${APPROVAL_IDENTITY_MODE:principal}
