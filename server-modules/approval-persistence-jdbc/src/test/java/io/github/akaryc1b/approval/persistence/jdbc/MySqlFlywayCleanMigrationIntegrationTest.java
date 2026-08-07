@@ -13,6 +13,7 @@ import javax.sql.DataSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
 class MySqlFlywayCleanMigrationIntegrationTest {
@@ -78,6 +79,107 @@ class MySqlFlywayCleanMigrationIntegrationTest {
 
         assertEquals(0, nonInnoDb);
         assertEquals(0, wrongCollation);
+    }
+
+    @Test
+    void governedForeignKeysAreActuallyEnforced() {
+        Integer governedForeignKeys = jdbc.queryForObject("""
+            select count(*)
+            from information_schema.referential_constraints
+            where constraint_schema = database()
+              and constraint_name in (
+                'fk_approval_task_instance',
+                'fk_approval_message_instance',
+                'fk_approval_message_task',
+                'fk_approval_comment_instance',
+                'fk_approval_attachment_instance',
+                'fk_form_submission_instance',
+                'fk_form_submission_revision_instance',
+                'fk_approval_comment_revision_comment'
+              )
+            """, Integer.class);
+
+        assertEquals(8, governedForeignKeys);
+    }
+
+    @Test
+    void commentAuditAndMigrationEvidenceColumnsRemainRequired() {
+        Integer governedColumns = jdbc.queryForObject("""
+            select count(*)
+            from information_schema.columns
+            where table_schema = database()
+              and (
+                (table_name = 'ap_approval_comment'
+                    and column_name = 'updated_at')
+                or (table_name = 'ap_audit_event'
+                    and column_name in (
+                        'schema_name',
+                        'schema_version',
+                        'tenant_sequence',
+                        'previous_hash',
+                        'payload_hash',
+                        'current_hash'
+                    ))
+                or (table_name = 'ap_process_migration_attempt'
+                    and column_name = 'failure_class')
+                or (table_name = 'ap_process_migration_attempt_event'
+                    and column_name in ('engine_outcome', 'failure_class'))
+              )
+            """, Integer.class);
+        Integer nullableColumns = jdbc.queryForObject("""
+            select count(*)
+            from information_schema.columns
+            where table_schema = database()
+              and is_nullable <> 'NO'
+              and (
+                (table_name = 'ap_approval_comment'
+                    and column_name = 'updated_at')
+                or (table_name = 'ap_audit_event'
+                    and column_name in (
+                        'schema_name',
+                        'schema_version',
+                        'tenant_sequence',
+                        'previous_hash',
+                        'payload_hash',
+                        'current_hash'
+                    ))
+                or (table_name = 'ap_process_migration_attempt'
+                    and column_name = 'failure_class')
+                or (table_name = 'ap_process_migration_attempt_event'
+                    and column_name in ('engine_outcome', 'failure_class'))
+              )
+            """, Integer.class);
+
+        assertEquals(10, governedColumns);
+        assertEquals(0, nullableColumns);
+    }
+
+    @Test
+    void uniqueEvidenceAndNotificationDeduplicationConstraintsRemainPresent() {
+        Integer uniqueConstraints = jdbc.queryForObject("""
+            select count(*)
+            from information_schema.table_constraints
+            where constraint_schema = database()
+              and constraint_type = 'UNIQUE'
+              and constraint_name in (
+                'uk_approval_comment_tenant_comment',
+                'uk_audit_event_tenant_sequence',
+                'uk_audit_event_tenant_hash',
+                'uk_notification_business_recipient_channel'
+              )
+            """, Integer.class);
+        String generationExpression = jdbc.queryForObject("""
+            select generation_expression
+            from information_schema.columns
+            where table_schema = database()
+              and table_name = 'ap_notification_intent'
+              and column_name = 'business_recipient_channel_hash'
+            """, String.class);
+
+        assertEquals(4, uniqueConstraints);
+        assertNotNull(generationExpression);
+        assertTrue(generationExpression.toLowerCase().contains("sha2"));
+        assertTrue(generationExpression.toLowerCase().contains("hex"));
     }
 
     @Test

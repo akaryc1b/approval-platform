@@ -24,8 +24,15 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     private static final MigrationVersion VERSION = MigrationVersion.fromVersion("50");
     private static final String DESCRIPTION = "Baseline approval platform";
-    private static final int BASELINE_CHECKSUM = -392744554;
+    private static final int BASELINE_CHECKSUM = -392744555;
     private static final int MISSING_OBJECT_ERROR_CODE = 1091;
+    private static final String TABLE_OPTIONS_MARKER = "\n) ENGINE=InnoDB";
+    private static final String REQUIRED_INSTANCE_REFERENCE =
+        "instance_id varchar(36) not null references ap_approval_instance(instance_id)";
+    private static final String OPTIONAL_INSTANCE_REFERENCE =
+        "instance_id varchar(36) references ap_approval_instance(instance_id)";
+    private static final String OPTIONAL_TASK_REFERENCE =
+        "task_id varchar(36) references ap_approval_task(task_id)";
     private static final Pattern ADD_COLUMN_IF_NOT_EXISTS = Pattern.compile(
         "\\badd\\s+column\\s+if\\s+not\\s+exists\\b",
         Pattern.CASE_INSENSITIVE
@@ -183,6 +190,10 @@ public final class MySqlV50Baseline implements JavaMigration {
             .replaceAll("add constraint");
         normalized = normalizeNotificationDeduplication(normalized);
         normalized = normalizeConsistencyFindingAggregateIndex(normalized);
+        normalized = normalizeEnforcedForeignKeys(normalized);
+        normalized = normalizeCommentLifecycle(normalized);
+        normalized = normalizeAuditIntegrity(normalized);
+        normalized = normalizeMigrationExecutionNullability(normalized);
         normalized = PROCESS_RUNTIME_BINDING_TRIGGER_DROP.matcher(normalized)
             .replaceAll("drop trigger if exists trg_process_runtime_binding_immutable");
         return ASSISTANCE_RETENTION_INTERVAL.matcher(normalized)
@@ -205,6 +216,267 @@ public final class MySqlV50Baseline implements JavaMigration {
         }
         return CONSISTENCY_FINDING_AGGREGATE_COLUMN.matcher(command)
             .replaceFirst("$1aggregate_id(500)$2");
+    }
+
+    private static String normalizeEnforcedForeignKeys(String command) {
+        if (createsTable(command, "ap_approval_task")) {
+            String normalized = requireReplace(
+                command,
+                REQUIRED_INSTANCE_REFERENCE,
+                "instance_id varchar(36) not null",
+                "approval task instance reference"
+            );
+            return appendTableConstraints(normalized, """
+                    constraint fk_approval_task_instance
+                        foreign key (instance_id)
+                        references ap_approval_instance (instance_id)
+                """);
+        }
+        if (createsTable(command, "ap_approval_message")) {
+            String normalized = requireReplace(
+                command,
+                REQUIRED_INSTANCE_REFERENCE,
+                "instance_id varchar(36) not null",
+                "approval message instance reference"
+            );
+            normalized = requireReplace(
+                normalized,
+                OPTIONAL_TASK_REFERENCE,
+                "task_id varchar(36)",
+                "approval message task reference"
+            );
+            return appendTableConstraints(normalized, """
+                    constraint fk_approval_message_instance
+                        foreign key (instance_id)
+                        references ap_approval_instance (instance_id),
+                    constraint fk_approval_message_task
+                        foreign key (task_id)
+                        references ap_approval_task (task_id)
+                """);
+        }
+        if (createsTable(command, "ap_approval_comment")) {
+            String normalized = requireReplace(
+                command,
+                REQUIRED_INSTANCE_REFERENCE,
+                "instance_id varchar(36) not null",
+                "approval comment instance reference"
+            );
+            return appendTableConstraints(normalized, """
+                    constraint fk_approval_comment_instance
+                        foreign key (instance_id)
+                        references ap_approval_instance (instance_id)
+                """);
+        }
+        if (createsTable(command, "ap_approval_attachment")) {
+            String normalized = requireReplace(
+                command,
+                OPTIONAL_INSTANCE_REFERENCE,
+                "instance_id varchar(36)",
+                "approval attachment instance reference"
+            );
+            return appendTableConstraints(normalized, """
+                    constraint fk_approval_attachment_instance
+                        foreign key (instance_id)
+                        references ap_approval_instance (instance_id)
+                """);
+        }
+        if (createsTable(command, "ap_form_submission")) {
+            String normalized = requireReplace(
+                command,
+                REQUIRED_INSTANCE_REFERENCE,
+                "instance_id varchar(36) not null",
+                "form submission instance reference"
+            );
+            return appendTableConstraints(normalized, """
+                    constraint fk_form_submission_instance
+                        foreign key (instance_id)
+                        references ap_approval_instance (instance_id)
+                """);
+        }
+        if (createsTable(command, "ap_form_submission_revision")) {
+            String normalized = requireReplace(
+                command,
+                REQUIRED_INSTANCE_REFERENCE,
+                "instance_id varchar(36) not null",
+                "form revision instance reference"
+            );
+            return appendTableConstraints(normalized, """
+                    constraint fk_form_submission_revision_instance
+                        foreign key (instance_id)
+                        references ap_approval_instance (instance_id)
+                """);
+        }
+        return command;
+    }
+
+    private static String normalizeCommentLifecycle(String command) {
+        if (!command.stripLeading().startsWith(
+            "alter table ap_approval_comment\n    add column status"
+        )) {
+            return command;
+        }
+        String normalized = requireReplace(
+            command,
+            "add column updated_at datetime(6),",
+            "add column updated_at datetime(6) not null,",
+            "comment updated-at nullability"
+        );
+        return requireReplace(
+            normalized,
+            "add column version bigint not null default 1",
+            """
+            add column version bigint not null default 1,
+                add constraint uk_approval_comment_tenant_comment
+                    unique (tenant_id, comment_id),
+                add constraint chk_approval_comment_status
+                    check (status in ('ACTIVE', 'DELETED')),
+                add constraint chk_approval_comment_visibility
+                    check (visibility in ('PARTICIPANTS', 'MENTIONED_ONLY')),
+                add constraint chk_approval_comment_revision
+                    check (current_revision > 0),
+                add constraint chk_approval_comment_version
+                    check (version > 0),
+                add constraint chk_approval_comment_deleted_metadata
+                    check (
+                        (
+                            status = 'ACTIVE'
+                            and deleted_at is null
+                            and deleted_by is null
+                            and delete_reason is null
+                        )
+                        or (
+                            status = 'DELETED'
+                            and deleted_at is not null
+                            and deleted_by is not null
+                            and delete_reason is not null
+                        )
+                    )
+            """.strip(),
+            "comment lifecycle constraints"
+        );
+    }
+
+    private static String normalizeAuditIntegrity(String command) {
+        if (!command.stripLeading().startsWith(
+            "alter table ap_audit_event\n    add column schema_name"
+        )) {
+            return command;
+        }
+        String normalized = requireReplace(
+            command,
+            "add column schema_name varchar(128),",
+            "add column schema_name varchar(128) not null,",
+            "audit schema name nullability"
+        );
+        normalized = requireReplace(
+            normalized,
+            "add column schema_version int,",
+            "add column schema_version int not null,",
+            "audit schema version nullability"
+        );
+        normalized = requireReplace(
+            normalized,
+            "add column tenant_sequence bigint,",
+            "add column tenant_sequence bigint not null,",
+            "audit sequence nullability"
+        );
+        normalized = requireReplace(
+            normalized,
+            "add column previous_hash varchar(64),",
+            "add column previous_hash varchar(64) not null,",
+            "audit previous hash nullability"
+        );
+        normalized = requireReplace(
+            normalized,
+            "add column payload_hash varchar(64),",
+            "add column payload_hash varchar(64) not null,",
+            "audit payload hash nullability"
+        );
+        return requireReplace(
+            normalized,
+            "add column current_hash varchar(64)",
+            """
+            add column current_hash varchar(64) not null,
+                add constraint chk_audit_event_schema_version
+                    check (schema_version >= 0),
+                add constraint chk_audit_event_tenant_sequence
+                    check (tenant_sequence > 0),
+                add constraint chk_audit_event_previous_hash
+                    check (regexp_like(previous_hash, '^[0-9a-f]{64}$', 'c')),
+                add constraint chk_audit_event_payload_hash
+                    check (regexp_like(payload_hash, '^[0-9a-f]{64}$', 'c')),
+                add constraint chk_audit_event_current_hash
+                    check (regexp_like(current_hash, '^[0-9a-f]{64}$', 'c')),
+                add constraint uk_audit_event_tenant_sequence
+                    unique (tenant_id, tenant_sequence),
+                add constraint uk_audit_event_tenant_hash
+                    unique (tenant_id, current_hash)
+            """.strip(),
+            "audit integrity constraints"
+        );
+    }
+
+    private static String normalizeMigrationExecutionNullability(String command) {
+        if (command.stripLeading().startsWith(
+            "alter table ap_process_migration_attempt\n add column lease_actor"
+        )) {
+            return requireReplace(
+                command,
+                "add column failure_class varchar(32),",
+                "add column failure_class varchar(32) not null,",
+                "migration attempt failure class nullability"
+            );
+        }
+        if (command.stripLeading().startsWith(
+            "alter table ap_process_migration_attempt_event\n add column engine_outcome"
+        )) {
+            String normalized = requireReplace(
+                command,
+                "add column engine_outcome varchar(32),",
+                "add column engine_outcome varchar(32) not null,",
+                "migration event outcome nullability"
+            );
+            return requireReplace(
+                normalized,
+                "add column failure_class varchar(32),",
+                "add column failure_class varchar(32) not null,",
+                "migration event failure class nullability"
+            );
+        }
+        return command;
+    }
+
+    private static boolean createsTable(String command, String tableName) {
+        String normalized = command.stripLeading();
+        return normalized.startsWith("create table " + tableName + " (")
+            || normalized.startsWith("create table if not exists " + tableName + " (");
+    }
+
+    private static String appendTableConstraints(String command, String constraints) {
+        int marker = command.lastIndexOf(TABLE_OPTIONS_MARKER);
+        if (marker < 0) {
+            throw new FlywayException(
+                "MySQL baseline table options marker is missing for governed foreign key"
+            );
+        }
+        return command.substring(0, marker)
+            + ",\n"
+            + constraints.stripTrailing()
+            + command.substring(marker);
+    }
+
+    private static String requireReplace(
+        String command,
+        String expected,
+        String replacement,
+        String boundary
+    ) {
+        if (!command.contains(expected)) {
+            throw new FlywayException(
+                "MySQL baseline drift at " + boundary
+            );
+        }
+        return command.replace(expected, replacement);
     }
 
     static boolean isIgnorableCleanBaselineForeignKeyDrop(

@@ -133,6 +133,72 @@ class V50BaselineTest {
     }
 
     @Test
+    void convertsInlineReferencesIntoEnforcedNamedForeignKeys() {
+        String executable = executableBaseline();
+
+        for (String name : List.of(
+            "fk_approval_task_instance",
+            "fk_approval_message_instance",
+            "fk_approval_message_task",
+            "fk_approval_comment_instance",
+            "fk_approval_attachment_instance",
+            "fk_form_submission_instance",
+            "fk_form_submission_revision_instance"
+        )) {
+            assertTrue(
+                executable.contains("constraint " + name),
+                () -> "missing governed MySQL foreign key: " + name
+            );
+        }
+        assertFalse(executable.contains(
+            "instance_id varchar(36) not null references"
+        ));
+        assertFalse(executable.contains(
+            "instance_id varchar(36) references"
+        ));
+        assertFalse(executable.contains(
+            "task_id varchar(36) references"
+        ));
+    }
+
+    @Test
+    void restoresCommentLifecycleAndAuditIntegrityConstraints() {
+        String comment = executableStatementContaining(
+            "add column status varchar(32) not null default 'ACTIVE'"
+        );
+        String audit = executableStatementContaining(
+            "add column schema_name varchar(128)"
+        );
+
+        assertTrue(comment.contains("updated_at datetime(6) not null"));
+        assertTrue(comment.contains("uk_approval_comment_tenant_comment"));
+        assertTrue(comment.contains("chk_approval_comment_deleted_metadata"));
+        assertTrue(audit.contains("schema_name varchar(128) not null"));
+        assertTrue(audit.contains("schema_version int not null"));
+        assertTrue(audit.contains("tenant_sequence bigint not null"));
+        assertTrue(audit.contains("previous_hash varchar(64) not null"));
+        assertTrue(audit.contains("payload_hash varchar(64) not null"));
+        assertTrue(audit.contains("current_hash varchar(64) not null"));
+        assertTrue(audit.contains("uk_audit_event_tenant_sequence"));
+        assertTrue(audit.contains("uk_audit_event_tenant_hash"));
+    }
+
+    @Test
+    void preservesV37RequiredMigrationEvidenceNullability() {
+        String attempt = executableStatementContaining(
+            "alter table ap_process_migration_attempt\n add column lease_actor"
+        );
+        String event = executableStatementContaining(
+            "alter table ap_process_migration_attempt_event\n"
+                + " add column engine_outcome"
+        );
+
+        assertTrue(attempt.contains("failure_class varchar(32) not null"));
+        assertTrue(event.contains("engine_outcome varchar(32) not null"));
+        assertTrue(event.contains("failure_class varchar(32) not null"));
+    }
+
+    @Test
     void skipsOnlyTheEmptyHistoricalV32ReleaseBackfill() {
         List<String> skipped = baselineStatements().stream()
             .filter(statement -> MySqlV50Baseline.executableForMySql84(statement).isEmpty())
@@ -152,11 +218,7 @@ class V50BaselineTest {
 
     @Test
     void executableBaselineExcludesKnownPostgreSqlOnlySyntax() {
-        String executable = baselineStatements().stream()
-            .map(MySqlV50Baseline::executableForMySql84)
-            .flatMap(Optional::stream)
-            .map(String::toLowerCase)
-            .reduce("", (left, right) -> left + '\n' + right);
+        String executable = executableBaseline().toLowerCase();
 
         assertFalse(executable.contains(" on commit drop"));
         assertFalse(executable.contains("distinct on"));
@@ -219,6 +281,13 @@ class V50BaselineTest {
 
     private static List<String> baselineStatements() {
         return MySqlV50Baseline.splitStatements(MySqlV50Baseline.decompressBaseline());
+    }
+
+    private static String executableBaseline() {
+        return baselineStatements().stream()
+            .map(MySqlV50Baseline::executableForMySql84)
+            .flatMap(Optional::stream)
+            .reduce("", (left, right) -> left + '\n' + right);
     }
 
     private static String executableStatementContaining(String marker) {
