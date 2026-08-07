@@ -74,6 +74,11 @@ class DatabaseCompatibilityR0BoundaryTest {
         assertTrue(!postgreSqlProfile.contains("validation-enabled"));
         assertTrue(mySqlProfile.contains("expected-vendor: MYSQL"));
         assertTrue(!mySqlProfile.contains("validation-enabled"));
+        assertTrue(mySqlProfile.contains("characterEncoding: UTF-8"));
+        assertTrue(mySqlProfile.contains("connectionCollation: utf8mb4_0900_as_cs"));
+        assertTrue(mySqlProfile.contains("connectionTimeZone: UTC"));
+        assertTrue(mySqlProfile.contains("forceConnectionTimeZoneToSession: true"));
+        assertTrue(mySqlProfile.contains("preserveInstants: true"));
         assertTrue(mySqlProfile.contains("fail-on-missing-locations: true"));
         assertTrue(mySqlProfile.contains("classpath:db/migration/mysql"));
         assertTrue(

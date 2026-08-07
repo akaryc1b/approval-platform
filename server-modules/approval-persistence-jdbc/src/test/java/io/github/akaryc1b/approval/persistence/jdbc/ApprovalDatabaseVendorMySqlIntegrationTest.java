@@ -32,7 +32,7 @@ class ApprovalDatabaseVendorMySqlIntegrationTest {
     @Test
     void resolvesAndValidatesRealMySql84ProductionBaseline() {
         var dataSource = new DriverManagerDataSource(
-            MYSQL.getJdbcUrl(),
+            configuredJdbcUrl(),
             MYSQL.getUsername(),
             MYSQL.getPassword()
         );
@@ -51,13 +51,14 @@ class ApprovalDatabaseVendorMySqlIntegrationTest {
         assertEquals(4, identity.minorVersion());
         assertTrue(identity.productVersion().startsWith("8.4."));
         assertEquals(ApprovalDatabaseVendor.MYSQL, baseline.vendor());
+        assertEquals("utf8mb4_0900_as_cs", baseline.settings().get("connectionCollation"));
         assertEquals("READ-COMMITTED", baseline.settings().get("transactionIsolation"));
     }
 
     @Test
     void exposesExactCharacterTimeIsolationAndStrictModeSettings() throws Exception {
         try (var connection = DriverManager.getConnection(
-            MYSQL.getJdbcUrl(),
+            configuredJdbcUrl(),
             MYSQL.getUsername(),
             MYSQL.getPassword()
         ); var statement = connection.createStatement(); var result = statement.executeQuery("""
@@ -86,5 +87,16 @@ class ApprovalDatabaseVendorMySqlIntegrationTest {
             assertEquals("READ-COMMITTED", result.getString(8));
             assertTrue(result.getBoolean(9));
         }
+    }
+
+    private static String configuredJdbcUrl() {
+        String base = MYSQL.getJdbcUrl();
+        String separator = base.contains("?") ? "&" : "?";
+        return base + separator
+            + "characterEncoding=UTF-8"
+            + "&connectionCollation=utf8mb4_0900_as_cs"
+            + "&connectionTimeZone=UTC"
+            + "&forceConnectionTimeZoneToSession=true"
+            + "&preserveInstants=true";
     }
 }

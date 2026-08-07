@@ -8,6 +8,12 @@ spring:
     password: ${APPROVAL_DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
+      data-source-properties:
+        characterEncoding: UTF-8
+        connectionCollation: utf8mb4_0900_as_cs
+        connectionTimeZone: UTC
+        forceConnectionTimeZoneToSession: true
+        preserveInstants: true
       connection-init-sql: >-
         SET SESSION character_set_client = 'utf8mb4',
         SESSION character_set_connection = 'utf8mb4',
