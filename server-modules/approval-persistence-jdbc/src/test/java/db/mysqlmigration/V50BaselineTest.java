@@ -2,6 +2,8 @@ package db.mysqlmigration;
 
 import org.junit.jupiter.api.Test;
 
+import java.sql.SQLException;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -50,6 +52,36 @@ class V50BaselineTest {
         assertFalse(normalized.contains("add column if not exists"));
         assertFalse(normalized.contains("index if not exists"));
         assertFalse(normalized.contains("constraint if not exists"));
+    }
+
+    @Test
+    void ignoresOnlyTheKnownMissingHistoricalForeignKeyDrop() {
+        SQLException missingObject = new SQLException(
+            "Can't DROP 'ap_approval_comment_parent_fk'",
+            "42000",
+            1091
+        );
+        SQLException syntaxError = new SQLException("syntax error", "42000", 1064);
+
+        assertTrue(MySqlV50Baseline.isIgnorableCleanBaselineForeignKeyDrop(
+            "alter table ap_approval_comment "
+                + "drop foreign key ap_approval_comment_parent_fk",
+            missingObject
+        ));
+        assertFalse(MySqlV50Baseline.isIgnorableCleanBaselineForeignKeyDrop(
+            "alter table ap_approval_comment drop column parent_comment_id",
+            missingObject
+        ));
+        assertFalse(MySqlV50Baseline.isIgnorableCleanBaselineForeignKeyDrop(
+            "alter table ap_other_comment "
+                + "drop foreign key ap_approval_comment_parent_fk",
+            missingObject
+        ));
+        assertFalse(MySqlV50Baseline.isIgnorableCleanBaselineForeignKeyDrop(
+            "alter table ap_approval_comment "
+                + "drop foreign key ap_approval_comment_parent_fk",
+            syntaxError
+        ));
     }
 
     @Test

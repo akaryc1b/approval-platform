@@ -23,7 +23,8 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     private static final MigrationVersion VERSION = MigrationVersion.fromVersion("50");
     private static final String DESCRIPTION = "Baseline approval platform";
-    private static final int BASELINE_CHECKSUM = -392744552;
+    private static final int BASELINE_CHECKSUM = -392744553;
+    private static final int MISSING_OBJECT_ERROR_CODE = 1091;
     private static final Pattern ADD_COLUMN_IF_NOT_EXISTS = Pattern.compile(
         "\\badd\\s+column\\s+if\\s+not\\s+exists\\b",
         Pattern.CASE_INSENSITIVE
@@ -39,6 +40,11 @@ public final class MySqlV50Baseline implements JavaMigration {
     private static final Pattern ADD_CONSTRAINT_IF_NOT_EXISTS = Pattern.compile(
         "\\badd\\s+constraint\\s+if\\s+not\\s+exists\\b",
         Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern HISTORICAL_COMMENT_PARENT_FOREIGN_KEY_DROP = Pattern.compile(
+        "\\balter\\s+table\\s+ap_approval_comment\\s+drop\\s+foreign\\s+key\\s+"
+            + "ap_approval_comment_parent_fk\\b",
+        Pattern.CASE_INSENSITIVE | Pattern.DOTALL
     );
     private static final List<String> BASELINE_RESOURCES = List.of(
         "db/mysqlmigration/baseline-001.b64",
@@ -79,7 +85,14 @@ public final class MySqlV50Baseline implements JavaMigration {
         try (Statement statement = context.getConnection().createStatement()) {
             for (String command : statements) {
                 index++;
-                statement.execute(normalizeForMySql84(command));
+                String executable = normalizeForMySql84(command);
+                try {
+                    statement.execute(executable);
+                } catch (SQLException exception) {
+                    if (!isIgnorableCleanBaselineForeignKeyDrop(executable, exception)) {
+                        throw exception;
+                    }
+                }
             }
         } catch (SQLException exception) {
             throw new FlywayException(
@@ -98,6 +111,14 @@ public final class MySqlV50Baseline implements JavaMigration {
             .replaceAll("create index");
         return ADD_CONSTRAINT_IF_NOT_EXISTS.matcher(normalized)
             .replaceAll("add constraint");
+    }
+
+    static boolean isIgnorableCleanBaselineForeignKeyDrop(
+        String command,
+        SQLException exception
+    ) {
+        return exception.getErrorCode() == MISSING_OBJECT_ERROR_CODE
+            && HISTORICAL_COMMENT_PARENT_FOREIGN_KEY_DROP.matcher(command).find();
     }
 
     static String decompressBaseline() {

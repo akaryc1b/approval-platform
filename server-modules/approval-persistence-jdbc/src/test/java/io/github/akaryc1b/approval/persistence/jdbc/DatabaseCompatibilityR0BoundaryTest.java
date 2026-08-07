@@ -24,7 +24,7 @@ class DatabaseCompatibilityR0BoundaryTest {
     );
     private static final Path MYSQL_BASELINE = ROOT.resolve(
         "server-modules/approval-persistence-jdbc/src/main/java/db/mysqlmigration/"
-            + "V50__Baseline_approval_platform.java"
+            + "MySqlV50Baseline.java"
     );
     private static final String THIS_TEST = "DatabaseCompatibilityR0BoundaryTest.java";
 
@@ -85,10 +85,12 @@ class DatabaseCompatibilityR0BoundaryTest {
         assertTrue(mySqlProfile.contains("classpath:db/mysqlmigration"));
         assertTrue(Files.isRegularFile(MYSQL_BASELINE));
         String baseline = Files.readString(MYSQL_BASELINE);
-        assertTrue(baseline.contains("class V50__Baseline_approval_platform"));
+        assertTrue(baseline.contains("class MySqlV50Baseline implements JavaMigration"));
+        assertTrue(baseline.contains("MigrationVersion.fromVersion(\"50\")"));
         assertTrue(baseline.contains("canExecuteInTransaction"));
         assertTrue(baseline.contains("BASELINE_CHECKSUM"));
         assertTrue(baseline.contains("BASELINE_RESOURCES"));
+        assertTrue(baseline.contains("normalizeForMySql84"));
         assertTrue(baseline.contains("baseline-009.b64"));
     }
 
