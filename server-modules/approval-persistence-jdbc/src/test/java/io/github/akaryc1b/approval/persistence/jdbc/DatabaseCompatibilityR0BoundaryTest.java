@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -18,16 +19,22 @@ class DatabaseCompatibilityR0BoundaryTest {
     private static final Path COMPATIBILITY_RECORD = ROOT.resolve(
         "docs/database/MYSQL_8_4_PRODUCTION_COMPATIBILITY.md"
     );
+    private static final Path INVENTORY_RECORD = ROOT.resolve(
+        "docs/database/MYSQL_8_4_R0_INVENTORY.md"
+    );
+    private static final String THIS_TEST = "DatabaseCompatibilityR0BoundaryTest.java";
 
     @Test
     void restoredCommitmentRemainsExplicitAndFailClosed() throws IOException {
         String record = Files.readString(COMPATIBILITY_RECORD);
+        String inventory = Files.readString(INVENTORY_RECORD);
         String readme = Files.readString(ROOT.resolve("README.md"));
         String matrix = Files.readString(ROOT.resolve("docs/COMPATIBILITY.md"));
 
         assertTrue(record.contains("DUAL_DATABASE_COMMITMENT_RESTORED"));
         assertTrue(record.contains("MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED"));
         assertTrue(record.contains("Issue: `#91`"));
+        assertTrue(inventory.contains("R0_COUNTS_ARE_NOT_MYSQL_SUPPORT"));
         assertTrue(readme.contains("MySQL 8.4 生产兼容恢复中、尚未支持"));
         assertTrue(matrix.contains("active blocking workstream, not yet supported"));
     }
@@ -80,7 +87,11 @@ class DatabaseCompatibilityR0BoundaryTest {
 
     @Test
     void currentPostgreSqlCouplingIsCoveredByTheR0Inventory() throws IOException {
-        String record = Files.readString(COMPATIBILITY_RECORD).toLowerCase(Locale.ROOT);
+        String records = (
+            Files.readString(COMPATIBILITY_RECORD)
+                + System.lineSeparator()
+                + Files.readString(INVENTORY_RECORD)
+        ).toLowerCase(Locale.ROOT);
         Map<String, String> categories = new LinkedHashMap<>();
         categories.put("jsonb", "jsonb");
         categories.put("timestamptz", "timestamptz");
@@ -98,9 +109,9 @@ class DatabaseCompatibilityR0BoundaryTest {
             ROOT.resolve("server-modules/approval-integration-jdbc"),
             ROOT.resolve("apps/server")
         );
-        Map<String, Long> counts = new LinkedHashMap<>();
+        Map<String, Map<Path, Long>> pathCounts = new LinkedHashMap<>();
         for (String token : categories.keySet()) {
-            counts.put(token, 0L);
+            pathCounts.put(token, new LinkedHashMap<>());
         }
 
         for (Path sourceRoot : roots) {
@@ -108,23 +119,40 @@ class DatabaseCompatibilityR0BoundaryTest {
                 for (Path path : paths
                     .filter(Files::isRegularFile)
                     .filter(DatabaseCompatibilityR0BoundaryTest::isTextSource)
-                    .filter(path -> !path.toString().contains("/target/"))
+                    .filter(path -> !normalized(path).contains("/target/"))
+                    .filter(path -> !path.getFileName().toString().equals(THIS_TEST))
                     .toList()) {
                     String content = Files.readString(path).toLowerCase(Locale.ROOT);
                     for (String token : categories.keySet()) {
-                        long count = counts.get(token) + occurrences(content, token);
-                        counts.put(token, count);
+                        long count = occurrences(content, token);
+                        if (count > 0) {
+                            pathCounts.get(token).put(ROOT.relativize(path), count);
+                        }
                     }
                 }
             }
         }
 
-        counts.forEach((token, count) -> {
-            System.out.printf("db-compat-r0 %s=%d%n", token, count);
+        pathCounts.forEach((token, matches) -> {
+            long count = matches.values().stream().mapToLong(Long::longValue).sum();
+            System.out.printf(
+                "db-compat-r0 token=%s occurrences=%d files=%d%n",
+                token,
+                count,
+                matches.size()
+            );
+            new ArrayList<>(matches.entrySet()).stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> System.out.printf(
+                    "db-compat-r0-path token=%s count=%d path=%s%n",
+                    token,
+                    entry.getValue(),
+                    normalized(entry.getKey())
+                ));
             if (count > 0) {
                 assertTrue(
-                    record.contains(categories.get(token)),
-                    () -> "R0 record does not classify detected token: " + token
+                    records.contains(categories.get(token)),
+                    () -> "R0 records do not classify detected token: " + token
                 );
             }
         });
@@ -160,6 +188,10 @@ class DatabaseCompatibilityR0BoundaryTest {
             || fileName.endsWith(".md")
             || fileName.endsWith(".mjs")
             || fileName.equals("pom.xml");
+    }
+
+    private static String normalized(Path path) {
+        return path.toString().replace('\\', '/');
     }
 
     private static long occurrences(String content, String token) {
