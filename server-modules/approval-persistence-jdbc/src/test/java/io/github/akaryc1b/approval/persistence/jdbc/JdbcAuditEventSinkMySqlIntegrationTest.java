@@ -22,6 +22,7 @@ import javax.sql.DataSource;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -186,6 +187,60 @@ class JdbcAuditEventSinkMySqlIntegrationTest {
         assertEquals(eventCount, page.items().getFirst().tenantSequence());
         assertEquals(1L, page.items().getLast().tenantSequence());
         assertTrue(store.verify(integrity("tenant-concurrent")).valid());
+    }
+
+    @Test
+    void chainStateAdmissionUsesOnlyThePrimaryKeySelfAssignment() {
+        String admission = JdbcMySqlAuditEventSink.chainStateAdmissionSql()
+            .toLowerCase(Locale.ROOT)
+            .strip();
+        int clauseStart = admission.indexOf("on duplicate key update");
+
+        assertTrue(clauseStart > 0);
+        assertEquals(
+            "on duplicate key update tenant_id = tenant_id",
+            admission.substring(clauseStart)
+        );
+        assertFalse(admission.contains("insert ignore"));
+    }
+
+    @Test
+    void failedFirstAppendRollsBackZeroStateAndDoesNotConsumeSequence() {
+        ApprovalAuditStore store = store();
+        String conflictingEventId = "00000000-0000-0000-0000-000000000180";
+        store.append(event(
+            conflictingEventId,
+            "tenant-existing",
+            "request-existing",
+            START,
+            Map.of()
+        ));
+
+        assertThrows(DataIntegrityViolationException.class, () -> store.append(event(
+            conflictingEventId,
+            "tenant-first-failure",
+            "request-conflict",
+            START,
+            Map.of()
+        )));
+        assertEquals(0, tenantRowCount("ap_audit_event", "tenant-first-failure"));
+        assertEquals(0, tenantRowCount(
+            "ap_audit_chain_state",
+            "tenant-first-failure"
+        ));
+
+        store.append(event(
+            "00000000-0000-0000-0000-000000000181",
+            "tenant-first-failure",
+            "request-recovered",
+            START.plusSeconds(1),
+            Map.of()
+        ));
+
+        var page = store.find(criteria("tenant-first-failure", null, 20, 0));
+        assertEquals(1, page.total());
+        assertEquals(1L, page.items().getFirst().tenantSequence());
+        assertTrue(store.verify(integrity("tenant-first-failure")).valid());
     }
 
     @Test
@@ -414,6 +469,18 @@ class JdbcAuditEventSinkMySqlIntegrationTest {
             START.minusSeconds(1),
             START.plusSeconds(60)
         );
+    }
+
+    private static int tenantRowCount(String table, String tenantId) {
+        if (!List.of("ap_audit_event", "ap_audit_chain_state").contains(table)) {
+            throw new IllegalArgumentException("unsupported table");
+        }
+        Integer count = jdbc.queryForObject(
+            "select count(*) from " + table + " where tenant_id = ?",
+            Integer.class,
+            tenantId
+        );
+        return count == null ? 0 : count;
     }
 
     private static int rowCount(String table) {
