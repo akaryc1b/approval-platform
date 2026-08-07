@@ -99,7 +99,7 @@ class JdbcOutboxMySqlIntegrationTest extends MySqlInboxOutboxIntegrationSupport 
             other.createdAt()
         );
         assertThrows(DuplicateKeyException.class, () -> outbox.append(primaryKeyCollision));
-        assertEquals(3, MySqlInboxOutboxFixtures.count(jdbc, "ap_outbox"));
+        assertEquals(2, MySqlInboxOutboxFixtures.count(jdbc, "ap_outbox"));
     }
 
     @Test

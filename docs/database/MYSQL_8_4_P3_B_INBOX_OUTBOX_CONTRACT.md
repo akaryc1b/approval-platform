@@ -136,6 +136,15 @@ The predecessor Run `31170245564` / `#1357` is retained as a Checkstyle correcti
 failure was four idempotency files missing their final newline, not an Inbox/Outbox result. The
 append-only correction completed successfully before this slice was submitted.
 
+Run `31173287561` / `#1359` at implementation Head
+`d02f359831029c34447782d817e2a581d54bda88` is retained as a focused test-assertion correction
+Run. Maven Core, Vben, Mobile, Hygiene and Persistence shards `0`, `2` and `3` succeeded. Shard `1`
+executed the new real-MySQL Outbox test and reported one assertion failure: the test expected three
+rows after one insert, one business-key replay, one independent insert and one rejected primary-key
+collision. The correct durable row count is two because neither replay nor rejected collision may
+insert a row. Production SQL and transaction semantics passed; only the expected count was wrong.
+No same-Head rerun is authorized or used.
+
 This slice is accepted only after its exact unchanged Head passes one natural PR workflow with all
 required Jobs, zero unapproved skips and independently verified Artifacts.
 
