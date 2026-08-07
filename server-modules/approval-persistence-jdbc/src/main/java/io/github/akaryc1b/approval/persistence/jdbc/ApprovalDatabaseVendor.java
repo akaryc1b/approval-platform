@@ -5,15 +5,21 @@ import java.util.Objects;
 
 /** Supported production database vendors for platform-owned persistence. */
 public enum ApprovalDatabaseVendor {
-    POSTGRESQL("PostgreSQL", 16),
-    MYSQL("MySQL", 8);
+    POSTGRESQL("PostgreSQL", 16, null),
+    MYSQL("MySQL", 8, 4);
 
     private final String productName;
     private final int requiredMajorVersion;
+    private final Integer requiredMinorVersion;
 
-    ApprovalDatabaseVendor(String productName, int requiredMajorVersion) {
+    ApprovalDatabaseVendor(
+        String productName,
+        int requiredMajorVersion,
+        Integer requiredMinorVersion
+    ) {
         this.productName = productName;
         this.requiredMajorVersion = requiredMajorVersion;
+        this.requiredMinorVersion = requiredMinorVersion;
     }
 
     public String productName() {
@@ -22,6 +28,10 @@ public enum ApprovalDatabaseVendor {
 
     public int requiredMajorVersion() {
         return requiredMajorVersion;
+    }
+
+    public Integer requiredMinorVersion() {
+        return requiredMinorVersion;
     }
 
     public static ApprovalDatabaseVendor parseExpected(String value) {
@@ -50,12 +60,17 @@ public enum ApprovalDatabaseVendor {
         };
     }
 
-    public void requireSupportedMajorVersion(int actualMajorVersion) {
-        if (actualMajorVersion != requiredMajorVersion) {
+    public void requireSupportedVersion(int actualMajorVersion, int actualMinorVersion) {
+        boolean majorMismatch = actualMajorVersion != requiredMajorVersion;
+        boolean minorMismatch = requiredMinorVersion != null
+            && actualMinorVersion != requiredMinorVersion;
+        if (majorMismatch || minorMismatch) {
             throw new UnsupportedDatabaseVersionException(
                 this,
                 requiredMajorVersion,
-                actualMajorVersion
+                requiredMinorVersion,
+                actualMajorVersion,
+                actualMinorVersion
             );
         }
     }
@@ -74,12 +89,24 @@ public enum ApprovalDatabaseVendor {
         public UnsupportedDatabaseVersionException(
             ApprovalDatabaseVendor vendor,
             int requiredMajorVersion,
-            int actualMajorVersion
+            Integer requiredMinorVersion,
+            int actualMajorVersion,
+            int actualMinorVersion
         ) {
             super(
-                "unsupported " + vendor.productName() + " major version "
-                    + actualMajorVersion + "; required " + requiredMajorVersion
+                "unsupported " + vendor.productName() + " version "
+                    + actualMajorVersion + "." + actualMinorVersion
+                    + "; required " + requiredVersion(
+                        requiredMajorVersion,
+                        requiredMinorVersion
+                    )
             );
+        }
+
+        private static String requiredVersion(int majorVersion, Integer minorVersion) {
+            return minorVersion == null
+                ? Integer.toString(majorVersion)
+                : majorVersion + "." + minorVersion;
         }
     }
 }
