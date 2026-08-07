@@ -32,8 +32,8 @@ class DatabaseCompatibilityR0ManifestTest {
     private static final int CONTENT_CHUNK_SIZE = 4096;
 
     @Test
-    void emitsExactMigrationSourceAndTestManifest() throws IOException {
-        List<Path> migrations = migrationFiles();
+    void emitsExactPostgreSqlMigrationSourceAndTestManifest() throws IOException {
+        List<Path> migrations = postgreSqlMigrationFiles();
         Map<Integer, List<Path>> byVersion = new TreeMap<>();
         for (Path path : migrations) {
             Matcher matcher = MIGRATION_NAME.matcher(path.getFileName().toString());
@@ -42,23 +42,27 @@ class DatabaseCompatibilityR0ManifestTest {
             byVersion.computeIfAbsent(version, ignored -> new ArrayList<>()).add(path);
         }
 
-        assertEquals(50, byVersion.size(), "migration versions must cover V1 through V50");
+        assertEquals(
+            50,
+            byVersion.size(),
+            "PostgreSQL history must cover V1 through V50"
+        );
         for (int version = 1; version <= 50; version++) {
             List<Path> versionFiles = byVersion.get(version);
             assertFalse(
                 versionFiles == null || versionFiles.isEmpty(),
-                "missing migration V" + version
+                "missing V" + version
             );
             assertEquals(
                 1,
                 versionFiles.size(),
-                "duplicate migration version V" + version + ": " + versionFiles
+                "duplicate PostgreSQL V" + version + ": " + versionFiles
             );
         }
 
         for (Map.Entry<Integer, List<Path>> entry : byVersion.entrySet()) {
             Path path = entry.getValue().getFirst();
-            emitFile("migration", path, "version=" + entry.getKey());
+            emitFile("postgresql-migration", path, "version=" + entry.getKey());
             emitMigrationContent(path);
         }
 
@@ -67,18 +71,13 @@ class DatabaseCompatibilityR0ManifestTest {
             ROOT.resolve("server-modules/approval-persistence-jdbc/src/main/java"),
             ROOT.resolve("apps/server/src/main/java")
         ));
-        for (Path path : productionSources) {
-            emitFile("production-java", path, "");
-        }
-
         List<Path> testSources = javaFiles(List.of(
             ROOT.resolve("server-modules/approval-integration-jdbc/src/test/java"),
             ROOT.resolve("server-modules/approval-persistence-jdbc/src/test/java"),
             ROOT.resolve("apps/server/src/test/java")
         ));
-        for (Path path : testSources) {
-            emitFile("test-java", path, "");
-        }
+        productionSources.forEach(path -> emitUnchecked("production-java", path));
+        testSources.forEach(path -> emitUnchecked("test-java", path));
 
         Set<String> uniquePaths = new java.util.HashSet<>();
         for (Path path : concat(migrations, productionSources, testSources)) {
@@ -87,16 +86,15 @@ class DatabaseCompatibilityR0ManifestTest {
                 () -> "duplicate manifest path: " + path
             );
         }
-
         System.out.printf(
-            "db-compat-manifest-summary migrations=%d productionJava=%d testJava=%d%n",
+            "db-compat-manifest-summary postgresqlMigrations=%d productionJava=%d testJava=%d%n",
             migrations.size(),
             productionSources.size(),
             testSources.size()
         );
     }
 
-    private static List<Path> migrationFiles() throws IOException {
+    private static List<Path> postgreSqlMigrationFiles() throws IOException {
         List<Path> result = new ArrayList<>();
         for (Path root : List.of(
             ROOT.resolve(
@@ -109,35 +107,37 @@ class DatabaseCompatibilityR0ManifestTest {
                 "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration"
             )
         )) {
-            if (Files.isDirectory(root)) {
-                try (var paths = Files.walk(root)) {
-                    result.addAll(paths
-                        .filter(Files::isRegularFile)
-                        .filter(path -> path.getFileName().toString().endsWith(".sql"))
-                        .toList());
-                }
+            if (!Files.isDirectory(root)) {
+                continue;
+            }
+            try (var paths = Files.walk(root)) {
+                result.addAll(paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".sql"))
+                    .toList());
             }
         }
         for (Path root : List.of(
-            ROOT.resolve("server-modules/approval-integration-jdbc/src/main/java"),
-            ROOT.resolve("server-modules/approval-persistence-jdbc/src/main/java")
+            ROOT.resolve(
+                "server-modules/approval-integration-jdbc/src/main/java/db/migration"
+            ),
+            ROOT.resolve(
+                "server-modules/approval-persistence-jdbc/src/main/java/db/migration"
+            )
         )) {
-            if (Files.isDirectory(root)) {
-                try (var paths = Files.walk(root)) {
-                    result.addAll(paths
-                        .filter(Files::isRegularFile)
-                        .filter(path -> MIGRATION_NAME.matcher(
-                            path.getFileName().toString()
-                        ).matches())
-                        .toList());
-                }
+            if (!Files.isDirectory(root)) {
+                continue;
+            }
+            try (var paths = Files.walk(root)) {
+                result.addAll(paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> MIGRATION_NAME.matcher(
+                        path.getFileName().toString()
+                    ).matches())
+                    .toList());
             }
         }
-        return result.stream()
-            .map(path -> path.toAbsolutePath().normalize())
-            .distinct()
-            .sorted(Comparator.comparing(DatabaseCompatibilityR0ManifestTest::normalized))
-            .toList();
+        return sortedDistinct(result);
     }
 
     private static List<Path> javaFiles(List<Path> roots) throws IOException {
@@ -156,11 +156,28 @@ class DatabaseCompatibilityR0ManifestTest {
                     .toList());
             }
         }
-        return result.stream()
+        return sortedDistinct(result);
+    }
+
+    private static List<Path> sortedDistinct(List<Path> paths) {
+        return paths.stream()
             .map(path -> path.toAbsolutePath().normalize())
             .distinct()
-            .sorted(Comparator.comparing(DatabaseCompatibilityR0ManifestTest::normalized))
+            .sorted(Comparator.comparing(
+                DatabaseCompatibilityR0ManifestTest::normalized
+            ))
             .toList();
+    }
+
+    private static void emitUnchecked(String kind, Path path) {
+        try {
+            emitFile(kind, path, "");
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                "manifest file read failed: " + path,
+                exception
+            );
+        }
     }
 
     private static void emitFile(String kind, Path path, String extra) throws IOException {
@@ -178,8 +195,10 @@ class DatabaseCompatibilityR0ManifestTest {
 
     private static void emitMigrationContent(Path path) throws IOException {
         String encoded = Base64.getEncoder().encodeToString(Files.readAllBytes(path));
-        int chunks = Math.max(1, (encoded.length() + CONTENT_CHUNK_SIZE - 1)
-            / CONTENT_CHUNK_SIZE);
+        int chunks = Math.max(
+            1,
+            (encoded.length() + CONTENT_CHUNK_SIZE - 1) / CONTENT_CHUNK_SIZE
+        );
         for (int index = 0; index < chunks; index++) {
             int from = index * CONTENT_CHUNK_SIZE;
             int to = Math.min(encoded.length(), from + CONTENT_CHUNK_SIZE);
