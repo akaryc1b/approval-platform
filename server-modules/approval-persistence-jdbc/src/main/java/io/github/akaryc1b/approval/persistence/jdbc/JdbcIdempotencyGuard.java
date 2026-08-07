@@ -151,7 +151,13 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
                 "idempotency key was already used for a different result type"
             );
         }
-        return decode(Objects.toString(row.get("result_json")), resultType);
+        String resultJson = Objects.toString(row.get("result_json"), null);
+        if (resultJson == null || resultJson.isBlank()) {
+            throw new IllegalStateException(
+                "idempotency result payload is missing or has an unsupported encoding"
+            );
+        }
+        return decode(resultJson, resultType);
     }
 
     private String encode(Object result) {
