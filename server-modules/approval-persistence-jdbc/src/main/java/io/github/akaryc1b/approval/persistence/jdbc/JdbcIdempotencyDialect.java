@@ -55,7 +55,10 @@ enum JdbcIdempotencyDialect {
         """
         update ap_command_idempotency
         set result_type = :resultType,
-            result_json = cast(:resultJson as json),
+            result_json = json_object(
+                'encoding', 'CANONICAL_JSON_TEXT_V1',
+                'payload', :resultJson
+            ),
             status = 'COMPLETED',
             completed_at = :completedAt
         where tenant_id = :tenantId
@@ -67,7 +70,14 @@ enum JdbcIdempotencyDialect {
         select
             request_hash,
             result_type,
-            cast(result_json as char character set utf8mb4) as result_json,
+            case
+                when json_type(result_json) = 'OBJECT'
+                 and json_unquote(json_extract(result_json, '$.encoding'))
+                     = 'CANONICAL_JSON_TEXT_V1'
+                 and json_type(json_extract(result_json, '$.payload')) = 'STRING'
+                then json_unquote(json_extract(result_json, '$.payload'))
+                else null
+            end as result_json,
             status
         from ap_command_idempotency
         where tenant_id = :tenantId
