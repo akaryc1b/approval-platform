@@ -2,13 +2,19 @@ package db.mysqlmigration;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.sql.SQLException;
+import java.util.Base64;
+import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class V50BaselineTest {
+
+    private static final int MANIFEST_CHUNK_SIZE = 6_000;
 
     @Test
     void embeddedBaselineIsDeterministicAndContainsCurrentSchema() {
@@ -29,6 +35,48 @@ class V50BaselineTest {
         assertFalse(sql.toLowerCase().contains("bytea"));
         assertFalse(sql.toLowerCase().contains(" on conflict "));
         assertFalse(sql.contains("::"));
+    }
+
+    @Test
+    void emitsExactNormalizedStatementManifest() throws Exception {
+        var statements = MySqlV50Baseline.splitStatements(
+            MySqlV50Baseline.decompressBaseline()
+        );
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+
+        for (int offset = 0; offset < statements.size(); offset++) {
+            int index = offset + 1;
+            String statement = MySqlV50Baseline.normalizeForMySql84(
+                statements.get(offset)
+            );
+            byte[] bytes = statement.getBytes(StandardCharsets.UTF_8);
+            String sha256 = HexFormat.of().formatHex(digest.digest(bytes));
+            String encoded = Base64.getEncoder().encodeToString(bytes);
+            int chunks = Math.max(
+                1,
+                (encoded.length() + MANIFEST_CHUNK_SIZE - 1) / MANIFEST_CHUNK_SIZE
+            );
+            System.out.printf(
+                "mysql-baseline-manifest index=%d bytes=%d sha256=%s chunks=%d%n",
+                index,
+                bytes.length,
+                sha256,
+                chunks
+            );
+            for (int chunk = 0; chunk < chunks; chunk++) {
+                int start = chunk * MANIFEST_CHUNK_SIZE;
+                int end = Math.min(encoded.length(), start + MANIFEST_CHUNK_SIZE);
+                System.out.printf(
+                    "mysql-baseline-content index=%d chunk=%d/%d data=%s%n",
+                    index,
+                    chunk + 1,
+                    chunks,
+                    encoded.substring(start, end)
+                );
+            }
+        }
+
+        assertTrue(statements.size() > 150);
     }
 
     @Test
