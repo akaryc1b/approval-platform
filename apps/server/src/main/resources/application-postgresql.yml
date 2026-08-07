@@ -7,5 +7,4 @@ spring:
 
 approval:
   database:
-    validation-enabled: true
     expected-vendor: POSTGRESQL
