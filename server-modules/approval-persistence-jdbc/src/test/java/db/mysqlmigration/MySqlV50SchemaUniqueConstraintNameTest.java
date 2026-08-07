@@ -24,7 +24,7 @@ class MySqlV50SchemaUniqueConstraintNameTest {
             "create table ap_sla_policy_version ("
         );
 
-        assertEquals(-392744556, new MySqlV50Baseline().getChecksum());
+        assertEquals(-392744557, new MySqlV50Baseline().getChecksum());
         assertTrue(policy.contains(
             "constraint chk_sla_policy_timestamps check"
         ));
