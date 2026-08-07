@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.config;
 
+import io.github.akaryc1b.approval.persistence.jdbc.ApprovalDatabaseRuntimeBaselineValidator;
 import io.github.akaryc1b.approval.persistence.jdbc.ApprovalDatabaseVendor;
 import io.github.akaryc1b.approval.persistence.jdbc.ApprovalDatabaseVendorResolver;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,8 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,10 +20,13 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
 
     @Test
     void validatesPostgreSqlByDefault() {
-        contextRunner(dataSource("PostgreSQL", "16.4", 16, 4)).run(context -> {
+        contextRunner(postgreSqlDataSource()).run(context -> {
             assertThat(context).hasNotFailed();
             assertThat(context).hasSingleBean(
                 ApprovalDatabaseVendorResolver.DatabaseIdentity.class
+            );
+            assertThat(context).hasSingleBean(
+                ApprovalDatabaseRuntimeBaselineValidator.DatabaseRuntimeBaseline.class
             );
             var identity = context.getBean(
                 ApprovalDatabaseVendorResolver.DatabaseIdentity.class
@@ -31,20 +37,25 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
 
     @Test
     void validatesMySql84WhenExplicitlySelected() {
-        contextRunner(dataSource("MySQL", "8.4.2", 8, 4))
+        contextRunner(mySqlDataSource())
             .withPropertyValues("approval.database.expected-vendor=MYSQL")
             .run(context -> {
                 assertThat(context).hasNotFailed();
                 var identity = context.getBean(
                     ApprovalDatabaseVendorResolver.DatabaseIdentity.class
                 );
+                var baseline = context.getBean(
+                    ApprovalDatabaseRuntimeBaselineValidator.DatabaseRuntimeBaseline.class
+                );
                 assertThat(identity.vendor()).isEqualTo(ApprovalDatabaseVendor.MYSQL);
+                assertThat(baseline.settings())
+                    .containsEntry("transactionIsolation", "READ-COMMITTED");
             });
     }
 
     @Test
     void failsClosedWhenConfiguredVendorDoesNotMatchJdbcMetadata() {
-        contextRunner(dataSource("PostgreSQL", "16.4", 16, 4))
+        contextRunner(postgreSqlDataSource())
             .withPropertyValues("approval.database.expected-vendor=MYSQL")
             .run(context -> {
                 assertThat(context).hasFailed();
@@ -58,7 +69,13 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
 
     @Test
     void rejectsUnsupportedVendorWithoutAValidationBypass() {
-        contextRunner(dataSource("Unsupported", "1.0", 1, 0)).run(context -> {
+        contextRunner(dataSource(
+            "Unsupported",
+            "1.0",
+            1,
+            0,
+            new Object[]{"UTC", "read committed"}
+        )).run(context -> {
             assertThat(context).hasFailed();
             assertThat(context.getStartupFailure())
                 .hasRootCauseInstanceOf(
@@ -73,11 +90,42 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
             .withBean(DataSource.class, () -> dataSource);
     }
 
+    private static DataSource postgreSqlDataSource() {
+        return dataSource(
+            "PostgreSQL",
+            "16.4",
+            16,
+            4,
+            new Object[]{"UTC", "read committed"}
+        );
+    }
+
+    private static DataSource mySqlDataSource() {
+        return dataSource(
+            "MySQL",
+            "8.4.2",
+            8,
+            4,
+            new Object[]{
+                "utf8mb4",
+                "utf8mb4_0900_as_cs",
+                "utf8mb4",
+                "utf8mb4_0900_as_cs",
+                "+00:00",
+                "STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+                "InnoDB",
+                "READ-COMMITTED",
+                true
+            }
+        );
+    }
+
     private static DataSource dataSource(
         String productName,
         String productVersion,
         int majorVersion,
-        int minorVersion
+        int minorVersion,
+        Object[] runtimeRow
     ) {
         DatabaseMetaData metadata = proxy(
             DatabaseMetaData.class,
@@ -89,10 +137,20 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
                 default -> defaultValue(method.getReturnType());
             }
         );
+        ResultSet resultSet = resultSet(runtimeRow);
+        Statement statement = proxy(
+            Statement.class,
+            (ignored, method, arguments) -> switch (method.getName()) {
+                case "executeQuery" -> resultSet;
+                case "close" -> null;
+                default -> defaultValue(method.getReturnType());
+            }
+        );
         Connection connection = proxy(
             Connection.class,
             (ignored, method, arguments) -> switch (method.getName()) {
                 case "getMetaData" -> metadata;
+                case "createStatement" -> statement;
                 case "close" -> null;
                 case "isClosed" -> false;
                 default -> defaultValue(method.getReturnType());
@@ -102,6 +160,22 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
             DataSource.class,
             (ignored, method, arguments) -> switch (method.getName()) {
                 case "getConnection" -> connection;
+                default -> defaultValue(method.getReturnType());
+            }
+        );
+    }
+
+    private static ResultSet resultSet(Object[] values) {
+        int[] cursor = {-1};
+        return proxy(
+            ResultSet.class,
+            (ignored, method, arguments) -> switch (method.getName()) {
+                case "next" -> ++cursor[0] == 0;
+                case "getString" -> String.valueOf(
+                    values[((Integer) arguments[0]) - 1]
+                );
+                case "getBoolean" -> values[((Integer) arguments[0]) - 1];
+                case "close" -> null;
                 default -> defaultValue(method.getReturnType());
             }
         );

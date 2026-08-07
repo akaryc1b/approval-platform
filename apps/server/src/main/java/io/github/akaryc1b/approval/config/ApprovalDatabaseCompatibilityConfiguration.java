@@ -1,5 +1,6 @@
 package io.github.akaryc1b.approval.config;
 
+import io.github.akaryc1b.approval.persistence.jdbc.ApprovalDatabaseRuntimeBaselineValidator;
 import io.github.akaryc1b.approval.persistence.jdbc.ApprovalDatabaseVendorResolver;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -23,5 +24,20 @@ public class ApprovalDatabaseCompatibilityConfiguration {
         ApprovalDatabaseVendorResolver resolver
     ) {
         return resolver.resolve(dataSource, properties.getExpectedVendor());
+    }
+
+    @Bean
+    ApprovalDatabaseRuntimeBaselineValidator approvalDatabaseRuntimeBaselineValidator() {
+        return new ApprovalDatabaseRuntimeBaselineValidator();
+    }
+
+    @Bean
+    ApprovalDatabaseRuntimeBaselineValidator.DatabaseRuntimeBaseline
+        approvalDatabaseRuntimeBaseline(
+            DataSource dataSource,
+            ApprovalDatabaseVendorResolver.DatabaseIdentity identity,
+            ApprovalDatabaseRuntimeBaselineValidator validator
+        ) {
+        return validator.validate(dataSource, identity);
     }
 }

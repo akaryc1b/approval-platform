@@ -24,11 +24,13 @@ class ApprovalDatabaseVendorMySqlIntegrationTest {
             "--default-time-zone=+00:00",
             "--character-set-server=utf8mb4",
             "--collation-server=utf8mb4_0900_as_cs",
+            "--transaction-isolation=READ-COMMITTED",
+            "--innodb-strict-mode=ON",
             "--sql-mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
         );
 
     @Test
-    void resolvesRealMySql84FromJdbcMetadata() {
+    void resolvesAndValidatesRealMySql84ProductionBaseline() {
         var dataSource = new DriverManagerDataSource(
             MYSQL.getJdbcUrl(),
             MYSQL.getUsername(),
@@ -39,15 +41,21 @@ class ApprovalDatabaseVendorMySqlIntegrationTest {
             dataSource,
             ApprovalDatabaseVendor.MYSQL
         );
+        var baseline = new ApprovalDatabaseRuntimeBaselineValidator().validate(
+            dataSource,
+            identity
+        );
 
         assertEquals(ApprovalDatabaseVendor.MYSQL, identity.vendor());
         assertEquals(8, identity.majorVersion());
         assertEquals(4, identity.minorVersion());
         assertTrue(identity.productVersion().startsWith("8.4."));
+        assertEquals(ApprovalDatabaseVendor.MYSQL, baseline.vendor());
+        assertEquals("READ-COMMITTED", baseline.settings().get("transactionIsolation"));
     }
 
     @Test
-    void enforcesProductionCharacterTimeAndStrictModeBaseline() throws Exception {
+    void exposesExactCharacterTimeIsolationAndStrictModeSettings() throws Exception {
         try (var connection = DriverManager.getConnection(
             MYSQL.getJdbcUrl(),
             MYSQL.getUsername(),
@@ -56,17 +64,27 @@ class ApprovalDatabaseVendorMySqlIntegrationTest {
             select
                 @@character_set_server,
                 @@collation_server,
+                @@character_set_connection,
+                @@collation_connection,
                 @@session.time_zone,
-                @@session.sql_mode
+                @@session.sql_mode,
+                @@default_storage_engine,
+                @@session.transaction_isolation,
+                @@innodb_strict_mode
             """)) {
             assertTrue(result.next());
             assertEquals("utf8mb4", result.getString(1));
             assertEquals("utf8mb4_0900_as_cs", result.getString(2));
-            assertEquals("+00:00", result.getString(3));
-            String sqlMode = result.getString(4).toUpperCase(Locale.ROOT);
+            assertEquals("utf8mb4", result.getString(3));
+            assertEquals("utf8mb4_0900_as_cs", result.getString(4));
+            assertEquals("+00:00", result.getString(5));
+            String sqlMode = result.getString(6).toUpperCase(Locale.ROOT);
             assertTrue(sqlMode.contains("STRICT_TRANS_TABLES"));
             assertTrue(sqlMode.contains("ERROR_FOR_DIVISION_BY_ZERO"));
             assertTrue(sqlMode.contains("NO_ENGINE_SUBSTITUTION"));
+            assertEquals("InnoDB", result.getString(7));
+            assertEquals("READ-COMMITTED", result.getString(8));
+            assertTrue(result.getBoolean(9));
         }
     }
 }
