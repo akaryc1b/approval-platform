@@ -1,6 +1,6 @@
 # MySQL 8.4 P3-C Audit Hash-Chain Contract
 
-Status: `P3_C_STAGED / REMOTE_VALIDATION_PENDING / MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED`
+Status: `P3_C_CORRECTION_STAGED / REMOTE_VALIDATION_PENDING / MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED`
 
 Decision date: `2026-08-07`
 
@@ -12,7 +12,14 @@ Tracking:
 - non-triggering assembly branch: `agent/mysql-8-4-p3-c-audit-staging`;
 - current accepted `main`: `1747b22123fd71cccd8334853ad7060c6645b443`;
 - accepted P3-B Head before this slice: `646a996f546cc0d0907bc3ab95c6833b4747e6bd`;
-- accepted P3-B natural PR Run: `31173925936` / `#1360`.
+- accepted P3-B natural PR Run: `31173925936` / `#1360`;
+- first P3-C Head: `38b6f96e84f55e529a5c479f6250f84ea85f182c`;
+- retained failed natural PR Run: `31176470167` / `#1361`;
+- exact failed Job: Persistence JDBC shard 3, `92859451597`;
+- failure classification: `PRODUCT_BUG / MYSQL_DUPLICATE_INSERT_LOCK_UPGRADE_DEADLOCK`;
+- failed Maven Artifact: `8993081858`, `958084` bytes, SHA-256
+  `f88db97a4f79ad1722517d201a6a96270d3eac81a9c8e01bea32846a460224a1`;
+- same-Head rerun count: `0`.
 
 ## 1. Scope
 
@@ -94,27 +101,53 @@ fails acceptance.
 MySQL uses the existing V50 `ap_audit_event` and `ap_audit_chain_state` schema. No new migration is
 introduced.
 
-For every append:
+### 4.1 Retained first-run concurrency failure
 
-1. the tenant chain-state row is admitted by a plain `INSERT`;
-2. only a primary-key duplicate on that isolated insert means the chain already exists;
-3. the chain-state row is locked with `FOR UPDATE`;
-4. the next tenant sequence is derived while holding that lock;
-5. occurred time is canonicalized to the accepted PostgreSQL nearest-microsecond boundary;
-6. payload and current hashes are calculated by the verified V21 replica;
-7. the event is inserted once with native MySQL JSON attributes;
-8. chain state advances through an exact previous-sequence and previous-hash CAS;
-9. event insert and state advance commit or roll back in one transaction.
-
-The implementation does not use:
+The first P3-C Run retained the original plain-`INSERT` admission design and exposed a real MySQL
+lock-order defect. Sixteen simultaneous first appends for one tenant could all reach the duplicate
+primary-key path. The failed duplicate statements retained shared record locks, after which multiple
+transactions attempted to upgrade to the exclusive `FOR UPDATE` lock. MySQL selected one as a
+deadlock victim:
 
 ```text
-INSERT IGNORE
-ON DUPLICATE KEY UPDATE
+JdbcAuditEventSinkMySqlIntegrationTest
+  .serializesConcurrentTenantAppendsWithoutGaps
+
+CannotAcquireLockException
+MySQL error 1213 / SQLState 40001
+Deadlock found when trying to get lock
 ```
 
-A duplicate event ID, malformed evidence, failed insert or failed chain-state CAS rolls back the
-whole append. No repair, retry or fail-open fallback is added.
+The failure is a Product Bug, not infrastructure instability. Run `#1361` was not rerun and the
+concurrency assertion was not weakened.
+
+### 4.2 Corrected single-transaction lock admission
+
+For every append:
+
+1. payload canonicalization and hashing complete before database mutation;
+2. the tenant chain-state row is admitted or exclusively locked by one bounded statement:
+
+   ```sql
+   INSERT ...
+   ON DUPLICATE KEY UPDATE tenant_id = tenant_id
+   ```
+
+3. `ap_audit_chain_state` has only the exact tenant primary key as a uniqueness authority;
+4. the duplicate clause performs only primary-key self-assignment and cannot change sequence, hash
+   or timestamp state;
+5. the chain-state row remains explicitly locked with `FOR UPDATE`;
+6. the next tenant sequence is derived while holding the exclusive lock;
+7. occurred time is canonicalized to the accepted PostgreSQL nearest-microsecond boundary;
+8. payload and current hashes are calculated by the verified V21 replica;
+9. the event is inserted once with native MySQL JSON attributes;
+10. chain state advances through an exact previous-sequence and previous-hash CAS;
+11. admission, event insert and state advance commit or roll back in one transaction.
+
+The implementation still does not use `INSERT IGNORE`, does not update a business or evidence row
+through the duplicate clause, and does not use duplicate-key update for event admission. A duplicate
+event ID, malformed evidence, failed insert or failed chain-state CAS rolls back the whole append,
+including a newly inserted zero-state row. No repair, retry or fail-open fallback is added.
 
 ## 5. Query and integrity semantics
 
@@ -160,16 +193,18 @@ select the audit implementation.
 3. text that PostgreSQL cannot represent is rejected before hashing;
 4. trusted metadata retains the accepted PostgreSQL implementation.
 
-`JdbcAuditEventSinkMySqlIntegrationTest` adds eight real-MySQL scenarios:
+`JdbcAuditEventSinkMySqlIntegrationTest` adds ten real-MySQL scenarios:
 
 5. tenant-isolated append, exact hash storage, canonical readback and valid verification;
-6. concurrent same-tenant appends serialize without sequence gaps;
-7. payload tampering is detected without repair;
-8. non-string stored attributes are rejected rather than coerced into trusted evidence;
-9. chain-state tampering is detected without repair;
-10. duplicate event failure rolls back without advancing chain state;
-11. queries remain tenant-bound, filtered and paginated;
-12. trusted metadata selects the MySQL implementation.
+6. concurrent same-tenant first appends serialize without deadlock or sequence gaps;
+7. chain-state admission contains only the bounded primary-key self-assignment;
+8. a failed first append rolls back zero-state admission and consumes no sequence;
+9. payload tampering is detected without repair;
+10. non-string stored attributes are rejected rather than coerced into trusted evidence;
+11. chain-state tampering is detected without repair;
+12. duplicate event failure rolls back without advancing chain state;
+13. queries remain tenant-bound, filtered and paginated;
+14. trusted metadata selects the MySQL implementation.
 
 The MySQL container must use:
 
@@ -198,8 +233,9 @@ The following remain fail closed:
 - invalid persisted hash shape;
 - any payload, predecessor, current-hash or chain-state mismatch.
 
-P3-C adds no automatic retry and no automatic evidence repair. Deadlock, connection loss, commit
-ambiguity and unknown-result behavior require later fault acceptance.
+P3-C adds no automatic retry and no automatic evidence repair. The corrected admission removes
+the known duplicate-insert lock-upgrade cycle rather than retrying a deadlock. Other deadlocks,
+connection loss, commit ambiguity and unknown-result behavior require later fault acceptance.
 
 ## 9. Explicit non-claims
 
@@ -225,9 +261,10 @@ The slice may be recorded as implemented only after one unchanged formal branch 
 natural `pull_request` Workflow with:
 
 - all nine physical Jobs successful;
-- all twelve P3-C integration scenarios successful;
+- all fourteen P3-C integration scenarios successful;
 - exact PostgreSQL V21 payload and chain hash equality;
-- real MySQL concurrent append, tamper detection, rollback and query acceptance;
+- real MySQL concurrent first-append admission without deadlock or sequence gaps;
+- failed-first-append rollback, tamper detection and query acceptance;
 - exact persistence test selection and report coverage;
 - four independently downloaded Artifacts whose local bytes and SHA-256 match GitHub;
 - no actionable Review or security finding.
