@@ -19,15 +19,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-/**
- * Stores the completed command result in the same transaction as the command side effects.
- */
+/** Stores the completed command result in the same transaction as its side effects. */
 public final class JdbcIdempotencyGuard implements IdempotencyGuard {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
+    private final JdbcIdempotencyDialect dialect;
 
     public JdbcIdempotencyGuard(
         DataSource dataSource,
@@ -35,9 +34,12 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
         PlatformTransactionManager transactionManager,
         Clock clock
     ) {
-        this.jdbc = new NamedParameterJdbcTemplate(
-            Objects.requireNonNull(dataSource, "dataSource must not be null")
+        DataSource source = Objects.requireNonNull(
+            dataSource,
+            "dataSource must not be null"
         );
+        this.dialect = JdbcIdempotencyDialect.resolve(source);
+        this.jdbc = new NamedParameterJdbcTemplate(source);
         ObjectMapper copy = Objects.requireNonNull(
             objectMapper,
             "objectMapper must not be null"
@@ -82,44 +84,33 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
         Class<T> resultType,
         Supplier<T> action
     ) {
-        Instant now = clock.instant();
-        int inserted = jdbc.update(
-            """
-            insert into ap_command_idempotency (
-                tenant_id, operation, idempotency_key, request_hash,
-                request_id, trace_id, status, created_at
-            ) values (
-                :tenantId, :operation, :idempotencyKey, :requestHash,
-                :requestId, :traceId, 'IN_PROGRESS', :createdAt
-            )
-            on conflict (tenant_id, operation, idempotency_key) do nothing
-            """,
-            new MapSqlParameterSource()
-                .addValue("tenantId", context.tenantId())
-                .addValue("operation", operation)
-                .addValue("idempotencyKey", context.idempotencyKey())
-                .addValue("requestHash", requestHash)
-                .addValue("requestId", context.requestId())
-                .addValue("traceId", context.traceId())
-                .addValue("createdAt", offset(now))
-        );
+        MapSqlParameterSource admission = new MapSqlParameterSource()
+            .addValue("tenantId", context.tenantId())
+            .addValue("operation", operation)
+            .addValue("idempotencyKey", context.idempotencyKey())
+            .addValue("requestHash", requestHash)
+            .addValue("requestId", context.requestId())
+            .addValue("traceId", context.traceId())
+            .addValue("createdAt", offset(clock.instant()));
+        int inserted;
+        try {
+            inserted = jdbc.update(dialect.admissionSql(), admission);
+        } catch (RuntimeException exception) {
+            if (!dialect.isExpectedDuplicateAdmission(exception)) {
+                throw exception;
+            }
+            inserted = 0;
+        }
         if (inserted == 0) {
             return replay(context, operation, requestHash, resultType);
+        }
+        if (inserted != 1) {
+            throw new IllegalStateException("unexpected idempotency admission row count");
         }
 
         T result = Objects.requireNonNull(action.get(), "command action returned null");
         int completed = jdbc.update(
-            """
-            update ap_command_idempotency
-            set result_type = :resultType,
-                result_json = cast(:resultJson as jsonb),
-                status = 'COMPLETED',
-                completed_at = :completedAt
-            where tenant_id = :tenantId
-              and operation = :operation
-              and idempotency_key = :idempotencyKey
-              and status = 'IN_PROGRESS'
-            """,
+            dialect.completionSql(),
             new MapSqlParameterSource()
                 .addValue("tenantId", context.tenantId())
                 .addValue("operation", operation)
@@ -141,14 +132,7 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
         Class<T> resultType
     ) {
         Map<String, Object> row = jdbc.queryForMap(
-            """
-            select request_hash, result_type, result_json::text as result_json, status
-            from ap_command_idempotency
-            where tenant_id = :tenantId
-              and operation = :operation
-              and idempotency_key = :idempotencyKey
-            for update
-            """,
+            dialect.replaySql(),
             new MapSqlParameterSource()
                 .addValue("tenantId", context.tenantId())
                 .addValue("operation", operation)
