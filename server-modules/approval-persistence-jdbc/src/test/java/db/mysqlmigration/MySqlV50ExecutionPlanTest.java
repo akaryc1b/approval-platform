@@ -3,26 +3,21 @@ package db.mysqlmigration;
 import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MySqlV50ExecutionPlanTest {
 
     @Test
-    void skipsOnlyAnIdenticalActiveIdempotentIndexDeclaration() {
+    void skipsOnlyTheGovernedExactActiveIdempotentDuplicate() {
         var plan = new MySqlV50ExecutionPlan();
-        String source = """
-            create unique index if not exists uk_task
-            on ap_task (tenant_id, task_id)
-            """;
-        String executable = """
-            create unique index uk_task
-            on ap_task (tenant_id, task_id)
+        String definition = """
+            create unique index uk_approval_task_tenant_task
+            on ap_approval_task (tenant_id, task_id)
             """;
 
-        assertTrue(plan.prepare(source, executable).isPresent());
-        assertTrue(plan.prepare(source, executable).isEmpty());
+        assertTrue(plan.prepare(definition, definition).isPresent());
+        assertTrue(plan.prepare(definition, definition).isEmpty());
     }
 
     @Test
@@ -39,17 +34,22 @@ class MySqlV50ExecutionPlanTest {
     }
 
     @Test
-    void rejectsConflictingOrNonIdempotentActiveDuplicates() {
+    void rejectsUnlistedOrChangedActiveDuplicates() {
         var plan = new MySqlV50ExecutionPlan();
-        String first = "create index idx_task on ap_task (tenant_id, task_id)";
-        String changed = "create index idx_task on ap_task (tenant_id, status)";
+        String ordinary = "create index idx_task on ap_task (tenant_id, task_id)";
 
-        assertTrue(plan.prepare(first, first).isPresent());
-        assertThrows(FlywayException.class, () -> plan.prepare(first, first));
-        assertThrows(FlywayException.class, () -> plan.prepare(
-            "create index if not exists idx_task on ap_task (tenant_id, status)",
-            changed
-        ));
-        assertFalse(changed.isBlank());
+        assertTrue(plan.prepare(ordinary, ordinary).isPresent());
+        assertThrows(FlywayException.class, () -> plan.prepare(ordinary, ordinary));
+
+        var governedPlan = new MySqlV50ExecutionPlan();
+        String governed = "create unique index uk_approval_task_tenant_task "
+            + "on ap_approval_task (tenant_id, task_id)";
+        String changed = "create unique index uk_approval_task_tenant_task "
+            + "on ap_approval_task (tenant_id, task_id, status)";
+        assertTrue(governedPlan.prepare(governed, governed).isPresent());
+        assertThrows(
+            FlywayException.class,
+            () -> governedPlan.prepare(changed, changed)
+        );
     }
 }

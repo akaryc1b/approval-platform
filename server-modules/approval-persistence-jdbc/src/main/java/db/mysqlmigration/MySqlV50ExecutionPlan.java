@@ -20,9 +20,12 @@ final class MySqlV50ExecutionPlan {
         "^\\s*drop\\s+index\\s+([a-zA-Z0-9_]+)\\s+on\\s+",
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL
     );
-    private static final Pattern IDEMPOTENT_INDEX = Pattern.compile(
-        "^\\s*create\\s+(?:unique\\s+)?index\\s+if\\s+not\\s+exists\\s+",
-        Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    private static final Map<String, String> GOVERNED_IDEMPOTENT_DUPLICATES = Map.of(
+        "uk_approval_task_tenant_task",
+        canonical(
+            "create unique index uk_approval_task_tenant_task "
+                + "on ap_approval_task (tenant_id, task_id)"
+        )
     );
 
     private final Map<String, String> activeIndexDefinitions = new LinkedHashMap<>();
@@ -45,7 +48,8 @@ final class MySqlV50ExecutionPlan {
         if (previous == null) {
             return Optional.of(executable);
         }
-        if (previous.equals(definition) && IDEMPOTENT_INDEX.matcher(source).find()) {
+        if (previous.equals(definition)
+            && definition.equals(GOVERNED_IDEMPOTENT_DUPLICATES.get(indexName))) {
             return Optional.empty();
         }
         throw new FlywayException(

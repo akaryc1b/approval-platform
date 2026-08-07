@@ -15,7 +15,7 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     private static final MigrationVersion VERSION = MigrationVersion.fromVersion("50");
     private static final String DESCRIPTION = "Baseline approval platform";
-    private static final int BASELINE_CHECKSUM = -392744557;
+    private static final int BASELINE_CHECKSUM = -392744558;
 
     @Override
     public MigrationVersion getVersion() {
