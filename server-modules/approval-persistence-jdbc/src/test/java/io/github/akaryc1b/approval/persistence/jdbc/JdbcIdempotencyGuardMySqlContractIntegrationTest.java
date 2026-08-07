@@ -259,9 +259,131 @@ class JdbcIdempotencyGuardMySqlContractIntegrationTest {
             }
         );
 
+        Map<String, Object> stored = jdbc.queryForMap("""
+            select
+                json_unquote(json_extract(result_json, '$.encoding')) as encoding,
+                json_unquote(json_extract(result_json, '$.payload')) as payload
+            from ap_command_idempotency
+            where tenant_id = ?
+              and operation = ?
+              and idempotency_key = ?
+            """,
+            "tenant-a",
+            "approval.complete",
+            "json-round-trip-key"
+        );
         assertEquals(expected, first);
         assertEquals(expected, replay);
+        assertEquals("CANONICAL_JSON_TEXT_V1", stored.get("encoding"));
+        assertTrue(((String) stored.get("payload")).contains(
+            "\"amount\":123456789012.123456"
+        ));
         assertEquals(1, actions.get());
+        assertEquals(1, rowCount());
+    }
+
+    @Test
+    void rejectsAnUnversionedNativeJsonResultWithoutInvokingTheAction() {
+        JdbcIdempotencyGuard guard = guard();
+        AtomicInteger replayActions = new AtomicInteger();
+        RequestContext context = context(
+            "tenant-a",
+            "unversioned-result-key",
+            "request-unversioned",
+            "trace-unversioned"
+        );
+        guard.execute(
+            context,
+            "approval.complete",
+            REQUEST_HASH,
+            CommandResult.class,
+            () -> new CommandResult("APPROVED", 6)
+        );
+        jdbc.update("""
+            update ap_command_idempotency
+            set result_json = cast(? as json)
+            where tenant_id = ?
+              and operation = ?
+              and idempotency_key = ?
+            """,
+            "{\"disposition\":\"APPROVED\",\"revision\":6}",
+            "tenant-a",
+            "approval.complete",
+            "unversioned-result-key"
+        );
+
+        IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> guard.execute(
+                context,
+                "approval.complete",
+                REQUEST_HASH,
+                CommandResult.class,
+                () -> {
+                    replayActions.incrementAndGet();
+                    return new CommandResult("MUST_NOT_RUN", -1);
+                }
+            )
+        );
+        assertEquals(
+            "idempotency result payload is missing or has an unsupported encoding",
+            failure.getMessage()
+        );
+        assertEquals(0, replayActions.get());
+        assertEquals(1, rowCount());
+    }
+
+    @Test
+    void rejectsAnUnknownResultEnvelopeVersionWithoutInvokingTheAction() {
+        JdbcIdempotencyGuard guard = guard();
+        AtomicInteger replayActions = new AtomicInteger();
+        RequestContext context = context(
+            "tenant-a",
+            "unknown-envelope-key",
+            "request-unknown-envelope",
+            "trace-unknown-envelope"
+        );
+        guard.execute(
+            context,
+            "approval.complete",
+            REQUEST_HASH,
+            CommandResult.class,
+            () -> new CommandResult("APPROVED", 7)
+        );
+        jdbc.update("""
+            update ap_command_idempotency
+            set result_json = json_object(
+                'encoding', 'CANONICAL_JSON_TEXT_V2',
+                'payload', ?
+            )
+            where tenant_id = ?
+              and operation = ?
+              and idempotency_key = ?
+            """,
+            "{\"disposition\":\"APPROVED\",\"revision\":7}",
+            "tenant-a",
+            "approval.complete",
+            "unknown-envelope-key"
+        );
+
+        IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> guard.execute(
+                context,
+                "approval.complete",
+                REQUEST_HASH,
+                CommandResult.class,
+                () -> {
+                    replayActions.incrementAndGet();
+                    return new CommandResult("MUST_NOT_RUN", -1);
+                }
+            )
+        );
+        assertEquals(
+            "idempotency result payload is missing or has an unsupported encoding",
+            failure.getMessage()
+        );
+        assertEquals(0, replayActions.get());
         assertEquals(1, rowCount());
     }
 
