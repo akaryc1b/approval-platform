@@ -245,16 +245,27 @@ class JdbcIdempotencyGuardMySqlIntegrationTest {
     }
 
     @Test
-    void mysqlDialectDoesNotUseBroadInsertIgnoreSemantics() {
+    void mysqlDialectUsesNarrowAdmissionAndCanonicalResultEnvelope() {
         String admission = JdbcIdempotencyDialect.MYSQL.admissionSql().toLowerCase();
+        String completion = JdbcIdempotencyDialect.MYSQL.completionSql();
+        String replay = JdbcIdempotencyDialect.MYSQL.replaySql();
 
         assertFalse(admission.contains("insert ignore"));
         assertFalse(admission.contains("on duplicate key update"));
-        assertTrue(JdbcIdempotencyDialect.MYSQL.completionSql().contains(
-            "cast(:resultJson as json)"
+        assertFalse(completion.contains("cast(:resultJson as json)"));
+        assertTrue(completion.contains("json_object("));
+        assertTrue(completion.contains("'encoding', 'CANONICAL_JSON_TEXT_V1'"));
+        assertTrue(completion.contains("'payload', :resultJson"));
+        assertTrue(replay.contains("json_type(result_json) = 'OBJECT'"));
+        assertTrue(replay.contains("= 'CANONICAL_JSON_TEXT_V1'"));
+        assertTrue(replay.contains(
+            "json_unquote(json_extract(result_json, '$.payload'))"
         ));
         assertTrue(JdbcIdempotencyDialect.POSTGRESQL.admissionSql().contains(
             "on conflict"
+        ));
+        assertTrue(JdbcIdempotencyDialect.POSTGRESQL.completionSql().contains(
+            "cast(:resultJson as jsonb)"
         ));
     }
 
