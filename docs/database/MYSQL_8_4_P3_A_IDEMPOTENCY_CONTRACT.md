@@ -1,6 +1,6 @@
 # MySQL 8.4 P3-A Command Idempotency Contract
 
-Status: `P3_A_STAGED / REMOTE_VALIDATION_PENDING / MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED`
+Status: `P3_A_CORRECTION_STAGED / REMOTE_VALIDATION_PENDING / MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED`
 
 Decision date: `2026-08-07`
 
@@ -11,11 +11,16 @@ Tracking:
 - implementation branch: `agent/mysql-8-4-production-compatibility`;
 - non-triggering assembly branch: `agent/mysql-8-4-p2-staging`;
 - original source `main`: `0cf6572770953a46fe5b16d15ecdff78cf607855`;
-- current `main` to incorporate by ordinary Merge Commit in this batch:
+- accepted current `main` incorporated by ordinary Merge Commit:
   `1747b22123fd71cccd8334853ad7060c6645b443`;
-- last successful implementation Head before this slice:
-  `5c615c03706f1d56af55b24bf423d798790f097d`;
-- last successful natural PR Run before this slice: `31165200283` / `#1354`.
+- last successful parallel P3 Head before this slice:
+  `a2d05106843e87c41a6550a1693449437c3b3bd0`;
+- last successful natural PR Run before this slice: `31168524624` / `#1355`;
+- first P3-A assembled Head: `c8b999cb582a4313175383bd7011d90012b154fe`;
+- retained failed natural PR Run: `31169444506` / `#1356`;
+- exact failed Job: Persistence JDBC shard 3, `92837681077`;
+- failure classification: `PRODUCT_BUG / MYSQL_JSON_NUMERIC_PRECISION`;
+- same-Head rerun count: `0`.
 
 ## 1. Scope
 
@@ -54,9 +59,9 @@ application IdempotencyGuard port
         v
 JdbcIdempotencyGuard transaction coordinator
         |
-        +-- PostgreSQL admission / JSON / replay SQL
+        +-- PostgreSQL admission / JSONB / replay SQL
         |
-        +-- MySQL admission / JSON / replay SQL
+        +-- MySQL admission / canonical-text envelope / replay SQL
 ```
 
 P3-A introduces no database-vendor branch into an application service.
@@ -83,14 +88,16 @@ Required behavior:
 7. action failure rolls back admission so a later caller can make a new first attempt;
 8. replay never rewrites the original `request_id` or `trace_id` evidence;
 9. tenant, operation and case-sensitive key scopes remain independent;
-10. concurrent duplicates execute at most one accepted action.
+10. concurrent duplicates execute at most one accepted action;
+11. database storage cannot change a completed result's exact JSON scalar values.
 
 ## 4. MySQL SQL decision
 
-PostgreSQL retains its accepted no-op admission:
+PostgreSQL retains its accepted no-op admission and JSONB result representation:
 
 ```text
 INSERT ... ON CONFLICT (...) DO NOTHING
+result_json = CAST(:resultJson AS jsonb)
 ```
 
 MySQL uses a plain `INSERT`. A primary-key duplicate is interpreted as a replay candidate only after
@@ -105,9 +112,51 @@ ON DUPLICATE KEY UPDATE
 Those broad forms could suppress non-duplicate errors or perform mutation where PostgreSQL performs
 no-op admission. Unexpected SQL failures remain failures.
 
-MySQL completed results use native `JSON`; replay converts the JSON value to `utf8mb4` text before
-the same configured Jackson contract decodes it. The connection remains pinned to UTC and
-`utf8mb4_0900_as_cs`.
+### 4.1 Retained precision failure
+
+The first P3-A Run proved that storing the command result directly as a MySQL native JSON object was
+not semantically equivalent for exact decimal values:
+
+```text
+expected: 123456789012.123456
+actual:   123456789012.12344
+```
+
+The failing test was:
+
+```text
+JdbcIdempotencyGuardMySqlContractIntegrationTest
+  .roundTripsUnicodeAndExactNumericJsonWithoutRepeatingTheAction
+```
+
+MySQL's binary JSON numeric representation had already changed the decimal before replay. This is a
+product implementation defect, not a test-formatting issue. The exact assertion remains unchanged.
+The failed Run and multipart Artifact remain retained and were not rerun.
+
+### 4.2 Versioned canonical JSON text envelope
+
+MySQL still uses its native `JSON` column, but the completed result is now stored as a versioned
+envelope whose payload is the exact Jackson-produced JSON text:
+
+```json
+{
+  "encoding": "CANONICAL_JSON_TEXT_V1",
+  "payload": "<exact serialized command result JSON>"
+}
+```
+
+The database parses only the envelope. It does not parse the payload's decimal, integer, Unicode or
+other scalar values. Replay accepts only:
+
+- a JSON object;
+- exact encoding `CANONICAL_JSON_TEXT_V1`;
+- a JSON string payload.
+
+It then applies `JSON_UNQUOTE(JSON_EXTRACT(...))` to recover the original text for the same configured
+Jackson contract. A missing, malformed or differently versioned envelope fails closed instead of
+silently accepting a lossy native-JSON value.
+
+The connection remains pinned to UTC and `utf8mb4_0900_as_cs`.
 
 ## 5. Permanent real-MySQL acceptance matrix
 
@@ -118,7 +167,7 @@ the same configured Jackson contract decodes it. The connection remains pinned t
 3. action failure rolls back admission and permits a later first attempt;
 4. concurrent exact duplicates serialize and invoke one action;
 5. tenant and case-sensitive key scopes remain independent;
-6. MySQL SQL contains no broad `INSERT IGNORE` or `ON DUPLICATE KEY UPDATE` behavior.
+6. MySQL uses narrow admission and the exact versioned canonical-result envelope.
 
 `JdbcIdempotencyGuardMySqlContractIntegrationTest` adds five scenarios:
 
@@ -167,7 +216,8 @@ The following remain fail closed:
 - replay of an `IN_PROGRESS` record;
 - request-hash mismatch;
 - result-type mismatch;
-- malformed or incompatible persisted JSON;
+- missing or differently versioned canonical-result envelope;
+- malformed or incompatible persisted JSON text;
 - SQL failure other than the exact MySQL duplicate-admission classification.
 
 P3-A adds no automatic retry. Deadlock, connection loss, commit ambiguity and unknown-result handling
@@ -184,23 +234,30 @@ P3-A does not prove:
 - task-claim and bounded-worker locking;
 - advisory-lock replacement;
 - complete JSON canonicalization for every evidence store;
-- UUID/BLOB/query-plan equivalence;
+- complete UUID, BLOB and query-plan equivalence across the repository;
 - audit, Inbox/Outbox, lease, release, M5, AI or controlled-automation persistence;
 - Flowable or executable-server compatibility;
 - dual-vendor permanent CI selections;
 - backup, restore, rollback, fault, security, concurrency or performance formal acceptance.
 
+The parallel UUID, UTC timestamp and attachment BLOB primitive at the same Draft PR remains an
+independent bounded P3 input and does not turn any of these non-claims into full support.
+
 PR `#92` must remain Draft after this slice. Issues `#91`, `#82` and `#62` must remain Open. No
 Ready transition, merge, production-support claim, deployment or Production Promotion is authorized.
 
-## 9. Acceptance rule
+## 9. Correction and acceptance rule
 
-The slice may be recorded as implemented only after one unchanged branch Head completes a natural
-`pull_request` Workflow with:
+The failed Head `c8b999cb582a4313175383bd7011d90012b154fe` must remain visible. It must not be
+rerun or replaced by an empty commit. The correction must be carried by new commits and one new
+natural `pull_request` Run.
+
+The slice may be recorded as implemented only after one unchanged correction Head completes with:
 
 - all nine physical Jobs successful;
 - both MySQL idempotency integration classes successful;
 - eleven MySQL idempotency scenarios successful;
+- the exact decimal value `123456789012.123456` replayed unchanged;
 - exact persistence selection/reports coverage;
 - four independently downloaded Artifacts whose local byte counts and SHA-256 values match GitHub;
 - no new actionable Review or security finding.
@@ -208,7 +265,7 @@ The slice may be recorded as implemented only after one unchanged branch Head co
 Until then:
 
 ```text
-MYSQL_P3_A_IDEMPOTENCY_VALIDATION_PENDING
+MYSQL_P3_A_IDEMPOTENCY_CORRECTION_PENDING
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 ```
 
