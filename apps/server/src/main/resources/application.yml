@@ -17,7 +17,6 @@ flowable:
 
 approval:
   database:
-    validation-enabled: ${APPROVAL_DATABASE_VALIDATION_ENABLED:true}
     expected-vendor: ${APPROVAL_DATABASE_VENDOR:POSTGRESQL}
   security:
     identity:
