@@ -1,6 +1,6 @@
 # MySQL 8.4 P3-A Command Idempotency Contract
 
-Status: `P3_A_CORRECTION_STAGED / REMOTE_VALIDATION_PENDING / MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED`
+Status: `P3_A_SECOND_CORRECTION_STAGED / REMOTE_VALIDATION_PENDING / MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED`
 
 Decision date: `2026-08-07`
 
@@ -18,8 +18,11 @@ Tracking:
 - last successful natural PR Run before this slice: `31168524624` / `#1355`;
 - first P3-A assembled Head: `c8b999cb582a4313175383bd7011d90012b154fe`;
 - retained failed natural PR Run: `31169444506` / `#1356`;
-- exact failed Job: Persistence JDBC shard 3, `92837681077`;
-- failure classification: `PRODUCT_BUG / MYSQL_JSON_NUMERIC_PRECISION`;
+- first failure classification: `PRODUCT_BUG / MYSQL_JSON_NUMERIC_PRECISION`;
+- first failed Job: Persistence JDBC shard 3, `92837681077`;
+- first correction Head: `c75716bc5fe9c1853f24e96977195ea9c8a03886`;
+- retained failed natural PR Run: `31170245564` / `#1357`;
+- second failure classification: `WORKFLOW_FORMATTING / CHECKSTYLE_NEWLINE_AT_EOF`;
 - same-Head rerun count: `0`.
 
 ## 1. Scope
@@ -113,7 +116,7 @@ ON DUPLICATE KEY UPDATE
 Those broad forms could suppress non-duplicate errors or perform mutation where PostgreSQL performs
 no-op admission. Unexpected SQL failures remain failures.
 
-### 4.1 Retained precision failure
+### 4.1 Retained precision failure — Run #1356
 
 The first P3-A Run proved that storing the command result directly as a MySQL native JSON object was
 not semantically equivalent for exact decimal values:
@@ -132,7 +135,7 @@ JdbcIdempotencyGuardMySqlContractIntegrationTest
 
 MySQL's binary JSON numeric representation had already changed the decimal before replay. This is a
 product implementation defect, not a test-formatting issue. The exact assertion remains unchanged.
-The failed Run and multipart Artifact remain retained and were not rerun.
+The failed Run and its Maven Artifact remain retained and were not rerun.
 
 ### 4.2 Versioned canonical JSON text envelope
 
@@ -159,12 +162,47 @@ the coordinator raises a stable `IllegalStateException` before deserialization o
 
 The connection remains pinned to UTC and `utf8mb4_0900_as_cs`.
 
+### 4.3 Retained formatting failure — Run #1357
+
+The first product correction was assembled at exact Head:
+
+```text
+c75716bc5fe9c1853f24e96977195ea9c8a03886
+```
+
+Natural Run `31170245564` / `#1357` did not reach the MySQL tests. GitHub Contents writes had left
+four Java files without the repository-required EOF newline:
+
+- `JdbcIdempotencyDialect.java`;
+- `JdbcIdempotencyGuard.java`;
+- `JdbcIdempotencyGuardMySqlContractIntegrationTest.java`;
+- `JdbcIdempotencyGuardMySqlIntegrationTest.java`.
+
+Checkstyle rejected the same four files in Maven Core and all four Persistence JDBC shards. The
+Maven aggregate failed downstream because required evidence parts were failed. Exact physical Jobs:
+
+| Job | ID | Result |
+| --- | ---: | --- |
+| Vben TypeScript / production build | `92840237806` | success |
+| Java 21 / Maven core | `92840237849` | failure |
+| Persistence JDBC / shard 2 | `92840237865` | failure |
+| Persistence JDBC / shard 3 | `92840237868` | failure |
+| Repository hygiene | `92840237892` | success |
+| Persistence JDBC / shard 0 | `92840237896` | failure |
+| Persistence JDBC / shard 1 | `92840237897` | failure |
+| UniApp TypeScript / H5 / WeChat | `92840237914` | success |
+| Java 21 / Maven / PostgreSQL | `92840677386` | failure |
+
+This is a formatting/workflow correction, not a product-semantic failure. No assertion was removed,
+no test was skipped, no permission was widened, and the same Head was not rerun. The four EOF
+newlines are restored in four independent staging commits before one new natural PR Run.
+
 ## 5. Permanent real-MySQL acceptance matrix
 
 `JdbcIdempotencyGuardMySqlIntegrationTest` retains six scenarios:
 
 1. exact completed replay invokes the action once;
-2. same key with a different payload hash conflicts;
+2. same key with a different request hash conflicts;
 3. action failure rolls back admission and permits a later first attempt;
 4. concurrent exact duplicates serialize and invoke one action;
 5. tenant and case-sensitive key scopes remain independent;
@@ -250,13 +288,20 @@ independent bounded P3 input and does not turn any of these non-claims into full
 PR `#92` must remain Draft after this slice. Issues `#91`, `#82` and `#62` must remain Open. No
 Ready transition, merge, production-support claim, deployment or Production Promotion is authorized.
 
-## 9. Correction and acceptance rule
+## 9. Second correction and acceptance rule
 
-The failed Head `c8b999cb582a4313175383bd7011d90012b154fe` must remain visible. It must not be
-rerun or replaced by an empty commit. The correction must be carried by new commits and one new
-natural `pull_request` Run.
+Both failed Heads remain visible:
 
-The slice may be recorded as implemented only after one unchanged correction Head completes with:
+```text
+c8b999cb582a4313175383bd7011d90012b154fe  # numeric precision Product Bug
+c75716bc5fe9c1853f24e96977195ea9c8a03886  # Checkstyle EOF formatting failure
+```
+
+Neither failed Head may be rerun or replaced by an empty commit. The second correction must be
+carried by new commits and one new natural `pull_request` Run.
+
+The slice may be recorded as implemented only after one unchanged second-correction Head completes
+with:
 
 - all nine physical Jobs successful;
 - both MySQL idempotency integration classes successful;
@@ -270,7 +315,7 @@ The slice may be recorded as implemented only after one unchanged correction Hea
 Until then:
 
 ```text
-MYSQL_P3_A_IDEMPOTENCY_CORRECTION_PENDING
+MYSQL_P3_A_IDEMPOTENCY_SECOND_CORRECTION_PENDING
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 ```
 
