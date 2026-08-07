@@ -45,10 +45,15 @@ class DatabaseCompatibilityR0ManifestTest {
         assertEquals(50, byVersion.size(), "migration versions must cover V1 through V50");
         for (int version = 1; version <= 50; version++) {
             List<Path> versionFiles = byVersion.get(version);
-            assertFalse(versionFiles == null || versionFiles.isEmpty(),
-                () -> "missing migration V" + version);
-            assertEquals(1, versionFiles.size(),
-                () -> "duplicate migration version V" + version + ": " + versionFiles);
+            assertFalse(
+                versionFiles == null || versionFiles.isEmpty(),
+                "missing migration V" + version
+            );
+            assertEquals(
+                1,
+                versionFiles.size(),
+                "duplicate migration version V" + version + ": " + versionFiles
+            );
         }
 
         for (Map.Entry<Integer, List<Path>> entry : byVersion.entrySet()) {
