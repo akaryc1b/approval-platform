@@ -14,9 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatabaseCompatibilityR0BoundaryTest {
 
-    private static final Path ROOT = Path.of(
-        System.getProperty("maven.multiModuleProjectDirectory")
-    );
+    private static final Path ROOT = repositoryRoot();
     private static final Path COMPATIBILITY_RECORD = ROOT.resolve(
         "docs/database/MYSQL_8_4_PRODUCTION_COMPATIBILITY.md"
     );
@@ -64,8 +62,11 @@ class DatabaseCompatibilityR0BoundaryTest {
             );
         }
         assertTrue(baseConfiguration.contains("APPROVAL_DATABASE_VENDOR:POSTGRESQL"));
+        assertTrue(!baseConfiguration.contains("validation-enabled"));
         assertTrue(postgreSqlProfile.contains("expected-vendor: POSTGRESQL"));
+        assertTrue(!postgreSqlProfile.contains("validation-enabled"));
         assertTrue(mySqlProfile.contains("expected-vendor: MYSQL"));
+        assertTrue(!mySqlProfile.contains("validation-enabled"));
         assertTrue(mySqlProfile.contains("fail-on-missing-locations: true"));
         assertTrue(mySqlProfile.contains("classpath:db/migration/mysql"));
         assertTrue(
@@ -107,6 +108,7 @@ class DatabaseCompatibilityR0BoundaryTest {
                 for (Path path : paths
                     .filter(Files::isRegularFile)
                     .filter(DatabaseCompatibilityR0BoundaryTest::isTextSource)
+                    .filter(path -> !path.toString().contains("/target/"))
                     .toList()) {
                     String content = Files.readString(path).toLowerCase(Locale.ROOT);
                     for (String token : categories.keySet()) {
@@ -126,6 +128,25 @@ class DatabaseCompatibilityR0BoundaryTest {
                 );
             }
         });
+    }
+
+    private static Path repositoryRoot() {
+        String configured = System.getProperty("maven.multiModuleProjectDirectory");
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        Path current = Path.of(System.getProperty("user.dir"))
+            .toAbsolutePath()
+            .normalize();
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("pom.xml"))
+                && Files.isDirectory(current.resolve("apps/server"))
+                && Files.isDirectory(current.resolve("server-modules"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("repository root could not be resolved");
     }
 
     private static boolean isTextSource(Path path) {
