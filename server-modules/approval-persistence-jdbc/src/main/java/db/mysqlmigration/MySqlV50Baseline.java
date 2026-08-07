@@ -1,8 +1,9 @@
 package db.mysqlmigration;
 
 import org.flywaydb.core.api.FlywayException;
-import org.flywaydb.core.api.migration.BaseJavaMigration;
+import org.flywaydb.core.api.MigrationVersion;
 import org.flywaydb.core.api.migration.Context;
+import org.flywaydb.core.api.migration.JavaMigration;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -14,12 +15,31 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 
 /** MySQL 8.4 current-schema baseline. PostgreSQL V1-V50 remain immutable and separate. */
-public final class V50__Baseline_approval_platform extends BaseJavaMigration {
+public final class MySqlV50Baseline implements JavaMigration {
 
-    private static final int BASELINE_CHECKSUM = -392744551;
+    private static final MigrationVersion VERSION = MigrationVersion.fromVersion("50");
+    private static final String DESCRIPTION = "Baseline approval platform";
+    private static final int BASELINE_CHECKSUM = -392744552;
+    private static final Pattern ADD_COLUMN_IF_NOT_EXISTS = Pattern.compile(
+        "\\badd\\s+column\\s+if\\s+not\\s+exists\\b",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern CREATE_UNIQUE_INDEX_IF_NOT_EXISTS = Pattern.compile(
+        "\\bcreate\\s+unique\\s+index\\s+if\\s+not\\s+exists\\b",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern CREATE_INDEX_IF_NOT_EXISTS = Pattern.compile(
+        "\\bcreate\\s+index\\s+if\\s+not\\s+exists\\b",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern ADD_CONSTRAINT_IF_NOT_EXISTS = Pattern.compile(
+        "\\badd\\s+constraint\\s+if\\s+not\\s+exists\\b",
+        Pattern.CASE_INSENSITIVE
+    );
     private static final List<String> BASELINE_RESOURCES = List.of(
         "db/mysqlmigration/baseline-001.b64",
         "db/mysqlmigration/baseline-002.b64",
@@ -31,6 +51,16 @@ public final class V50__Baseline_approval_platform extends BaseJavaMigration {
         "db/mysqlmigration/baseline-008.b64",
         "db/mysqlmigration/baseline-009.b64"
     );
+
+    @Override
+    public MigrationVersion getVersion() {
+        return VERSION;
+    }
+
+    @Override
+    public String getDescription() {
+        return DESCRIPTION;
+    }
 
     @Override
     public Integer getChecksum() {
@@ -49,7 +79,7 @@ public final class V50__Baseline_approval_platform extends BaseJavaMigration {
         try (Statement statement = context.getConnection().createStatement()) {
             for (String command : statements) {
                 index++;
-                statement.execute(command);
+                statement.execute(normalizeForMySql84(command));
             }
         } catch (SQLException exception) {
             throw new FlywayException(
@@ -59,9 +89,20 @@ public final class V50__Baseline_approval_platform extends BaseJavaMigration {
         }
     }
 
+    static String normalizeForMySql84(String command) {
+        String normalized = ADD_COLUMN_IF_NOT_EXISTS.matcher(command)
+            .replaceAll("add column");
+        normalized = CREATE_UNIQUE_INDEX_IF_NOT_EXISTS.matcher(normalized)
+            .replaceAll("create unique index");
+        normalized = CREATE_INDEX_IF_NOT_EXISTS.matcher(normalized)
+            .replaceAll("create index");
+        return ADD_CONSTRAINT_IF_NOT_EXISTS.matcher(normalized)
+            .replaceAll("add constraint");
+    }
+
     static String decompressBaseline() {
         StringBuilder encoded = new StringBuilder();
-        ClassLoader loader = V50__Baseline_approval_platform.class.getClassLoader();
+        ClassLoader loader = MySqlV50Baseline.class.getClassLoader();
         for (String resource : BASELINE_RESOURCES) {
             try (InputStream input = loader.getResourceAsStream(resource)) {
                 if (input == null) {
