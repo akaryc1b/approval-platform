@@ -7,6 +7,8 @@ import java.security.MessageDigest;
 import java.sql.SQLException;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,17 +41,19 @@ class V50BaselineTest {
 
     @Test
     void emitsExactNormalizedStatementManifest() throws Exception {
-        var statements = MySqlV50Baseline.splitStatements(
-            MySqlV50Baseline.decompressBaseline()
-        );
+        var statements = baselineStatements();
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
 
         for (int offset = 0; offset < statements.size(); offset++) {
             int index = offset + 1;
-            String statement = MySqlV50Baseline.normalizeForMySql84(
+            Optional<String> executable = MySqlV50Baseline.executableForMySql84(
                 statements.get(offset)
             );
-            byte[] bytes = statement.getBytes(StandardCharsets.UTF_8);
+            if (executable.isEmpty()) {
+                System.out.printf("mysql-baseline-skipped index=%d%n", index);
+                continue;
+            }
+            byte[] bytes = executable.orElseThrow().getBytes(StandardCharsets.UTF_8);
             String sha256 = HexFormat.of().formatHex(digest.digest(bytes));
             String encoded = Base64.getEncoder().encodeToString(bytes);
             int chunks = Math.max(
@@ -103,6 +107,73 @@ class V50BaselineTest {
     }
 
     @Test
+    void preservesFullNotificationTupleThroughFailClosedGeneratedHashUniqueness() {
+        String normalized = executableStatementContaining("create table ap_notification_intent");
+
+        assertTrue(normalized.contains("business_event_key varchar(512) not null"));
+        assertTrue(normalized.contains("business_recipient_channel_hash binary(32)"));
+        assertTrue(normalized.contains("generated always as"));
+        assertTrue(normalized.contains("hex(tenant_id)"));
+        assertTrue(normalized.contains("hex(business_event_key)"));
+        assertTrue(normalized.contains("hex(recipient_id)"));
+        assertTrue(normalized.contains("hex(channel)"));
+        assertTrue(normalized.contains("unique (business_recipient_channel_hash)"));
+        assertFalse(normalized.contains("business_event_key("));
+        assertFalse(normalized.contains("recipient_id("));
+    }
+
+    @Test
+    void boundsOnlyTheNonUniqueConsistencyLookupPrefix() {
+        String normalized = executableStatementContaining(
+            "create index idx_consistency_finding_aggregate"
+        );
+
+        assertTrue(normalized.contains("aggregate_id(500)"));
+        assertTrue(normalized.contains("detected_at desc"));
+    }
+
+    @Test
+    void skipsOnlyTheEmptyHistoricalV32ReleaseBackfill() {
+        List<String> skipped = baselineStatements().stream()
+            .filter(statement -> MySqlV50Baseline.executableForMySql84(statement).isEmpty())
+            .toList();
+
+        assertEquals(3, skipped.size());
+        assertTrue(skipped.stream().anyMatch(statement -> statement.contains(
+            "create temporary table ap_v32_release_event"
+        )));
+        assertEquals(
+            2,
+            skipped.stream().filter(statement -> statement.contains(
+                "from ap_v32_release_event"
+            )).count()
+        );
+    }
+
+    @Test
+    void executableBaselineExcludesKnownPostgreSqlOnlySyntax() {
+        String executable = baselineStatements().stream()
+            .map(MySqlV50Baseline::executableForMySql84)
+            .flatMap(Optional::stream)
+            .map(String::toLowerCase)
+            .reduce("", (left, right) -> left + '\n' + right);
+
+        assertFalse(executable.contains(" on commit drop"));
+        assertFalse(executable.contains("distinct on"));
+        assertFalse(executable.contains(" || "));
+        assertFalse(executable.contains("interval '3650 days'"));
+        assertFalse(executable.contains(
+            "drop trigger trg_process_runtime_binding_immutable on"
+        ));
+        assertTrue(executable.contains(
+            "drop trigger if exists trg_process_runtime_binding_immutable"
+        ));
+        assertTrue(executable.contains(
+            "date_add(recorded_at, interval 3650 day)"
+        ));
+    }
+
+    @Test
     void ignoresOnlyTheKnownMissingHistoricalForeignKeyDrop() {
         SQLException missingObject = new SQLException(
             "Can't DROP 'ap_approval_comment_parent_fk'",
@@ -144,5 +215,18 @@ class V50BaselineTest {
         assertEquals(3, statements.size());
         assertTrue(statements.get(1).contains("'a;b'"));
         assertTrue(statements.get(2).contains("'c'';d'"));
+    }
+
+    private static List<String> baselineStatements() {
+        return MySqlV50Baseline.splitStatements(MySqlV50Baseline.decompressBaseline());
+    }
+
+    private static String executableStatementContaining(String marker) {
+        return baselineStatements().stream()
+            .filter(statement -> statement.contains(marker))
+            .map(MySqlV50Baseline::executableForMySql84)
+            .flatMap(Optional::stream)
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("missing baseline statement: " + marker));
     }
 }

@@ -15,6 +15,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 
@@ -23,7 +24,7 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     private static final MigrationVersion VERSION = MigrationVersion.fromVersion("50");
     private static final String DESCRIPTION = "Baseline approval platform";
-    private static final int BASELINE_CHECKSUM = -392744553;
+    private static final int BASELINE_CHECKSUM = -392744554;
     private static final int MISSING_OBJECT_ERROR_CODE = 1091;
     private static final Pattern ADD_COLUMN_IF_NOT_EXISTS = Pattern.compile(
         "\\badd\\s+column\\s+if\\s+not\\s+exists\\b",
@@ -41,11 +42,62 @@ public final class MySqlV50Baseline implements JavaMigration {
         "\\badd\\s+constraint\\s+if\\s+not\\s+exists\\b",
         Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern V32_TEMPORARY_RELEASE_EVENT = Pattern.compile(
+        "^\\s*create\\s+temporary\\s+table\\s+ap_v32_release_event\\b",
+        Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+    private static final Pattern V32_RELEASE_EVENT_BACKFILL = Pattern.compile(
+        "^\\s*with\\s+ranked_release_events\\b.*\\bfrom\\s+ap_v32_release_event\\b",
+        Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+    private static final Pattern NOTIFICATION_INTENT_TABLE = Pattern.compile(
+        "^\\s*create\\s+table\\s+ap_notification_intent\\b",
+        Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+    private static final Pattern NOTIFICATION_BUSINESS_EVENT_COLUMN = Pattern.compile(
+        "(\\bbusiness_event_key\\s+varchar\\(512\\)\\s+not\\s+null\\s*,)",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern NOTIFICATION_DEDUPLICATION_UNIQUE = Pattern.compile(
+        "(constraint\\s+uk_notification_business_recipient_channel\\s+)"
+            + "unique\\s*\\(\\s*tenant_id\\s*,\\s*business_event_key\\s*,"
+            + "\\s*recipient_id\\s*,\\s*channel\\s*\\)",
+        Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+    private static final Pattern CONSISTENCY_FINDING_AGGREGATE_INDEX = Pattern.compile(
+        "^\\s*create\\s+index\\s+idx_consistency_finding_aggregate\\b",
+        Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+    private static final Pattern CONSISTENCY_FINDING_AGGREGATE_COLUMN = Pattern.compile(
+        "(\\baggregate_type\\s*,\\s*)aggregate_id(\\s*,\\s*detected_at\\s+desc)",
+        Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+    private static final Pattern PROCESS_RUNTIME_BINDING_TRIGGER_DROP = Pattern.compile(
+        "^\\s*drop\\s+trigger\\s+trg_process_runtime_binding_immutable"
+            + "\\s+on\\s+ap_process_runtime_binding\\s*$",
+        Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+    private static final Pattern ASSISTANCE_RETENTION_INTERVAL = Pattern.compile(
+        "recorded_at\\s*\\+\\s*interval\\s+'3650 days'",
+        Pattern.CASE_INSENSITIVE
+    );
     private static final Pattern HISTORICAL_COMMENT_PARENT_FOREIGN_KEY_DROP = Pattern.compile(
         "\\balter\\s+table\\s+ap_approval_comment\\s+drop\\s+foreign\\s+key\\s+"
             + "ap_approval_comment_parent_fk\\b",
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL
     );
+    private static final String NOTIFICATION_DEDUPLICATION_HASH = """
+        $1
+            business_recipient_channel_hash binary(32)
+                generated always as (
+                    unhex(sha2(concat(
+                        hex(tenant_id), ':',
+                        hex(business_event_key), ':',
+                        hex(recipient_id), ':',
+                        hex(channel)
+                    ), 256))
+                ) stored,
+        """;
     private static final List<String> BASELINE_RESOURCES = List.of(
         "db/mysqlmigration/baseline-001.b64",
         "db/mysqlmigration/baseline-002.b64",
@@ -85,11 +137,17 @@ public final class MySqlV50Baseline implements JavaMigration {
         try (Statement statement = context.getConnection().createStatement()) {
             for (String command : statements) {
                 index++;
-                String executable = normalizeForMySql84(command);
+                Optional<String> executable = executableForMySql84(command);
+                if (executable.isEmpty()) {
+                    continue;
+                }
                 try {
-                    statement.execute(executable);
+                    statement.execute(executable.orElseThrow());
                 } catch (SQLException exception) {
-                    if (!isIgnorableCleanBaselineForeignKeyDrop(executable, exception)) {
+                    if (!isIgnorableCleanBaselineForeignKeyDrop(
+                        executable.orElseThrow(),
+                        exception
+                    )) {
                         throw exception;
                     }
                 }
@@ -102,6 +160,18 @@ public final class MySqlV50Baseline implements JavaMigration {
         }
     }
 
+    static Optional<String> executableForMySql84(String command) {
+        if (isCleanBaselineOnlyHistoricalBackfill(command)) {
+            return Optional.empty();
+        }
+        return Optional.of(normalizeForMySql84(command));
+    }
+
+    static boolean isCleanBaselineOnlyHistoricalBackfill(String command) {
+        return V32_TEMPORARY_RELEASE_EVENT.matcher(command).find()
+            || V32_RELEASE_EVENT_BACKFILL.matcher(command).find();
+    }
+
     static String normalizeForMySql84(String command) {
         String normalized = ADD_COLUMN_IF_NOT_EXISTS.matcher(command)
             .replaceAll("add column");
@@ -109,8 +179,32 @@ public final class MySqlV50Baseline implements JavaMigration {
             .replaceAll("create unique index");
         normalized = CREATE_INDEX_IF_NOT_EXISTS.matcher(normalized)
             .replaceAll("create index");
-        return ADD_CONSTRAINT_IF_NOT_EXISTS.matcher(normalized)
+        normalized = ADD_CONSTRAINT_IF_NOT_EXISTS.matcher(normalized)
             .replaceAll("add constraint");
+        normalized = normalizeNotificationDeduplication(normalized);
+        normalized = normalizeConsistencyFindingAggregateIndex(normalized);
+        normalized = PROCESS_RUNTIME_BINDING_TRIGGER_DROP.matcher(normalized)
+            .replaceAll("drop trigger if exists trg_process_runtime_binding_immutable");
+        return ASSISTANCE_RETENTION_INTERVAL.matcher(normalized)
+            .replaceAll("date_add(recorded_at, interval 3650 day)");
+    }
+
+    private static String normalizeNotificationDeduplication(String command) {
+        if (!NOTIFICATION_INTENT_TABLE.matcher(command).find()) {
+            return command;
+        }
+        String normalized = NOTIFICATION_BUSINESS_EVENT_COLUMN.matcher(command)
+            .replaceFirst(NOTIFICATION_DEDUPLICATION_HASH);
+        return NOTIFICATION_DEDUPLICATION_UNIQUE.matcher(normalized)
+            .replaceFirst("$1unique (business_recipient_channel_hash)");
+    }
+
+    private static String normalizeConsistencyFindingAggregateIndex(String command) {
+        if (!CONSISTENCY_FINDING_AGGREGATE_INDEX.matcher(command).find()) {
+            return command;
+        }
+        return CONSISTENCY_FINDING_AGGREGATE_COLUMN.matcher(command)
+            .replaceFirst("$1aggregate_id(500)$2");
     }
 
     static boolean isIgnorableCleanBaselineForeignKeyDrop(
