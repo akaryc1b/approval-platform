@@ -57,15 +57,14 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
     }
 
     @Test
-    void canDisableValidationOnlyThroughTrustedStartupConfiguration() {
-        contextRunner(dataSource("Unsupported", "1.0", 1, 0))
-            .withPropertyValues("approval.database.validation-enabled=false")
-            .run(context -> {
-                assertThat(context).hasNotFailed();
-                assertThat(context).doesNotHaveBean(
-                    ApprovalDatabaseVendorResolver.DatabaseIdentity.class
+    void rejectsUnsupportedVendorWithoutAValidationBypass() {
+        contextRunner(dataSource("Unsupported", "1.0", 1, 0)).run(context -> {
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure())
+                .hasRootCauseInstanceOf(
+                    ApprovalDatabaseVendor.UnsupportedDatabaseVendorException.class
                 );
-            });
+        });
     }
 
     private static ApplicationContextRunner contextRunner(DataSource dataSource) {
