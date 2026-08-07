@@ -24,6 +24,7 @@ import './m6-f-p7-adversarial-boundary.test.mjs';
 import './m6-f-p7-fault-boundary.test.mjs';
 import './m6-g-g0-g1-audit-boundary.test.mjs';
 import './m6-g-end-to-end-production-readiness-boundary.test.mjs';
+import './m6-g-overall-formal-acceptance-boundary.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(
