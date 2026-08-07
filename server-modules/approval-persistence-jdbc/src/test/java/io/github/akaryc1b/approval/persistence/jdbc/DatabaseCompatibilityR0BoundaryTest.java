@@ -22,6 +22,10 @@ class DatabaseCompatibilityR0BoundaryTest {
     private static final Path INVENTORY_RECORD = ROOT.resolve(
         "docs/database/MYSQL_8_4_R0_INVENTORY.md"
     );
+    private static final Path MYSQL_BASELINE = ROOT.resolve(
+        "server-modules/approval-persistence-jdbc/src/main/java/db/mysqlmigration/"
+            + "V50__Baseline_approval_platform.java"
+    );
     private static final String THIS_TEST = "DatabaseCompatibilityR0BoundaryTest.java";
 
     @Test
@@ -40,7 +44,7 @@ class DatabaseCompatibilityR0BoundaryTest {
     }
 
     @Test
-    void bothVendorDependenciesAndFailClosedProfilesArePresent() throws IOException {
+    void bothVendorDependenciesProfilesAndMySqlLineageArePresent() throws IOException {
         String persistencePom = Files.readString(
             ROOT.resolve("server-modules/approval-persistence-jdbc/pom.xml")
         );
@@ -71,23 +75,21 @@ class DatabaseCompatibilityR0BoundaryTest {
         assertTrue(baseConfiguration.contains("APPROVAL_DATABASE_VENDOR:POSTGRESQL"));
         assertTrue(!baseConfiguration.contains("validation-enabled"));
         assertTrue(postgreSqlProfile.contains("expected-vendor: POSTGRESQL"));
-        assertTrue(!postgreSqlProfile.contains("validation-enabled"));
         assertTrue(mySqlProfile.contains("expected-vendor: MYSQL"));
-        assertTrue(!mySqlProfile.contains("validation-enabled"));
         assertTrue(mySqlProfile.contains("characterEncoding: UTF-8"));
         assertTrue(mySqlProfile.contains("connectionCollation: utf8mb4_0900_as_cs"));
         assertTrue(mySqlProfile.contains("connectionTimeZone: UTC"));
         assertTrue(mySqlProfile.contains("forceConnectionTimeZoneToSession: true"));
         assertTrue(mySqlProfile.contains("preserveInstants: true"));
         assertTrue(mySqlProfile.contains("fail-on-missing-locations: true"));
-        assertTrue(mySqlProfile.contains("classpath:db/migration/mysql"));
-        assertTrue(
-            Files.notExists(ROOT.resolve(
-                "server-modules/approval-persistence-jdbc/src/main/resources/"
-                    + "db/migration/mysql"
-            )),
-            "MySQL migration location must remain absent until P2 supplies a reviewed lineage"
-        );
+        assertTrue(mySqlProfile.contains("classpath:db/mysqlmigration"));
+        assertTrue(Files.isRegularFile(MYSQL_BASELINE));
+        String baseline = Files.readString(MYSQL_BASELINE);
+        assertTrue(baseline.contains("class V50__Baseline_approval_platform"));
+        assertTrue(baseline.contains("canExecuteInTransaction"));
+        assertTrue(baseline.contains("BASELINE_CHECKSUM"));
+        assertTrue(baseline.contains("BASELINE_RESOURCES"));
+        assertTrue(baseline.contains("baseline-009.b64"));
     }
 
     @Test
@@ -125,6 +127,7 @@ class DatabaseCompatibilityR0BoundaryTest {
                     .filter(Files::isRegularFile)
                     .filter(DatabaseCompatibilityR0BoundaryTest::isTextSource)
                     .filter(path -> !normalized(path).contains("/target/"))
+                    .filter(path -> !normalized(path).contains("/db/mysqlmigration/"))
                     .filter(path -> !path.getFileName().toString().equals(THIS_TEST))
                     .toList()) {
                     String content = Files.readString(path).toLowerCase(Locale.ROOT);
