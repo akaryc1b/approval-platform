@@ -104,7 +104,10 @@ class DatabaseCompatibilityR0BoundaryTest {
 
         for (Path sourceRoot : roots) {
             try (var paths = Files.walk(sourceRoot)) {
-                for (Path path : paths.filter(Files::isRegularFile).toList()) {
+                for (Path path : paths
+                    .filter(Files::isRegularFile)
+                    .filter(DatabaseCompatibilityR0BoundaryTest::isTextSource)
+                    .toList()) {
                     String content = Files.readString(path).toLowerCase(Locale.ROOT);
                     for (String token : categories.keySet()) {
                         long count = counts.get(token) + occurrences(content, token);
@@ -123,6 +126,19 @@ class DatabaseCompatibilityR0BoundaryTest {
                 );
             }
         });
+    }
+
+    private static boolean isTextSource(Path path) {
+        String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        return fileName.endsWith(".java")
+            || fileName.endsWith(".sql")
+            || fileName.endsWith(".xml")
+            || fileName.endsWith(".yml")
+            || fileName.endsWith(".yaml")
+            || fileName.endsWith(".properties")
+            || fileName.endsWith(".md")
+            || fileName.endsWith(".mjs")
+            || fileName.equals("pom.xml");
     }
 
     private static long occurrences(String content, String token) {
