@@ -10,8 +10,6 @@ import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -273,13 +271,14 @@ public final class JdbcMySqlApprovalTaskCasStore {
         String expectedAssignee,
         Instant operationTime
     ) {
-        boolean assigneeMatches = expectedAssignee == null
-            || after.assigneeId().equals(expectedAssignee);
+        String requiredAssignee = expectedAssignee == null
+            ? before.assigneeId()
+            : expectedAssignee;
         if (!after.taskId().equals(before.taskId())
             || !after.instanceId().equals(before.instanceId())
             || !after.tenantId().equals(before.tenantId())
             || after.status() != expectedStatus
-            || !assigneeMatches
+            || !after.assigneeId().equals(requiredAssignee)
             || after.version() != before.version() + 1
             || !after.updatedAt().equals(operationTime)) {
             throw new IllegalStateException("MySQL task CAS readback did not match mutation");
