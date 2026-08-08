@@ -101,6 +101,23 @@ abstract class MySqlApprovalProjectionStoreIntegrationSupport {
         jdbc.update("delete from ap_approval_task");
         jdbc.update("delete from ap_approval_instance");
         jdbc.update("delete from ap_definition_version");
+        MySqlApprovalProjectionProvenanceFixture.reset(
+            jdbc,
+            TENANT,
+            OTHER_TENANT
+        );
+        MySqlApprovalProjectionProvenanceFixture.seed(
+            jdbc,
+            TENANT,
+            DEFINITION_KEY,
+            DEFINITION_AT
+        );
+        MySqlApprovalProjectionProvenanceFixture.seed(
+            jdbc,
+            OTHER_TENANT,
+            DEFINITION_KEY,
+            DEFINITION_AT
+        );
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         store = JdbcApprovalProjectionStoreFactory.create(dataSource, objectMapper);
         transactions = new TransactionTemplate(new JdbcTransactionManager(dataSource));
@@ -128,11 +145,11 @@ abstract class MySqlApprovalProjectionStoreIntegrationSupport {
         return new PublishedDefinition(
             tenantId,
             DEFINITION_KEY,
-            1,
+            MySqlApprovalProjectionProvenanceFixture.DEFINITION_VERSION,
             DEFINITION_KEY,
-            1,
-            "compiler-1",
-            "a".repeat(64),
+            MySqlApprovalProjectionProvenanceFixture.FORM_VERSION,
+            MySqlApprovalProjectionProvenanceFixture.COMPILER_VERSION,
+            MySqlApprovalProjectionProvenanceFixture.DEFINITION_HASH,
             "deployment-1-" + tenantId,
             "engine-definition-1-" + tenantId,
             1,
@@ -153,18 +170,18 @@ abstract class MySqlApprovalProjectionStoreIntegrationSupport {
             businessKey,
             engineInstanceId,
             DEFINITION_KEY,
-            1,
+            MySqlApprovalProjectionProvenanceFixture.DEFINITION_VERSION,
             DEFINITION_KEY,
-            1,
-            "compiler-1",
-            "a".repeat(64),
-            2,
-            "b".repeat(64),
-            3,
-            "c".repeat(64),
-            4,
-            "d".repeat(64),
-            "engine-definition-release-2",
+            MySqlApprovalProjectionProvenanceFixture.FORM_VERSION,
+            MySqlApprovalProjectionProvenanceFixture.COMPILER_VERSION,
+            MySqlApprovalProjectionProvenanceFixture.DEFINITION_HASH,
+            MySqlApprovalProjectionProvenanceFixture.RELEASE_VERSION,
+            MySqlApprovalProjectionProvenanceFixture.RELEASE_PACKAGE_HASH,
+            MySqlApprovalProjectionProvenanceFixture.FORM_PACKAGE_VERSION,
+            MySqlApprovalProjectionProvenanceFixture.FORM_PACKAGE_HASH,
+            MySqlApprovalProjectionProvenanceFixture.UI_SCHEMA_VERSION,
+            MySqlApprovalProjectionProvenanceFixture.UI_SCHEMA_HASH,
+            MySqlApprovalProjectionProvenanceFixture.ENGINE_DEFINITION_ID,
             "Initiator-A",
             new BigDecimal("123456789012.123456"),
             "供应商-A",
