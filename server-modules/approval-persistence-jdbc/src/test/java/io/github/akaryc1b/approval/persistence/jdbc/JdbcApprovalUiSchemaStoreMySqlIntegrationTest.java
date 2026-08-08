@@ -301,7 +301,11 @@ class JdbcApprovalUiSchemaStoreMySqlIntegrationTest {
         seedForm(OTHER_TENANT);
         Instant sameTime = Instant.parse("2026-08-08T07:00:00.123456Z");
         publishDirect(TENANT, definition(1, "UI One", BigDecimal.ONE, properties(1)), sameTime);
-        publishDirect(TENANT, definition(2, "UI Two", BigDecimal.TWO, properties(2)), sameTime);
+        publishDirect(
+            TENANT,
+            definition(2, "UI Two", new BigDecimal("2"), properties(2)),
+            sameTime
+        );
         publishDirect(TENANT, definition(3, "UI Three", BigDecimal.TEN, properties(3)), sameTime);
         publishDirect(
             OTHER_TENANT,
@@ -442,21 +446,29 @@ class JdbcApprovalUiSchemaStoreMySqlIntegrationTest {
         );
         JdbcMySqlUiSchemaCodec codec = new JdbcMySqlUiSchemaCodec(objectMapper);
         String valid = codec.encode(definition);
+        String validPayload = objectMapper.readTree(valid)
+            .get("payload")
+            .textValue();
+        String unknownKindPayload = validPayload.replaceFirst(
+            "\"kind\":\"NUMBER\"",
+            "\"kind\":\"UNKNOWN\""
+        );
+        assertFalse(validPayload.equals(unknownKindPayload));
 
         assertEnvelopeRejected("[]");
         assertEnvelopeRejected("{\"payload\":\"{}\"}");
         assertEnvelopeRejected(
             "{\"encoding\":\"UNKNOWN\",\"payload\":\"{}\"}"
         );
-        assertEnvelopeRejected(valid.substring(0, valid.length() - 1) + ",\"extra\":true}");
-        assertEnvelopeRejected(outerEnvelope(objectMapper.writeValueAsString(definition)));
-        assertEnvelopeRejected(valid.replaceFirst("\\\"kind\\\":\\\"NUMBER\\\"", "\\\"kind\\\":\\\"UNKNOWN\\\""));
         assertEnvelopeRejected(
-            "{\"encoding\":\""
-                + JdbcMySqlUiSchemaCodec.JSON_ENCODING
-                + "\",\"encoding\":\""
-                + JdbcMySqlUiSchemaCodec.JSON_ENCODING
-                + "\",\"payload\":\"{}\"}"
+            valid.substring(0, valid.length() - 1) + ",\"extra\":true}"
+        );
+        assertEnvelopeRejected(
+            outerEnvelope(objectMapper.writeValueAsString(definition))
+        );
+        assertEnvelopeRejected(outerEnvelope(unknownKindPayload));
+        assertEnvelopeRejected(
+            outerEnvelope("{\"sections\":[],\"sections\":[]}")
         );
     }
 
