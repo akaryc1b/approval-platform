@@ -18,7 +18,7 @@ import java.util.UUID;
 import java.util.function.Predicate;
 
 /**
- * Bounded MySQL primitive for task lookup, claim and transfer compare-and-set behavior.
+ * Bounded MySQL primitive for task lookup and compare-and-set lifecycle behavior.
  *
  * <p>This class is intentionally not a complete {@link ApprovalProjectionStore}. It remains
  * unbound from the executable application until the complete MySQL projection-store contract is
@@ -203,6 +203,80 @@ public final class JdbcMySqlApprovalTaskCasStore {
         );
     }
 
+    public TaskProjection completeClaimedTask(
+        String tenantId,
+        UUID taskId,
+        String assigneeId,
+        long claimedTaskVersion,
+        Instant completedAt
+    ) {
+        String exactTenant = requireText(tenantId, "tenantId");
+        UUID exactTaskId = Objects.requireNonNull(taskId, "taskId must not be null");
+        String exactAssignee = requireText(assigneeId, "assigneeId");
+        long exactClaimedVersion = requireIncrementableVersion(
+            claimedTaskVersion,
+            "claimedTaskVersion"
+        );
+        Instant exactCompletedAt = requireMicrosecondInstant(
+            completedAt,
+            "completedAt"
+        );
+        MapSqlParameterSource parameters = taskParameters(
+            exactTenant,
+            exactTaskId,
+            exactCompletedAt
+        )
+            .addValue("assigneeId", exactAssignee)
+            .addValue("claimedVersion", exactClaimedVersion);
+        TaskProjection result = transactionTemplate.execute(status -> {
+            TaskProjection before = readTask(exactTenant, exactTaskId, false)
+                .filter(task -> task.status() == TaskStatus.COMPLETING)
+                .filter(task -> task.assigneeId().equals(exactAssignee))
+                .filter(task -> task.version() == exactClaimedVersion)
+                .filter(task -> task.completedAt() == null)
+                .orElseThrow(() -> new ApprovalProjectionStore.ProjectionConflictException(
+                    "claimed task changed, is not completing, or belongs to another operator"
+                ));
+            int updated = jdbc.update(
+                """
+                update ap_approval_task
+                set status = 'COMPLETED',
+                    completed_at = :operationTime,
+                    updated_at = :operationTime,
+                    version = version + 1
+                where tenant_id = :tenantId
+                  and task_id = :taskId
+                  and assignee_id = :assigneeId
+                  and status = 'COMPLETING'
+                  and version = :claimedVersion
+                  and completed_at is null
+                """,
+                parameters
+            );
+            if (updated != 1) {
+                throw new ApprovalProjectionStore.ProjectionConflictException(
+                    "claimed task version changed before completion"
+                );
+            }
+            TaskProjection after = readTask(exactTenant, exactTaskId, true)
+                .orElseThrow(() -> new IllegalStateException(
+                    "MySQL task completion CAS readback was missing"
+                ));
+            verifyCompletionReadback(
+                before,
+                after,
+                exactAssignee,
+                exactClaimedVersion,
+                exactCompletedAt
+            );
+            return after;
+        });
+        return Objects.requireNonNull(
+            result,
+            "MySQL task completion CAS result must not be null"
+        );
+    }
+
     private TaskProjection mutate(
         String tenantId,
         UUID taskId,
@@ -285,6 +359,31 @@ public final class JdbcMySqlApprovalTaskCasStore {
         }
     }
 
+    private static void verifyCompletionReadback(
+        TaskProjection before,
+        TaskProjection after,
+        String expectedAssignee,
+        long claimedTaskVersion,
+        Instant completedAt
+    ) {
+        if (!after.taskId().equals(before.taskId())
+            || !after.instanceId().equals(before.instanceId())
+            || !after.tenantId().equals(before.tenantId())
+            || !after.engineTaskId().equals(before.engineTaskId())
+            || !after.taskDefinitionKey().equals(before.taskDefinitionKey())
+            || !after.name().equals(before.name())
+            || !after.assigneeId().equals(expectedAssignee)
+            || !after.createdAt().equals(before.createdAt())
+            || after.status() != TaskStatus.COMPLETED
+            || after.version() != claimedTaskVersion + 1
+            || !after.updatedAt().equals(completedAt)
+            || !completedAt.equals(after.completedAt())) {
+            throw new IllegalStateException(
+                "MySQL task completion CAS readback did not match mutation"
+            );
+        }
+    }
+
     private MapSqlParameterSource taskParameters(
         String tenantId,
         UUID taskId,
@@ -317,6 +416,15 @@ public final class JdbcMySqlApprovalTaskCasStore {
         Objects.requireNonNull(value, name + " must not be null");
         if (value.isBlank()) {
             throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return value;
+    }
+
+    private static long requireIncrementableVersion(long value, String name) {
+        if (value <= 0 || value == Long.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                name + " must be positive and incrementable"
+            );
         }
         return value;
     }
