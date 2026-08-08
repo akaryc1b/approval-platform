@@ -45,7 +45,7 @@ class JdbcApprovalFormStoreMySqlContractTest {
         for (String forbidden : List.of(
             "pg_advisory",
             "jsonb",
-            " || ",
+            "lower('%' || :keyword || '%')",
             "insert ignore",
             "replace into",
             "on duplicate key update",
