@@ -31,7 +31,7 @@ import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormDesignDraftS
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormPackageStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormSubmissionStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalUiSchemaStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalUiSchemaStoreFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -106,7 +106,10 @@ public class ApprovalFormConfiguration {
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper
     ) {
-        return new JdbcApprovalUiSchemaStore(dataSource, approvalPersistenceObjectMapper);
+        return JdbcApprovalUiSchemaStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper
+        );
     }
 
     @Bean
