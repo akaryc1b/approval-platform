@@ -95,7 +95,7 @@ class JdbcApprovalFormStoreMySqlContractTest {
         ));
 
         for (String required : List.of(
-            "MYSQL_P3_F1_FORM_DEFINITION_STORE_STAGED",
+            "MYSQL_P3_F1_FORM_DEFINITION_STORE_PROVEN",
             "CANONICAL_JSON_TEXT_V1",
             "nearest-microsecond",
             "INSERT IGNORE",
