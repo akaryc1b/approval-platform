@@ -14,6 +14,7 @@ spring:
         connectionTimeZone: UTC
         forceConnectionTimeZoneToSession: true
         preserveInstants: true
+        useAffectedRows: false
       connection-init-sql: >-
         SET SESSION character_set_client = 'utf8mb4',
         SESSION character_set_connection = 'utf8mb4',
