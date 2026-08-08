@@ -6,10 +6,13 @@ This document defines one deliberately narrow compatibility slice on top of the 
 
 ```text
 source formal Head: 1e94168db3c48e5ce426748d00a8b62e3013c865
+implementation Head: 39e17383f70d80b01b00be9db1a49fec89d6bef0
 staging branch: agent/mysql-8-4-p3-d2a-task-completion-staging
 formal branch: agent/mysql-8-4-production-compatibility
 PR: #92 remains Open + Draft
 ```
+
+The exact natural current-Head Run and Artifact evidence is intentionally bound in PR #92 metadata and Issue #91 after the formal branch advances. This avoids an evidence-only commit loop and an unnecessary second workflow trigger.
 
 The slice proves only the terminal transition of one already-existing, already-claimed MySQL approval task:
 
@@ -33,7 +36,7 @@ completeClaimedTask(
 )
 ```
 
-All caller-owned values are validated before mutation. `claimedTaskVersion` must be positive and `completedAt` must have at most microsecond precision because MySQL persists the evidence in `datetime(6)`.
+All caller-owned values are validated before mutation. `claimedTaskVersion` must be positive and incrementable. `completedAt` must have at most microsecond precision because MySQL persists the evidence in `datetime(6)`.
 
 ## Compare-and-set predicates
 
@@ -104,11 +107,17 @@ This slice does not implement or imply:
 - Flowable execution on MySQL;
 - production promotion.
 
-A permanent regression must prove that completing one task leaves sibling tasks and the parent instance untouched.
+A permanent regression proves that completing one task leaves sibling tasks and the parent instance untouched.
 
-## Required real-MySQL acceptance
+## Real-MySQL acceptance suite
 
-The permanent MySQL 8.4 suite must prove:
+The permanent class is:
+
+```text
+JdbcMySqlApprovalTaskCompletionCasIntegrationTest
+```
+
+Eight test methods cover all required conditions:
 
 1. exact `COMPLETING -> COMPLETED` transition;
 2. exact version increment and microsecond timestamp readback;
@@ -119,10 +128,20 @@ The permanent MySQL 8.4 suite must prove:
 7. pending and already-completed status rejection;
 8. one-winner concurrent completion;
 9. surrounding-transaction rollback;
-10. sub-microsecond and non-positive version rejection before mutation;
+10. sub-microsecond and non-positive/non-incrementable version rejection before mutation;
 11. no sibling-task synchronization or parent-instance status advancement.
 
 The PostgreSQL suites and all previously accepted MySQL slices must remain green.
+
+## Append-only implementation sequence
+
+```text
+04d6e36b947134aacccba608f8381e10462603bc  define bounded completion contract
+9647c1dc8020a6cbfc01bf8c93b1cbd503617ef0  add claimed-task completion CAS
+39e17383f70d80b01b00be9db1a49fec89d6bef0  add real MySQL acceptance suite
+```
+
+No applied PostgreSQL migration, permanent workflow, executable-server Bean or production database acceptance flag changed.
 
 ## Authorization boundary
 
@@ -143,7 +162,7 @@ Not authorized:
 - deploy or execute Production Promotion.
 
 ```text
-MYSQL_P3_D2A_TASK_COMPLETION_CAS_IN_PROGRESS
+MYSQL_P3_D2A_TASK_COMPLETION_CAS_IMPLEMENTED_PENDING_VALIDATION
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ```
