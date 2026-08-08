@@ -26,7 +26,7 @@ Approval Platform 不是业务系统中的简单审批组件，也不是 Flowabl
 - 后端：Java 21、Spring Boot 4、Flowable 8；
 - PC：Vue 3、TypeScript、Vben Admin、Element Plus；
 - 移动端：UniApp Vue 3、Unibest、Wot UI；
-- 数据库：PostgreSQL 16 验证基线、Flyway V1–V32；
+- 数据库：PostgreSQL 16 当前验证基线；MySQL 8.4 生产兼容恢复中、尚未支持；
 - 构建：Maven 多模块、pnpm workspace；
 - CI：`.github/workflows/approval-platform-validation.yml`；
 - License：Apache License 2.0。
@@ -44,6 +44,8 @@ Approval Platform 不是业务系统中的简单审批组件，也不是 Flowabl
 - detect-only 运行实例迁移评估、确定性 `reportHash` 与 Web 报告页。
 
 ## 重要能力边界
+
+数据库原始承诺已通过 Issue #91 恢复为 PostgreSQL 16 与 MySQL 8.4 双生产目标。当前只有 PostgreSQL 完成永久验证；MySQL 8.4 在迁移、JDBC 语义、Flowable、并发、故障和双库 CI 全部验收前必须视为不支持。详见 [`MYSQL_8_4_PRODUCTION_COMPATIBILITY.md`](docs/database/MYSQL_8_4_PRODUCTION_COMPATIBILITY.md)。
 
 M4 只有 detect-only 迁移评估。真实运行实例迁移执行正在 M5 中按阶段验证和开发。
 
@@ -67,6 +69,7 @@ M4 只有 detect-only 迁移评估。真实运行实例迁移执行正在 M5 中
 | M4.1 | 已完成并合并 | living documentation 与权威 Roadmap 对齐，PR #59 / #60 |
 | M5 | 开发中 | Governed Process Instance Migration and Release Operations，Issue #56 / Draft PR #58 |
 | M6 | 规划中 | Ecosystem and AI：连接器、SDK、模板生态与受治理 AI 审批能力 |
+| DB-COMPAT | 开发中 | 恢复 MySQL 8.4 生产兼容，Issue #91；完成前不声明双库支持 |
 
 Issues #13 和 #14 当前仍保持 Open。
 
@@ -112,10 +115,11 @@ M6 不允许 AI 绕过审批权限、伪造操作者、直接修改流程状态�
 - [`docs/FORM_SCHEMA.md`](docs/FORM_SCHEMA.md)
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
 - [`docs/M4_FINAL_ACCEPTANCE.md`](docs/M4_FINAL_ACCEPTANCE.md)
+- [`docs/database/MYSQL_8_4_PRODUCTION_COMPATIBILITY.md`](docs/database/MYSQL_8_4_PRODUCTION_COMPATIBILITY.md)
 
 ## English Summary
 
-M4 Operations has been formally accepted and merged. M5 governed process-instance migration is currently under staged development in Issue #56 and Draft PR #58. M6 is planned for ecosystem integrations, SDKs, templates and governed AI assistance.
+M4 Operations has been formally accepted and merged. M5 governed process-instance migration is currently under staged development in Issue #56 / Draft PR #58. M6 is planned for ecosystem integrations, SDKs, templates and governed AI assistance. PostgreSQL 16 is the currently validated database; MySQL 8.4 production compatibility is an active blocking workstream and is not yet supported.
 
 ## License
 

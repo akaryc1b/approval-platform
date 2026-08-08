@@ -32,10 +32,10 @@ import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAttachmentStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalCommentStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMessageStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalParticipationQuery;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProjectionStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProjectionStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalTaskQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalTimelineQuery;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcAuditEventSink;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcAuditEventStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcIdempotencyGuard;
 import org.flowable.engine.RepositoryService;
 import org.flowable.engine.RuntimeService;
@@ -95,7 +95,10 @@ public class ApprovalPlatformConfiguration {
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper
     ) {
-        return new JdbcApprovalProjectionStore(dataSource, approvalPersistenceObjectMapper);
+        return JdbcApprovalProjectionStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper
+        );
     }
 
     @Bean
@@ -170,9 +173,14 @@ public class ApprovalPlatformConfiguration {
     @Bean
     AuditEventSink auditEventSink(
         DataSource dataSource,
-        ObjectMapper approvalPersistenceObjectMapper
+        ObjectMapper approvalPersistenceObjectMapper,
+        PlatformTransactionManager transactionManager
     ) {
-        return new JdbcAuditEventSink(dataSource, approvalPersistenceObjectMapper);
+        return JdbcAuditEventStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper,
+            transactionManager
+        );
     }
 
     @Bean

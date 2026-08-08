@@ -9,14 +9,17 @@ This matrix describes the combinations continuously validated by the repository 
 | Java | Java 21 | required and continuously validated |
 | Spring | Spring Boot 4 | current server baseline |
 | Workflow engine | Flowable 8 through the platform Engine SPI | current implementation |
-| Database | PostgreSQL; CI integration tests use PostgreSQL 16 | reference production database |
+| Database | PostgreSQL 16 | current reference production database and permanent CI baseline |
+| Database target | MySQL 8.4 | original commitment restored in Issue #91; active blocking workstream, not yet supported |
 | Node.js | Node.js 22 | CI baseline |
 | Package manager | pnpm 10.33.4 | CI baseline |
 | PC | Vue 3 + Vben `web-ele` + Element Plus | type-check and production build validated |
 | Mobile | UniApp Vue 3 + Unibest + Wot UI | type-check, H5 and WeChat Mini Program builds validated |
 | JVM architecture | x86-64 Linux CI; standard Java 21-compatible container/host | supported by JVM/container distribution |
 
-MySQL 8 is a future compatibility target and is not part of the current release gate. Do not deploy M2 against MySQL and assume PostgreSQL semantics, locks, JSON behavior or indexes are equivalent.
+The original PostgreSQL plus MySQL commitment is active again. MySQL 8.4 must not be used for production until Issue #91 completes the vendor-specific Flyway lineage, JDBC semantics, Flowable execution, concurrency/fault matrix, operations rehearsals and permanent dual-database workflow. Do not deploy the current branch against MySQL and assume PostgreSQL locks, JSON, timestamps, constraints or indexes are equivalent.
+
+The governing workstream is [`database/MYSQL_8_4_PRODUCTION_COMPATIBILITY.md`](database/MYSQL_8_4_PRODUCTION_COMPATIBILITY.md).
 
 ## Product protocol versions
 
@@ -71,10 +74,16 @@ Canonical management authorities are:
 ## Database and migration compatibility
 
 - Flyway migrations are append-only. Never edit a migration that has been applied to an environment.
-- PostgreSQL is the source of truth for platform projections, immutable artifacts, audit events, idempotency and Outbox state.
+- PostgreSQL remains the source of truth for the currently accepted platform projections, immutable artifacts, audit events, idempotency and Outbox state.
+- MySQL 8.4 must gain an immutable vendor-selected migration history representing the same logical platform invariants without rewriting PostgreSQL checksums.
+- Supported database identity is resolved from trusted JDBC metadata and startup configuration; clients cannot select a dialect.
+- MySQL acceptance requires InnoDB, `utf8mb4`, strict SQL mode, UTC session semantics and proven microsecond timestamp behavior.
+- Product outcomes, tenant isolation, idempotency, CAS, replay, audit hashes, lease fencing and recovery decisions must remain equivalent across vendors.
 - Flowable tables are private to the engine adapter. Application code and operational reporting must not query or modify `ACT_*` tables directly.
 - A database restore must keep platform tables and Flowable tables from the same consistent recovery point.
 - Release, effective-release and instance-version hashes must be preserved byte-for-byte during migration or restore.
+
+Until the dual-database gate is complete, PostgreSQL-specific constructs such as `jsonb`, `timestamptz`, `bytea`, `ON CONFLICT`, advisory locks, predicate indexes and PostgreSQL query plans remain explicit MySQL blockers rather than assumed portable behavior.
 
 ## Connector compatibility
 
@@ -82,14 +91,18 @@ The core product is independent from RuoYi, Sa-Token and third-party office suit
 
 RuoYi-Vue-Plus 5.X/6.X, generic REST, DingTalk and Feishu are integration targets. Only combinations covered by their connector-specific tests and deployment documentation should be treated as supported for production.
 
+RuoYi MySQL menu examples validate only the host application's menu schema. They are not evidence that Approval Platform persistence supports MySQL.
+
 ## Upgrade policy
 
-Before upgrading Java, Spring Boot, Flowable, PostgreSQL, Vben, UniApp or a connector:
+Before upgrading Java, Spring Boot, Flowable, PostgreSQL, MySQL, Vben, UniApp or a connector:
 
-1. run the full Maven reactor including PostgreSQL/Testcontainers;
-2. run PC type-check and production build;
-3. run UniApp type-check, H5 build and WeChat build;
-4. run deterministic DSL/Form/UI/hash golden tests;
-5. run deployment, effective-release, transfer and runtime exact-version tests;
-6. verify existing immutable Release Packages still reproduce the expected artifacts;
-7. review migration, rollback and backup procedures in `docs/OPERATIONS.md`.
+1. run the full Maven core reactor;
+2. run every required PostgreSQL persistence shard;
+3. after Issue #91 reaches the dual-database gate, run every required MySQL persistence shard;
+4. run PC type-check and production build;
+5. run UniApp type-check, H5 build and WeChat build;
+6. run deterministic DSL/Form/UI/hash golden tests;
+7. run deployment, effective-release, transfer and runtime exact-version tests;
+8. verify existing immutable Release Packages still reproduce the expected artifacts;
+9. review vendor-specific migration, rollback, backup and restore procedures in `docs/OPERATIONS.md` and the database compatibility record.

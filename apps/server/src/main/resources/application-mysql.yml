@@ -1,0 +1,32 @@
+spring:
+  config:
+    activate:
+      on-profile: mysql
+  datasource:
+    url: ${APPROVAL_DB_URL}
+    username: ${APPROVAL_DB_USERNAME}
+    password: ${APPROVAL_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      data-source-properties:
+        characterEncoding: UTF-8
+        connectionCollation: utf8mb4_0900_as_cs
+        connectionTimeZone: UTC
+        forceConnectionTimeZoneToSession: true
+        preserveInstants: true
+        useAffectedRows: false
+      connection-init-sql: >-
+        SET SESSION character_set_client = 'utf8mb4',
+        SESSION character_set_connection = 'utf8mb4',
+        SESSION character_set_results = 'utf8mb4',
+        SESSION collation_connection = 'utf8mb4_0900_as_cs',
+        SESSION time_zone = '+00:00',
+        SESSION sql_mode = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION',
+        SESSION transaction_isolation = 'READ-COMMITTED'
+  flyway:
+    locations: classpath:db/mysqlmigration
+    fail-on-missing-locations: true
+
+approval:
+  database:
+    expected-vendor: MYSQL

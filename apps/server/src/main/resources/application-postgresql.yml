@@ -1,0 +1,10 @@
+spring:
+  config:
+    activate:
+      on-profile: postgresql
+  datasource:
+    driver-class-name: org.postgresql.Driver
+
+approval:
+  database:
+    expected-vendor: POSTGRESQL
