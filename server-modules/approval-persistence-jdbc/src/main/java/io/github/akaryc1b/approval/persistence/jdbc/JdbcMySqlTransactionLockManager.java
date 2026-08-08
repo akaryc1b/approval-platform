@@ -60,9 +60,11 @@ final class JdbcMySqlTransactionLockManager {
 
         Connection connection = DataSourceUtils.getConnection(dataSource);
         LockRegistry created = new LockRegistry(connection);
+        boolean bound = false;
         try {
             created.acquire(lockName(exactScope), timeoutSeconds);
             TransactionSynchronizationManager.bindResource(transactionResourceKey, created);
+            bound = true;
             TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
@@ -72,6 +74,11 @@ final class JdbcMySqlTransactionLockManager {
                             created.releaseAll();
                         } catch (RuntimeException exception) {
                             releaseFailure = exception;
+                            try {
+                                created.abortConnection();
+                            } catch (RuntimeException abortFailure) {
+                                releaseFailure.addSuppressed(abortFailure);
+                            }
                         } finally {
                             TransactionSynchronizationManager.unbindResourceIfPossible(
                                 transactionResourceKey
@@ -84,10 +91,20 @@ final class JdbcMySqlTransactionLockManager {
                 }
             );
         } catch (RuntimeException exception) {
+            if (bound) {
+                TransactionSynchronizationManager.unbindResourceIfPossible(
+                    transactionResourceKey
+                );
+            }
             try {
                 created.releaseAll();
             } catch (RuntimeException releaseFailure) {
                 exception.addSuppressed(releaseFailure);
+                try {
+                    created.abortConnection();
+                } catch (RuntimeException abortFailure) {
+                    exception.addSuppressed(abortFailure);
+                }
             }
             throw exception;
         }
@@ -173,6 +190,7 @@ final class JdbcMySqlTransactionLockManager {
                             "MySQL projection serialization lock was not released"
                         );
                     }
+                    heldLocks.remove(lockName);
                 } catch (RuntimeException exception) {
                     if (failure == null) {
                         failure = exception;
@@ -181,9 +199,24 @@ final class JdbcMySqlTransactionLockManager {
                     }
                 }
             }
-            heldLocks.clear();
             if (failure != null) {
                 throw failure;
+            }
+        }
+
+        private void abortConnection() {
+            try {
+                connection.abort(Runnable::run);
+            } catch (SQLException | RuntimeException exception) {
+                try {
+                    connection.close();
+                } catch (SQLException closeFailure) {
+                    exception.addSuppressed(closeFailure);
+                }
+                throw new IllegalStateException(
+                    "unable to abort MySQL connection after named-lock release failure",
+                    exception
+                );
             }
         }
 
