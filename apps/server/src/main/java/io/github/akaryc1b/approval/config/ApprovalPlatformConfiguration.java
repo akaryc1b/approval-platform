@@ -32,7 +32,7 @@ import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAttachmentStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalCommentStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMessageStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalParticipationQuery;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProjectionStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProjectionStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalTaskQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalTimelineQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcAuditEventStoreFactory;
@@ -95,7 +95,10 @@ public class ApprovalPlatformConfiguration {
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper
     ) {
-        return new JdbcApprovalProjectionStore(dataSource, approvalPersistenceObjectMapper);
+        return JdbcApprovalProjectionStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper
+        );
     }
 
     @Bean
