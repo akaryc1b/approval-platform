@@ -103,6 +103,8 @@ test('E2 full generator executes only in GitHub Actions and emits retained canon
   assert.ok(evidence.maven.components.length > 26);
   assert.ok(evidence.maven.edges.length > 0);
   assert.ok(evidence.maven.resolvedPluginCoordinates.length > 0);
+  const externalMaven = evidence.maven.components.filter((component) => component.group !== 'io.github.akaryc1b.approval');
+  assert.ok(externalMaven.some((component) => component.licenses.some((license) => license !== 'EVIDENCE_UNAVAILABLE')), 'resolved Maven POM license metadata must not be globally omitted');
   console.log('M6_PR_E_E2_CANONICAL_SHA256=' + evidence.contentSha256);
   console.log(match[0]);
 });
