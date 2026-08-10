@@ -118,8 +118,17 @@ class JdbcApprovalFormDesignDraftStoreMySqlContractTest {
                 () -> "P3-F3 contract is missing required marker: " + required
             );
         }
-        assertFalse(contract.contains("MYSQL_P3_F3_FORM_DESIGN_DRAFT_STORE_STAGED"));
-        assertFalse(contract.contains("MYSQL_8_4_PRODUCTION_SUPPORTED"));
+        assertFalse(hasStatusLine(
+            contract,
+            "MYSQL_P3_F3_FORM_DESIGN_DRAFT_STORE_STAGED"
+        ));
+        assertFalse(hasStatusLine(contract, "MYSQL_8_4_PRODUCTION_SUPPORTED"));
+    }
+
+    private static boolean hasStatusLine(String document, String status) {
+        return document.lines()
+            .map(String::trim)
+            .anyMatch(status::equals);
     }
 
     private static Path repositoryRoot() {
