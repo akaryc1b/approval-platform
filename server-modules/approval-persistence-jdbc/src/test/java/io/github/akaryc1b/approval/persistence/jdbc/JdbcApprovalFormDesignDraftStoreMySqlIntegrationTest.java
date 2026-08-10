@@ -53,7 +53,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -66,7 +65,9 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
     private static final String TENANT = "Tenant-Draft-MySQL";
     private static final String OTHER_TENANT = "tenant-draft-other";
     private static final String FORM_KEY = "draft-precision";
-    private static final Instant NOW = Instant.parse("2026-08-10T05:06:07.999999500Z");
+    private static final Instant NOW = Instant.parse(
+        "2026-08-10T05:06:07.999999500Z"
+    );
 
     @Container
     static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
@@ -126,14 +127,19 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
         transactions = new TransactionTemplate(transactionManager);
         formHasher = new FormSchemaHasher();
         uiHasher = new UiSchemaHasher();
-        drafts = JdbcApprovalFormDesignDraftStoreFactory.create(dataSource, objectMapper);
+        drafts = JdbcApprovalFormDesignDraftStoreFactory.create(
+            dataSource,
+            objectMapper
+        );
         service = service(drafts);
     }
 
     @Test
     void roundTripsEvidenceListsDeterministicallyAndIsolatesTenants() {
         assertInstanceOf(JdbcMySqlApprovalFormDesignDraftStore.class, drafts);
-        FormDesignDraft created = service.createBlank(createCommand(TENANT, "create-a", "key-a"));
+        FormDesignDraft created = service.createBlank(
+            createCommand(TENANT, "create-a", "key-a")
+        );
         FormDefinition form = formDefinition();
         UiSchemaDefinition ui = uiSchema();
 
@@ -146,16 +152,31 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             ui,
             SaveMode.EXPLICIT
         ));
-        FormDesignDraft persisted = service.find(TENANT, created.draftId()).orElseThrow();
+        FormDesignDraft persisted = service.find(
+            TENANT,
+            created.draftId()
+        ).orElseThrow();
 
         assertEquals(2, persisted.revision());
-        assertEquals(formHasher.hash(updated.formDefinition()), formHasher.hash(persisted.formDefinition()));
-        assertEquals(uiHasher.hash(updated.uiSchemaDefinition()), uiHasher.hash(persisted.uiSchemaDefinition()));
-        assertEquals(updated.uiSchemaDefinition(), persisted.uiSchemaDefinition());
+        assertEquals(
+            formHasher.hash(updated.formDefinition()),
+            formHasher.hash(persisted.formDefinition())
+        );
+        assertEquals(
+            uiHasher.hash(updated.uiSchemaDefinition()),
+            uiHasher.hash(persisted.uiSchemaDefinition())
+        );
+        assertEquals(
+            updated.uiSchemaDefinition(),
+            persisted.uiSchemaDefinition()
+        );
         assertEquals(canonical(NOW), persisted.createdAt());
         assertEquals(canonical(NOW), persisted.updatedAt());
         assertTrue(service.find(OTHER_TENANT, created.draftId()).isEmpty());
-        assertTrue(service.find(TENANT.toLowerCase(), created.draftId()).isEmpty());
+        assertTrue(service.find(
+            TENANT.toLowerCase(),
+            created.draftId()
+        ).isEmpty());
 
         FormDesignDraft other = draft(
             UUID.fromString("00000000-0000-0000-0000-000000000001"),
@@ -163,7 +184,7 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             "draft-other",
             "Other matching draft",
             1,
-            NOW
+            NOW.minusSeconds(1)
         );
         drafts.save(other);
         drafts.save(draft(
@@ -172,9 +193,15 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             "draft-other",
             "Other tenant draft",
             1,
-            NOW
+            NOW.minusSeconds(1)
         ));
-        var page = drafts.findDrafts(new DraftCriteria(TENANT, "draft", null, 10, 0));
+        var page = drafts.findDrafts(new DraftCriteria(
+            TENANT,
+            "draft",
+            null,
+            10,
+            0
+        ));
         assertEquals(2, page.total());
         assertEquals(2, page.items().size());
         assertEquals(created.draftId(), page.items().get(0).draftId());
@@ -201,8 +228,14 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             TENANT,
             created.draftId().toString()
         );
-        assertEquals(JdbcMySqlApprovalFormDesignDraftStore.FORM_JSON_ENCODING, evidence.formEncoding());
-        assertEquals(JdbcMySqlUiSchemaCodec.JSON_ENCODING, evidence.uiEncoding());
+        assertEquals(
+            JdbcMySqlApprovalFormDesignDraftStore.FORM_JSON_ENCODING,
+            evidence.formEncoding()
+        );
+        assertEquals(
+            JdbcMySqlUiSchemaCodec.JSON_ENCODING,
+            evidence.uiEncoding()
+        );
         assertEquals(2, evidence.formMembers());
         assertEquals(2, evidence.uiMembers());
         assertEquals(0, evidence.updatedMicrosecond());
@@ -210,7 +243,9 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
 
     @Test
     void concurrentServiceUpdatesAdmitExactlyOneCasWinner() throws Exception {
-        FormDesignDraft created = service.createBlank(createCommand(TENANT, "cas-create", "cas-create-key"));
+        FormDesignDraft created = service.createBlank(
+            createCommand(TENANT, "cas-create", "cas-create-key")
+        );
         GateStore gated = new GateStore(drafts, 2);
         ApprovalFormDesignService concurrentService = service(gated);
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -241,7 +276,10 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             executor.shutdownNow();
         }
 
-        FormDesignDraft persisted = drafts.find(TENANT, created.draftId()).orElseThrow();
+        FormDesignDraft persisted = drafts.find(
+            TENANT,
+            created.draftId()
+        ).orElseThrow();
         assertEquals(2, persisted.revision());
         assertEquals(1, countAudit("FORM_DESIGN_DRAFT_SAVED"));
     }
@@ -249,7 +287,9 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
     @Test
     void rowLockBlocksConcurrentWriterAndRollbackRestoresStateAndReleasesLock()
         throws Exception {
-        FormDesignDraft created = service.createBlank(createCommand(TENANT, "lock-create", "lock-create-key"));
+        FormDesignDraft created = service.createBlank(
+            createCommand(TENANT, "lock-create", "lock-create-key")
+        );
         CountDownLatch locked = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         CountDownLatch secondAttempting = new CountDownLatch(1);
@@ -260,8 +300,14 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
                 drafts.lock(TENANT, created.draftId());
                 locked.countDown();
                 await(release);
-                FormDesignDraft current = drafts.find(TENANT, created.draftId()).orElseThrow();
-                assertTrue(drafts.update(copy(current, current.revision() + 1, "rolled back"), 1));
+                FormDesignDraft current = drafts.find(
+                    TENANT,
+                    created.draftId()
+                ).orElseThrow();
+                assertTrue(drafts.update(
+                    copy(current, current.revision() + 1, "rolled back"),
+                    1
+                ));
                 throw new RollbackMarker();
             }));
             Future<Boolean> second = executor.submit(() -> {
@@ -275,9 +321,15 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
 
             assertTrue(locked.await(10, TimeUnit.SECONDS));
             assertTrue(secondAttempting.await(10, TimeUnit.SECONDS));
-            assertThrows(TimeoutException.class, () -> second.get(500, TimeUnit.MILLISECONDS));
+            assertThrows(
+                TimeoutException.class,
+                () -> second.get(500, TimeUnit.MILLISECONDS)
+            );
             release.countDown();
-            ExecutionException rollback = assertThrows(ExecutionException.class, () -> first.get(20, TimeUnit.SECONDS));
+            ExecutionException rollback = assertThrows(
+                ExecutionException.class,
+                () -> first.get(20, TimeUnit.SECONDS)
+            );
             assertInstanceOf(RollbackMarker.class, rollback.getCause());
             assertTrue(second.get(20, TimeUnit.SECONDS));
         } finally {
@@ -285,61 +337,102 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             executor.shutdownNow();
         }
 
-        FormDesignDraft retained = drafts.find(TENANT, created.draftId()).orElseThrow();
+        FormDesignDraft retained = drafts.find(
+            TENANT,
+            created.draftId()
+        ).orElseThrow();
         assertEquals(1, retained.revision());
         assertEquals(created.name(), retained.name());
         transactions.executeWithoutResult(status -> {
             drafts.lock(TENANT, created.draftId());
-            FormDesignDraft current = drafts.find(TENANT, created.draftId()).orElseThrow();
+            FormDesignDraft current = drafts.find(
+                TENANT,
+                created.draftId()
+            ).orElseThrow();
             assertTrue(drafts.update(copy(current, 2, "after rollback"), 1));
         });
-        assertEquals(2, drafts.find(TENANT, created.draftId()).orElseThrow().revision());
+        assertEquals(
+            2,
+            drafts.find(TENANT, created.draftId()).orElseThrow().revision()
+        );
     }
 
     @Test
     void malformedFormAndUiEvidenceFailClosed() {
-        FormDesignDraft first = service.createBlank(createCommand(TENANT, "bad-form", "bad-form-key"));
-        FormDesignDraft second = service.createBlank(createCommand(TENANT, "bad-ui", "bad-ui-key"));
+        FormDesignDraft first = service.createBlank(
+            createCommand(TENANT, "bad-form", "bad-form-key")
+        );
+        FormDesignDraft second = service.createBlank(
+            createCommand(TENANT, "bad-ui", "bad-ui-key")
+        );
 
         jdbc.update(
-            "update ap_form_design_draft set form_schema_json = cast(? as json) where tenant_id = ? and draft_id = ?",
-            "{\"encoding\":\"CANONICAL_JSON_TEXT_V1\",\"payload\":\"{}\",\"extra\":true}",
+            """
+            update ap_form_design_draft
+            set form_schema_json = cast(? as json)
+            where tenant_id = ? and draft_id = ?
+            """,
+            "{\"encoding\":\"CANONICAL_JSON_TEXT_V1\","
+                + "\"payload\":\"{}\",\"extra\":true}",
             TENANT,
             first.draftId().toString()
         );
         jdbc.update(
-            "update ap_form_design_draft set ui_schema_json = cast(? as json) where tenant_id = ? and draft_id = ?",
+            """
+            update ap_form_design_draft
+            set ui_schema_json = cast(? as json)
+            where tenant_id = ? and draft_id = ?
+            """,
             "{\"encoding\":\"UNKNOWN\",\"payload\":\"{}\"}",
             TENANT,
             second.draftId().toString()
         );
 
-        assertThrows(DataAccessException.class, () -> drafts.find(TENANT, first.draftId()));
-        assertThrows(DataAccessException.class, () -> drafts.find(TENANT, second.draftId()));
+        assertThrows(
+            DataAccessException.class,
+            () -> drafts.find(TENANT, first.draftId())
+        );
+        assertThrows(
+            DataAccessException.class,
+            () -> drafts.find(TENANT, second.draftId())
+        );
     }
 
-    private ApprovalFormDesignService service(ApprovalFormDesignDraftStore draftStore) {
-        ApprovalFormStore forms = JdbcApprovalFormStoreFactory.create(dataSource, objectMapper);
-        ApprovalUiSchemaStore uiSchemas = JdbcApprovalUiSchemaStoreFactory.create(dataSource, objectMapper);
+    private ApprovalFormDesignService service(
+        ApprovalFormDesignDraftStore draftStore
+    ) {
+        ApprovalFormStore forms = JdbcApprovalFormStoreFactory.create(
+            dataSource,
+            objectMapper
+        );
+        ApprovalUiSchemaStore uiSchemas = JdbcApprovalUiSchemaStoreFactory.create(
+            dataSource,
+            objectMapper
+        );
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         return new ApprovalFormDesignService(
             new JdbcIdempotencyGuard(
                 dataSource,
                 objectMapper,
                 transactionManager,
-                Clock.fixed(NOW, ZoneOffset.UTC)
+                clock
             ),
             draftStore,
             unsupportedPackages(),
             forms,
             uiSchemas,
-            JdbcAuditEventStoreFactory.create(dataSource, objectMapper, transactionManager),
+            JdbcAuditEventStoreFactory.create(
+                dataSource,
+                objectMapper,
+                transactionManager
+            ),
             new FormDefinitionValidator(),
             new UiSchemaDefinitionValidator(),
             formHasher,
             uiHasher,
             new FormPackageHasher(),
-            new FormDefaultValueResolver(Clock.fixed(NOW, ZoneOffset.UTC)),
-            Clock.fixed(NOW, ZoneOffset.UTC),
+            new FormDefaultValueResolver(clock),
+            clock,
             UUID::randomUUID
         );
     }
@@ -370,17 +463,28 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
     private static ApprovalFormPackageStore unsupportedPackages() {
         return new ApprovalFormPackageStore() {
             @Override
-            public void lockVersion(String tenantId, String formKey, int packageVersion) {
+            public void lockVersion(
+                String tenantId,
+                String formKey,
+                int packageVersion
+            ) {
                 throw unsupported();
             }
 
             @Override
-            public Optional<FormPackage> find(String tenantId, String formKey, int packageVersion) {
+            public Optional<FormPackage> find(
+                String tenantId,
+                String formKey,
+                int packageVersion
+            ) {
                 throw unsupported();
             }
 
             @Override
-            public Optional<FormPackage> findByDraft(String tenantId, UUID draftId) {
+            public Optional<FormPackage> findByDraft(
+                String tenantId,
+                UUID draftId
+            ) {
                 throw unsupported();
             }
 
@@ -390,12 +494,18 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             }
 
             private UnsupportedOperationException unsupported() {
-                return new UnsupportedOperationException("P3-F4 Form Package Store is out of scope");
+                return new UnsupportedOperationException(
+                    "P3-F4 Form Package Store is out of scope"
+                );
             }
         };
     }
 
-    private static CreateCommand createCommand(String tenantId, String requestId, String key) {
+    private static CreateCommand createCommand(
+        String tenantId,
+        String requestId,
+        String key
+    ) {
         return new CreateCommand(
             context(tenantId, requestId, key),
             FORM_KEY,
@@ -405,8 +515,18 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
         );
     }
 
-    private static RequestContext context(String tenantId, String requestId, String key) {
-        return new RequestContext(tenantId, "Draft-Admin", requestId, key, "trace-draft-mysql");
+    private static RequestContext context(
+        String tenantId,
+        String requestId,
+        String key
+    ) {
+        return new RequestContext(
+            tenantId,
+            "Draft-Admin",
+            requestId,
+            key,
+            "trace-draft-mysql"
+        );
     }
 
     private static FormDefinition formDefinition() {
@@ -454,7 +574,9 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
                             List.of(
                                 Integer.valueOf(7),
                                 Long.valueOf(8L),
-                                new BigInteger("92233720368547758081234567890")
+                                new BigInteger(
+                                    "92233720368547758081234567890"
+                                )
                             )
                         ),
                         UiSchemaDefinition.FallbackRenderer.READONLY_TEXT
@@ -516,12 +638,16 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             null,
             "Draft-Admin",
             "Draft-Admin",
-            NOW,
+            updatedAt,
             updatedAt
         );
     }
 
-    private static FormDesignDraft copy(FormDesignDraft source, long revision, String name) {
+    private static FormDesignDraft copy(
+        FormDesignDraft source,
+        long revision,
+        String name
+    ) {
         return new FormDesignDraft(
             source.draftId(),
             source.tenantId(),
@@ -548,7 +674,10 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("concurrency wait interrupted", exception);
+            throw new IllegalStateException(
+                "concurrency wait interrupted",
+                exception
+            );
         }
     }
 
@@ -593,7 +722,10 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
         private final ApprovalFormDesignDraftStore delegate;
         private final CountDownLatch updateArrivals;
 
-        private GateStore(ApprovalFormDesignDraftStore delegate, int updateCount) {
+        private GateStore(
+            ApprovalFormDesignDraftStore delegate,
+            int updateCount
+        ) {
             this.delegate = Objects.requireNonNull(delegate);
             this.updateArrivals = new CountDownLatch(updateCount);
         }
