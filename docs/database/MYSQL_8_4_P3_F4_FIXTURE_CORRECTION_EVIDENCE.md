@@ -133,7 +133,7 @@ result: failure
 classification: TEST_FIXTURE_BUG / PUBLISHED_PAIR_CHECK_INVARIANT
 ```
 
-The real MySQL suite again reached all four selected methods but the three methods after the first failed during `@BeforeEach`. This time the foreign-key cycle was no longer the first failing operation. MySQL rejected the single-column update with:
+The real MySQL suite again reached all four selected methods but the three methods after the first failed during `@BeforeEach`. MySQL rejected the single-column update with:
 
 ```text
 Check constraint 'ap_form_design_draft_published_pair_check' is violated
@@ -145,9 +145,7 @@ This matches the domain invariant in `FormDesignDraft`:
 status == PUBLISHED  <=>  publishedPackageVersion != null
 ```
 
-A published draft cannot retain `PUBLISHED` while clearing only `published_package_version`, and a non-published draft cannot retain a package version.
-
-Run #1387 therefore provides additional positive evidence that the MySQL baseline preserves the published-pair state invariant instead of allowing partial publication metadata.
+Run #1387 therefore provides positive evidence that the MySQL baseline preserves the published-pair state invariant instead of allowing partial publication metadata.
 
 ## Third cycle- and CHECK-aware fixture correction
 
@@ -185,6 +183,54 @@ This sequence is deliberate:
 
 This is strictly test fixture teardown. It does not change the production schema, `FormDesignDraft`, `ApprovalFormDesignService`, the PostgreSQL implementation, the MySQL Package Store, Package immutability, publication semantics or any database constraint.
 
+## Accepted natural Run #1388
+
+The third correction plus the complete retained correction evidence were advanced to:
+
+```text
+Head: a51783487feac3bd1bf27a350ff9e93d99eb1d38
+Run: 31368630837 / #1388
+result: success
+```
+
+All nine physical Jobs succeeded, including all four Persistence JDBC shards and the final Java 21 / Maven / PostgreSQL aggregate evidence gate.
+
+The focused real MySQL suite completed:
+
+```text
+JdbcApprovalFormPackageStoreMySqlIntegrationTest
+Tests run: 4
+Failures: 0
+Errors: 0
+Skipped: 0
+Time: 22.797 s
+```
+
+Shard 0 completed:
+
+```text
+Tests run: 116
+Failures: 0
+Errors: 0
+Skipped: 0
+```
+
+Independent Maven Artifact reconstruction for #1388 reported:
+
+```text
+Maven Core:                           1469 / 0 / 0 / 0
+Persistence JDBC:                      464 / 0 / 0 / 0
+Combined:                             1933 / 0 / 0 / 0
+selected persistence test classes:     112
+Surefire report classes:               111
+expected abstract without report:        1
+duplicate selections:                    0
+non-abstract selected without report:    0
+selection coverage:                  exact
+```
+
+All four final #1388 Artifacts were independently downloaded; local byte size and SHA-256 matched GitHub metadata exactly, and all ZIP integrity checks passed. The detailed Artifact table remains in `MYSQL_8_4_P3_F4_FORM_PACKAGE_STORE_CONTRACT.md`.
+
 ## Forbidden shortcuts retained
 
 None of the corrections use or authorize:
@@ -201,17 +247,19 @@ rebase
 empty correction commit
 ```
 
-The failures are retained because they prove the real MySQL clean schema enforces both relational provenance edges and the published-pair CHECK invariant.
+The retained failures prove the real MySQL clean schema enforces both relational provenance edges and the published-pair CHECK invariant.
 
-## Evidence rules
+## Correction trail closure
 
-- Runs #1383, #1384, #1385 and #1387 are retained and are not rerun in place.
-- Every correction uses a new append-only Head.
-- P3-F4 production code has not been changed by these fixture corrections.
-- P3-F4 remains staged until the corrected implementation and permanent evidence pass a new natural Pull Request validation Run.
+- Runs #1383, #1384, #1385 and #1387 remain retained failed natural Heads.
+- None was rerun in place.
+- Every correction used a new append-only Head.
+- P3-F4 production code was unchanged by all fixture corrections.
+- Run #1388 is the accepted corrected implementation Run.
+- P3-F4 acceptance does not authorize broader MySQL production support or any next slice.
 
 ```text
-MYSQL_P3_F4_FORM_PACKAGE_STORE_STAGED
+MYSQL_P3_F4_FORM_PACKAGE_STORE_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
