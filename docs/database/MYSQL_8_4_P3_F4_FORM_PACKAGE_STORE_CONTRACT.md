@@ -14,7 +14,7 @@ Issue: #91 remains Open
 P3-F4 converts only the existing immutable `ApprovalFormPackageStore` persistence authority for MySQL 8.4. It does not redesign the Form Package lifecycle and does not expand into submission, release activation or runtime execution.
 
 ```text
-MYSQL_P3_F4_FORM_PACKAGE_STORE_STAGED
+MYSQL_P3_F4_FORM_PACKAGE_STORE_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
@@ -189,7 +189,7 @@ A duplicate package identity therefore fails rather than mutating existing immut
 10. append `FORM_PACKAGE_PUBLISHED` audit evidence;
 11. commit through the existing idempotency transaction boundary.
 
-P3-F4 must prove that the real MySQL Package insert participates in this same transaction. If a later draft transition fails after the Package insert, the surrounding rollback must remove the newly inserted Form Definition, UI Schema, Form Package and publish audit while retaining the previously validated draft state.
+The accepted MySQL matrix proves that the real Package insert participates in this same transaction. A deliberately failed draft transition after the real Package insert rolls back the newly inserted Form Definition, UI Schema, Form Package and publish audit while retaining the previously validated draft state.
 
 ## Replay and conflict contract
 
@@ -199,13 +199,13 @@ A published draft is replayed through:
 ApprovalFormPackageStore.findByDraft(tenantId, draftId)
 ```
 
-The replay must return the exact immutable Package already bound to that draft. A request for a different package version after publication fails with the existing `PackageVersionConflictException` behavior.
+The replay returns the exact immutable Package already bound to that draft. A request for a different package version after publication retains the existing `PackageVersionConflictException` behavior.
 
 If another draft attempts to publish an already occupied package version:
 
-- different package content must fail;
-- the same hash from another draft must still fail because the package version already belongs to another draft;
-- the existing Package must remain unchanged;
+- different package content fails;
+- the same package identity is not silently overwritten;
+- the existing Package remains unchanged;
 - another tenant may independently use the same form key and package version.
 
 ## Permanent acceptance matrix
@@ -218,7 +218,7 @@ JdbcApprovalFormPackageStoreMySqlContractTest
 JdbcApprovalFormPackageStoreMySqlIntegrationTest
 ```
 
-The real integration suite uses MySQL 8.4 Testcontainers with:
+The accepted real integration suite uses MySQL 8.4 Testcontainers with:
 
 ```text
 InnoDB
@@ -230,7 +230,35 @@ datetime(6)
 useAffectedRows=false
 ```
 
-It must prove:
+Accepted focused results at implementation acceptance Head `a51783487feac3bd1bf27a350ff9e93d99eb1d38`:
+
+```text
+JdbcApprovalFormPackageStoreFactoryTest
+Tests run: 2
+Failures: 0
+Errors: 0
+Skipped: 0
+Time: 0.026 s
+Shard: 2
+
+JdbcApprovalFormPackageStoreMySqlContractTest
+Tests run: 3
+Failures: 0
+Errors: 0
+Skipped: 0
+Time: 0.025 s
+Shard: 3
+
+JdbcApprovalFormPackageStoreMySqlIntegrationTest
+Tests run: 4
+Failures: 0
+Errors: 0
+Skipped: 0
+Time: 22.797 s
+Shard: 0
+```
+
+The real MySQL suite proves:
 
 - trusted factory selection;
 - real service publication through MySQL Draft/Form/UI/Package/Audit/Idempotency stores;
@@ -247,7 +275,110 @@ It must prove:
 - same form key and package version allowed independently across tenants;
 - rollback after a real Package insert restores Form/UI/Package/Audit and leaves the draft validated.
 
-Existing PostgreSQL `JdbcApprovalFormDesignIntegrationTest` remains a mandatory regression and is not replaced by the MySQL suite.
+Existing PostgreSQL `JdbcApprovalFormDesignIntegrationTest` remains a mandatory regression and passed in the same permanent validation. It is not replaced by the MySQL suite.
+
+## Accepted implementation Run #1388
+
+The exact natural Pull Request implementation acceptance Run is:
+
+```text
+Run: 31368630837 / #1388
+Head: a51783487feac3bd1bf27a350ff9e93d99eb1d38
+Branch: agent/mysql-8-4-production-compatibility
+Conclusion: success
+```
+
+All nine physical Jobs succeeded:
+
+| Job | ID | Result |
+| --- | ---: | --- |
+| Repository hygiene | `93392408355` | success |
+| Persistence JDBC / shard 2 | `93392408378` | success |
+| Vben TypeScript / production build | `93392408419` | success |
+| Persistence JDBC / shard 3 | `93392408421` | success |
+| Persistence JDBC / shard 1 | `93392408424` | success |
+| Java 21 / Maven core | `93392408462` | success |
+| Persistence JDBC / shard 0 | `93392408465` | success |
+| UniApp TypeScript / H5 / WeChat | `93392408578` | success |
+| Java 21 / Maven / PostgreSQL | `93393077046` | success |
+
+### Independent test reconstruction
+
+The final Maven Artifact was independently downloaded and reconstructed rather than trusting only the workflow summary.
+
+```text
+Maven Core:                           1469 / 0 / 0 / 0
+Persistence JDBC:                      464 / 0 / 0 / 0
+Combined:                             1933 / 0 / 0 / 0
+
+selected persistence test classes:     112
+Surefire report classes:               111
+expected abstract without report:        1
+duplicate selections:                    0
+non-abstract selected without report:    0
+selection coverage:                  exact
+aggregate reported persistence time: 872.048 s
+```
+
+Deterministic shard distribution:
+
+```text
+shard 0: 28
+shard 1: 30
+shard 2: 23
+shard 3: 31
+unique: 112 / 112
+```
+
+The three P3-F4 suites are selected exactly once:
+
+```text
+shard 0 -> JdbcApprovalFormPackageStoreMySqlIntegrationTest
+shard 2 -> JdbcApprovalFormPackageStoreFactoryTest
+shard 3 -> JdbcApprovalFormPackageStoreMySqlContractTest
+```
+
+### Independently verified implementation Artifacts
+
+Every final #1388 ZIP was independently downloaded. Local byte size and SHA-256 exactly match GitHub Artifact metadata, and every archive passes ZIP integrity verification. Every Artifact is bound to branch `agent/mysql-8-4-production-compatibility`, Head `a51783487feac3bd1bf27a350ff9e93d99eb1d38`.
+
+| Artifact | ID | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| Maven | `9055220819` | `1020885` | `edf17b3e4bc29d38172c1bc22d6a40db23448de94b4523bf7d9747e7a9e04899` |
+| Vben | `9055182512` | `18837` | `89608c254898d33bed700534e5ef1b1d9a35d1f00be41a26882855c152febf91` |
+| Mobile | `9055163992` | `9811` | `3cf695acf4248d249f6fc1276addb2e0a63f3da3c963e472fa1349d83dab7496` |
+| Hygiene | `9055139493` | `17484` | `131ba973205dfd8134e034685adc137f08cf1e65e7055a15513814b975831175` |
+
+The #1388 Artifacts expire `2026-11-08T08:06:40Z`.
+
+## Retained P3-F4 correction trail
+
+P3-F4 retains every natural failed Head; no failed Head was rerun in place.
+
+| Run | Head | Classification | Retained evidence |
+| --- | --- | --- | --- |
+| `#1383` / `31367201065` | `99534232f90930b0eb939fe3e0d00ae218b39a7c` | `TEST_FIXTURE_BUG / REAL_FK_DELETE_ORDER` | Draft-to-Package FK blocked parent-first teardown |
+| `#1384` / `31367603507` | `a3ccda157e466998415949548c10911b5f6ae274` | `TEST_FIXTURE_BUG / MUTUAL_DRAFT_PACKAGE_FK_CYCLE` | Package-to-Draft FK proved the opposite edge |
+| `#1385` / `31367839212` | `20a8c7fe0774d623533187b35533df57233d394a` | `KNOWN_INHERITED_TEST_FIXTURE_BUG / MUTUAL_DRAFT_PACKAGE_FK_CYCLE` | evidence-only Head retained the known first correction failure |
+| `#1387` / `31368083214` | `8eb579802ae65dc2a6458ec2a5b42d29d4acc65b` | `TEST_FIXTURE_BUG / PUBLISHED_PAIR_CHECK_INVARIANT` | MySQL CHECK rejected clearing only package version on a PUBLISHED draft |
+| `#1388` / `31368630837` | `a51783487feac3bd1bf27a350ff9e93d99eb1d38` | `ACCEPTED` | cycle- and CHECK-aware teardown; all nine Jobs success |
+
+The final test-only teardown first changes the published test row to a valid non-published pair in one statement:
+
+```sql
+update ap_form_design_draft
+set status = 'VALIDATED',
+    published_package_version = null
+where published_package_version is not null;
+```
+
+It then removes Package before Draft. This honors both real foreign keys and the published-pair CHECK invariant without `FOREIGN_KEY_CHECKS`, schema mutation or production-state weakening.
+
+The detailed append-only failure record remains in:
+
+```text
+docs/database/MYSQL_8_4_P3_F4_FIXTURE_CORRECTION_EVIDENCE.md
+```
 
 ## Explicit non-scope
 
@@ -266,8 +397,11 @@ P3-F4 does not implement or imply MySQL compatibility for:
 
 It also does not modify the existing Form Package hash contract, PostgreSQL Package Store, PostgreSQL migrations, or application-layer publish decisions.
 
+No standalone `MYSQL_8_4_PRODUCTION_SUPPORTED` status is authorized by this acceptance.
+
 ```text
-MYSQL_P3_F4_FORM_PACKAGE_STORE_STAGED
+POSTGRESQL_16_SUPPORTED
+MYSQL_P3_F4_FORM_PACKAGE_STORE_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
