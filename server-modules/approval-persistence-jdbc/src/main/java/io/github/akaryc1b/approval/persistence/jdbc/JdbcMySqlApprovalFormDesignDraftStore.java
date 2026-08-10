@@ -129,8 +129,8 @@ public final class JdbcMySqlApprovalFormDesignDraftStore implements ApprovalForm
                 or lower(form_key) like concat('%', lower(:keyword), '%')
                 or lower(name) like concat('%', lower(:keyword), '%')
               )
-              %s
-            """.formatted(statusPredicate),
+              __STATUS__
+            """.replace("__STATUS__", statusPredicate),
             parameters,
             Long.class
         );
@@ -150,10 +150,10 @@ public final class JdbcMySqlApprovalFormDesignDraftStore implements ApprovalForm
                 or lower(form_key) like concat('%', lower(:keyword), '%')
                 or lower(name) like concat('%', lower(:keyword), '%')
               )
-              %s
+              __STATUS__
             order by updated_at desc, draft_id
             limit :limit offset :offset
-            """.formatted(statusPredicate),
+            """.replace("__STATUS__", statusPredicate),
             parameters,
             (resultSet, rowNumber) -> new DraftSummary(
                 values.uuid(resultSet, "draft_id"),
