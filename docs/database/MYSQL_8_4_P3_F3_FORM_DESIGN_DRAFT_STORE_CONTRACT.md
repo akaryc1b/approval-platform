@@ -66,7 +66,11 @@ MySQL draft identity remains:
 tenant_id, draft_id
 ```
 
-MySQL binds UUID values through the governed `JdbcDatabaseValueAdapter` and stores timestamps as UTC `datetime(6)` values using nearest-microsecond canonicalization.
+MySQL binds UUID values through the governed `JdbcDatabaseValueAdapter` and stores mutable draft timestamps as UTC `datetime(6)` values. Before binding, P3-F3 truncates an application `Instant` down to microsecond precision with `truncatedTo(ChronoUnit.MICROS)`.
+
+This floor operation is deliberate. A mutable draft timestamp must never be persisted later than the application clock merely because a sub-microsecond value sits on the 500 ns rounding boundary. In particular, `...07.999999500Z` persists as `...07.999999Z`, not as the next second. This preserves the domain invariant that an immediate update cannot observe `createdAt` later than its current `updatedAt` value.
+
+This P3-F3 mutable-draft timestamp rule is local to the MySQL draft adapter. It does not change PostgreSQL timestamp behavior or the separately governed audit hash timestamp canonicalization contract.
 
 ### Form Schema evidence
 
@@ -147,7 +151,8 @@ The permanent MySQL matrix must prove:
 3. a draft update performed while holding `FOR UPDATE` is removed by surrounding rollback;
 4. the rolled-back row lock is released and a later transaction can lock/update the same draft;
 5. tenant-scoped reads and listing never expose another tenant's row;
-6. persisted Form/UI evidence recomputes the same deterministic hashes.
+6. persisted Form/UI evidence recomputes the same deterministic hashes;
+7. a `...999999500Z` timestamp is floored to microsecond precision rather than carried into the next second.
 
 ## Strict admission and forbidden shortcuts
 
@@ -188,7 +193,7 @@ datetime(6)
 useAffectedRows=false
 ```
 
-It must cover factory selection, create/update round-trip, deterministic listing, case-sensitive tenant isolation, typed UI evidence, Form/UI hash stability, concurrent CAS, row-lock blocking, rollback restoration and malformed evidence fail-closed behavior.
+It must cover factory selection, create/update round-trip, deterministic listing, case-sensitive tenant isolation, typed UI evidence, Form/UI hash stability, concurrent CAS, row-lock blocking, rollback restoration, malformed evidence fail-closed behavior and the sub-microsecond carry boundary.
 
 Existing PostgreSQL form-design integration tests remain mandatory regressions and are not replaced by the MySQL suite.
 
