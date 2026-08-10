@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.akaryc1b.approval.application.port.ApprovalFormDesignDraftStore;
 import io.github.akaryc1b.approval.domain.form.FormDefinition;
 import io.github.akaryc1b.approval.domain.form.FormDesignDraft;
-import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
