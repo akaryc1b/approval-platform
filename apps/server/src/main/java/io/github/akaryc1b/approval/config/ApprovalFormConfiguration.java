@@ -30,7 +30,7 @@ import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormDesignDraftStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormPackageStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormStoreFactory;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormSubmissionStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormSubmissionStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalUiSchemaStoreFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -98,7 +98,10 @@ public class ApprovalFormConfiguration {
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper
     ) {
-        return new JdbcApprovalFormSubmissionStore(dataSource, approvalPersistenceObjectMapper);
+        return JdbcApprovalFormSubmissionStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper
+        );
     }
 
     @Bean
