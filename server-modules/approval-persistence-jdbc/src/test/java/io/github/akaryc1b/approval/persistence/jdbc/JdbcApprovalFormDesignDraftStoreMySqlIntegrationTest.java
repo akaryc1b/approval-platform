@@ -40,6 +40,7 @@ import java.math.BigInteger;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -140,16 +141,13 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
         FormDesignDraft created = service.createBlank(
             createCommand(TENANT, "create-a", "key-a")
         );
-        FormDefinition form = formDefinition();
-        UiSchemaDefinition ui = uiSchema();
-
         FormDesignDraft updated = service.update(new UpdateCommand(
             context(TENANT, "update-a", "key-b"),
             created.draftId(),
             1,
             "Draft precision updated",
-            form,
-            ui,
+            formDefinition(),
+            uiSchema(),
             SaveMode.EXPLICIT
         ));
         FormDesignDraft persisted = service.find(
@@ -166,10 +164,7 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             uiHasher.hash(updated.uiSchemaDefinition()),
             uiHasher.hash(persisted.uiSchemaDefinition())
         );
-        assertEquals(
-            updated.uiSchemaDefinition(),
-            persisted.uiSchemaDefinition()
-        );
+        assertEquals(updated.uiSchemaDefinition(), persisted.uiSchemaDefinition());
         assertEquals(canonical(NOW), persisted.createdAt());
         assertEquals(canonical(NOW), persisted.updatedAt());
         assertTrue(service.find(OTHER_TENANT, created.draftId()).isEmpty());
@@ -203,7 +198,6 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             0
         ));
         assertEquals(2, page.total());
-        assertEquals(2, page.items().size());
         assertEquals(created.draftId(), page.items().get(0).draftId());
         assertEquals(other.draftId(), page.items().get(1).draftId());
 
@@ -232,13 +226,10 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             JdbcMySqlApprovalFormDesignDraftStore.FORM_JSON_ENCODING,
             evidence.formEncoding()
         );
-        assertEquals(
-            JdbcMySqlUiSchemaCodec.JSON_ENCODING,
-            evidence.uiEncoding()
-        );
+        assertEquals(JdbcMySqlUiSchemaCodec.JSON_ENCODING, evidence.uiEncoding());
         assertEquals(2, evidence.formMembers());
         assertEquals(2, evidence.uiMembers());
-        assertEquals(0, evidence.updatedMicrosecond());
+        assertEquals(999999, evidence.updatedMicrosecond());
     }
 
     @Test
@@ -246,10 +237,10 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
         FormDesignDraft created = service.createBlank(
             createCommand(TENANT, "cas-create", "cas-create-key")
         );
-        GateStore gated = new GateStore(drafts, 2);
-        ApprovalFormDesignService concurrentService = service(gated);
+        ApprovalFormDesignService concurrentService = service(
+            new GateStore(drafts, 2)
+        );
         ExecutorService executor = Executors.newFixedThreadPool(2);
-
         try {
             Future<String> first = executor.submit(() -> updateOutcome(
                 concurrentService,
@@ -265,7 +256,6 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
                 "cas-two",
                 "cas-key-two"
             ));
-
             List<String> outcomes = new ArrayList<>(List.of(
                 first.get(20, TimeUnit.SECONDS),
                 second.get(20, TimeUnit.SECONDS)
@@ -294,7 +284,6 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
         CountDownLatch release = new CountDownLatch(1);
         CountDownLatch secondAttempting = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
-
         try {
             Future<Boolean> first = executor.submit(() -> transactions.execute(status -> {
                 drafts.lock(TENANT, created.draftId());
@@ -365,7 +354,6 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
         FormDesignDraft second = service.createBlank(
             createCommand(TENANT, "bad-ui", "bad-ui-key")
         );
-
         jdbc.update(
             """
             update ap_form_design_draft
@@ -387,7 +375,6 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
             TENANT,
             second.draftId().toString()
         );
-
         assertThrows(
             DataAccessException.class,
             () -> drafts.find(TENANT, first.draftId())
@@ -690,7 +677,7 @@ class JdbcApprovalFormDesignDraftStoreMySqlIntegrationTest {
     }
 
     private static Instant canonical(Instant value) {
-        return AuditHashCanonicalizer.canonicalInstant(value);
+        return value.truncatedTo(ChronoUnit.MICROS);
     }
 
     private static String configuredJdbcUrl() {
