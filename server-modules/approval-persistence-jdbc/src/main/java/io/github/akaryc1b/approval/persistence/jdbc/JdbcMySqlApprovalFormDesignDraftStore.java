@@ -15,6 +15,7 @@ import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -312,9 +313,10 @@ public final class JdbcMySqlApprovalFormDesignDraftStore implements ApprovalForm
     }
 
     private static Instant canonicalInstant(Instant value) {
-        return AuditHashCanonicalizer.canonicalInstant(
-            Objects.requireNonNull(value, "instant must not be null")
-        );
+        return Objects.requireNonNull(
+            value,
+            "instant must not be null"
+        ).truncatedTo(ChronoUnit.MICROS);
     }
 
     private static Integer integer(ResultSet resultSet, String column) throws SQLException {
