@@ -115,8 +115,8 @@ class JdbcApprovalFormPackageStoreMySqlIntegrationTest {
 
     @BeforeEach
     void reset() {
-        jdbc.update("delete from ap_form_package");
         jdbc.update("delete from ap_form_design_draft");
+        jdbc.update("delete from ap_form_package");
         jdbc.update("delete from ap_form_ui_schema");
         jdbc.update("delete from ap_form_definition");
         jdbc.update("delete from ap_audit_event");
