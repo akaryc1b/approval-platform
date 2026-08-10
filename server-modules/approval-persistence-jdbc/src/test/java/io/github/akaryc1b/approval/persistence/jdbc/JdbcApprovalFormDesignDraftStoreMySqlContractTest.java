@@ -102,7 +102,7 @@ class JdbcApprovalFormDesignDraftStoreMySqlContractTest {
         String upper = contract.toUpperCase(Locale.ROOT);
 
         for (String required : List.of(
-            "MYSQL_P3_F3_FORM_DESIGN_DRAFT_STORE_STAGED",
+            "MYSQL_P3_F3_FORM_DESIGN_DRAFT_STORE_PROVEN",
             "CANONICAL_JSON_TEXT_V1",
             "CANONICAL_UI_SCHEMA_TYPED_JSON_V1",
             "DRAFTREVISIONCONFLICTEXCEPTION",
@@ -118,6 +118,7 @@ class JdbcApprovalFormDesignDraftStoreMySqlContractTest {
                 () -> "P3-F3 contract is missing required marker: " + required
             );
         }
+        assertFalse(contract.contains("MYSQL_P3_F3_FORM_DESIGN_DRAFT_STORE_STAGED"));
         assertFalse(contract.contains("MYSQL_8_4_PRODUCTION_SUPPORTED"));
     }
 
