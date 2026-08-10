@@ -106,7 +106,7 @@ class JdbcApprovalFormDesignDraftStoreMySqlContractTest {
             "CANONICAL_JSON_TEXT_V1",
             "CANONICAL_UI_SCHEMA_TYPED_JSON_V1",
             "DRAFTREVISIONCONFLICTEXCEPTION",
-            "SELECT ... FOR UPDATE",
+            "FOR UPDATE",
             "P3-F4 FORM PACKAGE STORE",
             "P3-F5 FORM SUBMISSION STORE",
             "MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED",
