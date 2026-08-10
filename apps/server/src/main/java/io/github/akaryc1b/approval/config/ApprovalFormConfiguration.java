@@ -28,7 +28,7 @@ import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.FormSubmissionWorkflowStarter;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormDesignDraftStoreFactory;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormPackageStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormPackageStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormSubmissionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalUiSchemaStoreFactory;
@@ -125,7 +125,7 @@ public class ApprovalFormConfiguration {
 
     @Bean
     ApprovalFormPackageStore approvalFormPackageStore(DataSource dataSource) {
-        return new JdbcApprovalFormPackageStore(dataSource);
+        return JdbcApprovalFormPackageStoreFactory.create(dataSource);
     }
 
     @Bean
