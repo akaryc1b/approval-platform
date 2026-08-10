@@ -14,7 +14,7 @@ Issue: #91 remains Open
 P3-F5 converts only the existing `ApprovalFormSubmissionStore` persistence authority for MySQL 8.4. That port owns both the immutable initial form submission snapshot and its immutable per-instance revision chain.
 
 ```text
-MYSQL_P3_F5_FORM_SUBMISSION_STORE_STAGED
+MYSQL_P3_F5_FORM_SUBMISSION_STORE_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
@@ -103,7 +103,7 @@ MySQL Binary JSON may normalize numeric text before application readback. To pre
 
 The inner payload is therefore preserved as text inside MySQL JSON and is reconstructed through the same `Map<String,Object>` ObjectMapper semantics as the PostgreSQL store.
 
-This deliberately does **not** reuse the P3-F2 UI Schema Java-number type protocol. `FormSubmissionHasher` already canonicalizes all `Number` values through `BigDecimal(number.toString()).stripTrailingZeros()`, and P3-F5 must preserve cross-database application behavior rather than introduce MySQL-specific generic Java value classes.
+This deliberately does **not** reuse the P3-F2 UI Schema Java-number type protocol. `FormSubmissionHasher` already canonicalizes all `Number` values through `BigDecimal(number.toString()).stripTrailingZeros()`, and P3-F5 preserves cross-database application behavior rather than introducing MySQL-specific generic Java value classes.
 
 The outer envelope fails closed when it is null, malformed, duplicated, has an unknown encoding, has extra members, or has a non-text payload.
 
@@ -172,15 +172,15 @@ limit 1
 
 ## Transaction and rollback contract
 
-P3-F5 must prove that both initial submissions and revision inserts participate in the caller-owned Spring JDBC transaction boundary.
+Both initial submissions and revision inserts participate in the caller-owned Spring JDBC transaction boundary.
 
-For revisions specifically:
+For revisions specifically, the permanent MySQL suite proves:
 
-- a transaction that acquires the MySQL instance lock, inserts a revision, and then rolls back must leave no revision row;
-- the named lock must release on rollback;
-- a later transaction must be able to acquire the same instance lock and successfully save the same next revision number.
+- a transaction that acquires the MySQL instance lock, inserts a revision, and then rolls back leaves no revision row;
+- the named lock releases on rollback;
+- a later transaction can acquire the same instance lock and successfully save the same next revision number.
 
-For concurrent next-revision attempts planned from the same previous revision, exactly one transaction may become the next revision owner. The loser must observe the advanced latest revision after acquiring the lock and fail explicitly rather than overwrite or append a second row with the same revision number.
+For concurrent next-revision attempts planned from the same previous revision, exactly one transaction becomes the next revision owner. The loser observes the advanced latest revision after acquiring the lock and reports conflict instead of overwriting or appending a second row with the same revision number.
 
 ## Tenant and relational contract
 
@@ -212,9 +212,22 @@ datetime(6)
 useAffectedRows=false
 ```
 
-It must prove:
+Accepted implementation-Head results are:
 
-- trusted factory selection;
+```text
+JdbcApprovalFormSubmissionStoreFactoryTest:
+  2 / 0 failures / 0 errors / 0 skipped, 1.573 s
+
+JdbcApprovalFormSubmissionStoreMySqlContractTest:
+  3 / 0 failures / 0 errors / 0 skipped, 0.014 s
+
+JdbcApprovalFormSubmissionStoreMySqlIntegrationTest:
+  5 / 0 failures / 0 errors / 0 skipped, 37.081 s
+```
+
+The five real MySQL methods prove:
+
+- trusted factory-selected real MySQL store usage;
 - strict immutable initial submission insert;
 - exact `findByInstance` and `findByBusinessKey` reads;
 - stable `FormSubmissionHasher` across persisted/reconstructed Map JSON values;
@@ -228,10 +241,90 @@ It must prove:
 - active-transaction requirement for revision locking;
 - concurrent instance-lock blocking;
 - exactly one concurrent next-revision winner;
-- revision rollback removes the insert and releases the lock;
-- malformed or extended JSON envelopes fail closed.
+- revision rollback removes a real insert and releases the lock;
+- a later same-number revision commits successfully after that rollback;
+- malformed or extended Submission and Revision JSON envelopes fail closed.
 
 Existing PostgreSQL submission/runtime suites remain mandatory regression evidence and are not replaced by the MySQL suite.
+
+## Accepted implementation Run #1390
+
+Natural Pull Request validation:
+
+```text
+Run: 31371065700 / #1390
+Head: 2e3ed357f380d37f69081b111349397bee1e9661
+Conclusion: success
+```
+
+All nine physical jobs succeeded:
+
+```text
+Java 21 / Maven core                         93399939559  success
+Persistence JDBC / shard 3                 93399939607  success
+Persistence JDBC / shard 0                 93399939612  success
+Persistence JDBC / shard 2                 93399939685  success
+Persistence JDBC / shard 1                 93399939692  success
+Repository hygiene                         93399939750  success
+UniApp TypeScript / H5 / WeChat            93399939771  success
+Vben TypeScript / production build         93399939849  success
+Java 21 / Maven / PostgreSQL                93400609131  success
+```
+
+No failed P3-F5 Head, correction Run, same-Head rerun, force push, rebase or empty commit occurred before this acceptance.
+
+## Independent implementation-Head evidence reconstruction
+
+The final merged Maven Artifact was independently downloaded and reconstructed from its selected-test manifests and Surefire XML reports:
+
+```text
+Maven Core:                              1469 / 0 / 0 / 0
+Persistence JDBC:                         474 / 0 / 0 / 0
+Combined:                                1943 / 0 / 0 / 0
+selected persistence test classes:        115
+Surefire report classes:                  114
+expected abstract without report:           1
+duplicate selections:                       0
+non-abstract selected without report:       0
+selection coverage:                     exact
+aggregate persistence test time:       953.953 s
+```
+
+Deterministic P3-F5 placement was verified exactly once:
+
+```text
+shard 0 -> JdbcApprovalFormSubmissionStoreMySqlContractTest
+shard 2 -> JdbcApprovalFormSubmissionStoreFactoryTest
+shard 3 -> JdbcApprovalFormSubmissionStoreMySqlIntegrationTest
+```
+
+## Independently verified implementation-Head Artifacts
+
+All four final Run #1390 ZIPs were independently downloaded. Local byte count and SHA-256 match GitHub metadata exactly, and every ZIP passes integrity verification.
+
+```text
+Maven
+ID:      9056162512
+Bytes:   1033263
+SHA-256: be8eff1814685372224f150fef99a0445ae2f1f6eed34bc55a69d8bf7739ceaa
+
+Vben
+ID:      9056107576
+Bytes:   18830
+SHA-256: 98ae982e7327975ee06f9e6ce6b3465dfc7a01a8b94ac3eb9ee3b3106141432b
+
+Mobile
+ID:      9056092845
+Bytes:   9833
+SHA-256: f7f78fb81f37d758bfd31949475883edb62e763ecb823b977dad19a99afdc253
+
+Hygiene
+ID:      9056065153
+Bytes:   17542
+SHA-256: d2ef5ed05a20867062d7395a2f83a38176cdc8bfa3cef15a973711978bdaf4c3
+```
+
+Each Artifact is bound by GitHub metadata to branch `agent/mysql-8-4-production-compatibility` and Head `2e3ed357f380d37f69081b111349397bee1e9661`.
 
 ## Explicit non-scope
 
@@ -251,7 +344,8 @@ P3-F5 does not implement or imply MySQL compatibility for:
 It does not change `FormSubmissionHasher`, PostgreSQL Submission Store semantics, PostgreSQL migrations, form validation rules, task authorization or workflow-engine behavior.
 
 ```text
-MYSQL_P3_F5_FORM_SUBMISSION_STORE_STAGED
+POSTGRESQL_16_SUPPORTED
+MYSQL_P3_F5_FORM_SUBMISSION_STORE_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
