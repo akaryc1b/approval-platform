@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/akaryc1b/approval-platform/docs/m6/m6-pr-e-e2-sbom.schema.json",
+  "title": "M6-PR-E E2 Deterministic Dependency Graph and SBOM Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion","repository","commitSha","toolchain","maven","pnpm","githubActions","limitations","contentSha256"],
+  "properties": {
+    "schemaVersion": {"const":"M6_PR_E_E2_SBOM_V1"},
+    "repository": {"const":"akaryc1b/approval-platform"},
+    "commitSha": {"type":"string","pattern":"^[0-9a-f]{40}$"},
+    "toolchain": {"type":"object"},
+    "maven": {"type":"object"},
+    "pnpm": {"type":"object"},
+    "githubActions": {"type":"object"},
+    "limitations": {"type":"array","items":{"type":"string"}},
+    "contentSha256": {"type":"string","pattern":"^[0-9a-f]{64}$"}
+  }
+}

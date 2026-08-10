@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "M6_PR_E_E2_ACTION_RESOLUTION_BASELINE_V1",
+  "repository": "akaryc1b/approval-platform",
+  "sourceHead": "05b830864913b8213267e1eaf4c100d013ba880b",
+  "sourceRunId": 31367846138,
+  "sourceRunNumber": 1386,
+  "workflowFiles": [
+    {
+      "path": ".github/workflows/approval-platform-validation.yml",
+      "blobSha": "f906302f96b352df54cb3cc903832e743be192d2",
+      "automatic": true
+    },
+    {
+      "path": ".github/workflows/backend-ci.yml",
+      "blobSha": "cc99299ff1d1db1c42f91b75e62b058d0a67a243",
+      "automatic": false
+    },
+    {
+      "path": ".github/workflows/connector-smoke-ci.yml",
+      "blobSha": "ac4c1182bc2a9399e447395a634d007d314d9422",
+      "automatic": false
+    },
+    {
+      "path": ".github/workflows/frontend-ci.yml",
+      "blobSha": "fe46c261d7425f66c4db9860a949b9bd90d89f54",
+      "automatic": false
+    },
+    {
+      "path": ".github/workflows/generic-spring-host-ci.yml",
+      "blobSha": "4899db6b69aaad97d90d05d58fcada10e8bdd1a0",
+      "automatic": false
+    },
+    {
+      "path": ".github/workflows/mobile-ci.yml",
+      "blobSha": "cda05d993e0442b07eb609ad22bc21713faac15b",
+      "automatic": false
+    },
+    {
+      "path": ".github/workflows/ruoyi5-host-ci.yml",
+      "blobSha": "1780ac0867ff1033588a674dbc2b9e77764f962a",
+      "automatic": false
+    },
+    {
+      "path": ".github/workflows/ruoyi6-host-ci.yml",
+      "blobSha": "7b2dec12bcb281fdaf4aff5b276973c3bd5adf65",
+      "automatic": false
+    },
+    {
+      "path": ".github/workflows/web-ci.yml",
+      "blobSha": "4cbf29d043bd78a940cc9f9acf05a6c1c97f6286",
+      "automatic": false
+    }
+  ],
+  "actionRefs": {
+    "actions/checkout@v4": "11d5960a326750d5838078e36cf38b85af677262",
+    "actions/setup-java@v4": "cf277c60eb25467037889841efdb72551f06f6c3",
+    "actions/setup-node@v4": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+    "actions/upload-artifact@v4": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+    "actions/upload-artifact/merge@v4": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+    "actions/download-artifact@v4": "d3f86a106a0bac45b974a628896c90dbdf5c8093"
+  },
+  "interpretation": {
+    "mutableMajorRefsRemainReleaseInputs": true,
+    "resolvedCommitDoesNotAuthorizeUpgrade": true,
+    "maintenancePullRequestIsNotVulnerabilityFinding": true
+  },
+  "maintenancePullRequests": [
+    {
+      "number": 1,
+      "state": "open",
+      "dependency": "actions/setup-node",
+      "fromMajor": 4,
+      "toMajor": 7,
+      "classification": "MAINTENANCE_MAJOR_UPDATE_NOT_VULNERABILITY_FINDING"
+    },
+    {
+      "number": 2,
+      "state": "open",
+      "dependency": "actions/checkout",
+      "fromMajor": 4,
+      "toMajor": 7,
+      "classification": "MAINTENANCE_MAJOR_UPDATE_NOT_VULNERABILITY_FINDING"
+    },
+    {
+      "number": 4,
+      "state": "open",
+      "dependency": "actions/setup-java",
+      "fromMajor": 4,
+      "toMajor": 5,
+      "classification": "MAINTENANCE_MAJOR_UPDATE_NOT_VULNERABILITY_FINDING"
+    },
+    {
+      "number": 73,
+      "state": "open",
+      "dependency": "actions/upload-artifact",
+      "fromMajor": 4,
+      "toMajor": 7,
+      "classification": "MAINTENANCE_MAJOR_UPDATE_NOT_VULNERABILITY_FINDING"
+    },
+    {
+      "number": 94,
+      "state": "open",
+      "dependency": "actions/download-artifact",
+      "fromMajor": 4,
+      "toMajor": 8,
+      "classification": "MAINTENANCE_MAJOR_UPDATE_NOT_VULNERABILITY_FINDING"
+    }
+  ]
+}
