@@ -71,7 +71,7 @@ Errors: 3
 Skipped: 0
 ```
 
-The revised teardown now attempted to delete the draft first, and MySQL correctly rejected that operation because the Package has the opposite real foreign key:
+The revised teardown attempted to delete the draft first, and MySQL correctly rejected that operation because the Package has the opposite real foreign key:
 
 ```text
 ap_form_package_draft_fk
@@ -79,7 +79,7 @@ ap_form_package_draft_fk
     -> ap_form_design_draft (tenant_id, draft_id)
 ```
 
-Together, the two retained failures prove the published relation is deliberately cyclic at the relational level:
+Together, Runs #1383 and #1384 prove the published relation is deliberately cyclic at the relational level:
 
 ```text
 Draft --published_package_version--> Package
@@ -88,15 +88,28 @@ Package --source_draft_id----------> Draft
 
 Neither delete ordering alone can dismantle that cycle while both references are populated.
 
-## Correct cycle-aware fixture teardown
+## Failed natural Run #1385
 
-The second append-only fixture correction is:
+An evidence-only append-only Head was created to retain the first two failure facts before the second fixture correction was ready:
+
+```text
+Run: 31367839212 / #1385
+Head: 20a8c7fe0774d623533187b35533df57233d394a
+result: failure
+classification: KNOWN_INHERITED_TEST_FIXTURE_BUG / MUTUAL_DRAFT_PACKAGE_FK_CYCLE
+```
+
+This Head intentionally still contained the first delete-order correction and therefore inherited the same Package-to-Draft FK failure as #1384. It was not rerun in place and is retained as a natural failed Head. Core, Vben, UniApp, Repository hygiene and Persistence JDBC shards 1, 2 and 3 again succeeded; shard 0 failed in the F4 fixture teardown.
+
+## Second correction and failed natural Run #1387
+
+The second test-only correction changed teardown to clear the nullable Draft-to-Package reference before deleting either side of the cycle:
 
 ```text
 b0c5bc84e1577fc19e5849c86e32014fdcef63d6
 ```
 
-The test teardown now first removes only the nullable Draft-to-Package edge from test data:
+The fixture attempted:
 
 ```sql
 update ap_form_design_draft
@@ -104,23 +117,98 @@ set published_package_version = null
 where published_package_version is not null;
 ```
 
-It then deletes in this order:
+and then:
 
 ```text
 delete from ap_form_package
 delete from ap_form_design_draft
 ```
 
-This is test-only cleanup. It does not modify the production schema, disable a constraint, change `ApprovalFormDesignService`, weaken Package immutability or use `FOREIGN_KEY_CHECKS`.
+The correction and its accumulated evidence were advanced to:
 
-The correction deliberately honors both real foreign keys. The Package-to-Draft edge remains enforced until the Package row itself is removed; the nullable Draft-to-Package edge is cleared first so the relational cycle can be dismantled without bypassing referential integrity.
+```text
+Head: 8eb579802ae65dc2a6458ec2a5b42d29d4acc65b
+Run: 31368083214 / #1387
+result: failure
+classification: TEST_FIXTURE_BUG / PUBLISHED_PAIR_CHECK_INVARIANT
+```
+
+The real MySQL suite again reached all four selected methods but the three methods after the first failed during `@BeforeEach`. This time the foreign-key cycle was no longer the first failing operation. MySQL rejected the single-column update with:
+
+```text
+Check constraint 'ap_form_design_draft_published_pair_check' is violated
+```
+
+This matches the domain invariant in `FormDesignDraft`:
+
+```text
+status == PUBLISHED  <=>  publishedPackageVersion != null
+```
+
+A published draft cannot retain `PUBLISHED` while clearing only `published_package_version`, and a non-published draft cannot retain a package version.
+
+Run #1387 therefore provides additional positive evidence that the MySQL baseline preserves the published-pair state invariant instead of allowing partial publication metadata.
+
+## Third cycle- and CHECK-aware fixture correction
+
+The third append-only test-only correction is:
+
+```text
+fc4718ada507cf2dd68ccd20c09b2c535708bd65
+```
+
+It changes only fixture cleanup. Published test rows are first moved to a valid non-published pair in one SQL statement:
+
+```sql
+update ap_form_design_draft
+set status = 'VALIDATED',
+    published_package_version = null
+where published_package_version is not null;
+```
+
+The teardown then removes rows in this order:
+
+```text
+delete from ap_form_package
+delete from ap_form_design_draft
+delete from ap_form_ui_schema
+delete from ap_form_definition
+```
+
+This sequence is deliberate:
+
+1. the atomic status/package-version update satisfies `ap_form_design_draft_published_pair_check`;
+2. clearing `published_package_version` removes the Draft-to-Package FK edge;
+3. deleting the Package removes the Package-to-Draft FK edge;
+4. the Draft can then be deleted normally;
+5. no foreign key or CHECK constraint is disabled or weakened.
+
+This is strictly test fixture teardown. It does not change the production schema, `FormDesignDraft`, `ApprovalFormDesignService`, the PostgreSQL implementation, the MySQL Package Store, Package immutability, publication semantics or any database constraint.
+
+## Forbidden shortcuts retained
+
+None of the corrections use or authorize:
+
+```text
+FOREIGN_KEY_CHECKS
+constraint drop/disable
+schema mutation
+production status rewrite
+automatic retry
+same-Head rerun
+force push
+rebase
+empty correction commit
+```
+
+The failures are retained because they prove the real MySQL clean schema enforces both relational provenance edges and the published-pair CHECK invariant.
 
 ## Evidence rules
 
-- Runs #1383 and #1384 are retained and are not rerun in place.
-- No force push, rebase, empty correction commit or foreign-key bypass is permitted.
-- Every correction must receive a new natural Pull Request validation Run on a new Head.
-- P3-F4 remains staged until the corrected implementation and its permanent evidence pass naturally.
+- Runs #1383, #1384, #1385 and #1387 are retained and are not rerun in place.
+- Every correction uses a new append-only Head.
+- P3-F4 production code has not been changed by these fixture corrections.
+- P3-F4 remains staged until the corrected implementation and permanent evidence pass a new natural Pull Request validation Run.
 
 ```text
 MYSQL_P3_F4_FORM_PACKAGE_STORE_STAGED
