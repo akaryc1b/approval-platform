@@ -118,7 +118,7 @@ class JdbcApprovalFormPackageStoreMySqlIntegrationTest {
         jdbc.update(
             """
             update ap_form_design_draft
-            set published_package_version = null
+            set status = 'VALIDATED', published_package_version = null
             where published_package_version is not null
             """
         );
