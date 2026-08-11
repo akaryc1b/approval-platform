@@ -13,7 +13,7 @@ import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalEffectiveReleaseStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalReleaseDeploymentStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalReleaseDeploymentStoreFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -26,7 +26,7 @@ public class ApprovalReleaseDeploymentConfiguration {
 
     @Bean
     ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore(DataSource dataSource) {
-        return new JdbcApprovalReleaseDeploymentStore(dataSource);
+        return JdbcApprovalReleaseDeploymentStoreFactory.create(dataSource);
     }
 
     @Bean
