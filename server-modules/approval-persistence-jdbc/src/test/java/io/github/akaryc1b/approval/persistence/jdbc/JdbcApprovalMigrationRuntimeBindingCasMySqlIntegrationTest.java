@@ -18,9 +18,17 @@ import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseLifecycle.St
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 import io.github.akaryc1b.approval.domain.definition.ApprovalRuntimeBinding;
 import io.github.akaryc1b.approval.domain.migration.ApprovalCommandOperation;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttempt;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationCommandFence;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationCommandFence.FenceStatus;
-import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.LeaseActor;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationEngineSnapshot;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationEngineSnapshot.DefinitionEvidence;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationEngineSnapshot.TaskEvidence;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationExactVerification;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationExactVerification.ExactClassification;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.AttemptStatus;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.EngineOutcome;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.FailureClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.support.JdbcTransactionManager;
@@ -30,7 +38,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -133,15 +140,13 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
         assertEquals(0, countRows("ap_process_migration_binding_cas_conflict", authority));
         assertEquals("RELEASED", fenceStatus(authority));
         assertEquals(2, fenceRevision(authority));
-        assertEquals(1, countRows("ap_process_migration_instance_completion", authority));
-        assertEquals(2, countBindingEvidence(authority));
         assertEquals(5, attemptRevision(authority));
         assertEquals(2, new JdbcApprovalMigrationBindingRevisionReader(dataSource)
             .currentRevision(authority.tenantId(), authority.attemptId()));
-        assertNotNull(completed.completion().completionEvidenceHash());
+        assertNotNull(completed.completionEvidence().completionEvidenceHash());
         assertEquals(
-            completed.completion().completionEvidenceHash(),
-            replay.completion().completionEvidenceHash()
+            completed.completionEvidence().completionEvidenceHash(),
+            replay.completionEvidence().completionEvidenceHash()
         );
     }
 
@@ -158,9 +163,9 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             authority.request().expectedAttemptRevision(),
             authority.request().expectedFenceRevision(),
             2,
+            authority.request().happenedAt(),
             authority.request().requestId(),
-            authority.request().traceId(),
-            authority.request().happenedAt()
+            authority.request().traceId()
         );
 
         var conflict = cas.complete(stale);
@@ -180,10 +185,10 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
         assertEquals("ACTIVE", fenceStatus(authority));
         assertEquals(1, fenceRevision(authority));
         assertEquals(1, countBindingEvidence(authority));
-        assertNotNull(conflict.conflict().conflictEvidenceHash());
+        assertNotNull(conflict.conflictEvidence().conflictEvidenceHash());
         assertEquals(
-            conflict.conflict().conflictEvidenceHash(),
-            replay.conflict().conflictEvidenceHash()
+            conflict.conflictEvidence().conflictEvidenceHash(),
+            replay.conflictEvidence().conflictEvidenceHash()
         );
     }
 
@@ -258,9 +263,9 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             authority.request().expectedAttemptRevision(),
             authority.request().expectedFenceRevision(),
             authority.request().expectedBindingRevision(),
+            authority.request().happenedAt(),
             "request-h1-changed",
-            authority.request().traceId(),
-            authority.request().happenedAt()
+            authority.request().traceId()
         );
 
         assertThrows(BindingCasException.class, () -> cas.complete(changed));
@@ -346,9 +351,7 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             tenant,
             planId,
             intentId,
-            instanceId,
             sourceRelease,
-            sourceDeployment,
             targetRelease,
             targetDeployment
         );
@@ -362,9 +365,7 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             engineOutcomeId,
             instanceId,
             engineInstanceId,
-            sourceRelease,
             sourceDeployment,
-            targetRelease,
             targetDeployment
         );
 
@@ -537,12 +538,13 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
         String tenant,
         UUID planId,
         UUID intentId,
-        UUID instanceId,
         ApprovalReleasePackage sourceRelease,
-        ApprovalReleaseDeployment sourceDeployment,
         ApprovalReleasePackage targetRelease,
         ApprovalReleaseDeployment targetDeployment
     ) {
+        UUID authorizationId = uuid(tenant, "authorization");
+        String authorizationHash = "7".repeat(64);
+        String intentHash = "8".repeat(64);
         jdbc.update("""
             insert into ap_process_migration_plan (
               tenant_id,plan_id,idempotency_key,plan_hash,assessment_id,
@@ -580,8 +582,8 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             NOW.minusSeconds(100),
             NOW.plusSeconds(3600),
             NOW.minusSeconds(80),
-            uuid(tenant, "authorization").toString(),
-            "7".repeat(64),
+            authorizationId.toString(),
+            authorizationHash,
             WORKER,
             NOW.minusSeconds(90),
             NOW.plusSeconds(3500),
@@ -610,7 +612,7 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             targetRelease.packageHash(),
             "RUNNING",
             2,
-            "8".repeat(64),
+            intentHash,
             "{}",
             NOW.minusSeconds(80),
             NOW.minusSeconds(60)
@@ -627,10 +629,10 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             uuid(tenant, "consumption").toString(),
             planId.toString(),
             PLAN_HASH,
-            uuid(tenant, "authorization").toString(),
-            "7".repeat(64),
+            authorizationId.toString(),
+            authorizationHash,
             intentId.toString(),
-            "8".repeat(64),
+            intentHash,
             "intent-h1-" + tenant,
             "a".repeat(64),
             WORKER,
@@ -653,31 +655,32 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
         UUID engineOutcomeId,
         UUID instanceId,
         String engineInstanceId,
-        ApprovalReleasePackage sourceRelease,
         ApprovalReleaseDeployment sourceDeployment,
-        ApprovalReleasePackage targetRelease,
         ApprovalReleaseDeployment targetDeployment
     ) {
-        Map<String, Object> attemptPayload = Map.ofEntries(
-            Map.entry("attemptId", attemptId.toString()),
-            Map.entry("tenantId", tenant),
-            Map.entry("intentId", intentId.toString()),
-            Map.entry("approvalInstanceId", instanceId.toString()),
-            Map.entry("engineInstanceId", engineInstanceId),
-            Map.entry("attemptNumber", 1),
-            Map.entry("parentAttemptId", ""),
-            Map.entry("expectedBindingEvidenceHash", SOURCE_BINDING_HASH),
-            Map.entry("sourceEngineDefinitionId", sourceDeployment.engineDefinitionId()),
-            Map.entry("targetEngineDefinitionId", targetDeployment.engineDefinitionId()),
-            Map.entry("status", "VERIFYING"),
-            Map.entry("engineOutcome", "ACCEPTED"),
-            Map.entry("revision", 4),
-            Map.entry("engineRequestReference", engineRequestId.toString()),
-            Map.entry("failureClass", "NONE"),
-            Map.entry("createdAt", NOW.minusSeconds(50).toString()),
-            Map.entry("updatedAt", NOW.minusSeconds(20).toString()),
-            Map.entry("requestId", "request-h1-attempt"),
-            Map.entry("traceId", "trace-h1")
+        ApprovalMigrationAttempt attempt = new ApprovalMigrationAttempt(
+            attemptId,
+            tenant,
+            intentId,
+            instanceId,
+            engineInstanceId,
+            1,
+            null,
+            SOURCE_BINDING_HASH,
+            sourceDeployment.engineDefinitionId(),
+            targetDeployment.engineDefinitionId(),
+            AttemptStatus.VERIFYING,
+            EngineOutcome.ACCEPTED,
+            4,
+            null,
+            null,
+            engineRequestId.toString(),
+            FailureClass.NONE,
+            null,
+            NOW.minusSeconds(50),
+            NOW.minusSeconds(20),
+            "request-h1-attempt",
+            "trace-h1"
         );
         jdbc.update("""
             insert into ap_process_migration_attempt (
@@ -704,7 +707,7 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             "NONE",
             null,
             SOURCE_BINDING_HASH,
-            writeJson(attemptPayload),
+            writeJson(attempt),
             NOW.minusSeconds(50),
             NOW.minusSeconds(20)
         );
@@ -802,7 +805,9 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
 
         insertEngineRequestOutcome(
             tenant,
+            intentId,
             attemptId,
+            fenceId,
             engineRequestId,
             engineOutcomeId,
             instanceId,
@@ -811,23 +816,17 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             targetDeployment
         );
 
-        Map<String, Object> verificationPayload = Map.ofEntries(
-            Map.entry("verificationId", verificationId.toString()),
-            Map.entry("tenantId", tenant),
-            Map.entry("intentId", intentId.toString()),
-            Map.entry("attemptId", attemptId.toString()),
-            Map.entry("engineRequestId", engineRequestId.toString()),
-            Map.entry("engineOutcomeId", engineOutcomeId.toString()),
-            Map.entry("sourceEngineDefinitionId", sourceDeployment.engineDefinitionId()),
-            Map.entry("targetEngineDefinitionId", targetDeployment.engineDefinitionId()),
-            Map.entry("classification", "EXACT_TARGET_RUNTIME"),
-            Map.entry("snapshot", Map.of("snapshotHash", "c".repeat(64))),
-            Map.entry("requestHash", "d".repeat(64)),
-            Map.entry("verificationEvidenceHash", VERIFICATION_HASH),
-            Map.entry("recordedAt", NOW.minusSeconds(5).toString()),
-            Map.entry("requestId", "request-h1-verification"),
-            Map.entry("traceId", "trace-h1")
+        ApprovalMigrationExactVerification verification = exactVerification(
+            tenant,
+            intentId,
+            attemptId,
+            verificationId,
+            engineRequestId,
+            engineOutcomeId,
+            sourceDeployment,
+            targetDeployment
         );
+        ApprovalMigrationEngineSnapshot snapshot = verification.snapshot();
         jdbc.update("""
             insert into ap_process_migration_exact_verification (
               tenant_id,verification_id,intent_id,attempt_id,engine_request_id,
@@ -851,26 +850,89 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             1,
             sourceDeployment.engineDefinitionId(),
             targetDeployment.engineDefinitionId(),
-            "EXACT_TARGET_RUNTIME",
+            verification.classification().name(),
+            snapshot.readSucceeded(),
+            snapshot.runtimePresent(),
+            snapshot.historyPresent(),
+            snapshot.truncated(),
+            snapshot.runtimeEngineDefinitionId(),
+            snapshot.historicEngineDefinitionId(),
+            snapshot.snapshotHash(),
+            verification.requestHash(),
+            verification.verificationEvidenceHash(),
+            verification.recordedAt(),
+            verification.requestId(),
+            verification.traceId(),
+            writeJson(verification)
+        );
+    }
+
+    private ApprovalMigrationExactVerification exactVerification(
+        String tenant,
+        UUID intentId,
+        UUID attemptId,
+        UUID verificationId,
+        UUID engineRequestId,
+        UUID engineOutcomeId,
+        ApprovalReleaseDeployment sourceDeployment,
+        ApprovalReleaseDeployment targetDeployment
+    ) {
+        TaskEvidence task = new TaskEvidence(
+            "2".repeat(64),
+            "managerApproval",
+            targetDeployment.engineDefinitionId(),
+            false
+        );
+        ApprovalMigrationEngineSnapshot snapshot = new ApprovalMigrationEngineSnapshot(
             true,
+            null,
             true,
-            true,
+            targetDeployment.engineDefinitionId(),
+            targetDeployment.engineDeploymentId(),
             false,
+            List.of("managerApproval"),
+            List.of(new DefinitionEvidence(
+                "EXECUTION_ACTIVITY",
+                "execution-h1",
+                targetDeployment.engineDefinitionId()
+            )),
+            List.of(task),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            true,
             targetDeployment.engineDefinitionId(),
+            null,
+            null,
+            List.of(task),
+            false,
+            "c".repeat(64)
+        );
+        return new ApprovalMigrationExactVerification(
+            verificationId,
+            tenant,
+            intentId,
+            attemptId,
+            engineRequestId,
+            engineOutcomeId,
+            sourceDeployment.engineDefinitionId(),
             targetDeployment.engineDefinitionId(),
-            "c".repeat(64),
+            ExactClassification.EXACT_TARGET_RUNTIME,
+            snapshot,
             "d".repeat(64),
             VERIFICATION_HASH,
             NOW.minusSeconds(5),
             "request-h1-verification",
-            "trace-h1",
-            writeJson(verificationPayload)
+            "trace-h1"
         );
     }
 
     private void insertEngineRequestOutcome(
         String tenant,
+        UUID intentId,
         UUID attemptId,
+        UUID fenceId,
         UUID engineRequestId,
         UUID engineOutcomeId,
         UUID instanceId,
@@ -878,27 +940,37 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
         ApprovalReleaseDeployment sourceDeployment,
         ApprovalReleaseDeployment targetDeployment
     ) {
+        String requestHash = "e".repeat(64);
+        String evidenceHash = "f".repeat(64);
         jdbc.update("""
             insert into ap_process_migration_engine_request (
-              tenant_id,engine_request_id,attempt_id,approval_instance_id,
-              worker_id,expected_attempt_revision,expected_fence_revision,
-              request_token_hash,source_engine_definition_id,
-              target_engine_definition_id,engine_instance_id,engine_request_hash,
+              tenant_id,engine_request_id,intent_id,attempt_id,approval_instance_id,
+              worker_id,attempt_revision,fence_id,fence_revision,engine_instance_id,
+              source_binding_evidence_hash,source_engine_definition_id,
+              target_release_version,target_package_hash,target_engine_deployment_id,
+              target_engine_definition_id,activity_mapping_json,request_hash,evidence_hash,
               requested_at,request_id,trace_id,payload_json
-            ) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             tenant,
             engineRequestId.toString(),
+            intentId.toString(),
             attemptId.toString(),
             instanceId.toString(),
             WORKER,
-            3,
+            2,
+            fenceId.toString(),
             1,
-            "e".repeat(64),
-            sourceDeployment.engineDefinitionId(),
-            targetDeployment.engineDefinitionId(),
             engineInstanceId,
-            "f".repeat(64),
+            SOURCE_BINDING_HASH,
+            sourceDeployment.engineDefinitionId(),
+            targetDeployment.releaseVersion(),
+            TARGET_PACKAGE_HASH,
+            targetDeployment.engineDeploymentId(),
+            targetDeployment.engineDefinitionId(),
+            "[]",
+            requestHash,
+            evidenceHash,
             NOW.minusSeconds(15),
             "request-h1-engine",
             "trace-h1",
@@ -906,19 +978,29 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
         );
         jdbc.update("""
             insert into ap_process_migration_engine_outcome (
-              tenant_id,engine_outcome_id,engine_request_id,attempt_id,
-              approval_instance_id,worker_id,engine_outcome,engine_result_hash,
+              tenant_id,engine_outcome_id,engine_request_id,intent_id,attempt_id,
+              worker_id,expected_attempt_revision,expected_fence_revision,disposition,
+              engine_call_attempted,engine_call_returned,engine_call_may_have_occurred,
+              stable_code,bounded_summary,pre_dispatch_snapshot_hash,outcome_hash,
               recorded_at,request_id,trace_id,payload_json
-            ) values (?,?,?,?,?,?,?,?,?,?,?,?)
+            ) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             tenant,
             engineOutcomeId.toString(),
             engineRequestId.toString(),
+            intentId.toString(),
             attemptId.toString(),
-            instanceId.toString(),
             WORKER,
-            "CONFIRMED",
+            3,
+            1,
+            "CALL_RETURNED_AWAITING_VERIFICATION",
+            true,
+            true,
+            false,
+            "ENGINE_CALL_RETURNED",
+            null,
             "1".repeat(64),
+            "2".repeat(64),
             NOW.minusSeconds(10),
             "request-h1-engine-outcome",
             "trace-h1",
@@ -1059,7 +1141,8 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
         );
     }
 
-    private static final class DeterministicUuidSupplier implements java.util.function.Supplier<UUID> {
+    private static final class DeterministicUuidSupplier
+        implements java.util.function.Supplier<UUID> {
         private final List<UUID> values = new ArrayList<>();
         private int sequence;
 
