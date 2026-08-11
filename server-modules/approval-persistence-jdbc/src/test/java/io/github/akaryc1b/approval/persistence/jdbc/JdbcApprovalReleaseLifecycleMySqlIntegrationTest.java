@@ -19,7 +19,6 @@ import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseLifecycle.St
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
