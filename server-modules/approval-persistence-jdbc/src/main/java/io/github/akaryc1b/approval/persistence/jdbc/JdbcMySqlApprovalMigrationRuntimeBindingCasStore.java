@@ -1596,7 +1596,7 @@ public final class JdbcMySqlApprovalMigrationRuntimeBindingCasStore
         try {
             locks.acquire(scope);
         } catch (ProjectionConflictException | IllegalStateException exception) {
-            throw new BindingCasPersistenceException(
+            throw new BindingCasException(
                 "MySQL D5 transaction serialization failed",
                 exception
             );
