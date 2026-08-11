@@ -7,14 +7,16 @@ source accepted capability: MYSQL_P3_G2_RELEASE_LIFECYCLE_EFFECTIVE_PROVEN
 source formal Head: 861448f54171428d1c39b3a77bbbf84d9a1d3be2
 implementation branch: agent/mysql-8-4-p3-g3-runtime-binding-store-staging
 formal branch: agent/mysql-8-4-production-compatibility
+accepted implementation Head: 62fb43630bad2c4efb5499019de8c7928e384d7f
+accepted implementation Run: 31458317787 / #1408
 PR: #92 remains Open + Draft
 Issue: #91 remains Open
 ```
 
-P3-G3 converts only the existing immutable `ApprovalRuntimeBindingStore` authority for MySQL 8.4.
+P3-G3 converts only the existing **initial Runtime Binding creation/read authority** represented by `ApprovalRuntimeBindingStore` for MySQL 8.4.
 
 ```text
-MYSQL_P3_G3_RUNTIME_BINDING_STORE_STAGED
+MYSQL_P3_G3_RUNTIME_BINDING_STORE_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
@@ -50,11 +52,11 @@ JdbcApprovalRuntimeBindingStore
 
 PostgreSQL Flyway history remains immutable.
 
-## Why Runtime Binding is one bounded authority
+## Runtime Binding model and G3 boundary
 
-A runtime binding is immutable platform evidence that one approval instance was started against one exact governed release and one exact deployed engine definition.
+When an approval instance starts against a governed release, the platform creates initial Runtime Binding evidence that identifies the exact release package and exact deployed engine definition selected for that instance.
 
-The binding records:
+The application-level binding contains:
 
 ```text
 tenant_id
@@ -87,9 +89,20 @@ trace_id
 audit_chain_reference
 ```
 
-The application model already verifies that this evidence exactly binds an immutable `ApprovalReleasePackage` and a `DEPLOYED` `ApprovalReleaseDeployment`.
+`ApprovalRuntimeBinding` remains immutable as the application value used to create and validate the initial binding evidence.
 
-P3-G3 does not change the evidence protocol. It only makes the persistence authority vendor-compatible.
+The database row, however, is **not claimed to remain permanently immutable after M5-D5**. PostgreSQL V44 deliberately evolves the same row through a separate governed migration-CAS protocol. Therefore P3-G3 proves only:
+
+```text
+initial Runtime Binding Store save
+initial exact reads
+release usage count
+release pagination
+initial start/replay/rollback behavior
+fail-closed projection enforcement
+```
+
+It does not prove the later D5 row-mutation authority.
 
 ## Trusted vendor selection
 
@@ -102,9 +115,9 @@ MySQL 8.4    -> JdbcMySqlApprovalRuntimeBindingStore
 
 No request, browser field, tenant property, profile string, Connector payload, AI payload or workflow payload can select the persistence implementation.
 
-## Immutable admission contract
+## Strict initial admission contract
 
-Runtime Binding publication remains a strict insert into:
+The bounded G3 Store API creates initial Runtime Binding evidence through a strict insert into:
 
 ```text
 ap_process_runtime_binding
@@ -118,12 +131,34 @@ REPLACE
 ON DUPLICATE KEY UPDATE
 FOREIGN_KEY_CHECKS
 retry-on-duplicate
-mutable evidence repair
+initial evidence repair
 ```
 
-A duplicate immutable binding must fail rather than silently rewrite existing evidence.
+A duplicate initial binding must fail rather than silently rewrite the existing binding.
 
-The accepted MySQL V50 schema remains authoritative for relational uniqueness, foreign keys, checks and immutability enforcement. P3-G3 does not weaken or disable any database invariant.
+The accepted MySQL V50 schema remains authoritative for relational uniqueness, foreign keys and CHECK constraints. P3-G3 does not disable or weaken them.
+
+## Complete initial provenance graph
+
+A valid initial Runtime Binding cannot exist in isolation.
+
+The real MySQL acceptance fixture proves the relational chain remains enabled:
+
+```text
+immutable Release Package
+  -> Process Release lifecycle for the same tenant/definition/release
+  -> DEPLOYED Release Deployment
+  -> platform approval instance
+  -> initial Runtime Binding
+```
+
+The #1406 natural failure is retained because MySQL correctly rejected an incomplete fixture that omitted Process Release lifecycle evidence through:
+
+```text
+fk_process_runtime_binding_lifecycle
+```
+
+Correction-1 added the missing real `PUBLISHED -> ACTIVE` lifecycle through the already accepted G2 authority. No constraint was disabled.
 
 ## UUID and timestamp boundary
 
@@ -133,7 +168,7 @@ The accepted MySQL V50 schema remains authoritative for relational uniqueness, f
 Java UUID <-> canonical MySQL UUID text
 ```
 
-`bound_at` is immutable evidence time and therefore uses the accepted evidence timestamp contract:
+`bound_at` is initial binding evidence time and uses the accepted evidence timestamp contract:
 
 ```text
 UTC datetime(6)
@@ -141,7 +176,7 @@ nearest-microsecond canonicalization
 500 ns boundary carries forward
 ```
 
-The application-owned `binding_evidence_hash` protocol is unchanged. P3-G3 does not introduce a database-specific evidence hash.
+The application-owned `binding_evidence_hash` protocol remains unchanged. P3-G3 does not introduce a database-specific evidence hash.
 
 ## Exact lookup contract
 
@@ -163,7 +198,7 @@ Tenant identity remains case-sensitive under the accepted MySQL collation:
 utf8mb4_0900_as_cs
 ```
 
-No cross-tenant lookup fallback is permitted.
+No cross-tenant fallback is permitted.
 
 ## Release usage and deterministic pagination
 
@@ -173,20 +208,20 @@ Release usage remains scoped by:
 tenant_id + definition_key + release_version
 ```
 
-`countReleaseUsage(...)` is the authoritative read used by release disposition governance.
+`countReleaseUsage(...)` remains the authoritative read consumed by release disposition governance.
 
-Paged release binding reads remain deterministic:
+Paged Runtime Binding reads remain deterministic:
 
 ```text
 order by bound_at desc, approval_instance_id
 limit + offset
 ```
 
-The same page is consumed by governed migration assessment. P3-G3 does not change migration assessment decisions or pagination semantics.
+The same page is consumed by governed migration assessment. P3-G3 does not alter migration assessment decisions.
 
 ## Production instance-start transaction
 
-The permanent MySQL suite must prove the existing production composition:
+The permanent MySQL suite proves the existing production composition:
 
 ```text
 PurchasePaymentApplicationService
@@ -199,30 +234,30 @@ PurchasePaymentApplicationService
        -> load exact DEPLOYED deployment
        -> verify projection/package/deployment identity
        -> compute application-owned binding evidence hash
-       -> save immutable Runtime Binding
+       -> save initial Runtime Binding
        -> append governed audit event
 ```
 
-The projection, Runtime Binding, audit event and idempotency evidence must join the same local JDBC transaction.
+The platform projection, initial Runtime Binding, governed audit and idempotency evidence join the same local JDBC transaction.
 
-Request replay must return the original result and must not start the external engine a second time.
+Request replay returns the original result and does not call the external engine a second time.
 
 ## Failure and rollback contract
 
-The permanent MySQL suite must prove failure after the Runtime Binding insert has actually occurred.
+The real MySQL suite proves a failure **after the Runtime Binding insert has actually occurred**.
 
-A delegate audit failure after `runtimeBindings.save(binding)` must result in:
+When the delegate audit sink fails after `runtimeBindings.save(binding)`:
 
 ```text
 external engine start: remains one-shot and cannot be rolled back
 platform instance projection: rolled back
 platform task projection: rolled back
-runtime binding: rolled back
+initial runtime binding: rolled back
 audit event: absent
 idempotency evidence: rolled back
 ```
 
-This preserves the existing PostgreSQL externally visible transaction boundary.
+This preserves the existing externally visible platform transaction boundary without pretending an external engine call is locally transactional.
 
 ## Fail-closed projection read contract
 
@@ -231,12 +266,54 @@ This preserves the existing PostgreSQL externally visible transaction boundary.
 For release-bound instances:
 
 ```text
-missing immutable binding -> fail closed
+missing initial binding -> fail closed
 binding/projection mismatch -> fail closed
 exact binding -> projection read allowed
 ```
 
-P3-G3 does not weaken this wrapper or add MySQL-specific bypass logic.
+P3-G3 does not add a MySQL-specific bypass.
+
+## Explicit separation from M5-D5 migration Runtime Binding CAS
+
+P3-G3 does **not** convert:
+
+```text
+ApprovalMigrationRuntimeBindingCasStore
+PostgresSerializedApprovalMigrationRuntimeBindingCasStore
+```
+
+PostgreSQL M5-D5 V44 deliberately adds controlled mutation lineage to `ap_process_runtime_binding`:
+
+```text
+binding_revision
+last_migration_attempt_id
+last_verification_id
+last_verification_evidence_hash
+```
+
+and explicitly replaces the old pre-D5 immutability assumption:
+
+```text
+drop trigger trg_process_runtime_binding_immutable on ap_process_runtime_binding;
+```
+
+with a migration-specific guarded revision-CAS and append-only Runtime Binding evidence protocol.
+
+The #1407 natural failure is retained because the original G3 test incorrectly expected arbitrary raw-row UPDATE rejection as a permanent Runtime Binding property. That assertion exceeded G3 scope and froze a pre-D5 assumption that PostgreSQL itself no longer has.
+
+Correction-2 narrowed G3 to the real `ApprovalRuntimeBindingStore` authority and did not implement or claim MySQL support for:
+
+```text
+binding_revision CAS
+migration attempt lineage
+exact verification lineage
+controlled target-release mutation
+append-only runtime-binding evidence history
+migration completion/conflict replay
+migration-specific transaction serialization
+```
+
+Those remain mandatory later compatibility work.
 
 ## Permanent acceptance matrix
 
@@ -248,7 +325,20 @@ JdbcApprovalRuntimeBindingStoreMySqlContractTest
 JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
 ```
 
-The real integration suite uses the already accepted MySQL 8.4 Testcontainers baseline:
+Accepted implementation Run #1408 proves:
+
+```text
+JdbcApprovalRuntimeBindingStoreFactoryTest:
+2 / 0 / 0 / 0, 0.005 s
+
+JdbcApprovalRuntimeBindingStoreMySqlContractTest:
+3 / 0 / 0 / 0, 0.009 s
+
+JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest:
+5 / 0 / 0 / 0, 37.320 s
+```
+
+The real suite uses the accepted MySQL 8.4 Testcontainers baseline:
 
 ```text
 InnoDB
@@ -260,38 +350,96 @@ datetime(6)
 useAffectedRows=false
 ```
 
-The real suite must prove at minimum:
+It proves:
 
 - trusted PostgreSQL/MySQL factory selection;
-- strict immutable Runtime Binding insertion;
+- strict initial Runtime Binding insertion;
+- duplicate initial insert rejection;
 - exact approval-instance lookup;
 - exact engine-instance lookup;
 - UUID round-trip;
-- nearest-microsecond `bound_at` round-trip including the 500 ns carry boundary;
+- nearest-microsecond `bound_at` round-trip including 500 ns carry;
 - tenant/case isolation;
 - release usage count;
 - deterministic release pagination and `hasMore`;
-- duplicate immutable binding rejection;
-- database immutability enforcement for update/delete when the governed baseline defines it;
-- complete real release/package/deployment/instance foreign-key graph remains enabled;
+- complete real Release Package / Process Release lifecycle / Deployment / instance foreign-key provenance;
 - real instance-start commit and idempotent replay;
-- exact binding evidence matches immutable Release Package + DEPLOYED deployment;
-- failure after actual binding insert rolls platform evidence back;
-- release-bound projection reads continue to fail closed without matching binding;
+- exact initial binding evidence matches the immutable Release Package and DEPLOYED deployment;
+- failure after an actual initial binding insert rolls local platform evidence back;
+- release-bound projection reads fail closed without the initial binding;
 - PostgreSQL Runtime Binding implementation and PostgreSQL suites remain unchanged.
 
-## Explicit separation from migration Runtime Binding CAS
+## Accepted implementation validation
 
-P3-G3 does **not** convert:
+Natural implementation acceptance:
 
 ```text
-ApprovalMigrationRuntimeBindingCasStore
-PostgresSerializedApprovalMigrationRuntimeBindingCasStore
+Run: 31458317787 / #1408
+Head: 62fb43630bad2c4efb5499019de8c7928e384d7f
+Conclusion: success
+Jobs: 9 / 9 success
 ```
 
-That D5 protocol serializes migration completion replay per migration attempt and has a different authority, lock scope, failure model and transaction boundary.
+Independent reconstruction:
 
-It remains a later bounded compatibility slice.
+```text
+Maven Core:                           1469 / 0 / 0 / 0
+Persistence JDBC:                      508 / 0 / 0 / 0
+Combined:                              1977 / 0 / 0 / 0
+selected persistence test classes:     124
+Surefire report classes:               123
+expected abstract without report:        1
+duplicate selections:                    0
+non-abstract selected without report:    0
+unexpected reports:                      0
+selection coverage:                  exact
+aggregate reported persistence time: 946.799 s
+```
+
+Deterministic shards:
+
+```text
+29 / 32 / 30 / 33
+unique: 124 / 124
+```
+
+## Independently verified #1408 Artifacts
+
+All four final ZIPs were independently downloaded. Local byte size and SHA-256 exactly match GitHub metadata and every archive passes ZIP integrity verification.
+
+| Artifact | ID | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| Maven | `9088904237` | `850885` | `f649768d947bfadbb9fe52edb4f8027ea3cf7b1fda61720202391127fd8e7ac5` |
+| Vben | `9088877319` | `18959` | `a6eea0041b85d7b8a2db21976641b4cedb82869bed5b23e594cc2e6309b8fa13` |
+| Mobile | `9088862519` | `9814` | `8050a346f3308858868357ba832ca0c36614677422e866d9dfce28696eccf4b2` |
+| Hygiene | `9088849523` | `17486` | `41e2eae7871369867709602c7447ab104d1ab350c88af134f35ef04e0fad2509` |
+
+Artifacts are bound to formal branch Head `62fb43630bad2c4efb5499019de8c7928e384d7f` and expire `2026-11-09T04:23:22Z`.
+
+## Retained natural failure trail
+
+```text
+#1406 / 31457454239
+Head: 720b9f6a65ffcaf2d4e27729efd5ec1a108a8dce
+TEST_FIXTURE_BUG / MISSING_PROCESS_RELEASE_LIFECYCLE_FK_PROVENANCE
+
+#1407 / 31457936280
+Head: 53b55d2021ccdc451944ad1f73ad6f1c06abd74c
+TEST_SCOPE_BUG / D5_RUNTIME_BINDING_GUARD_OUTSIDE_G3
+
+#1408 / 31458317787
+Head: 62fb43630bad2c4efb5499019de8c7928e384d7f
+success
+```
+
+No failed Head was rerun in place. No empty commit, rebase or force push was used.
+
+Permanent failure evidence:
+
+```text
+docs/database/MYSQL_8_4_P3_G3_CORRECTION_EVIDENCE.md
+docs/database/MYSQL_8_4_P3_G3_D5_SCOPE_CORRECTION_EVIDENCE.md
+```
 
 ## Forbidden shortcuts
 
@@ -307,13 +455,13 @@ empty commit workflow trigger
 force push
 ```
 
-The MySQL Runtime Binding Store does not contain PostgreSQL advisory-lock SQL.
+The MySQL Runtime Binding Store contains no PostgreSQL advisory-lock SQL.
 
 ## Explicit non-scope
 
 P3-G3 does not implement or imply MySQL compatibility for:
 
-- `ApprovalMigrationRuntimeBindingCasStore` or migration completion replay serialization;
+- `ApprovalMigrationRuntimeBindingCasStore` or D5 Runtime Binding mutation/replay serialization;
 - Flowable schema or real Flowable execution on MySQL;
 - remaining message/comment/query/SLA/notification/operational-failure stores;
 - remaining migration intent/attempt/execution/reconciliation authorities;
@@ -333,7 +481,7 @@ No later slice is started by this contract.
 ```text
 POSTGRESQL_16_SUPPORTED
 MYSQL_P3_G2_RELEASE_LIFECYCLE_EFFECTIVE_PROVEN
-MYSQL_P3_G3_RUNTIME_BINDING_STORE_STAGED
+MYSQL_P3_G3_RUNTIME_BINDING_STORE_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
