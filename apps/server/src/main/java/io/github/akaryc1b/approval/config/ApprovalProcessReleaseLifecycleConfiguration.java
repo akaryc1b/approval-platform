@@ -20,8 +20,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalRuntimeBindingStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalEffectiveReleaseDeactivationPort;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProcessReleaseStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalEffectiveReleaseDeactivationPortFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProcessReleaseStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalRuntimeBindingStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,7 +35,7 @@ public class ApprovalProcessReleaseLifecycleConfiguration {
 
     @Bean
     ApprovalProcessReleaseStore approvalProcessReleaseStore(DataSource dataSource) {
-        return new JdbcApprovalProcessReleaseStore(dataSource);
+        return JdbcApprovalProcessReleaseStoreFactory.create(dataSource);
     }
 
     @Bean
@@ -54,7 +54,7 @@ public class ApprovalProcessReleaseLifecycleConfiguration {
     ApprovalEffectiveReleaseDeactivationPort approvalEffectiveReleaseDeactivationPort(
         DataSource dataSource
     ) {
-        return new JdbcApprovalEffectiveReleaseDeactivationPort(dataSource);
+        return JdbcApprovalEffectiveReleaseDeactivationPortFactory.create(dataSource);
     }
 
     @Bean
