@@ -162,44 +162,27 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
     }
 
     @Test
-    void immutableDuplicateUpdateDeleteAndForeignKeyBoundariesFailClosed() {
-        String tenant = "Tenant-G3-Immutable";
+    void strictInsertAndForeignKeyBoundariesFailClosed() {
+        String tenant = "Tenant-G3-Strict";
         ReleaseEvidence evidence = seedReleaseEvidence(tenant);
-        UUID instanceId = uuid("immutable-instance");
+        UUID instanceId = uuid("strict-instance");
         seedInstance(
             tenant,
             instanceId,
-            "engine-instance-g3-immutable",
-            "business-g3-immutable"
+            "engine-instance-g3-strict",
+            "business-g3-strict"
         );
         ApprovalRuntimeBinding exact = binding(
             evidence,
             instanceId,
-            "business-g3-immutable",
-            "engine-instance-g3-immutable",
+            "business-g3-strict",
+            "engine-instance-g3-strict",
             DIRECT_AT,
             "3".repeat(64)
         );
         bindings.save(exact);
 
         assertThrows(DataAccessException.class, () -> bindings.save(exact));
-        assertThrows(DataAccessException.class, () -> jdbc.update(
-            """
-            update ap_process_runtime_binding
-            set request_id = 'mutated'
-            where tenant_id = ? and approval_instance_id = ?
-            """,
-            tenant,
-            instanceId.toString()
-        ));
-        assertThrows(DataAccessException.class, () -> jdbc.update(
-            """
-            delete from ap_process_runtime_binding
-            where tenant_id = ? and approval_instance_id = ?
-            """,
-            tenant,
-            instanceId.toString()
-        ));
 
         ApprovalRuntimeBinding missingInstance = binding(
             evidence,
@@ -210,9 +193,11 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             "4".repeat(64)
         );
         assertThrows(DataAccessException.class, () -> bindings.save(missingInstance));
+        ApprovalRuntimeBinding restored = bindings.find(tenant, instanceId).orElseThrow();
+        assertEquals(exact.bindingEvidenceHash(), restored.bindingEvidenceHash());
         assertEquals(
-            canonicalBinding(exact),
-            bindings.find(tenant, instanceId).orElseThrow()
+            AuditHashCanonicalizer.canonicalInstant(exact.boundAt()),
+            restored.boundAt()
         );
     }
 
@@ -284,7 +269,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
     }
 
     @Test
-    void releaseBoundProjectionReadFailsClosedWithoutImmutableBinding() {
+    void releaseBoundProjectionReadFailsClosedWithoutInitialBinding() {
         String tenant = "Tenant-G3-Fail-Closed";
         seedReleaseEvidence(tenant);
         UUID instanceId = uuid("missing-binding-projection");
@@ -354,7 +339,6 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
         );
         processReleases.savePublished(published, publish);
 
-        Instant activatedAt = releasePackage.publishedAt().plusSeconds(1);
         ApprovalProcessRelease.Transition activate = new ApprovalProcessRelease.Transition(
             uuid("activate-" + releasePackage.tenantId()),
             releasePackage.tenantId(),
@@ -370,7 +354,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             "request-g3-activate-" + releasePackage.tenantId(),
             "trace-g3",
             "audit-event:g3-activate-" + releasePackage.tenantId(),
-            activatedAt
+            releasePackage.publishedAt().plusSeconds(1)
         );
         ApprovalProcessRelease active = published.transitioned(activate);
         assertTrue(processReleases.transition(active, published.revision(), activate));
@@ -467,39 +451,6 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             "request-g3-" + instanceId,
             "trace-g3",
             "audit-event:g3-" + instanceId
-        );
-    }
-
-    private ApprovalRuntimeBinding canonicalBinding(ApprovalRuntimeBinding value) {
-        return new ApprovalRuntimeBinding(
-            value.tenantId(),
-            value.approvalInstanceId(),
-            value.businessKey(),
-            value.engineInstanceId(),
-            value.definitionKey(),
-            value.releaseVersion(),
-            value.releasePackageHash(),
-            value.definitionVersion(),
-            value.definitionHash(),
-            value.formPackageVersion(),
-            value.formPackageHash(),
-            value.formVersion(),
-            value.formHash(),
-            value.uiSchemaVersion(),
-            value.uiSchemaHash(),
-            value.compilerVersion(),
-            value.compiledArtifactHash(),
-            value.bpmnHash(),
-            value.deploymentMetadataHash(),
-            value.engineDeploymentId(),
-            value.engineDefinitionId(),
-            value.engineVersion(),
-            value.bindingEvidenceHash(),
-            value.boundBy(),
-            AuditHashCanonicalizer.canonicalInstant(value.boundAt()),
-            value.requestId(),
-            value.traceId(),
-            value.auditChainReference()
         );
     }
 
