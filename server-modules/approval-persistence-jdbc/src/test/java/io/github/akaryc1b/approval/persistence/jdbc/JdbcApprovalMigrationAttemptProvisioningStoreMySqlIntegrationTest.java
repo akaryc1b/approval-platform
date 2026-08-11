@@ -282,6 +282,11 @@ class JdbcApprovalMigrationAttemptProvisioningStoreMySqlIntegrationTest
                 targetRelease,
                 NOW.minusSeconds(180)
             );
+        MySqlH2MigrationAttemptProvisioningFixture.seedActiveSourceRelease(
+            dataSource,
+            sourceRelease,
+            WORKER
+        );
 
         seedProjectionInstance(
             tenant,
