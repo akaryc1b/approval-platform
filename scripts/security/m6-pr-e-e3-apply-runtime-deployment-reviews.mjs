@@ -20,22 +20,38 @@ function osvById(e4){
   for(const f of e4?.scanners?.osv?.findings||[])m.set(`${f.sourceClass}:${f.findingId}`,f);
   return m;
 }
+function remediationById(remediation){
+  const m=new Map();
+  for(const f of remediation?.remediatedFindings||[])m.set(`${f.sourceClass}:${f.findingId}`,f);
+  return m;
+}
 
-export function applyRuntimeDeploymentReviews(triage,e4,review){
+export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null){
   if(!triage||!e4||!review)throw new Error('triage e4 and review required');
   if(triage.repository!==e4.repository||review.repository!==triage.repository)throw new Error('repository mismatch');
   if(triage.commitSha!==e4.commitSha)throw new Error('triage/E4 Head mismatch');
   if(!/^[0-9a-f]{64}$/.test(review.reviewBasisE2GraphDigest||''))throw new Error('review E2 graph digest required');
-  if(e4.e2GraphDigest!==review.reviewBasisE2GraphDigest)throw new Error('E2 graph drift blocks E3-I3 review');
+  const graphTransition=remediation
+    && remediation.priorE2GraphDigest===review.reviewBasisE2GraphDigest
+    && remediation.currentE2GraphDigest===e4.e2GraphDigest;
+  if(e4.e2GraphDigest!==review.reviewBasisE2GraphDigest&&!graphTransition)throw new Error('E2 graph drift blocks E3-I3 review');
   if(!/^[0-9a-f]{40}$/.test(review.reviewBasisHead||''))throw new Error('review basis Head required');
 
   const current=new Map(triage.decisions.map(f=>[`${f.sourceClass}:${f.findingId}`,f]));
-  const osv=osvById(e4), seen=new Set(), delta=new Map();
+  const osv=osvById(e4), remediatedById=remediationById(remediation), seen=new Set(), delta=new Map(), remediatedHistoricalFindings=[];
   for(const r of review.reviewedFindings||[]){
     const key=`${r.sourceClass}:${r.findingId}`;
     if(seen.has(key))throw new Error(`duplicate reviewed finding ${key}`);seen.add(key);
     const original=current.get(key), source=osv.get(key);
-    if(!original||!source)throw new Error(`reviewed OSV finding missing ${key}`);
+    if(!original||!source){
+      if(original||source)throw new Error(`partial reviewed OSV finding presence ${key}`);
+      const closed=remediatedById.get(key);
+      if(!closed)throw new Error(`reviewed OSV finding missing ${key}`);
+      if(closed.currentStatus!=='REMEDIATED_BY_FIXED_COMPONENT_AND_ABSENT_FROM_CURRENT_OSV')throw new Error(`invalid remediation status ${key}`);
+      if(closed.priorDisposition!==r.disposition||closed.upstreamFindingId!==r.upstreamFindingId||!sameArray(closed.aliases,r.aliases))throw new Error(`remediation history drift ${key}`);
+      remediatedHistoricalFindings.push(stable(closed));
+      continue;
+    }
     if(original.disposition!=='UNRESOLVED')throw new Error(`E3-I3 can only review currently UNRESOLVED findings ${key}`);
     if(r.sourceClass!=='E4_OSV_SCANNER')throw new Error(`E3-I3 is OSV-only ${key}`);
     if(!ALLOWED.has(r.disposition))throw new Error(`invalid disposition ${key}`);
@@ -78,16 +94,21 @@ export function applyRuntimeDeploymentReviews(triage,e4,review){
     });
   });
   const dispositionCounts={};for(const f of decisions)dispositionCounts[f.disposition]=(dispositionCounts[f.disposition]||0)+1;
-  const cumulativeReviewedFindingCount=decisions.filter(f=>f.reviewEvidence).length;
+  const cumulativeReviewedFindingCount=decisions.filter(f=>f.reviewEvidence).length+remediatedHistoricalFindings.length;
   const payload=stable({
-    schemaVersion:'M6_PR_E_E3_I3_TRIAGE_V1',
+    schemaVersion:remediation?'M6_PR_E_E3_I3_TRIAGE_V2':'M6_PR_E_E3_I3_TRIAGE_V1',
     repository:triage.repository,
     commitSha:triage.commitSha,
     sourceI2CanonicalSha256:triage.contentSha256,
     sourceE4CanonicalSha256:e4.contentSha256,
+    sourceRemediationCanonicalSha256:remediation?.contentSha256??null,
     reviewBasisHead:review.reviewBasisHead,
     reviewBasisE2GraphDigest:review.reviewBasisE2GraphDigest,
+    currentE2GraphDigest:e4.e2GraphDigest,
+    historicalReviewedFindingCount:(review.reviewedFindings||[]).length,
     reviewedFindingCount:delta.size,
+    remediatedHistoricalFindingCount:remediatedHistoricalFindings.length,
+    remediatedHistoricalFindings,
     cumulativeReviewedFindingCount,
     decisions,
     summary:{
