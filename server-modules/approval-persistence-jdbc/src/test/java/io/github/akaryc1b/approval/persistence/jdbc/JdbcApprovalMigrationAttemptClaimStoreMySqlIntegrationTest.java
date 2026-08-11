@@ -445,8 +445,7 @@ class JdbcApprovalMigrationAttemptClaimStoreMySqlIntegrationTest
         MySqlH2MigrationAttemptProvisioningFixture.seedActiveSourceRelease(
             dataSource,
             sourceRelease,
-            WORKER,
-            NOW
+            WORKER
         );
         seedProjectionInstance(
             tenant,
