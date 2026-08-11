@@ -10,7 +10,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentSto
 import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalRuntimeBindingStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalInstanceCommandFence;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalInstanceCommandFenceFactory;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -27,7 +27,7 @@ public class ApprovalRuntimeBindingEvidenceConfiguration {
 
     @Bean
     ApprovalInstanceCommandFence approvalInstanceCommandFence(DataSource dataSource) {
-        return new JdbcApprovalInstanceCommandFence(dataSource);
+        return JdbcApprovalInstanceCommandFenceFactory.create(dataSource);
     }
 
     @Bean
