@@ -347,7 +347,7 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             sourceDeployment
         ));
 
-        insertPlanIntentConsumption(
+        MySqlH1MigrationPlanAuthorityFixtureAdapter.seed(
             tenant,
             planId,
             intentId,
