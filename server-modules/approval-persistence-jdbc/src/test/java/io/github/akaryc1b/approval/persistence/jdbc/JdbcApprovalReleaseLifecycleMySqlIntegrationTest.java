@@ -885,7 +885,7 @@ class JdbcApprovalReleaseLifecycleMySqlIntegrationTest
         }
     }
 
-    private static void await(CountDownLatch latch) {
+    static void await(CountDownLatch latch) {
         try {
             latch.await();
         } catch (InterruptedException exception) {
