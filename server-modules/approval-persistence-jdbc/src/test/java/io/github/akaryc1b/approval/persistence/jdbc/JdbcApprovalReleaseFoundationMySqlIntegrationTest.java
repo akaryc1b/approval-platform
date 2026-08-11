@@ -98,7 +98,7 @@ class JdbcApprovalReleaseFoundationMySqlIntegrationTest
         assertEquals(1, page.total());
         assertEquals(List.of(restored), page.items());
         assertFalse(releasePackages.find(
-            OTHER_TENANT.toLowerCase(),
+            OTHER_TENANT.toUpperCase(java.util.Locale.ROOT),
             DEFINITION_KEY,
             candidate.releaseVersion()
         ).isPresent());
