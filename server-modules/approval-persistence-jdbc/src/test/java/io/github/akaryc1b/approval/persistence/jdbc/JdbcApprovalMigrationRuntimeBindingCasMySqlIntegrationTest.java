@@ -569,7 +569,7 @@ class JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest
             sourceRelease.packageHash(),
             targetRelease.releaseVersion(),
             targetRelease.packageHash(),
-            targetDeployment.deploymentId().toString(),
+            targetDeployment.deploymentRecordId().toString(),
             targetDeployment.engineDeploymentId(),
             targetDeployment.engineDefinitionId(),
             targetDeployment.engineVersion(),
