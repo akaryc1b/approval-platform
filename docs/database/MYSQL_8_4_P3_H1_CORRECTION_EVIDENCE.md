@@ -148,6 +148,107 @@ production changes: 0
 
 Run #1413 is not rerun.
 
+## Natural failure #1415
+
+```text
+Head:       4dbc6d6a433d765e3a34800729890bee8bd6ff60
+Run:        31465008588 / #1415
+Conclusion: failure
+```
+
+Run #1415 was the first H1 Head that passed Checkstyle and test compilation and actually executed the H1 real-MySQL suite.
+
+Final physical-job state:
+
+```text
+Java 21 / Maven core:              success
+Persistence JDBC / shard 0:        success
+Persistence JDBC / shard 1:        failure
+Persistence JDBC / shard 2:        success
+Persistence JDBC / shard 3:        success
+Repository hygiene:                success
+Vben TypeScript / production build success
+UniApp TypeScript / H5 / WeChat:   success
+Java 21 / Maven / PostgreSQL:      failure (aggregate inherited shard-1 failure)
+```
+
+Shard 1 selected `JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest`. Its result was:
+
+```text
+Tests run: 6
+Failures:  0
+Errors:    6
+Skipped:   0
+```
+
+All six errors occurred in the same fixture step before D5 CAS execution:
+
+```text
+insertPlanIntentConsumption(...)
+-> insert into ap_process_migration_plan
+-> fk_process_migration_plan_current_authorization_v38
+```
+
+MySQL correctly rejected a plan row that already claimed `authorization_id` and `authorization_evidence_hash` before the matching immutable authorization row existed.
+
+Classification:
+
+```text
+TEST_FIXTURE_BUG / MISSING_MIGRATION_PLAN_AUTHORIZATION_FK_PROVENANCE
+```
+
+This is positive compatibility evidence: the governed MySQL V50 baseline preserves the V38 current-authorization foreign-key provenance rather than silently accepting an unbound current authorization.
+
+The failed shard-1 evidence part was retained:
+
+```text
+Artifact ID: 9091233714
+Bytes:       125707
+SHA-256:     dfffcc7f8f0d7512e2072cfaf515069113cf2c5cd6b41fdc1dd0312d2164af81
+```
+
+It is a failed-run evidence part and is not an acceptance Artifact.
+
+### V38 relation-graph audit
+
+The accepted PostgreSQL writer establishes authorization in this order:
+
+```text
+1. insert PROPOSED plan with current authorization fields null
+2. append immutable ap_process_migration_plan_authorization row
+3. CAS update plan to bind the current authorization
+4. later consume the authorized plan into Intent + PlanConsumption authority
+```
+
+This ordering avoids an immediate-FK cycle: the authorization row can reference an already existing Plan, and the Plan current-authorization FK is populated only after the authorization row exists.
+
+Correction-3 therefore does not weaken or remove either side of the relationship. It introduces test-only H1 provenance fixtures that follow the real ordering:
+
+```text
+Plan PROPOSED rev1
+-> selected-instance authority
+-> initial plan event
+-> immutable Authorization
+-> Plan AUTHORIZED rev2
+-> authorization event
+-> Plan CONSUMED rev3
+-> consumption event
+-> Intent PENDING rev1
+-> PlanConsumption
+-> Intent RUNNING rev2
+```
+
+The main H1 integration test changes only its authority-fixture call site. The V38 relation construction is isolated in:
+
+```text
+MySqlH1MigrationPlanAuthorityFixture
+MySqlH1MigrationPlanAuthorityFixtureAdapter
+```
+
+No `FOREIGN_KEY_CHECKS`, constraint disablement, schema mutation, production-store change or PostgreSQL behavior change is used.
+
+Run #1415 is not rerun.
+
 ## Correction discipline
 
 Correction branches used:
@@ -155,25 +256,36 @@ Correction branches used:
 ```text
 agent/mysql-8-4-p3-h1-migration-binding-cas-correction-1
 agent/mysql-8-4-p3-h1-migration-binding-cas-correction-2
+agent/mysql-8-4-p3-h1-migration-binding-cas-correction-3
 ```
 
-The failed Heads `9fe38f566dd372469f241a9b6d208060d7a9b28a` and `3733a5dff5c784ab74ce23a98a7ca4382b5389bb`, together with Runs #1412 and #1413, remain permanently visible.
+The failed Heads and natural Runs remain permanently visible:
+
+```text
+9fe38f566dd372469f241a9b6d208060d7a9b28a  -> #1412
+3733a5dff5c784ab74ce23a98a7ca4382b5389bb  -> #1413
+4dbc6d6a433d765e3a34800729890bee8bd6ff60  -> #1415
+```
 
 No failed Head was rerun. No empty commit, rebase, amend, force push, or history rewrite was used.
 
 ## Production-code boundary
 
-Corrections after the original H1 implementation Head are evidence/test-boundary corrections only. In particular, correction-2 relative to the #1413 Head is allowed to modify only:
+Corrections after the original H1 implementation Head remain evidence/test-boundary corrections only.
+
+Correction-3 relative to the #1415 Head is allowed to modify only:
 
 ```text
 server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalMigrationRuntimeBindingCasMySqlIntegrationTest.java
+server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/MySqlH1MigrationPlanAuthorityFixture.java
+server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/MySqlH1MigrationPlanAuthorityFixtureAdapter.java
 docs/database/MYSQL_8_4_P3_H1_CORRECTION_EVIDENCE.md
 ```
 
-Before formal promotion, a compare gate must confirm exactly this boundary and `behind=0`.
+Before formal promotion, a compare gate must confirm exactly this boundary, production changes `0`, and `behind=0`.
 
 ## Next gate
 
-The correction-2 Head may be non-force fast-forwarded to `agent/mysql-8-4-production-compatibility` only after the exact compare passes. The next validation must be a new natural Pull Request Run on the new Head. Runs #1412 and #1413 must not be rerun.
+The correction-3 Head may be non-force fast-forwarded to `agent/mysql-8-4-production-compatibility` only after the exact compare passes. The next validation must be a new natural Pull Request Run on the new Head. Runs #1412, #1413 and #1415 must not be rerun.
 
 If the next natural Run fails, its Head and failure remain visible and are corrected with another forward commit. If it succeeds, H1 still remains `STAGED` until independent test reconstruction, final Artifact verification, acceptance-document closure, `STAGED -> PROVEN`, and a final current-Head natural CI all pass.
