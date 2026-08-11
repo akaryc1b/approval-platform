@@ -7,7 +7,6 @@ import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -20,17 +19,13 @@ final class MySqlH2MigrationAttemptProvisioningFixture {
     static void seedActiveSourceRelease(
         DataSource dataSource,
         ApprovalReleasePackage releasePackage,
-        String workerId,
-        Instant happenedAt
+        String workerId
     ) {
         ApprovalReleasePackage exact = Objects.requireNonNull(
             releasePackage,
             "releasePackage must not be null"
         );
         String worker = requireText(workerId, "workerId");
-        Instant canonical = AuditHashCanonicalizer.canonicalInstant(
-            Objects.requireNonNull(happenedAt, "happenedAt must not be null")
-        );
         ApprovalProcessReleaseStore releases = JdbcApprovalProcessReleaseStoreFactory.create(
             Objects.requireNonNull(dataSource, "dataSource must not be null")
         );
@@ -49,7 +44,7 @@ final class MySqlH2MigrationAttemptProvisioningFixture {
             "request-h2-publish-" + exact.releaseVersion(),
             "trace-h2",
             "audit-event:h2-publish-" + exact.releaseVersion(),
-            canonical.minusSeconds(2)
+            exact.publishedAt()
         );
         ApprovalProcessRelease published = ApprovalProcessRelease.published(exact, publish);
         releases.savePublished(published, publish);
@@ -69,7 +64,7 @@ final class MySqlH2MigrationAttemptProvisioningFixture {
             "request-h2-activate-" + exact.releaseVersion(),
             "trace-h2",
             "audit-event:h2-activate-" + exact.releaseVersion(),
-            canonical.minusSeconds(1)
+            exact.publishedAt().plusSeconds(1)
         );
         if (!releases.transition(
             published.transitioned(activate),
