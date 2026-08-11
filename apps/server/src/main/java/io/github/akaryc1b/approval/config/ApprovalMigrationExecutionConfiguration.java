@@ -34,8 +34,7 @@ import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineE
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOrchestrationStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationReconciliationExecutionStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStore;
-import io.github.akaryc1b.approval.persistence.jdbc.PostgresSerializedApprovalMigrationRuntimeBindingCasStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStoreFactory;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.ManagementService;
 import org.flowable.engine.ProcessMigrationService;
@@ -197,17 +196,12 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        ApprovalMigrationRuntimeBindingCasStore jdbcStore =
-            new JdbcApprovalMigrationRuntimeBindingCasStore(
-                dataSource,
-                objectMapper,
-                transactionManager,
-                auditEventSink,
-                UUID::randomUUID
-            );
-        return new PostgresSerializedApprovalMigrationRuntimeBindingCasStore(
+        return JdbcApprovalMigrationRuntimeBindingCasStoreFactory.create(
             dataSource,
-            jdbcStore
+            objectMapper,
+            transactionManager,
+            auditEventSink,
+            UUID::randomUUID
         );
     }
 
