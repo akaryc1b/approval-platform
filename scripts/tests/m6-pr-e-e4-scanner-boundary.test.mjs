@@ -5,9 +5,12 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { buildScannerFindingIntake } from '../security/m6-pr-e-e3-ingest-e4.mjs';
+
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const contract=path.join(root,'docs/m6/M6_PR_E_E4_CODE_SECRET_DEPENDENCY_SCANNING_EVIDENCE.md');
 const baselineFile=path.join(root,'docs/m6/m6-pr-e-e4-scanner-baseline.json');
+const intakeContract=path.join(root,'docs/m6/M6_PR_E_E3_E4_SCANNER_FINDING_INTAKE.md');
 const scanner=path.join(root,'scripts/security/m6-pr-e-e4-scan.mjs');
 const text=f=>{assert.equal(existsSync(f),true,`${f} must exist`);return readFileSync(f,'utf8');};
 
@@ -34,6 +37,19 @@ test('E4 scanner findings remain evidence inputs instead of scanner execution fa
   const s=text(scanner);assert.match(s,/allow:\[1\]/);assert.match(s,/scannerFindingTriageRequired/);assert.match(s,/E4_SCANNER_FINDINGS_REQUIRE_E3_TRIAGE/);assert.match(s,/authoritativeGitHubInventoryStillUnavailable:true/);assert.match(s,/workstreamReleaseBlocked:true/);
 });
 
+
+test('E3 intake contract and builder keep all scanner findings unresolved and Secret-safe',()=>{
+  const body=text(intakeContract);for(const m of ['SCANNER_COVERAGE_COMPLETE != AUTHORITATIVE_INVENTORY_COMPLETE','SCANNER_FINDING != E3_DISPOSITION','RAW_SECRET_REPORT_MUST_NOT_BE_RECONSTRUCTED','ALL_SCANNER_FINDINGS_INITIAL_DISPOSITION_UNRESOLVED','M6_PR_E_E3_CLOSURE_NOT_ACCEPTED','PRB_16_REMAINS_OPEN','PRB_17_REMAINS_OPEN'])assert.ok(body.includes(m),m);
+  const finding=(sourceClass,findingId,extra={})=>({sourceClass,findingId,...extra});
+  const evidence={repository:'akaryc1b/approval-platform',commitSha:'3'.repeat(40),contentSha256:'a'.repeat(64),e2GraphDigest:'b'.repeat(64),allScannersCompleted:true,rawScannerReportsRetained:false,candidateSecretMaterialRetained:false,totalFindingCount:4,scanners:{
+    osv:{scanCompleted:true,rawReportRetained:false,findingCount:1,findings:[finding('E4_OSV_SCANNER','OSV-1',{upstreamFindingId:'GHSA-fixture',aliases:[],package:{ecosystem:'Maven',name:'org.example:lib',version:'1.0.0'},componentRefs:['pkg:maven/org.example/lib@1.0.0?type=jar'],scopes:['compile'],upstreamSeverity:[{type:'CVSS_V3',score:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N'}],fixedVersions:[]})]},
+    gitleaks:{scanCompleted:true,rawReportRetained:false,candidateSecretMaterialRetained:false,findingCount:1,findings:[finding('E4_GITLEAKS','GL-1',{ruleId:'generic-api-key',path:'fixture.txt',startLine:1,endLine:1,commit:'4'.repeat(40),fingerprint:'fixture-fingerprint'})]},
+    zizmor:{scanCompleted:true,rawReportRetained:false,findingCount:1,findings:[finding('E4_ZIZMOR','ZZ-1',{ruleId:'zizmor/unpinned-uses',upstreamSeverity:'error',path:'.github/workflows/a.yml',startLine:1})]},
+    semgrep:{scanCompleted:true,rawReportRetained:false,sourceSnippetRetained:false,findingCount:1,findings:[finding('E4_SEMGREP','SG-1',{ruleId:'rules.fixture',upstreamSeverity:'WARNING',path:'/src/server-modules/x/A.java',startLine:5,cwe:[],owasp:[],category:'security'})]}
+  }};
+  const intake=buildScannerFindingIntake(evidence,{snapshotTime:'2026-08-11T04:00:00Z'});assert.equal(intake.findingInventory.itemCount,4);assert.equal(intake.decisions.length,4);assert.equal(intake.summary.unresolvedCount,4);assert.equal(intake.summary.highRiskUnresolvedCount,2);assert.equal(intake.summary.releaseBlocked,true);for(const f of intake.decisions){assert.equal(f.disposition,'UNRESOLVED');assert.equal(f.severityBand,'UNKNOWN');assert.ok(['packaged','loaded','invoked','externallyReachable'].every(k=>f.reachability[k].value===null));assert.doesNotMatch(JSON.stringify(f),/"(?:Secret|Match)"\s*:/i);}
+});
+
 test('E4 full scanner suite runs only on GitHub Actions and emits one canonical redacted payload',{timeout:2400000},()=>{
   if(process.env.GITHUB_ACTIONS!=='true')return;
   const scanEnv={...process.env,GOFLAGS:'-modcacherw'};assert.equal(scanEnv.GOFLAGS,'-modcacherw');const r=spawnSync(process.execPath,[scanner,`--root=${root}`],{cwd:root,encoding:'utf8',maxBuffer:256*1024*1024,env:scanEnv,timeout:2300000});assert.equal(r.status,0,r.stderr||r.stdout);
@@ -41,5 +57,7 @@ test('E4 full scanner suite runs only on GitHub Actions and emits one canonical 
   assert.match(e.commitSha,/^[0-9a-f]{40}$/);assert.equal(e.e2GraphDigest,'0b6868f057a72fb8c7a4c9d0529f4469381f0024f403873c6d92121e4b34ee0a');assert.match(e.e2CurrentContentSha256,/^[0-9a-f]{64}$/);assert.equal(e.allScannersCompleted,true);assert.equal(e.rawScannerReportsRetained,false);assert.equal(e.candidateSecretMaterialRetained,false);assert.equal(e.authoritativeGitHubInventoryStillUnavailable,true);assert.equal(e.workstreamReleaseBlocked,true);
   for(const k of ['osv','gitleaks','zizmor','semgrep']){assert.equal(e.scanners[k].scanCompleted,true);assert.equal(e.scanners[k].rawReportRetained,false);assert.ok(Number.isInteger(e.scanners[k].findingCount));assert.ok(Array.isArray(e.scanners[k].findings));}
   assert.equal(e.scanners.gitleaks.candidateSecretMaterialRetained,false);assert.equal(e.scanners.semgrep.sourceSnippetRetained,false);assert.match(e.scanners.semgrep.imageRepoDigest,/^semgrep\/semgrep@sha256:[0-9a-f]{64}$/);assert.match(e.contentSha256,/^[0-9a-f]{64}$/);
-  console.log('M6_PR_E_E4_CANONICAL_SHA256='+e.contentSha256);console.log(m[0]);
+  const gitTime=spawnSync('git',['show','-s','--format=%cI',e.commitSha],{cwd:root,encoding:'utf8'});assert.equal(gitTime.status,0,gitTime.stderr||gitTime.stdout);const snapshotTime=gitTime.stdout.trim();assert.ok(Number.isFinite(Date.parse(snapshotTime)),'exact Head commit time required');
+  const intake=buildScannerFindingIntake(e,{snapshotTime});assert.equal(intake.commitSha,e.commitSha);assert.equal(intake.sourceE4ContentSha256,e.contentSha256);assert.equal(intake.findingInventory.complete,true);assert.equal(intake.findingInventory.itemCount,e.totalFindingCount);assert.equal(intake.findingInventory.knownFindingCount,e.totalFindingCount);assert.equal(intake.decisions.length,e.totalFindingCount);assert.equal(intake.summary.unresolvedCount,e.totalFindingCount);assert.equal(intake.summary.releaseBlocked,true);assert.equal(intake.sourceReadiness.authoritativeComplete,false);assert.equal(intake.sourceReadiness.scannerCoverageComplete,true);for(const f of intake.decisions){assert.equal(f.disposition,'UNRESOLVED');assert.equal(f.severityBand,'UNKNOWN');}
+  console.log('M6_PR_E_E4_CANONICAL_SHA256='+e.contentSha256);console.log(m[0]);console.log('M6_PR_E_E3_SCANNER_INTAKE_CANONICAL_SHA256='+intake.contentSha256);console.log('M6_PR_E_E3_SCANNER_INTAKE_BEGIN');console.log(JSON.stringify(intake));console.log('M6_PR_E_E3_SCANNER_INTAKE_END');
 });
