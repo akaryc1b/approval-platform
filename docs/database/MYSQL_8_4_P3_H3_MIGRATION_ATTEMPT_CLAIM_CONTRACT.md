@@ -22,13 +22,16 @@ ISSUE_91_REMAINS_OPEN
 
 ## Exact production scope
 
-P3-H3 may add only:
+P3-H3 may add or modify only:
 
 ```text
 JdbcApprovalMigrationAttemptClaimStoreFactory
 JdbcMySqlApprovalMigrationAttemptClaimStore
+JdbcMySqlApprovalInstanceCommandFence.acquireMigrationLock(...)
 ApprovalMigrationExecutionConfiguration -> trusted claim factory
 ```
+
+The package-private MySQL command-fence entrypoint is a bounded infrastructure extension of the already accepted H1 authority. It acquires the exact existing `approval-instance-command:v1:<tenant>:<instance>` transaction lock through the existing `JdbcMySqlTransactionLockManager`. It adds no new lock namespace, no new application port method and no change to business-command behavior.
 
 The existing PostgreSQL implementation remains unchanged and remains the PostgreSQL authority:
 
@@ -151,12 +154,15 @@ Attempt payload JSON, relational columns and Attempt Event evidence must describ
 
 ## Durable command fence contract
 
-P3-H3 uses the H1 accepted instance command serialization authority:
+P3-H3 reuses the H1 accepted MySQL instance command serialization authority directly inside persistence infrastructure:
 
 ```text
-JdbcApprovalInstanceCommandFenceFactory
-MYSQL -> JdbcMySqlApprovalInstanceCommandFence
+JdbcMySqlApprovalInstanceCommandFence
+JdbcMySqlTransactionLockManager
+JdbcMySqlApprovalInstanceCommandFence.lockScope(...)
 ```
+
+The package-private `acquireMigrationLock(...)` method added by H3 acquires the same lock scope used by H1/D5 and by the business-command guard. It requires the same active synchronized local transaction and inherits the same bounded timeout and after-completion release protocol. No application-level database or migration-lock branch is added.
 
 The durable fence remains separate relational evidence in:
 
