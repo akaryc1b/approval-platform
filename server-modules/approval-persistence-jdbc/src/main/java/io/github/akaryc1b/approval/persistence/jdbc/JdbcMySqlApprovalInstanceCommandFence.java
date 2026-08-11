@@ -75,6 +75,15 @@ public final class JdbcMySqlApprovalInstanceCommandFence implements ApprovalInst
         }
     }
 
+    void acquireMigrationLock(String tenantId, UUID approvalInstanceId) {
+        String tenant = requireText(tenantId, "tenantId", 128);
+        UUID instanceId = Objects.requireNonNull(
+            approvalInstanceId,
+            "approvalInstanceId must not be null"
+        );
+        locks.acquire(lockScope(tenant, instanceId));
+    }
+
     static String lockScope(String tenantId, UUID approvalInstanceId) {
         return LOCK_NAMESPACE + tenantId + ':' + approvalInstanceId;
     }
