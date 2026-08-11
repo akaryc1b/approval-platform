@@ -11,6 +11,7 @@ const portPath = 'server-modules/approval-application/src/main/java/io/github/ak
 const servicePath = 'server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/application/ApprovalMigrationRuntimeBindingCasService.java';
 const storePath = 'server-modules/approval-persistence-jdbc/src/main/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalMigrationRuntimeBindingCasStore.java';
 const serializedPath = 'server-modules/approval-persistence-jdbc/src/main/java/io/github/akaryc1b/approval/persistence/jdbc/PostgresSerializedApprovalMigrationRuntimeBindingCasStore.java';
+const factoryPath = 'server-modules/approval-persistence-jdbc/src/main/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalMigrationRuntimeBindingCasStoreFactory.java';
 const configPath = 'apps/server/src/main/java/io/github/akaryc1b/approval/config/ApprovalMigrationExecutionConfiguration.java';
 const migrationPath = 'server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V44__complete_exact_migration_runtime_binding.sql';
 const jdbcTestPath = 'server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalMigrationRuntimeBindingCasStoreIntegrationTest.java';
@@ -21,6 +22,7 @@ for (const file of [
   servicePath,
   storePath,
   serializedPath,
+  factoryPath,
   configPath,
   migrationPath,
   jdbcTestPath,
@@ -33,6 +35,7 @@ const port = read(portPath);
 const service = read(servicePath);
 const store = read(storePath);
 const serialized = read(serializedPath);
+const factory = read(factoryPath);
 const config = read(configPath);
 const migration = read(migrationPath);
 const jdbcTest = read(jdbcTestPath);
@@ -86,7 +89,9 @@ test('D5 replay is cross-node serialized and pooled sessions are explicitly unlo
   assert.match(serialized, /request\.tenantId\(\)/);
   assert.match(serialized, /request\.attemptId\(\)/);
   assert.match(serialized, /release\(connection, lockKey\)/);
-  assert.match(config, /new PostgresSerializedApprovalMigrationRuntimeBindingCasStore/);
+  assert.match(config, /JdbcApprovalMigrationRuntimeBindingCasStoreFactory\.create/);
+  assert.match(factory, /new PostgresSerializedApprovalMigrationRuntimeBindingCasStore/);
+  assert.match(factory, /new JdbcMySqlApprovalMigrationRuntimeBindingCasStore/);
   assert.match(jdbcTest, /concurrentSerializedCasProducesOneCompletionAndOneExactReplay/);
   assert.match(jdbcTest, /BindingCasDisposition\.REPLAYED_COMPLETION/);
 });
@@ -114,7 +119,7 @@ test('D5 has no test-schema compatibility or public execution surface', () => {
   assert.doesNotMatch(fixtures, /alter\s+table\s+ap_approval_instance/i);
   assert.doesNotMatch(fixtures, /add\s+column\s+if\s+not\s+exists\s+engine_instance_id/i);
   assert.doesNotMatch(fixtures, /current_task_key/);
-  for (const content of [service, store, serialized, config]) {
+  for (const content of [service, store, serialized, factory, config]) {
     assert.doesNotMatch(content, /@Scheduled|SchedulingConfigurer|TaskScheduler/);
     assert.doesNotMatch(content, /@RestController|@Controller|PostMapping|PutMapping|PatchMapping/);
   }
