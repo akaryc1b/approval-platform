@@ -321,7 +321,7 @@ final class MySqlH1MigrationPlanAuthorityFixture {
             1,
             "RUNNING",
             sourceBindingHash,
-            "[]",
+            "[\"managerApproval\"]",
             "6".repeat(64),
             "{}"
         );
