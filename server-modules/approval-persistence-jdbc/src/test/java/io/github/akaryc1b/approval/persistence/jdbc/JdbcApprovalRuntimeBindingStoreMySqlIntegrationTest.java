@@ -7,6 +7,7 @@ import io.github.akaryc1b.approval.application.RuntimeBindingEnforcingProjection
 import io.github.akaryc1b.approval.application.RuntimeBindingRecordingAuditEventSink;
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
 import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
+import io.github.akaryc1b.approval.application.port.ApprovalProcessReleaseStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalReleaseDeploymentStore;
@@ -16,7 +17,9 @@ import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.definition.ApprovalEffectiveRelease;
+import io.github.akaryc1b.approval.domain.definition.ApprovalProcessRelease;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseDeployment;
+import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseLifecycle.State;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 import io.github.akaryc1b.approval.domain.definition.ApprovalRuntimeBinding;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
@@ -58,6 +61,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
     private ApprovalReleasePackageStore releasePackages;
     private ApprovalReleaseDeploymentStore deployments;
     private ApprovalEffectiveReleaseStore effectiveReleases;
+    private ApprovalProcessReleaseStore processReleases;
     private ObjectMapper objectMapper;
     private JdbcTransactionManager transactionManager;
 
@@ -72,6 +76,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
         releasePackages = JdbcApprovalReleasePackageStoreFactory.create(dataSource);
         deployments = JdbcApprovalReleaseDeploymentStoreFactory.create(dataSource);
         effectiveReleases = JdbcApprovalEffectiveReleaseStoreFactory.create(dataSource);
+        processReleases = JdbcApprovalProcessReleaseStoreFactory.create(dataSource);
     }
 
     @Test
@@ -84,7 +89,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
         seedInstance(tenant, secondId, "engine-instance-g3-direct-2", "business-g3-direct-2");
 
         ApprovalRuntimeBinding first = binding(
-            evidence.releasePackage(),
+            evidence,
             firstId,
             "business-g3-direct-1",
             "engine-instance-g3-direct-1",
@@ -92,7 +97,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             "1".repeat(64)
         );
         ApprovalRuntimeBinding second = binding(
-            evidence.releasePackage(),
+            evidence,
             secondId,
             "business-g3-direct-2",
             "engine-instance-g3-direct-2",
@@ -109,21 +114,14 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             AuditHashCanonicalizer.canonicalInstant(first.boundAt()),
             restored.boundAt()
         );
-        assertEquals(
-            first.bindingEvidenceHash(),
-            restored.bindingEvidenceHash()
-        );
+        assertEquals(first.bindingEvidenceHash(), restored.bindingEvidenceHash());
         assertEquals(
             firstId,
-            bindings.findByEngineInstance(
-                tenant,
-                first.engineInstanceId()
-            ).orElseThrow().approvalInstanceId()
+            bindings.findByEngineInstance(tenant, first.engineInstanceId())
+                .orElseThrow()
+                .approvalInstanceId()
         );
-        assertFalse(bindings.find(
-            tenant.toLowerCase(Locale.ROOT),
-            firstId
-        ).isPresent());
+        assertFalse(bindings.find(tenant.toLowerCase(Locale.ROOT), firstId).isPresent());
         assertFalse(bindings.findByEngineInstance(
             tenant.toLowerCase(Locale.ROOT),
             first.engineInstanceId()
@@ -175,7 +173,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             "business-g3-immutable"
         );
         ApprovalRuntimeBinding exact = binding(
-            evidence.releasePackage(),
+            evidence,
             instanceId,
             "business-g3-immutable",
             "engine-instance-g3-immutable",
@@ -204,7 +202,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
         ));
 
         ApprovalRuntimeBinding missingInstance = binding(
-            evidence.releasePackage(),
+            evidence,
             uuid("missing-instance"),
             "business-g3-missing",
             "engine-instance-g3-missing",
@@ -224,7 +222,6 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
         ReleaseEvidence evidence = seedStartEvidence(tenant);
         ExactStartEngine engine = new ExactStartEngine(evidence);
         PurchasePaymentApplicationService service = startService(
-            tenant,
             engine,
             JdbcAuditEventStoreFactory.create(
                 dataSource,
@@ -246,10 +243,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
         assertEquals(1, countTenantRows("ap_audit_event", tenant));
         assertEquals(1, countTenantRows("ap_command_idempotency", tenant));
 
-        ApprovalRuntimeBinding binding = bindings.find(
-            tenant,
-            first.instanceId()
-        ).orElseThrow();
+        ApprovalRuntimeBinding binding = bindings.find(tenant, first.instanceId()).orElseThrow();
         assertTrue(binding.binds(evidence.releasePackage(), evidence.deployment()));
         assertEquals("engine-instance-g3-1", binding.engineInstanceId());
         assertEquals(START_AT, binding.boundAt());
@@ -259,10 +253,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             tenant
         );
         assertEquals("audit-event:" + auditEventId, binding.auditChainReference());
-        assertEquals(
-            expectedBindingHash(binding, evidence),
-            binding.bindingEvidenceHash()
-        );
+        assertEquals(expectedBindingHash(binding, evidence), binding.bindingEvidenceHash());
     }
 
     @Test
@@ -274,7 +265,6 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             throw new IllegalStateException("audit unavailable after runtime binding insert");
         };
         PurchasePaymentApplicationService service = startService(
-            tenant,
             engine,
             failingAudit,
             uuid("rollback-instance")
@@ -336,7 +326,54 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             releasePackage,
             START_AT.minusSeconds(60)
         );
+        seedActiveLifecycle(releasePackage);
         return new ReleaseEvidence(releasePackage, deployment);
+    }
+
+    private void seedActiveLifecycle(ApprovalReleasePackage releasePackage) {
+        ApprovalProcessRelease.Transition publish = new ApprovalProcessRelease.Transition(
+            uuid("publish-" + releasePackage.tenantId()),
+            releasePackage.tenantId(),
+            releasePackage.definitionKey(),
+            releasePackage.releaseVersion(),
+            releasePackage.packageHash(),
+            State.DRAFT,
+            State.PUBLISHED,
+            1,
+            "Publish release for G3 runtime binding provenance",
+            "g3-publish-" + releasePackage.tenantId(),
+            releasePackage.publishedBy(),
+            "request-g3-publish-" + releasePackage.tenantId(),
+            "trace-g3",
+            "audit-event:g3-publish-" + releasePackage.tenantId(),
+            releasePackage.publishedAt()
+        );
+        ApprovalProcessRelease published = ApprovalProcessRelease.published(
+            releasePackage,
+            publish
+        );
+        processReleases.savePublished(published, publish);
+
+        Instant activatedAt = releasePackage.publishedAt().plusSeconds(1);
+        ApprovalProcessRelease.Transition activate = new ApprovalProcessRelease.Transition(
+            uuid("activate-" + releasePackage.tenantId()),
+            releasePackage.tenantId(),
+            releasePackage.definitionKey(),
+            releasePackage.releaseVersion(),
+            releasePackage.packageHash(),
+            State.PUBLISHED,
+            State.ACTIVE,
+            2,
+            "Activate release for G3 runtime binding provenance",
+            "g3-activate-" + releasePackage.tenantId(),
+            "Operator-G3",
+            "request-g3-activate-" + releasePackage.tenantId(),
+            "trace-g3",
+            "audit-event:g3-activate-" + releasePackage.tenantId(),
+            activatedAt
+        );
+        ApprovalProcessRelease active = published.transitioned(activate);
+        assertTrue(processReleases.transition(active, published.revision(), activate));
     }
 
     private ReleaseEvidence seedStartEvidence(String tenant) {
@@ -346,10 +383,7 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             evidence.releasePackage(),
             evidence.deployment()
         );
-        effectiveReleases.save(
-            effective,
-            activation(effective)
-        );
+        effectiveReleases.save(effective, activation(effective));
         return evidence;
     }
 
@@ -395,13 +429,15 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
     }
 
     private ApprovalRuntimeBinding binding(
-        ApprovalReleasePackage releasePackage,
+        ReleaseEvidence evidence,
         UUID instanceId,
         String businessKey,
         String engineInstanceId,
         Instant boundAt,
         String evidenceHash
     ) {
+        ApprovalReleasePackage releasePackage = evidence.releasePackage();
+        ApprovalReleaseDeployment deployment = evidence.deployment();
         return new ApprovalRuntimeBinding(
             releasePackage.tenantId(),
             instanceId,
@@ -422,9 +458,9 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             releasePackage.compiledArtifactHash(),
             releasePackage.bpmnHash(),
             releasePackage.deploymentMetadataHash(),
-            "engine-deployment-g3-direct",
-            MySqlApprovalProjectionProvenanceFixture.ENGINE_DEFINITION_ID,
-            1,
+            deployment.engineDeploymentId(),
+            deployment.engineDefinitionId(),
+            deployment.engineVersion(),
             evidenceHash,
             "Operator-G3",
             boundAt,
@@ -527,7 +563,6 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
     }
 
     private PurchasePaymentApplicationService startService(
-        String tenant,
         ExactStartEngine engine,
         AuditEventSink delegateAudit,
         UUID instanceId
