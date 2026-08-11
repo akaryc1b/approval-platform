@@ -14,7 +14,7 @@ Issue: #91 remains Open
 P3-G1 converts only the existing immutable `ApprovalReleasePackageStore` and mutable `ApprovalReleaseDeploymentStore` persistence authorities for MySQL 8.4.
 
 ```text
-MYSQL_P3_G1_RELEASE_PACKAGE_DEPLOYMENT_STAGED
+MYSQL_P3_G1_RELEASE_PACKAGE_DEPLOYMENT_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
@@ -272,7 +272,7 @@ updated_at >= created_at
 
 ## Transaction and rollback contract
 
-P3-G1 must prove that transaction-bound MySQL named locks and JDBC writes participate in the caller-owned Spring transaction.
+P3-G1 proves that transaction-bound MySQL named locks and JDBC writes participate in the caller-owned Spring transaction.
 
 For Release Package locking:
 
@@ -282,9 +282,11 @@ For Release Package locking:
 For Deployment:
 
 - a transaction may acquire the exact deployment lock and insert a PENDING projection;
-- if that transaction rolls back, no deployment row may remain;
-- the lock must release on rollback;
-- a subsequent transaction must acquire the same lock and successfully persist the projection.
+- if that transaction rolls back, no deployment row remains;
+- the lock releases on rollback;
+- a subsequent transaction acquires the same lock and successfully persists the projection.
+
+The real MySQL acceptance suite also acquires the Release Package and Deployment namespaces in the same transaction, preserving the application service's established lock order.
 
 ## Permanent acceptance matrix
 
@@ -308,23 +310,158 @@ datetime(6)
 useAffectedRows=false
 ```
 
-It must prove at minimum:
+Accepted implementation/current capability Head:
 
-- trusted factory selection for both stores;
-- Release Package exact read/latest/read-by-draft/listing;
-- strict immutable Release Package insert and duplicate rejection;
-- Release Package UUID round-trip;
-- Release Package immutable timestamp canonicalization;
-- Release Package tenant/case isolation;
-- Release Package transaction-lock blocking and rollback release;
+```text
+de811f6a5739173932fe7834285884f30fef145a
+```
+
+Natural implementation validation:
+
+```text
+Run: 31450800678 / #1397
+Conclusion: success
+```
+
+Exact P3-G1 suite results reconstructed from final Surefire XML:
+
+```text
+JdbcApprovalReleaseFoundationStoreFactoryTest:
+  tests 2 / failures 0 / errors 0 / skipped 0 / time 0.006 s
+
+JdbcApprovalReleaseFoundationMySqlContractTest:
+  tests 3 / failures 0 / errors 0 / skipped 0 / time 0.005 s
+
+JdbcApprovalReleaseFoundationMySqlIntegrationTest:
+  tests 5 / failures 0 / errors 0 / skipped 0 / time 16.475 s
+```
+
+Deterministic selection is exact and non-overlapping:
+
+```text
+shard 2 -> JdbcApprovalReleaseFoundationStoreFactoryTest
+shard 2 -> JdbcApprovalReleaseFoundationMySqlIntegrationTest
+shard 3 -> JdbcApprovalReleaseFoundationMySqlContractTest
+```
+
+The real five-method integration suite proves:
+
+- trusted MySQL Store selection;
+- Release Package exact read, latest read, read-by-draft and deterministic listing;
+- strict immutable Package insert and duplicate rejection;
+- Package UUID round-trip;
+- Package immutable timestamp 500 ns carry canonicalization;
+- Package tenant and case isolation;
+- Package transaction-lock blocking and rollback release;
 - Deployment strict insert;
 - Deployment PENDING -> FAILED -> retry PENDING -> DEPLOYED CAS transitions;
 - stale attempt-count rejection;
 - Deployment UUID and timestamp round-trip;
-- Deployment tenant isolation and deterministic find-by-definition ordering;
+- Deployment tenant isolation and deterministic definition ordering;
+- Deployment real foreign-key enforcement;
 - Deployment transaction-lock blocking;
-- Deployment insert rollback and lock release;
-- PostgreSQL implementations and existing PostgreSQL suites remain unchanged.
+- a real Deployment insert is removed by rollback;
+- the Deployment lock releases on rollback;
+- Package and Deployment lock namespaces remain distinct and composable in the established order.
+
+## Run #1397 full permanent validation
+
+All nine physical Jobs succeeded:
+
+| Job | ID | Result |
+| --- | ---: | --- |
+| Vben TypeScript / production build | `93654587570` | success |
+| Java 21 / Maven core | `93654587616` | success |
+| UniApp TypeScript / H5 / WeChat | `93654587643` | success |
+| Persistence JDBC / shard 2 | `93654587654` | success |
+| Persistence JDBC / shard 1 | `93654587658` | success |
+| Repository hygiene | `93654587664` | success |
+| Persistence JDBC / shard 3 | `93654587666` | success |
+| Persistence JDBC / shard 0 | `93654587682` | success |
+| Java 21 / Maven / PostgreSQL | `93655023953` | success |
+
+Independent Maven evidence reconstruction:
+
+```text
+Maven Core:                           1469 / 0 / 0 / 0
+Persistence JDBC:                      484 / 0 / 0 / 0
+Combined:                             1953 / 0 / 0 / 0
+selected persistence test classes:     118
+Surefire report classes:               117
+expected abstract without report:        1
+duplicate selections:                    0
+non-abstract selected without report:    0
+selection coverage:                  exact
+aggregate reported persistence time: 887.041 s
+```
+
+Deterministic persistence shard distribution:
+
+```text
+shard 0: 29
+shard 1: 30
+shard 2: 26
+shard 3: 33
+unique: 118 / 118
+```
+
+## Independently verified Run #1397 Artifacts
+
+All final Run #1397 ZIP artifacts were independently downloaded. Local byte counts and SHA-256 digests exactly match GitHub metadata and every archive passes ZIP integrity verification.
+
+| Artifact | ID | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| Maven | `9086302284` | `1045799` | `13004d33432177afb86f1703bd23235c9185a72549f96fa052a604fdb5548709` |
+| Vben | `9086276727` | `18818` | `6d47a03bc4548d22c54d9f806e61c89da2066d1d5c2426bec76dfe5c7cfb9141` |
+| Mobile | `9086265859` | `9809` | `ffabc086ad781411feffb18c8a5360223b2e48b55061cd50305a6eddf3b8bdbd` |
+| Hygiene | `9086251775` | `17510` | `b6885b6ab81edd86304379072edc71166362ace9265e48c8c258f54fdff5ec76` |
+
+Artifact expiry is `2026-11-09T01:55:47Z`.
+
+## Retained append-only correction trail
+
+No failed Head was rerun in place. No force push, rebase, squash or empty CI-trigger commit was used.
+
+### Run #1394 — static hygiene failure
+
+```text
+Run: 31450308077 / #1394
+Head: 9fce72a4cfd6fc9d4e2ffafb423a06e86fe539d9
+Conclusion: failure
+Classification: STATIC_HYGIENE / CHECKSTYLE_UNUSED_IMPORT
+```
+
+One unused `java.util.UUID` import in `JdbcMySqlApprovalReleaseDeploymentStore` stopped Maven/Persistence before any G1 real-MySQL method executed. Vben, Mobile and Repository Hygiene succeeded. The correction removed only that unused import. The detailed record remains in:
+
+```text
+docs/database/MYSQL_8_4_P3_G1_CORRECTION_EVIDENCE.md
+```
+
+### Run #1395 — non-distinct tenant-case assertion
+
+```text
+Run: 31450537171 / #1395
+Head: 550bc531b2d7c4eab6275e758688ed8ae85c15cf
+Conclusion: failure
+Classification: TEST_ASSERTION_BUG / NON_DISTINCT_TENANT_CASE_VALUE
+```
+
+The G1 real-MySQL suite executed all five methods with four passing and one assertion-only failure. The failed test called `OTHER_TENANT.toLowerCase()` while the shared fixture already defined `OTHER_TENANT` entirely in lowercase, so the supposed negative tenant was identical to the positive tenant. The correction changed only the test input to a genuinely distinct uppercase case variant. No production source changed. The detailed record remains in:
+
+```text
+docs/database/MYSQL_8_4_P3_G1_ASSERTION_CORRECTION_EVIDENCE.md
+```
+
+### Run #1397 — accepted implementation evidence
+
+```text
+Run: 31450800678 / #1397
+Head: de811f6a5739173932fe7834285884f30fef145a
+Conclusion: success
+all nine physical Jobs: success
+```
+
+This is the accepted implementation evidence for P3-G1. The acceptance-recording commit that changes this document from `STAGED` to `PROVEN` is intentionally evidence-only; its own natural current-Head validation is bound through PR metadata after that run completes, avoiding recursive evidence commits.
 
 ## Explicit non-scope
 
@@ -346,10 +483,28 @@ P3-G1 does not implement or imply MySQL compatibility for:
 
 The next bounded slice is P3-G2 Process Release Lifecycle + Effective Release compatibility after P3-G1 is accepted.
 
+## Current authorization boundary
+
+Authorized:
+
+- continue bounded append-only MySQL compatibility slices on Draft PR #92;
+- retain natural PR Runs and final Artifacts as evidence;
+- correct failures with new commits and new Heads.
+
+Not authorized:
+
+- mark PR #92 Ready;
+- merge PR #92;
+- close Issue #91;
+- claim MySQL 8.4 production support;
+- alter already-applied PostgreSQL migrations;
+- weaken PostgreSQL behavior or existing validation;
+- enter P3-G2 as part of this acceptance record.
+
 ```text
 POSTGRESQL_16_SUPPORTED
 MYSQL_P3_F5_FORM_SUBMISSION_STORE_PROVEN
-MYSQL_P3_G1_RELEASE_PACKAGE_DEPLOYMENT_STAGED
+MYSQL_P3_G1_RELEASE_PACKAGE_DEPLOYMENT_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
