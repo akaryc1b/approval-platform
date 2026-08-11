@@ -22,7 +22,7 @@ import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalEffectiveReleaseDeactivationPortFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProcessReleaseStoreFactory;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalRuntimeBindingStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalRuntimeBindingStoreFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -40,7 +40,7 @@ public class ApprovalProcessReleaseLifecycleConfiguration {
 
     @Bean
     ApprovalRuntimeBindingStore approvalRuntimeBindingStore(DataSource dataSource) {
-        return new JdbcApprovalRuntimeBindingStore(dataSource);
+        return JdbcApprovalRuntimeBindingStoreFactory.create(dataSource);
     }
 
     @Bean
