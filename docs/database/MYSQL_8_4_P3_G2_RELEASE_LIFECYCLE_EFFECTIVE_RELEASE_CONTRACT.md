@@ -14,7 +14,7 @@ Issue: #91 remains Open
 P3-G2 converts only the existing Process Release lifecycle authority, current Effective Release authority, immutable activation history and current-effective deactivation CAS for MySQL 8.4.
 
 ```text
-MYSQL_P3_G2_RELEASE_LIFECYCLE_EFFECTIVE_STAGED
+MYSQL_P3_G2_RELEASE_LIFECYCLE_EFFECTIVE_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
@@ -232,7 +232,7 @@ A stale revision returns `false`. No transition history may be appended after a 
 
 The existing MySQL V50 baseline remains authoritative for release-lifecycle relational constraints.
 
-P3-G2 must prove through the real service path that two concurrent target activations cannot commit two ACTIVE lifecycles for the same tenant + definition.
+P3-G2 proves through the real service path that two concurrent target activations cannot commit two ACTIVE lifecycles for the same tenant + definition.
 
 The required externally visible result is:
 
@@ -472,15 +472,15 @@ Full Runtime Binding Store MySQL compatibility remains outside this slice.
 
 ## Transaction rollback contract
 
-The permanent MySQL suite must prove rollback after a real lifecycle transition attempt, not merely a mocked precondition failure.
+The permanent MySQL suite proves rollback after a real lifecycle transition attempt, not merely a mocked precondition failure.
 
-At minimum:
+Specifically:
 
 1. activation path transitions lifecycle rows before Effective Release validation;
 2. missing deployment then fails inside the same governed transaction;
-3. the earlier lifecycle transitions, audit writes and idempotency admission must disappear on rollback;
+3. the earlier lifecycle transitions, audit writes and idempotency admission disappear on rollback;
 4. explicit deprecation transitions lifecycle before current-effective clear;
-5. forced clear CAS failure must restore the original ACTIVE lifecycle and current Effective Release;
+5. forced clear CAS failure restores the original ACTIVE lifecycle and current Effective Release;
 6. named locks release after rollback.
 
 ## Permanent acceptance matrix
@@ -505,7 +505,7 @@ datetime(6)
 useAffectedRows=false
 ```
 
-The real suite must prove at minimum:
+The real suite proves:
 
 - trusted factory selection for lifecycle, Effective Release and deactivation authorities;
 - Process Release exact read, active read, deterministic listing and transition history;
@@ -528,6 +528,79 @@ The real suite must prove at minimum:
 - failed current-effective clear rolls lifecycle/audit/idempotency back;
 - PUBLISHED/DEPRECATED retirement is terminal while immutable packages remain;
 - PostgreSQL lifecycle/effective/deactivation implementations and PostgreSQL suites remain unchanged.
+
+## Accepted implementation evidence
+
+The accepted implementation Head is:
+
+```text
+ff1c4a38d7776132d2b92e31f3b1b5d851f88dae
+```
+
+Natural pull-request validation:
+
+```text
+Run: 31453802991 / #1401
+Conclusion: success
+Physical Jobs: 9 / 9 success
+```
+
+Focused P3-G2 suites:
+
+```text
+JdbcApprovalReleaseLifecycleStoreFactoryTest:
+2 / 0 / 0 / 0, 0.009 s
+
+JdbcApprovalReleaseLifecycleMySqlContractTest:
+3 / 0 / 0 / 0, 0.012 s
+
+JdbcApprovalReleaseLifecycleMySqlIntegrationTest:
+9 / 0 / 0 / 0, 40.994 s
+```
+
+Independent Maven evidence reconstruction:
+
+```text
+Maven Core: 1469 / 0 / 0 / 0
+Persistence JDBC: 498 / 0 / 0 / 0
+Combined: 1967 / 0 / 0 / 0
+selected persistence test classes: 121
+Surefire report classes: 120
+expected abstract without report: 1
+duplicate selections: 0
+non-abstract selected without report: 0
+selection coverage: exact
+shards: 29 / 31 / 28 / 33
+```
+
+Independently verified Run #1401 Artifacts:
+
+| Artifact | ID | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| Maven | `9087337474` | `1058484` | `d61decf1a6f6e592768fa595fbfee7294c360b2f13bbdd591384213c853995f0` |
+| Vben | `9087303561` | `18813` | `d7b0576d02932894ba8e42b59dd8c7bc08b753edc55545d8a9b8386fd91fbf0f` |
+| Mobile | `9087290345` | `9778` | `f303e299f35f7d113ab1457b365b6b2be6d30ba1d52fc73e67758c56de7558b6` |
+| Hygiene | `9087277299` | `17515` | `c58f9ba150e25fb9dc155e5f63909484221b4fa21c0bd80ca95f82cecfb4117a` |
+
+All four ZIPs were independently downloaded; local byte size and SHA-256 match GitHub metadata and ZIP integrity verification succeeded.
+
+The natural pre-acceptance failure trail remains visible:
+
+```text
+#1399 / 31453303684
+STATIC_HYGIENE / CHECKSTYLE_UNUSED_IMPORT
+
+#1400 / 31453571353
+TEST_COMPILE_BUG / STATIC_HELPER_VISIBILITY
+```
+
+Neither failed Head was rerun in place. No empty commit, rebase or force push was used.
+
+The detailed permanent evidence record is:
+
+```text
+docs/database/MYSQL_8_4_P3_G2_ACCEPTANCE_EVIDENCE.md
+```
 
 ## Forbidden shortcuts
 
@@ -570,7 +643,7 @@ No later slice is started by this contract.
 ```text
 POSTGRESQL_16_SUPPORTED
 MYSQL_P3_G1_RELEASE_PACKAGE_DEPLOYMENT_PROVEN
-MYSQL_P3_G2_RELEASE_LIFECYCLE_EFFECTIVE_STAGED
+MYSQL_P3_G2_RELEASE_LIFECYCLE_EFFECTIVE_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PR_92_REMAINS_OPEN_DRAFT
 ISSUE_91_REMAINS_OPEN
