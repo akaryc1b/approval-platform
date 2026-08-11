@@ -55,23 +55,46 @@ P3-H2 does not add database branching to application or domain code. Vendor sele
 
 No tenant, request, browser, Mobile client, Connector payload, AI payload, worker payload, profile string or migration command can manufacture the database vendor.
 
+## Upstream relational-authority boundary
+
+The MySQL V50 Intent table does not carry every domain field as a first-class relational column. In particular, Intent expiry and selected-count evidence remain part of the upstream Intent domain payload rather than independent relational columns.
+
+P3-H2 must not turn that fact into an implicit claim that MySQL Plan/Intent creation, authorization, admission or generic payload reconstruction is already accepted. Therefore the MySQL provisioning store consumes only the upstream relational authority that V50 can independently prove:
+
+```text
+Intent tenant / id / status / Plan identity / definition / source-target release identity
+Consumed Plan tenant / id / hash / definition / source-target release identity
+Plan expires_at and selected_instance_count
+Plan Consumption binding to the exact Intent
+sealed Plan selections
+current Runtime Binding
+current approval-instance projection
+```
+
+The accepted application admission protocol creates the Intent from that exact Plan and gives it the Plan lifetime. For this bounded slice, MySQL provisioning therefore enforces the current lifetime through the exact consumed Plan `expires_at` rather than deserializing an otherwise unaccepted upstream Intent payload merely to obtain `Intent.expiresAt()`.
+
+Likewise, selected-count integrity is proved by `Plan.selected_instance_count` against the actual sealed selection rows. H2 does not claim independent MySQL reconstruction of `Intent.selectedInstanceCount()`.
+
+Full MySQL Plan/Intent/admission serialization and readback equivalence remains explicitly outside H2 and remains a release blocker.
+
 ## Provisioning authority
 
 One provisioning call is allowed to do only the following in one local database transaction:
 
 1. lock the exact tenant + migration Intent;
-2. require Intent status `PENDING` or `RUNNING` and require it to remain unexpired;
-3. lock/read the exact consumed immutable migration Plan bound by `planId + planHash`;
-4. require exact Plan/Intent tenant, definition, source/target release hashes and selected count identity;
-5. read the sealed Plan selections in `sequence_no` order;
-6. join each selected instance to the current Runtime Binding and approval-instance projection;
-7. require every selected instance to remain `RUNNING` and to retain its exact expected Runtime Binding evidence, source release and definition identity;
-8. read existing attempts for the Intent;
-9. reject attempts outside the sealed Plan selection;
-10. create exactly one initial attempt for each selected instance that has no initial attempt yet;
-11. append exactly one matching immutable initial Attempt Event per created attempt;
-12. append one governed provisioning Audit Event only when at least one attempt was created;
-13. commit all created attempts/events/audit together.
+2. require Intent status `PENDING` or `RUNNING`;
+3. lock/read the exact consumed immutable migration Plan + Consumption bound by `planId + planHash + intentId`;
+4. require the consumed Plan lifetime to remain current at the canonical request instant;
+5. require exact relational Plan/Intent tenant, definition and source/target release identity;
+6. read the sealed Plan selections in `sequence_no` order and require the row count to equal `Plan.selected_instance_count`;
+7. join each selected instance to the current Runtime Binding and approval-instance projection;
+8. require every selected instance to remain `RUNNING` and to retain its exact expected Runtime Binding evidence, source release and definition identity;
+9. read existing attempts for the Intent;
+10. reject attempts outside the sealed Plan selection;
+11. create exactly one initial attempt for each selected instance that has no initial attempt yet;
+12. append exactly one matching immutable initial Attempt Event per created attempt;
+13. append one governed provisioning Audit Event only when at least one attempt was created;
+14. commit all created attempts/events/audit together.
 
 A replay after complete provisioning returns the exact current initial attempts with `createdCount=0` and does not append another provisioning audit event.
 
@@ -85,7 +108,7 @@ where tenant_id=? and intent_id=?
 for update
 ```
 
-This is intentionally narrower than P3-H3 Attempt Claim semantics. P3-H2 does not implement claim scanning, `SKIP LOCKED`, lease takeover or worker fencing.
+The consumed Plan/Consumption relation is then locked before selections and attempts are evaluated. This is intentionally narrower than P3-H3 Attempt Claim semantics. P3-H2 does not implement claim scanning, `SKIP LOCKED`, lease takeover or worker fencing.
 
 Two concurrent provisioning callers for one exact tenant + Intent must converge to:
 
@@ -142,9 +165,11 @@ The matching initial Attempt Event is revision 1, `fromStatus = null`, `toStatus
 P3-H2 must fail closed when:
 
 - the tenant-scoped Intent does not exist;
-- the Intent is not current for provisioning;
-- the consumed Plan is missing or no longer exact;
-- sealed selection count/order/identity no longer matches;
+- the Intent status is not current for provisioning;
+- the consumed Plan/Consumption relation is missing or no longer exact;
+- the consumed Plan is expired at the canonical request instant;
+- relational Plan/Intent identity no longer matches;
+- sealed selection count/order no longer matches the immutable Plan;
 - approval-instance status is no longer `RUNNING`;
 - Runtime Binding evidence hash, source release/package or source definition drifted;
 - an existing initial attempt differs from the sealed selection authority;
@@ -167,7 +192,7 @@ JdbcApprovalMigrationAttemptProvisioningStoreMySqlIntegrationTest
 The real MySQL integration suite must prove at minimum:
 
 - trusted PostgreSQL/MySQL factory selection;
-- exact initial Attempt creation from real Plan/Intent/Runtime Binding/projection provenance;
+- exact initial Attempt creation from real relational Plan/Intent/Consumption/Runtime Binding/projection provenance;
 - exact replay with no duplicate rows or audit;
 - tenant-scoped fail-closed reads;
 - current Runtime Binding drift rejection before Attempt creation;
@@ -214,8 +239,8 @@ P3-H2 does not implement or imply MySQL compatibility for:
 - D5 Runtime Binding CAS beyond the already accepted H1 scope;
 - D6 reconciliation execution;
 - D7 bounded orchestration;
-- migration Intent creation/admission as a whole;
-- migration Plan creation/authorization/consumption as a whole;
+- migration Intent creation/admission or generic Intent payload reconstruction as a whole;
+- migration Plan creation/authorization/consumption or generic Plan payload reconstruction as a whole;
 - historical MySQL upgrade/restore acceptance;
 - complete permanent dual-database CI;
 - operations, performance, backup/restore or production promotion;
