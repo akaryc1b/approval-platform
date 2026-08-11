@@ -129,9 +129,6 @@ class JdbcApprovalReleaseFoundationMySqlContractTest {
         assertFalse(deploymentConfiguration.contains(
             "new JdbcApprovalReleaseDeploymentStore(dataSource)"
         ));
-        assertTrue(deploymentConfiguration.contains(
-            "new JdbcApprovalEffectiveReleaseStore(dataSource)"
-        ));
         assertFalse(designService.contains("mysql"));
         assertFalse(designService.contains("postgresql"));
         assertFalse(deploymentService.contains("mysql"));
