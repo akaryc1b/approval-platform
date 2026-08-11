@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -86,8 +87,14 @@ class JdbcApprovalMigrationAttemptProvisioningStoreMySqlIntegrationTest
         assertEquals(1, attempt.revision());
         assertEquals(1, attempt.attemptNumber());
         assertEquals(SOURCE_BINDING_HASH, attempt.expectedBindingEvidenceHash());
-        assertEquals(authority.sourceDeployment().engineDefinitionId(), attempt.sourceEngineDefinitionId());
-        assertEquals(authority.targetDeployment().engineDefinitionId(), attempt.targetEngineDefinitionId());
+        assertEquals(
+            authority.sourceDeployment().engineDefinitionId(),
+            attempt.sourceEngineDefinitionId()
+        );
+        assertEquals(
+            authority.targetDeployment().engineDefinitionId(),
+            attempt.targetEngineDefinitionId()
+        );
         assertEquals(AuditHashCanonicalizer.canonicalInstant(NOW), attempt.createdAt());
         assertEquals(AuditHashCanonicalizer.canonicalInstant(NOW), storedCreatedAt(authority));
         assertEquals(1, count("ap_process_migration_attempt", authority.tenantId()));
@@ -132,7 +139,9 @@ class JdbcApprovalMigrationAttemptProvisioningStoreMySqlIntegrationTest
             assertEquals(1, results.stream().mapToInt(ProvisioningResult::createdCount).sum());
             assertEquals(
                 1,
-                results.stream().filter(ProvisioningResult::replayedExistingProvisioning).count()
+                results.stream()
+                    .filter(ProvisioningResult::replayedExistingProvisioning)
+                    .count()
             );
             assertEquals(results.get(0).initialAttempts(), results.get(1).initialAttempts());
         }
@@ -145,7 +154,9 @@ class JdbcApprovalMigrationAttemptProvisioningStoreMySqlIntegrationTest
     @Test
     void runtimeBindingDriftFailsClosedBeforeAttemptCreation() {
         Authority authority = seedAuthority("Tenant-H2-Drift", DIFFERENT_BINDING_HASH);
-        ApprovalMigrationAttemptProvisioningStore provisioning = provisioningStore(new ArrayList<>());
+        ApprovalMigrationAttemptProvisioningStore provisioning = provisioningStore(
+            new ArrayList<>()
+        );
 
         assertThrows(
             ApprovalMigrationAttemptProvisioningStore.MigrationAttemptProvisioningConflictException.class,
@@ -163,7 +174,9 @@ class JdbcApprovalMigrationAttemptProvisioningStoreMySqlIntegrationTest
     @Test
     void tenantMismatchFailsClosedWithoutLeakingAuthority() {
         Authority authority = seedAuthority("Tenant-H2-Isolation", SOURCE_BINDING_HASH);
-        ApprovalMigrationAttemptProvisioningStore provisioning = provisioningStore(new ArrayList<>());
+        ApprovalMigrationAttemptProvisioningStore provisioning = provisioningStore(
+            new ArrayList<>()
+        );
         ProvisioningRequest wrongTenant = new ProvisioningRequest(
             authority.tenantId().toLowerCase(),
             authority.intentId(),
@@ -248,11 +261,12 @@ class JdbcApprovalMigrationAttemptProvisioningStoreMySqlIntegrationTest
             DEFINITION_KEY,
             MySqlApprovalProjectionProvenanceFixture.RELEASE_VERSION
         ).orElseThrow();
-        ApprovalReleaseDeployment sourceDeployment = MySqlApprovalReleaseLifecycleFixture.seedDeployed(
-            deployments,
-            sourceRelease,
-            NOW.minusSeconds(300)
-        );
+        ApprovalReleaseDeployment sourceDeployment =
+            MySqlApprovalReleaseLifecycleFixture.seedDeployed(
+                deployments,
+                sourceRelease,
+                NOW.minusSeconds(300)
+            );
         ApprovalReleasePackage targetRelease = MySqlApprovalReleaseLifecycleFixture.seedRelease(
             jdbc,
             releasePackages,
@@ -262,11 +276,12 @@ class JdbcApprovalMigrationAttemptProvisioningStoreMySqlIntegrationTest
             TARGET_PACKAGE_HASH,
             NOW.minusSeconds(240)
         );
-        ApprovalReleaseDeployment targetDeployment = MySqlApprovalReleaseLifecycleFixture.seedDeployed(
-            deployments,
-            targetRelease,
-            NOW.minusSeconds(180)
-        );
+        ApprovalReleaseDeployment targetDeployment =
+            MySqlApprovalReleaseLifecycleFixture.seedDeployed(
+                deployments,
+                targetRelease,
+                NOW.minusSeconds(180)
+            );
 
         seedProjectionInstance(
             tenant,
@@ -415,7 +430,9 @@ class JdbcApprovalMigrationAttemptProvisioningStoreMySqlIntegrationTest
     }
 
     private static UUID uuid(String tenant, String value) {
-        return UUID.nameUUIDFromBytes(("mysql-h2:" + tenant + ':' + value).getBytes());
+        return UUID.nameUUIDFromBytes(
+            ("mysql-h2:" + tenant + ':' + value).getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     private record Authority(
