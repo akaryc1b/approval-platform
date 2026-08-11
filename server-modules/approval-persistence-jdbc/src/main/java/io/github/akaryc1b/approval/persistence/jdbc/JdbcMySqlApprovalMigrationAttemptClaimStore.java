@@ -1,7 +1,6 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.akaryc1b.approval.application.port.ApprovalInstanceCommandFence;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationAttemptClaimStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationAttemptClaimStore.ClaimRequest;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationAttemptClaimStore.ClaimResult;
@@ -31,7 +30,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,7 +46,7 @@ public final class JdbcMySqlApprovalMigrationAttemptClaimStore
     private final NamedParameterJdbcTemplate jdbc;
     private final JdbcApprovalMigrationJson json;
     private final JdbcDatabaseValueAdapter values;
-    private final ApprovalInstanceCommandFence commandFence;
+    private final JdbcMySqlApprovalInstanceCommandFence commandFence;
     private final TransactionTemplate transactions;
     private final AuditEventSink auditEvents;
     private final Supplier<UUID> identifiers;
@@ -80,7 +78,7 @@ public final class JdbcMySqlApprovalMigrationAttemptClaimStore
         }
         jdbc = new NamedParameterJdbcTemplate(source);
         json = new JdbcApprovalMigrationJson(mapper);
-        commandFence = JdbcApprovalInstanceCommandFenceFactory.create(source);
+        commandFence = new JdbcMySqlApprovalInstanceCommandFence(source);
         transactions = new TransactionTemplate(manager);
         this.auditEvents = Objects.requireNonNull(
             auditEvents,
@@ -486,14 +484,16 @@ public final class JdbcMySqlApprovalMigrationAttemptClaimStore
             row.getString("payload_json"),
             ApprovalMigrationAttempt.class
         );
-        Instant leaseUntil = values.nullableInstant(row, "lease_until");
         if (!attempt.tenantId().equals(row.getString("tenant_id"))
             || !attempt.attemptId().equals(values.uuid(row, "attempt_id"))
             || !attempt.intentId().equals(values.uuid(row, "intent_id"))
             || !attempt.status().name().equals(row.getString("status"))
             || attempt.revision() != row.getLong("revision")
             || !Objects.equals(attempt.leaseOwner(), row.getString("lease_owner"))
-            || !Objects.equals(attempt.leaseUntil(), leaseUntil)
+            || !Objects.equals(
+                attempt.leaseUntil(),
+                values.nullableInstant(row, "lease_until")
+            )
             || !Objects.equals(
                 attempt.engineRequestReference(),
                 row.getString("engine_request_reference")
