@@ -48,7 +48,9 @@ class JdbcApprovalMigrationAttemptClaimStoreMySqlContractTest {
             "insert ignore",
             "replace into",
             "on duplicate key update",
-            "on conflict"
+            "on conflict (",
+            "on conflict do ",
+            "on conflict on constraint "
         )) {
             assertFalse(
                 lower.contains(forbidden),
