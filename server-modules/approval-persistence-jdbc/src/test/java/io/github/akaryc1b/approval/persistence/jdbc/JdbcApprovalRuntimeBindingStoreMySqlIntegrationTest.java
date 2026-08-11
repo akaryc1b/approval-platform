@@ -212,7 +212,10 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
             "4".repeat(64)
         );
         assertThrows(DataAccessException.class, () -> bindings.save(missingInstance));
-        assertEquals(exact, canonicalBinding(bindings.find(tenant, instanceId).orElseThrow()));
+        assertEquals(
+            canonicalBinding(exact),
+            bindings.find(tenant, instanceId).orElseThrow()
+        );
     }
 
     @Test
@@ -361,7 +364,13 @@ class JdbcApprovalRuntimeBindingStoreMySqlIntegrationTest
                 DEFINITION_KEY,
                 MySqlApprovalProjectionProvenanceFixture.DEFINITION_VERSION
             );
-            raw.saveDefinition(definition(tenant));
+            if (raw.findDefinition(
+                tenant,
+                DEFINITION_KEY,
+                MySqlApprovalProjectionProvenanceFixture.DEFINITION_VERSION
+            ).isEmpty()) {
+                raw.saveDefinition(definition(tenant));
+            }
         });
     }
 
