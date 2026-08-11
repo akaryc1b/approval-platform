@@ -36,7 +36,7 @@ test('E4 scanner findings remain evidence inputs instead of scanner execution fa
 
 test('E4 full scanner suite runs only on GitHub Actions and emits one canonical redacted payload',{timeout:2400000},()=>{
   if(process.env.GITHUB_ACTIONS!=='true')return;
-  const r=spawnSync(process.execPath,[scanner,`--root=${root}`],{cwd:root,encoding:'utf8',maxBuffer:256*1024*1024,env:process.env,timeout:2300000});assert.equal(r.status,0,r.stderr||r.stdout);
+  const scanEnv={...process.env,GOFLAGS:'-modcacherw'};assert.equal(scanEnv.GOFLAGS,'-modcacherw');const r=spawnSync(process.execPath,[scanner,`--root=${root}`],{cwd:root,encoding:'utf8',maxBuffer:256*1024*1024,env:scanEnv,timeout:2300000});assert.equal(r.status,0,r.stderr||r.stdout);
   const m=r.stdout.match(/M6_PR_E_E4_SCANNER_EVIDENCE_BEGIN\n([^\n]+)\nM6_PR_E_E4_SCANNER_EVIDENCE_END/);assert.ok(m,'canonical E4 payload required');const e=JSON.parse(m[1]);
   assert.match(e.commitSha,/^[0-9a-f]{40}$/);assert.equal(e.e2GraphDigest,'0b6868f057a72fb8c7a4c9d0529f4469381f0024f403873c6d92121e4b34ee0a');assert.match(e.e2CurrentContentSha256,/^[0-9a-f]{64}$/);assert.equal(e.allScannersCompleted,true);assert.equal(e.rawScannerReportsRetained,false);assert.equal(e.candidateSecretMaterialRetained,false);assert.equal(e.authoritativeGitHubInventoryStillUnavailable,true);assert.equal(e.workstreamReleaseBlocked,true);
   for(const k of ['osv','gitleaks','zizmor','semgrep']){assert.equal(e.scanners[k].scanCompleted,true);assert.equal(e.scanners[k].rawReportRetained,false);assert.ok(Number.isInteger(e.scanners[k].findingCount));assert.ok(Array.isArray(e.scanners[k].findings));}
