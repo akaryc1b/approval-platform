@@ -145,6 +145,57 @@ The request hash is reconstructed from persisted tenant, Attempt, worker, expect
 
 This does not re-open historical command authority. The old Fence does not need to remain active and the current Attempt does not need to remain at the pre-finalization revision; therefore exact-target and reconciliation replay semantics remain aligned with PostgreSQL D4.
 
+## Attempt relational evidence hardening
+
+H5 now checks the relational `engine_outcome` column on every MySQL Attempt read against the `ApprovalMigrationAttempt` payload instead of trusting the payload alone.
+
+Test-first history:
+
+```text
+e4cd595b6de4923f346ef535e0fa99d8f5f8e183
+  test(mysql): require H5 attempt outcome relational consistency
+
+1ea8800e06b18f582b1c0cb2dd75ef32fb49ed71
+  fix(mysql): verify H5 attempt outcome relational evidence
+```
+
+The production correction is deliberately limited to:
+
+```text
+SELECT engine_outcome
+-> require relational engine_outcome == Attempt payload engineOutcome
+```
+
+No status transition, revision rule, replay rule or vendor selection changes with this hardening.
+
+## Open pre-formal finding — snapshot hash self-proof
+
+The bounded engine snapshot has an existing canonical hash protocol in `FlowableProcessInstanceVerificationAdapter`:
+
+```text
+m5-exact-engine-snapshot-v1
+```
+
+That adapter hashes the canonical bounded snapshot fields and then returns a snapshot carrying the derived SHA-256 value. `ApprovalMigrationEngineSnapshot` itself validates only that `snapshotHash` is a lowercase SHA-256 value; it does not derive the hash again from the snapshot fields.
+
+The current H5 MySQL store verifies relational snapshot columns against the persisted snapshot payload and re-computes the outer D4 verification evidence hash, but that outer hash uses `snapshotHash` as one input. Therefore a coherent post-persistence corruption that changes the snapshot payload, stored `snapshot_hash` and dependent D4 evidence hash together is not independently detected unless the original `m5-exact-engine-snapshot-v1` hash is re-derived from the bounded snapshot.
+
+PostgreSQL V43 protects D4 evidence with an append-only database trigger. H5 has not yet established an equivalent MySQL database-level append-only proof for the normalized V50 baseline. The current H5 real-MySQL fixture also constructs a bounded verification snapshot in test code and uses a fixed syntactically valid snapshot hash rather than the Flowable adapter's canonical hash function.
+
+This finding is therefore not closed by the current replay-hash hardening.
+
+```text
+PRE_FORMAL_SECURITY_FINDING
+SNAPSHOT_HASH_SELF_PROOF_NOT_YET_CLOSED
+```
+
+Before H5 may synchronize into the formal PR branch, one of the following must be proven on an executable checkout:
+
+1. reuse the existing `m5-exact-engine-snapshot-v1` canonicalization in the MySQL D4 persistence boundary and update the H5 fixture to emit a real canonical snapshot hash; or
+2. prove an equivalent durable MySQL append-only boundary that makes coherent post-insert snapshot mutation impossible under the accepted persistence threat model.
+
+No new hash version is authorized. The existing Flowable snapshot protocol remains the only valid candidate.
+
 ## Current focused test surface
 
 The H5 staging candidate contains:
@@ -180,7 +231,8 @@ The static contract additionally pins:
 - no fake H5 Attempt insertion or PostgreSQL trigger bypass in the MySQL success fixture;
 - complete H4 immutable request/outcome evidence validation and hash protocols;
 - retention of the real H4 corruption regression;
-- D4 stored request/evidence hash recomputation before replay.
+- D4 stored request/evidence hash recomputation before replay;
+- Attempt relational `engine_outcome` consistency.
 
 ## Permanent CI discovery expectation
 
@@ -196,6 +248,7 @@ The current execution container cannot obtain an executable repository checkout:
 
 - no repository checkout is mounted;
 - `github.com`, `api.github.com` and `raw.githubusercontent.com` are not resolvable/reachable from the container network;
+- resolving `github.com` externally and forcing the resolved address still cannot establish a direct HTTPS connection from the container;
 - no usable proxy is configured;
 - repository ZIP retrieval through the connected GitHub read surface does not expose a local source archive;
 - Java 21 is present, but Maven/repository dependencies required for the real build are not locally available.
@@ -208,6 +261,7 @@ PostgreSQL rejected-finalization regression
 real MySQL 8.4 H5 Testcontainers suite
 adjacent H1-H4 regression execution
 git diff --check in a real checkout
+snapshot-hash self-proof correction and executable verification
 ```
 
 This is a validation-environment blocker, not a product success or failure classification.
@@ -246,7 +300,7 @@ formal branch updates from H5: 0
 
 ## Gate
 
-Until executable local/focused verification is real and green, the candidate must remain on the non-triggering staging branch.
+Until executable local/focused verification is real and green and the snapshot-hash self-proof finding is closed, the candidate must remain on the non-triggering staging branch.
 
 ```text
 MYSQL_P3_H5_MIGRATION_EXACT_VERIFICATION_STAGED
