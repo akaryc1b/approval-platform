@@ -92,6 +92,12 @@ Test-first hardening history:
 
 6a4352954358f08873cf9279fb8070b3c3507768
   docs(db-compat): record complete H4 evidence validation in H5
+
+d1cfa278d832a728d222574bbebf76c446dcfcac
+  test(mysql): reject corrupted H4 evidence before H5
+
+89ebafd5a19879e043f9b9b8c20aab2d9d1aa872
+  test(mysql): retain real H4 corruption regression in H5
 ```
 
 The MySQL D4 store now verifies relational/payload equivalence for the H4 request and returned outcome, validates request-to-outcome Attempt/Fence revision continuity, and recomputes:
@@ -101,6 +107,13 @@ m5-engine-request-v1
 m5-engine-request-evidence-v1
 m5-engine-outcome-v1
 ```
+
+The real MySQL corruption regression first creates a genuine H2 -> H3 -> H4 `VERIFYING` Attempt and then proves two corruption classes are rejected before any H5 evidence is written:
+
+- H4 Engine Request JSON payload no longer matches its relational target deployment evidence;
+- H4 Engine Outcome relational `outcome_hash` no longer matches the accepted H4 outcome hash protocol.
+
+Both cases must leave the Attempt in `VERIFYING` and retain the single immutable H4 request/outcome rows without creating a D4 evidence row.
 
 This does not re-read mutable Plan or Runtime Binding authority and does not create a MySQL-only migration decision. H4 remains the owner of target selection; H5 validates the immutable evidence that H4 froze.
 
@@ -123,6 +136,7 @@ The real H5 MySQL integration covers:
 - source-runtime mismatch into `RECONCILING`;
 - wrong tenant, stale Attempt revision, stale Fence and wrong worker rejection;
 - client classification rejection through the server-derived Application contract;
+- corrupted H4 request payload and outcome hash rejection before D4 evidence;
 - deterministic concurrent finalization with one authoritative effect;
 - audit failure rolling back evidence, Attempt transition and Attempt event;
 - UUID / `datetime(6)` / JSON round-trip through existing compatibility primitives.
@@ -136,7 +150,8 @@ The static contract additionally pins:
 - no direct `ACT_*` access;
 - no D6 reconciliation invocation;
 - no fake H5 Attempt insertion or PostgreSQL trigger bypass in the MySQL success fixture;
-- complete H4 immutable request/outcome evidence validation and hash protocols.
+- complete H4 immutable request/outcome evidence validation and hash protocols;
+- retention of the real H4 corruption regression.
 
 ## Permanent CI discovery expectation
 
