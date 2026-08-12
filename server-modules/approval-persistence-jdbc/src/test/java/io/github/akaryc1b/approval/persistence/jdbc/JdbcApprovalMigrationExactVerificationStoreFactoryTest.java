@@ -66,6 +66,23 @@ class JdbcApprovalMigrationExactVerificationStoreFactoryTest {
         );
     }
 
+    @Test
+    void rejectsUnsupportedDatabaseProductBeforeCreatingVerificationStore() {
+        DataSource dataSource = dataSource("H2", "2.3.232", 2, 3);
+
+        assertThrows(
+            ApprovalDatabaseVendor.UnsupportedDatabaseVendorException.class,
+            () -> JdbcApprovalMigrationExactVerificationStoreFactory.create(
+                dataSource,
+                new ObjectMapper().findAndRegisterModules(),
+                new JdbcTransactionManager(dataSource),
+                event -> {
+                },
+                UUID::randomUUID
+            )
+        );
+    }
+
     private static DataSource dataSource(
         String productName,
         String productVersion,
