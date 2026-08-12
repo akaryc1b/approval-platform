@@ -8,25 +8,31 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
 
-/** Re-derives the existing Flowable D4 bounded snapshot hash at the persistence boundary. */
+/** Re-derives the existing D4 snapshot hash protocols at the persistence boundary. */
 final class JdbcApprovalMigrationEngineSnapshotHash {
 
     private JdbcApprovalMigrationEngineSnapshotHash() {
     }
 
-    static void requireValid(ApprovalMigrationEngineSnapshot value) {
+    static void requireValid(
+        ApprovalMigrationEngineSnapshot value,
+        String requestHash
+    ) {
         ApprovalMigrationEngineSnapshot exact = Objects.requireNonNull(
             value,
             "snapshot must not be null"
         );
-        if (!expected(exact).equals(exact.snapshotHash())) {
+        String expectedHash = exact.readSucceeded()
+            ? expectedSuccessfulSnapshot(exact)
+            : expectedReadFailure(exact, requestHash);
+        if (!expectedHash.equals(exact.snapshotHash())) {
             throw new IllegalStateException(
                 "migration engine snapshot hash does not match bounded evidence"
             );
         }
     }
 
-    static String expected(ApprovalMigrationEngineSnapshot value) {
+    static String expectedSuccessfulSnapshot(ApprovalMigrationEngineSnapshot value) {
         ApprovalMigrationEngineSnapshot exact = Objects.requireNonNull(
             value,
             "snapshot must not be null"
@@ -54,6 +60,25 @@ final class JdbcApprovalMigrationEngineSnapshotHash {
             exact.historicTasks().toString(),
             Boolean.toString(exact.truncated())
         ));
+    }
+
+    private static String expectedReadFailure(
+        ApprovalMigrationEngineSnapshot value,
+        String requestHash
+    ) {
+        String exactRequestHash = Objects.requireNonNull(
+            requestHash,
+            "requestHash must not be null"
+        );
+        if (exactRequestHash.isBlank()) {
+            throw new IllegalArgumentException("requestHash must not be blank");
+        }
+        return sha256(
+            "m5-verification-read-failure-v1|"
+                + exactRequestHash
+                + '|'
+                + value.readFailureCode()
+        );
     }
 
     private static String text(String value) {
