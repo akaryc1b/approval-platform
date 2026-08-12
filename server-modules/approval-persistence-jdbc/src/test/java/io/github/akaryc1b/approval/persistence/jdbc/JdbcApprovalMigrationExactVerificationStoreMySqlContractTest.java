@@ -181,26 +181,29 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         ));
         assertTrue(hasher.contains("m5-exact-engine-snapshot-v1"));
         assertTrue(adapter.contains("m5-exact-engine-snapshot-v1"));
-        for (String required : List.of(
+        List<String> canonicalFields = List.of(
             "readSucceeded()",
+            "readFailureCode()",
+            "runtimePresent()",
             "runtimeEngineDefinitionId()",
             "runtimeEngineDeploymentId()",
-            "activeActivityIds().toString()",
-            "executions().toString()",
-            "activeTasks().toString()",
-            "jobs().toString()",
-            "subscriptions().toString()",
-            "allowlistedVariableHashes().toString()",
-            "identityLinkHashes().toString()",
+            "suspended()",
+            "activeActivityIds()",
+            "executions()",
+            "activeTasks()",
+            "jobs()",
+            "subscriptions()",
+            "allowlistedVariableHashes()",
+            "identityLinkHashes()",
+            "historyPresent()",
             "historicEngineDefinitionId()",
-            "historicTasks().toString()",
+            "historicEndTime()",
+            "boundedDeleteReason()",
+            "historicTasks()",
             "truncated()"
-        )) {
-            assertTrue(
-                hasher.contains(required),
-                () -> "H5 snapshot hash verifier misses canonical field: " + required
-            );
-        }
+        );
+        assertInOrder(hasher, canonicalFields, "H5 persistence snapshot hash verifier");
+        assertInOrder(adapter, canonicalFields, "Flowable snapshot hash producer");
         assertTrue(integration.contains(
             "MySqlH5ExactVerificationHashFixture.withCanonicalSnapshotHash(unsigned)"
         ));
@@ -308,6 +311,22 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
             contract,
             "MYSQL_8_4_PRODUCTION_SUPPORTED"
         ));
+    }
+
+    private static void assertInOrder(
+        String source,
+        List<String> tokens,
+        String name
+    ) {
+        int cursor = -1;
+        for (String token : tokens) {
+            int next = source.indexOf(token, cursor + 1);
+            assertTrue(
+                next > cursor,
+                () -> name + " canonical field order diverged at " + token
+            );
+            cursor = next;
+        }
     }
 
     private static boolean hasStandaloneStatusLine(String text, String marker) {
