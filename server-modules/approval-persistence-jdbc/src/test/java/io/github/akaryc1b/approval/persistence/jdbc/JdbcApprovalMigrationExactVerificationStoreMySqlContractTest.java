@@ -95,6 +95,48 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
     }
 
     @Test
+    void immutableH4RequestAndOutcomeAreVerifiedAsCompleteEvidence()
+        throws IOException {
+        String store = Files.readString(
+            JDBC_ROOT.resolve("JdbcMySqlApprovalMigrationExactVerificationStore.java")
+        );
+
+        for (String required : List.of(
+            "request_approval_instance_id",
+            "request_attempt_revision",
+            "request_engine_instance_id",
+            "request_source_binding_evidence_hash",
+            "request_target_release_version",
+            "request_target_package_hash",
+            "request_target_engine_deployment_id",
+            "request_activity_mapping_json",
+            "request_hash",
+            "request_evidence_hash",
+            "request_requested_at",
+            "request_request_id",
+            "request_trace_id",
+            "engine_call_may_have_occurred",
+            "stable_code",
+            "bounded_summary",
+            "pre_dispatch_snapshot_hash",
+            "outcome_hash",
+            "outcome_recorded_at",
+            "outcome_request_id",
+            "outcome_trace_id",
+            "m5-engine-request-v1",
+            "m5-engine-request-evidence-v1",
+            "m5-engine-outcome-v1",
+            "requireExactRequestPayload(",
+            "requireExactOutcomePayload("
+        )) {
+            assertTrue(
+                store.contains(required),
+                () -> "H5 does not verify complete H4 evidence field: " + required
+            );
+        }
+    }
+
+    @Test
     void realH2ThroughH5TestsRetainPredecessorDriftGuardsWithoutFakeAttempts()
         throws IOException {
         String h4 = Files.readString(JDBC_TEST_ROOT.resolve(
