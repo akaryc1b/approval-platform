@@ -35,6 +35,23 @@ The verification command is constructed from durable Attempt identity and contai
 
 Finalization re-locks and revalidates the exact Attempt, immutable H4 request/outcome lineage and active command Fence before recording any D4 effect. If any authority has become stale, finalization fails closed.
 
+## Lineage ownership across H1-H5
+
+H5 does not invent a second source of migration authority or re-read mutable predecessor state merely because MySQL lacks PostgreSQL-specific trigger syntax. The accepted lineage is intentionally split by protocol ownership:
+
+- H1 establishes migration target and runtime-binding CAS authority;
+- H2 provisions the exact Attempt from the governed Plan / Intent lineage;
+- H3 claims that Attempt and creates the active migration command Fence;
+- H4 revalidates the current Runtime Binding plus RUNNING Intent / CONSUMED Plan target, including source binding evidence and target release/package/deployment/engine identity, then freezes those decisions into immutable Engine Request evidence before dispatch;
+- H4 records the immutable Engine Outcome and advances only a returned call to `VERIFYING`;
+- H5 consumes the resulting `VERIFYING` Attempt plus the immutable H4 Engine Request / Engine Outcome and exact active Fence as its D4 authority.
+
+Therefore the H5 real-MySQL success fixture must enter through the real H2 -> H3 -> H4 path rather than manufacturing a `VERIFYING` Attempt. The retained H4 real-MySQL regression must continue proving that wrong tenant, stale Attempt/Fence, Runtime Binding drift and Plan target drift cannot create the immutable request lineage that H5 later consumes.
+
+For MySQL, H5 additionally verifies the H4 request/outcome relational identity against their governed JSON payload fields that D4 relies on, including tenant, Intent, Attempt, worker, request/outcome ids, Fence id/revision and source/target engine definition ids. The active Fence id must be the exact Fence frozen by the H4 request. This compensates at the persistence boundary for the PostgreSQL V43 D4 trigger invariants without adding a MySQL-only business decision.
+
+H5 must not directly query or mutate Flowable `ACT_*` tables, re-run H4 target selection, invoke D6 reconciliation, or treat mutable client input as release/package/deployment authority.
+
 ## Request identity and replay
 
 The authoritative prepare request hash is the existing SHA-256 protocol over:
