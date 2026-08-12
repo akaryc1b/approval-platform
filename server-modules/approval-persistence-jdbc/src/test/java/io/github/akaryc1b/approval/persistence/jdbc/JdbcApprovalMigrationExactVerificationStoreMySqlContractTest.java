@@ -18,6 +18,10 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         "server-modules/approval-persistence-jdbc/src/main/java/"
             + "io/github/akaryc1b/approval/persistence/jdbc"
     );
+    private static final Path JDBC_TEST_ROOT = ROOT.resolve(
+        "server-modules/approval-persistence-jdbc/src/test/java/"
+            + "io/github/akaryc1b/approval/persistence/jdbc"
+    );
 
     @Test
     void mysqlVerificationUsesPortableValuesStrictReplayAndExactAttemptCas()
@@ -36,6 +40,12 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         assertTrue(store.contains("request_target_definition_id"));
         assertTrue(store.contains("attempt.sourceEngineDefinitionId().equals("));
         assertTrue(store.contains("attempt.targetEngineDefinitionId().equals("));
+        assertTrue(store.contains(
+            "!lineage.engineRequestId().equals(prepared.engineRequestId())"
+        ));
+        assertTrue(store.contains(
+            "!lineage.engineOutcomeId().equals(prepared.engineOutcomeId())"
+        ));
         assertTrue(store.contains(
             "insert into ap_process_migration_exact_verification ("
         ));
@@ -59,6 +69,8 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         assertTrue(store.contains(
             "exact verification relational and payload evidence diverged"
         ));
+        assertFalse(lower.contains("act_"));
+        assertFalse(lower.contains("jdbcapprovalmigrationreconciliationexecutionstore"));
 
         for (String forbidden : List.of(
             "::text",
@@ -80,6 +92,38 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
                 () -> "MySQL H5 verification store contains forbidden SQL: " + forbidden
             );
         }
+    }
+
+    @Test
+    void realH2ThroughH5TestsRetainPredecessorDriftGuardsWithoutFakeAttempts()
+        throws IOException {
+        String h4 = Files.readString(JDBC_TEST_ROOT.resolve(
+            "JdbcApprovalMigrationEngineExecutionStoreMySqlIntegrationTest.java"
+        ));
+        String h5 = Files.readString(JDBC_TEST_ROOT.resolve(
+            "JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest.java"
+        ));
+        String h5Lower = h5.toLowerCase(Locale.ROOT);
+
+        assertTrue(h4.contains(
+            "staleTenantAttemptFenceRuntimeBindingAndTargetAuthorityFailClosed"
+        ));
+        assertTrue(h4.contains(
+            "update ap_process_runtime_binding set binding_evidence_hash=?"
+        ));
+        assertTrue(h4.contains(
+            "update ap_process_migration_plan set target_engine_definition_id=?"
+        ));
+        assertTrue(h5.contains("JdbcApprovalMigrationAttemptProvisioningStoreFactory.create("));
+        assertTrue(h5.contains("JdbcApprovalMigrationAttemptClaimStoreFactory.create("));
+        assertTrue(h5.contains("JdbcApprovalMigrationEngineExecutionStoreFactory.create("));
+        assertTrue(h5.contains(
+            "FinalDisposition.CALL_RETURNED_AWAITING_VERIFICATION"
+        ));
+        assertTrue(h5.contains("JdbcApprovalMigrationExactVerificationStoreFactory.create("));
+        assertFalse(h5Lower.contains("insert into ap_process_migration_attempt"));
+        assertFalse(h5Lower.contains("session_replication_role"));
+        assertFalse(h5.contains("Thread.sleep"));
     }
 
     @Test
