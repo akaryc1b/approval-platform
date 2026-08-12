@@ -202,8 +202,28 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
             "historicTasks()",
             "truncated()"
         );
-        assertInOrder(hasher, canonicalFields, "H5 persistence snapshot hash verifier");
-        assertInOrder(adapter, canonicalFields, "Flowable snapshot hash producer");
+        String hasherCanonical = section(
+            hasher,
+            "static String expected(",
+            "private static String text(",
+            "H5 persistence snapshot hash verifier"
+        );
+        String adapterCanonical = section(
+            adapter,
+            "private static ApprovalMigrationEngineSnapshot withHash(",
+            "private static String hashId(",
+            "Flowable snapshot hash producer"
+        );
+        assertInOrder(
+            hasherCanonical,
+            canonicalFields,
+            "H5 persistence snapshot hash verifier"
+        );
+        assertInOrder(
+            adapterCanonical,
+            canonicalFields,
+            "Flowable snapshot hash producer"
+        );
         assertTrue(integration.contains(
             "MySqlH5ExactVerificationHashFixture.withCanonicalSnapshotHash(unsigned)"
         ));
@@ -311,6 +331,19 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
             contract,
             "MYSQL_8_4_PRODUCTION_SUPPORTED"
         ));
+    }
+
+    private static String section(
+        String source,
+        String startToken,
+        String endToken,
+        String name
+    ) {
+        int start = source.indexOf(startToken);
+        int end = source.indexOf(endToken, start + 1);
+        assertTrue(start >= 0, () -> name + " start token is missing");
+        assertTrue(end > start, () -> name + " end token is missing");
+        return source.substring(start, end);
     }
 
     private static void assertInOrder(
