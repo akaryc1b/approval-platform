@@ -247,6 +247,7 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             prepared.fenceRevision(),
             request.happenedAt()
         );
+        JdbcApprovalMigrationEngineSnapshotHash.requireValid(request.snapshot());
 
         ExactClassification derived = ApprovalMigrationExactVerification.classify(
             request.snapshot(),
@@ -735,6 +736,7 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             ApprovalMigrationExactVerification.class
         );
         ApprovalMigrationEngineSnapshot snapshot = evidence.snapshot();
+        JdbcApprovalMigrationEngineSnapshotHash.requireValid(snapshot);
         long expectedAttemptRevision = row.getLong("expected_attempt_revision");
         long expectedFenceRevision = row.getLong("expected_fence_revision");
         String workerId = row.getString("worker_id");
