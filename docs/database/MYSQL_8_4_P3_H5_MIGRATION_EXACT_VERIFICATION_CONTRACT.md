@@ -80,13 +80,15 @@ This replay integrity check does **not** require the original command Fence to r
 
 ## Bounded snapshot hash self-proof
 
-The verification snapshot is not trusted merely because `snapshotHash` is syntactically a SHA-256 value. MySQL H5 must re-derive the existing Flowable bounded snapshot hash protocol before first finalization and again whenever stored D4 evidence is read for replay:
+H5 must preserve both existing D4 snapshot hash authorities rather than inventing one universal protocol.
+
+For a **successful public-engine read**, the Flowable adapter derives the bounded snapshot hash using:
 
 ```text
 m5-exact-engine-snapshot-v1
 ```
 
-The canonical field order is the already-established `FlowableProcessInstanceVerificationAdapter.withHash(...)` order and must not be versioned or reordered by H5:
+The canonical successful-read field order is the already-established `FlowableProcessInstanceVerificationAdapter.withHash(...)` order and must not be versioned or reordered by H5:
 
 - read success and bounded read failure code;
 - runtime presence, runtime definition/deployment and suspended state;
@@ -97,9 +99,24 @@ The canonical field order is the already-established `FlowableProcessInstanceVer
 - historic tasks;
 - truncation flag.
 
-`JdbcApprovalMigrationEngineSnapshotHash` mirrors that existing protocol only at the MySQL persistence boundary. It does not create a second classifier or new hash version. A mismatch between the re-derived hash and `snapshot.snapshotHash()` fails closed before first D4 evidence persistence and before stored replay can return evidence.
+For an **engine verification read failure caught by the Application service**, the existing authority is different and is request-bound:
 
-The permanent MySQL H5 fixture must also use the canonical snapshot hash instead of an arbitrary syntactically valid hash. A coherent-tamper regression must prove that changing snapshot content, stored `snapshot_hash` and the dependent outer D4 evidence hash together still cannot make corrupted evidence replay successfully.
+```text
+m5-verification-read-failure-v1|<prepared-request-hash>|<stable-code>
+```
+
+`ApprovalMigrationExactVerificationService` creates a value-free `ApprovalMigrationEngineSnapshot.readFailure(...)` with exactly that hash after either a typed `VerificationReadException` or an unexpected engine read failure. MySQL H5 must accept and independently re-derive this existing failure protocol; it must not incorrectly force a failed snapshot through the successful Flowable snapshot algorithm.
+
+`JdbcApprovalMigrationEngineSnapshotHash` therefore receives both the bounded snapshot and the authoritative D4 request hash. It selects the existing protocol only from `snapshot.readSucceeded()`:
+
+- successful read -> re-derive `m5-exact-engine-snapshot-v1`;
+- failed read -> re-derive `m5-verification-read-failure-v1` with the prepared/stored D4 request hash and stable failure code.
+
+The check runs before first finalization and whenever stored D4 evidence is read for replay. A mismatch fails closed before D4 evidence can be written or replayed.
+
+The permanent MySQL H5 fixture must use the canonical successful snapshot hash instead of an arbitrary syntactically valid hash. A coherent-tamper regression must prove that changing successful snapshot content, stored `snapshot_hash` and the dependent outer D4 evidence hash together still cannot make corrupted evidence replay successfully. A focused non-database test must separately prove that the existing Application read-failure hash is accepted and an unbound failure hash is rejected.
+
+No new snapshot hash version, Domain classifier or Application contract is authorized by this self-proof boundary.
 
 ## Real verification classifications
 
@@ -175,7 +192,8 @@ Preparation/finalization must reject without unauthorized writes when any of the
 - H4 request/outcome lineage mismatch;
 - H4 immutable request/outcome relational-payload mismatch or hash mismatch;
 - stored D4 request/evidence hash mismatch during replay;
-- bounded snapshot hash not matching `m5-exact-engine-snapshot-v1`;
+- successful bounded snapshot hash not matching `m5-exact-engine-snapshot-v1`;
+- failed bounded snapshot hash not matching the request-bound `m5-verification-read-failure-v1` protocol;
 - conflicting verification replay;
 - non-server-derived classification;
 - relational/payload evidence divergence in governed MySQL rows.
