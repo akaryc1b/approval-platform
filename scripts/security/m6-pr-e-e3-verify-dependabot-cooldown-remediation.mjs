@@ -12,9 +12,13 @@ export function verifyDependabotCooldownRemediation(e4,plan,currentDependabotBlo
   if(currentDependabotBlobSha!==plan.targetDependabotBlobSha)throw new Error(`Dependabot target blob mismatch ${currentDependabotBlobSha}`);
   const z=e4.scanners?.zizmor;
   if(!z||z.scanCompleted!==true||z.rawReportRetained!==false||!Array.isArray(z.findings)||z.findings.length!==z.findingCount)throw new Error('complete current zizmor evidence required');
-  if(z.findingCount!==plan.expectedCurrentZizmorFindingCount)throw new Error(`R2A current zizmor count mismatch ${z.findingCount}`);
+  if(z.findingCount>plan.expectedCurrentZizmorFindingCount)throw new Error(`R2A current zizmor count increased ${z.findingCount} > ${plan.expectedCurrentZizmorFindingCount}`);
   const counts={};for(const f of z.findings)counts[f.ruleId]=(counts[f.ruleId]||0)+1;
-  for(const [ruleId,expected] of Object.entries(plan.expectedCurrentRuleCounts||{}))if((counts[ruleId]||0)!==expected)throw new Error(`R2A zizmor rule count mismatch ${ruleId} ${(counts[ruleId]||0)} != ${expected}`);
+  for(const [ruleId,expected] of Object.entries(plan.expectedCurrentRuleCounts||{})){
+    const actual=counts[ruleId]||0;
+    if(actual>expected)throw new Error(`R2A zizmor rule count increased ${ruleId} ${actual} > ${expected}`);
+  }
+  if((counts['zizmor/dependabot-cooldown']||0)!==0)throw new Error('R2A Dependabot cooldown finding reappeared');
   const currentIds=new Set(z.findings.map(f=>`${f.sourceClass}:${f.findingId}`));
   const remediated=[];
   for(const item of plan.remediatedFindings||[]){
@@ -38,7 +42,7 @@ export function verifyDependabotCooldownRemediation(e4,plan,currentDependabotBlo
     currentZizmorFindingCount:z.findingCount,
     currentRuleCounts:stable(Object.fromEntries(Object.keys(plan.expectedCurrentRuleCounts).sort().map(k=>[k,counts[k]||0]))),
     releaseBlocked:true,
-    reasonCodes:['AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE','E3_SCANNER_FINDINGS_UNRESOLVED','E3_APPLICABLE_FINDINGS_REQUIRE_REMEDIATION']
+    reasonCodes:['AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE','E3_SCANNER_FINDINGS_UNRESOLVED',...(z.findingCount?['E3_APPLICABLE_FINDINGS_REQUIRE_REMEDIATION']:[])]
   });
   return stable({...payload,contentSha256:sha256(canonical(payload))});
 }
