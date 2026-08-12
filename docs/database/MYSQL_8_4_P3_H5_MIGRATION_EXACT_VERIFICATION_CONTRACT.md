@@ -78,6 +78,29 @@ Before accepting stored MySQL D4 evidence for replay, the persistence layer must
 
 This replay integrity check does **not** require the original command Fence to remain active or the current Attempt to remain at the pre-finalization revision. Exact-target evidence may replay with the current `VERIFYING` Attempt, while mismatch evidence may replay with the current `RECONCILING` Attempt, preserving the existing PostgreSQL D4 replay semantics.
 
+## Bounded snapshot hash self-proof
+
+The verification snapshot is not trusted merely because `snapshotHash` is syntactically a SHA-256 value. MySQL H5 must re-derive the existing Flowable bounded snapshot hash protocol before first finalization and again whenever stored D4 evidence is read for replay:
+
+```text
+m5-exact-engine-snapshot-v1
+```
+
+The canonical field order is the already-established `FlowableProcessInstanceVerificationAdapter.withHash(...)` order and must not be versioned or reordered by H5:
+
+- read success and bounded read failure code;
+- runtime presence, runtime definition/deployment and suspended state;
+- active activity ids;
+- executions, active tasks, jobs and subscriptions;
+- allowlisted variable hashes and identity-link hashes;
+- history presence, historic definition/end time and bounded delete reason;
+- historic tasks;
+- truncation flag.
+
+`JdbcApprovalMigrationEngineSnapshotHash` mirrors that existing protocol only at the MySQL persistence boundary. It does not create a second classifier or new hash version. A mismatch between the re-derived hash and `snapshot.snapshotHash()` fails closed before first D4 evidence persistence and before stored replay can return evidence.
+
+The permanent MySQL H5 fixture must also use the canonical snapshot hash instead of an arbitrary syntactically valid hash. A coherent-tamper regression must prove that changing snapshot content, stored `snapshot_hash` and the dependent outer D4 evidence hash together still cannot make corrupted evidence replay successfully.
+
 ## Real verification classifications
 
 H5 preserves the existing domain classifications exactly:
@@ -129,7 +152,7 @@ The MySQL implementation must preserve PostgreSQL externally visible semantics w
 - `JdbcDatabaseValueAdapter` for UUID and time binding/reading;
 - `JdbcApprovalMigrationJson` plus relational/payload consistency checks for governed rows read by the MySQL implementation;
 - `JdbcMySqlApprovalInstanceCommandFence.acquireMigrationLock(...)`, which uses the existing transaction-bound MySQL named-lock manager for the same per-instance serialization boundary;
-- existing request/evidence hash protocol and prefixes;
+- existing request/evidence/snapshot hash protocol and prefixes;
 - MySQL-compatible JSON binding without PostgreSQL casts or PostgreSQL-only typed UUID reads;
 - the already-normalized MySQL baseline schema containing the V43/V44 exact-verification structures and constraints.
 
@@ -143,6 +166,7 @@ Preparation/finalization must reject without unauthorized writes when any of the
 
 - wrong tenant;
 - wrong Attempt state or stale Attempt revision;
+- Attempt relational `engine_outcome` diverging from the governed payload;
 - stale or foreign Fence;
 - worker mismatch;
 - missing, foreign or inconsistent H4 Engine Request;
@@ -151,6 +175,7 @@ Preparation/finalization must reject without unauthorized writes when any of the
 - H4 request/outcome lineage mismatch;
 - H4 immutable request/outcome relational-payload mismatch or hash mismatch;
 - stored D4 request/evidence hash mismatch during replay;
+- bounded snapshot hash not matching `m5-exact-engine-snapshot-v1`;
 - conflicting verification replay;
 - non-server-derived classification;
 - relational/payload evidence divergence in governed MySQL rows.
