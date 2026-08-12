@@ -137,6 +137,22 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
     }
 
     @Test
+    void storedD4ReplayRecomputesAuthorityAndEvidenceHashes() throws IOException {
+        String store = Files.readString(
+            JDBC_ROOT.resolve("JdbcMySqlApprovalMigrationExactVerificationStore.java")
+        );
+
+        assertTrue(store.contains("expectedStoredRequestHash("));
+        assertTrue(store.contains("expectedStoredEvidenceHash("));
+        assertTrue(store.contains(
+            "!evidence.requestHash().equals(expectedStoredRequestHash)"
+        ));
+        assertTrue(store.contains(
+            "!evidence.verificationEvidenceHash().equals(expectedStoredEvidenceHash)"
+        ));
+    }
+
+    @Test
     void realH2ThroughH5TestsRetainPredecessorDriftGuardsWithoutFakeAttempts()
         throws IOException {
         String h4 = Files.readString(JDBC_TEST_ROOT.resolve(
