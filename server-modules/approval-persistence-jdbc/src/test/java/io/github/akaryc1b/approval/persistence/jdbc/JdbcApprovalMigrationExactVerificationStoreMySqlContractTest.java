@@ -169,22 +169,37 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
             "server-modules/approval-engine-flowable/src/main/java/io/github/akaryc1b/"
                 + "approval/engine/flowable/FlowableProcessInstanceVerificationAdapter.java"
         ));
+        String application = Files.readString(ROOT.resolve(
+            "server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/"
+                + "application/ApprovalMigrationExactVerificationService.java"
+        ));
         String fixture = Files.readString(JDBC_TEST_ROOT.resolve(
             "MySqlH5ExactVerificationHashFixture.java"
+        ));
+        String hashTest = Files.readString(JDBC_TEST_ROOT.resolve(
+            "JdbcApprovalMigrationEngineSnapshotHashTest.java"
         ));
         String integration = Files.readString(JDBC_TEST_ROOT.resolve(
             "JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest.java"
         ));
 
         assertTrue(store.contains(
-            "JdbcApprovalMigrationEngineSnapshotHash.requireValid(request.snapshot())"
+            "JdbcApprovalMigrationEngineSnapshotHash.requireValid(\n"
+                + "            request.snapshot(),\n"
+                + "            prepared.requestHash()"
         ));
         assertTrue(store.contains(
-            "JdbcApprovalMigrationEngineSnapshotHash.requireValid(snapshot)"
+            "JdbcApprovalMigrationEngineSnapshotHash.requireValid(\n"
+                + "            snapshot,\n"
+                + "            evidence.requestHash()"
         ));
         assertTrue(hasher.contains("m5-exact-engine-snapshot-v1"));
+        assertTrue(hasher.contains("m5-verification-read-failure-v1"));
         assertTrue(adapter.contains("m5-exact-engine-snapshot-v1"));
+        assertTrue(application.contains("m5-verification-read-failure-v1"));
         assertTrue(fixture.contains("m5-exact-engine-snapshot-v1"));
+        assertTrue(fixture.contains("m5-verification-read-failure-v1"));
+        assertTrue(hashTest.contains("acceptsExistingApplicationReadFailureHashProtocol"));
         List<String> canonicalFields = List.of(
             "readSucceeded()",
             "readFailureCode()",
@@ -208,8 +223,8 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         );
         String hasherCanonical = section(
             hasher,
-            "static String expected(",
-            "private static String text(",
+            "static String expectedSuccessfulSnapshot(",
+            "private static String expectedReadFailure(",
             "H5 persistence snapshot hash verifier"
         );
         String adapterCanonical = section(
@@ -221,7 +236,7 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         String fixtureCanonical = section(
             fixture,
             "static String snapshotHash(",
-            "static String verificationEvidenceHash(",
+            "static String readFailureHash(",
             "H5 independent snapshot hash test oracle"
         );
         assertInOrder(
