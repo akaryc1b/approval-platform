@@ -67,6 +67,12 @@ final class MySqlH5ExactVerificationHashFixture {
         ));
     }
 
+    static String readFailureHash(String requestHash, String stableCode) {
+        return sha256(
+            "m5-verification-read-failure-v1|" + requestHash + '|' + stableCode
+        );
+    }
+
     static String verificationEvidenceHash(
         ApprovalMigrationExactVerification evidence,
         String snapshotHash
