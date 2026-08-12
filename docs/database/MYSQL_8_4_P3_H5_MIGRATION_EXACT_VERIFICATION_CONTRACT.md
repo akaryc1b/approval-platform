@@ -48,7 +48,15 @@ H5 does not invent a second source of migration authority or re-read mutable pre
 
 Therefore the H5 real-MySQL success fixture must enter through the real H2 -> H3 -> H4 path rather than manufacturing a `VERIFYING` Attempt. The retained H4 real-MySQL regression must continue proving that wrong tenant, stale Attempt/Fence, Runtime Binding drift and Plan target drift cannot create the immutable request lineage that H5 later consumes.
 
-For MySQL, H5 additionally verifies the H4 request/outcome relational identity against their governed JSON payload fields that D4 relies on, including tenant, Intent, Attempt, worker, request/outcome ids, Fence id/revision and source/target engine definition ids. The active Fence id must be the exact Fence frozen by the H4 request. This compensates at the persistence boundary for the PostgreSQL V43 D4 trigger invariants without adding a MySQL-only business decision.
+For MySQL, H5 additionally verifies the complete H4 Engine Request / Engine Outcome relational identity against the governed JSON payload written by the accepted H4 implementation. The checked immutable Request fields include tenant, Intent, Attempt, approval instance, worker, pre-dispatch Attempt revision, Fence id/revision, engine instance, source binding evidence hash, source engine definition, target release/package/deployment/engine definition, activity mappings, request/evidence hashes, requested time and request/trace ids. The checked immutable Outcome fields include request/outcome ids, tenant/Intent/Attempt/worker, expected Attempt/Fence revisions, disposition and call flags, stable code, bounded summary, pre-dispatch snapshot hash, outcome hash, recorded time and request/trace ids.
+
+H5 also recomputes the accepted H4 hash protocols from those immutable relational fields before D4 authority is accepted:
+
+- `m5-engine-request-v1`;
+- `m5-engine-request-evidence-v1`;
+- `m5-engine-outcome-v1`.
+
+This is evidence-integrity validation, not a second H4 business decision. H5 does not reselect target release/deployment from mutable Plan or Runtime Binding state. The active Fence id must still be the exact Fence frozen by the H4 request. This compensates at the MySQL persistence boundary for PostgreSQL trigger-backed lineage protection while preserving the same externally visible D4 state machine.
 
 H5 must not directly query or mutate Flowable `ACT_*` tables, re-run H4 target selection, invoke D6 reconciliation, or treat mutable client input as release/package/deployment authority.
 
@@ -137,6 +145,7 @@ Preparation/finalization must reject without unauthorized writes when any of the
 - missing, foreign or inconsistent H4 returned Engine Outcome;
 - Attempt mutable request reference not matching the immutable H4 request id;
 - H4 request/outcome lineage mismatch;
+- H4 immutable request/outcome relational-payload mismatch or hash mismatch;
 - conflicting verification replay;
 - non-server-derived classification;
 - relational/payload evidence divergence in governed MySQL rows.
