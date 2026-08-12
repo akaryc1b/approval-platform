@@ -16,23 +16,42 @@ A legal rejected finalization could therefore fail in the domain transition and 
 
 ## Existing D4 authority
 
-D4 is the existing `ApprovalMigrationExactVerificationStore` contract and PostgreSQL `JdbcApprovalMigrationExactVerificationStore` behavior.
+D4 is the existing two-stage `ApprovalMigrationExactVerificationStore` contract and PostgreSQL `JdbcApprovalMigrationExactVerificationStore` behavior:
+
+1. `prepare(PrepareRequest)` opens a short persistence transaction, establishes exact verification authority and returns the public-engine read command.
+2. The public engine is read outside that persistence transaction.
+3. `finalizeVerification(FinalizeRequest)` opens a second short persistence transaction, revalidates authority, derives the classification from the bounded snapshot, persists immutable verification evidence and performs the required Attempt transition.
 
 Preparation requires all of the following server-owned authoritative state:
 
-- tenant-scoped Attempt in `VERIFYING` at the exact expected revision;
-- active migration command Fence with exact worker, revision and unexpired authority;
-- current Runtime Binding matching the Attempt source engine identity and binding evidence hash;
-- consumed authoritative migration Plan / PlanConsumption matching the Intent target identity;
-- immutable H4 engine request matching tenant, intent, attempt, instance, worker, fence, source and target lineage;
-- immutable H4 engine outcome matching that engine request and `CALL_RETURNED_AWAITING_VERIFICATION`;
-- no client-supplied database dialect or authoritative engine/release identity.
+- tenant-scoped Attempt in `VERIFYING` at the exact expected Attempt revision;
+- immutable H4 engine request and returned engine outcome for that Attempt, where the outcome is `CALL_RETURNED_AWAITING_VERIFICATION` and the engine call was both attempted and returned;
+- the H4 engine request id must equal the Attempt mutable `engineRequestReference`;
+- the H4 engine request worker must equal the preparing worker;
+- active migration command Fence for the same Attempt with exact worker, expected Fence revision and unexpired authority at `happenedAt`;
+- no client-supplied database dialect or authoritative verification classification.
 
-The verification command is constructed from durable server-owned state.
+The verification command is constructed from durable Attempt identity and contains no client-selected database or release authority.
+
+Finalization re-locks and revalidates the exact Attempt, immutable H4 request/outcome lineage and active command Fence before recording any D4 effect. If any authority has become stale, finalization fails closed.
+
+## Request identity and replay
+
+The authoritative prepare request hash is the existing SHA-256 protocol over:
+
+- protocol prefix `m5-exact-verification-request-v1`;
+- tenant id;
+- Attempt id;
+- worker id;
+- expected Attempt revision;
+- expected Fence revision;
+- request id.
+
+If immutable D4 evidence already exists for the tenant/Attempt, only the exact same request hash may replay. A changed-payload replay is forbidden. Replay returns the immutable evidence and current Attempt without inserting, updating or duplicating business effects.
 
 ## Real verification classifications
 
-H5 preserves the existing application/domain classifications exactly:
+H5 preserves the existing domain classifications exactly:
 
 - `EXACT_TARGET_RUNTIME`
 - `EXACT_SOURCE_RUNTIME`
@@ -45,19 +64,22 @@ H5 preserves the existing application/domain classifications exactly:
 - `READ_FAILURE_RECONCILIATION_REQUIRED`
 - `INCOMPLETE_RECONCILIATION_REQUIRED`
 
-No new verification or Attempt status is introduced.
+Classification is server-derived by `ApprovalMigrationExactVerification.classify(...)` from the bounded engine snapshot and the Attempt source/target engine definition ids. The supplied classification must equal that derived value. No new verification or Attempt status is introduced.
 
 ## Finalization semantics
 
-Every accepted finalization persists exactly one immutable exact-verification evidence row whose classification must equal the server-side classification of the supplied verification snapshot.
+Every first accepted finalization persists exactly one immutable `ApprovalMigrationExactVerification` row bound to the exact Attempt, H4 engine request id, H4 engine outcome id, source/target definitions, request hash and bounded snapshot hash.
+
+The verification evidence hash remains the existing SHA-256 protocol with prefix `m5-exact-verification-evidence-v1` and the same field ordering as PostgreSQL D4.
 
 `EXACT_TARGET_RUNTIME` persists evidence and leaves the Attempt in `VERIFYING`. A later protocol stage owns successful completion.
 
-Every non-exact-target classification transitions the Attempt to:
+Every non-`EXACT_TARGET_RUNTIME` classification transitions the Attempt to:
 
 - status: `RECONCILING`
 - engine outcome: `VERIFICATION_MISMATCH`
 - failure class: `RECONCILIATION_REQUIRED`
+- bounded error summary: `D4 <classification> requires reconciliation`
 
 The mutable H4 request reference remains attached for reconciliation lineage on that path. H5 itself never runs reconciliation.
 
@@ -76,28 +98,31 @@ HTTP requests, tenants, clients, connectors, AI results and migration payloads c
 The MySQL implementation must preserve PostgreSQL externally visible semantics while using accepted compatibility primitives:
 
 - `JdbcDatabaseValueAdapter` for UUID and time binding/reading;
-- existing migration JSON codec/canonical payload rules;
-- existing evidence hash protocol and prefixes;
-- `JdbcMySqlTransactionLockManager` for deterministic transaction-scoped serialization where row-lock semantics require it;
-- the already-normalized MySQL baseline schema for the V43/V44 exact-verification tables and constraints.
+- `JdbcApprovalMigrationJson` plus relational/payload consistency checks for governed rows read by the MySQL implementation;
+- `JdbcMySqlApprovalInstanceCommandFence.acquireMigrationLock(...)`, which uses the existing transaction-bound MySQL named-lock manager for the same per-instance serialization boundary;
+- existing request/evidence hash protocol and prefixes;
+- MySQL-compatible JSON binding without PostgreSQL casts or PostgreSQL-only typed UUID reads;
+- the already-normalized MySQL baseline schema containing the V43/V44 exact-verification structures and constraints.
 
-No new Flyway migration is authorized by H5.
+MySQL `DATETIME(6)` precision must be handled through the accepted canonical-instant/value-adapter boundary so relational timestamps and JSON payload evidence do not diverge because of sub-microsecond input precision.
+
+No new Flyway migration is authorized by H5 unless a concrete schema incompatibility is demonstrated by the real MySQL acceptance tests.
 
 ## Fail-closed matrix
 
-Preparation/finalization must reject without authoritative writes when any of these are stale or inconsistent:
+Preparation/finalization must reject without unauthorized writes when any of these are stale or inconsistent:
 
 - wrong tenant;
 - wrong Attempt state or stale Attempt revision;
-- stale Runtime Binding;
 - stale or foreign Fence;
-- wrong Engine Request;
-- wrong Engine Outcome;
-- target Plan/PlanConsumption drift;
 - worker mismatch;
-- instance/intent/source/target lineage mismatch;
+- missing, foreign or inconsistent H4 Engine Request;
+- missing, foreign or inconsistent H4 returned Engine Outcome;
+- Attempt mutable request reference not matching the immutable H4 request id;
+- H4 request/outcome lineage mismatch;
 - conflicting verification replay;
-- duplicate finalization that is not the exact authoritative replay.
+- non-server-derived classification;
+- relational/payload evidence divergence in governed MySQL rows.
 
 Tenant mismatch must not reveal whether another tenant's resource exists.
 
@@ -105,7 +130,7 @@ Tenant mismatch must not reveal whether another tenant's resource exists.
 
 An exact repeated authoritative verification may be returned only under the existing strict replay contract. Conflicting evidence or stale replay fails closed; `INSERT IGNORE`, `REPLACE`, broad upsert, or duplicate-catching-as-success are forbidden.
 
-Two concurrent verification attempts must admit at most one authoritative evidence/finalization effect. A stale contender cannot overwrite the winner. Verification evidence, Attempt transition, event and audit effects must not duplicate.
+Two concurrent first finalizations must admit at most one authoritative evidence/finalization effect. A stale contender cannot overwrite the winner. Verification evidence, Attempt transition, Attempt event and audit effects must not duplicate.
 
 Concurrency tests must use deterministic synchronization or transaction-lock coordination rather than timing sleeps.
 
@@ -115,11 +140,13 @@ Verification evidence persistence, any required Attempt CAS/event append, and au
 
 ## UNKNOWN / ambiguous results
 
-Read failure, truncation, missing evidence, contradictory evidence, and other non-exact classifications retain their exact existing disposition. H5 does not retry an engine operation, infer success/failure, repair business state, or launch reconciliation.
+Read failure, truncation, missing evidence, contradictory evidence and all other non-exact-target classifications retain their exact existing disposition: immutable D4 evidence plus `RECONCILING / VERIFICATION_MISMATCH / RECONCILIATION_REQUIRED`. H5 does not retry an engine operation, infer success/failure beyond the existing classifier, repair business state, or launch reconciliation.
 
 ## Acceptance boundary
 
-Until focused PostgreSQL and real MySQL tests, deterministic concurrency/rollback tests, permanent boundary assertions, and the required physical CI evidence are green for the exact formal Head, the capability remains:
+Before formal synchronization, H5 requires a complete staging candidate with focused PostgreSQL regression coverage, MySQL factory/contract/integration coverage, true H2 -> H3 -> H4 -> H5 lineage, deterministic concurrency and rollback coverage, formatting/checkstyle/diff checks, and real local Maven/Testcontainers validation.
+
+Until those checks and the required physical CI evidence are green for the exact formal Head, the capability remains:
 
 `MYSQL_P3_H5_MIGRATION_EXACT_VERIFICATION_STAGED`
 
