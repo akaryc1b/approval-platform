@@ -25,9 +25,10 @@ jobs:
     name: Repository hygiene
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Reject temporary PR artifacts
         shell: bash
         run: |
@@ -160,7 +161,7 @@ jobs:
           cat m6-ai-transport-review-boundary.log
       - name: Upload repository governance logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: approval-hygiene-${{ github.run_id }}
           path: |
@@ -177,9 +178,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: git diff --check
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: '21'
@@ -200,7 +203,7 @@ jobs:
           tail -n 100 maven-core.log
       - name: Upload Maven core evidence part
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: approval-maven-part-core-${{ github.run_id }}
           path: maven-core.log
@@ -219,9 +222,11 @@ jobs:
           - 2
           - 3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: git diff --check
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: '21'
@@ -242,6 +247,8 @@ jobs:
           cat "${output_directory}/selected-tests-${shard}.txt"
       - name: Verify Persistence JDBC shard
         shell: bash
+        env:
+          SELECTED_TESTS: ${{ steps.selection.outputs.tests }}
         run: |
           set +e
           shard="${{ matrix.shard }}"
@@ -250,7 +257,7 @@ jobs:
           mvn -B -ntp \
             -pl :approval-persistence-jdbc \
             -am verify \
-            -Dtest="${{ steps.selection.outputs.tests }}" \
+            -Dtest="$SELECTED_TESTS" \
             -Dsurefire.failIfNoSpecifiedTests=false \
             -Dapproval.persistence.test.fork-count=2 \
             >"$log_file" 2>&1
@@ -268,7 +275,7 @@ jobs:
           tail -n 100 "$log_file"
       - name: Upload Persistence JDBC evidence part
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: approval-maven-part-persistence-${{ matrix.shard }}-${{ github.run_id }}
           path: persistence-shard-${{ matrix.shard }}
@@ -283,9 +290,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Download Maven evidence parts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: approval-maven-part-*-${{ github.run_id }}
           path: backend-parts
@@ -339,14 +348,14 @@ jobs:
           fi
       - name: Upload Maven summary evidence part
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: approval-maven-part-summary-${{ github.run_id }}
           path: backend-final
           if-no-files-found: error
       - name: Merge Maven evidence artifact
         if: always()
-        uses: actions/upload-artifact/merge@v4
+        uses: actions/upload-artifact/merge@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: approval-maven-${{ github.run_id }}
           pattern: approval-maven-part-*-${{ github.run_id }}
@@ -357,9 +366,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: git diff --check
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
       - name: Enable pnpm
@@ -392,7 +403,7 @@ jobs:
         run: pnpm web:build >web-build.log 2>&1 || { tail -n 220 web-build.log; exit 1; }
       - name: Upload Vben verification logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: approval-vben-${{ github.run_id }}
           path: |
@@ -411,9 +422,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: git diff --check
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
       - name: Enable pnpm
@@ -437,7 +450,7 @@ jobs:
         run: pnpm mobile:build:weixin >mobile-weixin.log 2>&1 || { tail -n 220 mobile-weixin.log; exit 1; }
       - name: Upload mobile verification logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: approval-mobile-${{ github.run_id }}
           path: |

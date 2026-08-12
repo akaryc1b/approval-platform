@@ -26,20 +26,43 @@ function plannedFindings(review){
 function sameFinding(a,b){
   return a.sourceClass==='E4_ZIZMOR'&&b.sourceClass==='E4_ZIZMOR'&&a.findingId===b.findingId&&a.ruleId===b.ruleId&&a.path===b.path&&(a.startLine??null)===(b.startLine??null)&&String(a.upstreamSeverity||'')===String(b.upstreamSeverity||'');
 }
-function remediationById(remediation){
-  const out=new Map();for(const f of remediation?.remediatedFindings||[])out.set(key(f),f);return out;
+function remediationById(...remediations){
+  const out=new Map();
+  for(const remediation of remediations){
+    for(const f of remediation?.remediatedFindings||[]){
+      const k=key(f);if(out.has(k))throw new Error(`duplicate remediation identity ${k}`);out.set(k,f);
+    }
+  }
+  return out;
+}
+function requireHistoricalRemediation(closed,planned){
+  const k=key(planned);
+  if(closed.ruleId!==planned.ruleId||closed.path!==planned.path||closed.startLine!==planned.startLine||String(closed.upstreamSeverity)!==String(planned.upstreamSeverity)||closed.priorDisposition!=='APPLICABLE')throw new Error(`I4 remediation history drift ${k}`);
+  const expected={
+    'zizmor/dependabot-cooldown':'REMEDIATED_BY_DEPENDABOT_COOLDOWN_AND_ABSENT_FROM_CURRENT_ZIZMOR',
+    'zizmor/unpinned-uses':'REMEDIATED_BY_IMMUTABLE_ACTION_PIN_AND_ABSENT_FROM_CURRENT_ZIZMOR',
+    'zizmor/artipacked':'REMEDIATED_BY_CHECKOUT_CREDENTIAL_BOUNDARY_AND_ABSENT_FROM_CURRENT_ZIZMOR',
+    'zizmor/template-injection':'REMEDIATED_BY_SHELL_ENV_DATA_BOUNDARY_AND_ABSENT_FROM_CURRENT_ZIZMOR',
+  }[planned.ruleId];
+  if(!expected||closed.currentStatus!==expected)throw new Error(`I4 remediation status drift ${k}`);
 }
 
-export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=null){
+export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=null,workflowRemediation=null){
   if(!triage||!e4||!review)throw new Error('triage e4 and review required');
   if(triage.repository!==e4.repository||review.repository!==triage.repository)throw new Error('repository mismatch');
   if(triage.commitSha!==e4.commitSha)throw new Error('triage/E4 Head mismatch');
   if(!SHA40.test(review.reviewBasisHead||''))throw new Error('review basis Head required');
   if(!SHA64.test(review.reviewBasisE4CanonicalSha256||'')||!SHA64.test(review.reviewBasisI3CanonicalSha256||''))throw new Error('review basis canonical digests required');
   if(!SHA64.test(review.findingSetSha256||''))throw new Error('review finding-set digest required');
-  if(remediation&&remediation.priorI4FindingSetSha256!==review.findingSetSha256)throw new Error('R2 remediation/I4 finding-set mismatch');
+  if(remediation&&remediation.priorI4FindingSetSha256!==review.findingSetSha256)throw new Error('R2A remediation/I4 finding-set mismatch');
+  if(workflowRemediation){
+    if(workflowRemediation.priorI4FindingSetSha256!==review.findingSetSha256)throw new Error('R2B remediation/I4 finding-set mismatch');
+    if(workflowRemediation.repository!==e4.repository||workflowRemediation.commitSha!==e4.commitSha)throw new Error('R2B remediation exact Head mismatch');
+    if(workflowRemediation.sourceE4CanonicalSha256!==e4.contentSha256)throw new Error('R2B remediation/E4 canonical mismatch');
+    if(workflowRemediation.workflowSupplyChainRemediationValidated!==true)throw new Error('R2B workflow remediation validation required');
+  }
 
-  const currentZizmor=exactZizmor(e4), planned=plannedFindings(review), remediatedBy=remediationById(remediation);
+  const currentZizmor=exactZizmor(e4), planned=plannedFindings(review), remediatedBy=remediationById(remediation,workflowRemediation);
   if(planned.length!==61)throw new Error(`I4 must retain exactly 61 historically reviewed zizmor findings, got ${planned.length}`);
   const currentBy=new Map(currentZizmor.map(f=>[key(f),f])), plannedKeys=new Set(), planBy=new Map(), remediatedHistoricalFindings=[];
   for(const f of planned){
@@ -49,7 +72,7 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
     if(source){if(!sameFinding(normalized,source))throw new Error(`current zizmor identity drift ${k}`);continue;}
     const closed=remediatedBy.get(k);
     if(!closed)throw new Error(`historically reviewed I4 finding missing without remediation ${k}`);
-    if(closed.currentStatus!=='REMEDIATED_BY_DEPENDABOT_COOLDOWN_AND_ABSENT_FROM_CURRENT_ZIZMOR'||closed.ruleId!==f.ruleId||closed.path!==f.path||closed.startLine!==f.startLine||String(closed.upstreamSeverity)!==String(f.upstreamSeverity)||closed.priorDisposition!=='APPLICABLE')throw new Error(`I4 remediation history drift ${k}`);
+    requireHistoricalRemediation(closed,f);
     remediatedHistoricalFindings.push(stable(closed));
   }
   if([...currentBy.keys()].some(k=>!plannedKeys.has(k)))throw new Error('current zizmor set contains finding outside reviewed I4 set');
@@ -80,7 +103,7 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
   const cumulativeReviewedFindingCount=(triage.cumulativeReviewedFindingCount||0)+delta.size+remediatedHistoricalFindings.length;
   const historicallyRemediatedFindingCount=(triage.remediatedHistoricalFindingCount||0)+remediatedHistoricalFindings.length;
   const payload=stable({
-    schemaVersion:remediation?'M6_PR_E_E3_I4_TRIAGE_V2':'M6_PR_E_E3_I4_TRIAGE_V1',repository:triage.repository,commitSha:triage.commitSha,sourceI3CanonicalSha256:triage.contentSha256,sourceE4CanonicalSha256:e4.contentSha256,sourceRemediationCanonicalSha256:remediation?.contentSha256??null,
+    schemaVersion:workflowRemediation?'M6_PR_E_E3_I4_TRIAGE_V3':remediation?'M6_PR_E_E3_I4_TRIAGE_V2':'M6_PR_E_E3_I4_TRIAGE_V1',repository:triage.repository,commitSha:triage.commitSha,sourceI3CanonicalSha256:triage.contentSha256,sourceE4CanonicalSha256:e4.contentSha256,sourceRemediationCanonicalSha256:remediation?.contentSha256??null,...(workflowRemediation?{sourceWorkflowRemediationCanonicalSha256:workflowRemediation.contentSha256}:{}),
     reviewBasisHead:review.reviewBasisHead,reviewBasisE4CanonicalSha256:review.reviewBasisE4CanonicalSha256,reviewBasisI3CanonicalSha256:review.reviewBasisI3CanonicalSha256,historicalReviewedFindingCount:planned.length,reviewedFindingCount:delta.size,remediatedHistoricalFindingCount:remediatedHistoricalFindings.length,remediatedHistoricalFindings,cumulativeReviewedFindingCount,historicallyRemediatedFindingCount,decisions,
     summary:{dispositionCounts,applicableCount:dispositionCounts.APPLICABLE||0,notApplicableCount:dispositionCounts.NOT_APPLICABLE||0,unresolvedCount:dispositionCounts.UNRESOLVED||0,releaseBlocked:true,reasonCodes:['AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE','E3_SCANNER_FINDINGS_UNRESOLVED',...(dispositionCounts.APPLICABLE?['E3_APPLICABLE_FINDINGS_REQUIRE_REMEDIATION']:[])]}
   });

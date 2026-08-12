@@ -29,6 +29,7 @@ import './m6-pr-e-e2-dependency-sbom-boundary.test.mjs';
 import './m6-pr-e-e3-applicability-boundary.test.mjs';
 import './m6-pr-e-e4-scanner-boundary.test.mjs';
 import './m6-pr-e-e3-i4-workflow-supply-chain-boundary.test.mjs';
+import './m6-pr-e-e3-r2b-workflow-supply-chain-remediation-boundary.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(
