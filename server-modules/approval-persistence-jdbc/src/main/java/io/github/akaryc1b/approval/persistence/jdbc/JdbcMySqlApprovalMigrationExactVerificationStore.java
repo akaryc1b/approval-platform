@@ -463,7 +463,6 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             "engine_call_may_have_occurred"
         );
         String stableCode = row.getString("stable_code");
-        String boundedSummary = row.getString("bounded_summary");
         String preDispatchSnapshotHash = row.getString(
             "pre_dispatch_snapshot_hash"
         );
@@ -735,6 +734,24 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             ApprovalMigrationExactVerification.class
         );
         ApprovalMigrationEngineSnapshot snapshot = evidence.snapshot();
+        long expectedAttemptRevision = row.getLong("expected_attempt_revision");
+        long expectedFenceRevision = row.getLong("expected_fence_revision");
+        String workerId = row.getString("worker_id");
+        if (expectedAttemptRevision < 1
+            || expectedFenceRevision < 1
+            || workerId == null
+            || workerId.isBlank()) {
+            throw new IllegalStateException(
+                "exact verification authority columns are invalid"
+            );
+        }
+        String expectedStoredRequestHash = expectedStoredRequestHash(
+            evidence,
+            workerId,
+            expectedAttemptRevision,
+            expectedFenceRevision
+        );
+        String expectedStoredEvidenceHash = expectedStoredEvidenceHash(evidence);
         if (!evidence.tenantId().equals(row.getString("tenant_id"))
             || !evidence.verificationId().equals(values.uuid(row, "verification_id"))
             || !evidence.intentId().equals(values.uuid(row, "intent_id"))
@@ -762,22 +779,16 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             )
             || !snapshot.snapshotHash().equals(row.getString("snapshot_hash"))
             || !evidence.requestHash().equals(row.getString("request_hash"))
+            || !evidence.requestHash().equals(expectedStoredRequestHash)
             || !evidence.verificationEvidenceHash().equals(
                 row.getString("verification_evidence_hash")
             )
+            || !evidence.verificationEvidenceHash().equals(expectedStoredEvidenceHash)
             || !evidence.recordedAt().equals(values.instant(row, "recorded_at"))
             || !evidence.requestId().equals(row.getString("request_id"))
             || !Objects.equals(evidence.traceId(), row.getString("trace_id"))) {
             throw new IllegalStateException(
                 "exact verification relational and payload evidence diverged"
-            );
-        }
-        if (row.getLong("expected_attempt_revision") < 1
-            || row.getLong("expected_fence_revision") < 1
-            || row.getString("worker_id") == null
-            || row.getString("worker_id").isBlank()) {
-            throw new IllegalStateException(
-                "exact verification authority columns are invalid"
             );
         }
         return evidence;
@@ -1013,6 +1024,44 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
         if (!evidence.requestHash().equals(requestHash)) {
             throw conflict("changed-payload verification replay is forbidden");
         }
+    }
+
+    private static String expectedStoredRequestHash(
+        ApprovalMigrationExactVerification evidence,
+        String workerId,
+        long expectedAttemptRevision,
+        long expectedFenceRevision
+    ) {
+        return sha256(String.join(
+            "|",
+            "m5-exact-verification-request-v1",
+            evidence.tenantId(),
+            evidence.attemptId().toString(),
+            workerId,
+            Long.toString(expectedAttemptRevision),
+            Long.toString(expectedFenceRevision),
+            evidence.requestId()
+        ));
+    }
+
+    private static String expectedStoredEvidenceHash(
+        ApprovalMigrationExactVerification evidence
+    ) {
+        return sha256(String.join(
+            "|",
+            "m5-exact-verification-evidence-v1",
+            evidence.verificationId().toString(),
+            evidence.tenantId(),
+            evidence.intentId().toString(),
+            evidence.attemptId().toString(),
+            evidence.engineRequestId().toString(),
+            evidence.engineOutcomeId().toString(),
+            evidence.sourceEngineDefinitionId(),
+            evidence.targetEngineDefinitionId(),
+            evidence.classification().name(),
+            evidence.snapshot().snapshotHash(),
+            evidence.requestHash()
+        ));
     }
 
     private static String requestHash(PrepareRequest request) {
