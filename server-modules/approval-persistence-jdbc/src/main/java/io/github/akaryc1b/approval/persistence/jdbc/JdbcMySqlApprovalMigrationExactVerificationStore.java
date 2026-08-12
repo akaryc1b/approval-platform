@@ -31,6 +31,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -374,17 +375,35 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
         return jdbc.query("""
             select r.tenant_id as request_tenant_id,
                    r.engine_request_id,r.intent_id as request_intent_id,
-                   r.attempt_id as request_attempt_id,r.worker_id as request_worker_id,
+                   r.attempt_id as request_attempt_id,
+                   r.approval_instance_id as request_approval_instance_id,
+                   r.worker_id as request_worker_id,
+                   r.attempt_revision as request_attempt_revision,
                    r.fence_id,r.fence_revision,
+                   r.engine_instance_id as request_engine_instance_id,
+                   r.source_binding_evidence_hash as request_source_binding_evidence_hash,
                    r.source_engine_definition_id as request_source_definition_id,
+                   r.target_release_version as request_target_release_version,
+                   r.target_package_hash as request_target_package_hash,
+                   r.target_engine_deployment_id as request_target_engine_deployment_id,
                    r.target_engine_definition_id as request_target_definition_id,
+                   r.activity_mapping_json as request_activity_mapping_json,
+                   r.request_hash as request_hash,
+                   r.evidence_hash as request_evidence_hash,
+                   r.requested_at as request_requested_at,
+                   r.request_id as request_request_id,
+                   r.trace_id as request_trace_id,
                    r.payload_json as request_payload_json,
                    o.tenant_id as outcome_tenant_id,o.engine_outcome_id,
                    o.engine_request_id as outcome_engine_request_id,
                    o.intent_id as outcome_intent_id,o.attempt_id as outcome_attempt_id,
                    o.worker_id as outcome_worker_id,o.expected_attempt_revision,
                    o.expected_fence_revision,o.disposition,o.engine_call_attempted,
-                   o.engine_call_returned,o.payload_json as outcome_payload_json
+                   o.engine_call_returned,o.engine_call_may_have_occurred,
+                   o.stable_code,o.bounded_summary,o.pre_dispatch_snapshot_hash,
+                   o.outcome_hash,o.recorded_at as outcome_recorded_at,
+                   o.request_id as outcome_request_id,o.trace_id as outcome_trace_id,
+                   o.payload_json as outcome_payload_json
             from ap_process_migration_engine_request r
             join ap_process_migration_engine_outcome o
               on o.tenant_id=r.tenant_id and o.engine_request_id=r.engine_request_id
@@ -410,17 +429,86 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
         UUID outcomeId = values.uuid(row, "engine_outcome_id");
         UUID requestIntentId = values.uuid(row, "request_intent_id");
         UUID requestAttemptId = values.uuid(row, "request_attempt_id");
+        UUID requestApprovalInstanceId = values.uuid(
+            row,
+            "request_approval_instance_id"
+        );
         UUID outcomeRequestId = values.uuid(row, "outcome_engine_request_id");
         UUID outcomeIntentId = values.uuid(row, "outcome_intent_id");
         UUID outcomeAttemptId = values.uuid(row, "outcome_attempt_id");
         UUID fenceId = values.uuid(row, "fence_id");
         String workerId = row.getString("request_worker_id");
         String outcomeWorkerId = row.getString("outcome_worker_id");
-        String sourceDefinitionId = row.getString("request_source_definition_id");
-        String targetDefinitionId = row.getString("request_target_definition_id");
+        long requestAttemptRevision = row.getLong("request_attempt_revision");
         long fenceRevision = row.getLong("fence_revision");
         long outcomeAttemptRevision = row.getLong("expected_attempt_revision");
         long outcomeFenceRevision = row.getLong("expected_fence_revision");
+        String engineInstanceId = row.getString("request_engine_instance_id");
+        String sourceBindingHash = row.getString(
+            "request_source_binding_evidence_hash"
+        );
+        String sourceDefinitionId = row.getString("request_source_definition_id");
+        int targetReleaseVersion = row.getInt("request_target_release_version");
+        String targetPackageHash = row.getString("request_target_package_hash");
+        String targetDeploymentId = row.getString(
+            "request_target_engine_deployment_id"
+        );
+        String targetDefinitionId = row.getString("request_target_definition_id");
+        String requestHash = row.getString("request_hash");
+        String requestEvidenceHash = row.getString("request_evidence_hash");
+        Instant requestedAt = values.instant(row, "request_requested_at");
+        String requestRequestId = row.getString("request_request_id");
+        String requestTraceId = row.getString("request_trace_id");
+        boolean engineCallMayHaveOccurred = row.getBoolean(
+            "engine_call_may_have_occurred"
+        );
+        String stableCode = row.getString("stable_code");
+        String boundedSummary = row.getString("bounded_summary");
+        String preDispatchSnapshotHash = row.getString(
+            "pre_dispatch_snapshot_hash"
+        );
+        String outcomeHash = row.getString("outcome_hash");
+        Instant outcomeRecordedAt = values.instant(row, "outcome_recorded_at");
+        String outcomeRequestIdentity = row.getString("outcome_request_id");
+        String outcomeTraceId = row.getString("outcome_trace_id");
+
+        String expectedRequestHash = sha256(String.join(
+            "|",
+            "m5-engine-request-v1",
+            attempt.tenantId(),
+            requestIntentId.toString(),
+            requestAttemptId.toString(),
+            requestApprovalInstanceId.toString(),
+            engineInstanceId,
+            sourceBindingHash,
+            sourceDefinitionId,
+            Integer.toString(targetReleaseVersion),
+            targetPackageHash,
+            targetDeploymentId,
+            targetDefinitionId,
+            Long.toString(requestAttemptRevision),
+            fenceId.toString(),
+            Long.toString(fenceRevision)
+        ));
+        String expectedRequestEvidenceHash = sha256(
+            "m5-engine-request-evidence-v1|"
+                + requestId
+                + '|'
+                + requestHash
+        );
+        String expectedOutcomeHash = sha256(String.join(
+            "|",
+            "m5-engine-outcome-v1",
+            outcomeId.toString(),
+            requestId.toString(),
+            attempt.attemptId().toString(),
+            row.getString("disposition"),
+            Boolean.toString(row.getBoolean("engine_call_attempted")),
+            Boolean.toString(row.getBoolean("engine_call_returned")),
+            Boolean.toString(engineCallMayHaveOccurred),
+            stableCode,
+            preDispatchSnapshotHash
+        ));
 
         if (!attempt.tenantId().equals(row.getString("request_tenant_id"))
             || !attempt.tenantId().equals(row.getString("outcome_tenant_id"))
@@ -428,92 +516,148 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             || !attempt.intentId().equals(outcomeIntentId)
             || !attempt.attemptId().equals(requestAttemptId)
             || !attempt.attemptId().equals(outcomeAttemptId)
+            || !attempt.approvalInstanceId().equals(requestApprovalInstanceId)
+            || requestAttemptRevision + 2 != attempt.revision()
+            || outcomeAttemptRevision != requestAttemptRevision + 1
+            || outcomeFenceRevision != fenceRevision
             || !requestId.equals(outcomeRequestId)
             || !workerId.equals(outcomeWorkerId)
+            || !attempt.engineInstanceId().equals(engineInstanceId)
+            || !attempt.expectedBindingEvidenceHash().equals(sourceBindingHash)
             || !attempt.sourceEngineDefinitionId().equals(sourceDefinitionId)
             || !attempt.targetEngineDefinitionId().equals(targetDefinitionId)
             || !"CALL_RETURNED_AWAITING_VERIFICATION".equals(
                 row.getString("disposition")
             )
             || !row.getBoolean("engine_call_attempted")
-            || !row.getBoolean("engine_call_returned")) {
+            || !row.getBoolean("engine_call_returned")
+            || engineCallMayHaveOccurred
+            || !requestHash.equals(expectedRequestHash)
+            || !requestEvidenceHash.equals(expectedRequestEvidenceHash)
+            || !outcomeHash.equals(expectedOutcomeHash)
+            || !requestRequestId.equals(outcomeRequestIdentity)
+            || !Objects.equals(requestTraceId, outcomeTraceId)
+            || outcomeRecordedAt.isBefore(requestedAt)) {
             throw new IllegalStateException(
                 "migration engine request/outcome relational lineage diverged"
             );
         }
-        requireRequestPayload(
-            row.getString("request_payload_json"),
-            attempt,
-            requestId,
-            workerId,
-            fenceId,
-            fenceRevision
-        );
-        requireOutcomePayload(
-            row.getString("outcome_payload_json"),
-            attempt,
-            outcomeId,
-            requestId,
-            workerId,
-            outcomeAttemptRevision,
-            outcomeFenceRevision
-        );
+        requireExactRequestPayload(row);
+        requireExactOutcomePayload(row);
         return new EngineLineage(requestId, outcomeId, workerId, fenceId);
     }
 
-    private void requireRequestPayload(
-        String payload,
-        ApprovalMigrationAttempt attempt,
-        UUID engineRequestId,
-        String workerId,
-        UUID fenceId,
-        long fenceRevision
-    ) {
-        JsonNode node = readTree(payload, "migration engine request payload");
-        if (!jsonText(node, "engineRequestId").equals(engineRequestId.toString())
-            || !jsonText(node, "tenantId").equals(attempt.tenantId())
-            || !jsonText(node, "intentId").equals(attempt.intentId().toString())
-            || !jsonText(node, "attemptId").equals(attempt.attemptId().toString())
-            || !jsonText(node, "workerId").equals(workerId)
-            || !jsonText(node, "fenceId").equals(fenceId.toString())
-            || jsonLong(node, "fenceRevision") != fenceRevision
-            || !jsonText(node, "sourceEngineDefinitionId").equals(
-                attempt.sourceEngineDefinitionId()
+    private void requireExactRequestPayload(ResultSet row) throws SQLException {
+        Map<String, Object> expected = new LinkedHashMap<>();
+        expected.put("engineRequestId", values.uuid(row, "engine_request_id"));
+        expected.put("tenantId", row.getString("request_tenant_id"));
+        expected.put("intentId", values.uuid(row, "request_intent_id"));
+        expected.put("attemptId", values.uuid(row, "request_attempt_id"));
+        expected.put(
+            "approvalInstanceId",
+            values.uuid(row, "request_approval_instance_id")
+        );
+        expected.put("workerId", row.getString("request_worker_id"));
+        expected.put("attemptRevision", row.getLong("request_attempt_revision"));
+        expected.put("fenceId", values.uuid(row, "fence_id"));
+        expected.put("fenceRevision", row.getLong("fence_revision"));
+        expected.put("engineInstanceId", row.getString("request_engine_instance_id"));
+        expected.put(
+            "sourceBindingEvidenceHash",
+            row.getString("request_source_binding_evidence_hash")
+        );
+        expected.put(
+            "sourceEngineDefinitionId",
+            row.getString("request_source_definition_id")
+        );
+        expected.put(
+            "targetReleaseVersion",
+            row.getInt("request_target_release_version")
+        );
+        expected.put(
+            "targetPackageHash",
+            row.getString("request_target_package_hash")
+        );
+        expected.put(
+            "targetEngineDeploymentId",
+            row.getString("request_target_engine_deployment_id")
+        );
+        expected.put(
+            "targetEngineDefinitionId",
+            row.getString("request_target_definition_id")
+        );
+        expected.put(
+            "activityMappings",
+            readJsonValue(
+                row.getString("request_activity_mapping_json"),
+                "migration engine request activity mapping"
             )
-            || !jsonText(node, "targetEngineDefinitionId").equals(
-                attempt.targetEngineDefinitionId()
-            )) {
-            throw new IllegalStateException(
-                "migration engine request relational and payload evidence diverged"
-            );
-        }
+        );
+        expected.put("requestHash", row.getString("request_hash"));
+        expected.put("evidenceHash", row.getString("request_evidence_hash"));
+        expected.put("requestedAt", values.instant(row, "request_requested_at"));
+        expected.put("requestId", row.getString("request_request_id"));
+        expected.put("traceId", row.getString("request_trace_id"));
+        requireExactPayload(
+            row.getString("request_payload_json"),
+            expected,
+            "migration engine request"
+        );
     }
 
-    private void requireOutcomePayload(
+    private void requireExactOutcomePayload(ResultSet row) throws SQLException {
+        Map<String, Object> expected = new LinkedHashMap<>();
+        expected.put("engineOutcomeId", values.uuid(row, "engine_outcome_id"));
+        expected.put(
+            "engineRequestId",
+            values.uuid(row, "outcome_engine_request_id")
+        );
+        expected.put("tenantId", row.getString("outcome_tenant_id"));
+        expected.put("intentId", values.uuid(row, "outcome_intent_id"));
+        expected.put("attemptId", values.uuid(row, "outcome_attempt_id"));
+        expected.put("workerId", row.getString("outcome_worker_id"));
+        expected.put(
+            "expectedAttemptRevision",
+            row.getLong("expected_attempt_revision")
+        );
+        expected.put(
+            "expectedFenceRevision",
+            row.getLong("expected_fence_revision")
+        );
+        expected.put("disposition", row.getString("disposition"));
+        expected.put("engineCallAttempted", row.getBoolean("engine_call_attempted"));
+        expected.put("engineCallReturned", row.getBoolean("engine_call_returned"));
+        expected.put(
+            "engineCallMayHaveOccurred",
+            row.getBoolean("engine_call_may_have_occurred")
+        );
+        expected.put("stableCode", row.getString("stable_code"));
+        expected.put("boundedSummary", row.getString("bounded_summary"));
+        expected.put(
+            "preDispatchSnapshotHash",
+            row.getString("pre_dispatch_snapshot_hash")
+        );
+        expected.put("outcomeHash", row.getString("outcome_hash"));
+        expected.put("recordedAt", values.instant(row, "outcome_recorded_at"));
+        expected.put("requestId", row.getString("outcome_request_id"));
+        expected.put("traceId", row.getString("outcome_trace_id"));
+        requireExactPayload(
+            row.getString("outcome_payload_json"),
+            expected,
+            "migration engine outcome"
+        );
+    }
+
+    private void requireExactPayload(
         String payload,
-        ApprovalMigrationAttempt attempt,
-        UUID engineOutcomeId,
-        UUID engineRequestId,
-        String workerId,
-        long expectedAttemptRevision,
-        long expectedFenceRevision
+        Map<String, Object> expected,
+        String name
     ) {
-        JsonNode node = readTree(payload, "migration engine outcome payload");
-        if (!jsonText(node, "engineOutcomeId").equals(engineOutcomeId.toString())
-            || !jsonText(node, "engineRequestId").equals(engineRequestId.toString())
-            || !jsonText(node, "tenantId").equals(attempt.tenantId())
-            || !jsonText(node, "intentId").equals(attempt.intentId().toString())
-            || !jsonText(node, "attemptId").equals(attempt.attemptId().toString())
-            || !jsonText(node, "workerId").equals(workerId)
-            || jsonLong(node, "expectedAttemptRevision") != expectedAttemptRevision
-            || jsonLong(node, "expectedFenceRevision") != expectedFenceRevision
-            || !"CALL_RETURNED_AWAITING_VERIFICATION".equals(
-                jsonText(node, "disposition")
-            )
-            || !jsonBoolean(node, "engineCallAttempted")
-            || !jsonBoolean(node, "engineCallReturned")) {
+        JsonNode stored = readTree(payload, name + " payload");
+        JsonNode exact = objectMapper.valueToTree(expected);
+        if (!stored.equals(exact)) {
             throw new IllegalStateException(
-                "migration engine outcome relational and payload evidence diverged"
+                name + " relational and payload evidence diverged"
             );
         }
     }
@@ -885,39 +1029,23 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
     }
 
     private JsonNode readTree(String payload, String name) {
+        JsonNode node = readJsonValue(payload, name);
+        if (!node.isObject()) {
+            throw new IllegalStateException(name + " is not a JSON object");
+        }
+        return node;
+    }
+
+    private JsonNode readJsonValue(String payload, String name) {
         try {
             JsonNode node = objectMapper.readTree(payload);
-            if (node == null || !node.isObject()) {
-                throw new IllegalStateException(name + " is not a JSON object");
+            if (node == null) {
+                throw new IllegalStateException(name + " is null JSON");
             }
             return node;
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException(name + " is invalid", exception);
         }
-    }
-
-    private static String jsonText(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        if (value == null || !value.isTextual() || value.textValue().isBlank()) {
-            throw new IllegalStateException("required JSON text field is invalid: " + field);
-        }
-        return value.textValue();
-    }
-
-    private static long jsonLong(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        if (value == null || !value.canConvertToLong()) {
-            throw new IllegalStateException("required JSON integer field is invalid: " + field);
-        }
-        return value.longValue();
-    }
-
-    private static boolean jsonBoolean(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        if (value == null || !value.isBoolean()) {
-            throw new IllegalStateException("required JSON boolean field is invalid: " + field);
-        }
-        return value.booleanValue();
     }
 
     private UUID nextIdentifier(String name) {
