@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { generateEvidence as generateE2Evidence } from './m6-pr-e-e2-generate-sbom.mjs';
+import { acceptedE2GraphProjection, generateEvidence as generateE2Evidence } from './m6-pr-e-e2-generate-sbom.mjs';
 
 const SHA40=/^[0-9a-f]{40}$/;
 const H=x=>createHash('sha256').update(x).digest('hex');
@@ -29,7 +29,7 @@ function exactHead(){
 function safeEnv(extra={}){const e={...process.env,...extra};for(const k of ['GH_TOKEN','GITHUB_TOKEN','ZIZMOR_GITHUB_TOKEN','SEMGREP_APP_TOKEN'])delete e[k];return e;}
 function collectFiles(dir,predicate,out=[]){if(!existsSync(dir))return out;for(const n of readdirSync(dir).sort()){const f=path.join(dir,n),s=statSync(f);if(s.isDirectory())collectFiles(f,predicate,out);else if(predicate(f))out.push(f);}return out;}
 function findingId(parts){return H(parts.join('\0'));}
-function e2GraphDigest(e2){return H(C({maven:e2.maven,pnpm:e2.pnpm,githubActions:e2.githubActions,limitations:e2.limitations}));}
+export function e2GraphDigest(e2){return H(C(acceptedE2GraphProjection(e2)));}
 function pluginPackage(coord){const p=coord.split(':');if(p.length<4)return null;return{name:`${p[0]}:${p[1]}`,version:p.at(-1),ecosystem:'Maven',sourceClass:'BUILD_PLUGIN'};}
 function osvInputFromE2(e2){
   const map=new Map();const add=(name,version,ecosystem,componentRef,scope)=>{if(!name||!version)return;const k=`${ecosystem}\0${name}\0${version}`;if(!map.has(k))map.set(k,{package:{name,version,ecosystem},componentRefs:[],scopes:[]});const x=map.get(k);if(componentRef&&!x.componentRefs.includes(componentRef))x.componentRefs.push(componentRef);if(scope&&!x.scopes.includes(scope))x.scopes.push(scope);};
