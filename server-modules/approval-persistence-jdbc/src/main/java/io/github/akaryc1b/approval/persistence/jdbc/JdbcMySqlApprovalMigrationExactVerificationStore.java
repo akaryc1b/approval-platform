@@ -322,7 +322,7 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
 
     private ApprovalMigrationAttempt lockAttempt(String tenantId, UUID attemptId) {
         return jdbc.query("""
-            select tenant_id,attempt_id,intent_id,status,revision,lease_owner,lease_until,
+            select tenant_id,attempt_id,intent_id,status,revision,engine_outcome,lease_owner,lease_until,
                    engine_request_reference,failure_class,error_summary,created_at,updated_at,
                    payload_json
             from ap_process_migration_attempt
@@ -351,6 +351,7 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             || !attempt.intentId().equals(values.uuid(row, "intent_id"))
             || !attempt.status().name().equals(row.getString("status"))
             || attempt.revision() != row.getLong("revision")
+            || !attempt.engineOutcome().name().equals(row.getString("engine_outcome"))
             || !Objects.equals(attempt.leaseOwner(), row.getString("lease_owner"))
             || !Objects.equals(
                 attempt.leaseUntil(),
