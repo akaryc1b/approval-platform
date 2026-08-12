@@ -163,6 +163,9 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
             "FinalDisposition.CALL_RETURNED_AWAITING_VERIFICATION"
         ));
         assertTrue(h5.contains("JdbcApprovalMigrationExactVerificationStoreFactory.create("));
+        assertTrue(h5.contains(
+            "corruptedH4ImmutableEvidenceFailsClosedBeforeH5Evidence"
+        ));
         assertFalse(h5Lower.contains("insert into ap_process_migration_attempt"));
         assertFalse(h5Lower.contains("session_replication_role"));
         assertFalse(h5.contains("Thread.sleep"));
