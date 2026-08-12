@@ -63,7 +63,6 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
     private static final String TARGET_PACKAGE_HASH = "3".repeat(64);
     private static final String PLAN_HASH = "4".repeat(64);
     private static final String PRE_DISPATCH_HASH = "e".repeat(64);
-    private static final String SNAPSHOT_HASH = "a".repeat(64);
     private static final String TASK_HASH = "b".repeat(64);
 
     private ObjectMapper objectMapper;
@@ -390,6 +389,69 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
         assertEquals(
             1,
             count("ap_process_migration_engine_outcome", outcomeTamper.tenantId())
+        );
+    }
+
+    @Test
+    void coherentlyTamperedStoredSnapshotFailsClosedOnReplay() {
+        Authority authority = seedVerifyingAuthority("Tenant-H5-Snapshot-Tamper");
+        ApprovalMigrationExactVerificationStore verification = verificationStore(event -> {
+        });
+        ApprovalMigrationExactVerificationStore.PrepareRequest request =
+            verificationRequest(authority, "request-h5-snapshot-tamper");
+        PreparedVerification prepared = verification.prepare(request);
+        ApprovalMigrationEngineSnapshot snapshot = targetSnapshot(authority);
+        ExactClassification classification = ApprovalMigrationExactVerification.classify(
+            snapshot,
+            authority.sourceDeployment().engineDefinitionId(),
+            authority.targetDeployment().engineDefinitionId()
+        );
+        StoredVerification stored = verification.finalizeVerification(
+            new ApprovalMigrationExactVerificationStore.FinalizeRequest(
+                prepared,
+                snapshot,
+                classification,
+                NOW.plusSeconds(50)
+            )
+        );
+
+        String fakeSnapshotHash = "d".repeat(64);
+        assertFalse(fakeSnapshotHash.equals(stored.evidence().snapshot().snapshotHash()));
+        String fakeEvidenceHash = MySqlH5ExactVerificationHashFixture
+            .verificationEvidenceHash(stored.evidence(), fakeSnapshotHash);
+        assertEquals(1, jdbc.update(
+            """
+            update ap_process_migration_exact_verification
+            set snapshot_hash=?,verification_evidence_hash=?,
+                payload_json=json_set(
+                    payload_json,
+                    '$.snapshot.runtimeEngineDeploymentId', ?,
+                    '$.snapshot.snapshotHash', ?,
+                    '$.verificationEvidenceHash', ?
+                )
+            where tenant_id=? and attempt_id=?
+            """,
+            fakeSnapshotHash,
+            fakeEvidenceHash,
+            "tampered-deployment-h5",
+            fakeSnapshotHash,
+            fakeEvidenceHash,
+            authority.tenantId(),
+            authority.attemptId().toString()
+        ));
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> verification.prepare(request)
+        );
+        assertEquals(
+            1,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
+        assertEquals(AttemptStatus.VERIFYING, attemptPayload(authority).status());
+        assertEquals(
+            4,
+            count("ap_process_migration_attempt_event", authority.tenantId())
         );
     }
 
@@ -826,7 +888,7 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
     }
 
     private ApprovalMigrationEngineSnapshot snapshot(String definitionId) {
-        return new ApprovalMigrationEngineSnapshot(
+        ApprovalMigrationEngineSnapshot unsigned = new ApprovalMigrationEngineSnapshot(
             true,
             null,
             true,
@@ -846,8 +908,9 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
             null,
             List.of(new TaskEvidence(TASK_HASH, "review", definitionId, false)),
             false,
-            SNAPSHOT_HASH
+            "0".repeat(64)
         );
+        return MySqlH5ExactVerificationHashFixture.withCanonicalSnapshotHash(unsigned);
     }
 
     private ApprovalMigrationAttempt attemptPayload(Authority authority) {
