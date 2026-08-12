@@ -172,6 +172,7 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             current.tenantId(),
             current.attemptId()
         );
+        requireLineageFence(lineage, fence);
         requireFence(
             fence,
             request.workerId(),
@@ -238,6 +239,7 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             current.tenantId(),
             current.attemptId()
         );
+        requireLineageFence(lineage, fence);
         requireFence(
             fence,
             prepared.workerId(),
@@ -373,7 +375,10 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             select r.tenant_id as request_tenant_id,
                    r.engine_request_id,r.intent_id as request_intent_id,
                    r.attempt_id as request_attempt_id,r.worker_id as request_worker_id,
-                   r.fence_id,r.fence_revision,r.payload_json as request_payload_json,
+                   r.fence_id,r.fence_revision,
+                   r.source_engine_definition_id as request_source_definition_id,
+                   r.target_engine_definition_id as request_target_definition_id,
+                   r.payload_json as request_payload_json,
                    o.tenant_id as outcome_tenant_id,o.engine_outcome_id,
                    o.engine_request_id as outcome_engine_request_id,
                    o.intent_id as outcome_intent_id,o.attempt_id as outcome_attempt_id,
@@ -411,6 +416,8 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
         UUID fenceId = values.uuid(row, "fence_id");
         String workerId = row.getString("request_worker_id");
         String outcomeWorkerId = row.getString("outcome_worker_id");
+        String sourceDefinitionId = row.getString("request_source_definition_id");
+        String targetDefinitionId = row.getString("request_target_definition_id");
         long fenceRevision = row.getLong("fence_revision");
         long outcomeAttemptRevision = row.getLong("expected_attempt_revision");
         long outcomeFenceRevision = row.getLong("expected_fence_revision");
@@ -423,6 +430,8 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             || !attempt.attemptId().equals(outcomeAttemptId)
             || !requestId.equals(outcomeRequestId)
             || !workerId.equals(outcomeWorkerId)
+            || !attempt.sourceEngineDefinitionId().equals(sourceDefinitionId)
+            || !attempt.targetEngineDefinitionId().equals(targetDefinitionId)
             || !"CALL_RETURNED_AWAITING_VERIFICATION".equals(
                 row.getString("disposition")
             )
@@ -467,7 +476,13 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             || !jsonText(node, "attemptId").equals(attempt.attemptId().toString())
             || !jsonText(node, "workerId").equals(workerId)
             || !jsonText(node, "fenceId").equals(fenceId.toString())
-            || jsonLong(node, "fenceRevision") != fenceRevision) {
+            || jsonLong(node, "fenceRevision") != fenceRevision
+            || !jsonText(node, "sourceEngineDefinitionId").equals(
+                attempt.sourceEngineDefinitionId()
+            )
+            || !jsonText(node, "targetEngineDefinitionId").equals(
+                attempt.targetEngineDefinitionId()
+            )) {
             throw new IllegalStateException(
                 "migration engine request relational and payload evidence diverged"
             );
@@ -822,6 +837,15 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
             request.classification(),
             AuditHashCanonicalizer.canonicalInstant(request.happenedAt())
         );
+    }
+
+    private static void requireLineageFence(
+        EngineLineage lineage,
+        ApprovalMigrationCommandFence fence
+    ) {
+        if (!lineage.fenceId().equals(fence.fenceId())) {
+            throw conflict("engine request fence lineage is stale");
+        }
     }
 
     private static void requireFence(
