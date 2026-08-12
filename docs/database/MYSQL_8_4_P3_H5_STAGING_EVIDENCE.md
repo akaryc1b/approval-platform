@@ -117,6 +117,34 @@ Both cases must leave the Attempt in `VERIFYING` and retain the single immutable
 
 This does not re-read mutable Plan or Runtime Binding authority and does not create a MySQL-only migration decision. H4 remains the owner of target selection; H5 validates the immutable evidence that H4 froze.
 
+## Stored D4 replay integrity hardening
+
+The MySQL replay path now self-validates stored D4 evidence before `requireExactReplay` can return it.
+
+Append-only history:
+
+```text
+7be13e1b5253e372081f6d86440a9051bda7be19
+  test(mysql): require H5 replay hash revalidation
+
+fa78345caf2a44f37cb909a3773f1ec58aed6ce8
+  fix(mysql): revalidate stored H5 evidence hashes on replay
+
+079914ecce24a0434c09e645a039b87c4df13304
+  docs(db-compat): require H5 replay evidence self-validation
+```
+
+Before stored D4 evidence is accepted, MySQL recomputes:
+
+```text
+m5-exact-verification-request-v1
+m5-exact-verification-evidence-v1
+```
+
+The request hash is reconstructed from persisted tenant, Attempt, worker, expected Attempt revision, expected Fence revision and request id. The evidence hash is reconstructed from the stored verification identity, H4 request/outcome ids, source/target definitions, classification, snapshot hash and request hash.
+
+This does not re-open historical command authority. The old Fence does not need to remain active and the current Attempt does not need to remain at the pre-finalization revision; therefore exact-target and reconciliation replay semantics remain aligned with PostgreSQL D4.
+
 ## Current focused test surface
 
 The H5 staging candidate contains:
@@ -151,7 +179,8 @@ The static contract additionally pins:
 - no D6 reconciliation invocation;
 - no fake H5 Attempt insertion or PostgreSQL trigger bypass in the MySQL success fixture;
 - complete H4 immutable request/outcome evidence validation and hash protocols;
-- retention of the real H4 corruption regression.
+- retention of the real H4 corruption regression;
+- D4 stored request/evidence hash recomputation before replay.
 
 ## Permanent CI discovery expectation
 
