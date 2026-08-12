@@ -13,6 +13,7 @@ import java.sql.DatabaseMetaData;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JdbcApprovalMigrationExactVerificationStoreFactoryTest {
 
@@ -46,6 +47,23 @@ class JdbcApprovalMigrationExactVerificationStoreFactoryTest {
             );
 
         assertInstanceOf(JdbcMySqlApprovalMigrationExactVerificationStore.class, store);
+    }
+
+    @Test
+    void rejectsUnsupportedMySqlVersionBeforeCreatingVerificationStore() {
+        DataSource dataSource = dataSource("MySQL", "8.0.39", 8, 0);
+
+        assertThrows(
+            ApprovalDatabaseVendor.UnsupportedDatabaseVersionException.class,
+            () -> JdbcApprovalMigrationExactVerificationStoreFactory.create(
+                dataSource,
+                new ObjectMapper().findAndRegisterModules(),
+                new JdbcTransactionManager(dataSource),
+                event -> {
+                },
+                UUID::randomUUID
+            )
+        );
     }
 
     private static DataSource dataSource(
