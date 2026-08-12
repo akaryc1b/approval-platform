@@ -242,10 +242,13 @@ e6dc5282a642a910c7e5dbc196e9d82744c5d049
   fix(mysql): bind H5 snapshot verification to request hash
 
 271c2a8c3a1d5b97992726faebf81c09681a39d8
-  test(mysql): pin dual H5 snapshot hash protocols
+  test(mysql): pin H5 dual snapshot hash protocols
 
 d86df27907ec7ad6a471e398a4930061fb53b985
   docs(db-compat): preserve H5 dual snapshot hash protocols
+
+a8e96cb172b8dd36cc575435d0c0cd64d398e1f2
+  test(mysql): cover successful H5 snapshot hash protocol
 ```
 
 The production verifier now receives both `ApprovalMigrationEngineSnapshot` and the authoritative D4 request hash and selects only between the two existing protocols based on `snapshot.readSucceeded()`:
@@ -260,7 +263,7 @@ failed read:
 
 First finalization binds verification to `prepared.requestHash()`. Stored replay binds verification to `evidence.requestHash()`. No new hash prefix or client-controlled protocol selector exists.
 
-A focused non-database test now proves the Application failure hash is accepted and an unbound failure hash is rejected. Permanent contract coverage also pins the successful canonical field order independently across the Flowable producer, persistence verifier and test oracle.
+A focused non-database test now covers positive and negative cases for both the successful Flowable snapshot hash and the Application-generated read-failure snapshot hash. Permanent contract coverage also pins the successful canonical field order independently across the Flowable producer, persistence verifier and test oracle.
 
 The snapshot self-proof finding is therefore **code-complete on staging but not execution-proven**:
 
@@ -298,7 +301,7 @@ The real H5 MySQL integration covers:
 - audit failure rolling back evidence, Attempt transition and Attempt event;
 - UUID / `datetime(6)` / JSON round-trip through existing compatibility primitives.
 
-The focused hash test covers the existing Application-generated read-failure snapshot hash contract independently of MySQL/Testcontainers.
+The focused hash test covers positive and negative cases for the successful Flowable snapshot hash and the existing Application-generated read-failure snapshot hash independently of MySQL/Testcontainers.
 
 The static contract additionally pins:
 
@@ -334,7 +337,7 @@ Current H5 staging delta is statically expected to be:
 
 ```text
 additional selected classes: 6
-additional test methods:     22
+additional test methods:     24
 class-shard delta:           +4 / +1 / +0 / +1
 ```
 
@@ -343,11 +346,11 @@ Therefore the expected Run A persistence matrix is:
 ```text
 selected persistence classes: 143
 Surefire report classes:       142
-Persistence test methods:      576
+Persistence test methods:      578
 class shards:                  34 / 35 / 35 / 39
 ```
 
-The existing Java core test count is expected to remain unchanged at 1469, yielding an expected combined test count of 2045 if compilation and all tests succeed. These numbers are a static acceptance oracle only; they are **not** execution evidence and must be reconstructed from actual Run A artifacts before H5 can be proven.
+The existing Java core test count is expected to remain unchanged at 1469, yielding an expected combined test count of 2047 if compilation and all tests succeed. These numbers are a static acceptance oracle only; they are **not** execution evidence and must be reconstructed from actual Run A artifacts before H5 can be proven.
 
 No staging branch workflow Run has been authorized or used as a compiler/debugger.
 
