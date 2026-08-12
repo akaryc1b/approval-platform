@@ -31,6 +31,11 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         assertTrue(store.contains("AuditHashCanonicalizer.canonicalInstant"));
         assertTrue(store.contains("JdbcMySqlApprovalInstanceCommandFence"));
         assertTrue(store.contains("acquireMigrationLock("));
+        assertTrue(store.contains("requireLineageFence("));
+        assertTrue(store.contains("request_source_definition_id"));
+        assertTrue(store.contains("request_target_definition_id"));
+        assertTrue(store.contains("attempt.sourceEngineDefinitionId().equals("));
+        assertTrue(store.contains("attempt.targetEngineDefinitionId().equals("));
         assertTrue(store.contains(
             "insert into ap_process_migration_exact_verification ("
         ));
