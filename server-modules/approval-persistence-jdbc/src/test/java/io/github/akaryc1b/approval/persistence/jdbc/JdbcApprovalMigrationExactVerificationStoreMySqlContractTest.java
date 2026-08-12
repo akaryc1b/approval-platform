@@ -169,6 +169,9 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
             "server-modules/approval-engine-flowable/src/main/java/io/github/akaryc1b/"
                 + "approval/engine/flowable/FlowableProcessInstanceVerificationAdapter.java"
         ));
+        String fixture = Files.readString(JDBC_TEST_ROOT.resolve(
+            "MySqlH5ExactVerificationHashFixture.java"
+        ));
         String integration = Files.readString(JDBC_TEST_ROOT.resolve(
             "JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest.java"
         ));
@@ -181,6 +184,7 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         ));
         assertTrue(hasher.contains("m5-exact-engine-snapshot-v1"));
         assertTrue(adapter.contains("m5-exact-engine-snapshot-v1"));
+        assertTrue(fixture.contains("m5-exact-engine-snapshot-v1"));
         List<String> canonicalFields = List.of(
             "readSucceeded()",
             "readFailureCode()",
@@ -214,6 +218,12 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
             "private static String hashId(",
             "Flowable snapshot hash producer"
         );
+        String fixtureCanonical = section(
+            fixture,
+            "static String snapshotHash(",
+            "static String verificationEvidenceHash(",
+            "H5 independent snapshot hash test oracle"
+        );
         assertInOrder(
             hasherCanonical,
             canonicalFields,
@@ -223,6 +233,11 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
             adapterCanonical,
             canonicalFields,
             "Flowable snapshot hash producer"
+        );
+        assertInOrder(
+            fixtureCanonical,
+            canonicalFields,
+            "H5 independent snapshot hash test oracle"
         );
         assertTrue(integration.contains(
             "MySqlH5ExactVerificationHashFixture.withCanonicalSnapshotHash(unsigned)"
