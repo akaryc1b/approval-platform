@@ -291,14 +291,12 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
         );
         ApprovalMigrationEngineSnapshot target = targetSnapshot(authority);
         assertThrows(
-            ApprovalMigrationExactVerificationStore.VerificationConflictException.class,
-            () -> verification.finalizeVerification(
-                new ApprovalMigrationExactVerificationStore.FinalizeRequest(
-                    prepared,
-                    target,
-                    ExactClassification.EXACT_SOURCE_RUNTIME,
-                    NOW.plusSeconds(50)
-                )
+            IllegalArgumentException.class,
+            () -> new ApprovalMigrationExactVerificationStore.FinalizeRequest(
+                prepared,
+                target,
+                ExactClassification.EXACT_SOURCE_RUNTIME,
+                NOW.plusSeconds(50)
             )
         );
 
