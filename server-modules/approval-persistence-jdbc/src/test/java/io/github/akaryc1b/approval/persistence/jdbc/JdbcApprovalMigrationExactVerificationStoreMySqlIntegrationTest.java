@@ -36,8 +36,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -97,7 +102,10 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
         assertNull(prepared.replay());
         assertEquals(AttemptStatus.VERIFYING, prepared.attempt().status());
         assertEquals(4, prepared.attempt().revision());
-        assertEquals(authority.engineInstanceId(), prepared.engineCommand().engineInstanceId());
+        assertEquals(
+            authority.engineInstanceId(),
+            prepared.engineCommand().engineInstanceId()
+        );
 
         ApprovalMigrationEngineSnapshot snapshot = targetSnapshot(authority);
         ExactClassification classification = ApprovalMigrationExactVerification.classify(
@@ -117,20 +125,35 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
         );
 
         assertFalse(stored.replayed());
-        assertEquals(ExactClassification.EXACT_TARGET_RUNTIME, stored.evidence().classification());
+        assertEquals(
+            ExactClassification.EXACT_TARGET_RUNTIME,
+            stored.evidence().classification()
+        );
         assertEquals(AttemptStatus.VERIFYING, stored.attempt().status());
         assertEquals(EngineOutcome.ACCEPTED, stored.attempt().engineOutcome());
         assertEquals(4, stored.attempt().revision());
-        assertEquals(1, count("ap_process_migration_exact_verification", authority.tenantId()));
-        assertEquals(4, count("ap_process_migration_attempt_event", authority.tenantId()));
+        assertEquals(
+            1,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
+        assertEquals(
+            4,
+            count("ap_process_migration_attempt_event", authority.tenantId())
+        );
         assertEquals(1, audits.size());
 
         PreparedVerification replay = verification.prepare(request);
         assertNotNull(replay.replay());
         assertTrue(replay.replay().replayed());
         assertEquals(stored.evidence(), replay.replay().evidence());
-        assertEquals(1, count("ap_process_migration_exact_verification", authority.tenantId()));
-        assertEquals(4, count("ap_process_migration_attempt_event", authority.tenantId()));
+        assertEquals(
+            1,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
+        assertEquals(
+            4,
+            count("ap_process_migration_attempt_event", authority.tenantId())
+        );
         assertEquals(1, audits.size());
 
         assertThrows(
@@ -140,7 +163,10 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
                 "request-h5-exact-changed"
             ))
         );
-        assertEquals(1, count("ap_process_migration_exact_verification", authority.tenantId()));
+        assertEquals(
+            1,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
     }
 
     @Test
@@ -171,23 +197,38 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
         );
 
         assertFalse(stored.replayed());
-        assertEquals(ExactClassification.EXACT_SOURCE_RUNTIME, stored.evidence().classification());
+        assertEquals(
+            ExactClassification.EXACT_SOURCE_RUNTIME,
+            stored.evidence().classification()
+        );
         assertEquals(AttemptStatus.RECONCILING, stored.attempt().status());
-        assertEquals(EngineOutcome.VERIFICATION_MISMATCH, stored.attempt().engineOutcome());
-        assertEquals(FailureClass.RECONCILIATION_REQUIRED, stored.attempt().failureClass());
+        assertEquals(
+            EngineOutcome.VERIFICATION_MISMATCH,
+            stored.attempt().engineOutcome()
+        );
+        assertEquals(
+            FailureClass.RECONCILIATION_REQUIRED,
+            stored.attempt().failureClass()
+        );
         assertEquals(5, stored.attempt().revision());
         assertEquals(
             prepared.engineRequestId().toString(),
             stored.attempt().engineRequestReference()
         );
         assertTrue(stored.attempt().errorSummary().contains("EXACT_SOURCE_RUNTIME"));
-        assertEquals(1, count("ap_process_migration_exact_verification", authority.tenantId()));
-        assertEquals(5, count("ap_process_migration_attempt_event", authority.tenantId()));
+        assertEquals(
+            1,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
+        assertEquals(
+            5,
+            count("ap_process_migration_attempt_event", authority.tenantId())
+        );
         assertEquals(1, audits.size());
     }
 
     @Test
-    void staleTenantAttemptAndFenceAuthorityFailClosedBeforeVerificationEvidence() {
+    void staleAuthorityAndClientClassificationFailClosedBeforeEvidence() {
         Authority authority = seedVerifyingAuthority("Tenant-H5-Stale");
         ApprovalMigrationExactVerificationStore verification = verificationStore(event -> {
         });
@@ -231,12 +272,114 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
                 "trace-h5"
             ))
         );
+        assertThrows(
+            ApprovalMigrationExactVerificationStore.VerificationConflictException.class,
+            () -> verification.prepare(new ApprovalMigrationExactVerificationStore.PrepareRequest(
+                authority.tenantId(),
+                authority.attemptId(),
+                "worker-h5-foreign",
+                4,
+                1,
+                NOW.plusSeconds(40),
+                "request-h5-wrong-worker",
+                "trace-h5"
+            ))
+        );
 
-        assertEquals(0, count("ap_process_migration_exact_verification", authority.tenantId()));
+        PreparedVerification prepared = verification.prepare(
+            verificationRequest(authority, "request-h5-derived-classification")
+        );
+        ApprovalMigrationEngineSnapshot target = targetSnapshot(authority);
+        assertThrows(
+            ApprovalMigrationExactVerificationStore.VerificationConflictException.class,
+            () -> verification.finalizeVerification(
+                new ApprovalMigrationExactVerificationStore.FinalizeRequest(
+                    prepared,
+                    target,
+                    ExactClassification.EXACT_SOURCE_RUNTIME,
+                    NOW.plusSeconds(50)
+                )
+            )
+        );
+
+        assertEquals(
+            0,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
         ApprovalMigrationAttempt attempt = attemptPayload(authority);
         assertEquals(AttemptStatus.VERIFYING, attempt.status());
         assertEquals(4, attempt.revision());
-        assertEquals(4, count("ap_process_migration_attempt_event", authority.tenantId()));
+        assertEquals(
+            4,
+            count("ap_process_migration_attempt_event", authority.tenantId())
+        );
+    }
+
+    @Test
+    void concurrentFinalizationAdmitsOnlyOneAuthoritativeEffect() throws Exception {
+        Authority authority = seedVerifyingAuthority("Tenant-H5-Concurrent");
+        List<AuditEvent> audits = Collections.synchronizedList(new ArrayList<>());
+        ApprovalMigrationExactVerificationStore first = verificationStore(audits::add);
+        ApprovalMigrationExactVerificationStore second = verificationStore(audits::add);
+        ApprovalMigrationExactVerificationStore.PrepareRequest request =
+            verificationRequest(authority, "request-h5-concurrent");
+        PreparedVerification leftPrepared = first.prepare(request);
+        PreparedVerification rightPrepared = second.prepare(request);
+        ApprovalMigrationEngineSnapshot snapshot = sourceSnapshot(authority);
+        ExactClassification classification = ApprovalMigrationExactVerification.classify(
+            snapshot,
+            authority.sourceDeployment().engineDefinitionId(),
+            authority.targetDeployment().engineDefinitionId()
+        );
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            Future<Object> left = executor.submit(() -> finalizeConcurrently(
+                first,
+                leftPrepared,
+                snapshot,
+                classification,
+                ready,
+                start
+            ));
+            Future<Object> right = executor.submit(() -> finalizeConcurrently(
+                second,
+                rightPrepared,
+                snapshot,
+                classification,
+                ready,
+                start
+            ));
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+            List<Object> results = List.of(left.get(), right.get());
+            long firstEffects = results.stream()
+                .filter(StoredVerification.class::isInstance)
+                .map(StoredVerification.class::cast)
+                .filter(result -> !result.replayed())
+                .count();
+            long replayOrConflict = results.stream().filter(result ->
+                result instanceof ApprovalMigrationExactVerificationStore
+                    .VerificationConflictException
+                    || result instanceof StoredVerification stored && stored.replayed()
+            ).count();
+            assertEquals(1, firstEffects);
+            assertEquals(1, replayOrConflict);
+        }
+
+        assertEquals(
+            1,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
+        assertEquals(
+            5,
+            count("ap_process_migration_attempt_event", authority.tenantId())
+        );
+        assertEquals(1, audits.size());
+        ApprovalMigrationAttempt attempt = attemptPayload(authority);
+        assertEquals(AttemptStatus.RECONCILING, attempt.status());
+        assertEquals(5, attempt.revision());
     }
 
     @Test
@@ -267,12 +410,44 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
             )
         );
 
-        assertEquals(0, count("ap_process_migration_exact_verification", authority.tenantId()));
+        assertEquals(
+            0,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
         ApprovalMigrationAttempt attempt = attemptPayload(authority);
         assertEquals(AttemptStatus.VERIFYING, attempt.status());
         assertEquals(EngineOutcome.ACCEPTED, attempt.engineOutcome());
         assertEquals(4, attempt.revision());
-        assertEquals(4, count("ap_process_migration_attempt_event", authority.tenantId()));
+        assertEquals(
+            4,
+            count("ap_process_migration_attempt_event", authority.tenantId())
+        );
+    }
+
+    private Object finalizeConcurrently(
+        ApprovalMigrationExactVerificationStore verification,
+        PreparedVerification prepared,
+        ApprovalMigrationEngineSnapshot snapshot,
+        ExactClassification classification,
+        CountDownLatch ready,
+        CountDownLatch start
+    ) throws InterruptedException {
+        ready.countDown();
+        assertTrue(start.await(10, TimeUnit.SECONDS));
+        try {
+            return verification.finalizeVerification(
+                new ApprovalMigrationExactVerificationStore.FinalizeRequest(
+                    prepared,
+                    snapshot,
+                    classification,
+                    NOW.plusSeconds(50)
+                )
+            );
+        } catch (
+            ApprovalMigrationExactVerificationStore.VerificationConflictException exception
+        ) {
+            return exception;
+        }
     }
 
     private ApprovalMigrationExactVerificationStore verificationStore(
