@@ -157,6 +157,59 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
     }
 
     @Test
+    void boundedSnapshotHashIsReDerivedBeforeFirstFinalizeAndReplay()
+        throws IOException {
+        String store = Files.readString(
+            JDBC_ROOT.resolve("JdbcMySqlApprovalMigrationExactVerificationStore.java")
+        );
+        String hasher = Files.readString(
+            JDBC_ROOT.resolve("JdbcApprovalMigrationEngineSnapshotHash.java")
+        );
+        String adapter = Files.readString(ROOT.resolve(
+            "server-modules/approval-engine-flowable/src/main/java/io/github/akaryc1b/"
+                + "approval/engine/flowable/FlowableProcessInstanceVerificationAdapter.java"
+        ));
+        String integration = Files.readString(JDBC_TEST_ROOT.resolve(
+            "JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest.java"
+        ));
+
+        assertTrue(store.contains(
+            "JdbcApprovalMigrationEngineSnapshotHash.requireValid(request.snapshot())"
+        ));
+        assertTrue(store.contains(
+            "JdbcApprovalMigrationEngineSnapshotHash.requireValid(snapshot)"
+        ));
+        assertTrue(hasher.contains("m5-exact-engine-snapshot-v1"));
+        assertTrue(adapter.contains("m5-exact-engine-snapshot-v1"));
+        for (String required : List.of(
+            "readSucceeded()",
+            "runtimeEngineDefinitionId()",
+            "runtimeEngineDeploymentId()",
+            "activeActivityIds().toString()",
+            "executions().toString()",
+            "activeTasks().toString()",
+            "jobs().toString()",
+            "subscriptions().toString()",
+            "allowlistedVariableHashes().toString()",
+            "identityLinkHashes().toString()",
+            "historicEngineDefinitionId()",
+            "historicTasks().toString()",
+            "truncated()"
+        )) {
+            assertTrue(
+                hasher.contains(required),
+                () -> "H5 snapshot hash verifier misses canonical field: " + required
+            );
+        }
+        assertTrue(integration.contains(
+            "MySqlH5ExactVerificationHashFixture.withCanonicalSnapshotHash(unsigned)"
+        ));
+        assertTrue(integration.contains(
+            "coherentlyTamperedStoredSnapshotFailsClosedOnReplay"
+        ));
+    }
+
+    @Test
     void realH2ThroughH5TestsRetainPredecessorDriftGuardsWithoutFakeAttempts()
         throws IOException {
         String h4 = Files.readString(JDBC_TEST_ROOT.resolve(
