@@ -301,7 +301,9 @@ public final class JdbcMySqlApprovalMigrationEngineExecutionStore
                 engineOutcome,
                 null,
                 null,
-                current.engineRequestReference(),
+                engineOutcome == EngineOutcome.REJECTED
+                    ? null
+                    : current.engineRequestReference(),
                 failureClass,
                 errorSummary,
                 request.happenedAt()
