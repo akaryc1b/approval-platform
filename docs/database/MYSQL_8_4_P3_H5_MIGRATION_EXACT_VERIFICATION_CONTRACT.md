@@ -74,6 +74,10 @@ The authoritative prepare request hash is the existing SHA-256 protocol over:
 
 If immutable D4 evidence already exists for the tenant/Attempt, only the exact same request hash may replay. A changed-payload replay is forbidden. Replay returns the immutable evidence and current Attempt without inserting, updating or duplicating business effects.
 
+Before accepting stored MySQL D4 evidence for replay, the persistence layer must self-validate that evidence rather than trusting syntactically valid stored hashes. It must recompute the D4 request hash from the persisted tenant, Attempt, worker, expected Attempt revision, expected Fence revision and request id, and recompute `m5-exact-verification-evidence-v1` from the persisted evidence identity, classification, snapshot hash and request hash. Both recomputed values must match the relational columns and typed payload evidence.
+
+This replay integrity check does **not** require the original command Fence to remain active or the current Attempt to remain at the pre-finalization revision. Exact-target evidence may replay with the current `VERIFYING` Attempt, while mismatch evidence may replay with the current `RECONCILING` Attempt, preserving the existing PostgreSQL D4 replay semantics.
+
 ## Real verification classifications
 
 H5 preserves the existing domain classifications exactly:
@@ -146,6 +150,7 @@ Preparation/finalization must reject without unauthorized writes when any of the
 - Attempt mutable request reference not matching the immutable H4 request id;
 - H4 request/outcome lineage mismatch;
 - H4 immutable request/outcome relational-payload mismatch or hash mismatch;
+- stored D4 request/evidence hash mismatch during replay;
 - conflicting verification replay;
 - non-server-derived classification;
 - relational/payload evidence divergence in governed MySQL rows.
