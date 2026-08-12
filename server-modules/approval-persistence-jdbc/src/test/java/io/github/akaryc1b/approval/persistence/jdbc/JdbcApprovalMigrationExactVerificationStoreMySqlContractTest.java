@@ -69,6 +69,10 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         assertTrue(store.contains(
             "exact verification relational and payload evidence diverged"
         ));
+        assertTrue(store.contains("revision,engine_outcome,lease_owner,lease_until"));
+        assertTrue(store.contains(
+            "attempt.engineOutcome().name().equals(row.getString(\"engine_outcome\"))"
+        ));
         assertFalse(lower.contains("act_"));
         assertFalse(lower.contains("jdbcapprovalmigrationreconciliationexecutionstore"));
 
