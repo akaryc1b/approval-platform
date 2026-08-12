@@ -31,7 +31,7 @@ import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationAttempt
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationAttemptProvisioningStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationBindingRevisionReader;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStoreFactory;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOrchestrationStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationReconciliationExecutionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStoreFactory;
@@ -180,7 +180,7 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationExactVerificationStore(
+        return JdbcApprovalMigrationExactVerificationStoreFactory.create(
             dataSource,
             objectMapper,
             transactionManager,
