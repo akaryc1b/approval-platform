@@ -314,6 +314,86 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
     }
 
     @Test
+    void corruptedH4ImmutableEvidenceFailsClosedBeforeH5Evidence() {
+        ApprovalMigrationExactVerificationStore verification = verificationStore(event -> {
+        });
+
+        Authority requestTamper = seedVerifyingAuthority("Tenant-H5-Request-Tamper");
+        assertEquals(1, jdbc.update(
+            """
+            update ap_process_migration_engine_request
+            set payload_json=json_set(
+                payload_json,
+                '$.targetEngineDeploymentId',
+                ?
+            )
+            where tenant_id=? and attempt_id=?
+            """,
+            "tampered-engine-deployment",
+            requestTamper.tenantId(),
+            requestTamper.attemptId().toString()
+        ));
+        assertThrows(
+            IllegalStateException.class,
+            () -> verification.prepare(verificationRequest(
+                requestTamper,
+                "request-h5-request-tamper"
+            ))
+        );
+        assertEquals(
+            0,
+            count(
+                "ap_process_migration_exact_verification",
+                requestTamper.tenantId()
+            )
+        );
+        assertEquals(AttemptStatus.VERIFYING, attemptPayload(requestTamper).status());
+        assertEquals(
+            1,
+            count("ap_process_migration_engine_request", requestTamper.tenantId())
+        );
+        assertEquals(
+            1,
+            count("ap_process_migration_engine_outcome", requestTamper.tenantId())
+        );
+
+        Authority outcomeTamper = seedVerifyingAuthority("Tenant-H5-Outcome-Tamper");
+        assertEquals(1, jdbc.update(
+            """
+            update ap_process_migration_engine_outcome
+            set outcome_hash=?
+            where tenant_id=? and attempt_id=?
+            """,
+            "c".repeat(64),
+            outcomeTamper.tenantId(),
+            outcomeTamper.attemptId().toString()
+        ));
+        assertThrows(
+            IllegalStateException.class,
+            () -> verification.prepare(verificationRequest(
+                outcomeTamper,
+                "request-h5-outcome-tamper"
+            ))
+        );
+        assertEquals(
+            0,
+            count(
+                "ap_process_migration_exact_verification",
+                outcomeTamper.tenantId()
+            )
+        );
+        assertEquals(AttemptStatus.VERIFYING, attemptPayload(outcomeTamper).status());
+        assertEquals(
+            1,
+            count("ap_process_migration_engine_request", outcomeTamper.tenantId())
+        );
+        assertEquals(
+            1,
+            count("ap_process_migration_engine_outcome", outcomeTamper.tenantId())
+        );
+    }
+
+    @Test
     void concurrentFinalizationAdmitsOnlyOneAuthoritativeEffect() throws Exception {
         Authority authority = seedVerifyingAuthority("Tenant-H5-Concurrent");
         List<AuditEvent> audits = Collections.synchronizedList(new ArrayList<>());
