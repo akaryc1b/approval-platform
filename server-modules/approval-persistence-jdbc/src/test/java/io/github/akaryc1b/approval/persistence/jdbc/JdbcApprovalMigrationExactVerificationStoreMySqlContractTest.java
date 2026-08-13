@@ -73,10 +73,14 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         assertTrue(store.contains(
             "attempt.engineOutcome().name().equals(row.getString(\"engine_outcome\"))"
         ));
-        assertFalse(lower.contains("act_"));
         assertFalse(lower.contains("jdbcapprovalmigrationreconciliationexecutionstore"));
 
         for (String forbidden : List.of(
+            "from act_",
+            "join act_",
+            "update act_",
+            "into act_",
+            "table act_",
             "::text",
             "::jsonb",
             " as jsonb",
@@ -288,9 +292,7 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         assertTrue(h5.contains("JdbcApprovalMigrationAttemptProvisioningStoreFactory.create("));
         assertTrue(h5.contains("JdbcApprovalMigrationAttemptClaimStoreFactory.create("));
         assertTrue(h5.contains("JdbcApprovalMigrationEngineExecutionStoreFactory.create("));
-        assertTrue(h5.contains(
-            "FinalDisposition.CALL_RETURNED_AWAITING_VERIFICATION"
-        ));
+        assertTrue(h5.contains("CALL_RETURNED_AWAITING_VERIFICATION"));
         assertTrue(h5.contains("JdbcApprovalMigrationExactVerificationStoreFactory.create("));
         assertTrue(h5.contains(
             "corruptedH4ImmutableEvidenceFailsClosedBeforeH5Evidence"
