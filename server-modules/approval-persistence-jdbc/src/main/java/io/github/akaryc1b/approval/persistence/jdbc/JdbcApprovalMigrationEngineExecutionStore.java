@@ -265,12 +265,15 @@ public final class JdbcApprovalMigrationEngineExecutionStore
             }
             default -> throw new IllegalStateException("unsupported engine finalization disposition");
         }
+        String nextRequestReference = engineOutcome == EngineOutcome.REJECTED
+            ? null
+            : current.engineRequestReference();
         ApprovalMigrationAttempt next = current.transitioned(new ApprovalMigrationAttemptTransition(
             nextStatus,
             engineOutcome,
             null,
             null,
-            current.engineRequestReference(),
+            nextRequestReference,
             failureClass,
             errorSummary,
             request.happenedAt()

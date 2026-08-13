@@ -1,0 +1,422 @@
+package io.github.akaryc1b.approval.persistence.jdbc;
+
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Locale;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
+
+    private static final Path ROOT = repositoryRoot();
+    private static final Path JDBC_ROOT = ROOT.resolve(
+        "server-modules/approval-persistence-jdbc/src/main/java/"
+            + "io/github/akaryc1b/approval/persistence/jdbc"
+    );
+    private static final Path JDBC_TEST_ROOT = ROOT.resolve(
+        "server-modules/approval-persistence-jdbc/src/test/java/"
+            + "io/github/akaryc1b/approval/persistence/jdbc"
+    );
+
+    @Test
+    void mysqlVerificationUsesPortableValuesStrictReplayAndExactAttemptCas()
+        throws IOException {
+        String store = Files.readString(
+            JDBC_ROOT.resolve("JdbcMySqlApprovalMigrationExactVerificationStore.java")
+        );
+        String lower = store.toLowerCase(Locale.ROOT);
+
+        assertTrue(store.contains("JdbcDatabaseValueAdapter"));
+        assertTrue(store.contains("AuditHashCanonicalizer.canonicalInstant"));
+        assertTrue(store.contains("JdbcMySqlApprovalInstanceCommandFence"));
+        assertTrue(store.contains("acquireMigrationLock("));
+        assertTrue(store.contains("requireLineageFence("));
+        assertTrue(store.contains("request_source_definition_id"));
+        assertTrue(store.contains("request_target_definition_id"));
+        assertTrue(store.contains("attempt.sourceEngineDefinitionId().equals("));
+        assertTrue(store.contains("attempt.targetEngineDefinitionId().equals("));
+        assertTrue(store.contains(
+            "!lineage.engineRequestId().equals(prepared.engineRequestId())"
+        ));
+        assertTrue(store.contains(
+            "!lineage.engineOutcomeId().equals(prepared.engineOutcomeId())"
+        ));
+        assertTrue(store.contains(
+            "insert into ap_process_migration_exact_verification ("
+        ));
+        assertTrue(store.contains(
+            "insert into ap_process_migration_attempt_event ("
+        ));
+        assertTrue(store.contains("revision=:expectedRevision"));
+        assertTrue(store.contains("status=:expectedStatus"));
+        assertTrue(store.contains("m5-exact-verification-request-v1"));
+        assertTrue(store.contains("m5-exact-verification-evidence-v1"));
+        assertTrue(store.contains("requireExactReplay("));
+        assertTrue(store.contains("ApprovalMigrationExactVerification.classify("));
+        assertTrue(store.contains("CALL_RETURNED_AWAITING_VERIFICATION"));
+        assertTrue(store.contains("EXACT_TARGET_RUNTIME"));
+        assertTrue(store.contains("AttemptStatus.RECONCILING"));
+        assertTrue(store.contains("EngineOutcome.VERIFICATION_MISMATCH"));
+        assertTrue(store.contains("FailureClass.RECONCILIATION_REQUIRED"));
+        assertTrue(store.contains(
+            "migration attempt relational and payload evidence diverged"
+        ));
+        assertTrue(store.contains(
+            "exact verification relational and payload evidence diverged"
+        ));
+        assertTrue(store.contains("revision,engine_outcome,lease_owner,lease_until"));
+        assertTrue(store.contains(
+            "attempt.engineOutcome().name().equals(row.getString(\"engine_outcome\"))"
+        ));
+        assertFalse(lower.contains("jdbcapprovalmigrationreconciliationexecutionstore"));
+
+        for (String forbidden : List.of(
+            "from act_",
+            "join act_",
+            "update act_",
+            "into act_",
+            "table act_",
+            "::text",
+            "::jsonb",
+            " as jsonb",
+            "cast(:payload as jsonb)",
+            "for update of ",
+            "pg_advisory",
+            "foreign_key_checks",
+            "insert ignore",
+            "replace into",
+            "on duplicate key update",
+            "on conflict (",
+            "on conflict do ",
+            "on conflict on constraint "
+        )) {
+            assertFalse(
+                lower.contains(forbidden),
+                () -> "MySQL H5 verification store contains forbidden SQL: " + forbidden
+            );
+        }
+    }
+
+    @Test
+    void immutableH4RequestAndOutcomeAreVerifiedAsCompleteEvidence()
+        throws IOException {
+        String store = Files.readString(
+            JDBC_ROOT.resolve("JdbcMySqlApprovalMigrationExactVerificationStore.java")
+        );
+
+        for (String required : List.of(
+            "request_approval_instance_id",
+            "request_attempt_revision",
+            "request_engine_instance_id",
+            "request_source_binding_evidence_hash",
+            "request_target_release_version",
+            "request_target_package_hash",
+            "request_target_engine_deployment_id",
+            "request_activity_mapping_json",
+            "request_hash",
+            "request_evidence_hash",
+            "request_requested_at",
+            "request_request_id",
+            "request_trace_id",
+            "engine_call_may_have_occurred",
+            "stable_code",
+            "bounded_summary",
+            "pre_dispatch_snapshot_hash",
+            "outcome_hash",
+            "outcome_recorded_at",
+            "outcome_request_id",
+            "outcome_trace_id",
+            "m5-engine-request-v1",
+            "m5-engine-request-evidence-v1",
+            "m5-engine-outcome-v1",
+            "requireExactRequestPayload(",
+            "requireExactOutcomePayload("
+        )) {
+            assertTrue(
+                store.contains(required),
+                () -> "H5 does not verify complete H4 evidence field: " + required
+            );
+        }
+    }
+
+    @Test
+    void storedD4ReplayRecomputesAuthorityAndEvidenceHashes() throws IOException {
+        String store = Files.readString(
+            JDBC_ROOT.resolve("JdbcMySqlApprovalMigrationExactVerificationStore.java")
+        );
+
+        assertTrue(store.contains("expectedStoredRequestHash("));
+        assertTrue(store.contains("expectedStoredEvidenceHash("));
+        assertTrue(store.contains(
+            "!evidence.requestHash().equals(expectedStoredRequestHash)"
+        ));
+        assertTrue(store.contains(
+            "!evidence.verificationEvidenceHash().equals(expectedStoredEvidenceHash)"
+        ));
+    }
+
+    @Test
+    void boundedSnapshotHashIsReDerivedBeforeFirstFinalizeAndReplay()
+        throws IOException {
+        String store = Files.readString(
+            JDBC_ROOT.resolve("JdbcMySqlApprovalMigrationExactVerificationStore.java")
+        );
+        String hasher = Files.readString(
+            JDBC_ROOT.resolve("JdbcApprovalMigrationEngineSnapshotHash.java")
+        );
+        String adapter = Files.readString(ROOT.resolve(
+            "server-modules/approval-engine-flowable/src/main/java/io/github/akaryc1b/"
+                + "approval/engine/flowable/FlowableProcessInstanceVerificationAdapter.java"
+        ));
+        String application = Files.readString(ROOT.resolve(
+            "server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/"
+                + "application/ApprovalMigrationExactVerificationService.java"
+        ));
+        String fixture = Files.readString(JDBC_TEST_ROOT.resolve(
+            "MySqlH5ExactVerificationHashFixture.java"
+        ));
+        String hashTest = Files.readString(JDBC_TEST_ROOT.resolve(
+            "JdbcApprovalMigrationEngineSnapshotHashTest.java"
+        ));
+        String integration = Files.readString(JDBC_TEST_ROOT.resolve(
+            "JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest.java"
+        ));
+
+        assertTrue(store.contains(
+            "JdbcApprovalMigrationEngineSnapshotHash.requireValid(\n"
+                + "            request.snapshot(),\n"
+                + "            prepared.requestHash()"
+        ));
+        assertTrue(store.contains(
+            "JdbcApprovalMigrationEngineSnapshotHash.requireValid(\n"
+                + "            snapshot,\n"
+                + "            evidence.requestHash()"
+        ));
+        assertTrue(hasher.contains("m5-exact-engine-snapshot-v1"));
+        assertTrue(hasher.contains("m5-verification-read-failure-v1"));
+        assertTrue(adapter.contains("m5-exact-engine-snapshot-v1"));
+        assertTrue(application.contains("m5-verification-read-failure-v1"));
+        assertTrue(fixture.contains("m5-exact-engine-snapshot-v1"));
+        assertTrue(fixture.contains("m5-verification-read-failure-v1"));
+        assertTrue(hashTest.contains("acceptsExistingApplicationReadFailureHashProtocol"));
+        assertTrue(integration.contains(
+            "readFailurePersistsEvidenceAndMovesAttemptToReconciliationOnce"
+        ));
+        List<String> canonicalFields = List.of(
+            "readSucceeded()",
+            "readFailureCode()",
+            "runtimePresent()",
+            "runtimeEngineDefinitionId()",
+            "runtimeEngineDeploymentId()",
+            "suspended()",
+            "activeActivityIds()",
+            "executions()",
+            "activeTasks()",
+            "jobs()",
+            "subscriptions()",
+            "allowlistedVariableHashes()",
+            "identityLinkHashes()",
+            "historyPresent()",
+            "historicEngineDefinitionId()",
+            "historicEndTime()",
+            "boundedDeleteReason()",
+            "historicTasks()",
+            "truncated()"
+        );
+        String hasherCanonical = section(
+            hasher,
+            "static String expectedSuccessfulSnapshot(",
+            "private static String expectedReadFailure(",
+            "H5 persistence snapshot hash verifier"
+        );
+        String adapterCanonical = section(
+            adapter,
+            "private static ApprovalMigrationEngineSnapshot withHash(",
+            "private static String hashId(",
+            "Flowable snapshot hash producer"
+        );
+        String fixtureCanonical = section(
+            fixture,
+            "static String snapshotHash(",
+            "static String readFailureHash(",
+            "H5 independent snapshot hash test oracle"
+        );
+        assertInOrder(
+            hasherCanonical,
+            canonicalFields,
+            "H5 persistence snapshot hash verifier"
+        );
+        assertInOrder(
+            adapterCanonical,
+            canonicalFields,
+            "Flowable snapshot hash producer"
+        );
+        assertInOrder(
+            fixtureCanonical,
+            canonicalFields,
+            "H5 independent snapshot hash test oracle"
+        );
+        assertTrue(integration.contains(
+            "MySqlH5ExactVerificationHashFixture.withCanonicalSnapshotHash(unsigned)"
+        ));
+        assertTrue(integration.contains(
+            "coherentlyTamperedStoredSnapshotFailsClosedOnReplay"
+        ));
+    }
+
+    @Test
+    void realH2ThroughH5TestsRetainPredecessorDriftGuardsWithoutFakeAttempts()
+        throws IOException {
+        String h4 = Files.readString(JDBC_TEST_ROOT.resolve(
+            "JdbcApprovalMigrationEngineExecutionStoreMySqlIntegrationTest.java"
+        ));
+        String h5 = Files.readString(JDBC_TEST_ROOT.resolve(
+            "JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest.java"
+        ));
+        String h5Lower = h5.toLowerCase(Locale.ROOT);
+
+        assertTrue(h4.contains(
+            "staleTenantAttemptFenceRuntimeBindingAndTargetAuthorityFailClosed"
+        ));
+        assertTrue(h4.contains(
+            "update ap_process_runtime_binding set binding_evidence_hash=?"
+        ));
+        assertTrue(h4.contains(
+            "update ap_process_migration_plan set target_engine_definition_id=?"
+        ));
+        assertTrue(h5.contains("JdbcApprovalMigrationAttemptProvisioningStoreFactory.create("));
+        assertTrue(h5.contains("JdbcApprovalMigrationAttemptClaimStoreFactory.create("));
+        assertTrue(h5.contains("JdbcApprovalMigrationEngineExecutionStoreFactory.create("));
+        assertTrue(h5.contains("CALL_RETURNED_AWAITING_VERIFICATION"));
+        assertTrue(h5.contains("JdbcApprovalMigrationExactVerificationStoreFactory.create("));
+        assertTrue(h5.contains(
+            "corruptedH4ImmutableEvidenceFailsClosedBeforeH5Evidence"
+        ));
+        assertFalse(h5Lower.contains("insert into ap_process_migration_attempt"));
+        assertFalse(h5Lower.contains("session_replication_role"));
+        assertFalse(h5.contains("Thread.sleep"));
+    }
+
+    @Test
+    void trustedFactoryOwnsServerVerificationVendorSelection() throws IOException {
+        String configuration = Files.readString(ROOT.resolve(
+            "apps/server/src/main/java/io/github/akaryc1b/approval/config/"
+                + "ApprovalMigrationExecutionConfiguration.java"
+        ));
+        String factory = Files.readString(
+            JDBC_ROOT.resolve("JdbcApprovalMigrationExactVerificationStoreFactory.java")
+        );
+
+        assertTrue(configuration.contains(
+            "JdbcApprovalMigrationExactVerificationStoreFactory.create("
+        ));
+        assertFalse(configuration.contains(
+            "new JdbcApprovalMigrationExactVerificationStore("
+        ));
+        assertTrue(factory.contains(
+            "case POSTGRESQL -> new JdbcApprovalMigrationExactVerificationStore("
+        ));
+        assertTrue(factory.contains(
+            "case MYSQL -> new JdbcMySqlApprovalMigrationExactVerificationStore("
+        ));
+        assertTrue(factory.contains("ApprovalDatabaseVendorResolver"));
+    }
+
+    @Test
+    void applicationVerificationBoundaryAndH5ScopeRemainVendorNeutral()
+        throws IOException {
+        for (String relative : List.of(
+            "server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/"
+                + "application/port/ApprovalMigrationExactVerificationStore.java",
+            "server-modules/approval-application/src/main/java/io/github/akaryc1b/approval/"
+                + "application/ApprovalMigrationExactVerificationService.java"
+        )) {
+            String source = Files.readString(ROOT.resolve(relative))
+                .toLowerCase(Locale.ROOT);
+            assertFalse(source.contains("mysql"));
+            assertFalse(source.contains("postgresql"));
+        }
+
+        String contract = Files.readString(ROOT.resolve(
+            "docs/database/MYSQL_8_4_P3_H5_MIGRATION_EXACT_VERIFICATION_CONTRACT.md"
+        ));
+        String upper = contract.toUpperCase(Locale.ROOT);
+        for (String required : List.of(
+            "MYSQL_P3_H5_MIGRATION_EXACT_VERIFICATION_STAGED",
+            "APPROVALMIGRATIONEXACTVERIFICATIONSTORE",
+            "EXACT_TARGET_RUNTIME",
+            "TARGET_HISTORY_TERMINAL",
+            "MIXED_SOURCE_TARGET_EVIDENCE",
+            "VERIFYING",
+            "RECONCILING",
+            "VERIFICATION_MISMATCH",
+            "MYSQL_8_4_PRODUCTION_SUPPORTED"
+        )) {
+            assertTrue(
+                upper.contains(required),
+                () -> "P3-H5 contract missing required marker: " + required
+            );
+        }
+        assertFalse(hasStandaloneStatusLine(
+            contract,
+            "MYSQL_8_4_PRODUCTION_SUPPORTED"
+        ));
+    }
+
+    private static String section(
+        String source,
+        String startToken,
+        String endToken,
+        String name
+    ) {
+        int start = source.indexOf(startToken);
+        int end = source.indexOf(endToken, start + 1);
+        assertTrue(start >= 0, () -> name + " start token is missing");
+        assertTrue(end > start, () -> name + " end token is missing");
+        return source.substring(start, end);
+    }
+
+    private static void assertInOrder(
+        String source,
+        List<String> tokens,
+        String name
+    ) {
+        int cursor = -1;
+        for (String token : tokens) {
+            int next = source.indexOf(token, cursor + 1);
+            assertTrue(
+                next > cursor,
+                () -> name + " canonical field order diverged at " + token
+            );
+            cursor = next;
+        }
+    }
+
+    private static boolean hasStandaloneStatusLine(String text, String marker) {
+        return text.lines().map(String::trim).anyMatch(marker::equals);
+    }
+
+    private static Path repositoryRoot() {
+        String configured = System.getProperty("maven.multiModuleProjectDirectory");
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        Path current = Path.of(System.getProperty("user.dir"))
+            .toAbsolutePath()
+            .normalize();
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("pom.xml"))
+                && Files.isDirectory(current.resolve("apps/server"))
+                && Files.isDirectory(current.resolve("server-modules"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("repository root could not be resolved");
+    }
+}
