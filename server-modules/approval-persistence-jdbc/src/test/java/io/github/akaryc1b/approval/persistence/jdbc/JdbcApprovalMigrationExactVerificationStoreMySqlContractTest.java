@@ -200,6 +200,9 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlContractTest {
         assertTrue(fixture.contains("m5-exact-engine-snapshot-v1"));
         assertTrue(fixture.contains("m5-verification-read-failure-v1"));
         assertTrue(hashTest.contains("acceptsExistingApplicationReadFailureHashProtocol"));
+        assertTrue(integration.contains(
+            "readFailurePersistsEvidenceAndMovesAttemptToReconciliationOnce"
+        ));
         List<String> canonicalFields = List.of(
             "readSucceeded()",
             "readFailureCode()",
