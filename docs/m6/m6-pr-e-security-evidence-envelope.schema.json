@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/akaryc1b/approval-platform/schemas/m6-pr-e-security-evidence-envelope.schema.json",
+  "title": "M6-PR-E Security Evidence Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "evidenceId",
+    "repository",
+    "commitSha",
+    "sourceRef",
+    "event",
+    "generatedAt",
+    "sourceClass",
+    "tool",
+    "toolVersion",
+    "scope",
+    "availability",
+    "completeness",
+    "redaction",
+    "retention",
+    "payloadDigest",
+    "result"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "m6-pr-e-security-evidence-v1"
+    },
+    "evidenceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "repository": {
+      "const": "akaryc1b/approval-platform"
+    },
+    "commitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sourceRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "event": {
+      "enum": ["pull_request", "push", "manual_read", "local_reproduction"]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceClass": {
+      "enum": [
+        "GITHUB_REPOSITORY_POSTURE",
+        "GITHUB_PRIVATE_VULNERABILITY_REPORTING",
+        "GITHUB_REPOSITORY_ADVISORIES",
+        "GITHUB_CODE_SCANNING_ALERTS",
+        "GITHUB_CODE_SCANNING_ANALYSES",
+        "GITHUB_CODE_SCANNING_INSTANCES",
+        "GITHUB_SECRET_SCANNING_ALERTS",
+        "GITHUB_SECRET_SCANNING_LOCATIONS",
+        "GITHUB_SECRET_SCANNING_SCAN_HISTORY",
+        "GITHUB_DEPENDABOT_ALERTS",
+        "GITHUB_DEPENDENCY_GRAPH_SBOM",
+        "LOCAL_MAVEN_DEPENDENCY_GRAPH",
+        "LOCAL_MAVEN_PLUGIN_GRAPH",
+        "LOCAL_PNPM_DEPENDENCY_GRAPH",
+        "WORKFLOW_ACTION_INVENTORY",
+        "CODE_SCANNER_SARIF",
+        "SECRET_SCANNER_REDACTED_REPORT",
+        "APPLICABILITY_REACHABILITY_DECISION",
+        "SECURITY_EXCEPTION_REGISTER"
+      ]
+    },
+    "tool": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "toolVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "apiVersion": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "permissionsObserved": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "uniqueItems": true
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included", "excluded", "exclusionReasons"],
+      "properties": {
+        "included": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "excluded": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "exclusionReasons": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "availability": {
+      "enum": [
+        "AVAILABLE_COMPLETE",
+        "AVAILABLE_EMPTY",
+        "AVAILABLE_PARTIAL",
+        "DISABLED",
+        "INELIGIBLE",
+        "PERMISSION_DENIED",
+        "AUTHENTICATION_FAILED",
+        "RATE_LIMITED",
+        "TRANSIENT_FAILURE",
+        "EVIDENCE_UNAVAILABLE"
+      ]
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["complete", "itemCount", "pageCount", "terminalPageObserved"],
+      "properties": {
+        "complete": {"type": "boolean"},
+        "itemCount": {"type": "integer", "minimum": 0},
+        "pageCount": {"type": "integer", "minimum": 0},
+        "terminalPageObserved": {"type": "boolean"},
+        "selectedCount": {"type": "integer", "minimum": 0},
+        "uniqueCount": {"type": "integer", "minimum": 0},
+        "duplicateCount": {"type": "integer", "minimum": 0},
+        "missingCount": {"type": "integer", "minimum": 0}
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateSecretsExcluded", "customerDataExcluded", "rawCredentialsExcluded"],
+      "properties": {
+        "candidateSecretsExcluded": {"const": true},
+        "customerDataExcluded": {"const": true},
+        "rawCredentialsExcluded": {"const": true},
+        "method": {"type": "string", "minLength": 1, "maxLength": 240}
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactClass", "retained"],
+      "properties": {
+        "artifactClass": {"enum": ["Maven", "Vben", "Mobile", "Hygiene", "NONE_PENDING"]},
+        "retained": {"type": "boolean"},
+        "artifactId": {"type": ["integer", "null"], "minimum": 1},
+        "bytes": {"type": ["integer", "null"], "minimum": 0},
+        "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "expiresAt": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "payloadDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "result": {
+      "type": ["object", "array"]
+    },
+    "findingDispositions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "APPLICABLE",
+          "NOT_APPLICABLE",
+          "UNREACHABLE",
+          "MITIGATED",
+          "ACCEPTED_WITH_EXPIRY",
+          "UNRESOLVED",
+          "EVIDENCE_UNAVAILABLE"
+        ]
+      },
+      "uniqueItems": true
+    }
+  }
+}

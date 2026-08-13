@@ -25,6 +25,11 @@ import './m6-f-p7-fault-boundary.test.mjs';
 import './m6-g-g0-g1-audit-boundary.test.mjs';
 import './m6-g-end-to-end-production-readiness-boundary.test.mjs';
 import './m6-g-overall-formal-acceptance-boundary.test.mjs';
+import './m6-pr-e-e2-dependency-sbom-boundary.test.mjs';
+import './m6-pr-e-e3-applicability-boundary.test.mjs';
+import './m6-pr-e-e4-scanner-boundary.test.mjs';
+import './m6-pr-e-e3-i4-workflow-supply-chain-boundary.test.mjs';
+import './m6-pr-e-e3-r2b-workflow-supply-chain-remediation-boundary.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(
