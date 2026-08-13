@@ -161,7 +161,7 @@ jobs:
           cat m6-ai-transport-review-boundary.log
       - name: Upload repository governance logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: approval-hygiene-${{ github.run_id }}
           path: |
@@ -203,7 +203,7 @@ jobs:
           tail -n 100 maven-core.log
       - name: Upload Maven core evidence part
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: approval-maven-part-core-${{ github.run_id }}
           path: maven-core.log
@@ -275,7 +275,7 @@ jobs:
           tail -n 100 "$log_file"
       - name: Upload Persistence JDBC evidence part
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: approval-maven-part-persistence-${{ matrix.shard }}-${{ github.run_id }}
           path: persistence-shard-${{ matrix.shard }}
@@ -348,7 +348,7 @@ jobs:
           fi
       - name: Upload Maven summary evidence part
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: approval-maven-part-summary-${{ github.run_id }}
           path: backend-final
@@ -403,7 +403,7 @@ jobs:
         run: pnpm web:build >web-build.log 2>&1 || { tail -n 220 web-build.log; exit 1; }
       - name: Upload Vben verification logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: approval-vben-${{ github.run_id }}
           path: |
@@ -450,7 +450,7 @@ jobs:
         run: pnpm mobile:build:weixin >mobile-weixin.log 2>&1 || { tail -n 220 mobile-weixin.log; exit 1; }
       - name: Upload mobile verification logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: approval-mobile-${{ github.run_id }}
           path: |
