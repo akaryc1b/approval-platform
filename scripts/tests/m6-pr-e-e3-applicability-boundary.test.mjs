@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const contract = path.join(root, 'docs/m6/M6_PR_E_E3_VULNERABILITY_APPLICABILITY_AND_REACHABILITY.md');
 const baselineFile = path.join(root, 'docs/m6/m6-pr-e-e3-finding-source-baseline.json');
+const SHA40 = /^[0-9a-f]{40}$/;
 const dispositions = ['APPLICABLE','NOT_APPLICABLE','UNREACHABLE','MITIGATED','ACCEPTED_WITH_EXPIRY','UNRESOLVED','EVIDENCE_UNAVAILABLE'];
 const highRisk = new Set(['TENANT_ISOLATION','AUTHORIZATION','SECRET','RCE','INJECTION','DESERIALIZATION','SSRF','WORKFLOW_SUPPLY_CHAIN','EVIDENCE_INTEGRITY']);
 const text = (file) => { assert.equal(existsSync(file), true); return readFileSync(file, 'utf8'); };
@@ -34,6 +35,33 @@ function validateFinding(f) {
 
 const fixture = (overrides={}) => ({findingId:'FIX-1',sourceClass:'FIXTURE',upstreamSeverity:'CVSS raw',severityBand:'MEDIUM',severityBandEvidence:'source mapping',componentRef:'pkg:maven/x/y@1?type=jar',dependencyPath:['pkg:maven/root/app@1?type=jar','pkg:maven/x/y@1?type=jar'],scope:'runtime/server',deploymentScopeEvidence:'packaged server fixture',reachability:{packaged:{value:true,evidence:'package list'},loaded:{value:true,evidence:'class load'},invoked:{value:false,evidence:'bounded call graph'},externallyReachable:{value:false,evidence:'endpoint graph'}},impacts:[],mitigations:[],owner:'Java Dependency Owner',reviewer:'Application Security Reviewer',decisionTime:'2026-08-11T00:00:00Z',disposition:'UNREACHABLE',...overrides});
 
+function exactWorkflowHead(event, explicitHead, githubSha, githubActions) {
+  if (githubActions !== 'true') {
+    const localHead = explicitHead || '2222222222222222222222222222222222222222';
+    assert.match(localHead, SHA40);
+    return localHead;
+  }
+  const candidates = [
+    event?.pull_request?.head?.sha,
+    event?.after,
+    event?.head_commit?.id,
+    explicitHead,
+    githubSha
+  ];
+  const head = candidates.find((candidate) => SHA40.test(String(candidate ?? '')));
+  assert.ok(head, 'E3 exact workflow head unavailable');
+  return head;
+}
+
+test('E3 exact-head resolver supports pull-request and push events and fails closed',()=>{
+  const pr='a'.repeat(40),push='b'.repeat(40),fallback='c'.repeat(40);
+  assert.equal(exactWorkflowHead({pull_request:{head:{sha:pr}},after:push},null,fallback,'true'),pr);
+  assert.equal(exactWorkflowHead({after:push},null,fallback,'true'),push);
+  assert.equal(exactWorkflowHead({head_commit:{id:push}},null,fallback,'true'),push);
+  assert.equal(exactWorkflowHead({},null,fallback,'true'),fallback);
+  assert.throws(()=>exactWorkflowHead({},null,null,'true'),/exact workflow head unavailable/);
+});
+
 test('E3 contract remains fail-closed and does not claim E3 or E4 acceptance',()=>{
   const body=text(contract); for(const marker of ['NO_FINDING_INVENTORY != ZERO_FINDINGS','NO_CALLSITE_MATCH != UNREACHABLE','INCOMPLETE_FINDING_INTAKE_BLOCKS_E3_CLOSURE','M6_PR_E_E3_CLOSURE_NOT_ACCEPTED','PRB_16_REMAINS_OPEN','PRB_17_REMAINS_OPEN','NO_E4_SCANNER_IMPLEMENTATION_IN_E3','NO_READY','NO_MERGE','AI_IS_NOT_AN_OPERATOR']) assert.ok(body.includes(marker));
   assert.doesNotMatch(body,/M6_PR_E_E3_ACCEPTED\b|M6_PR_E_E4_ACCEPTED/);
@@ -56,9 +84,13 @@ test('E3 release gating preserves raw severity and blocks high-risk unresolved f
 });
 
 test('E3 retains an exact-head machine baseline without manufacturing findings',()=>{
-  const b=JSON.parse(text(baselineFile)); let head=process.env.M6_PR_E_E3_HEAD_SHA;
-  if(process.env.GITHUB_ACTIONS==='true'){const e=JSON.parse(text(process.env.GITHUB_EVENT_PATH));head=e.pull_request.head.sha;}
-  head=head||'2222222222222222222222222222222222222222'; assert.match(head,/^[0-9a-f]{40}$/);
+  const b=JSON.parse(text(baselineFile));
+  const event=process.env.GITHUB_ACTIONS==='true'
+    ? JSON.parse(text(process.env.GITHUB_EVENT_PATH))
+    : null;
+  const head=exactWorkflowHead(
+    event,process.env.M6_PR_E_E3_HEAD_SHA,process.env.GITHUB_SHA,process.env.GITHUB_ACTIONS
+  );
   const p={schemaVersion:'M6_PR_E_E3_APPLICABILITY_V1',repository:b.repository,commitSha:head,sourceHead:b.sourceHead,inheritedE2Digest:b.inheritedE2Digest,findingInventory:{complete:false,itemCount:null,knownFindingCount:0},decisions:[],releaseBlocked:true,reasonCodes:['FINDING_INVENTORY_INCOMPLETE']};
   const digest=createHash('sha256').update(JSON.stringify(p)).digest('hex'); assert.match(digest,/^[0-9a-f]{64}$/);
   if(process.env.GITHUB_ACTIONS==='true'){console.log('M6_PR_E_E3_CANONICAL_SHA256='+digest);console.log('M6_PR_E_E3_APPLICABILITY_BEGIN');console.log(JSON.stringify({...p,contentSha256:digest}));console.log('M6_PR_E_E3_APPLICABILITY_END');}
