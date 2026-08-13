@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "M6_PR_E_E3_I2_REVIEWED_FINDINGS_V1",
+  "repository": "akaryc1b/approval-platform",
+  "reviewedFindings": [
+    {
+      "findingId": "62035cd7f4e3f9b84870d80ef358bf05071fdbcb32652b6db96073e3d0f6f3bb",
+      "sourceClass": "E4_SEMGREP",
+      "sourceBlobSha": "b57586084a14101613231fc5ba4a999cbeac1b08",
+      "sourcePath": "scripts/security/m6-pr-e-e2-generate-sbom.mjs",
+      "disposition": "NOT_APPLICABLE",
+      "severityBand": "UNKNOWN",
+      "evidenceCode": "ATTACKER_CONTROLLED_REGEXP_PATTERN_ABSENT",
+      "evidence": "The only dynamic RegExp constructor is local to boms(); its tag selector argument is invoked only with the fixed literals type, scope, groupId, artifactId and version. No request, repository file content, package metadata value or other attacker-controlled string becomes the RegExp pattern.",
+      "exploitPreconditions": [
+        "ATTACKER_CONTROLLED_REGEXP_PATTERN"
+      ],
+      "exploitPreconditionsSatisfied": false,
+      "mitigations": [],
+      "exception": null
+    },
+    {
+      "findingId": "d90e0567afb2502b6f6d8b34a30fbc4ec211b835a95e101200548b94f9425bd7",
+      "sourceClass": "E4_SEMGREP",
+      "sourceBlobSha": "8a5fd79cff6b712049c15450f21bc5a1c7338143",
+      "sourcePath": "server-modules/approval-ai-openai/src/main/java/io/github/akaryc1b/approval/ai/openai/OpenAiResponsesJdkSecureNetwork.java",
+      "disposition": "NOT_APPLICABLE",
+      "severityBand": "UNKNOWN",
+      "evidenceCode": "CLEARTEXT_APPLICATION_DATA_ABSENT",
+      "evidence": "The plain Socket performs TCP connect only. The selected address is checked for drift, then the socket is wrapped by SSLSocket with HTTPS endpoint identification, SNI, TLSv1.2/TLSv1.3 only and startHandshake(). JdkSecureChannel retains the SSLSocket, and request/API-key bytes are written only through that TLS socket after the handshake.",
+      "exploitPreconditions": [
+        "SENSITIVE_APPLICATION_DATA_WRITTEN_TO_PLAIN_SOCKET"
+      ],
+      "exploitPreconditionsSatisfied": false,
+      "mitigations": [],
+      "exception": null
+    },
+    {
+      "findingId": "e6b83b7719d2bef5092127dd47f2a34c17d9c92ce3b9581b4381dd6b25432445",
+      "sourceClass": "E4_SEMGREP",
+      "sourceBlobSha": "fa3c224ac31df08cb3e2f130f7e4bef1fc750659",
+      "sourcePath": "apps/web/overlay/apps/web-ele/src/views/approval/designer/designer-conflict.ts",
+      "disposition": "UNRESOLVED",
+      "severityBand": "UNKNOWN",
+      "evidenceCode": "DYNAMIC_OBJECT_KEY_WRITE_WITHOUT_RESERVED_TOKEN_REJECTION",
+      "evidence": "diffDesignerValues derives JSON-pointer tokens from Object.keys(), while applyChange writes target[token] and target[key] without explicitly rejecting __proto__, constructor or prototype. The server ApprovalDefinition uses fixed records, which reduces normal API provenance risk, but that does not prove every client-local merge input is runtime-closed. Positive callsite/provenance evidence or an explicit reserved-key guard is still required.",
+      "exploitPreconditions": [
+        "ATTACKER_OR_UNTRUSTED_INPUT_CAN_CONTROL_PATCH_OBJECT_KEYS"
+      ],
+      "exploitPreconditionsSatisfied": null,
+      "mitigations": [
+        "SERVER_APPROVAL_DEFINITION_FIXED_RECORD_MODEL"
+      ],
+      "exception": null
+    }
+  ],
+  "summary": {
+    "reviewedCount": 3,
+    "resolvedCount": 2,
+    "remainingUnresolvedInBatch": 1,
+    "automaticExceptions": 0,
+    "severityDowngrades": 0,
+    "suppressions": 0,
+    "e3ClosureAuthorized": false
+  },
+  "reviewBasisHead": "234ed3d41b049ca9475e58e29e1204587a992693",
+  "reviewBasisIntakeCanonicalSha256": "9f0f5b9ecd4604492a1b250cae3b8d21bcd658efd4d9646b46aea1250436fbec"
+}

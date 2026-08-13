@@ -658,7 +658,10 @@ public final class JdbcMySqlApprovalMigrationExactVerificationStore
         String name
     ) {
         JsonNode stored = readTree(payload, name + " payload");
-        JsonNode exact = objectMapper.valueToTree(expected);
+        JsonNode exact = readTree(
+            json.write(expected),
+            name + " expected payload"
+        );
         if (!stored.equals(exact)) {
             throw new IllegalStateException(
                 name + " relational and payload evidence diverged"

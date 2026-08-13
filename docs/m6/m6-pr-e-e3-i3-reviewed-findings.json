@@ -1,0 +1,243 @@
+{
+  "schemaVersion": "M6_PR_E_E3_I3_REVIEWED_FINDINGS_V1",
+  "repository": "akaryc1b/approval-platform",
+  "reviewBasisHead": "448e0fe2808a3d2f02d8ee0deb16480a4ed46494",
+  "reviewBasisE2GraphDigest": "0b6868f057a72fb8c7a4c9d0529f4469381f0024f403873c6d92121e4b34ee0a",
+  "reviewedAt": "2026-08-11",
+  "sourceBlobs": {
+    "apps/server/pom.xml": "89026f9c844b27a11a65c478a3d7abb57c7c053f",
+    "apps/server/src/main/resources/application.yml": "b8fdf7350881239c2c1c1091ac8e373bf285c2ef",
+    "apps/server/src/test/java/io/github/akaryc1b/approval/integration/PostgreSqlContainerTest.java": "cc944cd84410f894fb9fcf363613115c2b797509"
+  },
+  "reviewedFindings": [
+    {
+      "findingId": "2f4564d12f468262a89f22ffdba329df0c09144a51fc8101046dabbe846de46e",
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-8v8j-3hxp-93wr",
+      "aliases": [
+        "CVE-2026-40976"
+      ],
+      "componentRef": "pkg:maven/org.springframework.boot/spring-boot@4.0.2?type=jar",
+      "fixedVersions": [
+        "4.0.6"
+      ],
+      "disposition": "NOT_APPLICABLE",
+      "severityBand": "UNKNOWN",
+      "dependencyPath": [
+        "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.2?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.0.2?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot@4.0.2?type=jar"
+      ],
+      "dependencyPathComplete": true,
+      "dependencyPathEvidence": "Accepted E2 graph digest binds approval-server to spring-boot 4.0.2; the same graph also binds approval-server -> spring-boot-starter-actuator 4.0.2 -> spring-boot-health 4.0.2.",
+      "supportingPaths": [
+        [
+          "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+          "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.2?type=jar",
+          "pkg:maven/org.springframework.boot/spring-boot-health@4.0.2?type=jar"
+        ],
+        [
+          "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+          "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.2?type=jar",
+          "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.0.2?type=jar"
+        ]
+      ],
+      "deploymentScopeEvidence": "The executable server directly includes spring-boot-starter-actuator and the exact E2 graph proves spring-boot-health is present. Spring's advisory requires spring-boot-health to be absent; that prerequisite is positively false for this build graph.",
+      "reachability": {
+        "packaged": {
+          "value": true,
+          "evidence": "spring-boot 4.0.2 and spring-boot-health 4.0.2 are compile-scope components in the exact executable-server E2 graph."
+        },
+        "loaded": {
+          "value": null,
+          "evidence": "Loading is not required to decide this finding because the advisory's required classpath precondition is already disproven by exact component presence."
+        },
+        "invoked": {
+          "value": null,
+          "evidence": "Invocation is not required to decide this finding because the advisory's required classpath precondition is already disproven."
+        },
+        "externallyReachable": {
+          "value": null,
+          "evidence": "External request reachability is immaterial after the mandatory spring-boot-health-absent condition is disproven."
+        }
+      },
+      "exploitPreconditions": [
+        "SPRING_BOOT_HEALTH_ABSENT"
+      ],
+      "exploitPreconditionsSatisfied": false,
+      "evidenceCode": "SPRING_BOOT_HEALTH_PRESENT_IN_EXACT_E2_GRAPH",
+      "evidence": "Spring's official CVE-2026-40976 advisory states the application is not vulnerable if any mandatory condition is false. Exact E2 graph evidence proves spring-boot-health 4.0.2 is present.",
+      "upstreamAuthority": "Spring Security Advisory CVE-2026-40976, published 2026-04-23",
+      "mitigations": [],
+      "exception": null
+    },
+    {
+      "findingId": "0b81ad89215f3cf30a7b2988bce970dbbc1600150a8682dc052051ab8297cabc",
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-98qh-xjc8-98pq",
+      "aliases": [
+        "BIT-postgresql-jdbc-driver-2026-42198",
+        "CVE-2026-42198"
+      ],
+      "componentRef": "pkg:maven/org.postgresql/postgresql@42.7.9?type=jar",
+      "fixedVersions": [
+        "42.7.11"
+      ],
+      "disposition": "APPLICABLE",
+      "severityBand": "UNKNOWN",
+      "dependencyPath": [
+        "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/org.postgresql/postgresql@42.7.9?type=jar"
+      ],
+      "dependencyPathComplete": true,
+      "dependencyPathEvidence": "Accepted E2 graph digest binds org.postgresql:postgresql 42.7.9 as a direct runtime dependency of approval-server.",
+      "supportingPaths": [],
+      "deploymentScopeEvidence": "apps/server declares pgjdbc with runtime scope, the default datasource URL is jdbc:postgresql, and PostgreSqlContainerTest in the approval-server module opens a real DriverManager connection and executes select 1 against PostgreSQL 16.",
+      "reachability": {
+        "packaged": {
+          "value": true,
+          "evidence": "org.postgresql:postgresql 42.7.9 is a direct runtime dependency of the executable approval-server."
+        },
+        "loaded": {
+          "value": true,
+          "evidence": "approval-server PostgreSqlContainerTest uses DriverManager.getConnection against a real PostgreSQL 16 Testcontainer, requiring the pgjdbc driver to be loaded."
+        },
+        "invoked": {
+          "value": true,
+          "evidence": "The same exact-head server test executes a SQL query over the live JDBC connection."
+        },
+        "externallyReachable": {
+          "value": true,
+          "evidence": "SCRAM authentication parameters are supplied by the PostgreSQL network peer during connection establishment; pgjdbc's upstream advisory states a malicious or compromised PostgreSQL server can provide an excessive PBKDF2 iteration count."
+        }
+      },
+      "exploitPreconditions": [
+        "MALICIOUS_OR_COMPROMISED_POSTGRESQL_SERVER_CONTROLS_SCRAM_ITERATION_COUNT"
+      ],
+      "exploitPreconditionsSatisfied": true,
+      "evidenceCode": "PGJDBC_SCRAM_ITERATION_LIMIT_ABSENT_ON_INVOKED_RUNTIME_PATH",
+      "evidence": "pgjdbc 42.7.9 is on the exercised runtime path. pgjdbc 42.7.11 introduced scramMaxIterations to bound server-supplied PBKDF2 work specifically for CVE-2026-42198; the current 42.7.9 build predates that fix.",
+      "upstreamAuthority": "pgjdbc 42.7.11 security release / CHANGELOG, 2026-04-28",
+      "mitigations": [],
+      "exception": null
+    },
+    {
+      "findingId": "37afc66853c8e331ce9bf87f2dea502fbfea6a7e87636e17299591f2df0376f9",
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-j92g-9f8w-j867",
+      "aliases": [
+        "BIT-postgresql-jdbc-driver-2026-54291",
+        "CVE-2026-54291"
+      ],
+      "componentRef": "pkg:maven/org.postgresql/postgresql@42.7.9?type=jar",
+      "fixedVersions": [
+        "42.7.12"
+      ],
+      "disposition": "UNRESOLVED",
+      "severityBand": "UNKNOWN",
+      "dependencyPath": [
+        "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/org.postgresql/postgresql@42.7.9?type=jar"
+      ],
+      "dependencyPathComplete": true,
+      "dependencyPathEvidence": "Accepted E2 graph digest binds org.postgresql:postgresql 42.7.9 as a direct runtime dependency of approval-server.",
+      "supportingPaths": [],
+      "deploymentScopeEvidence": "The repository default APPROVAL_DB_URL fallback does not set channelBinding=require, and no repository occurrence of channelBinding was found. However APPROVAL_DB_URL is externally configurable, so supported deployment configuration is not proven to prohibit channelBinding=require.",
+      "reachability": {
+        "packaged": {
+          "value": true,
+          "evidence": "org.postgresql:postgresql 42.7.9 is a direct runtime dependency of the executable approval-server."
+        },
+        "loaded": {
+          "value": true,
+          "evidence": "approval-server PostgreSqlContainerTest loads pgjdbc through DriverManager against PostgreSQL 16."
+        },
+        "invoked": {
+          "value": true,
+          "evidence": "The exact-head server test executes a query over a pgjdbc connection."
+        },
+        "externallyReachable": {
+          "value": null,
+          "evidence": "The vulnerable downgrade requires channelBinding=require plus a TLS interception/certificate condition. Repository defaults do not enable require, but external APPROVAL_DB_URL overrides are allowed and not closed by repository evidence."
+        }
+      },
+      "exploitPreconditions": [
+        "CHANNEL_BINDING_REQUIRE_ENABLED",
+        "TLS_INTERCEPTION_WITH_UNSUPPORTED_TLS_SERVER_ENDPOINT_CERT_SIGNATURE"
+      ],
+      "exploitPreconditionsSatisfied": null,
+      "evidenceCode": "CHANNEL_BINDING_REQUIRE_DEPLOYMENT_CONFIGURATION_UNRESOLVED",
+      "evidence": "pgjdbc states only connections with channelBinding=require are affected; default prefer/allow/disable policies are not. The repository default URL does not request require, but deployment overrides remain possible.",
+      "upstreamAuthority": "pgjdbc 42.7.12 security release / CHANGELOG, 2026-06-29",
+      "mitigations": [],
+      "exception": null
+    },
+    {
+      "findingId": "36365712da812532fa5a0e3ed4c7008a3bfdade1587219a7d38e489380118021",
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-r29c-68gh-xp6x",
+      "aliases": [
+        "BIT-tomcat-2026-41293",
+        "CVE-2026-41293"
+      ],
+      "componentRef": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.15?type=jar",
+      "fixedVersions": [
+        "10.1.55",
+        "11.0.22",
+        "9.0.118"
+      ],
+      "disposition": "UNRESOLVED",
+      "severityBand": "UNKNOWN",
+      "dependencyPath": [
+        "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.2?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat@4.0.2?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.2?type=jar",
+        "pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.15?type=jar"
+      ],
+      "dependencyPathComplete": true,
+      "dependencyPathEvidence": "Accepted E2 graph digest binds embedded Tomcat 11.0.15 to the executable server through Spring Boot starter-web.",
+      "supportingPaths": [],
+      "deploymentScopeEvidence": "Apache Tomcat states CVE-2026-41293 affects HTTP/2 header validation. Spring Boot documents server.http2.enabled default false and the repository application.yml does not enable it; repository search found no WebServerFactoryCustomizer or server.http2 setting. External Spring configuration can still enable HTTP/2, so the supported deployment envelope is not closed.",
+      "reachability": {
+        "packaged": {
+          "value": true,
+          "evidence": "tomcat-embed-core 11.0.15 is a compile-scope dependency on the exact executable-server E2 path."
+        },
+        "loaded": {
+          "value": null,
+          "evidence": "Embedded Tomcat is the starter-web server dependency, but E3-I3 retains runtime loading as unproven rather than inferring it solely from packaging."
+        },
+        "invoked": {
+          "value": null,
+          "evidence": "HTTP/2 request processing is not proven active for every supported deployment."
+        },
+        "externallyReachable": {
+          "value": null,
+          "evidence": "HTTP/2 is false by Spring Boot default and absent from repository configuration, but external configuration can enable it."
+        }
+      },
+      "exploitPreconditions": [
+        "HTTP2_ENABLED_AND_RECEIVING_UNTRUSTED_REQUEST_HEADERS"
+      ],
+      "exploitPreconditionsSatisfied": null,
+      "evidenceCode": "HTTP2_DEFAULT_OFF_BUT_DEPLOYMENT_OVERRIDE_NOT_CLOSED",
+      "evidence": "The vulnerable code path is specific to HTTP/2. Repository defaults do not enable HTTP/2, but that default is not a proof that all supported deployments keep it disabled.",
+      "upstreamAuthority": "Apache Tomcat 11 security advisory CVE-2026-41293, public 2026-05-12",
+      "mitigations": [],
+      "exception": null
+    }
+  ],
+  "summary": {
+    "reviewedCount": 4,
+    "notApplicableCount": 1,
+    "applicableCount": 1,
+    "unresolvedCount": 2,
+    "automaticExceptions": 0,
+    "severityDowngrades": 0,
+    "suppressions": 0,
+    "dependencyUpgrades": 0,
+    "e3ClosureAuthorized": false
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "M6_PR_E_E3_R2A_DEPENDABOT_COOLDOWN_REMEDIATION_PLAN_V1",
+  "repository": "akaryc1b/approval-platform",
+  "priorAcceptedHead": "bab2816ad0b8a43eaa022214170a79ae8af1473f",
+  "priorI4FindingSetSha256": "d12463e28555e88fbed0e9ae73a83232296fb1879e2d7479a91f4e89255bc2fe",
+  "sourceDependabotBlobSha": "6ad5b685c038fff8f2fded0ae9de0152dc0f6a34",
+  "targetDependabotBlobSha": "38ba75af261c084b5c8984c52fb1bf23439fd1a9",
+  "cooldownDefaultDays": 7,
+  "expectedCurrentZizmorFindingCount": 58,
+  "expectedCurrentRuleCounts": {
+    "zizmor/unpinned-uses": 43,
+    "zizmor/artipacked": 14,
+    "zizmor/dependabot-cooldown": 0,
+    "zizmor/template-injection": 1
+  },
+  "remediatedFindings": [
+    {
+      "sourceClass": "E4_ZIZMOR",
+      "findingId": "1e9940bc97e33a1f7faa8fa6814722d159073e13e0296552015b39dc6bde20a1",
+      "ruleId": "zizmor/dependabot-cooldown",
+      "path": ".github/dependabot.yml",
+      "startLine": 3,
+      "upstreamSeverity": "warning",
+      "priorDisposition": "APPLICABLE"
+    },
+    {
+      "sourceClass": "E4_ZIZMOR",
+      "findingId": "258191e63ec12878aef831bdfe78ad6583e233a4458de00af0f65ff2bc32fd3f",
+      "ruleId": "zizmor/dependabot-cooldown",
+      "path": ".github/dependabot.yml",
+      "startLine": 8,
+      "upstreamSeverity": "warning",
+      "priorDisposition": "APPLICABLE"
+    },
+    {
+      "sourceClass": "E4_ZIZMOR",
+      "findingId": "2f0492bb72ba231b0d0e632c7a8396d4591f57be05cc8c1ba292e7c3c2ac4dfa",
+      "ruleId": "zizmor/dependabot-cooldown",
+      "path": ".github/dependabot.yml",
+      "startLine": 13,
+      "upstreamSeverity": "warning",
+      "priorDisposition": "APPLICABLE"
+    }
+  ],
+  "invariants": {
+    "dependabotUpdaterCount": 3,
+    "weeklyCadencePreserved": true,
+    "openPullRequestLimitPreserved": true,
+    "workflowChanged": false,
+    "actionPinsChanged": false,
+    "checkoutCredentialBehaviorChanged": false,
+    "templateInjectionBoundaryChanged": false,
+    "scannerSuppressionAdded": false,
+    "severityDowngradeAdded": false,
+    "exceptionAdded": false,
+    "readyAuthorized": false,
+    "mergeAuthorized": false
+  }
+}

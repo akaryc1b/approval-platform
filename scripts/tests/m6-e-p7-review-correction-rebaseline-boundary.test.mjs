@@ -59,7 +59,10 @@ test('permanent workflow shards Persistence JDBC and still emits four final arti
     assert.match(workflow, new RegExp(`\\n\\s+- ${shard}\\n`));
   }
   assert.match(workflow, /name: Java 21 \/ Maven \/ PostgreSQL/);
-  assert.match(workflow, /actions\/upload-artifact\/merge@v4/);
+  assert.match(
+    workflow,
+    /actions\/upload-artifact\/merge@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4/,
+  );
   assert.match(workflow, /name: approval-maven-\$\{\{ github\.run_id \}\}/);
   assert.match(workflow, /name: approval-vben-\$\{\{ github\.run_id \}\}/);
   assert.match(workflow, /name: approval-mobile-\$\{\{ github\.run_id \}\}/);
