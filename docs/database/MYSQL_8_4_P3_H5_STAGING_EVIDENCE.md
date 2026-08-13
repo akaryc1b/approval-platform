@@ -249,6 +249,9 @@ d86df27907ec7ad6a471e398a4930061fb53b985
 
 a8e96cb172b8dd36cc575435d0c0cd64d398e1f2
   test(mysql): cover successful H5 snapshot hash protocol
+
+1e11822e574665554e36d80675c61910885b568d
+  test(mysql): cover H5 read-failure reconciliation persistence
 ```
 
 The production verifier now receives both `ApprovalMigrationEngineSnapshot` and the authoritative D4 request hash and selects only between the two existing protocols based on `snapshot.readSucceeded()`:
@@ -263,13 +266,16 @@ failed read:
 
 First finalization binds verification to `prepared.requestHash()`. Stored replay binds verification to `evidence.requestHash()`. No new hash prefix or client-controlled protocol selector exists.
 
-A focused non-database test now covers positive and negative cases for both the successful Flowable snapshot hash and the Application-generated read-failure snapshot hash. Permanent contract coverage also pins the successful canonical field order independently across the Flowable producer, persistence verifier and test oracle.
+A focused non-database test covers positive and negative cases for both the successful Flowable snapshot hash and the Application-generated read-failure snapshot hash. Permanent contract coverage also pins the successful canonical field order independently across the Flowable producer, persistence verifier and test oracle.
+
+The real MySQL integration now adds the missing persistence-level read-failure proof. It starts from genuine H2 -> H3 -> H4 `VERIFYING` authority, derives the failure hash from the prepared D4 request hash, persists `READ_FAILURE_RECONCILIATION_REQUIRED`, transitions the Attempt to `RECONCILING`, and then strictly replays the same evidence without a second evidence row, Attempt event or audit effect.
 
 The snapshot self-proof finding is therefore **code-complete on staging but not execution-proven**:
 
 ```text
 SNAPSHOT_HASH_SELF_PROOF_STAGED_CLOSED
 READ_FAILURE_PROTOCOL_COMPATIBILITY_STAGED_CLOSED
+READ_FAILURE_PERSISTENCE_COVERAGE_STAGED_CLOSED
 NOT_YET_EXECUTION_PROVEN
 ```
 
@@ -293,6 +299,7 @@ The real H5 MySQL integration covers:
 - true H2 -> H3 -> H4 -> H5 lineage;
 - exact-target classification and strict replay;
 - source-runtime mismatch into `RECONCILING`;
+- request-bound read-failure evidence into `READ_FAILURE_RECONCILIATION_REQUIRED`, `RECONCILING` and strict replay;
 - wrong tenant, stale Attempt revision, stale Fence and wrong worker rejection;
 - client classification rejection through the server-derived Application contract;
 - corrupted H4 request payload and outcome hash rejection before D4 evidence;
@@ -337,7 +344,7 @@ Current H5 staging delta is statically expected to be:
 
 ```text
 additional selected classes: 6
-additional test methods:     24
+additional test methods:     25
 class-shard delta:           +4 / +1 / +0 / +1
 ```
 
@@ -346,11 +353,11 @@ Therefore the expected Run A persistence matrix is:
 ```text
 selected persistence classes: 143
 Surefire report classes:       142
-Persistence test methods:      578
+Persistence test methods:      579
 class shards:                  34 / 35 / 35 / 39
 ```
 
-The existing Java core test count is expected to remain unchanged at 1469, yielding an expected combined test count of 2047 if compilation and all tests succeed. These numbers are a static acceptance oracle only; they are **not** execution evidence and must be reconstructed from actual Run A artifacts before H5 can be proven.
+The existing Java core test count is expected to remain unchanged at 1469, yielding an expected combined test count of 2048 if compilation and all tests succeed. These numbers are a static acceptance oracle only; they are **not** execution evidence and must be reconstructed from actual Run A artifacts before H5 can be proven.
 
 No staging branch workflow Run has been authorized or used as a compiler/debugger.
 
