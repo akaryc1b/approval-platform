@@ -8,6 +8,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecu
 import io.github.akaryc1b.approval.domain.audit.AuditEvent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalCommandOperation;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttempt;
+import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationAttemptEvent;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationCommandFence;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.AttemptStatus;
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationProtocol.EngineOutcome;
@@ -107,7 +108,7 @@ class JdbcApprovalMigrationEngineExecutionRejectedFinalizationIntegrationTest
 
         assertEquals(1, count("ap_process_migration_engine_request"));
         assertEquals(1, count("ap_process_migration_engine_outcome"));
-        assertEquals(1, count("ap_process_migration_attempt_event"));
+        assertEquals(4, count("ap_process_migration_attempt_event"));
         assertEquals(1, audits.size());
         assertEquals("FAILED_TERMINAL", scalar(
             "select status from ap_process_migration_attempt where tenant_id=? and attempt_id=?"
@@ -122,6 +123,60 @@ class JdbcApprovalMigrationEngineExecutionRejectedFinalizationIntegrationTest
             TENANT,
             ATTEMPT_ID
         ));
+    }
+
+    private ApprovalMigrationAttempt pendingAttempt() {
+        return new ApprovalMigrationAttempt(
+            ATTEMPT_ID,
+            TENANT,
+            INTENT_ID,
+            INSTANCE_ID,
+            ENGINE_INSTANCE,
+            1,
+            null,
+            hash('7'),
+            SOURCE_DEFINITION,
+            TARGET_DEFINITION,
+            AttemptStatus.PENDING,
+            EngineOutcome.NOT_REQUESTED,
+            1,
+            null,
+            null,
+            null,
+            FailureClass.NONE,
+            null,
+            NOW.minusSeconds(30),
+            NOW.minusSeconds(30),
+            "request-attempt-d3-rejected",
+            "trace-d3-rejected"
+        );
+    }
+
+    private ApprovalMigrationAttempt claimedAttempt() {
+        return new ApprovalMigrationAttempt(
+            ATTEMPT_ID,
+            TENANT,
+            INTENT_ID,
+            INSTANCE_ID,
+            ENGINE_INSTANCE,
+            1,
+            null,
+            hash('7'),
+            SOURCE_DEFINITION,
+            TARGET_DEFINITION,
+            AttemptStatus.CLAIMED,
+            EngineOutcome.NOT_REQUESTED,
+            2,
+            WORKER,
+            NOW.plusSeconds(300),
+            null,
+            FailureClass.NONE,
+            null,
+            NOW.minusSeconds(30),
+            NOW.minusSeconds(20),
+            "request-attempt-d3-rejected",
+            "trace-d3-rejected"
+        );
     }
 
     private ApprovalMigrationAttempt requestedAttempt() {
@@ -144,7 +199,7 @@ class JdbcApprovalMigrationEngineExecutionRejectedFinalizationIntegrationTest
             REQUEST_ID.toString(),
             FailureClass.NONE,
             null,
-            NOW.minusSeconds(10),
+            NOW.minusSeconds(30),
             NOW,
             "request-attempt-d3-rejected",
             "trace-d3-rejected"
@@ -172,6 +227,56 @@ class JdbcApprovalMigrationEngineExecutionRejectedFinalizationIntegrationTest
         );
     }
 
+    private List<ApprovalMigrationAttemptEvent> requestedAttemptEvents() {
+        ApprovalMigrationAttempt pending = pendingAttempt();
+        ApprovalMigrationAttempt claimed = claimedAttempt();
+        ApprovalMigrationAttempt requested = requestedAttempt();
+        return List.of(
+            new ApprovalMigrationAttemptEvent(
+                UUID.fromString("42100000-0000-0000-0000-000000000010"),
+                TENANT,
+                ATTEMPT_ID,
+                1,
+                null,
+                AttemptStatus.PENDING,
+                EngineOutcome.NOT_REQUESTED,
+                FailureClass.NONE,
+                null,
+                pending.updatedAt(),
+                "request-event-d3-pending",
+                "trace-d3-rejected"
+            ).withDurableEvidence(pending, null),
+            new ApprovalMigrationAttemptEvent(
+                UUID.fromString("42100000-0000-0000-0000-000000000011"),
+                TENANT,
+                ATTEMPT_ID,
+                2,
+                AttemptStatus.PENDING,
+                AttemptStatus.CLAIMED,
+                EngineOutcome.NOT_REQUESTED,
+                FailureClass.NONE,
+                null,
+                claimed.updatedAt(),
+                "request-event-d3-claimed",
+                "trace-d3-rejected"
+            ).withDurableEvidence(claimed, WORKER),
+            new ApprovalMigrationAttemptEvent(
+                UUID.fromString("42100000-0000-0000-0000-000000000012"),
+                TENANT,
+                ATTEMPT_ID,
+                3,
+                AttemptStatus.CLAIMED,
+                AttemptStatus.ENGINE_REQUESTED,
+                EngineOutcome.NOT_REQUESTED,
+                FailureClass.NONE,
+                null,
+                requested.updatedAt(),
+                "request-event-d3-requested",
+                "trace-d3-rejected"
+            ).withDurableEvidence(requested, WORKER)
+        );
+    }
+
     private void seedRequestedLineage(
         ObjectMapper mapper,
         ApprovalMigrationAttempt requested,
@@ -179,6 +284,16 @@ class JdbcApprovalMigrationEngineExecutionRejectedFinalizationIntegrationTest
     ) throws Exception {
         String attemptPayload = mapper.writeValueAsString(requested).replace("'", "''");
         String fencePayload = mapper.writeValueAsString(fence).replace("'", "''");
+        List<ApprovalMigrationAttemptEvent> events = requestedAttemptEvents();
+        List<String> eventPayloads = events.stream()
+            .map(event -> {
+                try {
+                    return mapper.writeValueAsString(event).replace("'", "''");
+                } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+                    throw new IllegalStateException("attempt event fixture is not serializable", exception);
+                }
+            })
+            .toList();
         jdbc.execute((ConnectionCallback<Void>) connection -> {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("set session_replication_role = replica");
@@ -221,6 +336,35 @@ class JdbcApprovalMigrationEngineExecutionRejectedFinalizationIntegrationTest
                     offset(requested.createdAt()),
                     offset(requested.updatedAt())
                 ));
+                for (int index = 0; index < events.size(); index++) {
+                    ApprovalMigrationAttemptEvent event = events.get(index);
+                    statement.executeUpdate("""
+                        insert into ap_process_migration_attempt_event (
+                          tenant_id,event_id,attempt_id,revision,from_status,to_status,engine_outcome,
+                          lease_actor,lease_owner,lease_until,engine_request_reference,
+                          failure_class,error_summary,payload_json,happened_at
+                        ) values ('%s','%s','%s',%d,%s,'%s','%s',%s,%s,%s,%s,'%s',%s,
+                          '%s'::jsonb,timestamptz '%s')
+                        """.formatted(
+                        event.tenantId(),
+                        event.eventId(),
+                        event.attemptId(),
+                        event.revision(),
+                        sqlText(event.fromStatus() == null ? null : event.fromStatus().name()),
+                        event.toStatus().name(),
+                        event.engineOutcome().name(),
+                        sqlText(event.leaseActor()),
+                        sqlText(event.leaseOwner()),
+                        event.leaseUntil() == null
+                            ? "null"
+                            : "timestamptz '" + offset(event.leaseUntil()) + "'",
+                        sqlText(event.engineRequestReference()),
+                        event.failureClass().name(),
+                        sqlText(event.errorSummary()),
+                        eventPayloads.get(index),
+                        offset(event.happenedAt())
+                    ));
+                }
                 statement.executeUpdate("""
                     insert into ap_approval_instance_command_fence (
                       tenant_id,fence_id,approval_instance_id,attempt_id,operation,status,revision,
@@ -280,6 +424,10 @@ class JdbcApprovalMigrationEngineExecutionRejectedFinalizationIntegrationTest
 
     private String scalar(String sql) {
         return jdbc.queryForObject(sql, String.class, TENANT, ATTEMPT_ID);
+    }
+
+    private static String sqlText(String value) {
+        return value == null ? "null" : "'" + value.replace("'", "''") + "'";
     }
 
     private static OffsetDateTime offset(java.time.Instant value) {
