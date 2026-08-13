@@ -9,6 +9,7 @@ import { reconcileScannerFindingIdentities } from '../security/m6-pr-e-e3-verify
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const contractPath = path.join(root, 'docs/m6/m6-pr-e-e3-r2b-scanner-identity-reconciliation.json');
+const finalAcceptancePath = path.join(root, 'docs/m6/M6_PR_E_E3_R2B_FINAL_ACCEPTANCE.md');
 const verifierPath = path.join(root, 'scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs');
 const acceptedVerifierPath = path.join(root, 'scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs');
 const acceptedTestPath = path.join(root, 'scripts/tests/m6-pr-e-e3-r2b-workflow-supply-chain-remediation-boundary-accepted.test.mjs');
@@ -107,11 +108,43 @@ test('R2B preserves accepted boundary coverage while removing tainted dynamic Re
     'reviewed OSV upstream identity drift',
     'reviewed OSV alias drift',
     'reviewed OSV package drift',
-   'reviewed OSV scope drift',
+    'reviewed OSV scope drift',
     'OSV_DATABASE_DRIFT_RECONCILED_BY_EXACT_IDENTITY_SET',
-   'TWO_NEW_OSV_FINDINGS_RETAINED_UNRESOLVED',
+    'TWO_NEW_OSV_FINDINGS_RETAINED_UNRESOLVED',
   ]) assert.ok(verifier.includes(marker), marker);
   assert.doesNotMatch(verifier, /suppressionAdded:\s*true|exceptionAdded:\s*true|severityDowngradeAdded:\s*true|findingDeletionClaimed:\s*true/);
+});
+
+test('R2B Final Acceptance binds the exact successful implementation evidence without claiming closure', () => {
+  assert.equal(existsSync(finalAcceptancePath), true);
+  const acceptance = readFileSync(finalAcceptancePath, 'utf8');
+  for (const marker of [
+    'c07295e38d6bb9c3717ad727f873ab7112a6e752',
+    '31688917633',
+    '#1439',
+    '9 / 9 success',
+    'M6_PR_E_E3_R2B_REMEDIATION_CANONICAL_SHA256',
+    '6406e786410fd7e8ad48fa5a79adfcb238fc981219df65cc9a23a85e5c75f399',
+    'OSV:       117',
+    'Gitleaks:   27',
+    'zizmor:      0',
+    'Semgrep:     3',
+    'UNRESOLVED:     144',
+    'M6_PR_E_R2B_INFRASTRUCTURE_ACCEPTED',
+    'M6_PR_E_SECURITY_CLOSURE_NOT_ACCEPTED',
+    'PRB_16_REMAINS_OPEN',
+    'PRB_17_REMAINS_OPEN',
+    'ISSUE_97_REMAINS_OPEN',
+    'AI_IS_NOT_AN_OPERATOR',
+  ]) assert.ok(acceptance.includes(marker), marker);
+  for (const digest of [
+    '9fd8729ab18bf289135788f8ef72b556314f8a1c0856661eb967ed0da10c168c',
+    '895bf7f152bc2566ece9531302b2bb5865bed859f6d1c052d4688dac3b7a4816',
+    '6aa74ae77be16a9655913d22d57cccf5aa0b537e55e4dbe9ad62653e858781b6',
+    '1f10bac696633d8e0c942b929c9608850eb986c79ab7377677ced0674694332a',
+  ]) assert.ok(acceptance.includes(digest), digest);
+  assert.doesNotMatch(acceptance, /PRB_16_(PASS|CLOSED)|PRB_17_(PASS|CLOSED)|ISSUE_97_(CLOSED|COMPLETED)|M6_PRODUCTION_READINESS_PASSED/);
+  assert.doesNotMatch(acceptance, /NO_SUPPRESSION\s*:\s*false|NO_EXCEPTION\s*:\s*false|NO_SEVERITY_DOWNGRADE\s*:\s*false/);
 });
 
 test('R2B rejects a count-correct scanner result whose identities are not the accepted historical set', () => {
