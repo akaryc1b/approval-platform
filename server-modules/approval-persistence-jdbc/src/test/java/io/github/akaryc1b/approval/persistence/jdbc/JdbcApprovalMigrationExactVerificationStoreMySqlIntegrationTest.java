@@ -227,6 +227,95 @@ class JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
     }
 
     @Test
+    void readFailurePersistsEvidenceAndMovesAttemptToReconciliationOnce() {
+        Authority authority = seedVerifyingAuthority("Tenant-H5-Read-Failure");
+        List<AuditEvent> audits = new ArrayList<>();
+        ApprovalMigrationExactVerificationStore verification = verificationStore(
+            audits::add
+        );
+        ApprovalMigrationExactVerificationStore.PrepareRequest request =
+            verificationRequest(authority, "request-h5-read-failure");
+        PreparedVerification prepared = verification.prepare(request);
+        String stableCode = "ENGINE_READ_UNAVAILABLE";
+        String snapshotHash = MySqlH5ExactVerificationHashFixture.readFailureHash(
+            prepared.requestHash(),
+            stableCode
+        );
+        ApprovalMigrationEngineSnapshot snapshot =
+            ApprovalMigrationEngineSnapshot.readFailure(stableCode, snapshotHash);
+        ExactClassification classification = ApprovalMigrationExactVerification.classify(
+            snapshot,
+            authority.sourceDeployment().engineDefinitionId(),
+            authority.targetDeployment().engineDefinitionId()
+        );
+        assertEquals(
+            ExactClassification.READ_FAILURE_RECONCILIATION_REQUIRED,
+            classification
+        );
+
+        StoredVerification stored = verification.finalizeVerification(
+            new ApprovalMigrationExactVerificationStore.FinalizeRequest(
+                prepared,
+                snapshot,
+                classification,
+                NOW.plusSeconds(50)
+            )
+        );
+
+        assertFalse(stored.replayed());
+        assertEquals(
+            ExactClassification.READ_FAILURE_RECONCILIATION_REQUIRED,
+            stored.evidence().classification()
+        );
+        assertFalse(stored.evidence().snapshot().readSucceeded());
+        assertEquals(stableCode, stored.evidence().snapshot().readFailureCode());
+        assertEquals(snapshotHash, stored.evidence().snapshot().snapshotHash());
+        assertEquals(AttemptStatus.RECONCILING, stored.attempt().status());
+        assertEquals(
+            EngineOutcome.VERIFICATION_MISMATCH,
+            stored.attempt().engineOutcome()
+        );
+        assertEquals(
+            FailureClass.RECONCILIATION_REQUIRED,
+            stored.attempt().failureClass()
+        );
+        assertEquals(5, stored.attempt().revision());
+        assertEquals(
+            prepared.engineRequestId().toString(),
+            stored.attempt().engineRequestReference()
+        );
+        assertTrue(
+            stored.attempt().errorSummary().contains(
+                "READ_FAILURE_RECONCILIATION_REQUIRED"
+            )
+        );
+        assertEquals(
+            1,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
+        assertEquals(
+            5,
+            count("ap_process_migration_attempt_event", authority.tenantId())
+        );
+        assertEquals(1, audits.size());
+
+        PreparedVerification replay = verification.prepare(request);
+        assertNotNull(replay.replay());
+        assertTrue(replay.replay().replayed());
+        assertEquals(stored.evidence(), replay.replay().evidence());
+        assertEquals(AttemptStatus.RECONCILING, replay.replay().attempt().status());
+        assertEquals(
+            1,
+            count("ap_process_migration_exact_verification", authority.tenantId())
+        );
+        assertEquals(
+            5,
+            count("ap_process_migration_attempt_event", authority.tenantId())
+        );
+        assertEquals(1, audits.size());
+    }
+
+    @Test
     void staleAuthorityAndClientClassificationFailClosedBeforeEvidence() {
         Authority authority = seedVerifyingAuthority("Tenant-H5-Stale");
         ApprovalMigrationExactVerificationStore verification = verificationStore(event -> {
