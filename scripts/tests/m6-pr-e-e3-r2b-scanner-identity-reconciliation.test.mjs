@@ -89,11 +89,15 @@ test('R2B scanner identity contract is canonical, exact and non-authorizing', ()
   }
 });
 
-test('R2B keeps the accepted verifier and boundary tests byte-for-byte while adding exact identity reconciliation', () => {
+test('R2B preserves accepted boundary coverage while removing tainted dynamic RegExp construction', () => {
   assert.equal(existsSync(acceptedVerifierPath), true);
   assert.equal(existsSync(acceptedTestPath), true);
-  assert.equal(gitBlobSha(readFileSync(acceptedVerifierPath)), '728f6c91d5da636316ce5cb863cc368ecf23cff3');
   assert.equal(gitBlobSha(readFileSync(acceptedTestPath)), '34e46091ab35540cfc57fe3e8c00e6692e93e56d');
+  const acceptedVerifier = readFileSync(acceptedVerifierPath, 'utf8');
+  assert.doesNotMatch(acceptedVerifier, /new RegExp\(/);
+  assert.ok(acceptedVerifier.includes('candidate.match(/^(\\s*)([A-Za-z0-9_-]+):\\s*(.*)$/)'));
+  assert.ok(acceptedVerifier.includes('field[1].length === stepIndent + 2'));
+  assert.ok(acceptedVerifier.includes('fields.set(field[2], field[3])'));
   const verifier = readFileSync(verifierPath, 'utf8');
   for (const marker of [
     'verifyAcceptedR2B',

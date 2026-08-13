@@ -33,8 +33,8 @@ function workflowSteps(source) {
       const candidate = lines[cursor];
       if (candidate.trim() && indent(candidate) <= stepIndent) break;
       raw.push(candidate);
-      const field = candidate.match(new RegExp(`^\\s{${stepIndent + 2}}([A-Za-z0-9_-]+):\\s*(.*)$`));
-      if (field) fields.set(field[1], field[2]);
+      const field = candidate.match(/^(\s*)([A-Za-z0-9_-]+):\s*(.*)$/);
+      if (field && field[1].length === stepIndent + 2) fields.set(field[2], field[3]);
       cursor += 1;
     }
     steps.push({
