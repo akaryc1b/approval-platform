@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
-const SHA40 = /^[0-9a-f]{40}$/;
+import { verifyWorkflowSupplyChainRemediation as verifyAcceptedR2B } from './m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';
+
 const SHA64 = /^[0-9a-f]{64}$/;
-const WORKFLOW_PATH = /^\.github\/workflows\/[^/]+\.ya?ml$/;
+const CONTRACT_SHA256 = 'f317b8f6568100c5da132a46c9cd4162851c60dfc36dbc9cd00916e2303832f5';
 const stable = (value) => Array.isArray(value)
   ? value.map(stable)
   : value && typeof value === 'object'
@@ -11,320 +13,221 @@ const stable = (value) => Array.isArray(value)
     : value;
 const canonical = (value) => JSON.stringify(stable(value));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
-const gitBlobSha = (value) => createHash('sha1').update(`blob ${Buffer.byteLength(value)}\0`).update(value).digest('hex');
-const findingKey = (finding) => `${finding.sourceClass}:${finding.findingId}`;
+const findingSetSha256 = (ids) => sha256(`${[...ids].sort().join('\n')}\n`);
+const contract = JSON.parse(readFileSync(
+  new URL('../../docs/m6/m6-pr-e-e3-r2b-scanner-identity-reconciliation.json', import.meta.url),
+  'utf8',
+));
 
-function indent(line) {
-  return line.match(/^\s*/)[0].length;
+function requireContract() {
+  if (contract.schemaVersion !== 'M6_PR_E_E3_R2B_SCANNER_IDENTITY_RECONCILIATION_V1') {
+    throw new Error('R2B scanner identity reconciliation schema mismatch');
+  }
+  const { contentSha256, ...payload } = contract;
+  if (contentSha256 !== CONTRACT_SHA256 || sha256(canonical(payload)) !== contentSha256) {
+    throw new Error('R2B scanner identity reconciliation contract mismatch');
+  }
+  if (contract.repository !== 'akaryc1b/approval-platform') throw new Error('R2B scanner identity repository mismatch');
+  const accepted = contract.acceptedEvidence || {};
+  if (accepted.runId !== 31556788011
+    || accepted.runNumber !== 1431
+    || accepted.head !== '05f422b4cdab397fc1126e6dc10f571b01cec8c5'
+    || accepted.e4CanonicalSha256 !== '4e86049fd18fbfebd7397d0c131563e849064eb698baa66bc4f9bd2d9cffbf58') {
+    throw new Error('R2B accepted scanner identity evidence drift');
+  }
+  const observed = contract.databaseDriftObservation || {};
+  if (observed.runId !== 31658751966
+    || observed.runNumber !== 1436
+    || observed.head !== '869d49cb7e9ef45109d3ac79f804908e5c58451a'
+    || observed.scanner !== 'OSV-Scanner'
+    || observed.scannerVersion !== '2.5.0'
+    || canonical(observed.classification) !== canonical(['DATABASE_DRIFT', 'NEW_FINDING', 'EVIDENCE_BUG'])) {
+    throw new Error('R2B scanner database drift observation mismatch');
+  }
+  const invariants = contract.invariants || {};
+  for (const key of [
+    'allHistoricalOsvIdentitiesRetained',
+    'onlyReviewedOsvIdentitiesMayBeAdded',
+    'gitleaksIdentitySetMustRemainExact',
+    'semgrepIdentityTransitionMustRemainExact',
+    'zizmorMustRemainEmpty',
+  ]) if (invariants[key] !== true) throw new Error(`R2B scanner identity invariant missing ${key}`);
+  for (const key of [
+    'suppressionAdded',
+    'exceptionAdded',
+    'severityDowngradeAdded',
+    'findingDeletionClaimed',
+    'readyAuthorized',
+    'mergeAuthorized',
+    'deploymentAuthorized',
+  ]) if (invariants[key] !== false) throw new Error(`R2B scanner identity invariant violated ${key}`);
+  return contract;
 }
 
-function workflowSteps(source) {
-  const lines = source.split(/\r?\n/);
-  const steps = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const start = line.match(/^(\s*)-\s+(name|uses|run|id|shell|if|working-directory):\s*(.*)$/);
-    if (!start) continue;
-    const stepIndent = start[1].length;
-    const fields = new Map([[start[2], start[3]]]);
-    const raw = [line];
-    let cursor = index + 1;
-    while (cursor < lines.length) {
-      const candidate = lines[cursor];
-      if (candidate.trim() && indent(candidate) <= stepIndent) break;
-      raw.push(candidate);
-      const field = candidate.match(new RegExp(`^\\s{${stepIndent + 2}}([A-Za-z0-9_-]+):\\s*(.*)$`));
-      if (field) fields.set(field[1], field[2]);
-      cursor += 1;
+function scannerIds(scannerName, scanner, sourceClass) {
+  if (!scanner
+    || scanner.scanCompleted !== true
+    || scanner.rawReportRetained !== false
+    || !Array.isArray(scanner.findings)
+    || scanner.findings.length !== scanner.findingCount) {
+    throw new Error(`R2B complete current ${scannerName} identity evidence required`);
+  }
+  const ids = scanner.findings.map((finding) => {
+    if (finding.sourceClass !== sourceClass || !SHA64.test(finding.findingId || '')) {
+      throw new Error(`R2B ${scannerName} finding identity drift`);
     }
-    steps.push({
-      line: index + 1,
-      indent: stepIndent,
-      fields,
-      raw: raw.join('\n'),
-    });
-    index = cursor - 1;
-  }
-  return steps;
+    return finding.findingId;
+  });
+  if (new Set(ids).size !== ids.length) throw new Error(`R2B ${scannerName} duplicate finding identity`);
+  return ids.sort();
 }
 
-function actionUse(step) {
-  const match = step.fields.get('uses')?.match(/^([^@\s]+)@([0-9a-f]{40})\s+#\s+(\S+)\s*$/);
-  if (!match) return null;
-  return { repository: match[1], sha: match[2], versionComment: match[3] };
+function requireIdentitySet(label, ids, expected) {
+  if (!expected
+    || !Number.isInteger(expected.findingCount)
+    || !SHA64.test(expected.findingSetSha256 || '')
+    || ids.length !== expected.findingCount
+    || findingSetSha256(ids) !== expected.findingSetSha256) {
+    throw new Error(`R2B ${label} identity-set drift`);
+  }
 }
 
-function checkoutSettings(step) {
-  const settings = {};
-  const lines = step.raw.split(/\r?\n/);
-  const withLine = lines.findIndex((line) => /^\s*with:\s*$/.test(line));
-  if (withLine < 0) return settings;
-  const withIndent = indent(lines[withLine]);
-  for (const line of lines.slice(withLine + 1)) {
-    if (line.trim() && indent(line) <= withIndent) break;
-    const match = line.match(/^\s*([A-Za-z0-9_-]+):\s*(.*?)\s*$/);
-    if (match) settings[match[1]] = match[2];
+function requireAddedOsvFinding(actual, expected) {
+  if (!actual || actual.sourceClass !== 'E4_OSV_SCANNER') {
+    throw new Error(`R2B reviewed OSV finding absent ${expected.findingId}`);
   }
-  return settings;
-}
-
-function physicalJobCount(source) {
-  const lines = source.split(/\r?\n/);
-  const jobsLine = lines.findIndex((line) => /^jobs:\s*$/.test(line));
-  if (jobsLine < 0) throw new Error('workflow top-level jobs block required');
-  const starts = [];
-  for (let index = jobsLine + 1; index < lines.length; index += 1) {
-    if (/^  [A-Za-z0-9_-]+:\s*$/.test(lines[index])) starts.push(index);
+  if (actual.upstreamFindingId !== expected.upstreamFindingId) {
+    throw new Error(`R2B reviewed OSV upstream identity drift ${expected.findingId}`);
   }
-  if (!starts.length) throw new Error('workflow logical jobs required');
-  let physical = 0;
-  for (let blockIndex = 0; blockIndex < starts.length; blockIndex += 1) {
-    const start = starts[blockIndex];
-    const end = starts[blockIndex + 1] ?? lines.length;
-    const block = lines.slice(start, end);
-    const matrixLine = block.findIndex((line) => /^      matrix:\s*$/.test(line));
-    if (matrixLine < 0) {
-      physical += 1;
-      continue;
-    }
-    const dimensions = [];
-    for (let index = matrixLine + 1; index < block.length; index += 1) {
-      if (block[index].trim() && indent(block[index]) <= 6) break;
-      const dimension = block[index].match(/^        ([A-Za-z0-9_-]+):\s*$/);
-      if (!dimension) continue;
-      let values = 0;
-      for (let cursor = index + 1; cursor < block.length; cursor += 1) {
-        if (block[cursor].trim() && indent(block[cursor]) <= 8) break;
-        if (/^          -\s+/.test(block[cursor])) values += 1;
-      }
-      if (!values) throw new Error(`workflow matrix dimension must use explicit values ${dimension[1]}`);
-      dimensions.push(values);
-    }
-    if (!dimensions.length) throw new Error('workflow matrix dimensions required');
-    physical += dimensions.reduce((product, count) => product * count, 1);
-  }
-  return physical;
-}
-
-function topLevelOnBlock(source) {
-  const lines = source.split(/\r?\n/);
-  const start = lines.findIndex((line) => /^on:\s*$/.test(line));
-  if (start < 0) throw new Error('workflow top-level on block required');
-  const block = [];
-  for (const line of lines.slice(start + 1)) {
-    if (line.trim() && indent(line) === 0) break;
-    block.push(line);
-  }
-  return block.join('\n');
-}
-
-function inspectWorkflow(path, source, actionPins) {
-  if (!WORKFLOW_PATH.test(path)) throw new Error(`invalid workflow path ${path}`);
-  const steps = workflowSteps(source);
-  const uses = [];
-  const checkout = [];
-  for (const step of steps) {
-    if (!step.fields.has('uses')) continue;
-    const parsed = actionUse(step);
-    if (!parsed) throw new Error(`workflow action ref must be reviewed immutable SHA with version comment ${path}:${step.line}`);
-    const expected = actionPins[parsed.repository];
-    if (!expected) throw new Error(`unreviewed external action repository ${parsed.repository} at ${path}:${step.line}`);
-    if (parsed.sha !== expected.reviewedImmutableSha) throw new Error(`reviewed action SHA mismatch ${parsed.repository} at ${path}:${step.line}`);
-    if (parsed.versionComment !== expected.versionComment) throw new Error(`action version comment mismatch ${parsed.repository} at ${path}:${step.line}`);
-    uses.push({ path, line: step.line, ...parsed });
-    if (parsed.repository === 'actions/checkout') {
-      const settings = checkoutSettings(step);
-      if (settings['persist-credentials'] !== 'false') throw new Error(`checkout persist-credentials false required ${path}:${step.line}`);
-      checkout.push({ path, line: step.line, settings: stable(settings) });
+  for (const key of ['ecosystem', 'name', 'version']) {
+    if (actual.package?.[key] !== expected.package?.[key]) {
+      throw new Error(`R2B reviewed OSV package drift ${expected.findingId} ${key}`);
     }
   }
-
-  if (/pull_request_target\s*:/.test(source)) throw new Error(`pull_request_target prohibited ${path}`);
-  if (/^\s*permissions:\s*write-all\s*$/m.test(source) || /^\s*[A-Za-z-]+:\s*write\s*$/m.test(source)) {
-    throw new Error(`workflow permission widening prohibited ${path}`);
+  const aliases = new Set(actual.aliases || []);
+  for (const alias of expected.requiredAliases || []) {
+    if (!aliases.has(alias)) throw new Error(`R2B reviewed OSV alias drift ${expected.findingId} ${alias}`);
   }
-
-  const onBlock = topLevelOnBlock(source);
-  const automatic = /^\s*(pull_request|push):\s*$/m.test(onBlock);
-  return { path, automatic, uses, checkout, steps };
+  const scopes = new Set(actual.scopes || []);
+  for (const scope of expected.requiredScopes || []) {
+    if (!scopes.has(scope)) throw new Error(`R2B reviewed OSV scope drift ${expected.findingId} ${scope}`);
+  }
+  if (!Array.isArray(actual.componentRefs) || actual.componentRefs.length === 0) {
+    throw new Error(`R2B reviewed OSV component reference absent ${expected.findingId}`);
+  }
+  if (!['COMPILE_RUNTIME', 'BUILD_PLUGIN'].includes(expected.graphClass) || expected.disposition !== 'UNRESOLVED') {
+    throw new Error(`R2B reviewed OSV disposition contract drift ${expected.findingId}`);
+  }
+  return stable({
+    findingId: actual.findingId,
+    upstreamFindingId: actual.upstreamFindingId,
+    aliases: [...aliases].sort(),
+    package: actual.package,
+    componentRefs: [...actual.componentRefs].sort(),
+    scopes: [...scopes].sort(),
+    graphClass: expected.graphClass,
+    disposition: 'UNRESOLVED',
+  });
 }
 
-function collectHistoricalFindings(plan) {
-  const allowed = new Set(['zizmor/unpinned-uses', 'zizmor/artipacked', 'zizmor/template-injection']);
-  const findings = [];
-  for (const [ruleId, rows] of Object.entries(plan.historicalFindings || {})) {
-    if (!allowed.has(ruleId) || !Array.isArray(rows)) throw new Error(`unexpected R2B historical finding group ${ruleId}`);
-    for (const row of rows) {
-      if (!Array.isArray(row) || row.length !== 4 || !SHA64.test(row[0] || '') || typeof row[1] !== 'string' || !Number.isInteger(row[2]) || typeof row[3] !== 'string') {
-        throw new Error(`invalid R2B historical finding identity ${ruleId}`);
-      }
-      findings.push({
-        sourceClass: 'E4_ZIZMOR',
-        findingId: row[0],
-        ruleId,
-        path: row[1],
-        startLine: row[2],
-        upstreamSeverity: row[3],
-      });
-    }
-  }
-  const keys = findings.map(findingKey);
-  if (new Set(keys).size !== keys.length) throw new Error('duplicate R2B historical finding identity');
-  return findings;
-}
+export function reconcileScannerFindingIdentities(e4) {
+  const identityContract = requireContract();
+  if (!e4 || e4.repository !== identityContract.repository) throw new Error('R2B current E4 identity evidence required');
 
-function remediationStatus(ruleId) {
-  if (ruleId === 'zizmor/unpinned-uses') return 'REMEDIATED_BY_IMMUTABLE_ACTION_PIN_AND_ABSENT_FROM_CURRENT_ZIZMOR';
-  if (ruleId === 'zizmor/artipacked') return 'REMEDIATED_BY_CHECKOUT_CREDENTIAL_BOUNDARY_AND_ABSENT_FROM_CURRENT_ZIZMOR';
-  if (ruleId === 'zizmor/template-injection') return 'REMEDIATED_BY_SHELL_ENV_DATA_BOUNDARY_AND_ABSENT_FROM_CURRENT_ZIZMOR';
-  throw new Error(`unsupported R2B rule ${ruleId}`);
+  const accepted = identityContract.acceptedIdentitySets;
+  const expectedCurrent = identityContract.expectedCurrentIdentitySets;
+  const osvIds = scannerIds('osv', e4.scanners?.osv, accepted.osv.sourceClass);
+  const gitleaksIds = scannerIds('gitleaks', e4.scanners?.gitleaks, accepted.gitleaks.sourceClass);
+  const semgrepIds = scannerIds('semgrep', e4.scanners?.semgrep, accepted.semgrepCurrentAfterAcceptedIdentityTransition.sourceClass);
+  const zizmorIds = scannerIds('zizmor', e4.scanners?.zizmor, accepted.zizmorCurrent.sourceClass);
+
+  requireIdentitySet('current OSV', osvIds, expectedCurrent.osv);
+  requireIdentitySet('current Gitleaks', gitleaksIds, expectedCurrent.gitleaks);
+  requireIdentitySet('current Semgrep', semgrepIds, expectedCurrent.semgrep);
+  requireIdentitySet('current zizmor', zizmorIds, expectedCurrent.zizmor);
+  requireIdentitySet('accepted Gitleaks', gitleaksIds, accepted.gitleaks);
+  requireIdentitySet('accepted current Semgrep transition', semgrepIds, accepted.semgrepCurrentAfterAcceptedIdentityTransition);
+  requireIdentitySet('accepted current zizmor', zizmorIds, accepted.zizmorCurrent);
+
+  const additions = identityContract.reviewedAddedOsvFindings || [];
+  if (additions.length !== 2 || new Set(additions.map((finding) => finding.findingId)).size !== 2) {
+    throw new Error('R2B exactly two reviewed OSV additions required');
+  }
+  const currentOsvById = new Map(e4.scanners.osv.findings.map((finding) => [finding.findingId, finding]));
+  const reviewedAddedOsvFindings = additions.map((expected) => {
+    if (!SHA64.test(expected.findingId || '')) throw new Error('R2B reviewed OSV finding identity invalid');
+    return requireAddedOsvFinding(currentOsvById.get(expected.findingId), expected);
+  });
+  const additionIds = new Set(additions.map((finding) => finding.findingId));
+  const retainedHistoricalOsvIds = osvIds.filter((findingId) => !additionIds.has(findingId));
+  requireIdentitySet('retained historical OSV', retainedHistoricalOsvIds, accepted.osv);
+  if (retainedHistoricalOsvIds.length + additions.length !== osvIds.length) {
+    throw new Error('R2B unreviewed OSV identity addition detected');
+  }
+
+  const currentScannerCounts = stable({
+    gitleaks: gitleaksIds.length,
+    osv: osvIds.length,
+    semgrep: semgrepIds.length,
+    zizmor: zizmorIds.length,
+  });
+  const totalFindingCount = Object.values(currentScannerCounts).reduce((sum, count) => sum + count, 0);
+  if (totalFindingCount !== expectedCurrent.totalFindingCount || totalFindingCount !== e4.totalFindingCount) {
+    throw new Error('R2B current scanner identity total drift');
+  }
+
+  return stable({
+    schemaVersion: 'M6_PR_E_E3_R2B_SCANNER_IDENTITY_RECONCILIATION_EVIDENCE_V1',
+    contractContentSha256: identityContract.contentSha256,
+    acceptedE4CanonicalSha256: identityContract.acceptedEvidence.e4CanonicalSha256,
+    databaseDriftRunId: identityContract.databaseDriftObservation.runId,
+    databaseSnapshotIdentity: identityContract.databaseDriftObservation.databaseSnapshotIdentity,
+    databaseSnapshotIdentityAvailability: identityContract.databaseDriftObservation.databaseSnapshotIdentityAvailability,
+    retainedHistoricalOsvFindingCount: retainedHistoricalOsvIds.length,
+    retainedHistoricalOsvFindingSetSha256: findingSetSha256(retainedHistoricalOsvIds),
+    addedOsvFindingCount: reviewedAddedOsvFindings.length,
+    addedOsvFindings: reviewedAddedOsvFindings,
+    currentFindingSetSha256: {
+      gitleaks: findingSetSha256(gitleaksIds),
+      osv: findingSetSha256(osvIds),
+      semgrep: findingSetSha256(semgrepIds),
+      zizmor: findingSetSha256(zizmorIds),
+    },
+    currentScannerCounts,
+    totalFindingCount,
+    suppressionAdded: false,
+    exceptionAdded: false,
+    severityDowngradeAdded: false,
+    findingDeletionClaimed: false,
+    releaseBlocked: true,
+  });
 }
 
 export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
-  if (!e4 || !plan || !snapshot) throw new Error('E4 evidence, R2B plan and exact repository snapshot required');
-  if (plan.schemaVersion !== 'M6_PR_E_E3_R2B_WORKFLOW_SUPPLY_CHAIN_REMEDIATION_PLAN_V1') throw new Error('R2B plan schema mismatch');
-  if (e4.repository !== plan.repository || snapshot.repository !== plan.repository) throw new Error('R2B repository mismatch');
-  if (!SHA40.test(e4.commitSha || '') || snapshot.commitSha !== e4.commitSha) throw new Error('R2B exact Head mismatch');
-  if (!SHA64.test(e4.contentSha256 || '') || snapshot.currentE4CanonicalSha256 !== e4.contentSha256) throw new Error('R2B current E4 canonical binding mismatch');
-  if (snapshot.scannerExecutionCount !== 1) throw new Error(`R2B current scanner must execute exactly once, got ${snapshot.scannerExecutionCount}`);
-  if (snapshot.dependabotBlobSha !== plan.dependabotBlobShaRetained) throw new Error('R2B Dependabot R2A blob drift');
-  if ((snapshot.suppressionPathsPresent || []).length) throw new Error(`R2B scanner suppression/ignore path present: ${snapshot.suppressionPathsPresent.join(',')}`);
-  if (e4.allScannersCompleted !== true || e4.rawScannerReportsRetained !== false || e4.candidateSecretMaterialRetained !== false) {
-    throw new Error('R2B complete redacted current E4 evidence required');
-  }
-  for (const scannerName of ['osv', 'gitleaks', 'zizmor', 'semgrep']) {
-    const scanner = e4.scanners?.[scannerName];
-    if (!scanner || scanner.scanCompleted !== true || scanner.rawReportRetained !== false || !Array.isArray(scanner.findings) || scanner.findings.length !== scanner.findingCount) {
-      throw new Error(`R2B complete current ${scannerName} evidence required`);
-    }
-  }
-  if (e4.scanners.gitleaks.candidateSecretMaterialRetained !== false) throw new Error('R2B Gitleaks candidate Secret retention prohibited');
-  if (e4.scanners.semgrep.sourceSnippetRetained !== false) throw new Error('R2B Semgrep source snippet retention prohibited');
-
-  const z = e4.scanners?.zizmor;
-  if (!z || z.scanCompleted !== true || z.rawReportRetained !== false || !Array.isArray(z.findings) || z.findings.length !== z.findingCount) {
-    throw new Error('complete current zizmor evidence required');
-  }
-  if (z.findingCount !== 0 || z.findings.length !== 0) throw new Error(`R2B current zizmor findings must be zero, got ${z.findingCount}`);
-
-  const expectedNonZizmor = plan.priorNonZizmorFindingCounts || { osv: 115, gitleaks: 27, semgrep: 3 };
-  for (const scanner of ['osv', 'gitleaks', 'semgrep']) {
-    const current = e4.scanners?.[scanner]?.findingCount;
-    if (current !== expectedNonZizmor[scanner]) throw new Error(`R2B ${scanner} finding drift ${current} != ${expectedNonZizmor[scanner]}`);
+  const acceptedOsvCount = plan?.priorNonZizmorFindingCounts?.osv ?? 115;
+  if (e4?.scanners?.osv?.findingCount === acceptedOsvCount) {
+    return verifyAcceptedR2B(e4, plan, snapshot);
   }
 
-  const sourcePaths = Object.keys(plan.workflowInventory?.sourceBlobs || {}).sort();
-  const targetPaths = Object.keys(plan.workflowInventory?.targetBlobs || {}).sort();
-  const currentPaths = Object.keys(snapshot.workflows || {}).sort();
-  if (sourcePaths.length !== plan.workflowInventory.expectedFileCount || canonical(sourcePaths) !== canonical(targetPaths) || canonical(targetPaths) !== canonical(currentPaths)) {
-    throw new Error('R2B governed workflow inventory mismatch');
-  }
-
-  const inspections = [];
-  for (const path of currentPaths) {
-    const current = snapshot.workflows[path];
-    if (!current || typeof current.content !== 'string' || !SHA40.test(current.blobSha || '')) throw new Error(`R2B exact workflow snapshot required ${path}`);
-    if (gitBlobSha(current.content) !== current.blobSha) throw new Error(`R2B workflow content/blob mismatch ${path}`);
-    if (current.blobSha !== plan.workflowInventory.targetBlobs[path]) throw new Error(`R2B target workflow blob mismatch ${path}`);
-    if (current.blobSha === plan.workflowInventory.sourceBlobs[path]) throw new Error(`R2B workflow remained at vulnerable source blob ${path}`);
-    inspections.push(inspectWorkflow(path, current.content, plan.actionPins));
-  }
-
-  const actionUses = inspections.flatMap((item) => item.uses);
-  const checkout = inspections.flatMap((item) => item.checkout);
-  if (actionUses.length !== 43) throw new Error(`R2B reviewed action use count mismatch ${actionUses.length}`);
-  if (checkout.length !== 14) throw new Error(`R2B checkout credential boundary count mismatch ${checkout.length}`);
-  const automatic = inspections.filter((item) => item.automatic).map((item) => item.path);
-  if (canonical(automatic) !== canonical([plan.workflowInventory.automaticWorkflowPath])) throw new Error(`R2B automatic workflow inventory mismatch ${automatic.join(',')}`);
-
-  const validation = snapshot.workflows['.github/workflows/approval-platform-validation.yml'].content;
-  const currentPhysicalJobCount = physicalJobCount(validation);
-  if (currentPhysicalJobCount !== plan.invariants.physicalJobCount || currentPhysicalJobCount !== 9) {
-    throw new Error(`R2B physical Job count drift ${currentPhysicalJobCount}`);
-  }
-  const affectedStep = inspections
-    .find((item) => item.path === '.github/workflows/approval-platform-validation.yml')
-    ?.steps.find((step) => step.fields.get('name') === 'Verify Persistence JDBC shard');
-  if (!affectedStep) throw new Error('R2B template-injection affected step missing');
-  const runBlock = affectedStep.raw.split(/\r?\n/).slice(affectedStep.raw.split(/\r?\n/).findIndex((line) => /^\s*run:\s*\|\s*$/.test(line)) + 1).join('\n');
-  if (/\$\{\{\s*steps\.selection\.outputs\.tests\s*\}\}/.test(runBlock)) throw new Error('R2B direct template expression remains in shell source');
-  if (!/SELECTED_TESTS:\s*\$\{\{\s*steps\.selection\.outputs\.tests\s*\}\}/.test(affectedStep.raw)) throw new Error('R2B step-scoped environment boundary absent');
-  if (!/-Dtest="\$SELECTED_TESTS"/.test(runBlock)) throw new Error('R2B quoted shell environment reference absent');
-  if (/\b(eval|source)\b/.test(runBlock) || /\$\([^)]*SELECTED_TESTS/.test(runBlock)) throw new Error('R2B shell data boundary reinterprets selected tests');
-
-  const permanentArtifactClasses = new Set();
-  for (const match of validation.matchAll(/^\s*name:\s*approval-(hygiene|maven|vben|mobile)-\$\{\{\s*github\.run_id\s*\}\}\s*$/gm)) {
-    permanentArtifactClasses.add(match[1][0].toUpperCase() + match[1].slice(1));
-  }
-  if (canonical([...permanentArtifactClasses].sort()) !== canonical([...plan.invariants.permanentArtifactClasses].sort())) {
-    throw new Error(`R2B permanent Artifact class drift ${[...permanentArtifactClasses].join(',')}`);
-  }
-
-  const historical = collectHistoricalFindings(plan);
-  const counts = {};
-  for (const finding of historical) counts[finding.ruleId] = (counts[finding.ruleId] || 0) + 1;
-  for (const [ruleId, expected] of Object.entries(plan.expectedCurrentRuleCounts || {})) {
-    const current = z.findings.filter((finding) => finding.ruleId === ruleId).length;
-    if (current !== expected) throw new Error(`R2B current zizmor rule count mismatch ${ruleId} ${current} != ${expected}`);
-  }
-  for (const [ruleId, expected] of Object.entries(plan.expectedHistoricalFindingCounts || {})) {
-    if (ruleId === 'total') continue;
-    if ((counts[ruleId] || 0) !== expected) throw new Error(`R2B historical finding count mismatch ${ruleId}`);
-  }
-  if (historical.length !== plan.expectedHistoricalFindingCounts.total || historical.length !== 58) throw new Error(`R2B historical finding total mismatch ${historical.length}`);
-  const currentKeys = new Set(z.findings.map(findingKey));
-  const remediatedFindings = historical.map((finding) => {
-    const key = findingKey(finding);
-    if (currentKeys.has(key)) throw new Error(`R2B historical finding still present ${key}`);
-    return stable({
-      sourceClass: finding.sourceClass,
-      findingId: finding.findingId,
-      ruleId: finding.ruleId,
-      path: finding.path,
-      startLine: finding.startLine,
-      upstreamSeverity: finding.upstreamSeverity,
-      priorDisposition: 'APPLICABLE',
-      currentStatus: remediationStatus(finding.ruleId),
-    });
-  });
-
-  const currentScannerCounts = stable(Object.fromEntries(Object.entries(e4.scanners).map(([name, scanner]) => [name, scanner.findingCount])));
-  const totalFindingCount = Object.values(currentScannerCounts).reduce((sum, value) => sum + value, 0);
-  if (totalFindingCount !== e4.totalFindingCount) throw new Error('R2B current scanner total mismatch');
-
+  const scannerIdentityReconciliation = reconcileScannerFindingIdentities(e4);
+  const reconciledPlan = structuredClone(plan);
+  reconciledPlan.priorNonZizmorFindingCounts = {
+    gitleaks: scannerIdentityReconciliation.currentScannerCounts.gitleaks,
+    osv: scannerIdentityReconciliation.currentScannerCounts.osv,
+    semgrep: scannerIdentityReconciliation.currentScannerCounts.semgrep,
+  };
+  const acceptedEvidence = verifyAcceptedR2B(e4, reconciledPlan, snapshot);
+  const { contentSha256: ignored, ...acceptedPayload } = acceptedEvidence;
   const payload = stable({
-    schemaVersion: 'M6_PR_E_E3_R2B_WORKFLOW_SUPPLY_CHAIN_REMEDIATION_EVIDENCE_V1',
-    repository: plan.repository,
-    commitSha: e4.commitSha,
-    sourceE4CanonicalSha256: e4.contentSha256,
-    priorAcceptedHead: plan.priorAcceptedHead,
-    priorI4FindingSetSha256: plan.priorI4FindingSetSha256,
-    priorI4CanonicalSha256: plan.priorI4CanonicalSha256,
-    priorR2ACanonicalSha256: plan.priorR2ACanonicalSha256,
-    dependabotBlobShaRetained: snapshot.dependabotBlobSha,
-    workflowBlobs: stable(Object.fromEntries(currentPaths.map((path) => [path, snapshot.workflows[path].blobSha]))),
-    actionUseCount: actionUses.length,
-    checkoutCredentialBoundaryCount: checkout.length,
-    templateInjectionBoundaryCount: 1,
-    historicalFindingCount: historical.length,
-    remediatedFindings,
-    currentZizmorFindingCount: z.findingCount,
-    currentScannerCounts,
-    totalFindingCount,
-    automaticWorkflowCount: automatic.length,
-    physicalJobCount: currentPhysicalJobCount,
-    permanentArtifactClasses: [...permanentArtifactClasses].sort(),
-    scannerExecutionCount: snapshot.scannerExecutionCount,
-    workflowSupplyChainRemediationValidated: true,
-    releaseBlocked: true,
-    authoritativeGitHubInventoryComplete: false,
+    ...acceptedPayload,
+    scannerIdentityReconciliation,
     reasonCodes: [
-      'AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE',
-      'E3_SCANNER_FINDINGS_UNRESOLVED',
-      'M6_PR_E_E3_FINDING_TRIAGE_REQUIRED',
+      ...new Set([
+        ...(acceptedPayload.reasonCodes || []),
+        'OSV_DATABASE_DRIFT_RECONCILED_BY_EXACT_IDENTITY_SET',
+        'TWO_NEW_OSV_FINDINGS_RETAINED_UNRESOLVED',
+      ]),
     ],
   });
   return stable({ ...payload, contentSha256: sha256(canonical(payload)) });
 }
-
-export const canonicalWorkflowSupplyChainRemediation = canonical;
