@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "M6_PR_E_E3_R2B_SEMGREP_FINDING_IDENTITY_TRANSITION_V1",
+  "repository": "akaryc1b/approval-platform",
+  "priorI2CanonicalSha256": "48f3fe8a77194e7b970718d09ba2c7b434e24f2bef8f15a3f253570ec837d349",
+  "reviewBasisHead": "234ed3d41b049ca9475e58e29e1204587a992693",
+  "reviewBasisIntakeCanonicalSha256": "9f0f5b9ecd4604492a1b250cae3b8d21bcd658efd4d9646b46aea1250436fbec",
+  "expectedTransitionCount": 1,
+  "transitions": [
+    {
+      "sourceClass": "E4_SEMGREP",
+      "historicalFindingId": "62035cd7f4e3f9b84870d80ef358bf05071fdbcb32652b6db96073e3d0f6f3bb",
+      "currentFindingId": "3d0897409d6b051f33f283afea8e0760c95336b44c58622cf938c3a43b14267f",
+      "ruleId": "rules.javascript.lang.security.audit.detect-non-literal-regexp",
+      "sourcePath": "scripts/security/m6-pr-e-e2-generate-sbom.mjs",
+      "scannerPath": "/src/scripts/security/m6-pr-e-e2-generate-sbom.mjs",
+      "historicalSourceBlobSha": "b57586084a14101613231fc5ba4a999cbeac1b08",
+      "currentSourceBlobSha": "f2c5861a2c952b2665c59a0f1e788111eb0db105",
+      "historicalLocation": {
+        "startLine": 9,
+        "startColumn": 394,
+        "endLine": 9,
+        "endColumn": 437
+      },
+      "currentLocation": {
+        "startLine": 73,
+        "startColumn": 394,
+        "endLine": 73,
+        "endColumn": 437
+      },
+      "currentSourceLineSha256": "4e656b4c1b2dfa4875a10b7a739d02cb9c5608fabfd8a282993a13ac62ba89a3",
+      "sourceExpression": "new RegExp(`<${t}>\\\\s*([^<]+?)\\\\s*</${t}>`)",
+      "sourceExpressionSha256": "f3bc3c8414ad0dc6462347732d480ccffdfcd12ed3277b57c63c52faa68ca0da",
+      "historicalDisposition": "NOT_APPLICABLE",
+      "evidenceCode": "ATTACKER_CONTROLLED_REGEXP_PATTERN_ABSENT",
+      "reasonCode": "R2B_E2_GENERATOR_SOURCE_LINE_RELOCATION",
+      "semanticReviewRetained": true,
+      "dispositionChanged": false
+    }
+  ],
+  "invariants": {
+    "scannerSuppressionAdded": false,
+    "severityDowngradeAdded": false,
+    "exceptionAdded": false,
+    "broadPathExclusionAdded": false,
+    "findingDeletionClaimed": false,
+    "readyAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "releaseAuthorized": false
+  },
+  "contentSha256": "3672eddf3ee72bb84a32e8cba56e64948f833b3063883606221e77fdb4d650bf"
+}
