@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "M6_PR_E_E3_R2B_SCANNER_IDENTITY_RECONCILIATION_V1",
+  "repository": "akaryc1b/approval-platform",
+  "acceptedEvidence": {
+    "runId": 31556788011,
+    "runNumber": 1431,
+    "head": "05f422b4cdab397fc1126e6dc10f571b01cec8c5",
+    "e4CanonicalSha256": "4e86049fd18fbfebd7397d0c131563e849064eb698baa66bc4f9bd2d9cffbf58"
+  },
+  "databaseDriftObservation": {
+    "runId": 31658751966,
+    "runNumber": 1436,
+    "head": "869d49cb7e9ef45109d3ac79f804908e5c58451a",
+    "scanner": "OSV-Scanner",
+    "scannerVersion": "2.5.0",
+    "classification": [
+      "DATABASE_DRIFT",
+      "NEW_FINDING",
+      "EVIDENCE_BUG"
+    ],
+    "databaseSnapshotIdentity": null,
+    "databaseSnapshotIdentityAvailability": "NOT_EXPOSED_BY_CURRENT_NORMALIZED_OSV_EVIDENCE"
+  },
+  "acceptedIdentitySets": {
+    "osv": {
+      "sourceClass": "E4_OSV_SCANNER",
+      "findingCount": 115,
+      "findingSetSha256": "7340d8246d377669fc309031cb3557bfa40d71fbf37411b964639a256003fa72"
+    },
+    "gitleaks": {
+      "sourceClass": "E4_GITLEAKS",
+      "findingCount": 27,
+      "findingSetSha256": "ed4ab9c3b1ec1e1906a4067dbd3a6e9c078361ff1c5bd436ecbac26006f1d069"
+    },
+    "semgrepCurrentAfterAcceptedIdentityTransition": {
+      "sourceClass": "E4_SEMGREP",
+      "findingCount": 3,
+      "findingSetSha256": "ffb20a767ea90349941607465a3954309dcac285ae7199b08febfb2e7894813b",
+      "historicalFindingId": "62035cd7f4e3f9b84870d80ef358bf05071fdbcb32652b6db96073e3d0f6f3bb",
+      "currentFindingId": "3d0897409d6b051f33f283afea8e0760c95336b44c58622cf938c3a43b14267f",
+      "transitionPlan": "docs/m6/m6-pr-e-e3-r2b-semgrep-finding-identity-transition.json"
+    },
+    "zizmorCurrent": {
+      "sourceClass": "E4_ZIZMOR",
+      "findingCount": 0,
+      "findingSetSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    }
+  },
+  "reviewedAddedOsvFindings": [
+    {
+      "findingId": "e6addd49c1ea8eddec10d654318f6cb52f458e139900b8e612c59fbc690b0b79",
+      "upstreamFindingId": "GHSA-x4m4-345f-5h5g",
+      "requiredAliases": [
+        "CVE-2026-34487"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.tomcat.embed:tomcat-embed-core",
+        "version": "11.0.15"
+      },
+      "requiredScopes": [
+        "compile"
+      ],
+      "graphClass": "COMPILE_RUNTIME",
+      "disposition": "UNRESOLVED"
+    },
+    {
+      "findingId": "35fb6917af4dcd633580647f3c9ffc2d2bd5e97f296634c1d8f3515a40b8413e",
+      "upstreamFindingId": "GHSA-hf6x-8p5f-cgmf",
+      "requiredAliases": [
+        "CVE-2026-54399"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.httpcomponents.core5:httpcore5",
+        "version": "5.3.6"
+      },
+      "requiredScopes": [
+        "build-plugin"
+      ],
+      "graphClass": "BUILD_PLUGIN",
+      "disposition": "UNRESOLVED"
+    }
+  ],
+  "expectedCurrentIdentitySets": {
+    "osv": {
+      "findingCount": 117,
+      "findingSetSha256": "42d4ce93ce58eb76e07faa556d32c6b8f7feb1e9a3f3f600eab9c971c3fe5da6"
+    },
+    "gitleaks": {
+      "findingCount": 27,
+      "findingSetSha256": "ed4ab9c3b1ec1e1906a4067dbd3a6e9c078361ff1c5bd436ecbac26006f1d069"
+    },
+    "semgrep": {
+      "findingCount": 3,
+      "findingSetSha256": "ffb20a767ea90349941607465a3954309dcac285ae7199b08febfb2e7894813b"
+    },
+    "zizmor": {
+      "findingCount": 0,
+      "findingSetSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    "totalFindingCount": 147
+  },
+  "invariants": {
+    "allHistoricalOsvIdentitiesRetained": true,
+    "onlyReviewedOsvIdentitiesMayBeAdded": true,
+    "gitleaksIdentitySetMustRemainExact": true,
+    "semgrepIdentityTransitionMustRemainExact": true,
+    "zizmorMustRemainEmpty": true,
+    "suppressionAdded": false,
+    "exceptionAdded": false,
+    "severityDowngradeAdded": false,
+    "findingDeletionClaimed": false,
+    "readyAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false
+  },
+  "contentSha256": "f317b8f6568100c5da132a46c9cd4162851c60dfc36dbc9cd00916e2303832f5"
+}
