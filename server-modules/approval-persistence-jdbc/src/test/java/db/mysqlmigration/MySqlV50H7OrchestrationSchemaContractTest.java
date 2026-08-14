@@ -102,6 +102,9 @@ class MySqlV50H7OrchestrationSchemaContractTest {
                 assertTrue(trigger.contains("signal sqlstate '45000'"));
                 if (operation.equals("insert")) {
                     assertTrue(trigger.contains("json_extract"));
+                    assertTrue(trigger.contains("json_type(new.payload_json)<=>'object'"));
+                    assertTrue(trigger.contains("timestampdiff(microsecond"));
+                    assertTrue(trigger.contains("<=>"));
                     assertTrue(trigger.contains("if not exists"));
                 } else {
                     assertTrue(trigger.contains("m5-d7 evidence is append-only"));
