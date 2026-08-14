@@ -42,7 +42,7 @@ public interface ApprovalMigrationOrchestrationStore {
             }
             requirePositive(expectedRunRevision, "expectedRunRevision");
             killSwitch = Objects.requireNonNull(killSwitch, "killSwitch must not be null");
-            happenedAt = Objects.requireNonNull(happenedAt, "happenedAt must not be null");
+            happenedAt = canonicalInstant(happenedAt);
             requestId = requireText(requestId, "requestId", 256);
             traceId = optionalText(traceId, "traceId", 256);
         }
@@ -92,7 +92,7 @@ public interface ApprovalMigrationOrchestrationStore {
                 observedKillSwitch,
                 "observedKillSwitch must not be null"
             );
-            happenedAt = Objects.requireNonNull(happenedAt, "happenedAt must not be null");
+            happenedAt = canonicalInstant(happenedAt);
             requestId = requireText(requestId, "requestId", 256);
             traceId = optionalText(traceId, "traceId", 256);
         }
@@ -135,7 +135,7 @@ public interface ApprovalMigrationOrchestrationStore {
                 || processedAttemptIds.stream().distinct().count() != processedAttemptIds.size()) {
                 throw new IllegalArgumentException("processedAttemptIds are invalid");
             }
-            happenedAt = Objects.requireNonNull(happenedAt, "happenedAt must not be null");
+            happenedAt = canonicalInstant(happenedAt);
             requestId = requireText(requestId, "requestId", 256);
             traceId = optionalText(traceId, "traceId", 256);
             if (claimBatch == null && !processedAttemptIds.isEmpty()) {
@@ -167,6 +167,14 @@ public interface ApprovalMigrationOrchestrationStore {
         public OrchestrationConflictException(String message, Throwable cause) {
             super(message, cause);
         }
+    }
+
+    private static Instant canonicalInstant(Instant value) {
+        Instant exact = Objects.requireNonNull(value, "happenedAt must not be null");
+        long remainder = exact.getNano() % 1_000L;
+        return remainder < 500L
+            ? exact.minusNanos(remainder)
+            : exact.plusNanos(1_000L - remainder);
     }
 
     private static void requirePositive(long value, String name) {
