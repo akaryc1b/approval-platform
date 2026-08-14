@@ -273,6 +273,17 @@ final class MySqlV50D7OrchestrationGuards {
                 select 1 from ap_process_migration_orchestration_batch batch
                 where batch.tenant_id=new.tenant_id and batch.run_id=new.run_id
                   and batch.batch_evidence_hash=new.predecessor_hash
+              ) and not exists (
+                select 1
+                from ap_process_migration_kill_switch_observation observation
+                where observation.tenant_id=new.tenant_id
+                  and observation.run_id=new.run_id
+                  and observation.attempt_id=new.attempt_id
+                  and observation.observation_evidence_hash=new.predecessor_hash
+                  and ((new.event_type='DISPATCH_ALLOWED'
+                    and observation.dispatch_allowed=true)
+                   or (new.event_type='KILL_SWITCH_BLOCKED'
+                    and observation.dispatch_allowed=false))
               ) then
                 signal sqlstate '45000' set message_text='D7 event predecessor mismatch';
               end if;
