@@ -282,7 +282,9 @@ const summary = {
   passed: failed.length === 0,
   passedChecks: results.length - failed.length,
   failedChecks: failed.length,
-  claim: failed.length === 0 ? 'DEMO_PREFLIGHT_PASSED' : 'DEMO_PREFLIGHT_FAILED',
+  claim: failed.length === 0
+    ? (repositoryOnly ? 'DEMO_REPOSITORY_CONTRACT_PASSED' : 'DEMO_PREFLIGHT_PASSED')
+    : (repositoryOnly ? 'DEMO_REPOSITORY_CONTRACT_FAILED' : 'DEMO_PREFLIGHT_FAILED'),
   quickStartAcceptance: 'QUICK_START_10_MINUTES_NOT_EXECUTED',
   results,
 };

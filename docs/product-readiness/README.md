@@ -31,7 +31,8 @@ This first slice is based on `main` commit:
 
 Use the following terms narrowly:
 
-- `DEMO_PREFLIGHT_PASSED`: required repository contracts and local tools were present. No service or user scenario was executed.
+- `DEMO_REPOSITORY_CONTRACT_PASSED`: required files and fail-closed/local configuration contracts were present. Local tool availability was not checked.
+- `DEMO_PREFLIGHT_PASSED`: repository contracts and all documented local tool checks passed. No service or user scenario was executed.
 - `BACKEND_LOCAL_START_VERIFIED`: the executable server started with the documented local profile and its bounded health check returned `UP`.
 - `QUICK_START_10_MINUTES_PASSED`: an unfamiliar user completed the published startup outcome on a clean supported environment within 600 seconds, with retained timing and environment evidence.
 - `PURCHASE_APPROVAL_E2E_PASSED`: the complete approval workflow passed, but no external payment result is implied.

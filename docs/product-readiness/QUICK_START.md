@@ -40,9 +40,17 @@ For machine-readable output:
 node scripts/product-readiness/demo-preflight.mjs --json
 ```
 
-The preflight checks repository contracts and local tool versions. It does not start containers, mutate a database, call an external Provider, or prove a user scenario.
+Repository contracts can be checked separately without implying workstation readiness:
 
-Expected terminal marker after all checks pass:
+```bash
+node scripts/product-readiness/demo-preflight.mjs --repository-only --json
+```
+
+That restricted mode reports `DEMO_REPOSITORY_CONTRACT_PASSED`, never `DEMO_PREFLIGHT_PASSED`.
+
+The full preflight checks repository contracts and local tool versions. It does not start containers, mutate a database, call an external Provider, or prove a user scenario.
+
+Expected terminal marker after all full checks pass:
 
 ```text
 DEMO_PREFLIGHT_PASSED
