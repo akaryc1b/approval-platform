@@ -298,7 +298,7 @@ function renderCompatibilityMarkdown(manifest, flyway, derivedRuntime) {
     + `- 未列为 Production Supported 的组合必须 fail closed，不得从“已有代码”推断为可生产部署。\n`;
 }
 
-function buildStatusJson(banifest, flyway, derivedRuntime) {
+function buildStatusJson(manifest, flyway, derivedRuntime) {
   return {
     schemaVersion: 1,
     source: 'config/capabilities.json',

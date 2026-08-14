@@ -52,7 +52,7 @@
 
 ## 维护规则
 
-1. 修改能力事实旽，更新 `config/capabilities.json` 并重新运行生成器。
+1. 修改能力事实时，更新 `config/capabilities.json` 并重新运行生成器。
 2. 历史 SHA、Run、PR 和 Artifact 身份只进入不可变 Acceptance 或 Release 文档。
 3. `Released` 只能来自真实 tag、GitHub Release、manifest 和制品摘要。
 4. `Production Supported` 不能由测试通过、验收通过或合并自动推导。

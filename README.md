@@ -24,7 +24,7 @@ Approval Platform 不是业务系统中的简单审批组件，也不是 Flowabl
 
 ## 技术基线
 
-具体版本和兼容结论由 [`Current Compatibility`](docs/current/compatibility.md) 生成幵维护。主要技术栈包括：
+具体版本和兼容结论由 [`Current Compatibility`](docs/current/compatibility.md) 生成并维护。主要技术栈包括：
 
 - Java、Spring Boot、Flowable 和 Maven 多模块；
 - PostgreSQL、Flyway 和平台自有 JDBC 持久化；
