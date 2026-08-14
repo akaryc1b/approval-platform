@@ -7,6 +7,7 @@ final class MySqlV50D7OrchestrationGuards {
 
     private static final String APPEND_ONLY_MESSAGE =
         "M5-D7 evidence is append-only";
+    private static final String EPOCH = "1970-01-01 00:00:00.000000";
 
     private MySqlV50D7OrchestrationGuards() {
     }
@@ -14,30 +15,60 @@ final class MySqlV50D7OrchestrationGuards {
     static List<String> statements() {
         return List.of(
             canaryInsert(),
-            immutable("trg_migration_d7_canary_update_v47", "update",
-                "ap_process_migration_canary_selection"),
-            immutable("trg_migration_d7_canary_delete_v47", "delete",
-                "ap_process_migration_canary_selection"),
+            immutable(
+                "trg_migration_d7_canary_update_v47",
+                "update",
+                "ap_process_migration_canary_selection"
+            ),
+            immutable(
+                "trg_migration_d7_canary_delete_v47",
+                "delete",
+                "ap_process_migration_canary_selection"
+            ),
             runInsert(),
-            immutable("trg_migration_d7_run_update_v47", "update",
-                "ap_process_migration_orchestration_run"),
-            immutable("trg_migration_d7_run_delete_v47", "delete",
-                "ap_process_migration_orchestration_run"),
+            immutable(
+                "trg_migration_d7_run_update_v47",
+                "update",
+                "ap_process_migration_orchestration_run"
+            ),
+            immutable(
+                "trg_migration_d7_run_delete_v47",
+                "delete",
+                "ap_process_migration_orchestration_run"
+            ),
             eventInsert(),
-            immutable("trg_migration_d7_event_update_v47", "update",
-                "ap_process_migration_orchestration_event"),
-            immutable("trg_migration_d7_event_delete_v47", "delete",
-                "ap_process_migration_orchestration_event"),
+            immutable(
+                "trg_migration_d7_event_update_v47",
+                "update",
+                "ap_process_migration_orchestration_event"
+            ),
+            immutable(
+                "trg_migration_d7_event_delete_v47",
+                "delete",
+                "ap_process_migration_orchestration_event"
+            ),
             batchInsert(),
-            immutable("trg_migration_d7_batch_update_v47", "update",
-                "ap_process_migration_orchestration_batch"),
-            immutable("trg_migration_d7_batch_delete_v47", "delete",
-                "ap_process_migration_orchestration_batch"),
+            immutable(
+                "trg_migration_d7_batch_update_v47",
+                "update",
+                "ap_process_migration_orchestration_batch"
+            ),
+            immutable(
+                "trg_migration_d7_batch_delete_v47",
+                "delete",
+                "ap_process_migration_orchestration_batch"
+            ),
             killSwitchInsert(),
-            immutable("trg_migration_d7_kill_switch_update_v47", "update",
-                "ap_process_migration_kill_switch_observation"),
-            immutable("trg_migration_d7_kill_switch_delete_v47", "delete",
-                "ap_process_migration_kill_switch_observation")
+            immutable(
+                "trg_migration_d7_kill_switch_update_v47",
+                "update",
+                "ap_process_migration_kill_switch_observation"
+            ),
+            immutable(
+                "trg_migration_d7_kill_switch_delete_v47",
+                "delete",
+                "ap_process_migration_kill_switch_observation"
+            )
         );
     }
 
@@ -57,23 +88,20 @@ final class MySqlV50D7OrchestrationGuards {
             before insert on ap_process_migration_canary_selection
             for each row
             begin
-              if json_unquote(json_extract(new.payload_json,'$.selectionId'))<>new.selection_id
-                or json_unquote(json_extract(new.payload_json,'$.tenantId'))<>new.tenant_id
-                or json_unquote(json_extract(new.payload_json,'$.planId'))<>new.plan_id
-                or json_unquote(json_extract(new.payload_json,'$.intentId'))<>new.intent_id
-                or json_unquote(json_extract(new.payload_json,'$.algorithmVersion'))
-                   <>new.algorithm_version
-                or cast(json_unquote(json_extract(new.payload_json,'$.sequenceNo')) as signed)
-                   <>new.sequence_no
-                or json_unquote(json_extract(new.payload_json,'$.approvalInstanceId'))
-                   <>new.approval_instance_id
-                or json_unquote(json_extract(new.payload_json,'$.planHash'))<>new.plan_hash
-                or json_unquote(json_extract(new.payload_json,'$.instanceEvidenceHash'))
-                   <>new.instance_evidence_hash
-                or json_unquote(json_extract(new.payload_json,'$.selectionEvidenceHash'))
-                   <>new.selection_evidence_hash
-                or json_unquote(json_extract(new.payload_json,'$.requestId'))<>new.request_id
-                or not (json_unquote(json_extract(new.payload_json,'$.traceId'))<=>new.trace_id)
+              if %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
               then
                 signal sqlstate '45000' set message_text='D7 canary payload mismatch';
               end if;
@@ -96,7 +124,22 @@ final class MySqlV50D7OrchestrationGuards {
                   set message_text='D7 canary canonical lineage mismatch';
               end if;
             end
-            """.strip();
+            """.formatted(
+                textMismatch("selectionId", "selection_id"),
+                textMismatch("tenantId", "tenant_id"),
+                textMismatch("planId", "plan_id"),
+                textMismatch("intentId", "intent_id"),
+                textMismatch("algorithmVersion", "algorithm_version"),
+                longMismatch("sequenceNo", "sequence_no"),
+                textMismatch("approvalInstanceId", "approval_instance_id"),
+                textMismatch("planHash", "plan_hash"),
+                textMismatch("instanceEvidenceHash", "instance_evidence_hash"),
+                textMismatch("selectionEvidenceHash", "selection_evidence_hash"),
+                instantMismatch("recordedAt", "recorded_at"),
+                textMismatch("requestId", "request_id"),
+                nullableTextMismatch("traceId", "trace_id"),
+                jsonObjectMismatch()
+            ).strip();
     }
 
     private static String runInsert() {
@@ -105,27 +148,22 @@ final class MySqlV50D7OrchestrationGuards {
             before insert on ap_process_migration_orchestration_run
             for each row
             begin
-              if json_unquote(json_extract(new.payload_json,'$.runId'))<>new.run_id
-                or json_unquote(json_extract(new.payload_json,'$.tenantId'))<>new.tenant_id
-                or json_unquote(json_extract(new.payload_json,'$.planId'))<>new.plan_id
-                or json_unquote(json_extract(new.payload_json,'$.intentId'))<>new.intent_id
-                or cast(json_unquote(json_extract(new.payload_json,'$.runRevision')) as signed)
-                   <>new.run_revision
-                or json_unquote(json_extract(new.payload_json,'$.phase'))<>new.phase
-                or cast(json_unquote(json_extract(new.payload_json,'$.requestedLimit')) as signed)
-                   <>new.requested_limit
-                or json_unquote(json_extract(new.payload_json,'$.canarySelectionId'))
-                   <>new.canary_selection_id
-                or cast(json_unquote(json_extract(
-                     new.payload_json,'$.expectedKillSwitchRevision')) as signed)
-                   <>new.expected_kill_switch_revision
-                or json_unquote(json_extract(new.payload_json,'$.predecessorHash'))
-                   <>new.predecessor_hash
-                or json_unquote(json_extract(new.payload_json,'$.requestHash'))<>new.request_hash
-                or json_unquote(json_extract(new.payload_json,'$.runEvidenceHash'))
-                   <>new.run_evidence_hash
-                or json_unquote(json_extract(new.payload_json,'$.requestId'))<>new.request_id
-                or not (json_unquote(json_extract(new.payload_json,'$.traceId'))<=>new.trace_id)
+              if %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
               then
                 signal sqlstate '45000'
                   set message_text='D7 orchestration run payload mismatch';
@@ -153,7 +191,27 @@ final class MySqlV50D7OrchestrationGuards {
                 signal sqlstate '45000' set message_text='D7 run predecessor mismatch';
               end if;
             end
-            """.strip();
+            """.formatted(
+                textMismatch("runId", "run_id"),
+                textMismatch("tenantId", "tenant_id"),
+                textMismatch("planId", "plan_id"),
+                textMismatch("intentId", "intent_id"),
+                longMismatch("runRevision", "run_revision"),
+                textMismatch("phase", "phase"),
+                longMismatch("requestedLimit", "requested_limit"),
+                textMismatch("canarySelectionId", "canary_selection_id"),
+                longMismatch(
+                    "expectedKillSwitchRevision",
+                    "expected_kill_switch_revision"
+                ),
+                textMismatch("predecessorHash", "predecessor_hash"),
+                textMismatch("requestHash", "request_hash"),
+                textMismatch("runEvidenceHash", "run_evidence_hash"),
+                instantMismatch("startedAt", "started_at"),
+                textMismatch("requestId", "request_id"),
+                nullableTextMismatch("traceId", "trace_id"),
+                jsonObjectMismatch()
+            ).strip();
     }
 
     private static String eventInsert() {
@@ -162,21 +220,19 @@ final class MySqlV50D7OrchestrationGuards {
             before insert on ap_process_migration_orchestration_event
             for each row
             begin
-              if json_unquote(json_extract(new.payload_json,'$.eventId'))<>new.event_id
-                or json_unquote(json_extract(new.payload_json,'$.tenantId'))<>new.tenant_id
-                or json_unquote(json_extract(new.payload_json,'$.runId'))<>new.run_id
-                or cast(json_unquote(json_extract(new.payload_json,'$.sequence')) as signed)
-                   <>new.sequence
-                or json_unquote(json_extract(new.payload_json,'$.eventType'))<>new.event_type
-                or json_unquote(json_extract(new.payload_json,'$.pauseReason'))<>new.pause_reason
-                or not (json_unquote(json_extract(new.payload_json,'$.attemptId'))
-                   <=>new.attempt_id)
-                or json_unquote(json_extract(new.payload_json,'$.predecessorHash'))
-                   <>new.predecessor_hash
-                or json_unquote(json_extract(new.payload_json,'$.eventEvidenceHash'))
-                   <>new.event_evidence_hash
-                or json_unquote(json_extract(new.payload_json,'$.requestId'))<>new.request_id
-                or not (json_unquote(json_extract(new.payload_json,'$.traceId'))<=>new.trace_id)
+              if %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
               then
                 signal sqlstate '45000'
                   set message_text='D7 orchestration event payload mismatch';
@@ -221,7 +277,21 @@ final class MySqlV50D7OrchestrationGuards {
                 signal sqlstate '45000' set message_text='D7 event predecessor mismatch';
               end if;
             end
-            """.strip();
+            """.formatted(
+                textMismatch("eventId", "event_id"),
+                textMismatch("tenantId", "tenant_id"),
+                textMismatch("runId", "run_id"),
+                longMismatch("sequence", "sequence"),
+                textMismatch("eventType", "event_type"),
+                textMismatch("pauseReason", "pause_reason"),
+                nullableTextMismatch("attemptId", "attempt_id"),
+                textMismatch("predecessorHash", "predecessor_hash"),
+                textMismatch("eventEvidenceHash", "event_evidence_hash"),
+                instantMismatch("happenedAt", "happened_at"),
+                textMismatch("requestId", "request_id"),
+                nullableTextMismatch("traceId", "trace_id"),
+                jsonObjectMismatch()
+            ).strip();
     }
 
     private static String batchInsert() {
@@ -230,22 +300,19 @@ final class MySqlV50D7OrchestrationGuards {
             before insert on ap_process_migration_orchestration_batch
             for each row
             begin
-              if json_unquote(json_extract(new.payload_json,'$.batchEvidenceId'))
-                   <>new.batch_evidence_id
-                or json_unquote(json_extract(new.payload_json,'$.tenantId'))<>new.tenant_id
-                or json_unquote(json_extract(new.payload_json,'$.runId'))<>new.run_id
-                or json_unquote(json_extract(new.payload_json,'$.claimBatchId'))
-                   <>new.claim_batch_id
-                or cast(json_unquote(json_extract(new.payload_json,'$.requestedLimit')) as signed)
-                   <>new.requested_limit
-                or not (json_extract(new.payload_json,'$.attemptIds')<=>new.attempt_ids)
-                or not (json_extract(new.payload_json,'$.dispositions')<=>new.dispositions)
-                or json_unquote(json_extract(new.payload_json,'$.predecessorHash'))
-                   <>new.predecessor_hash
-                or json_unquote(json_extract(new.payload_json,'$.batchEvidenceHash'))
-                   <>new.batch_evidence_hash
-                or json_unquote(json_extract(new.payload_json,'$.requestId'))<>new.request_id
-                or not (json_unquote(json_extract(new.payload_json,'$.traceId'))<=>new.trace_id)
+              if %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
               then
                 signal sqlstate '45000' set message_text='D7 batch payload mismatch';
               end if;
@@ -262,7 +329,21 @@ final class MySqlV50D7OrchestrationGuards {
                   set message_text='D7 batch D2 claim lineage mismatch';
               end if;
             end
-            """.strip();
+            """.formatted(
+                textMismatch("batchEvidenceId", "batch_evidence_id"),
+                textMismatch("tenantId", "tenant_id"),
+                textMismatch("runId", "run_id"),
+                textMismatch("claimBatchId", "claim_batch_id"),
+                longMismatch("requestedLimit", "requested_limit"),
+                jsonMismatch("attemptIds", "attempt_ids"),
+                jsonMismatch("dispositions", "dispositions"),
+                textMismatch("predecessorHash", "predecessor_hash"),
+                textMismatch("batchEvidenceHash", "batch_evidence_hash"),
+                instantMismatch("recordedAt", "recorded_at"),
+                textMismatch("requestId", "request_id"),
+                nullableTextMismatch("traceId", "trace_id"),
+                jsonObjectMismatch()
+            ).strip();
     }
 
     private static String killSwitchInsert() {
@@ -271,26 +352,21 @@ final class MySqlV50D7OrchestrationGuards {
             before insert on ap_process_migration_kill_switch_observation
             for each row
             begin
-              if json_unquote(json_extract(new.payload_json,'$.observationId'))
-                   <>new.observation_id
-                or json_unquote(json_extract(new.payload_json,'$.tenantId'))<>new.tenant_id
-                or json_unquote(json_extract(new.payload_json,'$.runId'))<>new.run_id
-                or json_unquote(json_extract(new.payload_json,'$.attemptId'))<>new.attempt_id
-                or cast(json_unquote(json_extract(new.payload_json,'$.expectedRevision')) as signed)
-                   <>new.expected_revision
-                or cast(json_unquote(json_extract(new.payload_json,'$.observedRevision')) as signed)
-                   <>new.observed_revision
-                or json_unquote(json_extract(new.payload_json,'$.enabled'))
-                   <>if(new.switch_enabled,'true','false')
-                or json_unquote(json_extract(new.payload_json,'$.dispatchAllowed'))
-                   <>if(new.dispatch_allowed,'true','false')
-                or json_unquote(json_extract(new.payload_json,'$.reasonCode'))<>new.reason_code
-                or json_unquote(json_extract(new.payload_json,'$.requestHash'))<>new.request_hash
-                or json_unquote(json_extract(
-                     new.payload_json,'$.observationEvidenceHash'))
-                   <>new.observation_evidence_hash
-                or json_unquote(json_extract(new.payload_json,'$.requestId'))<>new.request_id
-                or not (json_unquote(json_extract(new.payload_json,'$.traceId'))<=>new.trace_id)
+              if %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
+                or %s
               then
                 signal sqlstate '45000' set message_text='D7 kill-switch payload mismatch';
               end if;
@@ -306,6 +382,61 @@ final class MySqlV50D7OrchestrationGuards {
                 signal sqlstate '45000' set message_text='D7 kill-switch lineage mismatch';
               end if;
             end
-            """.strip();
+            """.formatted(
+                textMismatch("observationId", "observation_id"),
+                textMismatch("tenantId", "tenant_id"),
+                textMismatch("runId", "run_id"),
+                textMismatch("attemptId", "attempt_id"),
+                longMismatch("expectedRevision", "expected_revision"),
+                longMismatch("observedRevision", "observed_revision"),
+                booleanMismatch("enabled", "switch_enabled"),
+                booleanMismatch("dispatchAllowed", "dispatch_allowed"),
+                textMismatch("reasonCode", "reason_code"),
+                textMismatch("requestHash", "request_hash"),
+                textMismatch(
+                    "observationEvidenceHash",
+                    "observation_evidence_hash"
+                ),
+                instantMismatch("observedAt", "observed_at"),
+                textMismatch("requestId", "request_id"),
+                nullableTextMismatch("traceId", "trace_id"),
+                jsonObjectMismatch()
+            ).strip();
+    }
+
+    private static String textMismatch(String jsonField, String column) {
+        return "not (json_unquote(json_extract(new.payload_json,'$."
+            + jsonField + "'))<=>new." + column + ')';
+    }
+
+    private static String nullableTextMismatch(String jsonField, String column) {
+        String value = "json_extract(new.payload_json,'$." + jsonField + "')";
+        return "not ((case when json_type(" + value + ")='NULL' then null "
+            + "else json_unquote(" + value + ") end)<=>new." + column + ')';
+    }
+
+    private static String longMismatch(String jsonField, String column) {
+        return "not (cast(json_unquote(json_extract(new.payload_json,'$."
+            + jsonField + "')) as signed)<=>new." + column + ')';
+    }
+
+    private static String booleanMismatch(String jsonField, String column) {
+        return "not (json_unquote(json_extract(new.payload_json,'$."
+            + jsonField + "'))<=>if(new." + column + ",'true','false'))";
+    }
+
+    private static String jsonMismatch(String jsonField, String column) {
+        return "not (json_extract(new.payload_json,'$." + jsonField
+            + "')<=>new." + column + ')';
+    }
+
+    private static String instantMismatch(String jsonField, String column) {
+        return "not (cast(cast(json_unquote(json_extract(new.payload_json,'$."
+            + jsonField + "')) as decimal(30,9))*1000000 as signed)"
+            + "<=>timestampdiff(microsecond,'" + EPOCH + "',new." + column + "))";
+    }
+
+    private static String jsonObjectMismatch() {
+        return "not (json_type(new.payload_json)<=>'OBJECT')";
     }
 }
