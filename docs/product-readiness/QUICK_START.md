@@ -119,10 +119,11 @@ Only after this is reproduced and retained against an exact commit may the narro
 
 These commands expose current development/build entrypoints. They are not yet a unified product demo.
 
+The repository currently has no root `pnpm-lock.yaml`, so this path must not begin with `pnpm install --frozen-lockfile` at the repository root. The retained frontend bootstrap commands own their install semantics: Vben uses its retained upstream lockfile, while the mobile bootstrap explicitly uses its documented non-frozen install.
+
 ### PC
 
 ```bash
-pnpm install --frozen-lockfile
 pnpm web:install
 pnpm web:dev
 ```
