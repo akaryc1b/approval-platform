@@ -431,8 +431,8 @@ final class MySqlV50D7OrchestrationGuards {
     }
 
     private static String instantMismatch(String jsonField, String column) {
-        return "not (cast(cast(json_unquote(json_extract(new.payload_json,'$."
-            + jsonField + "')) as decimal(30,9))*1000000 as signed)"
+        return "not (round(cast(json_unquote(json_extract(new.payload_json,'$."
+            + jsonField + "')) as decimal(30,9))*1000000,0)"
             + "<=>timestampdiff(microsecond,'" + EPOCH + "',new." + column + "))";
     }
 
