@@ -100,7 +100,10 @@ test('R2B scanner identity contract is canonical, exact and non-authorizing', ()
 test('R2B preserves accepted boundary coverage while retaining unreviewed OSV database drift fail closed', () => {
   assert.equal(existsSync(acceptedVerifierPath), true);
   assert.equal(existsSync(acceptedTestPath), true);
-  assert.equal(gitBlobSha(readFileSync(acceptedTestPath)), '34e46091ab35540cfc57fe3e8c00e6692e93e56d');
+  const acceptedTest = readFileSync(acceptedTestPath, 'utf8');
+  assert.equal(gitBlobSha(acceptedTest), '2c6218eda079c0a73ba7cc9c02757e709f7fd0b5');
+  assert.ok(acceptedTest.includes("from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';"));
+  assert.equal(acceptedTest.includes("from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs';"), false);
   const acceptedVerifier = readFileSync(acceptedVerifierPath, 'utf8');
   assert.doesNotMatch(acceptedVerifier, /new RegExp\(/);
   assert.ok(acceptedVerifier.includes('candidate.match(/^(\\s*)([A-Za-z0-9_-]+):\\s*(.*)$/)'));
