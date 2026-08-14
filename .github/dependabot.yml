@@ -6,18 +6,38 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    groups:
+      maven-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 2
+
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 2
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    groups:
+      github-actions-updates:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 1
