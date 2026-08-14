@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -83,19 +84,37 @@ class MySqlV50H7OrchestrationSchemaContractTest {
     }
 
     @Test
-    void baselineRetainsAllFiveD7AppendOnlyGuardTriggers() {
-        String lower = MySqlV50Baseline.decompressBaseline()
-            .toLowerCase(Locale.ROOT);
+    void cleanBaselineExecutesCompleteFailClosedD7GuardSet() {
+        List<String> guards = MySqlV50D7OrchestrationGuards.statements();
 
-        for (String trigger : List.of(
-            "trg_process_migration_canary_selection_guard_v47",
-            "trg_process_migration_orchestration_run_guard_v47",
-            "trg_process_migration_orchestration_event_guard_v47",
-            "trg_process_migration_orchestration_batch_guard_v47",
-            "trg_process_migration_kill_switch_observation_guard_v47"
-        )) {
-            assertTrue(lower.contains("create trigger " + trigger));
+        assertEquals(15, guards.size());
+        assertEquals(guards, MySqlV50Baseline.d7GuardStatements());
+        for (String table : TABLES) {
+            for (String operation : List.of("insert", "update", "delete")) {
+                String marker = "before " + operation + " on " + table;
+                String trigger = guards.stream()
+                    .map(value -> value.toLowerCase(Locale.ROOT))
+                    .filter(value -> value.contains(marker))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError(
+                        "missing MySQL D7 guard: " + marker
+                    ));
+                assertTrue(trigger.contains("signal sqlstate '45000'"));
+                if (operation.equals("insert")) {
+                    assertTrue(trigger.contains("json_extract"));
+                    assertTrue(trigger.contains("if not exists"));
+                } else {
+                    assertTrue(trigger.contains("m5-d7 evidence is append-only"));
+                }
+            }
         }
+
+        String all = String.join("\n", guards).toLowerCase(Locale.ROOT);
+        assertFalse(all.contains("foreign_key_checks"));
+        assertFalse(all.contains("insert ignore"));
+        assertFalse(all.contains("replace into"));
+        assertFalse(all.contains("on duplicate key update"));
+        assertFalse(all.contains("drop trigger"));
     }
 
     private static String tableStatement(List<String> statements, String table) {
