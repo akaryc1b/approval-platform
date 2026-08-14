@@ -36,6 +36,13 @@ test('generated Current capability and compatibility documents have no drift', (
   );
 });
 
+test('document generator uses literal bounded parsing instead of dynamic regular expressions', () => {
+  const generator = read('scripts/generate-capability-status.mjs');
+  assert.doesNotMatch(generator, /new RegExp\s*\(/u);
+  assert.match(generator, /pom\.indexOf\(openingTag\)/u);
+  assert.match(generator, /pom\.indexOf\(closingTag, valueStart\)/u);
+});
+
 test('README and Roadmap delegate current status instead of freezing milestone prose', () => {
   const readme = read('README.md');
   const roadmap = read('docs/ROADMAP.md');
@@ -80,7 +87,7 @@ test('legacy living-document paths are link-compatible Current shims', () => {
   };
   for (const [relativePath, target] of Object.entries(expectations)) {
     const content = read(relativePath);
-    assert.match(content, new RegExp(target.replaceAll('.', '\\.')));
+    assert.equal(content.includes(target), true, `${relativePath} must delegate to ${target}`);
     assert.doesNotMatch(content, /\b[0-9a-f]{40}\b/i);
     assert.doesNotMatch(content, /Flyway[^\n]*V32|M4[^\n]*当前正式基线/i);
   }

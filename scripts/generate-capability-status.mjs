@@ -63,9 +63,14 @@ function evidenceCell(paths) {
 }
 
 function pomProperty(pom, name) {
-  const match = pom.match(new RegExp(`<${name}>([^<]+)</${name}>`));
-  assert.ok(match, `pom.xml must define ${name}`);
-  return match[1].trim();
+  const openingTag = `<${name}>`;
+  const closingTag = `</${name}>`;
+  const openingIndex = pom.indexOf(openingTag);
+  assert.notEqual(openingIndex, -1, `pom.xml must define ${name}`);
+  const valueStart = openingIndex + openingTag.length;
+  const closingIndex = pom.indexOf(closingTag, valueStart);
+  assert.notEqual(closingIndex, -1, `pom.xml must close ${name}`);
+  return pom.slice(valueStart, closingIndex).trim();
 }
 
 function loadRuntimeVersions() {
