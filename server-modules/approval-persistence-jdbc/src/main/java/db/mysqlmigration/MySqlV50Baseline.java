@@ -93,6 +93,7 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     @Override
     public void migrate(Context context) throws Exception {
+        MySqlV50TriggerInstallationAuthority.require(context.getConnection());
         List<String> statements = MySqlV50Script.split(baselineScript());
         MySqlV50ExecutionPlan executionPlan = new MySqlV50ExecutionPlan();
         int index = 0;
