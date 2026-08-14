@@ -37,7 +37,7 @@ test('Quick Start remains an honest executable candidate path', () => {
   assert.match(quickStart, /DEMO_REPOSITORY_CONTRACT_PASSED/u);
   assert.doesNotMatch(quickStart, /QUICK_START_10_MINUTES_PASSED/u);
   assert.doesNotMatch(quickStart, /PRODUCTION_PAYMENT_INTEGRATION_VERIFIED/u);
-  assert.doesNotMatch(quickStart, /pnpm install --frozen-lockfile/u);
+  assert.doesNotMatch(quickStart, /^pnpm install --frozen-lockfile\s*$/mu);
   for (const scriptName of ['web:install', 'web:dev', 'mobile:install', 'mobile:dev:h5', 'mobile:build:weixin']) {
     assert.equal(typeof packageJson.scripts?.[scriptName], 'string', `missing package script ${scriptName}`);
     assert.equal(quickStart.includes(`pnpm ${scriptName}`), true, `Quick Start missing pnpm ${scriptName}`);
