@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "Approval Platform",
+    "releaseStatus": "UNRELEASED",
+    "productionReadiness": "BLOCKED",
+    "productionSupport": "NOT_DECLARED",
+    "automaticWorkflow": ".github/workflows/approval-platform-validation.yml",
+    "flyway": {
+      "expectedVersion": 50,
+      "scanRoot": "server-modules/approval-persistence-jdbc/src/main",
+      "requiredLocations": [
+        "server-modules/approval-persistence-jdbc/src/main/resources/db/migration",
+        "server-modules/approval-persistence-jdbc/src/main/java/db/migration",
+        "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration"
+      ],
+      "requiredMigrations": {
+        "38": "server-modules/approval-persistence-jdbc/src/main/java/db/migration/V38__Create_immutable_process_migration_plans.java",
+        "49": "server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V49__create_ai_approval_assistance_durable_evidence.sql",
+        "50": "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql"
+      }
+    }
+  },
+  "statusDefinitions": {
+    "implemented": "实现存在于所述范围内，并能够参与仓库构建。",
+    "tested": "仓库测试在已提交的代码头上覆盖所述范围。",
+    "accepted": "不可变验收记录明确接受所述范围。",
+    "merged": "已接受的实现存在于默认分支。",
+    "released": "能力已进入真实 Git tag、GitHub Release 和发布清单。",
+    "productionSupported": "项目明确承诺对所述范围提供可运维的生产支持。"
+  },
+  "runtime": [
+    {
+      "area": "PostgreSQL",
+      "value": "16",
+      "status": "main 上的已验收参考数据库"
+    },
+    {
+      "area": "MySQL",
+      "value": "8.4",
+      "status": "兼容目标；main 尚未合并，也不支持生产"
+    },
+    {
+      "area": "PC client",
+      "value": "Vue 3 + Vben + Element Plus",
+      "status": "已验证类型检查和生产构建"
+    },
+    {
+      "area": "Mobile client",
+      "value": "UniApp Vue 3 + Unibest + Wot UI",
+      "status": "已验证类型检查、H5 和微信小程序构建"
+    }
+  ],
+  "protocols": [
+    {
+      "name": "Approval DSL",
+      "version": "1.0",
+      "rule": "已发布定义保留精确且不可变的 DSL 与编译器证据。"
+    },
+    {
+      "name": "Form Schema",
+      "version": "1.0",
+      "rule": "已发布表单版本保留精确 Schema 语义和哈希。"
+    },
+    {
+      "name": "UI Schema",
+      "version": "1.0",
+      "rule": "只有具备确定性哈希和安全 fallback 的增量变更才可兼容。"
+    },
+    {
+      "name": "Artifact transfer",
+      "version": "V1 envelopes",
+      "rule": "未知版本或未知字段必须 fail closed。"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "core-approval-platform",
+      "name": "审批平台核心",
+      "scope": "DSL、表单、任务协作、审计、SLA、发布生命周期与多端交互",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/M4_FINAL_ACCEPTANCE.md",
+        "docs/M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md"
+      ],
+      "note": "核心能力已进入主线；仓库尚无正式 Release，也没有生产支持承诺。"
+    },
+    {
+      "id": "postgresql-16",
+      "name": "PostgreSQL 16",
+      "scope": "平台持久化、Flyway、Flowable、锁、CAS、并发与恢复语义",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md",
+        "docs/m6/M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE.md"
+      ],
+      "note": "当前主线的已验收参考数据库；未形成发布级生产支持承诺。"
+    },
+    {
+      "id": "mysql-8-4",
+      "name": "MySQL 8.4",
+      "scope": "双数据库迁移、JDBC、Flowable、并发、故障与运维兼容",
+      "status": {
+        "implemented": "partial",
+        "tested": "partial",
+        "accepted": "no",
+        "merged": "no",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_OVERALL_FORMAL_ACCEPTANCE.md"
+      ],
+      "note": "兼容工作在独立未合并工作流推进；main 仍按 PostgreSQL-only 已验收范围解释。"
+    },
+    {
+      "id": "process-instance-migration",
+      "name": "运行实例迁移",
+      "scope": "计划、授权、执行证据、精确验证、UNKNOWN、reconciliation 与聚合",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md"
+      ],
+      "note": "按已记录限制完成验收并进入主线；真实生产迁移执行仍为 NOT_AUTHORIZED。"
+    },
+    {
+      "id": "dingtalk-connector",
+      "name": "DingTalk Connector",
+      "scope": "凭据、Token、租户路由、只读调用、传输与诊断",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_A_FINAL_ACCEPTANCE.md"
+      ],
+      "note": "限定范围已验收；生产集成、运行所有权与推广门禁仍未完成。"
+    },
+    {
+      "id": "sdk-event-contracts",
+      "name": "Java / TypeScript SDK 与事件契约",
+      "scope": "版本化契约、签名、replay、幂等、兼容与弃用边界",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_B_FINAL_ACCEPTANCE.md"
+      ],
+      "note": "契约已验收；持久订阅、投递 Worker、Broker 与运行恢复尚不属于已支持生产范围。"
+    },
+    {
+      "id": "template-component-ecosystem",
+      "name": "模板与组件生态",
+      "scope": "确定性模板包、受控导入预览、租户 DRAFT 与数据型组件描述",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_C_FORMAL_ACCEPTANCE.md"
+      ],
+      "note": "限定的数据型能力已验收；不存在脚本、远程模块或直接发布执行权限。"
+    },
+    {
+      "id": "ai-provider-foundation",
+      "name": "AI Provider Foundation",
+      "scope": "Provider SPI、版本追踪、最小化、脱敏、超时、熔断、限流与审计",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_D_FORMAL_ACCEPTANCE.md"
+      ],
+      "note": "基础边界已验收；AI 不能制造租户、权限、操作者或命令权限。"
+    },
+    {
+      "id": "openai-responses",
+      "name": "OpenAI Responses Provider",
+      "scope": "安全 Secret 来源、编码解码、Sender、单次调用与 UNKNOWN 分类",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_E_P7_FINAL_ACCEPTANCE.md"
+      ],
+      "note": "真实适配器已按默认关闭和限定调用范围验收；客户生产授权、出口、值守和发布演练未完成。"
+    },
+    {
+      "id": "ai-approval-assistance",
+      "name": "AI 审批辅助",
+      "scope": "显式生成、摘要与风险建议、精确来源、持久证据和多端展示",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_E_P7_FINAL_ACCEPTANCE.md"
+      ],
+      "note": "输出始终为 ADVISORY / UNVERIFIED_ADVISORY，并要求人工复核。"
+    },
+    {
+      "id": "controlled-automation-governance",
+      "name": "受控自动化治理",
+      "scope": "非可执行提案、重新校验、显式确认、CAS lineage 与只读治理视图",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_F_FORMAL_ACCEPTANCE.md"
+      ],
+      "note": "当前只接受 NON_EXECUTABLE 能力；Action whitelist 为空，生产重新认证不可用。"
+    },
+    {
+      "id": "web-mobile-parity",
+      "name": "PC / H5 / 微信小程序语义一致性",
+      "scope": "审批核心、迁移只读诊断、AI advisory 与显式操作边界",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "yes",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE.md"
+      ],
+      "note": "已验收范围内语义一致；这不等于浏览器兼容性、无障碍和真实用户体验已完成。"
+    },
+    {
+      "id": "security-supply-chain-evidence",
+      "name": "安全与供应链证据",
+      "scope": "依赖图、SBOM、Semgrep、OSV、Workflow 供应链与整改证据",
+      "status": {
+        "implemented": "yes",
+        "tested": "yes",
+        "accepted": "partial",
+        "merged": "yes",
+        "released": "no",
+        "productionSupported": "no"
+      },
+      "evidence": [
+        "docs/m6/M6_PR_E_E3_R2B_FINAL_ACCEPTANCE.md",
+        "docs/m6/M6_OVERALL_FORMAL_ACCEPTANCE.md"
+      ],
+      "note": "仓库内安全边界与整改证据已合并；专用 GitHub 安全告警清单和完整适用性证明仍是生产阻塞项。"
+    }
+  ]
+}
