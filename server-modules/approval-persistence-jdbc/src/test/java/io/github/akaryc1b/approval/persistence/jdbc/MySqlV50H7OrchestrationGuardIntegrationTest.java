@@ -48,6 +48,7 @@ class MySqlV50H7OrchestrationGuardIntegrationTest
                 if (operation.equals("insert")) {
                     assertTrue(action.contains("json_extract"));
                     assertTrue(action.contains("json_type(new.payload_json)"));
+                    assertTrue(action.contains("round(cast("));
                     assertTrue(action.contains("timestampdiff(microsecond"));
                     assertTrue(action.contains("<=>"));
                     assertTrue(action.contains("if not exists"));
