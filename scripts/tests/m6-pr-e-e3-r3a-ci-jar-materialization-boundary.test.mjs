@@ -86,28 +86,49 @@ export function materializeExactTomcatJar(repositoryRoot) {
 
 let materializedRepository = null;
 let materializedJar = null;
+let cleanupRegistered = false;
 
-if (process.env.GITHUB_ACTIONS === 'true') {
-  materializedRepository = mkdtempSync(
-    path.join(os.tmpdir(), 'm6-pr-e-r3a-artifact-'),
-  );
-  materializedJar = materializeExactTomcatJar(materializedRepository);
-  process.env.M6_PR_E_E2_MAVEN_REPOSITORY = materializedRepository;
-  process.once('exit', () => {
+function cleanupMaterializedRepository() {
+  if (materializedRepository !== null) {
     rmSync(materializedRepository, { recursive: true, force: true });
-  });
+  }
 }
 
-test('R3A CI materializes the exact Tomcat JAR before evidence review', {
+export function ensureExactTomcatRepository() {
+  if (materializedRepository !== null) return materializedRepository;
+
+  const repository = mkdtempSync(
+    path.join(os.tmpdir(), 'm6-pr-e-r3a-artifact-'),
+  );
+  try {
+    const jar = materializeExactTomcatJar(repository);
+    materializedRepository = repository;
+    materializedJar = jar;
+    if (!cleanupRegistered) {
+      process.once('exit', cleanupMaterializedRepository);
+      cleanupRegistered = true;
+    }
+    return materializedRepository;
+  } catch (error) {
+    rmSync(repository, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+test('R3A CI materializes the exact Tomcat JAR without parent environment leakage', {
   timeout: 600000,
 }, () => {
   if (process.env.GITHUB_ACTIONS !== 'true') return;
 
+  const inheritedRepository =
+    process.env.M6_PR_E_E2_MAVEN_REPOSITORY;
+  const repository = ensureExactTomcatRepository();
+
   assert.equal(
     process.env.M6_PR_E_E2_MAVEN_REPOSITORY,
-    materializedRepository,
+    inheritedRepository,
   );
-  assert.equal(materializedJar, exactTomcatJar(materializedRepository));
+  assert.equal(materializedJar, exactTomcatJar(repository));
   assert.equal(path.basename(materializedJar),
     'tomcat-embed-core-11.0.15.jar');
   assert.equal(existsSync(materializedJar), true);

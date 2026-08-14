@@ -15,6 +15,9 @@ import {
   sha256,
   stable,
 } from '../security/m6-pr-e-e3-r3a-review-osv-drift.mjs';
+import {
+  ensureExactTomcatRepository,
+} from './m6-pr-e-e3-r3a-ci-jar-materialization-boundary.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const file = (relative) => path.join(root, relative);
@@ -238,17 +241,28 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
   timeout: 900000,
 }, () => {
   if (process.env.GITHUB_ACTIONS !== 'true') return;
+
+  const inheritedRepository =
+    process.env.M6_PR_E_E2_MAVEN_REPOSITORY;
+  const repository = ensureExactTomcatRepository();
   const result = spawnSync(process.execPath, [
     reviewer,
     `--root=${root}`,
     '--markers',
   ], {
     cwd: root,
-    env: process.env,
+    env: {
+      ...process.env,
+      M6_PR_E_E2_MAVEN_REPOSITORY: repository,
+    },
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
     timeout: 900000,
   });
+  assert.equal(
+    process.env.M6_PR_E_E2_MAVEN_REPOSITORY,
+    inheritedRepository,
+  );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const match = result.stdout.match(
     /M6_PR_E_E3_R3A_REVIEW_BEGIN\n([^\n]+)\nM6_PR_E_E3_R3A_REVIEW_END/,
