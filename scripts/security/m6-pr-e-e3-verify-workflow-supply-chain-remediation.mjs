@@ -6,6 +6,8 @@ import { verifyWorkflowSupplyChainRemediation as verifyAcceptedR2B } from './m6-
 
 const SHA64 = /^[0-9a-f]{64}$/;
 const CONTRACT_SHA256 = 'f317b8f6568100c5da132a46c9cd4162851c60dfc36dbc9cd00916e2303832f5';
+const OSV_DRIFT_BEGIN = 'M6_PR_E_E3_R2B_OSV_IDENTITY_DRIFT_EVIDENCE_BEGIN';
+const OSV_DRIFT_END = 'M6_PR_E_E3_R2B_OSV_IDENTITY_DRIFT_EVIDENCE_END';
 const stable = (value) => Array.isArray(value)
   ? value.map(stable)
   : value && typeof value === 'object'
@@ -92,6 +94,52 @@ function requireIdentitySet(label, ids, expected) {
   }
 }
 
+function retainOsvIdentityDriftEvidence(e4, ids, expected) {
+  const currentFindingSetSha256 = findingSetSha256(ids);
+  if (expected
+    && Number.isInteger(expected.findingCount)
+    && SHA64.test(expected.findingSetSha256 || '')
+    && ids.length === expected.findingCount
+    && currentFindingSetSha256 === expected.findingSetSha256) {
+    return;
+  }
+
+  const normalizedFindings = e4.scanners.osv.findings.map((finding) => stable({
+    aliases: finding.aliases || [],
+    componentRefs: finding.componentRefs || [],
+    findingId: finding.findingId,
+    fixedVersions: finding.fixedVersions || [],
+    package: finding.package,
+    scopes: finding.scopes || [],
+    sourceClass: finding.sourceClass,
+    upstreamFindingId: finding.upstreamFindingId,
+    upstreamSeverity: finding.upstreamSeverity || [],
+  })).sort((left, right) => left.findingId.localeCompare(right.findingId));
+  const evidence = stable({
+    schemaVersion: 'M6_PR_E_E3_R2B_OSV_IDENTITY_DRIFT_EVIDENCE_V1',
+    repository: e4.repository,
+    commitSha: e4.commitSha,
+    expected: {
+      findingCount: expected?.findingCount ?? null,
+      findingSetSha256: expected?.findingSetSha256 ?? null,
+    },
+    current: {
+      findingCount: ids.length,
+      findingSetSha256: currentFindingSetSha256,
+      findings: normalizedFindings,
+    },
+    scanner: {
+      binarySha256: e4.scanners.osv.binarySha256,
+      sourceCommit: e4.scanners.osv.sourceCommit,
+      version: e4.scanners.osv.version,
+    },
+    rawReportRetained: false,
+    candidateSecretMaterialRetained: false,
+    releaseBlocked: true,
+  });
+  console.log(`${OSV_DRIFT_BEGIN}\n${canonical(evidence)}\n${OSV_DRIFT_END}`);
+}
+
 function requireAddedOsvFinding(actual, expected) {
   if (!actual || actual.sourceClass !== 'E4_OSV_SCANNER') {
     throw new Error(`R2B reviewed OSV finding absent ${expected.findingId}`);
@@ -141,6 +189,7 @@ export function reconcileScannerFindingIdentities(e4) {
   const semgrepIds = scannerIds('semgrep', e4.scanners?.semgrep, accepted.semgrepCurrentAfterAcceptedIdentityTransition.sourceClass);
   const zizmorIds = scannerIds('zizmor', e4.scanners?.zizmor, accepted.zizmorCurrent.sourceClass);
 
+  retainOsvIdentityDriftEvidence(e4, osvIds, expectedCurrent.osv);
   requireIdentitySet('current OSV', osvIds, expectedCurrent.osv);
   requireIdentitySet('current Gitleaks', gitleaksIds, expectedCurrent.gitleaks);
   requireIdentitySet('current Semgrep', semgrepIds, expectedCurrent.semgrep);
