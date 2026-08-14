@@ -22,9 +22,20 @@ function run(command,args,{cwd,env,timeout=600000,maxBuffer=256*1024*1024,allow=
 }
 function verifySha(file,expected){const got=H(readFileSync(file));if(got!==expected)throw new Error(`sha256 mismatch ${path.basename(file)} ${got}`);return got;}
 function exactHead(){
-  if(process.env.GITHUB_EVENT_PATH&&existsSync(process.env.GITHUB_EVENT_PATH)){const h=J(process.env.GITHUB_EVENT_PATH)?.pull_request?.head?.sha;if(SHA40.test(h||''))return h;}
-  const h=process.env.M6_PR_E_E4_HEAD_SHA;if(SHA40.test(h||''))return h;
-  throw new Error('E4 exact PR head unavailable');
+  let event=null;
+  if(process.env.GITHUB_EVENT_PATH&&existsSync(process.env.GITHUB_EVENT_PATH)){
+    event=J(process.env.GITHUB_EVENT_PATH);
+  }
+  const candidates=[
+    event?.pull_request?.head?.sha,
+    event?.after,
+    event?.head_commit?.id,
+    process.env.M6_PR_E_E4_HEAD_SHA,
+    process.env.GITHUB_SHA
+  ];
+  const head=candidates.find(candidate=>SHA40.test(String(candidate??'')));
+  if(head)return head;
+  throw new Error('E4 exact workflow head unavailable');
 }
 function safeEnv(extra={}){const e={...process.env,...extra};for(const k of ['GH_TOKEN','GITHUB_TOKEN','ZIZMOR_GITHUB_TOKEN','SEMGREP_APP_TOKEN'])delete e[k];return e;}
 function collectFiles(dir,predicate,out=[]){if(!existsSync(dir))return out;for(const n of readdirSync(dir).sort()){const f=path.join(dir,n),s=statSync(f);if(s.isDirectory())collectFiles(f,predicate,out);else if(predicate(f))out.push(f);}return out;}
