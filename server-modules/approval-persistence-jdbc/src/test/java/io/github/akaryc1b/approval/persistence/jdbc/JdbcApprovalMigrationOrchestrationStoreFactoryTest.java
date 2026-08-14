@@ -34,7 +34,7 @@ class JdbcApprovalMigrationOrchestrationStoreFactoryTest {
     }
 
     @Test
-    void selectsMySqlD7AuthorityFromTrustedMetadata() {
+    void selectsCanonicalMySqlD7AuthorityFromTrustedMetadata() {
         DataSource dataSource = dataSource("MySQL", "8.4.4", 8, 4);
 
         ApprovalMigrationOrchestrationStore store =
@@ -47,7 +47,10 @@ class JdbcApprovalMigrationOrchestrationStoreFactoryTest {
                 UUID::randomUUID
             );
 
-        assertInstanceOf(JdbcMySqlApprovalMigrationOrchestrationStore.class, store);
+        assertInstanceOf(
+            JdbcMySqlCanonicalApprovalMigrationOrchestrationStore.class,
+            store
+        );
     }
 
     private static DataSource dataSource(

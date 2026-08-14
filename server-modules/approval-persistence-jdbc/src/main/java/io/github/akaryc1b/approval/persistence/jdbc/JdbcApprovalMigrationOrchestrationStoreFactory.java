@@ -55,12 +55,14 @@ public final class JdbcApprovalMigrationOrchestrationStoreFactory {
                 audit,
                 ids
             );
-            case MYSQL -> new JdbcMySqlApprovalMigrationOrchestrationStore(
-                source,
-                mapper,
-                manager,
-                audit,
-                ids
+            case MYSQL -> new JdbcMySqlCanonicalApprovalMigrationOrchestrationStore(
+                new JdbcMySqlApprovalMigrationOrchestrationStore(
+                    source,
+                    mapper,
+                    manager,
+                    audit,
+                    ids
+                )
             );
         };
     }

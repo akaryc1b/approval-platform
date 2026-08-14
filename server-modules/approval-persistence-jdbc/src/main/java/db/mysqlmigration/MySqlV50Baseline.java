@@ -15,7 +15,61 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     private static final MigrationVersion VERSION = MigrationVersion.fromVersion("50");
     private static final String DESCRIPTION = "Baseline approval platform";
-    private static final int BASELINE_CHECKSUM = -392744558;
+    private static final int PREVIOUS_BASELINE_CHECKSUM = -392744558;
+    private static final String D7_APPEND_ONLY_GUARDS = """
+        create trigger trg_process_migration_canary_selection_guard_v47
+         before update on ap_process_migration_canary_selection
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        create trigger trg_process_migration_canary_selection_delete_guard_v47
+         before delete on ap_process_migration_canary_selection
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        create trigger trg_process_migration_orchestration_run_guard_v47
+         before update on ap_process_migration_orchestration_run
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        create trigger trg_process_migration_orchestration_run_delete_guard_v47
+         before delete on ap_process_migration_orchestration_run
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        create trigger trg_process_migration_orchestration_event_guard_v47
+         before update on ap_process_migration_orchestration_event
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        create trigger trg_process_migration_orchestration_event_delete_guard_v47
+         before delete on ap_process_migration_orchestration_event
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        create trigger trg_process_migration_orchestration_batch_guard_v47
+         before update on ap_process_migration_orchestration_batch
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        create trigger trg_process_migration_orchestration_batch_delete_guard_v47
+         before delete on ap_process_migration_orchestration_batch
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        create trigger trg_process_migration_kill_switch_observation_guard_v47
+         before update on ap_process_migration_kill_switch_observation
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        create trigger trg_process_migration_kill_switch_observation_delete_guard_v47
+         before delete on ap_process_migration_kill_switch_observation
+         for each row
+         signal sqlstate '45000'
+          set message_text='M5-D7 evidence is append-only';
+        """;
+    private static final int BASELINE_CHECKSUM =
+        31 * PREVIOUS_BASELINE_CHECKSUM + D7_APPEND_ONLY_GUARDS.hashCode();
 
     @Override
     public MigrationVersion getVersion() {
@@ -39,7 +93,7 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     @Override
     public void migrate(Context context) throws Exception {
-        List<String> statements = MySqlV50Script.split(MySqlV50Script.decompress());
+        List<String> statements = MySqlV50Script.split(baselineScript());
         MySqlV50ExecutionPlan executionPlan = new MySqlV50ExecutionPlan();
         int index = 0;
         try (Statement statement = context.getConnection().createStatement()) {
@@ -96,10 +150,14 @@ public final class MySqlV50Baseline implements JavaMigration {
     }
 
     static String decompressBaseline() {
-        return MySqlV50Script.decompress();
+        return baselineScript();
     }
 
     static List<String> splitStatements(String script) {
         return MySqlV50Script.split(script);
+    }
+
+    private static String baselineScript() {
+        return MySqlV50Script.decompress() + "\n;\n" + D7_APPEND_ONLY_GUARDS;
     }
 }
