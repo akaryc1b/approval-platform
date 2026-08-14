@@ -15,7 +15,7 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     private static final MigrationVersion VERSION = MigrationVersion.fromVersion("50");
     private static final String DESCRIPTION = "Baseline approval platform";
-    private static final int BASELINE_CHECKSUM = -392744558;
+    private static final int BASELINE_SCHEMA_CHECKSUM = -392744558;
 
     @Override
     public MigrationVersion getVersion() {
@@ -29,7 +29,8 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     @Override
     public Integer getChecksum() {
-        return BASELINE_CHECKSUM;
+        return 31 * BASELINE_SCHEMA_CHECKSUM
+            + MySqlV50D7OrchestrationGuards.checksum();
     }
 
     @Override
@@ -64,6 +65,10 @@ public final class MySqlV50Baseline implements JavaMigration {
                         throw exception;
                     }
                 }
+            }
+            for (String guard : d7GuardStatements()) {
+                index++;
+                statement.execute(guard);
             }
         } catch (SQLException exception) {
             throw new FlywayException(
@@ -101,5 +106,9 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     static List<String> splitStatements(String script) {
         return MySqlV50Script.split(script);
+    }
+
+    static List<String> d7GuardStatements() {
+        return MySqlV50D7OrchestrationGuards.statements();
     }
 }
