@@ -113,6 +113,23 @@ class MySqlV50H7OrchestrationSchemaContractTest {
             }
         }
 
+        String eventInsert = guards.stream()
+            .map(value -> value.toLowerCase(Locale.ROOT))
+            .filter(value -> value.contains(
+                "before insert on ap_process_migration_orchestration_event"
+            ))
+            .findFirst()
+            .orElseThrow();
+        assertTrue(eventInsert.contains(
+            "from ap_process_migration_kill_switch_observation observation"
+        ));
+        assertTrue(eventInsert.contains(
+            "observation.observation_evidence_hash=new.predecessor_hash"
+        ));
+        assertTrue(eventInsert.contains(
+            "observation.attempt_id=new.attempt_id"
+        ));
+
         String all = String.join("\n", guards).toLowerCase(Locale.ROOT);
         assertFalse(all.contains("foreign_key_checks"));
         assertFalse(all.contains("insert ignore"));
