@@ -48,6 +48,9 @@ class MySqlV50H7OrchestrationGuardIntegrationTest
                 assertTrue(action.contains("signal sqlstate"));
                 if (operation.equals("insert")) {
                     assertTrue(action.contains("json_extract"));
+                    assertTrue(action.contains("json_type(new.payload_json)"));
+                    assertTrue(action.contains("timestampdiff(microsecond"));
+                    assertTrue(action.contains("<=>"));
                     assertTrue(action.contains("if not exists"));
                 } else {
                     assertTrue(action.contains("m5-d7 evidence is append-only"));
