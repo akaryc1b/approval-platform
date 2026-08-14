@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "policy": "Existing acceptance records are immutable. Corrections must be added as new records.",
+  "documents": {
+    "docs/M3_FINAL_ACCEPTANCE.md": "459c684027e4a08f08655bff3e31721912dc35bc",
+    "docs/M4_FINAL_ACCEPTANCE.md": "466db8cc6709c9021959b9c5a67661dddbf77364",
+    "docs/M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md": "012ed90572152a522a44fbe613ef360f2a4b3120",
+    "docs/m6/M6_A_FINAL_ACCEPTANCE.md": "acea8acadc77ade8c5f6f72772e8dfd70bab2ab0",
+    "docs/m6/M6_B_FINAL_ACCEPTANCE.md": "3afcf8d1ad7dbed3ab603a0650bdabd5e3cfae76",
+    "docs/m6/M6_C_FORMAL_ACCEPTANCE.md": "273f3f31219cb3b3280b23413200ee78024cbeb2",
+    "docs/m6/M6_D_FORMAL_ACCEPTANCE.md": "9794bbeffcf3e22467760844c2cc5062b3400e11",
+    "docs/m6/M6_E_P7_FINAL_ACCEPTANCE.md": "411c8ce142bcc12e174ac751c15ae9770570e3b2",
+    "docs/m6/M6_F_FORMAL_ACCEPTANCE.md": "9a99a4ca653574923cb53c91071e0c28dd85992f",
+    "docs/m6/M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE.md": "1bc38b3d790d37dde6018191c3eb6ad8c8e77ea6",
+    "docs/m6/M6_OVERALL_FORMAL_ACCEPTANCE.md": "8a20524ed9c6bfbe16283c3919eb3a2f2f6a957d"
+  }
+}
