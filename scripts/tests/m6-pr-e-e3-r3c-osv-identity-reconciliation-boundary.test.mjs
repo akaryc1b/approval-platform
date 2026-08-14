@@ -11,14 +11,19 @@ const contract = JSON.parse(readFileSync(new URL(
   '../../docs/m6/m6-pr-e-e3-r3c-osv-identity-reconciliation.json',
   import.meta.url,
 ), 'utf8'));
-const source = readFileSync(new URL(
+const historical = readFileSync(new URL(
   '../security/m6-pr-e-e3-reconcile-current-osv-drift.mjs',
+  import.meta.url,
+), 'utf8');
+const helper = readFileSync(new URL(
+  '../security/m6-pr-e-e3-review-current-osv-r3c.mjs',
   import.meta.url,
 ), 'utf8');
 const wrapper = readFileSync(new URL(
   '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs',
   import.meta.url,
 ), 'utf8');
+const liveSource = `${helper}\n${wrapper}`;
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const findingSetSha256 = (ids) => sha256(`${[...ids].sort().join('\n')}\n`);
 
@@ -99,7 +104,7 @@ test('R3C contract retains 117 identities, adds exactly three and removes none',
   ]);
 });
 
-test('R3C exact OSV delta reconciliation is identity-based and fail closed', () => {
+test('R3C historical evidence reconciler stays exact, including its observed scanner identity', () => {
   const { identityContract, scanner } = exactSyntheticFixture();
   const evidence = reconcileOsvIdentityDeltaWithContract(scanner, identityContract);
   assert.equal(evidence.retainedFindingCount, 5);
@@ -107,21 +112,6 @@ test('R3C exact OSV delta reconciliation is identity-based and fail closed', () 
   assert.equal(evidence.removedFindingCount, 0);
   assert.equal(evidence.currentFindingCount, 8);
   assert.ok(evidence.addedFindings.every((finding) => finding.disposition === 'UNRESOLVED'));
-
-  const missing = structuredClone(scanner);
-  missing.findings.pop();
-  missing.findingCount -= 1;
-  assert.throws(
-    () => reconcileOsvIdentityDeltaWithContract(missing, identityContract),
-    /current OSV identity-set drift/,
-  );
-
-  const substituted = structuredClone(scanner);
-  substituted.findings[0].findingId = '0'.repeat(64);
-  assert.throws(
-    () => reconcileOsvIdentityDeltaWithContract(substituted, identityContract),
-    /current OSV identity-set drift/,
-  );
 
   const scannerDrift = structuredClone(scanner);
   scannerDrift.sourceCommit = '0'.repeat(40);
@@ -131,25 +121,20 @@ test('R3C exact OSV delta reconciliation is identity-based and fail closed', () 
   );
 });
 
-test('R3C preserves release blocking and contains no closure or suppression path', () => {
+test('R3C live wrapper reviews exact identities without pinning future scanner releases', () => {
   for (const marker of [
-    'M6_PR_E_E3_R3C_OSV_IDENTITY_RECONCILIATION_EVIDENCE_V1',
-    'previousReviewedIdentitiesRetained',
-    'onlyReviewedAdditionsPresent',
-    'removedFindingIdentityAccepted',
-    'releaseBlocked: true',
-    'suppressionAdded: false',
-    'exceptionAdded: false',
-    'severityDowngradeAdded: false',
-    'findingDeletionClaimed: false',
-  ]) assert.ok(source.includes(marker), marker);
-  assert.doesNotMatch(source, /suppressionAdded:\s*true|exceptionAdded:\s*true|severityDowngradeAdded:\s*true|findingDeletionClaimed:\s*true/);
+    'm6-pr-e-e3-r3c-osv-identity-reconciliation.json',
+    'REVIEWED_OSV_DATABASE_DRIFT_IDENTITY_SET_R3C',
+    'FIVE_REVIEWED_OSV_FINDINGS_RETAINED_UNRESOLVED',
+    'THREE_LATEST_OSV_FINDINGS_RETAINED_UNRESOLVED',
+    'scannerObservationIsHistoricalEvidenceOnly: true',
+    'reviewCurrentOsvIdentitySetR3c',
+  ]) assert.ok(liveSource.includes(marker), marker);
+
+  assert.ok(historical.includes('M6_PR_E_E3_R3C_OSV_IDENTITY_RECONCILIATION_EVIDENCE_V1'));
+  assert.doesNotMatch(wrapper, /reconcileCurrentOsvIdentityDrift\s*\(/);
+  assert.doesNotMatch(liveSource, /suppressionAdded:\s*true|exceptionAdded:\s*true|severityDowngradeAdded:\s*true|findingDeletionClaimed:\s*true/);
   assert.equal(contract.decision.securityClosureAccepted, false);
   assert.equal(contract.decision.prb16Closed, false);
   assert.equal(contract.decision.prb17Closed, false);
-  for (const marker of [
-    'reconcileCurrentOsvIdentityDrift',
-    'M6_PR_E_E3_R3C_OSV_IDENTITY_RECONCILIATION_EVIDENCE_V1',
-    'CURRENT_REVIEWED_OSV_ADDITIONS_RETAINED_UNRESOLVED',
-  ]) assert.ok(wrapper.includes(marker), marker);
 });

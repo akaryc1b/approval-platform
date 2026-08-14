@@ -5,7 +5,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { reconcileScannerFindingIdentities } from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs';
+import {
+  classifyCurrentOsvIdentitySet,
+  reconcileScannerFindingIdentities,
+} from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const contractPath = path.join(root, 'docs/m6/m6-pr-e-e3-r2b-scanner-identity-reconciliation.json');
@@ -27,27 +30,31 @@ const gitBlobSha = (value) => createHash('sha1')
 const id = (label) => sha256(label);
 const finding = (sourceClass, findingId, extra = {}) => ({ sourceClass, findingId, ...extra });
 
-function invalidCurrentE4() {
-  const additions = contract.reviewedAddedOsvFindings.map((expected) => finding('E4_OSV_SCANNER', expected.findingId, {
-    upstreamFindingId: expected.upstreamFindingId,
-    aliases: [...expected.requiredAliases],
-    package: { ...expected.package },
-    componentRefs: [`fixture:${expected.package.name}:${expected.package.version}`],
-    scopes: [...expected.requiredScopes],
-    upstreamSeverity: [],
-    fixedVersions: [],
-  }));
-  const osv = [
-    ...Array.from({ length: 115 }, (_, index) => finding('E4_OSV_SCANNER', id(`unreviewed-osv-${index}`))),
-    ...additions,
-  ];
+function osvFinding(label, overrides = {}) {
+  return finding('E4_OSV_SCANNER', overrides.findingId ?? id(label), {
+    upstreamFindingId: overrides.upstreamFindingId ?? `GHSA-fixture-${label}`,
+    aliases: overrides.aliases ?? [`CVE-2099-${label}`],
+    package: overrides.package ?? {
+      ecosystem: 'Maven',
+      name: `fixture:${label}`,
+      version: '1.0.0',
+    },
+    componentRefs: overrides.componentRefs ?? [`pkg:maven/fixture/${label}@1.0.0?type=jar`],
+    scopes: overrides.scopes ?? ['compile'],
+    upstreamSeverity: overrides.upstreamSeverity ?? [],
+    fixedVersions: overrides.fixedVersions ?? [],
+  });
+}
+
+function unreviewedCurrentE4(osvCount = 117) {
+  const osv = Array.from({ length: osvCount }, (_, index) => osvFinding(`unreviewed-osv-${index}`));
   const gitleaks = Array.from({ length: 27 }, (_, index) => finding('E4_GITLEAKS', id(`unreviewed-gitleaks-${index}`)));
   const semgrep = Array.from({ length: 3 }, (_, index) => finding('E4_SEMGREP', id(`unreviewed-semgrep-${index}`)));
   return {
     repository: contract.repository,
     commitSha: '7'.repeat(40),
     contentSha256: '8'.repeat(64),
-    totalFindingCount: 147,
+    totalFindingCount: osv.length + gitleaks.length + semgrep.length,
     scanners: {
       osv: { scanCompleted: true, rawReportRetained: false, findingCount: osv.length, findings: osv },
       gitleaks: { scanCompleted: true, rawReportRetained: false, findingCount: gitleaks.length, findings: gitleaks },
@@ -90,10 +97,13 @@ test('R2B scanner identity contract is canonical, exact and non-authorizing', ()
   }
 });
 
-test('R2B preserves accepted boundary coverage while removing tainted dynamic RegExp construction', () => {
+test('R2B preserves accepted boundary coverage while retaining unreviewed OSV database drift fail closed', () => {
   assert.equal(existsSync(acceptedVerifierPath), true);
   assert.equal(existsSync(acceptedTestPath), true);
-  assert.equal(gitBlobSha(readFileSync(acceptedTestPath)), '34e46091ab35540cfc57fe3e8c00e6692e93e56d');
+  const acceptedTest = readFileSync(acceptedTestPath, 'utf8');
+  assert.equal(gitBlobSha(acceptedTest), '2c6218eda079c0a73ba7cc9c02757e709f7fd0b5');
+  assert.ok(acceptedTest.includes("from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';"));
+  assert.equal(acceptedTest.includes("from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs';"), false);
   const acceptedVerifier = readFileSync(acceptedVerifierPath, 'utf8');
   assert.doesNotMatch(acceptedVerifier, /new RegExp\(/);
   assert.ok(acceptedVerifier.includes('candidate.match(/^(\\s*)([A-Za-z0-9_-]+):\\s*(.*)$/)'));
@@ -102,6 +112,7 @@ test('R2B preserves accepted boundary coverage while removing tainted dynamic Re
   const verifier = readFileSync(verifierPath, 'utf8');
   for (const marker of [
     'verifyAcceptedR2B',
+    'classifyCurrentOsvIdentitySet',
     'reconcileScannerFindingIdentities',
     'retained historical OSV',
     'unreviewed OSV identity addition detected',
@@ -109,8 +120,13 @@ test('R2B preserves accepted boundary coverage while removing tainted dynamic Re
     'reviewed OSV alias drift',
     'reviewed OSV package drift',
     'reviewed OSV scope drift',
+    'UNREVIEWED_OSV_DATABASE_DRIFT_IDENTITY_SET',
+    'acceptedOsvIdentitySetUnchanged',
     'OSV_DATABASE_DRIFT_RECONCILED_BY_EXACT_IDENTITY_SET',
     'TWO_NEW_OSV_FINDINGS_RETAINED_UNRESOLVED',
+    'OSV_DATABASE_DRIFT_RETAINED_WITHOUT_ACCEPTANCE',
+    'CURRENT_OSV_IDENTITY_SET_REQUIRES_E3_REVIEW',
+    'OSV_DATABASE_SNAPSHOT_IDENTITY_UNAVAILABLE',
   ]) assert.ok(verifier.includes(marker), marker);
   assert.doesNotMatch(verifier, /suppressionAdded:\s*true|exceptionAdded:\s*true|severityDowngradeAdded:\s*true|findingDeletionClaimed:\s*true/);
 });
@@ -147,12 +163,49 @@ test('R2B Final Acceptance binds the exact successful implementation evidence wi
   assert.doesNotMatch(acceptance, /NO_SUPPRESSION\s*:\s*false|NO_EXCEPTION\s*:\s*false|NO_SEVERITY_DOWNGRADE\s*:\s*false/);
 });
 
-test('R2B rejects a count-correct scanner result whose identities are not the accepted historical set', () => {
-  assert.throws(() => reconcileScannerFindingIdentities(invalidCurrentE4()), /current OSV identity-set drift/);
+test('R2B retains count-correct but identity-different OSV results as unresolved current evidence', () => {
+  const e4 = unreviewedCurrentE4(117);
+  const result = classifyCurrentOsvIdentitySet(e4.scanners.osv, contract);
+  assert.equal(result.osvIdentityMode, 'UNREVIEWED_OSV_DATABASE_DRIFT_IDENTITY_SET');
+  assert.equal(result.acceptedOsvIdentitySetMatched, false);
+  assert.equal(result.reviewedCurrentOsvIdentitySetMatched, false);
+  assert.equal(result.acceptedOsvIdentitySetUnchanged, true);
+  assert.equal(result.currentOsvFindingReviewRequired, true);
+  assert.equal(result.currentOsvFindingCount, 117);
+  assert.equal(result.unreviewedCurrentOsvFindingCount, 117);
+  assert.ok(result.unreviewedCurrentOsvFindings.every((item) => item.disposition === 'UNRESOLVED'));
+  assert.ok(result.unreviewedCurrentOsvFindings.every((item) => item.componentRefs.length > 0 && item.scopes.length > 0));
 });
 
-test('R2B rejects duplicate scanner identities before any count-based compatibility delegation', () => {
-  const e4 = invalidCurrentE4();
-  e4.scanners.osv.findings[1].findingId = e4.scanners.osv.findings[0].findingId;
-  assert.throws(() => reconcileScannerFindingIdentities(e4), /duplicate finding identity/);
+test('R2B removes the old count-only accepted OSV compatibility bypass', () => {
+  const e4 = unreviewedCurrentE4(115);
+  const result = classifyCurrentOsvIdentitySet(e4.scanners.osv, contract);
+  assert.equal(result.currentOsvFindingCount, contract.acceptedIdentitySets.osv.findingCount);
+  assert.equal(result.acceptedOsvIdentitySetMatched, false);
+  assert.equal(result.osvIdentityMode, 'UNREVIEWED_OSV_DATABASE_DRIFT_IDENTITY_SET');
+  assert.equal(result.currentOsvFindingReviewRequired, true);
+});
+
+test('R2B keeps Gitleaks, Semgrep and zizmor identities exact when OSV database drift is unreviewed', () => {
+  assert.throws(() => reconcileScannerFindingIdentities(unreviewedCurrentE4()), /current Gitleaks identity-set drift/);
+});
+
+test('R2B rejects duplicate or incomplete current OSV triage evidence', () => {
+  const duplicate = osvFinding('duplicate');
+  const duplicateScanner = {
+    scanCompleted: true,
+    rawReportRetained: false,
+    findingCount: 2,
+    findings: [duplicate, duplicate],
+  };
+  assert.throws(() => classifyCurrentOsvIdentitySet(duplicateScanner, contract), /duplicate finding identity/);
+
+  const incomplete = osvFinding('incomplete', { componentRefs: [] });
+  const incompleteScanner = {
+    scanCompleted: true,
+    rawReportRetained: false,
+    findingCount: 1,
+    findings: [incomplete],
+  };
+  assert.throws(() => classifyCurrentOsvIdentitySet(incompleteScanner, contract), /current OSV triage evidence incomplete/);
 });
