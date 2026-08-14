@@ -32,7 +32,7 @@ import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationAttempt
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationBindingRevisionReader;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStoreFactory;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOrchestrationStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOrchestrationStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationReconciliationExecutionStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStoreFactory;
 import org.flowable.engine.HistoryService;
@@ -235,7 +235,7 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationOrchestrationStore(
+        return JdbcApprovalMigrationOrchestrationStoreFactory.create(
             dataSource,
             objectMapper,
             transactionManager,
