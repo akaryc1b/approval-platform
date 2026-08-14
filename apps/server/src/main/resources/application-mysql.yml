@@ -1,3 +1,9 @@
+# Server-owned Flyway prerequisite for the governed MySQL V50 D7 triggers:
+# when binary logging is enabled, configure log_bin_trust_function_creators=ON
+# and grant the migration identity TRIGGER on the platform schema. The application
+# does not mutate global variables or disable binary logging. MySQL 8.4 deprecates
+# this variable, so a future-major upgrade requires a new authority contract.
+
 spring:
   config:
     activate:
