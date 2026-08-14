@@ -23,14 +23,7 @@ class MySqlFlywayCleanMigrationIntegrationTest {
         .withDatabaseName("approval_mysql_migration")
         .withUsername("approval")
         .withPassword("approval")
-        .withCommand(
-            "--default-time-zone=+00:00",
-            "--character-set-server=utf8mb4",
-            "--collation-server=utf8mb4_0900_as_cs",
-            "--transaction-isolation=READ-COMMITTED",
-            "--innodb-strict-mode=ON",
-            "--sql-mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
-        );
+        .withCommand(MySql84ProductionTestServer.command());
 
     private static Flyway flyway;
     private static JdbcTemplate jdbc;
@@ -58,6 +51,45 @@ class MySqlFlywayCleanMigrationIntegrationTest {
         assertNotNull(current);
         assertEquals("50", current.getVersion().getVersion());
         assertEquals(1, flyway.info().applied().length);
+    }
+
+    @Test
+    void retainsBinaryLoggingAndTrustedD7TriggerInstallationAuthority() {
+        assertEquals(
+            1,
+            jdbc.queryForObject("select @@global.log_bin", Integer.class)
+        );
+        assertEquals(
+            1,
+            jdbc.queryForObject(
+                "select @@global.log_bin_trust_function_creators",
+                Integer.class
+            )
+        );
+    }
+
+    @Test
+    void installsAllTenGovernedD7AppendOnlyGuards() {
+        Integer guards = jdbc.queryForObject("""
+            select count(*)
+            from information_schema.triggers
+            where trigger_schema = database()
+              and trigger_name in (
+                'trg_process_migration_canary_selection_guard_v47',
+                'trg_process_migration_canary_selection_delete_guard_v47',
+                'trg_process_migration_orchestration_run_guard_v47',
+                'trg_process_migration_orchestration_run_delete_guard_v47',
+                'trg_process_migration_orchestration_event_guard_v47',
+                'trg_process_migration_orchestration_event_delete_guard_v47',
+                'trg_process_migration_orchestration_batch_guard_v47',
+                'trg_process_migration_orchestration_batch_delete_guard_v47',
+                'trg_process_migration_kill_switch_observation_guard_v47',
+                'trg_process_migration_kill_switch_observation_delete_guard_v47'
+              )
+              and lower(action_statement) like '%m5-d7 evidence is append-only%'
+            """, Integer.class);
+
+        assertEquals(10, guards);
     }
 
     @Test
