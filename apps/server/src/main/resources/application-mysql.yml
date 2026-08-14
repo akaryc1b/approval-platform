@@ -24,9 +24,14 @@ spring:
         SESSION sql_mode = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION',
         SESSION transaction_isolation = 'READ-COMMITTED'
   flyway:
+    url: ${APPROVAL_DB_URL}
+    user: ${APPROVAL_DB_MIGRATION_USERNAME}
+    password: ${APPROVAL_DB_MIGRATION_PASSWORD}
     locations: classpath:db/mysqlmigration
     fail-on-missing-locations: true
 
 approval:
   database:
     expected-vendor: MYSQL
+    runtime-identity: ${APPROVAL_DB_USERNAME}
+    migration-identity: ${APPROVAL_DB_MIGRATION_USERNAME}

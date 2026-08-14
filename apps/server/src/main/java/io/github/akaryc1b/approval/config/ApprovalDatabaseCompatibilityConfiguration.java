@@ -27,6 +27,18 @@ public class ApprovalDatabaseCompatibilityConfiguration {
     }
 
     @Bean
+    ApprovalDatabaseAuthorityBoundary approvalDatabaseAuthorityBoundary(
+        ApprovalDatabaseVendorResolver.DatabaseIdentity identity,
+        ApprovalDatabaseCompatibilityProperties properties
+    ) {
+        return new ApprovalDatabaseAuthorityBoundary(
+            identity.vendor(),
+            properties.getRuntimeIdentity(),
+            properties.getMigrationIdentity()
+        );
+    }
+
+    @Bean
     ApprovalDatabaseRuntimeBaselineValidator approvalDatabaseRuntimeBaselineValidator() {
         return new ApprovalDatabaseRuntimeBaselineValidator();
     }
