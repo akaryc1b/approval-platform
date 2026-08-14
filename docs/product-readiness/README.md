@@ -8,11 +8,7 @@ This directory is the current index for product-level evidence. It does not turn
 
 ## Current baseline
 
-This first slice is based on `main` commit:
-
-```text
-779c4fbd09dcf17d45cc523e725222797cc5cb85
-```
+This living index follows the current pull-request base. Exact base and Head SHAs belong in PR metadata and retained workflow evidence; they are intentionally not hard-coded here as a moving `main` status.
 
 | Evidence | Current status | Meaning |
 | --- | --- | --- |
