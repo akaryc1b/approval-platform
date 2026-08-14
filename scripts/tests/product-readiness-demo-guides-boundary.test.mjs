@@ -44,13 +44,15 @@ test('Quick Start remains an honest executable candidate path', () => {
   }
 });
 
-test('product-readiness status distinguishes repository, workstation and product evidence', () => {
+test('product-readiness status distinguishes repository, workstation and product evidence without a moving SHA', () => {
   const status = text(statusPath);
   assert.match(status, /DEMO_REPOSITORY_CONTRACT_PASSED/u);
   assert.match(status, /DEMO_PREFLIGHT_PASSED/u);
   assert.match(status, /BACKEND_LOCAL_START_VERIFIED/u);
   assert.match(status, /PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED/u);
   assert.match(status, /A successful preflight is not product acceptance/u);
+  assert.match(status, /Exact base and Head SHAs belong in PR metadata and retained workflow evidence/u);
+  assert.doesNotMatch(status, /\b[0-9a-f]{40}\b/u);
 });
 
 test('the permanent hygiene aggregate loads the product-readiness boundary', () => {
