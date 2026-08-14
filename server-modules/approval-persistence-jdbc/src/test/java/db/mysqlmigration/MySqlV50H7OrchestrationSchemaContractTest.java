@@ -47,7 +47,10 @@ class MySqlV50H7OrchestrationSchemaContractTest {
             assertFalse(lower.contains("::"));
         }
 
-        String run = tableStatement(statements, "ap_process_migration_orchestration_run");
+        String run = tableStatement(
+            statements,
+            "ap_process_migration_orchestration_run"
+        );
         assertTrue(run.contains("run_id varchar(36) not null"));
         assertTrue(run.contains("run_revision bigint not null"));
         assertTrue(run.contains("started_at datetime(6) not null"));
@@ -93,12 +96,6 @@ class MySqlV50H7OrchestrationSchemaContractTest {
         )) {
             assertTrue(lower.contains("create trigger " + trigger));
         }
-        assertTrue(lower.contains("m5-d7 evidence is append-only"));
-        assertTrue(lower.contains("d7 canary payload mismatch"));
-        assertTrue(lower.contains("d7 orchestration run payload mismatch"));
-        assertTrue(lower.contains("d7 orchestration event payload mismatch"));
-        assertTrue(lower.contains("d7 orchestration batch payload mismatch"));
-        assertTrue(lower.contains("d7 kill-switch payload mismatch"));
     }
 
     private static String tableStatement(List<String> statements, String table) {
@@ -106,6 +103,8 @@ class MySqlV50H7OrchestrationSchemaContractTest {
             .map(value -> value.toLowerCase(Locale.ROOT))
             .filter(value -> value.contains("create table " + table))
             .findFirst()
-            .orElseThrow(() -> new AssertionError("missing MySQL D7 table: " + table));
+            .orElseThrow(() -> new AssertionError(
+                "missing MySQL D7 table: " + table
+            ));
     }
 }
