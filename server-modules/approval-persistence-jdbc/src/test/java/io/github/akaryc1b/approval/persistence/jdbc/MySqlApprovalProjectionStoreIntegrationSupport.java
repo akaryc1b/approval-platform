@@ -63,15 +63,7 @@ abstract class MySqlApprovalProjectionStoreIntegrationSupport {
         .withDatabaseName("approval_mysql_projection_store")
         .withUsername("approval")
         .withPassword("approval")
-        .withCommand(
-            "--default-time-zone=+00:00",
-            "--character-set-server=utf8mb4",
-            "--collation-server=utf8mb4_0900_as_cs",
-            "--transaction-isolation=READ-COMMITTED",
-            "--innodb-strict-mode=ON",
-            "--sql-mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,"
-                + "NO_ENGINE_SUBSTITUTION"
-        );
+        .withCommand(MySql84ProductionTestServer.command());
 
     static DataSource dataSource;
     static JdbcTemplate jdbc;
