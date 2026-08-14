@@ -1,13 +1,13 @@
 #!/usr/bin/env node
+
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
+import { reconcileCurrentOsvIdentityDrift } from './m6-pr-e-e3-reconcile-current-osv-drift.mjs';
 import { verifyWorkflowSupplyChainRemediation as verifyAcceptedR2B } from './m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';
 
 const SHA64 = /^[0-9a-f]{64}$/;
 const CONTRACT_SHA256 = 'f317b8f6568100c5da132a46c9cd4162851c60dfc36dbc9cd00916e2303832f5';
-const OSV_DRIFT_BEGIN = 'M6_PR_E_E3_R2B_OSV_IDENTITY_DRIFT_EVIDENCE_BEGIN';
-const OSV_DRIFT_END = 'M6_PR_E_E3_R2B_OSV_IDENTITY_DRIFT_EVIDENCE_END';
 const stable = (value) => Array.isArray(value)
   ? value.map(stable)
   : value && typeof value === 'object'
@@ -15,132 +15,52 @@ const stable = (value) => Array.isArray(value)
     : value;
 const canonical = (value) => JSON.stringify(stable(value));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
-const findingSetSha256 = (ids) => sha256(`${[...ids].sort().join('\n')}\n`);
-const contract = JSON.parse(readFileSync(
-  new URL('../../docs/m6/m6-pr-e-e3-r2b-scanner-identity-reconciliation.json', import.meta.url),
-  'utf8',
-));
+const setHash = (ids) => sha256(`${[...ids].sort().join('\n')}\n`);
+const CONTRACT = JSON.parse(readFileSync(new URL(
+  '../../docs/m6/m6-pr-e-e3-r2b-scanner-identity-reconciliation.json',
+  import.meta.url,
+), 'utf8'));
 
-function requireContract() {
-  if (contract.schemaVersion !== 'M6_PR_E_E3_R2B_SCANNER_IDENTITY_RECONCILIATION_V1') {
-    throw new Error('R2B scanner identity reconciliation schema mismatch');
+function assertSet(label, ids, expected) {
+  if (!expected
+    || ids.length !== expected.findingCount
+    || setHash(ids) !== expected.findingSetSha256) {
+    throw new Error(`R2B ${label} identity-set drift`);
   }
-  const { contentSha256, ...payload } = contract;
-  if (contentSha256 !== CONTRACT_SHA256 || sha256(canonical(payload)) !== contentSha256) {
-    throw new Error('R2B scanner identity reconciliation contract mismatch');
-  }
-  if (contract.repository !== 'akaryc1b/approval-platform') throw new Error('R2B scanner identity repository mismatch');
-  const accepted = contract.acceptedEvidence || {};
-  if (accepted.runId !== 31556788011
-    || accepted.runNumber !== 1431
-    || accepted.head !== '05f422b4cdab397fc1126e6dc10f571b01cec8c5'
-    || accepted.e4CanonicalSha256 !== '4e86049fd18fbfebd7397d0c131563e849064eb698baa66bc4f9bd2d9cffbf58') {
-    throw new Error('R2B accepted scanner identity evidence drift');
-  }
-  const observed = contract.databaseDriftObservation || {};
-  if (observed.runId !== 31658751966
-    || observed.runNumber !== 1436
-    || observed.head !== '869d49cb7e9ef45109d3ac79f804908e5c58451a'
-    || observed.scanner !== 'OSV-Scanner'
-    || observed.scannerVersion !== '2.5.0'
-    || canonical(observed.classification) !== canonical(['DATABASE_DRIFT', 'NEW_FINDING', 'EVIDENCE_BUG'])) {
-    throw new Error('R2B scanner database drift observation mismatch');
-  }
-  const invariants = contract.invariants || {};
-  for (const key of [
-    'allHistoricalOsvIdentitiesRetained',
-    'onlyReviewedOsvIdentitiesMayBeAdded',
-    'gitleaksIdentitySetMustRemainExact',
-    'semgrepIdentityTransitionMustRemainExact',
-    'zizmorMustRemainEmpty',
-  ]) if (invariants[key] !== true) throw new Error(`R2B scanner identity invariant missing ${key}`);
-  for (const key of [
-    'suppressionAdded',
-    'exceptionAdded',
-    'severityDowngradeAdded',
-    'findingDeletionClaimed',
-    'readyAuthorized',
-    'mergeAuthorized',
-    'deploymentAuthorized',
-  ]) if (invariants[key] !== false) throw new Error(`R2B scanner identity invariant violated ${key}`);
-  return contract;
 }
 
-function scannerIds(scannerName, scanner, sourceClass) {
+function scannerIds(label, scanner, sourceClass) {
   if (!scanner
     || scanner.scanCompleted !== true
     || scanner.rawReportRetained !== false
     || !Array.isArray(scanner.findings)
     || scanner.findings.length !== scanner.findingCount) {
-    throw new Error(`R2B complete current ${scannerName} identity evidence required`);
+    throw new Error(`R2B complete current ${label} identity evidence required`);
   }
   const ids = scanner.findings.map((finding) => {
     if (finding.sourceClass !== sourceClass || !SHA64.test(finding.findingId || '')) {
-      throw new Error(`R2B ${scannerName} finding identity drift`);
+      throw new Error(`R2B ${label} finding identity drift`);
     }
     return finding.findingId;
-  });
-  if (new Set(ids).size !== ids.length) throw new Error(`R2B ${scannerName} duplicate finding identity`);
-  return ids.sort();
-}
-
-function requireIdentitySet(label, ids, expected) {
-  if (!expected
-    || !Number.isInteger(expected.findingCount)
-    || !SHA64.test(expected.findingSetSha256 || '')
-    || ids.length !== expected.findingCount
-    || findingSetSha256(ids) !== expected.findingSetSha256) {
-    throw new Error(`R2B ${label} identity-set drift`);
+  }).sort();
+  if (new Set(ids).size !== ids.length) {
+    throw new Error(`R2B ${label} duplicate finding identity`);
   }
+  return ids;
 }
 
-function retainOsvIdentityDriftEvidence(e4, ids, expected) {
-  const currentFindingSetSha256 = findingSetSha256(ids);
-  if (expected
-    && Number.isInteger(expected.findingCount)
-    && SHA64.test(expected.findingSetSha256 || '')
-    && ids.length === expected.findingCount
-    && currentFindingSetSha256 === expected.findingSetSha256) {
-    return;
+function validateContract() {
+  const { contentSha256, ...payload } = CONTRACT;
+  if (CONTRACT.schemaVersion !== 'M6_PR_E_E3_R2B_SCANNER_IDENTITY_RECONCILIATION_V1'
+    || CONTRACT.repository !== 'akaryc1b/approval-platform'
+    || contentSha256 !== CONTRACT_SHA256
+    || sha256(canonical(payload)) !== contentSha256) {
+    throw new Error('R2B scanner identity reconciliation contract mismatch');
   }
-
-  const normalizedFindings = e4.scanners.osv.findings.map((finding) => stable({
-    aliases: finding.aliases || [],
-    componentRefs: finding.componentRefs || [],
-    findingId: finding.findingId,
-    fixedVersions: finding.fixedVersions || [],
-    package: finding.package,
-    scopes: finding.scopes || [],
-    sourceClass: finding.sourceClass,
-    upstreamFindingId: finding.upstreamFindingId,
-    upstreamSeverity: finding.upstreamSeverity || [],
-  })).sort((left, right) => left.findingId.localeCompare(right.findingId));
-  const evidence = stable({
-    schemaVersion: 'M6_PR_E_E3_R2B_OSV_IDENTITY_DRIFT_EVIDENCE_V1',
-    repository: e4.repository,
-    commitSha: e4.commitSha,
-    expected: {
-      findingCount: expected?.findingCount ?? null,
-      findingSetSha256: expected?.findingSetSha256 ?? null,
-    },
-    current: {
-      findingCount: ids.length,
-      findingSetSha256: currentFindingSetSha256,
-      findings: normalizedFindings,
-    },
-    scanner: {
-      binarySha256: e4.scanners.osv.binarySha256,
-      sourceCommit: e4.scanners.osv.sourceCommit,
-      version: e4.scanners.osv.version,
-    },
-    rawReportRetained: false,
-    candidateSecretMaterialRetained: false,
-    releaseBlocked: true,
-  });
-  console.log(`${OSV_DRIFT_BEGIN}\n${canonical(evidence)}\n${OSV_DRIFT_END}`);
+  return CONTRACT;
 }
 
-function requireAddedOsvFinding(actual, expected) {
+function reviewAdded(actual, expected) {
   if (!actual || actual.sourceClass !== 'E4_OSV_SCANNER') {
     throw new Error(`R2B reviewed OSV finding absent ${expected.findingId}`);
   }
@@ -154,17 +74,16 @@ function requireAddedOsvFinding(actual, expected) {
   }
   const aliases = new Set(actual.aliases || []);
   for (const alias of expected.requiredAliases || []) {
-    if (!aliases.has(alias)) throw new Error(`R2B reviewed OSV alias drift ${expected.findingId} ${alias}`);
+    if (!aliases.has(alias)) throw new Error(`R2B reviewed OSV alias drift ${expected.findingId}`);
   }
   const scopes = new Set(actual.scopes || []);
   for (const scope of expected.requiredScopes || []) {
-    if (!scopes.has(scope)) throw new Error(`R2B reviewed OSV scope drift ${expected.findingId} ${scope}`);
+    if (!scopes.has(scope)) throw new Error(`R2B reviewed OSV scope drift ${expected.findingId}`);
   }
-  if (!Array.isArray(actual.componentRefs) || actual.componentRefs.length === 0) {
-    throw new Error(`R2B reviewed OSV component reference absent ${expected.findingId}`);
-  }
-  if (!['COMPILE_RUNTIME', 'BUILD_PLUGIN'].includes(expected.graphClass) || expected.disposition !== 'UNRESOLVED') {
-    throw new Error(`R2B reviewed OSV disposition contract drift ${expected.findingId}`);
+  if (!Array.isArray(actual.componentRefs) || actual.componentRefs.length === 0
+    || !['COMPILE_RUNTIME', 'BUILD_PLUGIN'].includes(expected.graphClass)
+    || expected.disposition !== 'UNRESOLVED') {
+    throw new Error(`R2B reviewed OSV disposition drift ${expected.findingId}`);
   }
   return stable({
     findingId: actual.findingId,
@@ -179,68 +98,53 @@ function requireAddedOsvFinding(actual, expected) {
 }
 
 export function reconcileScannerFindingIdentities(e4) {
-  const identityContract = requireContract();
-  if (!e4 || e4.repository !== identityContract.repository) throw new Error('R2B current E4 identity evidence required');
-
-  const accepted = identityContract.acceptedIdentitySets;
-  const expectedCurrent = identityContract.expectedCurrentIdentitySets;
-  const osvIds = scannerIds('osv', e4.scanners?.osv, accepted.osv.sourceClass);
-  const gitleaksIds = scannerIds('gitleaks', e4.scanners?.gitleaks, accepted.gitleaks.sourceClass);
-  const semgrepIds = scannerIds('semgrep', e4.scanners?.semgrep, accepted.semgrepCurrentAfterAcceptedIdentityTransition.sourceClass);
-  const zizmorIds = scannerIds('zizmor', e4.scanners?.zizmor, accepted.zizmorCurrent.sourceClass);
-
-  retainOsvIdentityDriftEvidence(e4, osvIds, expectedCurrent.osv);
-  requireIdentitySet('current OSV', osvIds, expectedCurrent.osv);
-  requireIdentitySet('current Gitleaks', gitleaksIds, expectedCurrent.gitleaks);
-  requireIdentitySet('current Semgrep', semgrepIds, expectedCurrent.semgrep);
-  requireIdentitySet('current zizmor', zizmorIds, expectedCurrent.zizmor);
-  requireIdentitySet('accepted Gitleaks', gitleaksIds, accepted.gitleaks);
-  requireIdentitySet('accepted current Semgrep transition', semgrepIds, accepted.semgrepCurrentAfterAcceptedIdentityTransition);
-  requireIdentitySet('accepted current zizmor', zizmorIds, accepted.zizmorCurrent);
-
-  const additions = identityContract.reviewedAddedOsvFindings || [];
-  if (additions.length !== 2 || new Set(additions.map((finding) => finding.findingId)).size !== 2) {
-    throw new Error('R2B exactly two reviewed OSV additions required');
+  const contract = validateContract();
+  if (!e4 || e4.repository !== contract.repository) {
+    throw new Error('R2B current E4 identity evidence required');
   }
-  const currentOsvById = new Map(e4.scanners.osv.findings.map((finding) => [finding.findingId, finding]));
-  const reviewedAddedOsvFindings = additions.map((expected) => {
-    if (!SHA64.test(expected.findingId || '')) throw new Error('R2B reviewed OSV finding identity invalid');
-    return requireAddedOsvFinding(currentOsvById.get(expected.findingId), expected);
-  });
-  const additionIds = new Set(additions.map((finding) => finding.findingId));
-  const retainedHistoricalOsvIds = osvIds.filter((findingId) => !additionIds.has(findingId));
-  requireIdentitySet('retained historical OSV', retainedHistoricalOsvIds, accepted.osv);
-  if (retainedHistoricalOsvIds.length + additions.length !== osvIds.length) {
+  const accepted = contract.acceptedIdentitySets;
+  const expected = contract.expectedCurrentIdentitySets;
+  const ids = {
+    osv: scannerIds('OSV', e4.scanners?.osv, accepted.osv.sourceClass),
+    gitleaks: scannerIds('Gitleaks', e4.scanners?.gitleaks, accepted.gitleaks.sourceClass),
+    semgrep: scannerIds('Semgrep', e4.scanners?.semgrep, accepted.semgrepCurrentAfterAcceptedIdentityTransition.sourceClass),
+    zizmor: scannerIds('zizmor', e4.scanners?.zizmor, accepted.zizmorCurrent.sourceClass),
+  };
+  assertSet('current OSV', ids.osv, expected.osv);
+  assertSet('current Gitleaks', ids.gitleaks, expected.gitleaks);
+  assertSet('current Semgrep', ids.semgrep, expected.semgrep);
+  assertSet('current zizmor', ids.zizmor, expected.zizmor);
+
+  const byId = new Map(e4.scanners.osv.findings.map((finding) => [finding.findingId, finding]));
+  const addedOsvFindings = contract.reviewedAddedOsvFindings
+    .map((addition) => reviewAdded(byId.get(addition.findingId), addition));
+  const addedIds = new Set(addedOsvFindings.map((finding) => finding.findingId));
+  const retainedIds = ids.osv.filter((findingId) => !addedIds.has(findingId));
+  assertSet('retained historical OSV', retainedIds, accepted.osv);
+  if (retainedIds.length + addedOsvFindings.length !== ids.osv.length) {
     throw new Error('R2B unreviewed OSV identity addition detected');
   }
-
   const currentScannerCounts = stable({
-    gitleaks: gitleaksIds.length,
-    osv: osvIds.length,
-    semgrep: semgrepIds.length,
-    zizmor: zizmorIds.length,
+    gitleaks: ids.gitleaks.length,
+    osv: ids.osv.length,
+    semgrep: ids.semgrep.length,
+    zizmor: ids.zizmor.length,
   });
   const totalFindingCount = Object.values(currentScannerCounts).reduce((sum, count) => sum + count, 0);
-  if (totalFindingCount !== expectedCurrent.totalFindingCount || totalFindingCount !== e4.totalFindingCount) {
+  if (totalFindingCount !== expected.totalFindingCount || totalFindingCount !== e4.totalFindingCount) {
     throw new Error('R2B current scanner identity total drift');
   }
-
   return stable({
     schemaVersion: 'M6_PR_E_E3_R2B_SCANNER_IDENTITY_RECONCILIATION_EVIDENCE_V1',
-    contractContentSha256: identityContract.contentSha256,
-    acceptedE4CanonicalSha256: identityContract.acceptedEvidence.e4CanonicalSha256,
-    databaseDriftRunId: identityContract.databaseDriftObservation.runId,
-    databaseSnapshotIdentity: identityContract.databaseDriftObservation.databaseSnapshotIdentity,
-    databaseSnapshotIdentityAvailability: identityContract.databaseDriftObservation.databaseSnapshotIdentityAvailability,
-    retainedHistoricalOsvFindingCount: retainedHistoricalOsvIds.length,
-    retainedHistoricalOsvFindingSetSha256: findingSetSha256(retainedHistoricalOsvIds),
-    addedOsvFindingCount: reviewedAddedOsvFindings.length,
-    addedOsvFindings: reviewedAddedOsvFindings,
+    retainedHistoricalOsvFindingCount: retainedIds.length,
+    retainedHistoricalOsvFindingSetSha256: setHash(retainedIds),
+    addedOsvFindingCount: addedOsvFindings.length,
+    addedOsvFindings,
     currentFindingSetSha256: {
-      gitleaks: findingSetSha256(gitleaksIds),
-      osv: findingSetSha256(osvIds),
-      semgrep: findingSetSha256(semgrepIds),
-      zizmor: findingSetSha256(zizmorIds),
+      gitleaks: setHash(ids.gitleaks),
+      osv: setHash(ids.osv),
+      semgrep: setHash(ids.semgrep),
+      zizmor: setHash(ids.zizmor),
     },
     currentScannerCounts,
     totalFindingCount,
@@ -253,12 +157,15 @@ export function reconcileScannerFindingIdentities(e4) {
 }
 
 export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
-  const acceptedOsvCount = plan?.priorNonZizmorFindingCounts?.osv ?? 115;
-  if (e4?.scanners?.osv?.findingCount === acceptedOsvCount) {
+  const count = e4?.scanners?.osv?.findingCount;
+  if (count === (plan?.priorNonZizmorFindingCounts?.osv ?? 115)) {
     return verifyAcceptedR2B(e4, plan, snapshot);
   }
 
-  const scannerIdentityReconciliation = reconcileScannerFindingIdentities(e4);
+  const r2bCount = CONTRACT.expectedCurrentIdentitySets.osv.findingCount;
+  const scannerIdentityReconciliation = count === r2bCount
+    ? reconcileScannerFindingIdentities(e4)
+    : reconcileCurrentOsvIdentityDrift(e4);
   const reconciledPlan = structuredClone(plan);
   reconciledPlan.priorNonZizmorFindingCounts = {
     gitleaks: scannerIdentityReconciliation.currentScannerCounts.gitleaks,
@@ -267,16 +174,18 @@ export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
   };
   const acceptedEvidence = verifyAcceptedR2B(e4, reconciledPlan, snapshot);
   const { contentSha256: ignored, ...acceptedPayload } = acceptedEvidence;
+  const currentDrift = scannerIdentityReconciliation.schemaVersion
+    === 'M6_PR_E_E3_R3C_OSV_IDENTITY_RECONCILIATION_EVIDENCE_V1';
   const payload = stable({
     ...acceptedPayload,
     scannerIdentityReconciliation,
-    reasonCodes: [
-      ...new Set([
-        ...(acceptedPayload.reasonCodes || []),
-        'OSV_DATABASE_DRIFT_RECONCILED_BY_EXACT_IDENTITY_SET',
-        'TWO_NEW_OSV_FINDINGS_RETAINED_UNRESOLVED',
-      ]),
-    ],
+    reasonCodes: [...new Set([
+      ...(acceptedPayload.reasonCodes || []),
+      'OSV_DATABASE_DRIFT_RECONCILED_BY_EXACT_IDENTITY_SET',
+      currentDrift
+        ? 'CURRENT_REVIEWED_OSV_ADDITIONS_RETAINED_UNRESOLVED'
+        : 'TWO_NEW_OSV_FINDINGS_RETAINED_UNRESOLVED',
+    ])],
   });
   return stable({ ...payload, contentSha256: sha256(canonical(payload)) });
 }
