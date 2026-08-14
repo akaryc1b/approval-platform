@@ -91,13 +91,28 @@ This edge-topology change does not remove the `spring-tx` component; `spring-tx`
 
 ## Compatibility rule
 
-The accepted E4 baseline remains historically frozen at:
+The historical accepted E4 graph remains permanently recorded as the prior baseline and is not rewritten:
 
 ```text
 2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94
 ```
 
-The additive compatibility layer permits exactly one later graph target:
+The current scanner baseline advances only its active `inheritedE2GraphDigest` to the exact H5 graph, while retaining the prior graph as `previousE2GraphDigest` and retaining the older pgJDBC transition in `historicalGraphTransitions`.
+
+```text
+current inheritedE2GraphDigest:
+e4cffa00582d61a62f5c41548f8da4b8bfb28dd50b7db3aa5d1aa42cd503ddfd
+
+previousE2GraphDigest:
+2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94
+
+historical transition retained:
+0b6868f057a72fb8c7a4c9d0529f4469381f0024f403873c6d92121e4b34ee0a
+->
+2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94
+```
+
+The active advance is authorized by exactly one immutable transition policy:
 
 ```text
 MYSQL_8_4_P3_H5_DEPENDENCY_GRAPH_REBASELINE
@@ -112,7 +127,7 @@ Canonical transition policy SHA-256:
 84bb310e52f540128d0dea0d6e7a3779054aa68021ae6c9138520d7fb6fa1d41
 ```
 
-Any other dependency graph remains fail-closed.
+The scanner implementation itself remains unchanged: it still requires the generated exact dependency graph to equal the active baseline before any scanner evidence is accepted. Any graph other than the exact active H5 graph remains fail-closed.
 
 ## Historical pgJDBC remediation
 
