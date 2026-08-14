@@ -38,9 +38,14 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
     @Test
     void validatesMySql84WhenExplicitlySelected() {
         contextRunner(mySqlDataSource())
-            .withPropertyValues("approval.database.expected-vendor=MYSQL")
+            .withPropertyValues(
+                "approval.database.expected-vendor=MYSQL",
+                "approval.database.runtime-identity=approval_runtime",
+                "approval.database.migration-identity=approval_migrator"
+            )
             .run(context -> {
                 assertThat(context).hasNotFailed();
+                assertThat(context).hasBean("approvalDatabaseAuthorityBoundary");
                 var identity = context.getBean(
                     ApprovalDatabaseVendorResolver.DatabaseIdentity.class
                 );
@@ -50,6 +55,41 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
                 assertThat(identity.vendor()).isEqualTo(ApprovalDatabaseVendor.MYSQL);
                 assertThat(baseline.settings())
                     .containsEntry("transactionIsolation", "READ-COMMITTED");
+            });
+    }
+
+    @Test
+    void rejectsMatchingMySqlRuntimeAndMigrationIdentities() {
+        contextRunner(mySqlDataSource())
+            .withPropertyValues(
+                "approval.database.expected-vendor=MYSQL",
+                "approval.database.runtime-identity=approval",
+                "approval.database.migration-identity=APPROVAL"
+            )
+            .run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure())
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .rootCause()
+                    .hasMessageContaining(
+                        "MySQL runtime and migration identities must be distinct"
+                    );
+            });
+    }
+
+    @Test
+    void rejectsMissingMySqlMigrationIdentity() {
+        contextRunner(mySqlDataSource())
+            .withPropertyValues(
+                "approval.database.expected-vendor=MYSQL",
+                "approval.database.runtime-identity=approval_runtime"
+            )
+            .run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure())
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .rootCause()
+                    .hasMessageContaining("MySQL migration identity must not be blank");
             });
     }
 
