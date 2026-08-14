@@ -9,7 +9,6 @@ import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.Publ
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.UserIdentitySnapshot;
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -86,8 +85,7 @@ abstract class MySqlApprovalProjectionStoreIntegrationSupport {
             MYSQL.getUsername(),
             MYSQL.getPassword()
         );
-        Flyway.configure()
-            .dataSource(dataSource)
+        MySqlTestDatabaseAuthority.flyway(MYSQL, dataSource)
             .locations("classpath:db/mysqlmigration")
             .failOnMissingLocations(true)
             .validateMigrationNaming(true)

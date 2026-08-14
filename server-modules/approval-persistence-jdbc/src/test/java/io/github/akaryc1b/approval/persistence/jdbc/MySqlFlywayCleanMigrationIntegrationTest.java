@@ -42,8 +42,7 @@ class MySqlFlywayCleanMigrationIntegrationTest {
             MYSQL.getUsername(),
             MYSQL.getPassword()
         );
-        flyway = Flyway.configure()
-            .dataSource(dataSource)
+        flyway = MySqlTestDatabaseAuthority.flyway(MYSQL, dataSource)
             .locations("classpath:db/mysqlmigration")
             .failOnMissingLocations(true)
             .validateMigrationNaming(true)

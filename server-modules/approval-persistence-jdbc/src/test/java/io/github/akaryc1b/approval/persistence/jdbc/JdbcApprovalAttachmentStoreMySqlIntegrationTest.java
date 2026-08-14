@@ -2,7 +2,6 @@ package io.github.akaryc1b.approval.persistence.jdbc;
 
 import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore.ApprovalAttachment;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,8 +70,7 @@ class JdbcApprovalAttachmentStoreMySqlIntegrationTest {
             MYSQL.getUsername(),
             MYSQL.getPassword()
         );
-        Flyway.configure()
-            .dataSource(dataSource)
+        MySqlTestDatabaseAuthority.flyway(MYSQL, dataSource)
             .locations("classpath:db/mysqlmigration")
             .failOnMissingLocations(true)
             .validateMigrationNaming(true)

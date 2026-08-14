@@ -1,7 +1,7 @@
 package io.github.akaryc1b.approval.integration.jdbc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.flywaydb.core.Flyway;
+import io.github.akaryc1b.approval.persistence.jdbc.MySqlTestDatabaseAuthority;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -52,8 +52,7 @@ abstract class MySqlInboxOutboxIntegrationSupport {
             MYSQL.getUsername(),
             MYSQL.getPassword()
         );
-        Flyway.configure()
-            .dataSource(dataSource)
+        MySqlTestDatabaseAuthority.flyway(MYSQL, dataSource)
             .locations("classpath:db/mysqlmigration")
             .failOnMissingLocations(true)
             .validateMigrationNaming(true)
