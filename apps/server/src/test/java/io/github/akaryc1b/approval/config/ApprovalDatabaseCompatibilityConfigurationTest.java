@@ -28,6 +28,7 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
             assertThat(context).hasSingleBean(
                 ApprovalDatabaseRuntimeBaselineValidator.DatabaseRuntimeBaseline.class
             );
+            assertThat(context).hasSingleBean(ApprovalDatabaseAuthorityBoundary.class);
             var identity = context.getBean(
                 ApprovalDatabaseVendorResolver.DatabaseIdentity.class
             );
@@ -52,29 +53,30 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
                 var baseline = context.getBean(
                     ApprovalDatabaseRuntimeBaselineValidator.DatabaseRuntimeBaseline.class
                 );
+                var authority = context.getBean(
+                    ApprovalDatabaseAuthorityBoundary.class
+                );
                 assertThat(identity.vendor()).isEqualTo(ApprovalDatabaseVendor.MYSQL);
                 assertThat(baseline.settings())
                     .containsEntry("transactionIsolation", "READ-COMMITTED");
+                assertThat(authority.runtimeIdentity()).isEqualTo("approval_runtime");
+                assertThat(authority.migrationIdentity()).isEqualTo("approval_migrator");
+                assertThat(authority.separated()).isTrue();
             });
     }
 
     @Test
     void rejectsMatchingMySqlRuntimeAndMigrationIdentities() {
-        contextRunner(mySqlDataSource())
+        contextRunner(mySqlDataSource("approval@%"))
             .withPropertyValues(
                 "approval.database.expected-vendor=MYSQL",
                 "approval.database.runtime-identity=approval",
                 "approval.database.migration-identity=APPROVAL"
             )
-            .run(context -> {
-                assertThat(context).hasFailed();
-                assertThat(context.getStartupFailure())
-                    .hasRootCauseInstanceOf(IllegalStateException.class)
-                    .rootCause()
-                    .hasMessageContaining(
-                        "MySQL runtime and migration identities must be distinct"
-                    );
-            });
+            .run(context -> assertStartupFailure(
+                context.getStartupFailure(),
+                "MySQL runtime and migration identities must be distinct"
+            ));
     }
 
     @Test
@@ -84,13 +86,24 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
                 "approval.database.expected-vendor=MYSQL",
                 "approval.database.runtime-identity=approval_runtime"
             )
-            .run(context -> {
-                assertThat(context).hasFailed();
-                assertThat(context.getStartupFailure())
-                    .hasRootCauseInstanceOf(IllegalStateException.class)
-                    .rootCause()
-                    .hasMessageContaining("MySQL migration identity must not be blank");
-            });
+            .run(context -> assertStartupFailure(
+                context.getStartupFailure(),
+                "MySQL migration identity must not be blank"
+            ));
+    }
+
+    @Test
+    void rejectsConfiguredRuntimeIdentityThatDoesNotMatchJdbcSession() {
+        contextRunner(mySqlDataSource("actual_runtime@%"))
+            .withPropertyValues(
+                "approval.database.expected-vendor=MYSQL",
+                "approval.database.runtime-identity=configured_runtime",
+                "approval.database.migration-identity=approval_migrator"
+            )
+            .run(context -> assertStartupFailure(
+                context.getStartupFailure(),
+                "configured MySQL runtime identity does not match the JDBC session"
+            ));
     }
 
     @Test
@@ -114,6 +127,7 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
             "1.0",
             1,
             0,
+            "unsupported",
             new Object[]{"UTC", "read committed"}
         )).run(context -> {
             assertThat(context).hasFailed();
@@ -122,6 +136,26 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
                     ApprovalDatabaseVendor.UnsupportedDatabaseVendorException.class
                 );
         });
+    }
+
+    private static void assertStartupFailure(
+        Throwable failure,
+        String expectedMessage
+    ) {
+        assertThat(failure).isNotNull();
+        assertThat(failure).hasRootCauseInstanceOf(
+            ApprovalDatabaseAuthorityBoundary
+                .InvalidDatabaseAuthorityBoundaryException.class
+        );
+        assertThat(rootCause(failure)).hasMessageContaining(expectedMessage);
+    }
+
+    private static Throwable rootCause(Throwable failure) {
+        Throwable current = failure;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current;
     }
 
     private static ApplicationContextRunner contextRunner(DataSource dataSource) {
@@ -136,16 +170,22 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
             "16.4",
             16,
             4,
+            "approval_postgresql",
             new Object[]{"UTC", "read committed"}
         );
     }
 
     private static DataSource mySqlDataSource() {
+        return mySqlDataSource("approval_runtime@%");
+    }
+
+    private static DataSource mySqlDataSource(String userName) {
         return dataSource(
             "MySQL",
             "8.4.2",
             8,
             4,
+            userName,
             new Object[]{
                 "utf8mb4",
                 "utf8mb4_0900_as_cs",
@@ -165,6 +205,7 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
         String productVersion,
         int majorVersion,
         int minorVersion,
+        String userName,
         Object[] runtimeRow
     ) {
         DatabaseMetaData metadata = proxy(
@@ -174,6 +215,7 @@ class ApprovalDatabaseCompatibilityConfigurationTest {
                 case "getDatabaseProductVersion" -> productVersion;
                 case "getDatabaseMajorVersion" -> majorVersion;
                 case "getDatabaseMinorVersion" -> minorVersion;
+                case "getUserName" -> userName;
                 default -> defaultValue(method.getReturnType());
             }
         );

@@ -28,11 +28,13 @@ public class ApprovalDatabaseCompatibilityConfiguration {
 
     @Bean
     ApprovalDatabaseAuthorityBoundary approvalDatabaseAuthorityBoundary(
+        DataSource dataSource,
         ApprovalDatabaseVendorResolver.DatabaseIdentity identity,
         ApprovalDatabaseCompatibilityProperties properties
     ) {
-        return new ApprovalDatabaseAuthorityBoundary(
-            identity.vendor(),
+        return ApprovalDatabaseAuthorityBoundary.resolve(
+            dataSource,
+            identity,
             properties.getRuntimeIdentity(),
             properties.getMigrationIdentity()
         );
