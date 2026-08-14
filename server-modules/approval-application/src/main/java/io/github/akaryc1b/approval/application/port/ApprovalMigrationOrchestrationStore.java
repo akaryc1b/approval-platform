@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Short PostgreSQL transactions for D7 immutable orchestration evidence. */
+/** Short platform transactions for D7 immutable orchestration evidence. */
 public interface ApprovalMigrationOrchestrationStore {
 
     PreparedOrchestration prepare(PrepareRequest request);
