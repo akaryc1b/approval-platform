@@ -80,7 +80,10 @@ class JdbcApprovalMigrationOrchestrationStoreMySqlIntegrationTest
         Authority authority = seedPendingAuthority("Tenant-H7-Protocol");
         List<AuditEvent> audits = new ArrayList<>();
         ApprovalMigrationOrchestrationStore orchestration = orchestrationStore(audits);
-        assertInstanceOf(JdbcMySqlApprovalMigrationOrchestrationStore.class, orchestration);
+        assertInstanceOf(
+            JdbcMySqlCanonicalApprovalMigrationOrchestrationStore.class,
+            orchestration
+        );
         PrepareRequest prepareRequest = prepareRequest(
             authority,
             1,
