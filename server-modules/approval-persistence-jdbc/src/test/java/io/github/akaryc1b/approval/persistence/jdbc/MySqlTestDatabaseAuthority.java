@@ -7,8 +7,11 @@ import org.testcontainers.mysql.MySQLContainer;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /** Test-only MySQL migration/runtime identity separation for real containers. */
@@ -67,16 +70,26 @@ public final class MySqlTestDatabaseAuthority {
         String account = sqlLiteral(user) + "@'%'";
         try (Connection connection = migrationDataSource.getConnection();
              Statement statement = connection.createStatement()) {
+            List<String> applicationTables = applicationTables(statement, database);
+            if (applicationTables.isEmpty()) {
+                throw new IllegalStateException(
+                    "MySQL migration produced no governed application tables"
+                );
+            }
             statement.execute("drop user if exists " + account);
             statement.execute(
                 "create user " + account + " identified by " + sqlLiteral(password)
             );
-            statement.execute(
-                "grant select,insert,update,delete on `"
-                    + database
-                    + "`.* to "
-                    + account
-            );
+            for (String table : applicationTables) {
+                statement.execute(
+                    "grant select,insert,update,delete on `"
+                        + database
+                        + "`.`"
+                        + table
+                        + "` to "
+                        + account
+                );
+            }
         } catch (SQLException exception) {
             throw new IllegalStateException(
                 "failed to create least-privilege MySQL runtime identity",
@@ -84,6 +97,25 @@ public final class MySqlTestDatabaseAuthority {
             );
         }
         return new DriverManagerDataSource(jdbcUrl, user, password);
+    }
+
+    private static List<String> applicationTables(
+        Statement statement,
+        String database
+    ) throws SQLException {
+        List<String> tables = new ArrayList<>();
+        try (ResultSet result = statement.executeQuery(
+            "select table_name from information_schema.tables "
+                + "where table_schema="
+                + sqlLiteral(database)
+                + " and table_type='BASE TABLE' "
+                + "and left(table_name,3)='ap_' order by table_name"
+        )) {
+            while (result.next()) {
+                tables.add(accountToken(result.getString(1), "applicationTable"));
+            }
+        }
+        return List.copyOf(tables);
     }
 
     private static String jdbcUrl(DataSource dataSource) {

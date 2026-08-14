@@ -6,7 +6,9 @@ import io.github.akaryc1b.approval.persistence.jdbc.ApprovalDatabaseVendorResolv
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 /** Server-owned separation between database migration and runtime identities. */
 public record ApprovalDatabaseAuthorityBoundary(
@@ -14,6 +16,13 @@ public record ApprovalDatabaseAuthorityBoundary(
     String runtimeIdentity,
     String migrationIdentity
 ) {
+    private static final Set<String> FORBIDDEN_MYSQL_RUNTIME_IDENTITIES = Set.of(
+        "root",
+        "mysql.sys",
+        "mysql.session",
+        "mysql.infoschema"
+    );
+
     public ApprovalDatabaseAuthorityBoundary {
         vendor = Objects.requireNonNull(vendor, "vendor must not be null");
         if (vendor == ApprovalDatabaseVendor.MYSQL) {
@@ -25,6 +34,13 @@ public record ApprovalDatabaseAuthorityBoundary(
                 migrationIdentity,
                 "MySQL migration identity"
             );
+            if (FORBIDDEN_MYSQL_RUNTIME_IDENTITIES.contains(
+                runtimeIdentity.toLowerCase(Locale.ROOT)
+            )) {
+                throw new InvalidDatabaseAuthorityBoundaryException(
+                    "MySQL runtime identity must not be a privileged system account"
+                );
+            }
             if (runtimeIdentity.equalsIgnoreCase(migrationIdentity)) {
                 throw new InvalidDatabaseAuthorityBoundaryException(
                     "MySQL runtime and migration identities must be distinct"

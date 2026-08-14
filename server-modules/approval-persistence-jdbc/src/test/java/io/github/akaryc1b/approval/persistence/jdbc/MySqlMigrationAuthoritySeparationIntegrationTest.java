@@ -119,7 +119,8 @@ class MySqlMigrationAuthoritySeparationIntegrationTest {
             "DROP",
             "SUPER",
             "SYSTEM_VARIABLES_ADMIN",
-            "GRANT OPTION"
+            "GRANT OPTION",
+            "FLYWAY_SCHEMA_HISTORY"
         )) {
             assertFalse(grantText.contains(forbidden));
         }
@@ -131,6 +132,10 @@ class MySqlMigrationAuthoritySeparationIntegrationTest {
                 Integer.class
             )
         );
+        assertThrows(DataAccessException.class, () -> runtimeJdbc.queryForObject(
+            "select count(*) from flyway_schema_history",
+            Integer.class
+        ));
         assertThrows(DataAccessException.class, () -> runtimeJdbc.execute(
             "drop trigger trg_process_migration_orchestration_run_guard_v47"
         ));
