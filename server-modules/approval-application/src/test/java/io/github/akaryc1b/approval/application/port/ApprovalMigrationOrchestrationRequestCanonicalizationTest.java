@@ -14,6 +14,7 @@ import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationOrchestrati
 import io.github.akaryc1b.approval.domain.migration.ApprovalMigrationOrchestrationEvidence.RunEventType;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -144,7 +145,9 @@ class ApprovalMigrationOrchestrationRequestCanonicalizationTest {
     }
 
     private static UUID uuid(String value) {
-        return UUID.nameUUIDFromBytes(("d7-time:" + value).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return UUID.nameUUIDFromBytes(
+            ("d7-time:" + value).getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     private static String hash(char value) {
