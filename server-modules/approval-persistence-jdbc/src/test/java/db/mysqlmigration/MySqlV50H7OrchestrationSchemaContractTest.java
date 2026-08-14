@@ -103,6 +103,7 @@ class MySqlV50H7OrchestrationSchemaContractTest {
                 if (operation.equals("insert")) {
                     assertTrue(trigger.contains("json_extract"));
                     assertTrue(trigger.contains("json_type(new.payload_json)<=>'object'"));
+                    assertTrue(trigger.contains("round(cast("));
                     assertTrue(trigger.contains("timestampdiff(microsecond"));
                     assertTrue(trigger.contains("<=>"));
                     assertTrue(trigger.contains("if not exists"));
