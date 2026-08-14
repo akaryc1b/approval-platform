@@ -125,6 +125,7 @@ MySQL acceptance requires:
 - InnoDB for every platform and Flowable table;
 - `utf8mb4` with one explicitly selected and documented collation policy;
 - strict SQL mode;
+- server-owned DDL authority for governed triggers: when binary logging is enabled, `log_bin_trust_function_creators=ON`, and the migration identity has `TRIGGER` on the platform schema; the application must not change global variables or disable binary logging; MySQL 8.4 deprecates this variable, so future-major compatibility requires a new authority contract;
 - UTC application and connection/session time semantics;
 - `datetime(6)` or an explicitly proven equivalent for platform instants;
 - binary-safe storage for canonical hashes and attachment content;
