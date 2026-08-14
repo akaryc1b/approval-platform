@@ -32,11 +32,21 @@ class JdbcApprovalMigrationOrchestrationStoreMySqlContractTest {
         assertTrue(d7.contains("locks.acquire("));
         assertTrue(d7.contains("values.bindUuid("));
         assertTrue(d7.contains("values.bindInstant("));
-        assertTrue(d7.contains("insert into ap_process_migration_canary_selection"));
-        assertTrue(d7.contains("insert into ap_process_migration_orchestration_run"));
-        assertTrue(d7.contains("insert into ap_process_migration_orchestration_event"));
-        assertTrue(d7.contains("insert into ap_process_migration_kill_switch_observation"));
-        assertTrue(d7.contains("insert into ap_process_migration_orchestration_batch"));
+        assertTrue(d7.contains(
+            "insert into ap_process_migration_canary_selection"
+        ));
+        assertTrue(d7.contains(
+            "insert into ap_process_migration_orchestration_run"
+        ));
+        assertTrue(d7.contains(
+            "insert into ap_process_migration_orchestration_event"
+        ));
+        assertTrue(d7.contains(
+            "insert into ap_process_migration_kill_switch_observation"
+        ));
+        assertTrue(d7.contains(
+            "insert into ap_process_migration_orchestration_batch"
+        ));
         assertTrue(d7.contains("m5-d7-orchestration-request-v1"));
         assertTrue(d7.contains("m5-d7-orchestration-run-v1"));
         assertTrue(d7.contains("m5-d7-canary-selection-v1"));
@@ -45,7 +55,9 @@ class JdbcApprovalMigrationOrchestrationStoreMySqlContractTest {
         assertTrue(d7.contains("m5-d7-bounded-batch-v1"));
         assertTrue(d7.contains("m5-d7-orchestration-event-v1"));
         assertTrue(d7.contains("changed orchestration replay is forbidden"));
-        assertTrue(d7.contains("changed kill-switch dispatch replay is forbidden"));
+        assertTrue(d7.contains(
+            "changed kill-switch dispatch replay is forbidden"
+        ));
         assertTrue(d7.contains("exact current D2 claim and command fence"));
 
         for (String forbidden : List.of(
@@ -62,7 +74,7 @@ class JdbcApprovalMigrationOrchestrationStoreMySqlContractTest {
         )) {
             assertFalse(
                 lower.contains(forbidden),
-                () -> "MySQL D7 contains forbidden PostgreSQL/shortcut token: " + forbidden
+                () -> "forbidden MySQL D7 token: " + forbidden
             );
         }
     }
@@ -77,15 +89,23 @@ class JdbcApprovalMigrationOrchestrationStoreMySqlContractTest {
                 + "ApprovalMigrationExecutionConfiguration.java"
         ));
 
-        assertTrue(factory.contains("new ApprovalDatabaseVendorResolver().resolve(source).vendor()"));
+        assertTrue(factory.contains("new ApprovalDatabaseVendorResolver()"));
+        assertTrue(factory.contains(".resolve(source)"));
+        assertTrue(factory.contains(".vendor()"));
         assertTrue(factory.contains("case POSTGRESQL ->"));
         assertTrue(factory.contains("case MYSQL ->"));
-        assertTrue(factory.contains("new JdbcApprovalMigrationOrchestrationStore("));
-        assertTrue(factory.contains("new JdbcMySqlApprovalMigrationOrchestrationStore("));
+        assertTrue(factory.contains(
+            "new JdbcApprovalMigrationOrchestrationStore("
+        ));
+        assertTrue(factory.contains(
+            "new JdbcMySqlApprovalMigrationOrchestrationStore("
+        ));
         assertTrue(configuration.contains(
             "JdbcApprovalMigrationOrchestrationStoreFactory.create("
         ));
-        assertFalse(configuration.contains("new JdbcApprovalMigrationOrchestrationStore("));
+        assertFalse(configuration.contains(
+            "new JdbcApprovalMigrationOrchestrationStore("
+        ));
     }
 
     @Test
