@@ -7,6 +7,7 @@
     "productionSupport": "NOT_DECLARED",
     "automaticWorkflow": ".github/workflows/approval-platform-validation.yml",
     "flyway": {
+      "firstVersion": 2,
       "expectedVersion": 50,
       "scanRoot": "server-modules/approval-persistence-jdbc/src/main",
       "requiredLocations": [
@@ -15,6 +16,7 @@
         "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration"
       ],
       "requiredMigrations": {
+        "2": "server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V2__create_approval_command_projections.sql",
         "38": "server-modules/approval-persistence-jdbc/src/main/java/db/migration/V38__Create_immutable_process_migration_plans.java",
         "49": "server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V49__create_ai_approval_assistance_durable_evidence.sql",
         "50": "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql"

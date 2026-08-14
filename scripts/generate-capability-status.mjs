@@ -105,6 +105,14 @@ function loadRuntimeVersions() {
 
 function discoverFlyway(manifest) {
   const flyway = manifest.project.flyway;
+  assert.ok(
+    Number.isInteger(flyway.firstVersion) && flyway.firstVersion > 0,
+    'Flyway firstVersion must be a positive integer',
+  );
+  assert.ok(
+    Number.isInteger(flyway.expectedVersion) && flyway.expectedVersion >= flyway.firstVersion,
+    'Flyway expectedVersion must be an integer at or after firstVersion',
+  );
   const scanRoot = path.join(root, flyway.scanRoot);
   assert.ok(existsSync(scanRoot), `Flyway scan root does not exist: ${flyway.scanRoot}`);
   for (const location of flyway.requiredLocations) {
@@ -135,13 +143,19 @@ function discoverFlyway(manifest) {
     assert.equal(entries.length, 1, `Flyway V${version} is duplicated: ${entries.map(entry => entry.path).join(', ')}`);
   }
 
+  const firstVersion = Math.min(...byVersion.keys());
   const effectiveVersion = Math.max(...byVersion.keys());
+  assert.equal(
+    firstVersion,
+    flyway.firstVersion,
+    `Flyway first version is V${firstVersion}, expected V${flyway.firstVersion}`,
+  );
   assert.equal(
     effectiveVersion,
     flyway.expectedVersion,
     `Flyway effective version is V${effectiveVersion}, expected V${flyway.expectedVersion}`,
   );
-  for (let version = 1; version <= effectiveVersion; version += 1) {
+  for (let version = firstVersion; version <= effectiveVersion; version += 1) {
     assert.ok(byVersion.has(version), `Flyway chain is missing V${version}`);
   }
   for (const [versionText, expectedPath] of Object.entries(flyway.requiredMigrations)) {
@@ -154,6 +168,7 @@ function discoverFlyway(manifest) {
   }
 
   return {
+    firstVersion,
     effectiveVersion,
     count: migrations.length,
     locations: [...new Set(migrations.map(migration => path.posix.dirname(migration.path)))],
@@ -241,7 +256,7 @@ function renderCapabilityMarkdown(manifest, flyway) {
     + `| Release | \`${manifest.project.releaseStatus}\` |\n`
     + `| Production Readiness | \`${manifest.project.productionReadiness}\` |\n`
     + `| Production Support | \`${manifest.project.productionSupport}\` |\n`
-    + `| Effective Flyway | \`V${flyway.effectiveVersion}\`（${flyway.count} 个连续版本） |\n\n`
+    + `| Effective Flyway | \`V${flyway.firstVersion}–V${flyway.effectiveVersion}\`（${flyway.count} 个连续版本） |\n\n`
     + `当前代码、测试和验收事实不能自动推导出 Release 或 Production Support。`
     + `所有发布和生产支持声明都必须经过独立、显式、可审计的决策。\n\n`
     + `## 状态语义\n\n${semantics}\n\n`
@@ -249,7 +264,7 @@ function renderCapabilityMarkdown(manifest, flyway) {
     + `## Flyway 组合拓扑\n\n`
     + `生成器递归读取所有 SQL 与 Java migration，而不是只扫描单一目录。当前有效位置：\n\n`
     + `${locations}\n\n`
-    + `发现的版本必须从 V1 连续至 V${flyway.effectiveVersion}，每个版本只能有一个权威实现。\n\n`
+    + `发现的仓库自有版本必须从 V${flyway.firstVersion} 连续至 V${flyway.effectiveVersion}，每个版本只能有一个权威实现。\n\n`
     + `## 维护规则\n\n`
     + `1. 修改能力事实时，更新 \`config/capabilities.json\` 并重新运行生成器。\n`
     + `2. 历史 SHA、Run、PR 和 Artifact 身份只进入不可变 Acceptance 或 Release 文档。\n`
@@ -272,7 +287,7 @@ function renderCompatibilityMarkdown(manifest, flyway, derivedRuntime) {
     .map(protocol => `| ${escapeCell(protocol.name)} | ${escapeCell(protocol.version)} | ${escapeCell(protocol.rule)} |`)
     .join('\n');
   const migrationRows = flyway.migrations
-    .filter(migration => [38, 49, 50].includes(migration.version))
+    .filter(migration => [2, 38, 49, 50].includes(migration.version))
     .map(migration => `| V${migration.version} | ${migration.type.toUpperCase()} | \`${migration.path}\` |`)
     .join('\n');
 
@@ -286,8 +301,8 @@ function renderCompatibilityMarkdown(manifest, flyway, derivedRuntime) {
     + `数据库目标、局部测试通过和独立 Draft 工作流都不等于默认分支已支持。`
     + `生产支持必须同时满足合并、Release、运维和支持政策。\n\n`
     + `## Flyway compatibility\n\n`
-    + `组合迁移路径连续至 \`V${flyway.effectiveVersion}\`。生成器同时识别 SQL、Java migration 和附加资源位置。`
-    + `关键跨位置版本如下：\n\n`
+    + `仓库自有组合迁移路径从 \`V${flyway.firstVersion}\` 连续至 \`V${flyway.effectiveVersion}\`，共 ${flyway.count} 个版本。`
+    + `生成器同时识别 SQL、Java migration 和附加资源位置。关键跨位置版本如下：\n\n`
     + `| Version | Type | Governed path |\n| --- | --- | --- |\n${migrationRows}\n\n`
     + `Flyway migration 一经合并或应用不得重写。备份与恢复必须保持平台表和 Flowable 表处于同一恢复点。\n\n`
     + `## Protocol compatibility\n\n| Protocol | Version | Rule |\n| --- | --- | --- |\n${protocolRows}\n\n`
@@ -310,11 +325,12 @@ function buildStatusJson(manifest, flyway, derivedRuntime) {
       automaticWorkflow: manifest.project.automaticWorkflow,
     },
     flyway: {
+      firstVersion: flyway.firstVersion,
       effectiveVersion: flyway.effectiveVersion,
       count: flyway.count,
       locations: flyway.locations,
       versions: flyway.migrations.map(migration => migration.version),
-      keyMigrations: flyway.migrations.filter(migration => [38, 49, 50].includes(migration.version)),
+      keyMigrations: flyway.migrations.filter(migration => [2, 38, 49, 50].includes(migration.version)),
     },
     runtime: [...derivedRuntime, ...manifest.runtime],
     protocols: manifest.protocols,

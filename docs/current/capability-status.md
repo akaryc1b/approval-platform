@@ -9,7 +9,7 @@
 | Release | `UNRELEASED` |
 | Production Readiness | `BLOCKED` |
 | Production Support | `NOT_DECLARED` |
-| Effective Flyway | `V50`（50 个连续版本） |
+| Effective Flyway | `V2–V50`（49 个连续版本） |
 
 当前代码、测试和验收事实不能自动推导出 Release 或 Production Support。所有发布和生产支持声明都必须经过独立、显式、可审计的决策。
 
@@ -48,7 +48,7 @@
 - `server-modules/approval-persistence-jdbc/src/main/java/db/migration`
 - `server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration`
 
-发现的版本必须从 V1 连续至 V50，每个版本只能有一个权威实现。
+发现的仓库自有版本必须从 V2 连续至 V50，每个版本只能有一个权威实现。
 
 ## 维护规则
 

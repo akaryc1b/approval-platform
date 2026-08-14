@@ -144,13 +144,19 @@ test('capability semantics keep merge release and production support separate', 
   assert.equal(capabilities.get('controlled-automation-governance').status.productionSupported, 'no');
 });
 
-test('generated Flyway status reads the composed SQL and Java migration topology', () => {
+test('generated Flyway status reads the exact repository-owned V2 through V50 topology', () => {
+  const manifest = parse('config/capabilities.json');
   const status = parse('docs/current/capability-status.json');
+  assert.equal(manifest.project.flyway.firstVersion, 2);
+  assert.equal(manifest.project.flyway.expectedVersion, 50);
+  assert.equal(status.flyway.firstVersion, 2);
   assert.equal(status.flyway.effectiveVersion, 50);
-  assert.equal(status.flyway.count, 50);
-  assert.equal(new Set(status.flyway.versions).size, 50);
-  assert.deepEqual(status.flyway.versions, Array.from({ length: 50 }, (_, index) => index + 1));
+  assert.equal(status.flyway.count, 49);
+  assert.equal(new Set(status.flyway.versions).size, 49);
+  assert.deepEqual(status.flyway.versions, Array.from({ length: 49 }, (_, index) => index + 2));
+  assert.equal(status.flyway.versions.includes(1), false);
   const byVersion = new Map(status.flyway.keyMigrations.map(migration => [migration.version, migration]));
+  assert.match(byVersion.get(2).path, /resources\/db\/migration\/V2__/);
   assert.equal(byVersion.get(38).type, 'java');
   assert.match(byVersion.get(38).path, /src\/main\/java\/db\/migration\/V38__/);
   assert.match(byVersion.get(49).path, /resources\/db\/migration\/V49__/);

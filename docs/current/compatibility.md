@@ -29,10 +29,11 @@
 
 ## Flyway compatibility
 
-组合迁移路径连续至 `V50`。生成器同时识别 SQL、Java migration 和附加资源位置。关键跨位置版本如下：
+仓库自有组合迁移路径从 `V2` 连续至 `V50`，共 49 个版本。生成器同时识别 SQL、Java migration 和附加资源位置。关键跨位置版本如下：
 
 | Version | Type | Governed path |
 | --- | --- | --- |
+| V2 | SQL | `server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V2__create_approval_command_projections.sql` |
 | V38 | JAVA | `server-modules/approval-persistence-jdbc/src/main/java/db/migration/V38__Create_immutable_process_migration_plans.java` |
 | V49 | SQL | `server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V49__create_ai_approval_assistance_durable_evidence.sql` |
 | V50 | SQL | `server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql` |

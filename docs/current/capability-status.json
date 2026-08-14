@@ -9,15 +9,15 @@
     "automaticWorkflow": ".github/workflows/approval-platform-validation.yml"
   },
   "flyway": {
+    "firstVersion": 2,
     "effectiveVersion": 50,
-    "count": 50,
+    "count": 49,
     "locations": [
       "server-modules/approval-persistence-jdbc/src/main/resources/db/migration",
       "server-modules/approval-persistence-jdbc/src/main/java/db/migration",
       "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration"
     ],
     "versions": [
-      1,
       2,
       3,
       4,
@@ -69,6 +69,11 @@
       50
     ],
     "keyMigrations": [
+      {
+        "version": 2,
+        "type": "sql",
+        "path": "server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V2__create_approval_command_projections.sql"
+      },
       {
         "version": 38,
         "type": "java",
