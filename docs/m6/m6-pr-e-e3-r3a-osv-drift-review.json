@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "M6_PR_E_E3_R3A_OSV_DRIFT_REVIEW_V1",
+  "repository": "akaryc1b/approval-platform",
+  "sourceMain": "779c4fbd09dcf17d45cc523e725222797cc5cb85",
+  "sourceRun": {
+    "id": 31697747890,
+    "number": 1449,
+    "event": "push",
+    "head": "779c4fbd09dcf17d45cc523e725222797cc5cb85",
+    "conclusion": "success",
+    "e2CanonicalSha256": "ec0d711d233aebc7c552fce27ba489ff698e0cc962493094d0518c10048db6d3"
+  },
+  "sourceBlobs": {
+    "pom.xml": "c1d7633f8403a479bc93c5363b58a0c33af11d1e",
+    "apps/server/pom.xml": "89026f9c844b27a11a65c478a3d7abb57c7c053f",
+    "scannerIdentityContract": "dafc95e571994c559c91259e59964fc2599ca9a9"
+  },
+  "findings": [
+    {
+      "findingId": "e6addd49c1ea8eddec10d654318f6cb52f458e139900b8e612c59fbc690b0b79",
+      "upstreamFindingId": "GHSA-x4m4-345f-5h5g",
+      "alias": "CVE-2026-34487",
+      "severity": "HIGH",
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.tomcat.embed:tomcat-embed-core",
+        "version": "11.0.15",
+        "scope": "compile/runtime"
+      },
+      "upstreamCondition": "Tomcat cloud membership for clustering exposes a Kubernetes bearer token through logging",
+      "fixedVersion": "11.0.21",
+      "disposition": "NOT_APPLICABLE",
+      "requiredEvidence": [
+        "approval-server runtime graph contains exactly tomcat-embed-core 11.0.15",
+        "approval-server runtime graph contains no org.apache.tomcat:tomcat-tribes",
+        "tomcat-embed-core JAR contains no org/apache/catalina/tribes/membership/cloud entries",
+        "first-party production source and configuration contain no cloud-membership or tribes activation markers"
+      ],
+      "revalidationTriggers": [
+        "Tomcat version change",
+        "addition of org.apache.tomcat:tomcat-tribes",
+        "addition of Tomcat clustering or cloud membership configuration",
+        "addition of KubernetesMembershipProvider, TokenStreamProvider or related tribes classes"
+      ]
+    },
+    {
+      "findingId": "35fb6917af4dcd633580647f3c9ffc2d2bd5e97f296634c1d8f3515a40b8413e",
+      "upstreamFindingId": "GHSA-hf6x-8p5f-cgmf",
+      "alias": "CVE-2026-54399",
+      "severity": "HIGH",
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.httpcomponents.core5:httpcore5",
+        "version": "5.3.6",
+        "scope": "build-plugin"
+      },
+      "upstreamCondition": "HTTP/1 parser can exhaust memory while parsing attacker-controlled excessive headers",
+      "fixedVersion": "5.4.3",
+      "disposition": "UNRESOLVED",
+      "expectedPluginOwners": [
+        "org.springframework.boot:spring-boot-maven-plugin:4.0.2"
+      ],
+      "requiredCoResolvedComponents": [
+        "org.apache.httpcomponents.client5:httpclient5:5.5.2",
+        "org.apache.httpcomponents.core5:httpcore5-h2:5.3.6",
+        "org.springframework.boot:spring-boot-buildpack-platform:4.0.2"
+      ],
+      "requiredEvidence": [
+        "Maven resolve-plugins output binds httpcore5 5.3.6 to an exact plugin owner",
+        "the build-plugin network response path is not claimed unreachable without positive evidence"
+      ],
+      "revalidationTriggers": [
+        "Spring Boot Maven plugin version change",
+        "httpcore5 version change",
+        "build repository or mirror trust-boundary change",
+        "separate dependency remediation gate"
+      ]
+    }
+  ],
+  "decision": {
+    "currentFindingCount": 147,
+    "reviewedFindingCountDelta": 2,
+    "cumulativeReviewedFindings": 12,
+    "cumulativeRemediatedFindings": 61,
+    "cumulativeNotApplicableFindings": 4,
+    "cumulativeUnresolvedFindings": 143,
+    "releaseBlocked": true,
+    "authoritativeInventoryComplete": false,
+    "prb16": "OPEN",
+    "prb17": "OPEN",
+    "issue97": "OPEN",
+    "issue82": "OPEN",
+    "issue62": "OPEN",
+    "issue91": "OPEN",
+    "readyAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "productionPromotionAuthorized": false,
+    "findingDeletionClaimed": false,
+    "suppressionAdded": false,
+    "exceptionAdded": false,
+    "severityDowngradeAdded": false
+  },
+  "contentSha256": "aee05d7ad0452b2f3a29212afa367b96aff73fea1f9e5fd307dc1f236d440f6b"
+}
