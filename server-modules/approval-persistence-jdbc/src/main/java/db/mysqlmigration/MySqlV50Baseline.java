@@ -68,8 +68,10 @@ public final class MySqlV50Baseline implements JavaMigration {
          signal sqlstate '45000'
           set message_text='M5-D7 evidence is append-only';
         """;
-    private static final int BASELINE_CHECKSUM =
+    private static final int H7_BASELINE_CHECKSUM =
         31 * PREVIOUS_BASELINE_CHECKSUM + D7_APPEND_ONLY_GUARDS.hashCode();
+    private static final int BASELINE_CHECKSUM =
+        31 * H7_BASELINE_CHECKSUM + MySqlV50AiEvidenceGuards.checksum();
 
     @Override
     public MigrationVersion getVersion() {
@@ -119,6 +121,10 @@ public final class MySqlV50Baseline implements JavaMigration {
                         throw exception;
                     }
                 }
+            }
+            for (String sql : MySqlV50AiEvidenceGuards.statements()) {
+                index++;
+                statement.execute(sql);
             }
         } catch (SQLException exception) {
             throw new FlywayException(
