@@ -23,6 +23,8 @@ class MySqlV50H8AiEvidenceSchemaContractTest {
         assertTrue(sql.contains("trg_ai_assistance_event_after_insert_v49"));
         assertTrue(sql.contains("trg_ai_assistance_state_before_insert_v49"));
         assertTrue(sql.contains("trg_ai_assistance_state_before_update_v49"));
+        assertTrue(sql.contains("p4 tombstone event lacks exact active predecessor state"));
+        assertTrue(sql.contains("p4 tombstone event evidence is incomplete"));
         assertTrue(sql.contains("p4 tombstone event lost evidence-state cas"));
         assertTrue(sql.contains("p4 evidence state lacks matching stored event"));
         assertTrue(sql.contains("p4 evidence state lacks matching tombstone event"));
@@ -39,6 +41,6 @@ class MySqlV50H8AiEvidenceSchemaContractTest {
 
     @Test
     void governedV50ChecksumIncludesTheH8Authority() {
-        assertEquals(-337736091, new MySqlV50Baseline().getChecksum());
+        assertEquals(-547102957, new MySqlV50Baseline().getChecksum());
     }
 }

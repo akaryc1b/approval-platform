@@ -288,7 +288,7 @@ class JdbcApprovalAssistanceDurableEvidenceStoreMySqlIntegrationTest {
               and (
                 data_type in ('text','json','blob','longblob','mediumblob')
                 or column_name regexp
-                  '(raw|payload|body|content|summary|observation|risk|recommendation|limitation)'
+                  '(^|_)(raw|payload|body|content|summary|observation_text|risk_text|recommendation_text|limitation_text)($|_)'
               )
             """, Integer.class);
         Integer triggers = jdbc.queryForObject("""

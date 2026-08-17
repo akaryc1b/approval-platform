@@ -9,9 +9,9 @@ import java.util.List;
 /** MySQL 8.4 physical P4 evidence/event/state authority installed after the V50 snapshot. */
 final class MySqlV50AiEvidenceGuards {
 
-    private static final int REVIEWED_CHECKSUM = -2060857899;
+    private static final int REVIEWED_CHECKSUM = 2024742531;
     private static final String REVIEWED_SQL_SHA256 =
-        "ee3071c3dda10fb86865b3b6771dc7b623fc5d407c9ed635ecaabdc1fd6fd4e0";
+        "0da3fc83406c3002789c278a8ce9a60f2d16abf33031b8e5d43cef92b2156d6a";
     private static final List<String> STATEMENTS = List.of(
         """
         alter table ap_ai_approval_assistance_evidence_event
@@ -45,9 +45,7 @@ final class MySqlV50AiEvidenceGuards {
         begin
           declare evidence_recorded_at datetime(6) default null;
           declare retained_until datetime(6) default null;
-          declare current_revision bigint default null;
-          declare current_state varchar(16) default null;
-          declare current_event_hash char(64) default null;
+          declare matching_active_state integer default 0;
 
           select recorded_at,retention_until
             into evidence_recorded_at,retained_until
@@ -80,24 +78,23 @@ final class MySqlV50AiEvidenceGuards {
                 set message_text='P4 stored event already has evidence state';
             end if;
           elseif new.event_type='TOMBSTONED' then
-            select revision,state,current_event_hash
-              into current_revision,current_state,current_event_hash
+            select count(*) into matching_active_state
               from ap_ai_approval_assistance_evidence_state
-             where tenant_id=new.tenant_id and evidence_id=new.evidence_id;
-            if current_revision is null
-              or current_state is null
-              or current_event_hash is null
-              or current_revision<>1
-              or current_state<>'ACTIVE'
-              or current_event_hash<>new.predecessor_hash
-              or new.revision<>2
+             where tenant_id=new.tenant_id
+               and evidence_id=new.evidence_id
+               and revision=1
+               and state='ACTIVE'
+               and current_event_hash=new.predecessor_hash;
+            if matching_active_state<>1 then
+              signal sqlstate '45000'
+                set message_text='P4 tombstone event lacks exact active predecessor state';
+            end if;
+            if new.revision<>2
               or new.delete_reason is null
               or new.deletion_request_hash is null
-              or new.tombstone_hash is null
-              or not regexp_like(new.deletion_request_hash,'^[0-9a-f]{64}$','c')
-              or not regexp_like(new.tombstone_hash,'^[0-9a-f]{64}$','c') then
+              or new.tombstone_hash is null then
               signal sqlstate '45000'
-                set message_text='P4 tombstone event authority is invalid';
+                set message_text='P4 tombstone event evidence is incomplete';
             end if;
             if new.delete_reason='RETENTION_EXPIRED'
               and new.happened_at<retained_until then

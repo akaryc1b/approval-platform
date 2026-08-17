@@ -252,9 +252,11 @@ test('P4 durable evidence is exact hash-only dual-database internal infrastructu
     'trg_ai_assistance_event_after_insert_v49',
     'trg_ai_assistance_state_before_insert_v49',
     'trg_ai_assistance_state_before_update_v49',
+    'p4 tombstone event lacks exact active predecessor state',
+    'p4 tombstone event evidence is incomplete',
     'p4 tombstone event lost evidence-state cas',
   ]) {
-    assert.match(mysqlGuards, new RegExp(required));
+    assert.equal(mysqlGuards.includes(required), true, required);
   }
   for (const forbidden of [
     'set global',
