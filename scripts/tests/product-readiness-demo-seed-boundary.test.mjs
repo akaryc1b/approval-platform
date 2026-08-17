@@ -24,6 +24,7 @@ const integrationTestPath = resolve(
 );
 const statusPath = resolve(root, 'docs/product-readiness/README.md');
 const guidePath = resolve(root, 'docs/product-readiness/PURCHASE_PAYMENT_GOLDEN_PATH.md');
+const quickStartPath = resolve(root, 'docs/product-readiness/QUICK_START.md');
 const packagePath = resolve(root, 'package.json');
 const hygieneAggregatePath = resolve(root, 'scripts/tests/m3-repository-hygiene.test.mjs');
 
@@ -77,12 +78,17 @@ test('demo seed is local-profile-only, explicit and default-off', () => {
   assert.doesNotMatch(localConfig, /enabled:\s*true/u);
 });
 
-test('demo source reuses application authorities and adds no SQL, REST or auth bypass', () => {
+test('demo source reuses governed application authorities and adds no SQL, REST or auth bypass', () => {
   const source = demoFiles.map(text).join('\n');
   assert.match(source, /PurchasePaymentApplicationService/u);
   assert.match(source, /ApprovalAttachmentService/u);
   assert.match(source, /ConnectorPurchasePaymentAssigneeResolver/u);
+  assert.match(source, /ApprovalFormDesignService/u);
+  assert.match(source, /ApprovalProcessReleaseLifecycleService/u);
+  assert.match(source, /ApprovalReleaseDeploymentService/u);
+  assert.match(source, /ApprovalProcessReleaseActivationService/u);
   assert.match(source, /ApplicationRunner/u);
+  assert.doesNotMatch(source, /localStartService|LegacyEffectiveReleaseStore/u);
   assert.doesNotMatch(
     source,
     /JdbcTemplate|DataSource|createStatement|executeUpdate|ACT_[A-Z_]+/u,
@@ -118,7 +124,7 @@ test('local demo migrations wait for Flowable and preserve the accepted dependen
   );
 });
 
-test('server packages governed demo resources and permanent CI starts the real backend', () => {
+test('permanent CI starts the real backend and completes the governed approval chain', () => {
   const pom = text(serverPomPath);
   const integrationTest = text(integrationTestPath);
   assert.match(pom, /<targetPath>demo<\/targetPath>/u);
@@ -128,23 +134,32 @@ test('server packages governed demo resources and permanent CI starts the real b
   assert.match(integrationTest, /WebEnvironment\.RANDOM_PORT/u);
   assert.match(integrationTest, /PostgreSQLContainer/u);
   assert.match(integrationTest, /\/actuator\/health/u);
-  assert.match(integrationTest, /PurchasePaymentDemoSeedState/u);
   assert.match(integrationTest, /PurchasePaymentDemoSeedState\.SeedEvidence replay/u);
+  assert.match(integrationTest, /\/tasks\/".*\/approve/u);
+  assert.match(integrationTest, /managerApproval/u);
+  assert.match(integrationTest, /financeReview/u);
+  assert.match(integrationTest, /financeCountersign/u);
+  assert.match(integrationTest, /"COMPLETED"/u);
+  assert.match(integrationTest, /\/timeline/u);
+  assert.match(integrationTest, /from ap_outbox/u);
+  assert.match(integrationTest, /completion Outbox row must be unique/u);
 });
 
-test('product-readiness docs distinguish CI seed/start proof from unfinished approval E2E', () => {
-  const status = text(statusPath);
-  const guide = text(guidePath);
-  for (const source of [status, guide]) {
+test('product-readiness docs keep backend proof narrower than product E2E', () => {
+  const sources = [text(statusPath), text(guidePath), text(quickStartPath)];
+  for (const source of sources) {
     assert.match(source, /DETERMINISTIC_DEMO_SEED_IMPLEMENTED/u);
     assert.match(source, /BACKEND_LOCAL_START_VERIFIED/u);
+    assert.match(source, /BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED/u);
+    assert.match(source, /COMPLETION_OUTBOX_EVENT_RECORDED/u);
     assert.match(source, /SHARED_DEMO_ENVIRONMENT_SEED_NOT_APPLIED/u);
     assert.match(source, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
+    assert.match(source, /CROSS_CLIENT_RUNTIME_NOT_EXECUTED/u);
     assert.match(source, /PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED/u);
     assert.match(source, /PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED/u);
   }
-  assert.doesNotMatch(guide, /^PURCHASE_APPROVAL_E2E_STATUS=PASSED$/mu);
-  assert.doesNotMatch(guide, /^PRODUCTION_PAYMENT_INTEGRATION_STATUS=VERIFIED$/mu);
+  assert.doesNotMatch(text(guidePath), /^PURCHASE_APPROVAL_E2E_STATUS=PASSED$/mu);
+  assert.doesNotMatch(text(guidePath), /^PRODUCTION_PAYMENT_INTEGRATION_STATUS=VERIFIED$/mu);
 });
 
 test('package entrypoint and permanent Hygiene aggregate load the seed boundary', () => {
