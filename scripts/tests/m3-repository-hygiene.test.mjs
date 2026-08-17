@@ -1,4 +1,5 @@
 import './document-authority-boundary.test.mjs';
+import './acceptance-catalog-boundary.test.mjs';
 import './m6-e-approval-assistance-boundary.test.mjs';
 import './m6-e-p4-durable-evidence-boundary.test.mjs';
 import './m6-e-p5-read-only-presentation-boundary.test.mjs';
