@@ -174,6 +174,15 @@ public final class PurchasePaymentDemoSeeder {
     }
 
     private ReleaseEvidence provisionEffectiveRelease() {
+        ApprovalReleasePackage existingRelease = designService.findRelease(
+            scenario.tenantId(),
+            PurchasePaymentTemplate.DEFINITION_KEY,
+            RELEASE_VERSION
+        ).orElse(null);
+        if (existingRelease != null) {
+            return replayEffectiveRelease(existingRelease);
+        }
+
         RequestContext formCreateContext = context(
             scenario.administratorId(),
             "demo-seed-form-create-request-v1",
@@ -300,6 +309,7 @@ public final class PurchasePaymentDemoSeeder {
             throw new IllegalStateException("demo Release Package deployment did not succeed");
         }
         ApprovalReleasePackage releasePackage = published.publication().releasePackage();
+        requireCanonicalRelease(releasePackage);
         ensureDefinitionProjection(releasePackage, deployed.deployment());
 
         RequestContext activateContext = context(
@@ -322,6 +332,62 @@ public final class PurchasePaymentDemoSeeder {
             releasePackage.definitionKey(),
             deployed.deployment().engineDefinitionId()
         );
+    }
+
+    private ReleaseEvidence replayEffectiveRelease(ApprovalReleasePackage releasePackage) {
+        requireCanonicalRelease(releasePackage);
+        ApprovalReleaseDeployment deployment = deploymentService.find(
+            scenario.tenantId(),
+            releasePackage.definitionKey(),
+            releasePackage.releaseVersion()
+        ).orElseThrow(() -> new IllegalStateException(
+            "published demo Release Package has no deployment evidence"
+        ));
+        if (deployment.status() != ApprovalReleaseDeployment.Status.DEPLOYED) {
+            throw new IllegalStateException(
+                "published demo Release Package is not successfully deployed"
+            );
+        }
+        ensureDefinitionProjection(releasePackage, deployment);
+
+        RequestContext activateContext = context(
+            scenario.administratorId(),
+            "demo-seed-release-activate-request-v1",
+            "demo-seed-release-activate-v1"
+        );
+        PurchasePaymentDemoRequestEvidenceScope.call(
+            activateContext,
+            () -> activationService.activate(new ActivationCommand(
+                activateContext,
+                releasePackage.definitionKey(),
+                releasePackage.releaseVersion(),
+                null,
+                "Activate canonical purchase-payment demo release"
+            ))
+        );
+        return new ReleaseEvidence(
+            releasePackage.definitionKey(),
+            Objects.requireNonNull(
+                deployment.engineDefinitionId(),
+                "engineDefinitionId must not be null"
+            )
+        );
+    }
+
+    private static void requireCanonicalRelease(ApprovalReleasePackage releasePackage) {
+        boolean canonical = PurchasePaymentTemplate.DEFINITION_KEY.equals(
+            releasePackage.definitionKey()
+        )
+            && releasePackage.definitionVersion() == PurchasePaymentTemplate.PROCESS_VERSION
+            && releasePackage.releaseVersion() == RELEASE_VERSION
+            && releasePackage.formPackageVersion() == FORM_PACKAGE_VERSION
+            && releasePackage.formVersion() == PurchasePaymentTemplate.FORM_VERSION
+            && releasePackage.uiSchemaVersion() == PurchasePaymentTemplate.UI_SCHEMA_VERSION;
+        if (!canonical) {
+            throw new IllegalStateException(
+                "existing demo Release Package does not match the canonical template identity"
+            );
+        }
     }
 
     private void ensureDefinitionProjection(
