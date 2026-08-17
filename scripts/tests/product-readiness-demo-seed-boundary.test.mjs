@@ -96,6 +96,7 @@ test('demo source reuses application authorities and adds no SQL, REST or auth b
 test('server packages governed demo resources and permanent CI starts the real backend', () => {
   const pom = text(serverPomPath);
   const integrationTest = text(integrationTestPath);
+  assert.match(pom, /<artifactId>spring-boot-starter-flyway<\/artifactId>/u);
   assert.match(pom, /<targetPath>demo<\/targetPath>/u);
   assert.match(pom, /<include>purchase-payment-golden-path\.json<\/include>/u);
   assert.match(pom, /<include>purchase-payment-demo-seed\.json<\/include>/u);
