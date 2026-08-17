@@ -178,7 +178,7 @@ public final class PurchasePaymentDemoSeeder {
             () -> formDesignService.createFromPurchasePaymentTemplate(
                 new ApprovalFormDesignService.CreateCommand(
                     formCreateContext,
-                    PurchasePaymentTemplate.FORM_KEY,
+                    PurchasePaymentTemplate.DEFINITION_KEY,
                     "Purchase Payment Demo Form",
                     PurchasePaymentTemplate.FORM_VERSION,
                     PurchasePaymentTemplate.UI_SCHEMA_VERSION
@@ -213,7 +213,7 @@ public final class PurchasePaymentDemoSeeder {
                     designCreateContext,
                     PurchasePaymentTemplate.DEFINITION_KEY,
                     "Purchase Payment Demo",
-                    PurchasePaymentTemplate.DEFINITION_VERSION,
+                    PurchasePaymentTemplate.PROCESS_VERSION,
                     FORM_PACKAGE_VERSION
                 )
             )
@@ -226,7 +226,7 @@ public final class PurchasePaymentDemoSeeder {
                     designDraft.draftId(),
                     designDraft.revision(),
                     PurchasePaymentTemplate.DEFINITION_KEY,
-                    PurchasePaymentTemplate.DEFINITION_VERSION,
+                    PurchasePaymentTemplate.PROCESS_VERSION,
                     RELEASE_VERSION,
                     DEPLOYMENT_TARGET,
                     null
@@ -248,7 +248,7 @@ public final class PurchasePaymentDemoSeeder {
                             releasePublishContext,
                             designDraft.draftId(),
                             designDraft.revision(),
-                            PurchasePaymentTemplate.DEFINITION_VERSION,
+                            PurchasePaymentTemplate.PROCESS_VERSION,
                             RELEASE_VERSION,
                             DEPLOYMENT_TARGET,
                             publicationPreflight.preflightHash(),
