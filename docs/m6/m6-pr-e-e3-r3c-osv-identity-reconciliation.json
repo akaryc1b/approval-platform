@@ -1,0 +1,185 @@
+{
+  "contentSha256": "5b4ed3731f05dd1ff134b83a2e9f724646fdb29ff6f799f824d55c8cb66d8cfd",
+  "currentOsvIdentitySet": {
+    "findingCount": 120,
+    "findingSetSha256": "c1f9b73ce713bc09035ce34e7ad7d0b14329933f51dbd466aa0843e5066d1142",
+    "sourceClass": "E4_OSV_SCANNER"
+  },
+  "databaseDriftObservation": {
+    "artifactBytes": 50341,
+    "artifactId": 9214869318,
+    "artifactSha256": "5b39de65a736afc285d3aa899882c6492fc2da74e50e8f67bee1fc4a05f87790",
+    "classification": [
+      "DATABASE_DRIFT",
+      "NEW_FINDING",
+      "IDENTITY_LEVEL_RECONCILIATION"
+    ],
+    "databaseSnapshotIdentity": null,
+    "databaseSnapshotIdentityAvailability": "NOT_EXPOSED_BY_CURRENT_NORMALIZED_OSV_EVIDENCE",
+    "generatedAt": null,
+    "generatedAtAvailability": "NOT_EXPOSED_BY_CURRENT_NORMALIZED_OSV_EVIDENCE",
+    "head": "fb50903f7d23a4f1e1c7cb184d6839e9d83e1669",
+    "jobId": 94732360791,
+    "observedAt": "2026-08-14T09:44:02Z",
+    "runId": 31789303684,
+    "runNumber": 1462,
+    "scanner": "OSV-Scanner",
+    "scannerBinarySha256": "74b7fb1149c19f7d3be4815437a6d146634e35be82c54e2ce75f346633d99e11",
+    "scannerSourceCommit": "a258868211a57052da6bd323f758b8388dee02bb",
+    "scannerVersion": "2.5.0"
+  },
+  "decision": {
+    "addedFindingsDisposition": "UNRESOLVED",
+    "prb16Closed": false,
+    "prb17Closed": false,
+    "releaseBlocked": true,
+    "securityClosureAccepted": false
+  },
+  "expectedCurrentScannerCounts": {
+    "gitleaks": 27,
+    "osv": 120,
+    "semgrep": 3,
+    "total": 150,
+    "zizmor": 0
+  },
+  "identityDelta": {
+    "addedFindingCount": 3,
+    "addedFindings": [
+      {
+        "disposition": "UNRESOLVED",
+        "findingId": "19910d2b442141a0bfcd11200baae14047f88500f6c8f35892729c182b6c03b2",
+        "fixedVersionsObserved": [
+          "5.4.3",
+          "5.5-beta2"
+        ],
+        "graphClass": "BUILD_PLUGIN",
+        "package": {
+          "ecosystem": "Maven",
+          "name": "org.apache.httpcomponents.core5:httpcore5-h2",
+          "version": "5.3.6"
+        },
+        "releaseBlocking": true,
+        "requiredAliases": [
+          "CVE-2026-54428"
+        ],
+        "requiredComponentRefs": [
+          "maven-plugin:org.apache.httpcomponents.core5:httpcore5-h2:jar:5.3.6"
+        ],
+        "requiredScopes": [
+          "build-plugin"
+        ],
+        "upstreamFindingId": "GHSA-v3jc-474w-2wm6",
+        "upstreamSeverityObserved": [
+          {
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+            "type": "CVSS_V3"
+          }
+        ]
+      },
+      {
+        "disposition": "UNRESOLVED",
+        "findingId": "a4b4579e5125d9fda51fc7613a334f5b099e572f481fe889c57d1dd50d2a18a0",
+        "fixedVersionsObserved": [
+          "5.6.3"
+        ],
+        "graphClass": "BUILD_PLUGIN",
+        "package": {
+          "ecosystem": "Maven",
+          "name": "org.apache.httpcomponents.client5:httpclient5",
+          "version": "5.5.2"
+        },
+        "releaseBlocking": true,
+        "requiredAliases": [
+          "CVE-2026-64607"
+        ],
+        "requiredComponentRefs": [
+          "maven-plugin:org.apache.httpcomponents.client5:httpclient5:jar:5.5.2"
+        ],
+        "requiredScopes": [
+          "build-plugin"
+        ],
+        "upstreamFindingId": "GHSA-hjcp-jmpx-g3qm",
+        "upstreamSeverityObserved": [
+          {
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+            "type": "CVSS_V3"
+          }
+        ]
+      },
+      {
+        "disposition": "UNRESOLVED",
+        "findingId": "df213a490101350b55248fa6ed5342d0a5714e59a2d20698ef0fe6a15c5d5e54",
+        "fixedVersionsObserved": [
+          "2.25.5",
+          "2.26.1"
+        ],
+        "graphClass": "COMPILE_RUNTIME",
+        "package": {
+          "ecosystem": "Maven",
+          "name": "org.apache.logging.log4j:log4j-api",
+          "version": "2.25.3"
+        },
+        "releaseBlocking": true,
+        "requiredAliases": [
+          "CVE-2026-49844"
+        ],
+        "requiredComponentRefs": [
+          "pkg:maven/org.apache.logging.log4j/log4j-api@2.25.3?type=jar"
+        ],
+        "requiredScopes": [
+          "compile"
+        ],
+        "upstreamFindingId": "GHSA-qv9r-c865-cp47",
+        "upstreamSeverityObserved": [
+          {
+            "score": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:N/SC:N/SI:L/SA:N",
+            "type": "CVSS_V4"
+          }
+        ]
+      }
+    ],
+    "removedFindingCount": 0,
+    "removedFindingIds": [],
+    "retainedFindingCount": 117,
+    "retainedFindingSetSha256": "42d4ce93ce58eb76e07faa556d32c6b8f7feb1e9a3f3f600eab9c971c3fe5da6"
+  },
+  "invariants": {
+    "deploymentAuthorized": false,
+    "exceptionAdded": false,
+    "findingDeletionClaimed": false,
+    "mergeAuthorized": false,
+    "onlyReviewedAdditionsPresent": true,
+    "previousReviewedIdentitiesRetained": true,
+    "productionPromotionAuthorized": false,
+    "readyAuthorized": false,
+    "removedFindingIdentityAccepted": false,
+    "severityDowngradeAdded": false,
+    "suppressionAdded": false
+  },
+  "previousReviewedBoundary": {
+    "findingCount": 117,
+    "findingSetSha256": "42d4ce93ce58eb76e07faa556d32c6b8f7feb1e9a3f3f600eab9c971c3fe5da6",
+    "sourceClass": "E4_OSV_SCANNER",
+    "sourceRunId": 31689796691,
+    "sourceRunNumber": 1440
+  },
+  "repository": "akaryc1b/approval-platform",
+  "schemaVersion": "M6_PR_E_E3_R3C_OSV_IDENTITY_RECONCILIATION_V1",
+  "unchangedIdentitySets": {
+    "gitleaks": {
+      "findingCount": 27,
+      "findingSetSha256": "ed4ab9c3b1ec1e1906a4067dbd3a6e9c078361ff1c5bd436ecbac26006f1d069",
+      "sourceClass": "E4_GITLEAKS"
+    },
+    "semgrep": {
+      "findingCount": 3,
+      "findingSetSha256": "ffb20a767ea90349941607465a3954309dcac285ae7199b08febfb2e7894813b",
+      "sourceClass": "E4_SEMGREP"
+    },
+    "zizmor": {
+      "findingCount": 0,
+      "findingSetSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "sourceClass": "E4_ZIZMOR"
+    }
+  }
+}
