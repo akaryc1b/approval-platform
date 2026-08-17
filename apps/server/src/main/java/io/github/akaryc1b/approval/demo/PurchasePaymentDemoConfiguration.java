@@ -1,25 +1,27 @@
 package io.github.akaryc1b.approval.demo;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.akaryc1b.approval.application.ApprovalDesignService;
+import io.github.akaryc1b.approval.application.ApprovalFormDesignService;
+import io.github.akaryc1b.approval.application.ApprovalProcessReleaseActivationService;
+import io.github.akaryc1b.approval.application.ApprovalProcessReleaseLifecycleService;
+import io.github.akaryc1b.approval.application.ApprovalReleaseDeploymentService;
+import io.github.akaryc1b.approval.application.ApprovalReleasePreflightService;
 import io.github.akaryc1b.approval.application.ConnectorPurchasePaymentAssigneeResolver;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
 import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore;
-import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
 import io.github.akaryc1b.approval.application.port.ApprovalCommentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
-import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver;
-import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
-import io.github.akaryc1b.approval.engine.ApprovalEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -83,14 +85,15 @@ public class PurchasePaymentDemoConfiguration {
     @Bean
     PurchasePaymentDemoSeeder purchasePaymentDemoSeeder(
         PurchasePaymentDemoScenario scenario,
+        ApprovalFormDesignService approvalFormDesignService,
+        ApprovalDesignService approvalDesignService,
+        ApprovalReleasePreflightService approvalReleasePreflightService,
+        ApprovalProcessReleaseLifecycleService approvalProcessReleaseLifecycleService,
+        ApprovalReleaseDeploymentService approvalReleaseDeploymentService,
+        ApprovalProcessReleaseActivationService approvalProcessReleaseActivationService,
         PurchasePaymentApplicationService purchasePaymentApplicationService,
-        ApprovalEngine approvalEngine,
-        ApprovalDslCompiler approvalDslCompiler,
         IdempotencyGuard idempotencyGuard,
         ApprovalProjectionStore approvalProjectionStore,
-        AuditEventSink auditEventSink,
-        PurchasePaymentAssigneeResolver purchasePaymentDemoAssigneeResolver,
-        ApprovalBusinessEventOutbox approvalBusinessEventOutbox,
         ApprovalAttachmentStore approvalAttachmentStore,
         ApprovalMessageStore approvalMessageStore,
         ApprovalCommentStore approvalCommentStore,
@@ -98,14 +101,15 @@ public class PurchasePaymentDemoConfiguration {
     ) {
         return new PurchasePaymentDemoSeeder(
             scenario,
+            approvalFormDesignService,
+            approvalDesignService,
+            approvalReleasePreflightService,
+            approvalProcessReleaseLifecycleService,
+            approvalReleaseDeploymentService,
+            approvalProcessReleaseActivationService,
             purchasePaymentApplicationService,
-            approvalEngine,
-            approvalDslCompiler,
             idempotencyGuard,
             approvalProjectionStore,
-            auditEventSink,
-            purchasePaymentDemoAssigneeResolver,
-            approvalBusinessEventOutbox,
             approvalAttachmentStore,
             approvalMessageStore,
             approvalCommentStore,
