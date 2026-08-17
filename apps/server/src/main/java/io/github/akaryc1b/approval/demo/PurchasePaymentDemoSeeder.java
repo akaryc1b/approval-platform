@@ -15,6 +15,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver;
@@ -242,8 +243,22 @@ public final class PurchasePaymentDemoSeeder {
         if (!expectedManager.equals(managerTask.assigneeId())) {
             throw new IllegalStateException("demo first task must be assigned to the manager");
         }
-        if (!details.tasks().equals(started.activeTasks())) {
-            throw new IllegalStateException("demo task projection changed after start");
+        if (details.tasks().size() != 1) {
+            throw new IllegalStateException("demo projection must retain exactly one active task");
+        }
+        TaskProjection storedTask = details.tasks().getFirst();
+        boolean stableIdentityMatches = managerTask.taskId().equals(storedTask.taskId())
+            && managerTask.instanceId().equals(storedTask.instanceId())
+            && managerTask.tenantId().equals(storedTask.tenantId())
+            && managerTask.engineTaskId().equals(storedTask.engineTaskId())
+            && managerTask.taskDefinitionKey().equals(storedTask.taskDefinitionKey())
+            && managerTask.name().equals(storedTask.name())
+            && managerTask.assigneeId().equals(storedTask.assigneeId())
+            && storedTask.status() == TaskStatus.PENDING;
+        if (!stableIdentityMatches) {
+            throw new IllegalStateException(
+                "demo task stable identity changed after projection round-trip"
+            );
         }
     }
 
