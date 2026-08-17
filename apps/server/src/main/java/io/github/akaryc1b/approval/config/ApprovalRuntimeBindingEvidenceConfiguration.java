@@ -57,7 +57,7 @@ public class ApprovalRuntimeBindingEvidenceConfiguration {
     @Bean
     @Primary
     AuditEventSink runtimeBindingRecordingAuditEventSink(
-        @Qualifier("auditEventSink") AuditEventSink delegate,
+        @Qualifier("notificationAwareAuditEventSink") AuditEventSink delegate,
         @Qualifier("approvalProjectionStore") ApprovalProjectionStore rawProjectionStore,
         ApprovalReleasePackageStore approvalReleasePackageStore,
         ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore,
