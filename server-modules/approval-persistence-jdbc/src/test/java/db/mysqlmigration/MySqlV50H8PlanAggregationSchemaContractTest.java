@@ -102,6 +102,15 @@ class MySqlV50H8PlanAggregationSchemaContractTest {
         assertFalse(lower.contains("on duplicate key update"));
     }
 
+    @Test
+    void governedChecksumExtendsTheReviewedAiCheckpointWithD8Guards() {
+        assertEquals(
+            31 * MySqlV50Baseline.h8AiBaselineChecksum()
+                + MySqlV50D8PlanAggregationGuards.checksum(),
+            new MySqlV50Baseline().getChecksum()
+        );
+    }
+
     private static String tableStatement(List<String> statements, String table) {
         return statements.stream()
             .map(value -> value.toLowerCase(Locale.ROOT))

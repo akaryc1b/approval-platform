@@ -61,11 +61,15 @@ class DatabaseCompatibilityR0BoundaryTest {
         assertTrue(readme.contains("docs/current/capability-status.md"));
         assertTrue(legacyCompatibilityEntry.contains("current/compatibility.md"));
         assertTrue(currentCapabilityStatus.contains("| MySQL 8.4 |"));
-        assertTrue(currentCapabilityStatus.contains("兼容工作在独立未合并工作流推进"));
-        assertTrue(currentCompatibility.contains(
-            "| MySQL 8.4 | 部分 | 否 | 否 | 否 |"
+        assertTrue(currentCapabilityStatus.contains(
+            "未合并候选分支的实现、测试和验收进度不进入默认分支 Current"
         ));
-        assertTrue(currentCompatibility.contains("main 尚未合并，也不支持生产"));
+        assertTrue(currentCompatibility.contains(
+            "| MySQL 8.4 | 否 | 否 | 否 | 否 |"
+        ));
+        assertTrue(currentCompatibility.contains(
+            "未合并候选分支进度不进入 main Current，也不支持生产"
+        ));
     }
 
     @Test

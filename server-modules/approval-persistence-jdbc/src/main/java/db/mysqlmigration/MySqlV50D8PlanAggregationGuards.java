@@ -22,11 +22,20 @@ final class MySqlV50D8PlanAggregationGuards {
         "db/mysqlguards/d8-008-completion-update.sql",
         "db/mysqlguards/d8-009-completion-delete.sql"
     );
+    private static final List<String> STATEMENTS = loadStatements();
 
     private MySqlV50D8PlanAggregationGuards() {
     }
 
     static List<String> statements() {
+        return STATEMENTS;
+    }
+
+    static int checksum() {
+        return STATEMENTS.hashCode();
+    }
+
+    private static List<String> loadStatements() {
         List<String> statements = new ArrayList<>();
         ClassLoader loader = MySqlV50D8PlanAggregationGuards.class.getClassLoader();
         for (String resource : RESOURCES) {
