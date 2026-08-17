@@ -2,6 +2,7 @@
 
 ```text
 QUICK_START_STATUS=BASELINE_NOT_YET_10_MINUTE_VERIFIED
+DEMO_BACKEND_ONE_COMMAND_STATUS=IMPLEMENTED_NOT_CLEAN_MACHINE_TIMED
 BACKEND_LOCAL_START_STATUS=VERIFIED_IN_EPHEMERAL_CI
 DETERMINISTIC_DEMO_SEED_STATUS=IMPLEMENTED_LOCAL_OPT_IN
 DETERMINISTIC_DEMO_SEED_IMPLEMENTED
@@ -13,7 +14,9 @@ PURCHASE_PAYMENT_GOLDEN_PATH_STATUS=RUNTIME_START_SLICE_VERIFIED_FULL_E2E_NOT_EX
 
 This is the source-based candidate path for the Demo and Guides work in Issue #107. It deliberately does **not** claim that a new user can start a complete product demo within 10 minutes.
 
-The repository now provides PostgreSQL/Redis Compose infrastructure, an executable Spring Boot application, a local profile, an explicit deterministic purchase-payment seed, and PC/H5/WeChat development or build commands. Permanent Maven validation starts the real backend against ephemeral PostgreSQL and verifies the seed, health, instance read and manager pending-task read. It does not time a clean-machine setup or execute the full approval workflow.
+The repository now provides a single non-destructive backend entry command. It runs the workstation preflight, starts isolated PostgreSQL and Redis containers, waits for both services, builds the Maven reactor, starts the real Spring Boot application with the explicit local seed, waits for Actuator `UP` and the deterministic seed marker, and then remains attached to the backend process.
+
+The orchestration command is permanently checked for exact command order, local-only configuration, shell-free process invocation, explicit data-loss confirmation and honest non-claims. The underlying backend/seed path is separately verified by the permanent PostgreSQL integration test. The complete command has not yet been timed from a clean unfamiliar-user environment and therefore is not `QUICK_START_10_MINUTES_PASSED`.
 
 ## Supported candidate environment
 
@@ -33,7 +36,7 @@ WeChat runtime verification additionally requires supported WeChat Developer Too
 From the repository root:
 
 ```bash
-node scripts/product-readiness/demo-preflight.mjs
+pnpm demo:preflight
 ```
 
 For machine-readable output:
@@ -52,56 +55,59 @@ pnpm demo:seed:check
 
 The restricted preflight reports `DEMO_REPOSITORY_CONTRACT_PASSED`; the full preflight may report `DEMO_PREFLIGHT_PASSED`. The preflight and Node checks do not start containers, mutate a database, call an external Provider or prove a user scenario.
 
-## 2. Start local infrastructure
+## 2. Inspect the exact startup plan without executing it
 
 ```bash
-docker compose -f deploy/compose/docker-compose.yml up -d postgres redis
-docker compose -f deploy/compose/docker-compose.yml ps
+pnpm demo:backend:plan
 ```
 
-Do not use production credentials in this path. Checked-in values are local demonstration defaults only.
-
-## 3. Load local database variables
-
-For Bash or Zsh:
-
-```bash
-set -a
-. ./.env.example
-set +a
-```
-
-The example currently resolves to the local PostgreSQL service on port `5432`.
-
-## 4. Build the Maven reactor
-
-```bash
-mvn -B -ntp -DskipTests install
-```
-
-Skipping tests here is only startup preparation; it does not replace the permanent workflow.
-
-## 5. Start the executable backend and deterministic local seed
-
-The seed is false by default and requires both the `local` profile and an explicit switch:
-
-```bash
-APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true \
-mvn -B -ntp -f apps/server/pom.xml spring-boot:run \
-  -Dspring-boot.run.profiles=local
-```
-
-The base configuration keeps Flowable schema updates disabled. The explicit `local` profile permits local schema bootstrap, uses local-header identity, retains management-permission enforcement, and enables the seed only when the environment switch is true. Never activate this profile or seed as a production default.
-
-Successful seed startup logs:
+The JSON plan is read-only and must report:
 
 ```text
-PURCHASE_PAYMENT_DEMO_SEED_APPLIED
+destructive=false
+QUICK_START_10_MINUTES_NOT_EXECUTED
+PURCHASE_APPROVAL_E2E_NOT_EXECUTED
+PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
+CROSS_CLIENT_RUNTIME_NOT_EXECUTED
+PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
 ```
 
-The marker includes bounded tenant, business, instance, task and attachment identifiers; it contains no credential or customer data.
+It also shows the exact preflight, Compose, Maven, health and seed sequence used by the real command.
 
-## 6. Verify bounded backend health
+## 3. Start the real local backend and deterministic seed with one command
+
+```bash
+pnpm demo:backend:start
+```
+
+The command performs this bounded sequence:
+
+```text
+read-only workstation preflight
+-> isolated Compose project approval-platform-demo
+-> PostgreSQL 16 and Redis 7.4 readiness
+-> mvn -B -ntp -DskipTests install
+-> real Spring Boot server with the local profile
+-> explicit APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true
+-> Actuator HTTP status UP
+-> PURCHASE_PAYMENT_DEMO_SEED_APPLIED
+```
+
+The command reads only the three local database variables from `.env.example` and deliberately overrides matching database variables inherited from the shell. This prevents an accidental local demo run from reusing an unrelated database target. The seed remains false in the checked-in environment example and is enabled only for the child backend process.
+
+The command stays attached so the backend log remains visible. A successful run prints:
+
+```text
+DEMO_BACKEND_ONE_COMMAND_STARTED
+BACKEND_LOCAL_START_VERIFIED
+PURCHASE_PAYMENT_DEMO_SEED_APPLIED ... instanceId=...
+QUICK_START_10_MINUTES_NOT_EXECUTED
+PURCHASE_APPROVAL_E2E_NOT_EXECUTED
+```
+
+Press `Ctrl-C` to stop the attached backend process. PostgreSQL and Redis remain running until the explicit stop command in step 6.
+
+## 4. Verify and inspect the deterministic runtime slice
 
 In another terminal:
 
@@ -115,17 +121,7 @@ The backend-start outcome requires an HTTP success response containing:
 {"status":"UP"}
 ```
 
-The repository's permanent integration test already verifies this outcome against PostgreSQL Testcontainers, so the narrow marker is now valid:
-
-```text
-BACKEND_LOCAL_START_VERIFIED
-```
-
-This still does not prove login, task approval, Connector delivery, browser compatibility or cross-client consistency.
-
-## 7. Inspect the deterministic runtime slice
-
-Use the `instanceId` printed by the seed marker or health details:
+Copy the `instanceId` from the `PURCHASE_PAYMENT_DEMO_SEED_APPLIED` log line, then inspect the seeded request:
 
 ```bash
 curl -fsS \
@@ -147,13 +143,13 @@ curl -fsS \
   http://127.0.0.1:8080/api/approval/tasks/pending
 ```
 
-The verified boundary stops here. Do not label it `PURCHASE_APPROVAL_E2E_PASSED`.
+The verified boundary stops with one pending `managerApproval` task assigned to `demo-manager`. Do not label it `PURCHASE_APPROVAL_E2E_PASSED`.
 
-## 8. Existing client development entrypoints
+## 5. Existing client development entrypoints
 
 These commands expose current development/build entrypoints. They are not yet a unified product demo.
 
-The repository currently has no root `pnpm-lock.yaml`, so this path must not begin with `pnpm install --frozen-lockfile` at the repository root. Retained frontend bootstrap commands own their install semantics.
+The repository currently has no root `pnpm-lock.yaml`, so this path must not begin with a root frozen-lockfile install. Retained frontend bootstrap commands own their install semantics.
 
 ### PC
 
@@ -177,21 +173,36 @@ pnpm mobile:build:weixin
 
 A successful development server or build is not `CROSS_CLIENT_SCENARIO_PASSED`. PC, H5 and WeChat must still operate on the same seeded tenant, request, tasks, audit identifiers and final state.
 
-## 9. Stop or reset local infrastructure
+## 6. Stop or explicitly reset local infrastructure
 
-Stop while preserving the PostgreSQL volume:
-
-```bash
-docker compose -f deploy/compose/docker-compose.yml down
-```
-
-Destroy the local demo database only when an explicit clean reset is intended:
+After stopping the attached backend with `Ctrl-C`, stop PostgreSQL and Redis while preserving the PostgreSQL volume:
 
 ```bash
-docker compose -f deploy/compose/docker-compose.yml down -v
+pnpm demo:backend:stop
 ```
 
-Reset is performed through disposable local infrastructure, not by editing platform or Flowable tables.
+Destroy the disposable local demo volume only when an explicit clean reset is intended:
+
+```bash
+node scripts/product-readiness/demo-backend.mjs reset --confirm-local-data-loss
+```
+
+Running `reset` without the confirmation flag exits before any Docker command. Reset is performed through disposable local infrastructure, not by editing platform or Flowable tables.
+
+## Manual expansion for troubleshooting
+
+The one-command launcher owns the normal candidate path. The equivalent lower-level operations are retained only for diagnosis:
+
+```bash
+docker compose --project-name approval-platform-demo \
+  -f deploy/compose/docker-compose.yml up -d postgres redis
+mvn -B -ntp -DskipTests install
+APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true \
+mvn -B -ntp -f apps/server/pom.xml spring-boot:run \
+  -Dspring-boot.run.profiles=local
+```
+
+The base configuration keeps Flowable schema updates disabled. The explicit `local` profile permits local schema bootstrap, uses local-header identity, retains management-permission enforcement, and enables the seed only when the environment switch is true. Never activate this profile or seed as a production default.
 
 ## Timed evidence template
 
@@ -228,14 +239,16 @@ The 10-minute outcome cannot pass until an unfamiliar user can start the documen
 - no complete purchase-payment approval sequence, attachment-binding proof or Connector outage/recovery evidence exists here;
 - no shared demo environment has been seeded.
 
-These gaps must remain visible instead of being replaced by a build or first-task success claim.
+These gaps must remain visible instead of being replaced by a build, one-command launcher or first-task success claim.
 
 ## Current non-claims
 
 ```text
 SHARED_DEMO_ENVIRONMENT_SEED_NOT_APPLIED
+QUICK_START_10_MINUTES_NOT_EXECUTED
 PURCHASE_APPROVAL_E2E_NOT_EXECUTED
 PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
+CROSS_CLIENT_RUNTIME_NOT_EXECUTED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
 ```
 
