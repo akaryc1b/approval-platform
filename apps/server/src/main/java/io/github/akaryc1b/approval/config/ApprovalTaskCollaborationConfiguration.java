@@ -54,7 +54,6 @@ public class ApprovalTaskCollaborationConfiguration {
     }
 
     @Bean
-    @Primary
     ApprovalProjectionStore collaborationAwareApprovalProjectionStore(
         @Qualifier("slaAwareApprovalProjectionStore") ApprovalProjectionStore delegate,
         @Qualifier("slaAwareApprovalTaskCollaborationStore")

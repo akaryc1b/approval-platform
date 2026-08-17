@@ -19,8 +19,20 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class ApprovalRuntimeBindingEvidenceConfigurationTest {
 
     @Test
-    void productionWrappersComposeOnePrimaryAuditChainWithExplicitDelegates() {
-        Method projection = method(
+    void productionWrappersComposeUniquePrimaryProjectionAndAuditChains() {
+        Method rawProjection = method(
+            ApprovalPlatformConfiguration.class,
+            "approvalProjectionStore"
+        );
+        Method slaProjection = method(
+            ApprovalSlaConfiguration.class,
+            "slaAwareApprovalProjectionStore"
+        );
+        Method collaborationProjection = method(
+            ApprovalTaskCollaborationConfiguration.class,
+            "collaborationAwareApprovalProjectionStore"
+        );
+        Method runtimeProjection = method(
             ApprovalRuntimeBindingEvidenceConfiguration.class,
             "runtimeBindingEnforcingProjectionStore"
         );
@@ -33,12 +45,27 @@ class ApprovalRuntimeBindingEvidenceConfigurationTest {
             "notificationAwareAuditEventSink"
         );
 
-        assertPrimaryBean(projection, ApprovalProjectionStore.class);
+        assertBean(rawProjection, ApprovalProjectionStore.class);
+        assertBean(slaProjection, ApprovalProjectionStore.class);
+        assertBean(collaborationProjection, ApprovalProjectionStore.class);
+        assertPrimaryBean(runtimeProjection, ApprovalProjectionStore.class);
+        assertNull(rawProjection.getAnnotation(Primary.class));
+        assertNull(slaProjection.getAnnotation(Primary.class));
+        assertNull(collaborationProjection.getAnnotation(Primary.class));
+        assertQualifier(slaProjection.getParameters()[0], "approvalProjectionStore");
+        assertQualifier(
+            collaborationProjection.getParameters()[0],
+            "slaAwareApprovalProjectionStore"
+        );
+        assertQualifier(
+            runtimeProjection.getParameters()[0],
+            "collaborationAwareApprovalProjectionStore"
+        );
+        assertEquals(MeterRegistry.class, runtimeProjection.getParameterTypes()[2]);
+
         assertPrimaryBean(runtimeAudit, AuditEventSink.class);
         assertBean(notificationAudit, AuditEventSink.class);
         assertNull(notificationAudit.getAnnotation(Primary.class));
-        assertQualifier(projection.getParameters()[0], "approvalProjectionStore");
-        assertEquals(MeterRegistry.class, projection.getParameterTypes()[2]);
         assertQualifier(
             runtimeAudit.getParameters()[0],
             "notificationAwareAuditEventSink"

@@ -33,7 +33,7 @@ public class ApprovalRuntimeBindingEvidenceConfiguration {
     @Bean
     @Primary
     ApprovalProjectionStore runtimeBindingEnforcingProjectionStore(
-        @Qualifier("approvalProjectionStore") ApprovalProjectionStore delegate,
+        @Qualifier("collaborationAwareApprovalProjectionStore") ApprovalProjectionStore delegate,
         ApprovalRuntimeBindingStore approvalRuntimeBindingStore,
         MeterRegistry meters,
         ApprovalInstanceCommandFence commandFence
