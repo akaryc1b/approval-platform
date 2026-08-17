@@ -98,7 +98,7 @@ class JdbcApprovalMigrationPlanAggregationStoreMySqlContractTest {
         ));
         String configuration = Files.readString(ROOT.resolve(
             "apps/server/src/main/java/io/github/akaryc1b/approval/config/"
-                + "ApprovalMigrationExecutionConfiguration.java"
+                + "ApprovalMigrationPlanAggregationConfiguration.java"
         ));
 
         assertTrue(factory.contains("new ApprovalDatabaseVendorResolver()"));

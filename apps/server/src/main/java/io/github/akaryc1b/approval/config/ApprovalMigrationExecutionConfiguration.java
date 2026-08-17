@@ -19,7 +19,6 @@ import io.github.akaryc1b.approval.application.port.ApprovalMigrationEngineExecu
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationExactVerificationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationKillSwitch;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationOrchestrationStore;
-import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationReconciliationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationRuntimeBindingCasStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
@@ -34,7 +33,6 @@ import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationBinding
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOrchestrationStoreFactory;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationPlanAggregationStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationReconciliationExecutionStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStoreFactory;
 import org.flowable.engine.HistoryService;
@@ -55,13 +53,12 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-/** Default-disabled internal wiring for one-shot M5-D3 through D8 operations. */
+/** Default-disabled internal wiring for one-shot M5-D3 through D7 operations. */
 @Configuration(proxyBeanMethods = false)
 public class ApprovalMigrationExecutionConfiguration {
 
     private final Supplier<UUID> d7Identifiers = new MonotonicUuidSupplier();
-    private final String orchestrationWorkerId =
-        "m5-orchestration-" + UUID.randomUUID();
+    private final String orchestrationWorkerId = "m5-orchestration-" + UUID.randomUUID();
 
     @Bean
     ProcessInstanceMigrationPort processInstanceMigrationPort(
@@ -248,27 +245,10 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
-    ApprovalMigrationPlanAggregationStore approvalMigrationPlanAggregationStore(
-        DataSource dataSource,
-        ObjectMapper objectMapper,
-        PlatformTransactionManager transactionManager,
-        AuditEventSink auditEventSink
-    ) {
-        return JdbcApprovalMigrationPlanAggregationStoreFactory.create(
-            dataSource,
-            objectMapper,
-            transactionManager,
-            auditEventSink,
-            d7Identifiers
-        );
-    }
-
-    @Bean
     ApprovalMigrationKillSwitch approvalMigrationKillSwitch(
         @Value("${approval.migration.kill-switch.enabled:false}") boolean enabled,
         @Value("${approval.migration.kill-switch.revision:1}") long revision,
-        @Value("${approval.migration.kill-switch.reason-code:CONFIGURED_OFF}")
-        String reasonCode,
+        @Value("${approval.migration.kill-switch.reason-code:CONFIGURED_OFF}") String reasonCode,
         ApprovalReleasePackageHasher hasher
     ) {
         return new ConfiguredApprovalMigrationKillSwitch(
@@ -366,14 +346,11 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
-    ApprovalMigrationSingleInstanceExecutor.OneShotRunner
-        approvalMigrationOneShotExecutionRunner(
-            @Value("${approval.migration.execution.enabled:false}")
-            boolean executionEnabled,
-            @Value("${approval.migration.worker.enabled:false}")
-            boolean workerEnabled,
-            ApprovalMigrationSingleInstanceExecutor executor
-        ) {
+    ApprovalMigrationSingleInstanceExecutor.OneShotRunner approvalMigrationOneShotExecutionRunner(
+        @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
+        @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
+        ApprovalMigrationSingleInstanceExecutor executor
+    ) {
         return new ApprovalMigrationSingleInstanceExecutor.OneShotRunner(
             executionEnabled,
             workerEnabled,
@@ -382,14 +359,11 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
-    ApprovalMigrationExactVerificationService.OneShotRunner
-        approvalMigrationOneShotVerificationRunner(
-            @Value("${approval.migration.execution.enabled:false}")
-            boolean executionEnabled,
-            @Value("${approval.migration.worker.enabled:false}")
-            boolean workerEnabled,
-            ApprovalMigrationExactVerificationService service
-        ) {
+    ApprovalMigrationExactVerificationService.OneShotRunner approvalMigrationOneShotVerificationRunner(
+        @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
+        @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
+        ApprovalMigrationExactVerificationService service
+    ) {
         return new ApprovalMigrationExactVerificationService.OneShotRunner(
             executionEnabled,
             workerEnabled,
@@ -398,14 +372,11 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
-    ApprovalMigrationRuntimeBindingCasService.OneShotRunner
-        approvalMigrationOneShotBindingCasRunner(
-            @Value("${approval.migration.execution.enabled:false}")
-            boolean executionEnabled,
-            @Value("${approval.migration.worker.enabled:false}")
-            boolean workerEnabled,
-            ApprovalMigrationRuntimeBindingCasService service
-        ) {
+    ApprovalMigrationRuntimeBindingCasService.OneShotRunner approvalMigrationOneShotBindingCasRunner(
+        @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
+        @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
+        ApprovalMigrationRuntimeBindingCasService service
+    ) {
         return new ApprovalMigrationRuntimeBindingCasService.OneShotRunner(
             executionEnabled,
             workerEnabled,
@@ -414,16 +385,13 @@ public class ApprovalMigrationExecutionConfiguration {
     }
 
     @Bean
-    ApprovalMigrationReconciliationService.OneShotRunner
-        approvalMigrationOneShotReconciliationRunner(
-            @Value("${approval.migration.execution.enabled:false}")
-            boolean executionEnabled,
-            @Value("${approval.migration.worker.enabled:false}")
-            boolean workerEnabled,
-            @Value("${approval.migration.reconciliation.automatic.enabled:false}")
-            boolean automaticReconciliationEnabled,
-            ApprovalMigrationReconciliationService service
-        ) {
+    ApprovalMigrationReconciliationService.OneShotRunner approvalMigrationOneShotReconciliationRunner(
+        @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
+        @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
+        @Value("${approval.migration.reconciliation.automatic.enabled:false}")
+        boolean automaticReconciliationEnabled,
+        ApprovalMigrationReconciliationService service
+    ) {
         return new ApprovalMigrationReconciliationService.OneShotRunner(
             executionEnabled,
             workerEnabled,
@@ -435,12 +403,9 @@ public class ApprovalMigrationExecutionConfiguration {
     @Bean
     ApprovalMigrationBoundedOrchestrationService.OneShotRunner
         approvalMigrationOneShotOrchestrationRunner(
-            @Value("${approval.migration.execution.enabled:false}")
-            boolean executionEnabled,
-            @Value("${approval.migration.worker.enabled:false}")
-            boolean workerEnabled,
-            @Value("${approval.migration.orchestration.enabled:false}")
-            boolean orchestrationEnabled,
+            @Value("${approval.migration.execution.enabled:false}") boolean executionEnabled,
+            @Value("${approval.migration.worker.enabled:false}") boolean workerEnabled,
+            @Value("${approval.migration.orchestration.enabled:false}") boolean orchestrationEnabled,
             ApprovalMigrationBoundedOrchestrationService service
         ) {
         return new ApprovalMigrationBoundedOrchestrationService.OneShotRunner(
