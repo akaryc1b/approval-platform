@@ -103,13 +103,15 @@ public final class PurchasePaymentDemoSeeder {
     }
 
     public synchronized PurchasePaymentDemoSeedState.SeedEvidence apply() {
-        PublishResult published = publishingService.publish(new PublishCommand(
-            context(
-                scenario.administratorId(),
-                "demo-seed-publish-request-v1",
-                "demo-seed-publish-v1"
-            )
-        ));
+        RequestContext publishContext = context(
+            scenario.administratorId(),
+            "demo-seed-publish-request-v1",
+            "demo-seed-publish-v1"
+        );
+        PublishResult published = PurchasePaymentDemoRequestEvidenceScope.call(
+            publishContext,
+            () -> publishingService.publish(new PublishCommand(publishContext))
+        );
 
         List<PurchasePaymentDemoSeedState.AttachmentEvidence> attachmentEvidence =
             uploadAttachments();
@@ -118,19 +120,23 @@ public final class PurchasePaymentDemoSeeder {
             .toList();
 
         PurchasePaymentApplicationService startService = localStartService();
-        StartResult started = startService.start(new StartCommand(
-            context(
-                scenario.assigneeRules().initiatorUserId().value(),
-                "demo-seed-start-request-v1",
-                "demo-seed-start-v1"
-            ),
-            scenario.request().businessKey(),
-            scenario.request().amount(),
-            scenario.request().supplier(),
-            scenario.request().purchaseOrderReference(),
-            attachmentIds,
-            scenario.assigneeRules()
-        ));
+        RequestContext startContext = context(
+            scenario.assigneeRules().initiatorUserId().value(),
+            "demo-seed-start-request-v1",
+            "demo-seed-start-v1"
+        );
+        StartResult started = PurchasePaymentDemoRequestEvidenceScope.call(
+            startContext,
+            () -> startService.start(new StartCommand(
+                startContext,
+                scenario.request().businessKey(),
+                scenario.request().amount(),
+                scenario.request().supplier(),
+                scenario.request().purchaseOrderReference(),
+                attachmentIds,
+                scenario.assigneeRules()
+            ))
+        );
 
         InstanceDetails details = startService.findInstance(
             scenario.tenantId(),
@@ -165,17 +171,19 @@ public final class PurchasePaymentDemoSeeder {
                 clock,
                 () -> fixture.attachmentId()
             );
-            AttachmentSummary summary = service.upload(
-                new ApprovalAttachmentService.UploadCommand(
-                    context(
-                        scenario.assigneeRules().initiatorUserId().value(),
-                        "demo-seed-attachment-" + fixture.logicalId() + "-request-v1",
-                        "demo-seed-attachment-" + fixture.logicalId() + "-v1"
-                    ),
+            RequestContext attachmentContext = context(
+                scenario.assigneeRules().initiatorUserId().value(),
+                "demo-seed-attachment-" + fixture.logicalId() + "-request-v1",
+                "demo-seed-attachment-" + fixture.logicalId() + "-v1"
+            );
+            AttachmentSummary summary = PurchasePaymentDemoRequestEvidenceScope.call(
+                attachmentContext,
+                () -> service.upload(new ApprovalAttachmentService.UploadCommand(
+                    attachmentContext,
                     fixture.fileName(),
                     fixture.contentType(),
                     fixture.content()
-                )
+                ))
             );
             if (!fixture.attachmentId().equals(summary.attachmentId())) {
                 throw new IllegalStateException(
