@@ -19,16 +19,20 @@ import io.github.akaryc1b.approval.application.port.ApprovalCommentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.PublishedDefinition;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.definition.ApprovalDesignDraft;
 import io.github.akaryc1b.approval.domain.definition.ApprovalReleaseDeployment;
+import io.github.akaryc1b.approval.domain.definition.ApprovalReleasePackage;
 import io.github.akaryc1b.approval.domain.form.FormDesignDraft;
 import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 
 import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -45,6 +49,8 @@ public final class PurchasePaymentDemoSeeder {
     private static final String TRACE_ID = "demo-purchase-payment-seed-v1";
     private static final String MANAGER_TASK_KEY = "managerApproval";
     private static final String DEPLOYMENT_TARGET = "default";
+    private static final String DEFINITION_PROJECTION_OPERATION =
+        "demo.purchase-payment.definition-projection.v1";
     private static final int FORM_PACKAGE_VERSION = 1;
     private static final int RELEASE_VERSION = 1;
 
@@ -293,6 +299,8 @@ public final class PurchasePaymentDemoSeeder {
         if (deployed.deployment().status() != ApprovalReleaseDeployment.Status.DEPLOYED) {
             throw new IllegalStateException("demo Release Package deployment did not succeed");
         }
+        ApprovalReleasePackage releasePackage = published.publication().releasePackage();
+        ensureDefinitionProjection(releasePackage, deployed.deployment());
 
         RequestContext activateContext = context(
             scenario.administratorId(),
@@ -303,17 +311,133 @@ public final class PurchasePaymentDemoSeeder {
             activateContext,
             () -> activationService.activate(new ActivationCommand(
                 activateContext,
-                published.publication().releasePackage().definitionKey(),
-                published.publication().releasePackage().releaseVersion(),
+                releasePackage.definitionKey(),
+                releasePackage.releaseVersion(),
                 null,
                 "Activate canonical purchase-payment demo release"
             ))
         );
 
         return new ReleaseEvidence(
-            published.publication().releasePackage().definitionKey(),
+            releasePackage.definitionKey(),
             deployed.deployment().engineDefinitionId()
         );
+    }
+
+    private void ensureDefinitionProjection(
+        ApprovalReleasePackage releasePackage,
+        ApprovalReleaseDeployment deployment
+    ) {
+        PublishedDefinition expected = publishedDefinition(releasePackage, deployment);
+        RequestContext projectionContext = context(
+            scenario.administratorId(),
+            "demo-seed-definition-projection-request-v1",
+            "demo-seed-definition-projection-v1"
+        );
+        PublishedDefinition recorded = PurchasePaymentDemoRequestEvidenceScope.call(
+            projectionContext,
+            () -> idempotencyGuard.execute(
+                projectionContext,
+                DEFINITION_PROJECTION_OPERATION,
+                releasePackage.packageHash(),
+                PublishedDefinition.class,
+                () -> {
+                    projections.lockDefinition(
+                        expected.tenantId(),
+                        expected.definitionKey(),
+                        expected.definitionVersion()
+                    );
+                    PublishedDefinition current = projections.findDefinition(
+                        expected.tenantId(),
+                        expected.definitionKey(),
+                        expected.definitionVersion()
+                    ).orElse(null);
+                    if (current == null) {
+                        projections.saveDefinition(expected);
+                        return expected;
+                    }
+                    requireDefinitionProjection(current, expected);
+                    return current;
+                }
+            )
+        );
+        requireDefinitionProjection(recorded, expected);
+
+        PublishedDefinition persisted = projections.findDefinition(
+            expected.tenantId(),
+            expected.definitionKey(),
+            expected.definitionVersion()
+        ).orElseThrow(() -> new IllegalStateException(
+            "demo definition projection is missing after governed deployment"
+        ));
+        requireDefinitionProjection(persisted, expected);
+    }
+
+    private static PublishedDefinition publishedDefinition(
+        ApprovalReleasePackage releasePackage,
+        ApprovalReleaseDeployment deployment
+    ) {
+        boolean sameRelease = releasePackage.tenantId().equals(deployment.tenantId())
+            && releasePackage.definitionKey().equals(deployment.definitionKey())
+            && releasePackage.releaseVersion() == deployment.releaseVersion()
+            && releasePackage.packageHash().equals(deployment.releasePackageHash());
+        if (deployment.status() != ApprovalReleaseDeployment.Status.DEPLOYED
+            || !sameRelease) {
+            throw new IllegalStateException(
+                "demo definition projection requires the exact deployed Release Package"
+            );
+        }
+        return new PublishedDefinition(
+            releasePackage.tenantId(),
+            releasePackage.definitionKey(),
+            releasePackage.definitionVersion(),
+            releasePackage.definitionKey(),
+            releasePackage.formVersion(),
+            releasePackage.compilerVersion(),
+            releasePackage.definitionHash(),
+            Objects.requireNonNull(
+                deployment.engineDeploymentId(),
+                "engineDeploymentId must not be null"
+            ),
+            Objects.requireNonNull(
+                deployment.engineDefinitionId(),
+                "engineDefinitionId must not be null"
+            ),
+            Objects.requireNonNull(
+                deployment.engineVersion(),
+                "engineVersion must not be null"
+            ),
+            releasePackage.publishedBy(),
+            releasePackage.publishedAt()
+        );
+    }
+
+    private static void requireDefinitionProjection(
+        PublishedDefinition actual,
+        PublishedDefinition expected
+    ) {
+        boolean compatible = actual.tenantId().equals(expected.tenantId())
+            && actual.definitionKey().equals(expected.definitionKey())
+            && actual.definitionVersion() == expected.definitionVersion()
+            && actual.formKey().equals(expected.formKey())
+            && actual.formVersion() == expected.formVersion()
+            && actual.compilerVersion().equals(expected.compilerVersion())
+            && actual.contentHash().equals(expected.contentHash())
+            && actual.deploymentId().equals(expected.deploymentId())
+            && actual.engineDefinitionId().equals(expected.engineDefinitionId())
+            && actual.engineVersion() == expected.engineVersion()
+            && actual.publishedBy().equals(expected.publishedBy())
+            && micros(actual.publishedAt()).equals(micros(expected.publishedAt()));
+        if (!compatible) {
+            throw new IllegalStateException(
+                "demo definition projection conflicts with governed Release Package deployment"
+            );
+        }
+    }
+
+    private static Instant micros(Instant value) {
+        return Objects.requireNonNull(value, "publishedAt must not be null")
+            .truncatedTo(ChronoUnit.MICROS);
     }
 
     private static void requirePreflight(
