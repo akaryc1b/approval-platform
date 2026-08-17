@@ -44,14 +44,28 @@ class DatabaseCompatibilityR0BoundaryTest {
         String record = Files.readString(COMPATIBILITY_RECORD);
         String inventory = Files.readString(INVENTORY_RECORD);
         String readme = Files.readString(ROOT.resolve("README.md"));
-        String matrix = Files.readString(ROOT.resolve("docs/COMPATIBILITY.md"));
+        String legacyCompatibilityEntry = Files.readString(
+            ROOT.resolve("docs/COMPATIBILITY.md")
+        );
+        String currentCapabilityStatus = Files.readString(
+            ROOT.resolve("docs/current/capability-status.md")
+        );
+        String currentCompatibility = Files.readString(
+            ROOT.resolve("docs/current/compatibility.md")
+        );
 
         assertTrue(record.contains("DUAL_DATABASE_COMMITMENT_RESTORED"));
         assertTrue(record.contains("MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED"));
         assertTrue(record.contains("Issue: `#91`"));
         assertTrue(inventory.contains("R0_COUNTS_ARE_NOT_MYSQL_SUPPORT"));
-        assertTrue(readme.contains("MySQL 8.4 生产兼容恢复中、尚未支持"));
-        assertTrue(matrix.contains("active blocking workstream, not yet supported"));
+        assertTrue(readme.contains("docs/current/capability-status.md"));
+        assertTrue(legacyCompatibilityEntry.contains("current/compatibility.md"));
+        assertTrue(currentCapabilityStatus.contains("| MySQL 8.4 |"));
+        assertTrue(currentCapabilityStatus.contains("兼容工作在独立未合并工作流推进"));
+        assertTrue(currentCompatibility.contains(
+            "| MySQL 8.4 | 部分 | 否 | 否 | 否 |"
+        ));
+        assertTrue(currentCompatibility.contains("main 尚未合并，也不支持生产"));
     }
 
     @Test
