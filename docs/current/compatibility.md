@@ -14,7 +14,7 @@
 | Node.js | ^22.18.0 \|\| ^24.0.0 | 仓库客户端与工具基线 |
 | pnpm | 10.33.4 | 工作区包管理器基线 |
 | PostgreSQL | 16 | main 上的已验收参考数据库 |
-| MySQL | 8.4 | 兼容目标；main 尚未合并，也不支持生产 |
+| MySQL | 8.4 | 兼容目标；未合并候选分支进度不进入 main Current，也不支持生产 |
 | PC client | Vue 3 + Vben + Element Plus | 已验证类型检查和生产构建 |
 | Mobile client | UniApp Vue 3 + Unibest + Wot UI | 已验证类型检查、H5 和微信小程序构建 |
 
@@ -23,7 +23,7 @@
 | Database | Tested | Accepted | Merged | Production Supported | Boundary |
 | --- | --- | --- | --- | --- | --- |
 | PostgreSQL 16 | 是 | 是 | 是 | 否 | 当前主线的已验收参考数据库；未形成发布级生产支持承诺。 |
-| MySQL 8.4 | 部分 | 否 | 否 | 否 | 兼容工作在独立未合并工作流推进；main 仍按 PostgreSQL-only 已验收范围解释。 |
+| MySQL 8.4 | 否 | 否 | 否 | 否 | MySQL 8.4 是兼容目标；未合并候选分支的实现、测试和验收进度不进入默认分支 Current。 |
 
 数据库目标、局部测试通过和独立 Draft 工作流都不等于默认分支已支持。生产支持必须同时满足合并、Release、运维和支持政策。
 

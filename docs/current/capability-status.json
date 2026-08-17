@@ -125,7 +125,7 @@
     {
       "area": "MySQL",
       "value": "8.4",
-      "status": "兼容目标；main 尚未合并，也不支持生产"
+      "status": "兼容目标；未合并候选分支进度不进入 main Current，也不支持生产"
     },
     {
       "area": "PC client",
@@ -161,9 +161,9 @@
     }
   ],
   "statusDefinitions": {
-    "implemented": "实现存在于所述范围内，并能够参与仓库构建。",
-    "tested": "仓库测试在已提交的代码头上覆盖所述范围。",
-    "accepted": "不可变验收记录明确接受所述范围。",
+    "implemented": "实现存在于默认分支所述范围内，并能够参与仓库构建。",
+    "tested": "默认分支测试覆盖所述范围；未合并候选分支结果不计入 Current。",
+    "accepted": "默认分支引用的不可变验收记录明确接受所述范围。",
     "merged": "已接受的实现存在于默认分支。",
     "released": "能力已进入真实 Git tag、GitHub Release 和发布清单。",
     "productionSupported": "项目明确承诺对所述范围提供可运维的生产支持。"
@@ -210,8 +210,8 @@
       "name": "MySQL 8.4",
       "scope": "双数据库迁移、JDBC、Flowable、并发、故障与运维兼容",
       "status": {
-        "implemented": "partial",
-        "tested": "partial",
+        "implemented": "no",
+        "tested": "no",
         "accepted": "no",
         "merged": "no",
         "released": "no",
@@ -220,7 +220,7 @@
       "evidence": [
         "docs/m6/M6_OVERALL_FORMAL_ACCEPTANCE.md"
       ],
-      "note": "兼容工作在独立未合并工作流推进；main 仍按 PostgreSQL-only 已验收范围解释。"
+      "note": "MySQL 8.4 是兼容目标；未合并候选分支的实现、测试和验收进度不进入默认分支 Current。"
     },
     {
       "id": "process-instance-migration",
