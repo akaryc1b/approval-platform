@@ -15,9 +15,9 @@
 
 ## 状态语义
 
-- **implemented**：实现存在于所述范围内，并能够参与仓库构建。
-- **tested**：仓库测试在已提交的代码头上覆盖所述范围。
-- **accepted**：不可变验收记录明确接受所述范围。
+- **implemented**：实现存在于默认分支所述范围内，并能够参与仓库构建。
+- **tested**：默认分支测试覆盖所述范围；未合并候选分支结果不计入 Current。
+- **accepted**：默认分支引用的不可变验收记录明确接受所述范围。
 - **merged**：已接受的实现存在于默认分支。
 - **released**：能力已进入真实 Git tag、GitHub Release 和发布清单。
 - **productionSupported**：项目明确承诺对所述范围提供可运维的生产支持。
@@ -28,7 +28,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 审批平台核心 | DSL、表单、任务协作、审计、SLA、发布生命周期与多端交互 | 是 | 是 | 是 | 是 | 否 | 否 | [M4_FINAL_ACCEPTANCE](../M4_FINAL_ACCEPTANCE.md)<br>[M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE](../M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md) | 核心能力已进入主线；仓库尚无正式 Release，也没有生产支持承诺。 |
 | PostgreSQL 16 | 平台持久化、Flyway、Flowable、锁、CAS、并发与恢复语义 | 是 | 是 | 是 | 是 | 否 | 否 | [M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE](../M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md)<br>[M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE](../m6/M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE.md) | 当前主线的已验收参考数据库；未形成发布级生产支持承诺。 |
-| MySQL 8.4 | 双数据库迁移、JDBC、Flowable、并发、故障与运维兼容 | 部分 | 部分 | 否 | 否 | 否 | 否 | [M6_OVERALL_FORMAL_ACCEPTANCE](../m6/M6_OVERALL_FORMAL_ACCEPTANCE.md) | 兼容工作在独立未合并工作流推进；main 仍按 PostgreSQL-only 已验收范围解释。 |
+| MySQL 8.4 | 双数据库迁移、JDBC、Flowable、并发、故障与运维兼容 | 否 | 否 | 否 | 否 | 否 | 否 | [M6_OVERALL_FORMAL_ACCEPTANCE](../m6/M6_OVERALL_FORMAL_ACCEPTANCE.md) | MySQL 8.4 是兼容目标；未合并候选分支的实现、测试和验收进度不进入默认分支 Current。 |
 | 运行实例迁移 | 计划、授权、执行证据、精确验证、UNKNOWN、reconciliation 与聚合 | 是 | 是 | 是 | 是 | 否 | 否 | [M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE](../M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md) | 按已记录限制完成验收并进入主线；真实生产迁移执行仍为 NOT_AUTHORIZED。 |
 | DingTalk Connector | 凭据、Token、租户路由、只读调用、传输与诊断 | 是 | 是 | 是 | 是 | 否 | 否 | [M6_A_FINAL_ACCEPTANCE](../m6/M6_A_FINAL_ACCEPTANCE.md) | 限定范围已验收；生产集成、运行所有权与推广门禁仍未完成。 |
 | Java / TypeScript SDK 与事件契约 | 版本化契约、签名、replay、幂等、兼容与弃用边界 | 是 | 是 | 是 | 是 | 否 | 否 | [M6_B_FINAL_ACCEPTANCE](../m6/M6_B_FINAL_ACCEPTANCE.md) | 契约已验收；持久订阅、投递 Worker、Broker 与运行恢复尚不属于已支持生产范围。 |
