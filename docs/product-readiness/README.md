@@ -2,7 +2,7 @@
 
 Tracking issue: [#107 — Prove the product is usable, scalable, and recoverable](https://github.com/akaryc1b/approval-platform/issues/107)
 
-This directory is the current index for product-level evidence. It does not turn build, boundary, mock, or documentation results into a product acceptance claim.
+This directory is the current index for product-level evidence. It does not turn build, boundary, mock, scenario-contract, or documentation results into a product acceptance claim.
 
 > A successful preflight is not product acceptance. The product is ready only when a user can complete work and operators can keep or recover the service.
 
@@ -15,9 +15,9 @@ This living index follows the current pull-request base. Exact base and Head SHA
 | Repository and workstation preflight | `IMPLEMENTED` | Read-only prerequisite and configuration check only |
 | Source-based backend start path | `DOCUMENTED_NOT_YET_TIMED` | Candidate commands are documented; no clean-machine timing is claimed |
 | New-user startup within 10 minutes | `NOT_YET_VERIFIED` | Requires a timed run from a clean supported environment |
-| Deterministic demo tenant, users and data | `NOT_YET_PROVIDED` | No demo identity or seed-data claim is made |
+| Deterministic demo tenant, users and data | `SCENARIO_CONTRACT_AVAILABLE_SEED_NOT_YET_APPLIED` | Exact identities and request data are governed; no database seed claim is made |
 | Product screenshots or online demo | `NOT_YET_PROVIDED` | Build output is not substituted for a product demonstration |
-| Purchase-payment golden path | `NOT_YET_VERIFIED` | PC, H5 and WeChat must use the same business instance and state |
+| Purchase-payment golden path | `SCENARIO_CONTRACT_AVAILABLE_NOT_YET_EXECUTED` | Existing API/template bindings are checked; no backend or client scenario has run |
 | Payment sandbox integration | `NOT_YET_VERIFIED` | Mock and in-memory adapters do not count as an external result |
 | Browser and accessibility matrix | `NOT_YET_VERIFIED` | Requires automated and manual scenario evidence |
 | Capacity and performance envelope | `NOT_YET_MEASURED` | No unsupported TPS or capacity claim is allowed |
@@ -29,11 +29,26 @@ Use the following terms narrowly:
 
 - `DEMO_REPOSITORY_CONTRACT_PASSED`: required files and fail-closed/local configuration contracts were present. Local tool availability was not checked.
 - `DEMO_PREFLIGHT_PASSED`: repository contracts and all documented local tool checks passed. No service or user scenario was executed.
+- `PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED`: the deterministic high-value request, identities, assignee resolution, API mappings and evidence keys match repository source. Seed data and runtime execution are still absent.
 - `BACKEND_LOCAL_START_VERIFIED`: the executable server started with the documented local profile and its bounded health check returned `UP`.
 - `QUICK_START_10_MINUTES_PASSED`: an unfamiliar user completed the published startup outcome on a clean supported environment within 600 seconds, with retained timing and environment evidence.
 - `PURCHASE_APPROVAL_E2E_PASSED`: the complete approval workflow passed, but no external payment result is implied.
 - `PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED`: a request left the platform, reached an explicitly identified sandbox, and returned a verified idempotent result.
 - `PRODUCTION_PAYMENT_INTEGRATION_VERIFIED`: reserved for separately authorized real-provider acceptance; it must never be inferred from a mock or sandbox.
+
+## Current executable contracts
+
+- [`QUICK_START.md`](QUICK_START.md) — source-based startup candidate and preflight;
+- [`PURCHASE_PAYMENT_GOLDEN_PATH.md`](PURCHASE_PAYMENT_GOLDEN_PATH.md) — deterministic purchase-payment scenario contract and exact non-claims.
+
+## Current non-claims
+
+```text
+DETERMINISTIC_DEMO_SEED_NOT_APPLIED
+PURCHASE_APPROVAL_E2E_NOT_EXECUTED
+PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
+PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
+```
 
 ## Lightweight delivery sequence
 
@@ -55,4 +70,4 @@ The Demo and Guides work must not:
 - represent local headers, mocks, static responses or successful builds as production evidence;
 - create a second automatic PR/main workflow.
 
-Start with [`QUICK_START.md`](QUICK_START.md).
+Start with [`QUICK_START.md`](QUICK_START.md), then validate the [`purchase-payment contract`](PURCHASE_PAYMENT_GOLDEN_PATH.md).
