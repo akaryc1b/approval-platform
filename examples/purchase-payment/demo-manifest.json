@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "1.0",
+  "scenarioId": "purchase-payment-high-value-demo",
+  "description": "Deterministic, non-production data contract for the canonical purchase-payment approval scenario.",
+  "claim": "PURCHASE_PAYMENT_DEMO_CONTRACT",
+  "runtimeAcceptance": "PURCHASE_APPROVAL_E2E_NOT_EXECUTED",
+  "tenant": {
+    "tenantId": "demo-purchase-tenant",
+    "displayName": "Purchase Payment Demo Tenant"
+  },
+  "business": {
+    "businessKey": "PO-2026-0001",
+    "amount": 25000.0,
+    "supplier": "Example Electrical Equipment Co., Ltd.",
+    "purchaseOrderReference": "PURCHASE-ORDER-2026-0001",
+    "attachmentIds": [
+      "file:purchase-order-2026-0001",
+      "file:supplier-invoice-2026-0001"
+    ]
+  },
+  "identities": [
+    {
+      "key": "requester",
+      "operatorId": "100",
+      "username": "demo.requester",
+      "displayName": "Demo Requester",
+      "externalId": {
+        "source": "ruoyi5",
+        "objectType": "user",
+        "value": "100"
+      },
+      "roles": [
+        "employee"
+      ],
+      "positions": []
+    },
+    {
+      "key": "manager",
+      "operatorId": "200",
+      "username": "demo.manager",
+      "displayName": "Demo Manager",
+      "externalId": {
+        "source": "ruoyi5",
+        "objectType": "user",
+        "value": "200"
+      },
+      "roles": [
+        "manager"
+      ],
+      "positions": []
+    },
+    {
+      "key": "financeReviewer",
+      "operatorId": "300",
+      "username": "demo.finance.reviewer",
+      "displayName": "Demo Finance Reviewer",
+      "externalId": {
+        "source": "ruoyi5",
+        "objectType": "user",
+        "value": "300"
+      },
+      "roles": [
+        "finance-reviewer"
+      ],
+      "positions": []
+    },
+    {
+      "key": "financeApproverA",
+      "operatorId": "400",
+      "username": "demo.finance.approver.a",
+      "displayName": "Demo Finance Approver A",
+      "externalId": {
+        "source": "ruoyi5",
+        "objectType": "user",
+        "value": "400"
+      },
+      "roles": [
+        "finance-approver"
+      ],
+      "positions": [
+        "finance-countersigner"
+      ]
+    },
+    {
+      "key": "financeApproverB",
+      "operatorId": "401",
+      "username": "demo.finance.approver.b",
+      "displayName": "Demo Finance Approver B",
+      "externalId": {
+        "source": "ruoyi5",
+        "objectType": "user",
+        "value": "401"
+      },
+      "roles": [
+        "finance-approver"
+      ],
+      "positions": [
+        "finance-countersigner"
+      ]
+    },
+    {
+      "key": "administrator",
+      "operatorId": "900",
+      "username": "demo.admin",
+      "displayName": "Demo Administrator",
+      "externalId": {
+        "source": "ruoyi5",
+        "objectType": "user",
+        "value": "900"
+      },
+      "roles": [
+        "administrator"
+      ],
+      "positions": []
+    }
+  ],
+  "organization": {
+    "connectorKey": "generic-rest",
+    "managerByUser": {
+      "100": "200"
+    },
+    "roleMembers": {
+      "finance-reviewer": [
+        "300"
+      ]
+    },
+    "positionMembers": {
+      "finance-countersigner": [
+        "400",
+        "401"
+      ]
+    },
+    "maximumFinanceApprovers": 20
+  },
+  "process": {
+    "definitionKey": "purchase-payment",
+    "version": 2,
+    "formKey": "purchase-payment",
+    "formVersion": 1,
+    "highValueThreshold": 10000.0,
+    "expectedHappyPath": [
+      "managerApproval",
+      "financeReview",
+      "financeCountersign",
+      "end"
+    ],
+    "completionEventType": "purchase-payment.completed.v1"
+  },
+  "api": {
+    "basePath": "/api/approval",
+    "publish": "/definitions/purchase-payment/publish",
+    "start": "/instances/purchase-payment",
+    "instance": "/instances/{instanceId}",
+    "timeline": "/instances/{instanceId}/timeline",
+    "pendingTasks": "/tasks/pending",
+    "pendingTask": "/tasks/pending/{taskId}",
+    "approve": "/tasks/{taskId}/approve",
+    "reject": "/tasks/{taskId}/reject",
+    "resubmit": "/tasks/{taskId}/resubmit"
+  },
+  "evidence": {
+    "repositoryContract": "CONTRACT_DEFINED",
+    "backendStarted": "NOT_YET_EXECUTED",
+    "runtimeSeedLoaded": "NOT_YET_EXECUTED",
+    "purchaseApprovalE2E": "NOT_YET_EXECUTED",
+    "paymentSandboxE2E": "NOT_YET_EXECUTED",
+    "pcRuntime": "NOT_YET_EXECUTED",
+    "h5Runtime": "NOT_YET_EXECUTED",
+    "wechatRuntime": "NOT_YET_EXECUTED"
+  },
+  "safety": {
+    "productionCredentials": false,
+    "customerData": false,
+    "authorizationBypass": false,
+    "productionConnectorEnabled": false,
+    "productionPaymentClaim": false
+  }
+}

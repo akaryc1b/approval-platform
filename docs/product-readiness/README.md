@@ -15,9 +15,9 @@ This living index follows the current pull-request base. Exact base and Head SHA
 | Repository and workstation preflight | `IMPLEMENTED` | Read-only prerequisite and configuration check only |
 | Source-based backend start path | `DOCUMENTED_NOT_YET_TIMED` | Candidate commands are documented; no clean-machine timing is claimed |
 | New-user startup within 10 minutes | `NOT_YET_VERIFIED` | Requires a timed run from a clean supported environment |
-| Deterministic demo tenant, users and data | `NOT_YET_PROVIDED` | No demo identity or seed-data claim is made |
+| Deterministic demo tenant, users and data | `CONTRACT_PROVIDED_NOT_RUNTIME_SEEDED` | A manifest binds non-production identities and purchase data; no runtime database or Connector seed is claimed |
 | Product screenshots or online demo | `NOT_YET_PROVIDED` | Build output is not substituted for a product demonstration |
-| Purchase-payment golden path | `NOT_YET_VERIFIED` | PC, H5 and WeChat must use the same business instance and state |
+| Purchase-payment golden path | `CONTRACT_PROVIDED_NOT_RUNTIME_EXECUTED` | Existing form, process, request and API contracts agree; no backend or client scenario has run |
 | Payment sandbox integration | `NOT_YET_VERIFIED` | Mock and in-memory adapters do not count as an external result |
 | Browser and accessibility matrix | `NOT_YET_VERIFIED` | Requires automated and manual scenario evidence |
 | Capacity and performance envelope | `NOT_YET_MEASURED` | No unsupported TPS or capacity claim is allowed |
@@ -29,6 +29,7 @@ Use the following terms narrowly:
 
 - `DEMO_REPOSITORY_CONTRACT_PASSED`: required files and fail-closed/local configuration contracts were present. Local tool availability was not checked.
 - `DEMO_PREFLIGHT_PASSED`: repository contracts and all documented local tool checks passed. No service or user scenario was executed.
+- `PURCHASE_PAYMENT_DEMO_CONTRACT_PASSED`: the deterministic manifest, existing fixtures, routing and HTTP endpoint contracts agree. No backend, database, client or Connector was executed.
 - `BACKEND_LOCAL_START_VERIFIED`: the executable server started with the documented local profile and its bounded health check returned `UP`.
 - `QUICK_START_10_MINUTES_PASSED`: an unfamiliar user completed the published startup outcome on a clean supported environment within 600 seconds, with retained timing and environment evidence.
 - `PURCHASE_APPROVAL_E2E_PASSED`: the complete approval workflow passed, but no external payment result is implied.
@@ -45,6 +46,11 @@ Issue #107 uses three coherent delivery areas, not another gate hierarchy:
 
 Expensive browser, capacity and recovery suites should be scheduled or release-candidate scoped. Documentation-only corrections must not manufacture readiness or require a new automatic workflow.
 
+Current executable repository contracts:
+
+- [`QUICK_START.md`](QUICK_START.md) — startup candidate and evidence vocabulary;
+- [`PURCHASE_PAYMENT_DEMO.md`](PURCHASE_PAYMENT_DEMO.md) — deterministic high-value purchase-payment scenario contract.
+
 ## Safety boundary
 
 The Demo and Guides work must not:
@@ -54,5 +60,3 @@ The Demo and Guides work must not:
 - replace authorization with a demo bypass;
 - represent local headers, mocks, static responses or successful builds as production evidence;
 - create a second automatic PR/main workflow.
-
-Start with [`QUICK_START.md`](QUICK_START.md).
