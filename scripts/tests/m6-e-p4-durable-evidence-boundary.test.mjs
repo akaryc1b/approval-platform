@@ -208,11 +208,11 @@ test('P4 durable evidence is exact hash-only dual-database internal infrastructu
   for (const required of [
     /JdbcDatabaseValueAdapter\.resolve\(source\)/,
     /JdbcMySqlTransactionLockManager/,
+    /ApprovalAssistanceDurableEvidence exact = requireCanonicalEvidence\(evidence\)/,
     /acquireIdentityLocks\(exact\)/,
-    /insertStoredEvent\(eventId, evidence, eventHash\)/,
+    /insertStoredEvent\(eventId, exact, eventHash\)/,
     /insertTombstoneEvent\(/,
     /tombstone_hash/,
-    /requireCanonicalEvidence/,
     /AuditHashCanonicalizer\.canonicalInstant/,
     /MySQL evidence event\/state authority diverged/,
   ]) {
