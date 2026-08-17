@@ -223,8 +223,8 @@ async function readHealth() {
       ready: payload?.status === 'UP',
       detail: body,
     };
-  } catch (error) {
-    return { ready: false, detail: error.message };
+  } catch {
+    return { ready: false, detail: 'health endpoint unavailable' };
   }
 }
 
