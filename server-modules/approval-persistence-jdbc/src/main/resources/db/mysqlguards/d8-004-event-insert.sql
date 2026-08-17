@@ -62,9 +62,12 @@ begin
    and json_unquote(json_extract(
      new.payload_json,'$.requestId'
    )) <=> new.request_id
-   and nullif(json_unquote(json_extract(
-     new.payload_json,'$.traceId'
-   )),'null') <=> new.trace_id
+   and (
+     case json_type(json_extract(new.payload_json,'$.traceId'))
+       when 'NULL' then null
+       else json_unquote(json_extract(new.payload_json,'$.traceId'))
+     end
+   ) <=> new.trace_id
    and json_unquote(json_extract(
      new.payload_json,'$.auditReference'
    )) <=> new.audit_reference

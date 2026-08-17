@@ -93,6 +93,9 @@ class MySqlV50H8PlanAggregationSchemaContractTest {
         assertTrue(lower.contains("d8 completion aggregate lineage mismatch"));
         assertTrue(lower.contains("json_unquote(json_extract("));
         assertTrue(lower.contains("signal sqlstate '45000'"));
+        assertEquals(3, occurrences(lower, "when 'null' then null"));
+        assertEquals(6, occurrences(lower, "'$.traceid'"));
+        assertFalse(lower.contains("nullif(json_unquote(json_extract("));
         assertFalse(lower.contains("foreign_key_checks"));
         assertFalse(lower.contains("insert ignore"));
         assertFalse(lower.contains("replace into"));
@@ -107,5 +110,9 @@ class MySqlV50H8PlanAggregationSchemaContractTest {
             .orElseThrow(() -> new AssertionError(
                 "missing MySQL D8 table: " + table
             ));
+    }
+
+    private static int occurrences(String value, String token) {
+        return (value.length() - value.replace(token, "").length()) / token.length();
     }
 }
