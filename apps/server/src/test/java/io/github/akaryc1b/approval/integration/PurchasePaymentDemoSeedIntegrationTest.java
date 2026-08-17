@@ -495,8 +495,11 @@ class PurchasePaymentDemoSeedIntegrationTest {
         try (
             Connection connection = dataSource.getConnection();
             PreparedStatement statement = connection.prepareStatement(
-                "select connector_key, aggregate_id from ap_outbox "
-                    + "where tenant_id = ? and request_id = ?"
+                """
+                select connector_key, aggregate_id
+                from ap_outbox
+                where tenant_id = ? and request_id = ?
+                """
             )
         ) {
             statement.setString(1, scenario.tenantId());
