@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "lockFile": "config/acceptance-lock.json",
+  "policy": "Acceptance records are immutable historical evidence. Classification must not rewrite, duplicate or reinterpret their contents.",
+  "milestones": [
+    {
+      "id": "m3",
+      "title": "M3",
+      "summary": "M3 final acceptance evidence.",
+      "records": [
+        {
+          "id": "m3-final-acceptance",
+          "title": "M3 Final Acceptance",
+          "kind": "final_acceptance",
+          "path": "docs/M3_FINAL_ACCEPTANCE.md"
+        }
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "M4",
+      "summary": "M4 final acceptance evidence.",
+      "records": [
+        {
+          "id": "m4-final-acceptance",
+          "title": "M4 Final Acceptance",
+          "kind": "final_acceptance",
+          "path": "docs/M4_FINAL_ACCEPTANCE.md"
+        }
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "M5",
+      "summary": "M5 Governed Process Instance Migration and Release Operations final permanent acceptance evidence.",
+      "records": [
+        {
+          "id": "m5-final-permanent-acceptance",
+          "title": "M5 Final Permanent Acceptance Evidence",
+          "kind": "final_permanent_acceptance",
+          "path": "docs/M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md"
+        }
+      ]
+    },
+    {
+      "id": "m6",
+      "title": "M6",
+      "summary": "M6 workstream, end-to-end and overall formal acceptance evidence.",
+      "records": [
+        {
+          "id": "m6-a-formal-acceptance",
+          "title": "M6-A Formal Acceptance",
+          "kind": "formal_acceptance",
+          "path": "docs/m6/M6_A_FINAL_ACCEPTANCE.md"
+        },
+        {
+          "id": "m6-b-formal-acceptance",
+          "title": "M6-B Formal Acceptance",
+          "kind": "formal_acceptance",
+          "path": "docs/m6/M6_B_FINAL_ACCEPTANCE.md"
+        },
+        {
+          "id": "m6-c-template-component-formal-acceptance",
+          "title": "M6-C Template and Component Ecosystem Formal Acceptance",
+          "kind": "formal_acceptance",
+          "path": "docs/m6/M6_C_FORMAL_ACCEPTANCE.md"
+        },
+        {
+          "id": "m6-d-ai-foundation-formal-acceptance",
+          "title": "M6-D AI Foundation — Formal Acceptance",
+          "kind": "formal_acceptance",
+          "path": "docs/m6/M6_D_FORMAL_ACCEPTANCE.md"
+        },
+        {
+          "id": "m6-e-p7-final-acceptance",
+          "title": "M6-E P7 Final Acceptance, Merge and Post-Main Gate",
+          "kind": "final_acceptance",
+          "path": "docs/m6/M6_E_P7_FINAL_ACCEPTANCE.md"
+        },
+        {
+          "id": "m6-f-controlled-automation-formal-acceptance",
+          "title": "M6-F Formal Acceptance — Controlled Automation and AI Governance",
+          "kind": "formal_acceptance",
+          "path": "docs/m6/M6_F_FORMAL_ACCEPTANCE.md"
+        },
+        {
+          "id": "m6-g-end-to-end-production-readiness-acceptance",
+          "title": "M6-G G2 — End-to-End and Production Readiness Acceptance",
+          "kind": "end_to_end_acceptance",
+          "path": "docs/m6/M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE.md"
+        },
+        {
+          "id": "m6-overall-formal-acceptance",
+          "title": "M6 Overall Formal Acceptance",
+          "kind": "overall_formal_acceptance",
+          "path": "docs/m6/M6_OVERALL_FORMAL_ACCEPTANCE.md"
+        }
+      ]
+    }
+  ]
+}
