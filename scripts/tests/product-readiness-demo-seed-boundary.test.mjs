@@ -13,6 +13,10 @@ const demoSourceRoot = resolve(
   root,
   'apps/server/src/main/java/io/github/akaryc1b/approval/demo',
 );
+const migrationConfigurationPath = resolve(
+  demoSourceRoot,
+  'PurchasePaymentDemoMigrationConfiguration.java',
+);
 const integrationTestPath = resolve(
   root,
   'apps/server/src/test/java/io/github/akaryc1b/approval/integration/'
@@ -93,10 +97,30 @@ test('demo source reuses application authorities and adds no SQL, REST or auth b
   );
 });
 
+test('local demo migrations wait for Flowable and preserve the accepted dependency graph', () => {
+  const migration = text(migrationConfigurationPath);
+  const pom = text(serverPomPath);
+  assert.match(migration, /@Profile\("local"\)/u);
+  assert.match(migration, /prefix = "approval\.demo\.purchase-payment"/u);
+  assert.match(migration, /ProcessEngine processEngine/u);
+  assert.match(migration, /@Bean\(initMethod = "migrate"\)/u);
+  assert.match(migration, /Flyway\.configure\(\)/u);
+  assert.match(migration, /\.baselineOnMigrate\(true\)/u);
+  assert.match(
+    migration,
+    /\.baselineVersion\(MigrationVersion\.fromVersion\("1"\)\)/u,
+  );
+  assert.match(migration, /\.locations\("classpath:db\/migration"\)/u);
+  assert.doesNotMatch(pom, /spring-boot-starter-flyway/u);
+  assert.doesNotMatch(
+    migration,
+    /JdbcTemplate|createStatement|executeUpdate|ACT_[A-Z_]+|ap_[a-z_]+/u,
+  );
+});
+
 test('server packages governed demo resources and permanent CI starts the real backend', () => {
   const pom = text(serverPomPath);
   const integrationTest = text(integrationTestPath);
-  assert.match(pom, /<artifactId>spring-boot-starter-flyway<\/artifactId>/u);
   assert.match(pom, /<targetPath>demo<\/targetPath>/u);
   assert.match(pom, /<include>purchase-payment-golden-path\.json<\/include>/u);
   assert.match(pom, /<include>purchase-payment-demo-seed\.json<\/include>/u);
