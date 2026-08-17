@@ -110,31 +110,79 @@ function renderRoot(catalog) {
     '| --- | ---: | --- | --- |',
     ...rows,
     '',
-    'æœºåš9cëú+îùæë¹oez)àHØØ][ÙËšœÛÛ˜JØ][ÙËšœÛÛŠxà ‰Ëˆ	ÉËˆ	ÈÈÈ9.#ycëùcæ:)á9b&IËˆ	ÉËˆ	ËHÛÛ™šYËØXØÙ\[˜ÙK[ØÚËšœÛÛ˜9¦+ùmì¹ænú+¬9c¡¹cì¹«hù¥¡ùæ¡›Øˆ:e {ï&ÉËˆ	ËHØ][ÙÈ9oázhnùk£9¥m:)¡¹æåˆØÚûï#9.%9.#yo¥ùi#yb-¹¢%¹¢bùa¦H›Ø»ï&ÉËˆ	ËH9.#yo¥úaãya¦xà yb(:fi9¢%ºgfznæ9¦í9«hùc¡¹cìºj£9¥-»ï&ÉËˆ	ËH9/ë¹«hùoázhnù¥¬9h§ˆÓÔ”‘PÕSÓ˜8à XSQS‘QS•9¢%¹¥¬9æ¡9d#¹îëzj£9¥-º+¬9oe{ï&ÉËˆ	ËHİ\œ™[8à T™[X\Ùxà T›ØYX\9d£XØÙ\[˜ÙH9.#yo¥ù.¤¹æî9¦ïù.èøà ‰Ëˆ	ÉËˆ	ÈÈÈ:-ëùo¡9/çy£ yëe¹åiIËˆ	ÉËˆ	ù§+:f-¹«­z`&º/áÈLø $ÓMˆ9b!¹ìnùaiycèùnî¹êâú)á:# ùæë¹oe{ï#9/a¹.#yéîùbª9mìºe yk¦¹«hù¥¡øà ‰Âˆ
-È	ùc¡¹cì¹«hù¥¡ù.+yæ¡9æî9kîzdï¹£©xà ymì¹§"H‹Ò\ÜİYH:dï¹£©yd£9i%º`ê9o%yå*9.gù¦+ú+ày£k¹."¹."ù¥¡ûï&ÉÂˆ
-È	ùæí9£©y¤+9aiykd9æë¹oey/&¹è-9gcú/æy.¦údï¹£©xà ‰Ëˆ	ÉËˆ	ùd#¹îëycê¹§"yg*9k£9¥m:dï¹£©y/çy£ y¥®y¨b9cëù.éz+ày¦#¹¥í»ï#9¢cya`z+®9/oùå*9/çyåfyæî9d#Ú]›Øˆ9æ¡9cåù£©ú/àyéîøà ‰Âˆ
-È	ùæë¹oey¥m9ä!¹§+:.ªù.#z ïy¥.ycæ:j£9¥-¹îäú+®¸à ‰Ëˆ	ÉËˆKš›Ú[Š	×‰ÊNÂŸB‚™[˜İ[Ûˆ™[™\“Z[\İÛ™JZ[\İÛ™JHÂˆÛÛœİ\™XİÜHH	Ûİ]]›ÛİKÉÛZ[\İÛ™KšYXÂˆÛÛœİ›İÜÈHZ[\İÛ™Kœ™XÛÜ™Ë›X\
-™XÛÜ™O‚ˆ	Ü™XÛÜ™]_H	Ü™XÛÜ™šÚ[™Wˆ
-Èù¢dùo 9.#ycëùcæ9«hù¥¡×J	Û[šÑœ›ÛJ\™XİÜK™XÛÜ™œ]
-_JH	Ü™XÛÜ™˜›ØŸW
-NÂ‚ˆ™]\›ˆÂˆÈ	ÛZ[\İÛ™K]_HXØÙ\[˜ÙH™XÛÜ™Øˆ	ÉËˆ	Ïˆ9«i9¥¡ù.í¹å,HØÜš\ËÙÙ[™\˜]KXXØÙ\[˜ÙKXØ][ÙË›ZœØ9å'ù¢$8à ¹.#z) y¢bùméyï%º/¤xà ‰Ëˆ	ÉËˆZ[\İÛ™Kœİ[[X\Kˆ	ÉËˆ	ß™XÛÜ™Ú[™[[]]X›HØİ[Y[ØÚÙYÚ]›Øˆ	Ëˆ	ßKKHKKHKKHKKH	Ëˆ‹‹œ›İÜËˆ	ÉËˆ	ù§+:hmycêº-'ú-(ùb!¹ìnùd£9kï:"*»ï#9.#yi#yb-¸à y¥.ya¦y¢%ºaãy¥¬:)èúaâ¹c¡¹cì¹«hù¥¡øà ‰Âˆ
-È	ùodùbcz ïyb¦ùâ­¹  z+íù§éyç"ÈĞİ\œ™[Ø\Xš[]Hİ]\×J‹‹Ë‹‹Øİ\œ™[ØØ\Xš[]K\İ]\Ë›Y
-xà ‰Ëˆ	ÉËˆKš›Ú[Š	×‰ÊNÂŸB‚™[˜İ[ÛˆÜš]SÜÚXÚÊ™[]]™T]ÛÛ[
-HÂˆÛÛœİXœÛÛ]T]H]š›Ú[Š›Ûİ™[]]™T]
-NÂˆYˆ
-ÚXÚÓÛ›JHÂˆ\ÜÙ\™\]X[
-^\İÔŞ[˜ÊXœÛÛ]T]
-KYKÙ[™\˜]Yš[H\ÈZ\ÜÚ[™Îˆ	Ü™[]]™T]X
-NÂˆ\ÜÙ\™\]X[
-™XYš[TŞ[˜ÊXœÛÛ]T]	İ]	ÊKÛÛ[Ù[™\˜]Yš[HšYˆ	Ü™[]]™T]X
-NÂˆ™]\›ÂˆBˆZÙ\”Ş[˜Ê]™\›˜[YJXœÛÛ]T]
-KÈ™Xİ\œÚ]™NˆYHJNÂˆÜš]Qš[TŞ[˜ÊXœÛÛ]T]ÛÛ[	İ]	ÊNÂŸB‚˜ÛÛœİØ][ÙÈH\œÙJÛİ\˜ÙT]
-NÂ˜ÛÛœİØÚÈH\œÙJØ][ÙË›ØÚÑš[JNÂ˜[Y]JØ][ÙËØÚÊNÂ˜ÛÛœİ[œšXÚYH[œšXÚ
-Ø][ÙËØÚÊNÂ‚Üš]SÜÚXÚÊ	Ûİ]]›ÛİKÔ‘PQQK›Y™[™\”›Ûİ
-[œšXÚY
-JNÂÜš]SÜÚXÚÊ	Ûİ]]›ÛİKØØ][ÙËšœÛÛ˜	Ò”ÓÓ‹œİš[™ÚYJ[œšXÚY[Š_W˜
-NÂ™›Üˆ
-ÛÛœİZ[\İÛ™HÙˆ[œšXÚY›Z[\İÛ™\ÊHÂˆÜš]SÜÚXÚÊ	Ûİ]]›ÛİKÉÛZ[\İÛ™KšYKÔ‘PQQK›Y™[™\“Z[\İÛ™JZ[\İÛ™JJNÂŸB‚šYˆ
-ÚXÚÓÛ›JHÂˆÛÛœÛÛK›ÙÊ	ÑÙ[™\˜]YXØÙ\[˜ÙHØ][ÙÈØİ[Y[È\™Hİ\œ™[‰ÊNÂŸH[ÙHÂˆÛÛœÛÛK›ÙÊ	ÑÙ[™\˜]YØÜËØXØÙ\[˜ÙKÔ‘PQQK›Y	ÊNÂˆÛÛœÛÛK›ÙÊ	ÑÙ[™\˜]YØÜËØXØÙ\[˜ÙKØØ][ÙËšœÛÛ‰ÊNÂˆ›Üˆ
-ÛÛœİZ[\İÛ™HÙˆ[œšXÚY›Z[\İÛ™\ÊHÂˆÛÛœÛÛK›ÙÊÙ[™\˜]YØÜËØXØÙ\[˜ÙKÉÛZ[\İÛ™KšYKÔ‘PQQK›Y
-NÂˆBŸB
+    'æœºå™¨å¯è¯»ç›®å½•è§ [`catalog.json`](catalog.json)ã€‚',
+    '',
+    '## ä¸å¯å˜è§„åˆ™',
+    '',
+    '- `config/acceptance-lock.json` æ˜¯å·²ç™»è®°å†å²æ­£æ–‡çš„ Blob é”ï¼›',
+    '- Catalog å¿…é¡»å®Œæ•´è¦†ç›– Lockï¼Œä¸”ä¸å¾—å¤åˆ¶æˆ–æ‰‹å†™ Blobï¼›',
+    '- ä¸å¾—é‡å†™ã€åˆ é™¤æˆ–é™é»˜æ›´æ­£å†å²éªŒæ”¶ï¼›',
+    '- ä¿®æ­£å¿…é¡»æ–°å¢ `CORRECTION`ã€`AMENDMENT` æˆ–æ–°çš„åç»­éªŒæ”¶è®°å½•ï¼›',
+    '- Currentã€Releaseã€Roadmap å’Œ Acceptance ä¸å¾—äº’ç›¸æ›¿ä»£ã€‚',
+    '',
+    '## è·¯å¾„ä¿æŒç­–ç•¥',
+    '',
+    'æœ¬é˜¶æ®µé€šè¿‡ M3â€“M6 åˆ†ç±»å…¥å£å»ºç«‹è§„èŒƒç›®å½•ï¼Œä½†ä¸ç§»åŠ¨å·²é”å®šæ­£æ–‡ã€‚'
+      + 'å†å²æ­£æ–‡ä¸­çš„ç›¸å¯¹é“¾æ¥ã€å·²æœ‰ PR/Issue é“¾æ¥å’Œå¤–éƒ¨å¼•ç”¨ä¹Ÿæ˜¯è¯æ®ä¸Šä¸‹æ–‡ï¼›'
+      + 'ç›´æ¥æ¬å…¥å­ç›®å½•ä¼šç ´åè¿™äº›é“¾æ¥ã€‚',
+    '',
+    'åç»­åªæœ‰åœ¨å®Œæ•´é“¾æ¥ä¿æŒæ–¹æ¡ˆå¯ä»¥è¯æ˜æ—¶ï¼Œæ‰å…è®¸ä½¿ç”¨ä¿ç•™ç›¸åŒ Git Blob çš„å—æ§è¿ç§»ã€‚'
+      + 'ç›®å½•æ•´ç†æœ¬èº«ä¸èƒ½æ”¹å˜éªŒæ”¶ç»“è®ºã€‚',
+    '',
+  ].join('\n');
+}
+
+function renderMilestone(milestone) {
+  const directory = `${outputRoot}/${milestone.id}`;
+  const rows = milestone.records.map(record =>
+    `| ${record.title} | \`${record.kind}\` | `
+      + `[æ‰“å¼€ä¸å¯å˜æ­£æ–‡](${linkFrom(directory, record.path)}) | \`${record.blob}\` |`);
+
+  return [
+    `# ${milestone.title} Acceptance Records`,
+    '',
+    '> æ­¤æ–‡ä»¶ç”± `scripts/generate-acceptance-catalog.mjs` ç”Ÿæˆã€‚ä¸è¦æ‰‹å·¥ç¼–è¾‘ã€‚',
+    '',
+    milestone.summary,
+    '',
+    '| Record | Kind | Immutable document | Locked Git blob |',
+    '| --- | --- | --- | --- |',
+    ...rows,
+    '',
+    'æœ¬é¡µåªè´Ÿè´£åˆ†ç±»å’Œå¯¼èˆªï¼Œä¸å¤åˆ¶ã€æ”¹å†™æˆ–é‡æ–°è§£é‡Šå†å²æ­£æ–‡ã€‚'
+      + 'å½“å‰èƒ½åŠ›çŠ¶æ€è¯·æŸ¥çœ‹ [Current Capability Status](../../current/capability-status.md)ã€‚',
+    '',
+  ].join('\n');
+}
+
+function writeOrCheck(relativePath, content) {
+  const absolutePath = path.join(root, relativePath);
+  if (checkOnly) {
+    assert.equal(existsSync(absolutePath), true, `Generated file is missing: ${relativePath}`);
+    assert.equal(readFileSync(absolutePath, 'utf8'), content, `Generated file drift: ${relativePath}`);
+    return;
+  }
+  mkdirSync(path.dirname(absolutePath), { recursive: true });
+  writeFileSync(absolutePath, content, 'utf8');
+}
+
+const catalog = parse(sourcePath);
+const lock = parse(catalog.lockFile);
+validate(catalog, lock);
+const enriched = enrich(catalog, lock);
+
+writeOrCheck(`${outputRoot}/README.md`, renderRoot(enriched));
+writeOrCheck(`${outputRoot}/catalog.json`, `${JSON.stringify(enriched, null, 2)}\n`);
+for (const milestone of enriched.milestones) {
+  writeOrCheck(`${outputRoot}/${milestone.id}/README.md`, renderMilestone(milestone));
+}
+
+if (checkOnly) {
+  console.log('Generated acceptance catalog documents are current.');
+} else {
+  console.log('Generated docs/acceptance/README.md');
+  console.log('Generated docs/acceptance/catalog.json');
+  for (const milestone of enriched.milestones) {
+    console.log(`Generated docs/acceptance/${milestone.id}/README.md`);
+  }
+}
