@@ -108,7 +108,7 @@ test('local demo migrations wait for Flowable and preserve the accepted dependen
   assert.match(migration, /\.baselineOnMigrate\(true\)/u);
   assert.match(
     migration,
-    /\.baselineVersion\(MigrationVersion\.fromVersion\("1"\)\)/u,
+    /\.baselineVersion\(MigrationVersion\.fromVersion\("0"\)\)/u,
   );
   assert.match(migration, /\.locations\("classpath:db\/migration"\)/u);
   assert.doesNotMatch(pom, /spring-boot-starter-flyway/u);

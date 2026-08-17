@@ -47,7 +47,7 @@ public class PurchasePaymentDemoMigrationConfiguration {
             Flyway.configure()
                 .dataSource(dataSource)
                 .baselineOnMigrate(true)
-                .baselineVersion(MigrationVersion.fromVersion("1"))
+                .baselineVersion(MigrationVersion.fromVersion("0"))
                 .locations("classpath:db/migration")
                 .load()
                 .migrate();
