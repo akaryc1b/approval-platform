@@ -1,18 +1,22 @@
-# Purchase-Payment Golden Path Contract
+# Purchase-Payment Golden Path Contract and Local Seed
 
 ```text
 PURCHASE_PAYMENT_SCENARIO_CONTRACT_STATUS=AVAILABLE
-DETERMINISTIC_DEMO_SEED_STATUS=NOT_YET_APPLIED
+DETERMINISTIC_DEMO_SEED_STATUS=IMPLEMENTED_LOCAL_OPT_IN
+BACKEND_LOCAL_START_STATUS=VERIFIED_IN_EPHEMERAL_CI
+SHARED_DEMO_ENVIRONMENT_SEED_STATUS=NOT_APPLIED
 PURCHASE_APPROVAL_E2E_STATUS=NOT_YET_EXECUTED
 PURCHASE_TO_PAYMENT_SANDBOX_E2E_STATUS=NOT_YET_EXECUTED
 PRODUCTION_PAYMENT_INTEGRATION_STATUS=NOT_VERIFIED
 ```
 
-This document defines the first executable contract for the Golden Path delivery area in Issue #107. It binds a deterministic high-value purchase-payment scenario to the repository's existing `PurchasePaymentController` and `PurchasePaymentTemplate` boundaries.
+This document governs the first runtime slice for the Golden Path delivery area in Issue #107. It binds a deterministic high-value purchase-payment scenario to the existing `PurchasePaymentController`, `PurchasePaymentTemplate`, application services and connector SPI.
 
-It does not load a database, start the application, execute a task, contact a payment sandbox, or prove client consistency. Those outcomes require later implementation and retained runtime evidence.
+The retained integration test now starts a real random-port Spring Boot server against PostgreSQL, applies the explicit local seed, verifies Actuator health, reads the instance and manager pending task through the existing API, and replays the seed idempotently.
 
-## Run the contract check
+It does **not** approve the manager task, complete finance review or countersign, contact a payment sandbox, verify attachment binding, prove client consistency, or seed a shared environment.
+
+## Read-only contract check
 
 From the repository root:
 
@@ -26,7 +30,7 @@ Machine-readable output:
 node scripts/product-readiness/purchase-payment-scenario-contract.mjs --json
 ```
 
-A successful check emits:
+A successful static check emits:
 
 ```text
 PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED
@@ -36,17 +40,36 @@ PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
 ```
 
-The validator is read-only. It verifies the manifest shape, deterministic identity resolution, the high-value route, request limits, API mappings, controller headers, client evidence keys, sandbox non-production state, and exact non-claim vocabulary.
+`DETERMINISTIC_DEMO_SEED_NOT_APPLIED` is deliberately retained in this command because the command is read-only. Runtime seed availability is a separate claim:
 
-## Governed manifest
+```text
+DETERMINISTIC_DEMO_SEED_IMPLEMENTED
+BACKEND_LOCAL_START_VERIFIED
+```
 
-The source is:
+The boundary check is:
+
+```bash
+pnpm demo:seed:check
+```
+
+It verifies that the runner is `local`-profile-only, explicit, default-off, resource-backed, free of Demo REST endpoints, and contains no direct SQL or Flowable-table mutation.
+
+## Governed inputs
+
+Scenario contract:
 
 ```text
 config/demo/purchase-payment-golden-path.json
 ```
 
-The validator canonicalizes the JSON object and reports a SHA-256 digest so later seed, runtime and client evidence can identify the exact scenario contract without hard-coding a moving Git commit in this living document.
+Seed fixture:
+
+```text
+config/demo/purchase-payment-demo-seed.json
+```
+
+The fixture maps the two logical attachment IDs to fixed UUIDv5 values and non-sensitive text payloads. Both files are packaged into the executable server under `demo/`; no second copy is maintained in application resources.
 
 ## Deterministic identities
 
@@ -61,7 +84,7 @@ The contract defines one tenant and six non-secret local identities:
 | `demo-finance-approver-a` | parallel finance countersign |
 | `demo-finance-approver-b` | parallel finance countersign |
 
-The directory contract resolves:
+The local-only, read-only `PurchasePaymentDemoOrganizationConnector` resolves:
 
 ```text
 demo-employee.managerId -> demo-manager
@@ -69,21 +92,19 @@ FINANCE_REVIEWER        -> demo-finance-reviewer
 FINANCE_APPROVER        -> demo-finance-approver-a, demo-finance-approver-b
 ```
 
-These are data-contract identifiers, not credentials. No password, token, Secret, production user, or authorization bypass is introduced.
+These are identifiers, not credentials. No password, token, Secret, production user or authorization bypass is introduced.
 
-## Purchase request
-
-The deterministic request is intentionally above the repository's `10000.00` high-value threshold:
+## Deterministic request and attachment metadata
 
 ```text
 businessKey:            DEMO-PP-0001
 amount:                 12500.00
 supplier:               Demo Industrial Supplies Ltd.
 purchaseOrderReference: PO-DEMO-2026-0001
-attachments:            2 metadata identifiers
+attachments:            2 fixed metadata UUIDs
 ```
 
-This forces the governed sequence:
+The amount exercises the repository's `10000.00` high-value threshold and preserves the expected future sequence:
 
 ```text
 managerApproval
@@ -92,11 +113,107 @@ managerApproval
 -> completed
 ```
 
-A future seed implementation must preserve this business identity or explicitly version the manifest.
+The verified runtime slice currently stops after `managerApproval` is created and assigned to `demo-manager`.
+
+Attachments are uploaded through `ApprovalAttachmentService` before the request starts. The current application layer does not expose an instance-binding command, so this slice records them as unbound and does not call `ApprovalAttachmentStore.bindToInstance` directly. Binding and participant-readable download evidence remain part of the future full E2E slice.
+
+## Runtime implementation
+
+The switch is available only with the `local` profile and is false by default:
+
+```text
+APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=false
+```
+
+When explicitly enabled, startup:
+
+1. loads and validates both governed JSON inputs;
+2. provides the read-only demo organization connector;
+3. publishes the purchase-payment definition through the existing `PurchasePaymentApplicationService`;
+4. uploads both fixed attachments through `ApprovalAttachmentService`;
+5. starts the request through a local-only `PurchasePaymentApplicationService` instance using the service's existing legacy effective-release bridge;
+6. verifies one running instance and exactly one `managerApproval` task for `demo-manager`;
+7. records bounded startup evidence and exposes it through the `purchasePaymentDemoSeed` health component;
+8. fails application startup if any seed step fails.
+
+The production controller bean is not replaced. No Demo controller, table writer, security exception or automatic production activation is added.
+
+## Run locally
+
+Start the repository PostgreSQL service and load the normal local variables as described in [`QUICK_START.md`](QUICK_START.md). Then run:
+
+```bash
+APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true \
+mvn -B -ntp -f apps/server/pom.xml spring-boot:run \
+  -Dspring-boot.run.profiles=local
+```
+
+Successful startup logs a bounded marker:
+
+```text
+PURCHASE_PAYMENT_DEMO_SEED_APPLIED
+```
+
+Verify aggregate health:
+
+```bash
+curl -fsS http://127.0.0.1:8080/actuator/health
+```
+
+Inspect the seeded instance using the `instanceId` from the startup marker or health details:
+
+```bash
+curl -fsS \
+  -H 'X-Tenant-Id: demo-purchase-payment' \
+  -H 'X-Operator-Id: demo-admin' \
+  -H 'X-Request-Id: demo-inspect-instance-v1' \
+  -H 'X-Trace-Id: demo-inspect-instance-v1' \
+  http://127.0.0.1:8080/api/approval/instances/INSTANCE_ID
+```
+
+Inspect the manager's pending task:
+
+```bash
+curl -fsS \
+  -H 'X-Tenant-Id: demo-purchase-payment' \
+  -H 'X-Operator-Id: demo-manager' \
+  -H 'X-Request-Id: demo-inspect-manager-task-v1' \
+  -H 'X-Trace-Id: demo-inspect-manager-task-v1' \
+  http://127.0.0.1:8080/api/approval/tasks/pending
+```
+
+Repeated startup against the same database uses existing idempotency and business-key authorities. It must return the same platform instance, task and attachment identities or fail closed.
+
+## Permanent runtime verification
+
+`PurchasePaymentDemoSeedIntegrationTest` is part of the existing Maven reactor and the repository's single permanent validation workflow. It uses:
+
+- PostgreSQL 16 Testcontainer;
+- `@SpringBootTest` with a real random HTTP port;
+- explicit `local` profile and seed switch;
+- `/actuator/health`;
+- existing instance and pending-task endpoints;
+- a second `PurchasePaymentDemoSeeder.apply()` call to prove idempotent replay.
+
+This is sufficient for:
+
+```text
+DETERMINISTIC_DEMO_SEED_IMPLEMENTED
+BACKEND_LOCAL_START_VERIFIED
+```
+
+It is not sufficient for:
+
+```text
+QUICK_START_10_MINUTES_PASSED
+PURCHASE_APPROVAL_E2E_PASSED
+PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED
+PRODUCTION_PAYMENT_INTEGRATION_VERIFIED
+```
 
 ## Existing API bindings
 
-The contract binds the existing `/api/approval` controller mappings:
+The scenario continues to use the existing `/api/approval` mappings:
 
 ```text
 POST /definitions/purchase-payment/publish
@@ -107,7 +224,7 @@ GET  /instances/{instanceId}
 GET  /instances/{instanceId}/timeline
 ```
 
-Every mutating call retains the current request-context headers:
+Every mutating request retains:
 
 ```text
 X-Tenant-Id
@@ -117,7 +234,7 @@ Idempotency-Key
 X-Trace-Id
 ```
 
-The manifest does not add a demo-only REST controller or weaken tenant, operator, idempotency, trace, task-assignee, management-permission or audit boundaries.
+Approval actions remain the responsibility of the existing authorized task endpoints.
 
 ## Cross-client evidence identity
 
@@ -134,23 +251,10 @@ finalStatus
 
 The current client status remains `NOT_YET_EXECUTED`. Three separately mocked client states do not satisfy this contract.
 
-## Next implementation slice
-
-The next code slice should consume this manifest to provide a local-only, repeatable seed path that:
-
-1. creates or verifies the demo tenant and directory identities without a database bypass;
-2. publishes an effective purchase-payment release through existing application authority;
-3. creates attachment metadata and the deterministic request;
-4. starts the real executable backend and returns the instance/business identifiers;
-5. leaves every approval action to the existing authorized task endpoints;
-6. can be reset without editing platform or Flowable tables directly.
-
-Only after a real run may the project consider narrower runtime markers such as backend start or purchase-approval E2E. A sandbox result requires a separately identified external sandbox and signed, idempotent callback evidence.
-
-## Permanent non-claims
+## Current non-claims
 
 ```text
-DETERMINISTIC_DEMO_SEED_NOT_APPLIED
+SHARED_DEMO_ENVIRONMENT_SEED_NOT_APPLIED
 PURCHASE_APPROVAL_E2E_NOT_EXECUTED
 PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED

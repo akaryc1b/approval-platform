@@ -76,17 +76,20 @@ test('contract fails closed on duplicate identities and production sandbox claim
   assert.throws(() => validateScenario(productionSandbox), /sandbox.production must remain false/u);
 });
 
-test('product-readiness documents describe a contract without claiming seed or E2E execution', () => {
+test('documents distinguish the read-only scenario check from the opt-in runtime seed', () => {
   const status = text(statusPath);
   const guide = text(guidePath);
   for (const source of [status, guide]) {
     assert.match(source, /PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED/u);
-    assert.match(source, /DETERMINISTIC_DEMO_SEED_NOT_APPLIED/u);
+    assert.match(source, /DETERMINISTIC_DEMO_SEED_IMPLEMENTED/u);
+    assert.match(source, /BACKEND_LOCAL_START_VERIFIED/u);
     assert.match(source, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
     assert.match(source, /PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED/u);
     assert.match(source, /PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED/u);
   }
-  assert.doesNotMatch(guide, /PRODUCTION_PAYMENT_INTEGRATION_VERIFIED/u);
+  assert.match(guide, /DETERMINISTIC_DEMO_SEED_NOT_APPLIED/u);
+  assert.doesNotMatch(guide, /^PURCHASE_APPROVAL_E2E_STATUS=PASSED$/mu);
+  assert.doesNotMatch(guide, /^PRODUCTION_PAYMENT_INTEGRATION_STATUS=VERIFIED$/mu);
 });
 
 test('package entrypoint and permanent Hygiene aggregate load the scenario contract', () => {
