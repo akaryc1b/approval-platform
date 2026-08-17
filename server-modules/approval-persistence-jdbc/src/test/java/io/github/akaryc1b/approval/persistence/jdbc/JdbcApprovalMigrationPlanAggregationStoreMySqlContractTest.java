@@ -18,15 +18,30 @@ class JdbcApprovalMigrationPlanAggregationStoreMySqlContractTest {
         "server-modules/approval-persistence-jdbc/src/main/java/"
             + "io/github/akaryc1b/approval/persistence/jdbc"
     );
+    private static final List<String> MYSQL_D8_IMPLEMENTATION = List.of(
+        "JdbcMySqlApprovalMigrationPlanAggregationBase.java",
+        "JdbcMySqlApprovalMigrationPlanAggregationPlanReadSupport.java",
+        "JdbcMySqlApprovalMigrationPlanAggregationSignalSupport.java",
+        "JdbcMySqlApprovalMigrationPlanAggregationFactSupport.java",
+        "JdbcMySqlApprovalMigrationPlanAggregationBuildSupport.java",
+        "JdbcMySqlApprovalMigrationPlanAggregationQuerySupport.java",
+        "JdbcMySqlApprovalMigrationPlanAggregationPersistenceSupport.java",
+        "JdbcMySqlApprovalMigrationPlanAggregationStore.java"
+    );
 
     @Test
     void mysqlD8UsesBoundedTransactionLockPortableValuesAndExactEvidence()
         throws IOException {
-        String d8 = Files.readString(JDBC_ROOT.resolve(
+        String entrypoint = Files.readString(JDBC_ROOT.resolve(
             "JdbcMySqlApprovalMigrationPlanAggregationStore.java"
         ));
+        String d8 = readImplementation();
         String lower = d8.toLowerCase(Locale.ROOT);
 
+        assertTrue(entrypoint.contains(
+            "extends JdbcMySqlApprovalMigrationPlanAggregationPersistenceSupport"
+        ));
+        assertTrue(entrypoint.contains("locks.acquire("));
         assertTrue(d8.contains("approval-migration-plan-aggregation:v1:"));
         assertTrue(d8.contains("JdbcMySqlTransactionLockManager"));
         assertTrue(d8.contains("locks.acquire("));
@@ -126,6 +141,14 @@ class JdbcApprovalMigrationPlanAggregationStoreMySqlContractTest {
         assertFalse(source.contains("postgresql"));
         assertFalse(source.contains("flowable"));
         assertFalse(source.contains("runtimebinding"));
+    }
+
+    private static String readImplementation() throws IOException {
+        StringBuilder source = new StringBuilder();
+        for (String file : MYSQL_D8_IMPLEMENTATION) {
+            source.append(Files.readString(JDBC_ROOT.resolve(file))).append('\n');
+        }
+        return source.toString();
     }
 
     private static Path repositoryRoot() {

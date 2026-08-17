@@ -68,8 +68,12 @@ public final class MySqlV50Baseline implements JavaMigration {
          signal sqlstate '45000'
           set message_text='M5-D7 evidence is append-only';
         """;
-    private static final int BASELINE_CHECKSUM =
+    private static final List<String> D8_GUARD_STATEMENTS =
+        MySqlV50D8PlanAggregationGuards.statements();
+    private static final int D7_BASELINE_CHECKSUM =
         31 * PREVIOUS_BASELINE_CHECKSUM + D7_APPEND_ONLY_GUARDS.hashCode();
+    private static final int BASELINE_CHECKSUM =
+        31 * D7_BASELINE_CHECKSUM + D8_GUARD_STATEMENTS.hashCode();
 
     @Override
     public MigrationVersion getVersion() {
@@ -120,6 +124,10 @@ public final class MySqlV50Baseline implements JavaMigration {
                     }
                 }
             }
+            for (String guard : D8_GUARD_STATEMENTS) {
+                index++;
+                statement.execute(guard);
+            }
         } catch (SQLException exception) {
             throw new FlywayException(
                 "MySQL 8.4 baseline statement " + index + " failed",
@@ -156,6 +164,10 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     static List<String> splitStatements(String script) {
         return MySqlV50Script.split(script);
+    }
+
+    static List<String> d8GuardStatements() {
+        return D8_GUARD_STATEMENTS;
     }
 
     private static String baselineScript() {
