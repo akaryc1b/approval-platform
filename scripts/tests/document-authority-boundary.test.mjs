@@ -142,9 +142,23 @@ test('capability semantics keep merge release and production support separate', 
     if (capability.status.productionSupported === 'yes') {
       assert.equal(capability.status.released, 'yes');
     }
+    if (capability.status.merged === 'no') {
+      for (const statusName of ['implemented', 'tested', 'accepted']) {
+        assert.equal(
+          capability.status[statusName],
+          'no',
+          `${capability.id}.${statusName} cannot include unmerged candidate progress in Current`,
+        );
+      }
+    }
   }
+  assert.match(status.statusDefinitions.implemented, /默认分支/);
+  assert.match(status.statusDefinitions.tested, /未合并候选分支/);
   assert.equal(capabilities.get('postgresql-16').status.accepted, 'yes');
   assert.equal(capabilities.get('postgresql-16').status.productionSupported, 'no');
+  assert.equal(capabilities.get('mysql-8-4').status.implemented, 'no');
+  assert.equal(capabilities.get('mysql-8-4').status.tested, 'no');
+  assert.equal(capabilities.get('mysql-8-4').status.accepted, 'no');
   assert.equal(capabilities.get('mysql-8-4').status.merged, 'no');
   assert.equal(capabilities.get('mysql-8-4').status.productionSupported, 'no');
   assert.equal(capabilities.get('process-instance-migration').status.productionSupported, 'no');

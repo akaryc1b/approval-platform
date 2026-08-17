@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "status": {
+    "contract": "PURCHASE_PAYMENT_SCENARIO_CONTRACT_AVAILABLE",
+    "seed": "NOT_YET_APPLIED",
+    "execution": "NOT_YET_EXECUTED",
+    "sandbox": "NOT_YET_CONFIGURED"
+  },
+  "tenant": {
+    "id": "demo-purchase-payment",
+    "displayName": "Approval Platform Purchase Payment Demo"
+  },
+  "directory": {
+    "connectorKey": "demo-directory",
+    "source": "demo-directory",
+    "users": [
+      {
+        "id": "demo-admin",
+        "displayName": "Demo Administrator",
+        "roleCodes": [
+          "APPROVAL_ADMIN"
+        ],
+        "positionCodes": [],
+        "managerId": null
+      },
+      {
+        "id": "demo-employee",
+        "displayName": "Demo Employee",
+        "roleCodes": [
+          "EMPLOYEE"
+        ],
+        "positionCodes": [],
+        "managerId": "demo-manager"
+      },
+      {
+        "id": "demo-manager",
+        "displayName": "Demo Manager",
+        "roleCodes": [
+          "MANAGER"
+        ],
+        "positionCodes": [],
+        "managerId": null
+      },
+      {
+        "id": "demo-finance-reviewer",
+        "displayName": "Demo Finance Reviewer",
+        "roleCodes": [
+          "FINANCE_REVIEWER"
+        ],
+        "positionCodes": [],
+        "managerId": null
+      },
+      {
+        "id": "demo-finance-approver-a",
+        "displayName": "Demo Finance Approver A",
+        "roleCodes": [
+          "FINANCE"
+        ],
+        "positionCodes": [
+          "FINANCE_APPROVER"
+        ],
+        "managerId": null
+      },
+      {
+        "id": "demo-finance-approver-b",
+        "displayName": "Demo Finance Approver B",
+        "roleCodes": [
+          "FINANCE"
+        ],
+        "positionCodes": [
+          "FINANCE_APPROVER"
+        ],
+        "managerId": null
+      }
+    ]
+  },
+  "request": {
+    "businessKey": "DEMO-PP-0001",
+    "amount": "12500.00",
+    "supplier": "Demo Industrial Supplies Ltd.",
+    "purchaseOrderReference": "PO-DEMO-2026-0001",
+    "attachmentIds": [
+      "demo-attachment-invoice-0001",
+      "demo-attachment-contract-0001"
+    ]
+  },
+  "assigneeRules": {
+    "connectorKey": "demo-directory",
+    "initiatorUserId": {
+      "source": "demo-directory",
+      "objectType": "user",
+      "value": "demo-employee"
+    },
+    "financeReviewerRoleCode": "FINANCE_REVIEWER",
+    "financeApproverPositionCode": "FINANCE_APPROVER",
+    "maximumFinanceApprovers": 2
+  },
+  "expectedWorkflow": [
+    {
+      "taskDefinitionKey": "managerApproval",
+      "mode": "SINGLE",
+      "actorIds": [
+        "demo-manager"
+      ],
+      "decision": "APPROVED"
+    },
+    {
+      "taskDefinitionKey": "financeReview",
+      "mode": "SINGLE",
+      "actorIds": [
+        "demo-finance-reviewer"
+      ],
+      "decision": "APPROVED"
+    },
+    {
+      "taskDefinitionKey": "financeCountersign",
+      "mode": "ALL",
+      "actorIds": [
+        "demo-finance-approver-a",
+        "demo-finance-approver-b"
+      ],
+      "decision": "APPROVED"
+    }
+  ],
+  "apiContract": {
+    "basePath": "/api/approval",
+    "headers": [
+      "X-Tenant-Id",
+      "X-Operator-Id",
+      "X-Request-Id",
+      "Idempotency-Key",
+      "X-Trace-Id"
+    ],
+    "operations": [
+      {
+        "name": "publish",
+        "method": "POST",
+        "path": "/definitions/purchase-payment/publish",
+        "actorId": "demo-admin"
+      },
+      {
+        "name": "start",
+        "method": "POST",
+        "path": "/instances/purchase-payment",
+        "actorId": "demo-employee"
+      },
+      {
+        "name": "pendingTasks",
+        "method": "GET",
+        "path": "/tasks/pending",
+        "actorId": "ACTIVE_TASK_ACTOR"
+      },
+      {
+        "name": "approveTask",
+        "method": "POST",
+        "path": "/tasks/{taskId}/approve",
+        "actorId": "ACTIVE_TASK_ACTOR"
+      },
+      {
+        "name": "instance",
+        "method": "GET",
+        "path": "/instances/{instanceId}",
+        "actorId": "demo-admin"
+      },
+      {
+        "name": "timeline",
+        "method": "GET",
+        "path": "/instances/{instanceId}/timeline",
+        "actorId": "demo-admin"
+      }
+    ]
+  },
+  "clientEvidence": {
+    "pc": "NOT_YET_EXECUTED",
+    "h5": "NOT_YET_EXECUTED",
+    "wechatMiniProgram": "NOT_YET_EXECUTED",
+    "sharedBusinessKeys": [
+      "tenantId",
+      "businessKey",
+      "instanceId",
+      "taskIds",
+      "auditEventIds",
+      "finalStatus"
+    ]
+  },
+  "sandbox": {
+    "kind": "PAYMENT_SANDBOX",
+    "provider": "UNASSIGNED",
+    "status": "NOT_YET_CONFIGURED",
+    "production": false
+  },
+  "nonClaims": [
+    "DETERMINISTIC_DEMO_SEED_NOT_APPLIED",
+    "PURCHASE_APPROVAL_E2E_NOT_EXECUTED",
+    "PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED",
+    "PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED"
+  ]
+}
