@@ -37,7 +37,10 @@ test('Quick Start remains an honest executable candidate path', () => {
     quickStart,
     /PURCHASE_PAYMENT_GOLDEN_PATH_STATUS=RUNTIME_START_SLICE_VERIFIED_FULL_E2E_NOT_EXECUTED/u,
   );
-  assert.match(quickStart, /DETERMINISTIC_DEMO_SEED_IMPLEMENTED/u);
+  assert.match(
+    quickStart,
+    /DETERMINISTIC_DEMO_SEED_STATUS=IMPLEMENTED_LOCAL_OPT_IN/u,
+  );
   assert.match(quickStart, /BACKEND_LOCAL_START_VERIFIED/u);
   assert.match(quickStart, /DEMO_REPOSITORY_CONTRACT_PASSED/u);
   assert.match(quickStart, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
