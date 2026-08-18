@@ -180,6 +180,13 @@ class PurchasePaymentDemoSeedIntegrationTest {
             Set.of(financeReviewerId)
         );
 
+        PurchasePaymentDemoSeedState.SeedEvidence progressedReplay = seeder.apply();
+        assertEquals(evidence.instanceId(), progressedReplay.instanceId());
+        assertEquals("RUNNING", progressedReplay.status().name());
+        assertEquals(evidence.taskIds(), progressedReplay.taskIds());
+        assertEquals(evidence.attachments(), progressedReplay.attachments());
+        assertEquals(evidence.seededAt(), progressedReplay.seededAt());
+
         JsonNode managerReplay = approve(
             client,
             managerTaskId,
@@ -268,6 +275,13 @@ class PurchasePaymentDemoSeedIntegrationTest {
             "Finance approver B countersigned."
         );
         assertTransition(finalCountersign, "COMPLETED", Set.of(), Set.of());
+
+        PurchasePaymentDemoSeedState.SeedEvidence completedReplay = seeder.apply();
+        assertEquals(evidence.instanceId(), completedReplay.instanceId());
+        assertEquals("COMPLETED", completedReplay.status().name());
+        assertEquals(evidence.taskIds(), completedReplay.taskIds());
+        assertEquals(evidence.attachments(), completedReplay.attachments());
+        assertEquals(evidence.seededAt(), completedReplay.seededAt());
 
         JsonNode completedInstance = getJson(
             client,

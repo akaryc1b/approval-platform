@@ -164,7 +164,7 @@ public final class PurchasePaymentDemoSeeder {
             scenario.tenantId(),
             scenario.request().businessKey(),
             started.instanceId(),
-            started.status(),
+            details.instance().status(),
             release.definitionKey(),
             release.engineDefinitionId(),
             started.activeTasks().stream().map(TaskProjection::taskId).toList(),
@@ -592,10 +592,19 @@ public final class PurchasePaymentDemoSeeder {
         if (!expectedManager.equals(managerTask.assigneeId())) {
             throw new IllegalStateException("demo first task must be assigned to the manager");
         }
-        if (details.tasks().size() != 1) {
-            throw new IllegalStateException("demo projection must retain exactly one active task");
+        TaskProjection storedTask = details.tasks().stream()
+            .filter(task -> managerTask.taskId().equals(task.taskId()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                "demo manager task is missing from retained task history"
+            ));
+        if (storedTask.status() == TaskStatus.PENDING && details.tasks().size() != 1) {
+            throw new IllegalStateException(
+                "pending demo manager task must remain the sole initial task"
+            );
         }
-        TaskProjection storedTask = details.tasks().getFirst();
+        boolean supportedManagerState = storedTask.status() == TaskStatus.PENDING
+            || storedTask.status() == TaskStatus.COMPLETED;
         boolean stableIdentityMatches = managerTask.taskId().equals(storedTask.taskId())
             && managerTask.instanceId().equals(storedTask.instanceId())
             && managerTask.tenantId().equals(storedTask.tenantId())
@@ -603,7 +612,7 @@ public final class PurchasePaymentDemoSeeder {
             && managerTask.taskDefinitionKey().equals(storedTask.taskDefinitionKey())
             && managerTask.name().equals(storedTask.name())
             && managerTask.assigneeId().equals(storedTask.assigneeId())
-            && storedTask.status() == TaskStatus.PENDING;
+            && supportedManagerState;
         if (!stableIdentityMatches) {
             throw new IllegalStateException(
                 "demo task stable identity changed after projection round-trip"
