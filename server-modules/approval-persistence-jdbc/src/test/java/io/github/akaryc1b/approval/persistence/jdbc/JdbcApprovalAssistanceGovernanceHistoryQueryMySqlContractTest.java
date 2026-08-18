@@ -13,6 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JdbcApprovalAssistanceGovernanceHistoryQueryMySqlContractTest {
 
     private static final Path ROOT = repositoryRoot();
+    private static final Path PORT = ROOT.resolve(
+        "server-modules/approval-ai-core/src/main/java/"
+            + "io/github/akaryc1b/approval/ai/core/"
+            + "ApprovalAssistanceGovernanceHistoryQuery.java"
+    );
     private static final Path MYSQL_QUERY = ROOT.resolve(
         "server-modules/approval-persistence-jdbc/src/main/java/"
             + "io/github/akaryc1b/approval/persistence/jdbc/"
@@ -29,6 +34,18 @@ class JdbcApprovalAssistanceGovernanceHistoryQueryMySqlContractTest {
     );
 
     @Test
+    void applicationAuthorityIsOneBoundedSummaryNotAListOrPaginationProtocol()
+        throws IOException {
+        String port = Files.readString(PORT);
+
+        assertTrue(port.contains("HistorySummary summarize(HistoryWindow window);"));
+        assertFalse(port.contains("Page<"));
+        assertFalse(port.contains("offset"));
+        assertFalse(port.contains("limit"));
+        assertFalse(port.contains("sort"));
+    }
+
+    @Test
     void mysqlAuthorityIsReadOnlyRepeatableReadAndUsesExactAggregateDialect()
         throws IOException {
         String query = Files.readString(MYSQL_QUERY);
@@ -41,6 +58,8 @@ class JdbcApprovalAssistanceGovernanceHistoryQueryMySqlContractTest {
             "values.bindInstant(window.fromInclusive())",
             "values.bindInstant(window.toExclusive())",
             "values.bindInstant(window.observedAt())",
+            "values.nullableInstant(result, \"earliest_recorded_at\")",
+            "values.nullableInstant(result, \"latest_recorded_at\")",
             "sum(case when s.state='ACTIVE' then 1 else 0 end)",
             "sum(case when s.state='TOMBSTONED' then 1 else 0 end)",
             "sum(case when e.provider_invocation_started then 1 else 0 end)",
@@ -66,6 +85,7 @@ class JdbcApprovalAssistanceGovernanceHistoryQueryMySqlContractTest {
             "get_lock(",
             "set global",
             "set persist",
+            "sql_calc_found_rows",
             "act_"
         )) {
             assertFalse(lower.contains(forbidden), () -> "forbidden H9 SQL: " + forbidden);
