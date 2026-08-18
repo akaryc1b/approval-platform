@@ -40,7 +40,7 @@ class MySqlV50H8AiEvidenceSchemaContractTest {
     }
 
     @Test
-    void governedV50ChecksumIncludesTheH8Authority() {
-        assertEquals(-547102957, new MySqlV50Baseline().getChecksum());
+    void governedV50ChecksumRetainsTheReviewedAiCheckpoint() {
+        assertEquals(-547102957, MySqlV50Baseline.h8AiBaselineChecksum());
     }
 }

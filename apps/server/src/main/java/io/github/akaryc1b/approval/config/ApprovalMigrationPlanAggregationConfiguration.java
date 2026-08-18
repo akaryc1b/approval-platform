@@ -5,20 +5,17 @@ import io.github.akaryc1b.approval.application.ApprovalMigrationPlanAggregationS
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationPlanAggregationStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationSafetyTelemetry;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationPlanAggregationStore;
-import io.github.akaryc1b.approval.persistence.jdbc.PostgresSerializedApprovalMigrationPlanAggregationStore;
-import org.springframework.beans.factory.annotation.Qualifier;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationPlanAggregationStoreFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.time.Clock;
 import java.util.UUID;
 
-/** Internal default-disabled M5-D8 plan aggregation wiring. */
+/** Internal default-disabled, vendor-aware M5-D8 plan aggregation wiring. */
 @Configuration(proxyBeanMethods = false)
 public class ApprovalMigrationPlanAggregationConfiguration {
 
@@ -29,25 +26,12 @@ public class ApprovalMigrationPlanAggregationConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationPlanAggregationStore(
+        return JdbcApprovalMigrationPlanAggregationStoreFactory.create(
             dataSource,
             objectMapper,
             transactionManager,
             auditEventSink,
             UUID::randomUUID
-        );
-    }
-
-    @Bean
-    @Primary
-    ApprovalMigrationPlanAggregationStore serializedApprovalMigrationPlanAggregationStore(
-        DataSource dataSource,
-        @Qualifier("approvalMigrationPlanAggregationStore")
-        ApprovalMigrationPlanAggregationStore delegate
-    ) {
-        return new PostgresSerializedApprovalMigrationPlanAggregationStore(
-            dataSource,
-            delegate
         );
     }
 
