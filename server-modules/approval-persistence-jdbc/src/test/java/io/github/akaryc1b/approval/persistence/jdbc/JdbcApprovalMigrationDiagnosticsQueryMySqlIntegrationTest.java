@@ -111,7 +111,7 @@ class JdbcApprovalMigrationDiagnosticsQueryMySqlIntegrationTest
         assertEquals(authority.planId(), plan.planId());
         assertEquals("CONSUMED", plan.planStatus());
         assertEquals(authority.intentId(), plan.intentId());
-        assertEquals("PENDING", plan.intentStatus());
+        assertEquals("UNKNOWN", plan.intentStatus());
         assertEquals(1, plan.selectedCount());
         assertEquals(0, plan.provisionedAttemptCount());
         assertEquals(1, plan.unresolvedCount());

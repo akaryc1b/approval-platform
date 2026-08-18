@@ -1,24 +1,29 @@
 # MySQL 8.4 P3-ME2 Migration Diagnostics Query Contract
 
-Status: `TEST_FIRST_STAGING / NOT_ACCEPTED`
+Status: `IMPLEMENTATION_CANDIDATE / NOT_ACCEPTED`
 
 ## Tracking and exact baseline
 
 ```text
-Repository:      akaryc1b/approval-platform
-Issue:           #91
-Parent issue:    #62
-Overall gate:    #82
-Draft PR:        #92
-Main baseline:   78c084dba54dbdde12af4599c2eb4883e6a0890d
-Formal baseline: 7a1bcf2c4f1ae69d33f2d717e8b8177aa953af03
-Staging branch:  agent/mysql-8-4-p3-me2-diagnostics-query-staging
+Repository:       akaryc1b/approval-platform
+Issue:            #91
+Parent issue:     #62
+Overall gate:     #82
+Draft PR:         #92
+Main baseline:    78c084dba54dbdde12af4599c2eb4883e6a0890d
+Formal baseline:  7a1bcf2c4f1ae69d33f2d717e8b8177aa953af03
+Test-first Head:  288a57ad6a8a1bf59be9c036604a6ec6b4b5c73b
+Staging branch:   agent/mysql-8-4-p3-me2-diagnostics-query-staging
 ```
 
 The formal baseline already contains the accepted D1-D8 migration persistence chain, P3-ME1
 operations visibility and P3-H9 AI governance-history query. Its natural synchronization Run
 `32117199585 / #1540` completed successfully after current `main` removed the accidental H9
 staging-only files.
+
+The test-first Head contains this contract plus the factory, static SQL and real-MySQL integration
+contracts, but no ME2 production implementation. The later implementation candidate preserves that
+append-only ordering.
 
 ## Remaining migration protocol inventory
 
@@ -36,11 +41,11 @@ from the exact formal baseline before this gate was selected.
 | D7 bounded orchestration | `JdbcApprovalMigrationOrchestrationStore` | canonical MySQL orchestration store through factory | accepted |
 | D8 plan aggregation | PostgreSQL serialized plan aggregation store | canonical MySQL plan aggregation store through factory and nine guards | accepted |
 | M5-E1 operations visibility | `JdbcApprovalMigrationOperationsQuery` | `JdbcMySqlApprovalMigrationOperationsQuery` through factory | accepted |
-| M5-E2 diagnostics | `JdbcApprovalMigrationDiagnosticsQuery` | no MySQL peer, no factory, direct PostgreSQL construction | **first remaining gap** |
+| M5-E2 diagnostics | `JdbcApprovalMigrationDiagnosticsQuery` | no accepted MySQL peer or factory at the source Head | **first remaining gap** |
 
 The once-suspected reconciliation store is not the next gap: the live source already contains a
 trusted D6 factory and a real MySQL implementation. M5-E2 is the first direct downstream read
-authority that is PostgreSQL-only.
+authority that was PostgreSQL-only.
 
 ## Selected bounded gate
 
@@ -48,7 +53,7 @@ authority that is PostgreSQL-only.
 NEXT_GATE_SELECTED=P3-ME2
 SCOPE=M5-E2 Migration Diagnostics Query Semantic Equivalence
 POSTGRESQL_AUTHORITY=ApprovalMigrationDiagnosticsQuery + JdbcApprovalMigrationDiagnosticsQuery
-MYSQL_GAP=missing MySQL peer, factory and executable wiring
+MYSQL_GAP=missing accepted MySQL peer, factory and executable wiring
 CI_BUDGET=target 1 full Run, maximum 2 full Runs
 ```
 
@@ -64,9 +69,9 @@ ApprovalMigrationDiagnosticsQuery
 The port already owns bounded page/page-size validation, a maximum 31-day evidence range, three
 server-owned sort modes and a maximum 64-event instance timeline. ME2 does not widen that authority.
 
-## Required implementation
+## Implementation candidate
 
-ME2 must provide exactly:
+The staging branch now provides exactly:
 
 ```text
 JdbcApprovalMigrationDiagnosticsQueryFactory
@@ -74,7 +79,7 @@ JdbcMySqlApprovalMigrationDiagnosticsQuery
 ApprovalMigrationOperationsConfiguration -> trusted diagnostics factory
 ```
 
-Database selection must come only from trusted JDBC metadata through
+Database selection comes only from trusted JDBC metadata through
 `ApprovalDatabaseVendorResolver`:
 
 ```text
@@ -82,8 +87,10 @@ PostgreSQL 16 -> existing JdbcApprovalMigrationDiagnosticsQuery
 MySQL 8.4     -> JdbcMySqlApprovalMigrationDiagnosticsQuery
 ```
 
-Browser, Mobile, HTTP, headers, tenant data, Connector, Event, AI and business payloads cannot select
-the database implementation.
+The MySQL peer uses a read-only Repeatable Read transaction, `ROW_NUMBER()` latest-row authorities,
+`JSON_LENGTH`, vendor-safe UUID binding/readback and UTC `datetime(6)` conversion. Browser, Mobile,
+HTTP, headers, tenant data, Connector, Event, AI and business payloads cannot select the database
+implementation.
 
 ## Semantic-equivalence boundary
 
@@ -109,13 +116,15 @@ For the same immutable D1-D8 evidence, PostgreSQL 16 and MySQL 8.4 must return e
 13. timeline construction over immutable evidence only;
 14. read-only Repeatable Read behavior with no repair, lock, retry, dispatch or mutation authority.
 
-The PostgreSQL query and tests remain unchanged except for the executable composition root no longer
-constructing the PostgreSQL implementation directly.
+The existing diagnostics display vocabulary retains its current fail-closed behavior: an unrecognized
+stored status is exposed as `UNKNOWN` rather than copied into an operator response. PostgreSQL query
+semantics remain unchanged except that the executable composition root no longer constructs the
+PostgreSQL implementation directly.
 
 ## MySQL SQL boundary
 
 PostgreSQL-only `LATERAL`, `jsonb_array_length`, native UUID materialization and
-`OffsetDateTime` reads must be represented by MySQL 8.4 equivalents:
+`OffsetDateTime` reads are represented by MySQL 8.4 equivalents:
 
 - `ROW_NUMBER() OVER (...)` derived tables for latest rows;
 - `JSON_LENGTH(...)` for orchestration batch cardinality;
@@ -154,7 +163,7 @@ reports and execute with `skipped = 0` before acceptance.
 
 ## Staging and CI discipline
 
-Development remains on this non-PR branch until:
+The candidate remains on this non-PR branch until:
 
 ```text
 CODE_FROZEN
@@ -169,7 +178,7 @@ PR #92. Same-Head reruns, workflow dispatch, empty trigger commits, force pushes
 and direct `main` pushes are prohibited.
 
 ```text
-MYSQL_P3_ME2_TEST_FIRST_STAGING
+MYSQL_P3_ME2_IMPLEMENTATION_CANDIDATE
 MYSQL_P3_ME1_REMAINS_ACCEPTED
 MYSQL_P3_H9_REMAINS_ACCEPTED
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED

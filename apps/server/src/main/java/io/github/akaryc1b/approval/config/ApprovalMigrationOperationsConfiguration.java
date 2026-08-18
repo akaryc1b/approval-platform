@@ -2,7 +2,7 @@ package io.github.akaryc1b.approval.config;
 
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationDiagnosticsQuery;
 import io.github.akaryc1b.approval.application.port.ApprovalMigrationOperationsQuery;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationDiagnosticsQuery;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationDiagnosticsQueryFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOperationsQueryFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +11,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import javax.sql.DataSource;
 import java.time.Clock;
 
-/** M5-E1/E2 read-only operations visibility wiring. */
+/** M5-E1/E2 read-only, vendor-aware operations visibility wiring. */
 @Configuration(proxyBeanMethods = false)
 public class ApprovalMigrationOperationsConfiguration {
 
@@ -28,7 +28,14 @@ public class ApprovalMigrationOperationsConfiguration {
     }
 
     @Bean
-    ApprovalMigrationDiagnosticsQuery approvalMigrationDiagnosticsQuery(DataSource dataSource) {
-        return new JdbcApprovalMigrationDiagnosticsQuery(dataSource, Clock.systemUTC());
+    ApprovalMigrationDiagnosticsQuery approvalMigrationDiagnosticsQuery(
+        DataSource dataSource,
+        PlatformTransactionManager transactionManager
+    ) {
+        return JdbcApprovalMigrationDiagnosticsQueryFactory.create(
+            dataSource,
+            transactionManager,
+            Clock.systemUTC()
+        );
     }
 }

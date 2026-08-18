@@ -82,7 +82,7 @@ class JdbcApprovalMigrationOperationsQueryMySqlContractTest {
     }
 
     @Test
-    void trustedFactoryWiresOnlyM5E1AndLeavesPostgreSqlAndM5E2Intact()
+    void trustedFactoryWiresM5E1AndAllowsM5E2ToAdvanceIndependently()
         throws IOException {
         String factory = Files.readString(FACTORY);
         String configuration = Files.readString(CONFIGURATION);
@@ -102,6 +102,9 @@ class JdbcApprovalMigrationOperationsQueryMySqlContractTest {
             "new JdbcApprovalMigrationOperationsQuery("
         ));
         assertTrue(configuration.contains(
+            "JdbcApprovalMigrationDiagnosticsQueryFactory.create("
+        ));
+        assertFalse(configuration.contains(
             "new JdbcApprovalMigrationDiagnosticsQuery("
         ));
 
