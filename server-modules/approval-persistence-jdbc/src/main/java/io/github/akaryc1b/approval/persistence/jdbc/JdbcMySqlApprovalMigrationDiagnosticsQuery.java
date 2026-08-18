@@ -111,13 +111,15 @@ public final class JdbcMySqlApprovalMigrationDiagnosticsQuery
           event.pause_reason orchestration_pause_reason,
           run.started_at orchestration_started_at,
           event.happened_at latest_orchestration_event_at,
-          case when kill.observation_id is null then 'NOT_OBSERVED'
-            when kill.switch_enabled then 'ACTIVE'
-            when kill.expected_revision<>kill.observed_revision then 'STALE_REVISION'
+          case when kill_observation.observation_id is null then 'NOT_OBSERVED'
+            when kill_observation.switch_enabled then 'ACTIVE'
+            when kill_observation.expected_revision<>kill_observation.observed_revision
+              then 'STALE_REVISION'
             else 'INACTIVE' end kill_switch_status,
-          kill.expected_revision kill_switch_expected_revision,
-          kill.observed_revision kill_switch_observed_revision,
-          kill.dispatch_allowed,kill.observed_at kill_switch_observed_at,
+          kill_observation.expected_revision kill_switch_expected_revision,
+          kill_observation.observed_revision kill_switch_observed_revision,
+          kill_observation.dispatch_allowed,
+          kill_observation.observed_at kill_switch_observed_at,
           latest.aggregate_hash,latest.aggregated_at,
           completion.completion_status,completion.completion_evidence_hash,
           completion.completed_at
@@ -172,9 +174,10 @@ public final class JdbcMySqlApprovalMigrationDiagnosticsQuery
             ) latest_rank
           from ap_process_migration_kill_switch_observation value
           where value.tenant_id=:tenantId
-        ) kill
-          on kill.tenant_id=run.tenant_id and kill.run_id=run.run_id
-         and kill.latest_rank=1
+        ) kill_observation
+          on kill_observation.tenant_id=run.tenant_id
+         and kill_observation.run_id=run.run_id
+         and kill_observation.latest_rank=1
         left join ap_process_migration_plan_completion completion
           on completion.tenant_id=plan.tenant_id and completion.plan_id=plan.plan_id
         left join (
