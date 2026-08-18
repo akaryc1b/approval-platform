@@ -63,6 +63,15 @@ test('backend command uses argument arrays, local values and no shell or direct 
   assert.match(source, /readLocalDatabaseEnvironment/u);
   assert.match(source, /--project-name', composeProject/u);
   assert.match(source, /PURCHASE_PAYMENT_DEMO_SEED_APPLIED/u);
+  assert.match(source, /function mavenExecutable\(\)/u);
+  assert.match(source, /spawnSync\(process\.execPath, args/u);
+  assert.match(source, /spawnSync\('docker', args/u);
+  assert.match(source, /spawnSync\(mavenExecutable\(\), args/u);
+  assert.match(source, /function waitForDockerCommand\(label, args, predicate, timeoutMs\)/u);
+  assert.doesNotMatch(source, /function executable\(name\)/u);
+  assert.doesNotMatch(source, /function runChecked\(label, command, args\)/u);
+  assert.doesNotMatch(source, /function runCaptured\(command, args\)/u);
+  assert.doesNotMatch(source, /function waitForCommand\(label, command, args/u);
   assert.doesNotMatch(source, /execSync|execFileSync|\bexec\(/u);
   assert.doesNotMatch(source, /JdbcTemplate|DataSource|psql|ACT_[A-Z_]+|DELETE\s+FROM|DROP\s+TABLE/iu);
   assert.doesNotMatch(source, /spring-boot\.run\.profiles=prod|SPRING_PROFILES_ACTIVE.*prod/iu);

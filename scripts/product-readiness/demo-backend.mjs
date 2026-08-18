@@ -119,24 +119,50 @@ function printPlan(jsonOutput) {
   for (const marker of plan.nonClaims) console.log(marker);
 }
 
-function executable(name) {
-  return process.platform === 'win32' && name === 'mvn' ? 'mvn.cmd' : name;
+function mavenExecutable() {
+  return process.platform === 'win32' ? 'mvn.cmd' : 'mvn';
 }
 
-function runChecked(label, command, args) {
+function requireSuccessfulProcess(label, result) {
+  if (result.error) throw new Error(`${label} could not start: ${result.error.message}`);
+  if (result.status !== 0) throw new Error(`${label} failed with exit code ${result.status}`);
+}
+
+function runNodeChecked(label, args) {
   console.log(`\n==> ${label}`);
-  const result = spawnSync(executable(command), args, {
+  const result = spawnSync(process.execPath, args, {
     cwd: root,
     env: process.env,
     stdio: 'inherit',
     shell: false,
   });
-  if (result.error) throw new Error(`${label} could not start: ${result.error.message}`);
-  if (result.status !== 0) throw new Error(`${label} failed with exit code ${result.status}`);
+  requireSuccessfulProcess(label, result);
 }
 
-function runCaptured(command, args) {
-  return spawnSync(executable(command), args, {
+function runDockerChecked(label, args) {
+  console.log(`\n==> ${label}`);
+  const result = spawnSync('docker', args, {
+    cwd: root,
+    env: process.env,
+    stdio: 'inherit',
+    shell: false,
+  });
+  requireSuccessfulProcess(label, result);
+}
+
+function runMavenChecked(label, args) {
+  console.log(`\n==> ${label}`);
+  const result = spawnSync(mavenExecutable(), args, {
+    cwd: root,
+    env: process.env,
+    stdio: 'inherit',
+    shell: false,
+  });
+  requireSuccessfulProcess(label, result);
+}
+
+function runDockerCaptured(args) {
+  return spawnSync('docker', args, {
     cwd: root,
     env: process.env,
     encoding: 'utf8',
@@ -160,11 +186,11 @@ function delay(milliseconds) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }
 
-async function waitForCommand(label, command, args, predicate, timeoutMs) {
+async function waitForDockerCommand(label, args, predicate, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   let lastDetail = 'not executed';
   while (Date.now() < deadline) {
-    const result = runCaptured(command, args);
+    const result = runDockerCaptured(args);
     lastDetail = result.error?.message ?? `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
     if (!result.error && result.status === 0 && predicate(lastDetail)) {
       console.log(`${label}: ready`);
@@ -265,33 +291,31 @@ function terminateChild(child, signal) {
 }
 
 async function start() {
-  runChecked('Read-only workstation preflight', process.execPath, [
+  runNodeChecked('Read-only workstation preflight', [
     'scripts/product-readiness/demo-preflight.mjs',
   ]);
-  runChecked('Start isolated local PostgreSQL and Redis', 'docker', composeArguments(
+  runDockerChecked('Start isolated local PostgreSQL and Redis', composeArguments(
     'up', '-d', 'postgres', 'redis',
   ));
-  await waitForCommand(
+  await waitForDockerCommand(
     'PostgreSQL',
-    'docker',
     composeArguments('exec', '-T', 'postgres', 'pg_isready', '-U', 'approval', '-d', 'approval'),
     (output) => /accepting connections/iu.test(output),
     infrastructureTimeoutMs,
   );
-  await waitForCommand(
+  await waitForDockerCommand(
     'Redis',
-    'docker',
     composeArguments('exec', '-T', 'redis', 'redis-cli', 'ping'),
     (output) => /PONG/iu.test(output),
     infrastructureTimeoutMs,
   );
-  runChecked('Build Maven reactor for local startup', 'mvn', [
+  runMavenChecked('Build Maven reactor for local startup', [
     '-B', '-ntp', '-DskipTests', 'install',
   ]);
 
   const localDatabaseEnvironment = readLocalDatabaseEnvironment();
   console.log('\n==> Start real backend with explicit local seed');
-  const child = spawn(executable('mvn'), [
+  const child = spawn(mavenExecutable(), [
     '-B',
     '-ntp',
     '-f',
@@ -359,7 +383,7 @@ async function start() {
 }
 
 function stop() {
-  runChecked('Stop isolated local infrastructure without deleting data', 'docker', composeArguments('down'));
+  runDockerChecked('Stop isolated local infrastructure without deleting data', composeArguments('down'));
   console.log('DEMO_BACKEND_LOCAL_INFRASTRUCTURE_STOPPED');
 }
 
@@ -369,7 +393,7 @@ function reset(confirmLocalDataLoss) {
       'reset requires --confirm-local-data-loss; no Docker command was executed',
     );
   }
-  runChecked('Delete disposable local infrastructure and PostgreSQL volume', 'docker', composeArguments(
+  runDockerChecked('Delete disposable local infrastructure and PostgreSQL volume', composeArguments(
     'down', '-v', '--remove-orphans',
   ));
   console.log('DEMO_BACKEND_LOCAL_DATA_RESET');
