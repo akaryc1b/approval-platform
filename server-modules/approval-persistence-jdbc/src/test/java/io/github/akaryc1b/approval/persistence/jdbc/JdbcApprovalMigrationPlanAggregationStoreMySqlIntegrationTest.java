@@ -279,7 +279,7 @@ class JdbcApprovalMigrationPlanAggregationStoreMySqlIntegrationTest
             result.aggregate().status()
         );
         assertEquals(CanaryStatus.INVALID, result.aggregate().canaryStatus());
-        assertEquals(OrchestrationStatus.INVALID, result.aggregate().orchestrationStatus());
+        assertEquals(OrchestrationStatus.PAUSED, result.aggregate().orchestrationStatus());
         assertEquals(PauseReason.INCOMPLETE_EVIDENCE, result.aggregate().pauseReason());
         assertTrue(result.aggregate().paused());
         assertNull(result.completion());
