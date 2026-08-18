@@ -1,6 +1,6 @@
 # MySQL 8.4 P3-H9 AI Governance History Contract
 
-Status: `TEST_FIRST_STAGING / NOT_ACCEPTED`
+Status: `IMPLEMENTATION_CANDIDATE / NOT_ACCEPTED`
 
 Tracking:
 
@@ -83,6 +83,20 @@ selected by a request.
 | retained PostgreSQL integration/fault tests | PostgreSQL non-regression |
 | production configuration boundary | factory wiring only |
 
+## Implementation candidate
+
+The staging branch now contains:
+
+```text
+JdbcApprovalAssistanceGovernanceHistoryQueryFactory
+JdbcMySqlApprovalAssistanceGovernanceHistoryQuery
+ApprovalAssistanceProductionConfiguration -> trusted factory
+```
+
+The PostgreSQL query and every PostgreSQL migration remain unchanged. The MySQL query uses
+the existing vendor-aware JDBC value adapter for UTC `datetime(6)` boundaries and result
+materialization.
+
 ## Acceptance boundary
 
 H9 may become proven only after:
@@ -97,7 +111,7 @@ PR #92 remains Draft and Issue #91 remains Open after H9. MySQL production suppo
 Merge, deployment and production promotion remain prohibited.
 
 ```text
-MYSQL_P3_H9_TEST_FIRST_STAGING
+MYSQL_P3_H9_IMPLEMENTATION_CANDIDATE
 MYSQL_P3_H8_REMAINS_PROVEN
 MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
 PRB_15_REMAINS_OPEN

@@ -1,7 +1,7 @@
 package io.github.akaryc1b.approval.persistence.jdbc;
 
 import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQuery.HistoryWindow;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAssistanceGovernanceHistoryQuery.HistoryQueryException;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcMySqlApprovalAssistanceGovernanceHistoryQuery.HistoryQueryException;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
