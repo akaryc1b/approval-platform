@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const composeFile = 'deploy/compose/docker-compose.yml';
 const composeProject = 'approval-platform-demo';
-const healthUrl = 'http://127.0.0.1:8080/actuator/health';
+const healthUrl = 'http://localhost:8080/actuator/health';
 const infrastructureTimeoutMs = 120_000;
 const backendTimeoutMs = 240_000;
 const pollIntervalMs = 1_500;
