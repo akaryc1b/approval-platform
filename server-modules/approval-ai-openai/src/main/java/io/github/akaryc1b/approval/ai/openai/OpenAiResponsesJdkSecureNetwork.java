@@ -20,6 +20,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.cert.Certificate;
@@ -102,7 +103,7 @@ final class OpenAiResponsesJdkSecureNetwork implements SecureNetwork {
     ) {
         OpenAiResponsesNetworkSupport.requireNotCancelled(request);
         InetAddress selected = resolution.selectedAddress();
-        Socket plain = new Socket();
+        Socket plain = openPlainSocket();
         try {
             int connectMillis = (int) Math.min(
                 request.connectTimeout().toMillis(),
@@ -153,6 +154,14 @@ final class OpenAiResponsesJdkSecureNetwork implements SecureNetwork {
             );
         } catch (IOException failure) {
             closeQuietly(plain);
+            throw failure(OpenAiResponsesTransportException.Failure.TLS_FAILURE);
+        }
+    }
+
+    private static Socket openPlainSocket() {
+        try {
+            return SocketChannel.open().socket();
+        } catch (IOException failure) {
             throw failure(OpenAiResponsesTransportException.Failure.TLS_FAILURE);
         }
     }
