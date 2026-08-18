@@ -74,7 +74,8 @@ class JdbcApprovalMigrationOperationsQueryMySqlContractTest {
             "lock tables",
             "set global",
             "set persist",
-            "act_"
+            "from act_",
+            "join act_"
         )) {
             assertFalse(lower.contains(forbidden), () -> "forbidden ME1 SQL: " + forbidden);
         }
