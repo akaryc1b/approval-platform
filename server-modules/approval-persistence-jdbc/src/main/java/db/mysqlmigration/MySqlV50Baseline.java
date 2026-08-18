@@ -70,8 +70,11 @@ public final class MySqlV50Baseline implements JavaMigration {
         """;
     private static final int H7_BASELINE_CHECKSUM =
         31 * PREVIOUS_BASELINE_CHECKSUM + D7_APPEND_ONLY_GUARDS.hashCode();
-    private static final int BASELINE_CHECKSUM =
+    private static final int H8_AI_BASELINE_CHECKSUM =
         31 * H7_BASELINE_CHECKSUM + MySqlV50AiEvidenceGuards.checksum();
+    private static final int BASELINE_CHECKSUM =
+        31 * H8_AI_BASELINE_CHECKSUM
+            + MySqlV50D8PlanAggregationGuards.checksum();
 
     @Override
     public MigrationVersion getVersion() {
@@ -126,6 +129,10 @@ public final class MySqlV50Baseline implements JavaMigration {
                 index++;
                 statement.execute(sql);
             }
+            for (String sql : MySqlV50D8PlanAggregationGuards.statements()) {
+                index++;
+                statement.execute(sql);
+            }
         } catch (SQLException exception) {
             throw new FlywayException(
                 "MySQL 8.4 baseline statement " + index + " failed",
@@ -162,6 +169,14 @@ public final class MySqlV50Baseline implements JavaMigration {
 
     static List<String> splitStatements(String script) {
         return MySqlV50Script.split(script);
+    }
+
+    static int h8AiBaselineChecksum() {
+        return H8_AI_BASELINE_CHECKSUM;
+    }
+
+    static List<String> d8GuardStatements() {
+        return MySqlV50D8PlanAggregationGuards.statements();
     }
 
     private static String baselineScript() {
