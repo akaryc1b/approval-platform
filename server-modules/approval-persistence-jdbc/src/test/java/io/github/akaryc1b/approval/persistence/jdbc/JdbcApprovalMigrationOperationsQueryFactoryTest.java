@@ -49,7 +49,7 @@ class JdbcApprovalMigrationOperationsQueryFactoryTest {
     @Test
     void rejectsUnsupportedOrUnacceptedDatabaseIdentity() {
         assertThrows(
-            RuntimeException.class,
+            ApprovalDatabaseVendor.UnsupportedDatabaseVendorException.class,
             () -> JdbcApprovalMigrationOperationsQueryFactory.create(
                 dataSource("H2", "2.3.232", 2, 3),
                 transactionManager(),
@@ -57,7 +57,7 @@ class JdbcApprovalMigrationOperationsQueryFactoryTest {
             )
         );
         assertThrows(
-            RuntimeException.class,
+            ApprovalDatabaseVendor.UnsupportedDatabaseVersionException.class,
             () -> JdbcApprovalMigrationOperationsQueryFactory.create(
                 dataSource("MySQL", "8.0.39", 8, 0),
                 transactionManager(),
