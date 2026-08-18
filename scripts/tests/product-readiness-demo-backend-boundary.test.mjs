@@ -5,6 +5,8 @@ import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import './m6-pr-e-e4-current-semgrep-diagnostic.test.mjs';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const commandPath = resolve(root, 'scripts/product-readiness/demo-backend.mjs');
 const packagePath = resolve(root, 'package.json');
