@@ -6,6 +6,9 @@ logging:
     io.github.akaryc1b.approval: DEBUG
 
 approval:
+  demo:
+    purchase-payment:
+      enabled: ${APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED:false}
   security:
     identity:
       mode: local-headers

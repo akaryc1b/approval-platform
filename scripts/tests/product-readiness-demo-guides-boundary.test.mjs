@@ -33,10 +33,25 @@ test('Quick Start remains an honest executable candidate path', () => {
   const quickStart = text(quickStartPath);
   const packageJson = JSON.parse(text(packageJsonPath));
   assert.match(quickStart, /QUICK_START_STATUS=BASELINE_NOT_YET_10_MINUTE_VERIFIED/u);
-  assert.match(quickStart, /PURCHASE_PAYMENT_GOLDEN_PATH_STATUS=NOT_YET_VERIFIED/u);
+  assert.match(quickStart, /DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED/u);
+  assert.match(
+    quickStart,
+    /PURCHASE_PAYMENT_GOLDEN_PATH_STATUS=BACKEND_APPROVAL_CHAIN_VERIFIED_FULL_PRODUCT_E2E_NOT_EXECUTED/u,
+  );
+  assert.match(
+    quickStart,
+    /DETERMINISTIC_DEMO_SEED_STATUS=IMPLEMENTED_LOCAL_OPT_IN/u,
+  );
+  assert.match(quickStart, /DETERMINISTIC_DEMO_SEED_IMPLEMENTED/u);
+  assert.match(quickStart, /BACKEND_LOCAL_START_VERIFIED/u);
+  assert.match(quickStart, /BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED/u);
+  assert.match(quickStart, /COMPLETION_OUTBOX_EVENT_RECORDED/u);
   assert.match(quickStart, /DEMO_REPOSITORY_CONTRACT_PASSED/u);
-  assert.doesNotMatch(quickStart, /QUICK_START_10_MINUTES_PASSED/u);
-  assert.doesNotMatch(quickStart, /PRODUCTION_PAYMENT_INTEGRATION_VERIFIED/u);
+  assert.match(quickStart, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
+  assert.match(quickStart, /CROSS_CLIENT_RUNTIME_NOT_EXECUTED/u);
+  assert.doesNotMatch(quickStart, /^QUICK_START_STATUS=PASSED$/mu);
+  assert.doesNotMatch(quickStart, /^PURCHASE_PAYMENT_GOLDEN_PATH_STATUS=PASSED$/mu);
+  assert.doesNotMatch(quickStart, /^PRODUCTION_PAYMENT_INTEGRATION_STATUS=VERIFIED$/mu);
   assert.doesNotMatch(quickStart, /^pnpm install --frozen-lockfile\s*$/mu);
   for (const scriptName of ['web:install', 'web:dev', 'mobile:install', 'mobile:dev:h5', 'mobile:build:weixin']) {
     assert.equal(typeof packageJson.scripts?.[scriptName], 'string', `missing package script ${scriptName}`);
@@ -44,13 +59,17 @@ test('Quick Start remains an honest executable candidate path', () => {
   }
 });
 
-test('product-readiness status distinguishes repository, workstation and product evidence without a moving SHA', () => {
+test('product-readiness status distinguishes repository, backend and product evidence without a moving SHA', () => {
   const status = text(statusPath);
   assert.match(status, /DEMO_REPOSITORY_CONTRACT_PASSED/u);
   assert.match(status, /DEMO_PREFLIGHT_PASSED/u);
+  assert.match(status, /DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED/u);
+  assert.match(status, /DETERMINISTIC_DEMO_SEED_IMPLEMENTED/u);
   assert.match(status, /BACKEND_LOCAL_START_VERIFIED/u);
+  assert.match(status, /BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED/u);
+  assert.match(status, /COMPLETION_OUTBOX_EVENT_RECORDED/u);
   assert.match(status, /PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED/u);
-  assert.match(status, /A successful preflight is not product acceptance/u);
+  assert.match(status, /A successful preflight or backend integration test is not product acceptance/u);
   assert.match(status, /Exact base and Head SHAs belong in PR metadata and retained workflow evidence/u);
   assert.doesNotMatch(status, /\b[0-9a-f]{40}\b/u);
 });
