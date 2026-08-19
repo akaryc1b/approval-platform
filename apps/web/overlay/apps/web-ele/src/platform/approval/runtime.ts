@@ -1,6 +1,13 @@
+import {
+  approvalLocalDemoEnabled,
+  requireApprovalLocalDemoTenant,
+  resolveApprovalLocalDemoOperatorId,
+} from './local-demo';
+
 export interface ApprovalRuntimeConfig {
   apiBaseUrl: string;
   connector: string;
+  localDemo: boolean;
   operatorId: string;
   tenantId: string;
 }
@@ -20,26 +27,37 @@ function requireValue(value: string | undefined, name: string) {
 
 /**
  * Keeps approval pages independent from the host authentication implementation.
- * A later authentication adapter can replace these environment values without
- * changing the task-center API or views.
+ * The explicit local demo adapter supplies deterministic request headers only
+ * during Vite development. Production remains principal-authenticated.
  */
 export function getApprovalRuntimeConfig(): ApprovalRuntimeConfig {
+  const localDemo = approvalLocalDemoEnabled();
   const apiBaseUrl = normalizeBaseUrl(
-    import.meta.env.VITE_APPROVAL_API_URL ||
-      import.meta.env.VITE_GLOB_API_URL ||
-      '/api',
+    import.meta.env.VITE_APPROVAL_API_URL
+      || import.meta.env.VITE_GLOB_API_URL
+      || '/api',
   );
+  const configuredTenantId = requireValue(
+    import.meta.env.VITE_APPROVAL_TENANT_ID,
+    'VITE_APPROVAL_TENANT_ID',
+  );
+  const configuredOperatorId = requireValue(
+    import.meta.env.VITE_APPROVAL_OPERATOR_ID,
+    'VITE_APPROVAL_OPERATOR_ID',
+  );
+  const tenantId = localDemo
+    ? requireApprovalLocalDemoTenant(configuredTenantId)
+    : configuredTenantId;
+  const operatorId = localDemo
+    ? resolveApprovalLocalDemoOperatorId(configuredOperatorId)
+    : configuredOperatorId;
 
   return {
     apiBaseUrl,
-    connector: import.meta.env.VITE_APPROVAL_CONNECTOR_KEY?.trim() || 'generic-rest',
-    operatorId: requireValue(
-      import.meta.env.VITE_APPROVAL_OPERATOR_ID,
-      'VITE_APPROVAL_OPERATOR_ID',
-    ),
-    tenantId: requireValue(
-      import.meta.env.VITE_APPROVAL_TENANT_ID,
-      'VITE_APPROVAL_TENANT_ID',
-    ),
+    connector: import.meta.env.VITE_APPROVAL_CONNECTOR_KEY?.trim()
+      || (localDemo ? 'demo-directory' : 'generic-rest'),
+    localDemo,
+    operatorId,
+    tenantId,
   };
 }
