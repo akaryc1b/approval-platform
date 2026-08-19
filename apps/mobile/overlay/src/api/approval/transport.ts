@@ -62,10 +62,22 @@ export function mobileApprovalUrl(path: string) {
 export function mobileApprovalHeaders(
   extra: Record<string, string> = {},
 ): Record<string, string> {
-  return {
+  const runtime = getApprovalRuntimeConfig()
+  const supplied = Object.fromEntries(
+    Object.entries(extra).filter(([name]) => {
+      const normalized = name.toLowerCase()
+      return normalized !== 'x-tenant-id' && normalized !== 'x-operator-id'
+    }),
+  )
+  const headers: Record<string, string> = {
     Accept: 'application/json',
-    ...extra,
+    ...supplied,
   }
+  if (runtime.localIdentityHeaders) {
+    headers['X-Tenant-Id'] = runtime.tenantId
+    headers['X-Operator-Id'] = runtime.operatorId
+  }
+  return headers
 }
 
 function responseRequestId(header: unknown) {
