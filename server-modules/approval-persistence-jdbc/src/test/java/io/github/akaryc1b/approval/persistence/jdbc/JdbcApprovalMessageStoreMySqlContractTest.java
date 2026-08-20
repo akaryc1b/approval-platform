@@ -29,9 +29,15 @@ class JdbcApprovalMessageStoreMySqlContractTest {
 
         for (String required : List.of(
             "DuplicateKeyException",
-            "deduplicationKeyExists",
+            "isLegalDeduplicationReplay",
+            "deduplicationOwner",
+            "messageIdOwner",
+            "dedupOwner.isPresent()",
+            "messageOwner.isEmpty()",
+            "messageOwner.equals(dedupOwner)",
             "tenant_id = :tenantId",
             "dedup_key = :dedupKey",
+            "where message_id = :messageId",
             "and read_at is null",
             "transactions.execute",
             "values.bindInstant(canonicalInstant(",
@@ -46,6 +52,7 @@ class JdbcApprovalMessageStoreMySqlContractTest {
             );
         }
 
+        assertFalse(store.contains("deduplicationKeyExists"));
         for (String forbidden : List.of(
             " on conflict ",
             " returning ",

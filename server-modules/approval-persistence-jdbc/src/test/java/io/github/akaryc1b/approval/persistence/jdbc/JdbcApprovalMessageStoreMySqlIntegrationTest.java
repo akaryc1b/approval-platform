@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -189,6 +190,12 @@ class JdbcApprovalMessageStoreMySqlIntegrationTest
             urge.messageId(),
             READ_AT
         ).isEmpty());
+        assertTrue(messages.markRead(
+            OTHER_TENANT,
+            "Manager-A",
+            urge.messageId(),
+            READ_AT
+        ).isEmpty());
 
         assertEquals(1, messages.markAllRead(
             TENANT,
@@ -214,7 +221,7 @@ class JdbcApprovalMessageStoreMySqlIntegrationTest
     }
 
     @Test
-    void classifiesOnlyExactTenantDedupConflictsAsReplay() {
+    void classifiesOnlyProvenSameOwnerDedupConflictsAsReplay() {
         ApprovalMessage original = message(
             TENANT,
             uuid(9211),
@@ -228,13 +235,16 @@ class JdbcApprovalMessageStoreMySqlIntegrationTest
             MESSAGE_AT
         );
         assertEquals(1, messages.append(List.of(original)));
+        assertEquals(0, messages.append(List.of(original)));
 
         ApprovalMessage sameDedupDifferentPayload = message(
             TENANT,
             uuid(9212),
-            "Manager-A",
+            "Finance-B",
+            "Different-Sender",
+            INSTANCE_ID,
             TASK_ID,
-            MessageType.URGE,
+            MessageType.MENTION,
             "changed",
             "changed body",
             Map.of("revision", "2"),
@@ -242,16 +252,26 @@ class JdbcApprovalMessageStoreMySqlIntegrationTest
             MESSAGE_AT.plusSeconds(1)
         );
         assertEquals(0, messages.append(List.of(sameDedupDifferentPayload)));
+        assertStoredMessageUnchanged(original);
+        assertEquals(0, messages.findMessages(new MessageCriteria(
+            TENANT,
+            sameDedupDifferentPayload.recipientId(),
+            false,
+            20,
+            0
+        )).total());
 
         ApprovalMessage messageIdCollisionWithoutDedup = message(
             TENANT,
             original.messageId(),
-            "Manager-A",
+            "Finance-B",
+            "Different-Sender",
+            INSTANCE_ID,
             TASK_ID,
-            MessageType.URGE,
+            MessageType.MENTION,
             "collision",
             "collision body",
-            Map.of(),
+            Map.of("revision", "3"),
             "different-dedup-key",
             MESSAGE_AT.plusSeconds(2)
         );
@@ -259,7 +279,132 @@ class JdbcApprovalMessageStoreMySqlIntegrationTest
             DuplicateKeyException.class,
             () -> messages.append(List.of(messageIdCollisionWithoutDedup))
         );
+        assertStoredMessageUnchanged(original);
+
+        ApprovalMessage messageIdOwner = message(
+            TENANT,
+            uuid(9213),
+            "Finance-A",
+            TASK_ID,
+            MessageType.MENTION,
+            "id owner",
+            "id owner body",
+            Map.of("owner", "message-id"),
+            "message-id-owner-key",
+            MESSAGE_AT.plusSeconds(3)
+        );
+        assertEquals(1, messages.append(List.of(messageIdOwner)));
+
+        ApprovalMessage mixedOwnerConflict = message(
+            TENANT,
+            messageIdOwner.messageId(),
+            "Finance-B",
+            "Different-Sender",
+            INSTANCE_ID,
+            TASK_ID,
+            MessageType.COPY,
+            "mixed owner",
+            "must fail closed",
+            Map.of("owner", "mixed"),
+            original.dedupKey(),
+            MESSAGE_AT.plusSeconds(4)
+        );
+        assertThrows(
+            DuplicateKeyException.class,
+            () -> messages.append(List.of(mixedOwnerConflict))
+        );
+
+        assertStoredMessageUnchanged(original);
+        assertStoredMessageUnchanged(messageIdOwner);
+        assertEquals(0, messages.findMessages(new MessageCriteria(
+            TENANT,
+            mixedOwnerConflict.recipientId(),
+            false,
+            20,
+            0
+        )).total());
+        assertEquals(2, messages.findReceipts(TENANT, INSTANCE_ID).size());
+    }
+
+    @Test
+    void tenantScopedDedupDoesNotWeakenGlobalMessageIdBoundary() {
+        UUID otherTaskId = uuid(9241);
+        seedInstanceWithTasks(
+            instance(
+                OTHER_TENANT,
+                CROSS_TENANT_INSTANCE_ID,
+                "engine-instance-message-other",
+                "business-message-other"
+            ),
+            List.of(task(
+                OTHER_TENANT,
+                otherTaskId,
+                CROSS_TENANT_INSTANCE_ID,
+                "engine-task-message-other",
+                "Manager-A",
+                TaskStatus.PENDING,
+                1,
+                CREATED_AT
+            ))
+        );
+
+        ApprovalMessage tenantMessage = message(
+            TENANT,
+            uuid(9242),
+            "Manager-A",
+            TASK_ID,
+            MessageType.URGE,
+            "tenant A",
+            "tenant A body",
+            Map.of("tenant", "A"),
+            "cross-tenant-dedup",
+            MESSAGE_AT
+        );
+        ApprovalMessage otherTenantMessage = message(
+            OTHER_TENANT,
+            uuid(9243),
+            "Manager-A",
+            "Initiator-Other",
+            CROSS_TENANT_INSTANCE_ID,
+            otherTaskId,
+            MessageType.URGE,
+            "tenant B",
+            "tenant B body",
+            Map.of("tenant", "B"),
+            tenantMessage.dedupKey(),
+            MESSAGE_AT.plusSeconds(1)
+        );
+
+        assertEquals(1, messages.append(List.of(tenantMessage)));
+        assertEquals(1, messages.append(List.of(otherTenantMessage)));
+        assertStoredMessageUnchanged(tenantMessage);
+        assertStoredMessageUnchanged(otherTenantMessage);
+
+        ApprovalMessage crossTenantMessageIdCollision = message(
+            OTHER_TENANT,
+            tenantMessage.messageId(),
+            "Manager-A",
+            "Initiator-Other",
+            CROSS_TENANT_INSTANCE_ID,
+            otherTaskId,
+            MessageType.COPY,
+            "global id collision",
+            "must fail closed",
+            Map.of("tenant", "collision"),
+            "other-tenant-new-dedup",
+            MESSAGE_AT.plusSeconds(2)
+        );
+        assertThrows(
+            DuplicateKeyException.class,
+            () -> messages.append(List.of(crossTenantMessageIdCollision))
+        );
+        assertStoredMessageUnchanged(tenantMessage);
+        assertStoredMessageUnchanged(otherTenantMessage);
         assertEquals(1, messages.findReceipts(TENANT, INSTANCE_ID).size());
+        assertEquals(
+            1,
+            messages.findReceipts(OTHER_TENANT, CROSS_TENANT_INSTANCE_ID).size()
+        );
     }
 
     @Test
@@ -397,6 +542,29 @@ class JdbcApprovalMessageStoreMySqlIntegrationTest
         assertEquals(1, messages.countUnread(new MessageIdentity(TENANT, "Manager-A")));
     }
 
+    private void assertStoredMessageUnchanged(ApprovalMessage expected) {
+        var item = messages.findMessages(new MessageCriteria(
+            expected.tenantId(),
+            expected.recipientId(),
+            false,
+            100,
+            0
+        )).items().stream()
+            .filter(candidate -> candidate.messageId().equals(expected.messageId()))
+            .findFirst()
+            .orElseThrow();
+        assertEquals(expected.messageType(), item.messageType());
+        assertEquals(expected.instanceId(), item.instanceId());
+        assertEquals(expected.taskId(), item.taskId());
+        assertEquals(expected.senderId(), item.senderId());
+        assertEquals(expected.title(), item.title());
+        assertEquals(expected.body(), item.body());
+        assertEquals(expected.metadata(), item.metadata());
+        assertEquals(canonicalInstant(expected.createdAt()), item.createdAt());
+        assertFalse(item.read());
+        assertNull(item.readAt());
+    }
+
     private static ApprovalMessage message(
         String tenantId,
         UUID messageId,
@@ -409,12 +577,42 @@ class JdbcApprovalMessageStoreMySqlIntegrationTest
         String dedupKey,
         Instant createdAt
     ) {
+        return message(
+            tenantId,
+            messageId,
+            recipientId,
+            "Initiator-A",
+            INSTANCE_ID,
+            taskId,
+            type,
+            title,
+            body,
+            metadata,
+            dedupKey,
+            createdAt
+        );
+    }
+
+    private static ApprovalMessage message(
+        String tenantId,
+        UUID messageId,
+        String recipientId,
+        String senderId,
+        UUID instanceId,
+        UUID taskId,
+        MessageType type,
+        String title,
+        String body,
+        Map<String, String> metadata,
+        String dedupKey,
+        Instant createdAt
+    ) {
         return new ApprovalMessage(
             messageId,
             tenantId,
             recipientId,
-            "Initiator-A",
-            INSTANCE_ID,
+            senderId,
+            instanceId,
             taskId,
             type,
             title,
