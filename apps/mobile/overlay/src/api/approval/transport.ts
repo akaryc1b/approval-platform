@@ -98,14 +98,19 @@ export function mobileApprovalRequest<T>(
   path: string,
   options: MobileApprovalRequestOptions = {},
 ) {
+  const runtime = getApprovalRuntimeConfig()
   const suppliedHeaders = options.header || {}
   const requestId = suppliedHeaders['X-Request-Id']
     || mobileApprovalOperationId('mobile-approval-request')
   const header = mobileApprovalHeaders({
+    ...suppliedHeaders,
     'X-Request-Id': requestId,
     'X-Trace-Id': suppliedHeaders['X-Trace-Id'] || requestId,
-    ...suppliedHeaders,
   })
+  if (runtime.localDemo) {
+    header['X-Tenant-Id'] = runtime.tenantId
+    header['X-Operator-Id'] = runtime.operatorId
+  }
   if (options.data !== undefined && !header['Content-Type']) {
     header['Content-Type'] = 'application/json'
   }

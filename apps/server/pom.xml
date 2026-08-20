@@ -39,6 +39,19 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/../../config/demo</directory>
+                <targetPath>demo</targetPath>
+                <includes>
+                    <include>purchase-payment-golden-path.json</include>
+                    <include>purchase-payment-demo-seed.json</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
         </plugins>

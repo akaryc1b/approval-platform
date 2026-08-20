@@ -33,7 +33,7 @@ public class ApprovalRuntimeBindingEvidenceConfiguration {
     @Bean
     @Primary
     ApprovalProjectionStore runtimeBindingEnforcingProjectionStore(
-        @Qualifier("approvalProjectionStore") ApprovalProjectionStore delegate,
+        @Qualifier("collaborationAwareApprovalProjectionStore") ApprovalProjectionStore delegate,
         ApprovalRuntimeBindingStore approvalRuntimeBindingStore,
         MeterRegistry meters,
         ApprovalInstanceCommandFence commandFence
@@ -57,7 +57,7 @@ public class ApprovalRuntimeBindingEvidenceConfiguration {
     @Bean
     @Primary
     AuditEventSink runtimeBindingRecordingAuditEventSink(
-        @Qualifier("auditEventSink") AuditEventSink delegate,
+        @Qualifier("notificationAwareAuditEventSink") AuditEventSink delegate,
         @Qualifier("approvalProjectionStore") ApprovalProjectionStore rawProjectionStore,
         ApprovalReleasePackageStore approvalReleasePackageStore,
         ApprovalReleaseDeploymentStore approvalReleaseDeploymentStore,
