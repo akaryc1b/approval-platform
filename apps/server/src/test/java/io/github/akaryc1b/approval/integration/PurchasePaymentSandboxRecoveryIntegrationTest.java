@@ -2,8 +2,6 @@ package io.github.akaryc1b.approval.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
 import io.github.akaryc1b.approval.ApprovalPlatformApplication;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService.ApproveCommand;
@@ -36,10 +34,17 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
@@ -52,7 +57,9 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -444,6 +451,10 @@ class PurchasePaymentSandboxRecoveryIntegrationTest {
 
     private static final class PaymentSandbox implements AutoCloseable {
 
+        private static final String CALLBACK_PATH = "/payment-sandbox/v1/events";
+        private static final int MAX_REQUEST_LINE_LENGTH = 4096;
+        private static final int MAX_HEADER_LINE_LENGTH = 8192;
+
         private final ObjectMapper objectMapper;
         private final Clock clock;
         private final byte[] secret;
@@ -451,7 +462,7 @@ class PurchasePaymentSandboxRecoveryIntegrationTest {
         private final UUID instanceId;
         private final String expectedRequestId;
         private final SignedWebhookVerifier verifier;
-        private final HttpServer server;
+        private final ServerSocket serverSocket;
         private final ExecutorService executor;
         private final AtomicBoolean available = new AtomicBoolean(false);
         private final AtomicInteger attempts = new AtomicInteger();
@@ -480,14 +491,13 @@ class PurchasePaymentSandboxRecoveryIntegrationTest {
                 new HmacSha256WebhookSigner(),
                 Duration.ofMinutes(1)
             );
-            this.server = HttpServer.create(
-                new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+            this.serverSocket = new ServerSocket();
+            this.serverSocket.bind(new InetSocketAddress(
+                InetAddress.getLoopbackAddress(),
                 0
-            );
+            ));
             this.executor = Executors.newSingleThreadExecutor();
-            this.server.setExecutor(executor);
-            this.server.createContext("/payment-sandbox/v1/events", this::handle);
-            this.server.start();
+            this.executor.submit(this::serve);
         }
 
         URI endpoint() {
@@ -495,9 +505,9 @@ class PurchasePaymentSandboxRecoveryIntegrationTest {
                 return new URI(
                     "http",
                     null,
-                    server.getAddress().getAddress().getHostAddress(),
-                    server.getAddress().getPort(),
-                    "/payment-sandbox/v1/events",
+                    serverSocket.getInetAddress().getHostAddress(),
+                    serverSocket.getLocalPort(),
+                    CALLBACK_PATH,
                     null,
                     null
                 );
@@ -530,110 +540,248 @@ class PurchasePaymentSandboxRecoveryIntegrationTest {
             return failure.get();
         }
 
-        private void handle(HttpExchange exchange) throws IOException {
-            attempts.incrementAndGet();
-            try {
-                String body = new String(
-                    exchange.getRequestBody().readAllBytes(),
-                    StandardCharsets.UTF_8
-                );
-                String timestamp = header(exchange, "X-Approval-Timestamp");
-                String nonce = header(exchange, "X-Approval-Nonce");
-                String signature = header(exchange, "X-Approval-Signature");
-                assertEquals(
-                    SignedWebhookVerifier.VerificationResult.VALID,
-                    verifier.verify(secret, timestamp, nonce, body, signature, clock.instant())
-                );
-                assertEquals("local-payment-sandbox-key-v1", header(
-                    exchange,
-                    "X-Approval-Key-Id"
-                ));
-                assertEquals(scenario.tenantId(), header(exchange, "X-Tenant-Id"));
-                assertEquals(expectedRequestId, header(exchange, "X-Request-Id"));
-                assertEquals(
-                    "local-product-readiness",
-                    header(exchange, "X-Approval-Sandbox")
-                );
-
-                JsonNode event = objectMapper.readTree(body);
-                UUID eventId = UUID.fromString(event.path("eventId").asText());
-                String idempotencyKey = event.path("idempotencyKey").asText();
-                assertEquals(eventId.toString(), header(exchange, "X-Approval-Event-Id"));
-                assertEquals(idempotencyKey, header(exchange, "Idempotency-Key"));
-                assertEquals(
-                    JdbcApprovalBusinessEventOutbox.COMPLETED_EVENT_TYPE,
-                    event.path("eventType").asText()
-                );
-                assertEquals("APPROVAL_INSTANCE", event.path("aggregateType").asText());
-                assertEquals(instanceId.toString(), event.path("aggregateId").asText());
-                assertEquals(instanceId.toString(), event.path("payload").path("instanceId").asText());
-                assertEquals(
-                    scenario.request().businessKey(),
-                    event.path("payload").path("businessKey").asText()
-                );
-                assertEquals("COMPLETED", event.path("payload").path("status").asText());
-                assertEquals(
-                    scenario.request().supplier(),
-                    event.path("payload").path("supplier").asText()
-                );
-                assertEquals(
-                    scenario.request().purchaseOrderReference(),
-                    event.path("payload").path("purchaseOrderReference").asText()
-                );
-
-                if (!available.get()) {
-                    respond(exchange, 503, "payment sandbox unavailable", null);
-                    return;
+        private void serve() {
+            while (!serverSocket.isClosed()) {
+                try {
+                    handle(serverSocket.accept());
+                } catch (SocketException exception) {
+                    if (!serverSocket.isClosed()) {
+                        failure.compareAndSet(null, exception);
+                    }
+                } catch (IOException exception) {
+                    failure.compareAndSet(null, exception);
                 }
-
-                JsonNode previous = paymentResults.putIfAbsent(idempotencyKey, event);
-                if (previous == null) {
-                    accepted.incrementAndGet();
-                    acceptedEventId.set(eventId);
-                    acceptedIdempotencyKey.set(idempotencyKey);
-                } else {
-                    assertEquals(previous, event, "idempotent replay payload changed");
-                }
-                respond(
-                    exchange,
-                    200,
-                    "payment sandbox accepted",
-                    "local-payment-sandbox-" + eventId
-                );
-            } catch (Throwable throwable) {
-                failure.compareAndSet(null, throwable);
-                respond(exchange, 400, "invalid sandbox request", null);
             }
         }
 
-        private static String header(HttpExchange exchange, String name) {
-            String value = exchange.getRequestHeaders().getFirst(name);
+        private void handle(Socket socket) {
+            try (
+                Socket connection = socket;
+                InputStream input = new BufferedInputStream(connection.getInputStream());
+                OutputStream output = new BufferedOutputStream(connection.getOutputStream())
+            ) {
+                attempts.incrementAndGet();
+                try {
+                    SandboxRequest request = readRequest(input);
+                    handleRequest(request, output);
+                } catch (Throwable throwable) {
+                    failure.compareAndSet(null, throwable);
+                    respond(output, 400, "invalid sandbox request", null);
+                }
+            } catch (IOException exception) {
+                failure.compareAndSet(null, exception);
+            }
+        }
+
+        private void handleRequest(SandboxRequest request, OutputStream output)
+            throws IOException {
+            assertEquals("POST", request.method());
+            assertEquals(CALLBACK_PATH, request.target());
+            assertTrue(request.version().startsWith("HTTP/1."));
+
+            String timestamp = request.header("X-Approval-Timestamp");
+            String nonce = request.header("X-Approval-Nonce");
+            String signature = request.header("X-Approval-Signature");
+            assertEquals(
+                SignedWebhookVerifier.VerificationResult.VALID,
+                verifier.verify(
+                    secret,
+                    timestamp,
+                    nonce,
+                    request.body(),
+                    signature,
+                    clock.instant()
+                )
+            );
+            assertEquals(
+                "local-payment-sandbox-key-v1",
+                request.header("X-Approval-Key-Id")
+            );
+            assertEquals(scenario.tenantId(), request.header("X-Tenant-Id"));
+            assertEquals(expectedRequestId, request.header("X-Request-Id"));
+            assertEquals(
+                "local-product-readiness",
+                request.header("X-Approval-Sandbox")
+            );
+
+            JsonNode event = objectMapper.readTree(request.body());
+            UUID eventId = UUID.fromString(event.path("eventId").asText());
+            String idempotencyKey = event.path("idempotencyKey").asText();
+            assertEquals(eventId.toString(), request.header("X-Approval-Event-Id"));
+            assertEquals(idempotencyKey, request.header("Idempotency-Key"));
+            assertEquals(
+                JdbcApprovalBusinessEventOutbox.COMPLETED_EVENT_TYPE,
+                event.path("eventType").asText()
+            );
+            assertEquals("APPROVAL_INSTANCE", event.path("aggregateType").asText());
+            assertEquals(instanceId.toString(), event.path("aggregateId").asText());
+            assertEquals(
+                instanceId.toString(),
+                event.path("payload").path("instanceId").asText()
+            );
+            assertEquals(
+                scenario.request().businessKey(),
+                event.path("payload").path("businessKey").asText()
+            );
+            assertEquals("COMPLETED", event.path("payload").path("status").asText());
+            assertEquals(
+                scenario.request().supplier(),
+                event.path("payload").path("supplier").asText()
+            );
+            assertEquals(
+                scenario.request().purchaseOrderReference(),
+                event.path("payload").path("purchaseOrderReference").asText()
+            );
+
+            if (!available.get()) {
+                respond(output, 503, "payment sandbox unavailable", null);
+                return;
+            }
+
+            JsonNode previous = paymentResults.putIfAbsent(idempotencyKey, event);
+            if (previous == null) {
+                accepted.incrementAndGet();
+                acceptedEventId.set(eventId);
+                acceptedIdempotencyKey.set(idempotencyKey);
+            } else {
+                assertEquals(previous, event, "idempotent replay payload changed");
+            }
+            respond(
+                output,
+                200,
+                "payment sandbox accepted",
+                "local-payment-sandbox-" + eventId
+            );
+        }
+
+        private static SandboxRequest readRequest(InputStream input) throws IOException {
+            String requestLine = readAsciiLine(input, MAX_REQUEST_LINE_LENGTH);
+            String[] requestParts = requestLine.split(" ", 3);
+            if (requestParts.length != 3) {
+                throw new IOException("malformed HTTP request line");
+            }
+
+            Map<String, String> headers = new LinkedHashMap<>();
+            while (true) {
+                String line = readAsciiLine(input, MAX_HEADER_LINE_LENGTH);
+                if (line.isEmpty()) {
+                    break;
+                }
+                int separator = line.indexOf(':');
+                if (separator < 1) {
+                    throw new IOException("malformed HTTP header");
+                }
+                String name = line.substring(0, separator)
+                    .trim()
+                    .toLowerCase(Locale.ROOT);
+                String value = line.substring(separator + 1).trim();
+                headers.put(name, value);
+            }
+
+            int contentLength;
+            try {
+                contentLength = Integer.parseInt(requireHeader(headers, "Content-Length"));
+            } catch (NumberFormatException exception) {
+                throw new IOException("invalid Content-Length", exception);
+            }
+            if (contentLength < 0 || contentLength > 1_048_576) {
+                throw new IOException("Content-Length is outside sandbox bounds");
+            }
+            byte[] body = input.readNBytes(contentLength);
+            if (body.length != contentLength) {
+                throw new IOException("request body ended before Content-Length");
+            }
+            return new SandboxRequest(
+                requestParts[0],
+                requestParts[1],
+                requestParts[2],
+                Map.copyOf(headers),
+                new String(body, StandardCharsets.UTF_8)
+            );
+        }
+
+        private static String readAsciiLine(InputStream input, int maximumLength)
+            throws IOException {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            int previous = -1;
+            while (buffer.size() <= maximumLength) {
+                int current = input.read();
+                if (current < 0) {
+                    throw new IOException("HTTP request ended before line terminator");
+                }
+                if (previous == '\r' && current == '\n') {
+                    byte[] bytes = buffer.toByteArray();
+                    return new String(
+                        bytes,
+                        0,
+                        bytes.length - 1,
+                        StandardCharsets.US_ASCII
+                    );
+                }
+                buffer.write(current);
+                previous = current;
+            }
+            throw new IOException("HTTP line exceeds sandbox limit");
+        }
+
+        private static String requireHeader(Map<String, String> headers, String name) {
+            String value = headers.get(name.toLowerCase(Locale.ROOT));
             assertNotNull(value, "missing header " + name);
             assertFalse(value.isBlank(), "blank header " + name);
             return value;
         }
 
         private static void respond(
-            HttpExchange exchange,
+            OutputStream output,
             int status,
             String body,
             String requestId
         ) throws IOException {
-            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+            byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
+            String reason = switch (status) {
+                case 200 -> "OK";
+                case 400 -> "Bad Request";
+                case 503 -> "Service Unavailable";
+                default -> "Response";
+            };
+            StringBuilder responseHeaders = new StringBuilder()
+                .append("HTTP/1.1 ")
+                .append(status)
+                .append(' ')
+                .append(reason)
+                .append("\r\n")
+                .append("Content-Type: text/plain; charset=utf-8\r\n")
+                .append("Content-Length: ")
+                .append(bodyBytes.length)
+                .append("\r\n")
+                .append("Connection: close\r\n");
             if (requestId != null) {
-                exchange.getResponseHeaders().set("X-Request-Id", requestId);
+                responseHeaders.append("X-Request-Id: ")
+                    .append(requestId)
+                    .append("\r\n");
             }
-            exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
-            exchange.sendResponseHeaders(status, bytes.length);
-            try (OutputStream output = exchange.getResponseBody()) {
-                output.write(bytes);
-            }
+            responseHeaders.append("\r\n");
+            output.write(responseHeaders.toString().getBytes(StandardCharsets.US_ASCII));
+            output.write(bodyBytes);
+            output.flush();
         }
 
         @Override
-        public void close() {
-            server.stop(0);
+        public void close() throws IOException {
+            serverSocket.close();
             executor.shutdownNow();
+        }
+
+        private record SandboxRequest(
+            String method,
+            String target,
+            String version,
+            Map<String, String> headers,
+            String body
+        ) {
+            private String header(String name) {
+                return requireHeader(headers, name);
+            }
         }
     }
 }
