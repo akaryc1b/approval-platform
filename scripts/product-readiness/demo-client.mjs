@@ -91,8 +91,13 @@ function parseArguments(argv) {
     throw new UsageError(`Unknown option: ${value}`);
   }
 
-  if (command === 'plan' && (options.actor || options.port || options.skipInstall)) {
-    throw new UsageError('plan does not accept actor, port or install options');
+  if (command === 'plan' && (
+    options.actor
+    || options.backendOrigin
+    || options.port
+    || options.skipInstall
+  )) {
+    throw new UsageError('plan accepts only --json and --help');
   }
   if (command !== 'plan' && options.json) {
     throw new UsageError('--json is only available for plan');
@@ -118,17 +123,28 @@ function requireStringList(value, name) {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`${name} must be a non-empty array`);
   }
-  const normalized = value.map((item, index) => requireText(item, `${name}[${index}]`));
+  const normalized = value.map((item, index) =>
+    requireText(item, `${name}[${index}]`));
   if (new Set(normalized).size !== normalized.length) {
     throw new Error(`${name} must not contain duplicates`);
   }
   return normalized;
 }
 
+function normalizePort(value, name = '--port') {
+  const port = typeof value === 'number' ? value : Number.parseInt(value, 10);
+  if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
+    throw new UsageError(`${name} must be an integer between 1024 and 65535`);
+  }
+  return port;
+}
+
 function loadContract() {
   const manifest = readJson(manifestPath);
   const scenario = readJson(scenarioPath);
-  if (manifest.schemaVersion !== 1) throw new Error('unsupported cross-client schemaVersion');
+  if (manifest.schemaVersion !== 1) {
+    throw new Error('unsupported cross-client schemaVersion');
+  }
   if (manifest.scenarioManifest !== 'config/demo/purchase-payment-golden-path.json') {
     throw new Error('cross-client scenarioManifest is not canonical');
   }
@@ -157,7 +173,9 @@ function loadContract() {
         throw new Error(`${command} references unknown actor ${actor}`);
       }
     }
-    if (command !== 'wechat') normalizePort(client.defaultPort, `${command}.defaultPort`);
+    if (command !== 'wechat') {
+      normalizePort(client.defaultPort, `${command}.defaultPort`);
+    }
   }
 
   const expected = scenario.expectedWorkflow.flatMap(step =>
@@ -174,7 +192,9 @@ function loadContract() {
 
 function isPrivateIpv4(hostname) {
   const octets = hostname.split('.').map(value => Number.parseInt(value, 10));
-  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value))) return false;
+  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value))) {
+    return false;
+  }
   if (octets.some(value => value < 0 || value > 255)) return false;
   return octets[0] === 10
     || octets[0] === 127
@@ -202,14 +222,6 @@ function normalizeBackendOrigin(value) {
   return origin.origin;
 }
 
-function normalizePort(value, name = '--port') {
-  const port = typeof value === 'number' ? value : Number.parseInt(value, 10);
-  if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
-    throw new UsageError(`${name} must be an integer between 1024 and 65535`);
-  }
-  return port;
-}
-
 function pnpmExecutable() {
   return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 }
@@ -222,8 +234,12 @@ function runNodeChecked(label, args) {
     shell: false,
     stdio: 'inherit',
   });
-  if (result.error) throw new Error(`${label} could not start: ${result.error.message}`);
-  if (result.status !== 0) throw new Error(`${label} failed with exit code ${result.status}`);
+  if (result.error) {
+    throw new Error(`${label} could not start: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`${label} failed with exit code ${result.status}`);
+  }
 }
 
 function runPnpmChecked(label, args) {
@@ -234,8 +250,12 @@ function runPnpmChecked(label, args) {
     shell: false,
     stdio: 'inherit',
   });
-  if (result.error) throw new Error(`${label} could not start: ${result.error.message}`);
-  if (result.status !== 0) throw new Error(`${label} failed with exit code ${result.status}`);
+  if (result.error) {
+    throw new Error(`${label} could not start: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`${label} failed with exit code ${result.status}`);
+  }
 }
 
 function resolvedClient(manifest, options) {
@@ -243,7 +263,8 @@ function resolvedClient(manifest, options) {
   const actor = options.actor?.trim() || client.defaultActor;
   if (!client.allowedActors.includes(actor)) {
     throw new UsageError(
-      `actor ${actor} is not allowed for ${options.command}; expected one of ${client.allowedActors.join(', ')}`,
+      `actor ${actor} is not allowed for ${options.command}; expected one of `
+      + client.allowedActors.join(', '),
     );
   }
   const backendOrigin = normalizeBackendOrigin(
@@ -289,32 +310,37 @@ function clientEnvironment(manifest, resolved, command) {
     ...process.env,
     VITE_APPROVAL_CONNECTOR: 'standalone',
     VITE_APPROVAL_CONNECTOR_KEY: manifest.connectorKey,
-    VITE_APPROVAL_LOCAL_IDENTITY_HEADERS: 'true',
+    VITE_APPROVAL_LOCAL_DEMO: 'true',
     VITE_APPROVAL_OPERATOR_ID: resolved.actor,
     VITE_APPROVAL_TENANT_ID: manifest.tenantId,
   };
   if (command === 'pc') {
     return {
       ...common,
-      VITE_APPROVAL_API_URL: '/approval-api',
-      VITE_APPROVAL_DEV_PROXY_TARGET: resolved.backendOrigin,
+      APPROVAL_DEMO_BACKEND_URL: resolved.backendOrigin,
+      VITE_APPROVAL_API_URL: '/approval-api/api',
       VITE_PORT: String(resolved.port),
     };
   }
   if (command === 'h5') {
     return {
       ...common,
-      VITE_APPROVAL_API_URL: '/approval-api',
+      VITE_APPROVAL_API_URL: '/api',
+      VITE_APPROVAL_H5_API_URL: '/approval-api/api',
+      VITE_APPROVAL_WEIXIN_API_URL: `${resolved.backendOrigin}/api`,
       VITE_APP_PORT: String(resolved.port),
       VITE_APP_PROXY_ENABLE: 'true',
       VITE_APP_PROXY_PREFIX: '/approval-api',
-      VITE_SERVER_BASEURL: `${resolved.backendOrigin}/api`,
+      VITE_SERVER_BASEURL: resolved.backendOrigin,
     };
   }
   return {
     ...common,
-    VITE_APPROVAL_API_URL: `${resolved.backendOrigin}/api`,
+    VITE_APPROVAL_API_URL: '/api',
+    VITE_APPROVAL_H5_API_URL: '/approval-api/api',
+    VITE_APPROVAL_WEIXIN_API_URL: `${resolved.backendOrigin}/api`,
     VITE_APP_PROXY_ENABLE: 'false',
+    VITE_SERVER_BASEURL: resolved.backendOrigin,
     VITE_WX_APPID: process.env.VITE_WX_APPID || '',
   };
 }
@@ -334,13 +360,16 @@ function installClient(command) {
 }
 
 function clientLocation(command, resolved) {
+  const operator = encodeURIComponent(resolved.actor);
   if (command === 'pc') {
-    return `http://127.0.0.1:${resolved.port}${resolved.client.route}`;
+    return `http://127.0.0.1:${resolved.port}${resolved.client.route}`
+      + `?demoOperator=${operator}`;
   }
   if (command === 'h5') {
-    return `http://127.0.0.1:${resolved.port}/#${resolved.client.route}`;
+    return `http://127.0.0.1:${resolved.port}/#${resolved.client.route}`
+      + `?demoOperator=${operator}`;
   }
-  return resolved.client.route;
+  return `${resolved.client.route}?demoOperator=${operator}`;
 }
 
 async function startClient(manifest, options) {
@@ -367,13 +396,11 @@ async function startClient(manifest, options) {
     shell: false,
     stdio: 'inherit',
   });
-  child.once('error', error => {
-    console.error(`LOCAL_CLIENT_PROCESS_FAILED: ${error.message}`);
-  });
   const [code, signal] = await once(child, 'exit');
   if (code !== 0) {
     throw new Error(
-      `local ${options.command} client exited with code ${code ?? '<none>'} signal ${signal ?? '<none>'}`,
+      `local ${options.command} client exited with code `
+      + `${code ?? '<none>'} signal ${signal ?? '<none>'}`,
     );
   }
 }

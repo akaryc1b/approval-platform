@@ -62,22 +62,10 @@ export function mobileApprovalUrl(path: string) {
 export function mobileApprovalHeaders(
   extra: Record<string, string> = {},
 ): Record<string, string> {
-  const runtime = getApprovalRuntimeConfig()
-  const supplied = Object.fromEntries(
-    Object.entries(extra).filter(([name]) => {
-      const normalized = name.toLowerCase()
-      return normalized !== 'x-tenant-id' && normalized !== 'x-operator-id'
-    }),
-  )
-  const headers: Record<string, string> = {
+  return {
     Accept: 'application/json',
-    ...supplied,
+    ...extra,
   }
-  if (runtime.localIdentityHeaders) {
-    headers['X-Tenant-Id'] = runtime.tenantId
-    headers['X-Operator-Id'] = runtime.operatorId
-  }
-  return headers
 }
 
 function responseRequestId(header: unknown) {
@@ -110,14 +98,19 @@ export function mobileApprovalRequest<T>(
   path: string,
   options: MobileApprovalRequestOptions = {},
 ) {
+  const runtime = getApprovalRuntimeConfig()
   const suppliedHeaders = options.header || {}
   const requestId = suppliedHeaders['X-Request-Id']
     || mobileApprovalOperationId('mobile-approval-request')
   const header = mobileApprovalHeaders({
+    ...suppliedHeaders,
     'X-Request-Id': requestId,
     'X-Trace-Id': suppliedHeaders['X-Trace-Id'] || requestId,
-    ...suppliedHeaders,
   })
+  if (runtime.localDemo) {
+    header['X-Tenant-Id'] = runtime.tenantId
+    header['X-Operator-Id'] = runtime.operatorId
+  }
   if (options.data !== undefined && !header['Content-Type']) {
     header['Content-Type'] = 'application/json'
   }

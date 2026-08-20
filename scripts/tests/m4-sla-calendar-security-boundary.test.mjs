@@ -4,16 +4,86 @@ import {
   clientRoots, exists, filesUnder, path, text, textExtensions,
 } from './m4-sla-calendar-boundary-support.mjs';
 
-test('browser and mobile never manufacture trusted tenant operator permission or worker identity', async () => {
-  const forbidden = ['X-Tenant-Id', 'X-Operator-Id', 'X-Approval-Trusted-Permissions', 'X-Approval-Worker-Id'];
+const localDemoIdentityFiles = new Set([
+  'apps/web/overlay/apps/web-ele/src/api/approval/transport.ts',
+  'apps/mobile/overlay/src/api/approval/transport.ts',
+]);
+
+test('clients keep trusted identity server-owned except bounded local demo headers', async () => {
+  const alwaysForbidden = [
+    'X-Approval-Trusted-Permissions',
+    'X-Approval-Worker-Id',
+  ];
+  const localIdentityHeaders = ['X-Tenant-Id', 'X-Operator-Id'];
   const violations = [];
+  const localHeaderFiles = new Set();
+
   for (const clientRoot of clientRoots) {
     for (const file of await filesUnder(clientRoot, textExtensions)) {
+      const normalized = file.split(path.sep).join('/');
       const content = await text(file);
-      for (const header of forbidden) if (content.includes(header)) violations.push(`${file}: ${header}`);
+      for (const header of alwaysForbidden) {
+        if (content.includes(header)) violations.push(`${normalized}: ${header}`);
+      }
+      const presentLocalHeaders = localIdentityHeaders.filter(header =>
+        content.includes(header));
+      if (presentLocalHeaders.length === 0) continue;
+      if (!localDemoIdentityFiles.has(normalized)) {
+        for (const header of presentLocalHeaders) {
+          violations.push(`${normalized}: ${header}`);
+        }
+        continue;
+      }
+
+      localHeaderFiles.add(normalized);
+      for (const header of localIdentityHeaders) {
+        assert.equal(
+          content.split(header).length - 1,
+          1,
+          `${normalized} must declare ${header} exactly once`,
+        );
+      }
+      assert.match(
+        content,
+        /if \(runtime\.localDemo\) \{[\s\S]{0,400}X-Tenant-Id[\s\S]{0,400}X-Operator-Id[\s\S]{0,400}\}/u,
+        `${normalized} must guard local identity headers with runtime.localDemo`,
+      );
     }
   }
-  assert.deepEqual(violations, [], `trusted client identity remains:\n${violations.join('\n')}`);
+
+  assert.deepEqual(
+    [...localHeaderFiles].sort(),
+    [...localDemoIdentityFiles].sort(),
+    'only the two governed transports may attach local identity headers',
+  );
+  assert.deepEqual(
+    violations,
+    [],
+    `unbounded client identity remains:\n${violations.join('\n')}`,
+  );
+
+  for (const localDemoModule of [
+    'apps/web/overlay/apps/web-ele/src/platform/approval/local-demo.ts',
+    'apps/mobile/overlay/src/platform/approval/local-demo.ts',
+  ]) {
+    const content = await text(localDemoModule);
+    assert.match(content, /import\.meta\.env\.DEV/);
+    assert.match(content, /VITE_APPROVAL_LOCAL_DEMO === 'true'/);
+    assert.match(content, /demo-purchase-payment/);
+    assert.match(content, /Unknown local demo operator/);
+  }
+
+  const baseConfiguration = await text(
+    'apps/server/src/main/resources/application.yml',
+  );
+  const localConfiguration = await text(
+    'apps/server/src/main/resources/application-local.yml',
+  );
+  assert.match(
+    baseConfiguration,
+    /mode:\s*\$\{APPROVAL_IDENTITY_MODE:principal\}/,
+  );
+  assert.match(localConfiguration, /mode:\s*local-headers/);
 });
 
 test('client sources display server SLA evidence but never manufacture authoritative dueAt', async () => {

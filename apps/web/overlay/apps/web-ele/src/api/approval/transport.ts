@@ -47,8 +47,8 @@ export class ApprovalApiError extends Error {
 }
 
 export function approvalOperationId(prefix: string) {
-  const randomId = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const randomId = globalThis.crypto?.randomUUID?.()
+    ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `${prefix}-${randomId}`;
 }
 
@@ -76,15 +76,16 @@ async function errorPayload(response: Response): Promise<ApprovalApiErrorPayload
 }
 
 function prepareHeaders(init: RequestInit) {
-  const runtime = getApprovalRuntimeConfig();
   const headers = new Headers(init.headers);
-  const requestId = headers.get('X-Request-Id') || approvalOperationId('web-approval-request');
-  headers.delete('X-Tenant-Id');
-  headers.delete('X-Operator-Id');
+  const runtime = getApprovalRuntimeConfig();
+  const requestId = headers.get('X-Request-Id')
+    || approvalOperationId('web-approval-request');
   headers.set('Accept', 'application/json');
   headers.set('X-Request-Id', requestId);
-  if (!headers.has('X-Trace-Id')) headers.set('X-Trace-Id', requestId);
-  if (runtime.localIdentityHeaders) {
+  if (!headers.has('X-Trace-Id')) {
+    headers.set('X-Trace-Id', requestId);
+  }
+  if (runtime.localDemo) {
     headers.set('X-Tenant-Id', runtime.tenantId);
     headers.set('X-Operator-Id', runtime.operatorId);
   }
@@ -123,9 +124,12 @@ export async function approvalFetch(path: string, init: RequestInit = {}) {
 
 export async function approvalRequestWithTrace<T>(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
-  const requestId = headers.get('X-Request-Id') || approvalOperationId('web-approval-request');
+  const requestId = headers.get('X-Request-Id')
+    || approvalOperationId('web-approval-request');
   headers.set('X-Request-Id', requestId);
-  if (!headers.has('X-Trace-Id')) headers.set('X-Trace-Id', requestId);
+  if (!headers.has('X-Trace-Id')) {
+    headers.set('X-Trace-Id', requestId);
+  }
   const response = await approvalFetch(path, { ...init, headers });
   const data = response.status === 204
     ? undefined as T

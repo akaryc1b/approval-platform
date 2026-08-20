@@ -12,6 +12,7 @@
       "defaultPort": 5777,
       "defaultActor": "demo-manager",
       "allowedActors": [
+        "demo-admin",
         "demo-employee",
         "demo-manager",
         "demo-finance-reviewer",
@@ -25,6 +26,7 @@
       "defaultPort": 9000,
       "defaultActor": "demo-finance-reviewer",
       "allowedActors": [
+        "demo-admin",
         "demo-employee",
         "demo-manager",
         "demo-finance-reviewer",
@@ -37,6 +39,7 @@
       "route": "pages/task/list",
       "defaultActor": "demo-finance-approver-a",
       "allowedActors": [
+        "demo-admin",
         "demo-employee",
         "demo-manager",
         "demo-finance-reviewer",

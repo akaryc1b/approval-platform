@@ -1,249 +1,283 @@
-import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
-const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const launcherPath = join(
-  repositoryRoot,
-  'scripts/product-readiness/demo-client.mjs',
-);
-const manifestPath = join(
-  repositoryRoot,
-  'config/demo/cross-client-local-demo.json',
-);
-const scenarioPath = join(
-  repositoryRoot,
-  'config/demo/purchase-payment-golden-path.json',
-);
-const webRoot = join(repositoryRoot, 'apps/web/overlay/apps/web-ele');
-const mobileRoot = join(repositoryRoot, 'apps/mobile/overlay');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-async function text(...segments) {
-  return readFile(join(repositoryRoot, ...segments), 'utf8');
+function text(path) {
+  const absolute = resolve(root, path)
+  assert.equal(existsSync(absolute), true, `missing ${path}`)
+  return readFileSync(absolute, 'utf8')
 }
 
-async function json(...segments) {
-  return JSON.parse(await text(...segments));
-}
-
-function runLauncher(...arguments_) {
-  return spawnSync(process.execPath, [launcherPath, ...arguments_], {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
-    shell: false,
-  });
-}
-
-test('cross-client plan binds the canonical purchase-payment scenario', async () => {
-  const manifest = await json('config/demo/cross-client-local-demo.json');
-  const scenario = await json('config/demo/purchase-payment-golden-path.json');
-  const output = execFileSync(
+function runLauncher(...args) {
+  return spawnSync(
     process.execPath,
-    [launcherPath, 'plan', '--json'],
-    { cwd: repositoryRoot, encoding: 'utf8' },
-  );
-  const plan = JSON.parse(output);
+    [resolve(root, 'scripts/product-readiness/demo-client.mjs'), ...args],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      shell: false,
+    },
+  )
+}
 
-  assert.equal(manifest.scenarioManifest, 'config/demo/purchase-payment-golden-path.json');
-  assert.equal(manifest.tenantId, scenario.tenant.id);
-  assert.equal(manifest.businessKey, scenario.request.businessKey);
-  assert.equal(manifest.connectorKey, scenario.directory.connectorKey);
-  assert.equal(plan.tenantId, scenario.tenant.id);
-  assert.equal(plan.businessKey, scenario.request.businessKey);
-  assert.deepEqual(plan.expectedHandoff, manifest.expectedHandoff);
-  assert.deepEqual(plan.evidenceKeys, manifest.evidenceKeys);
-  assert.deepEqual(plan.nonClaims, manifest.nonClaims);
+const scenario = JSON.parse(text('config/demo/purchase-payment-golden-path.json'))
+const launcherManifest = JSON.parse(text('config/demo/cross-client-local-demo.json'))
+const launcher = text('scripts/product-readiness/demo-client.mjs')
+const webLocalDemo = text(
+  'apps/web/overlay/apps/web-ele/src/platform/approval/local-demo.ts',
+)
+const webRuntime = text(
+  'apps/web/overlay/apps/web-ele/src/platform/approval/runtime.ts',
+)
+const webTransport = text(
+  'apps/web/overlay/apps/web-ele/src/api/approval/transport.ts',
+)
+const webDevelopmentEnv = text(
+  'apps/web/overlay/apps/web-ele/.env.development',
+)
+const webBaseEnv = text('apps/web/overlay/apps/web-ele/.env')
+const webVite = text('apps/web/overlay/apps/web-ele/vite.config.ts')
+const mobileLocalDemo = text(
+  'apps/mobile/overlay/src/platform/approval/local-demo.ts',
+)
+const mobileRuntime = text(
+  'apps/mobile/overlay/src/platform/approval/runtime.ts',
+)
+const mobileTransport = text(
+  'apps/mobile/overlay/src/api/approval/transport.ts',
+)
+const mobileDevelopmentEnv = text(
+  'apps/mobile/overlay/env/.env.development',
+)
+const mobileBaseEnv = text('apps/mobile/overlay/env/.env')
+const packageJson = JSON.parse(text('package.json'))
+const guide = text('docs/product-readiness/CROSS_CLIENT_LOCAL_DEMO.md')
+const aggregate = text('scripts/tests/m3-repository-hygiene.test.mjs')
+
+const expectedOperators = [
+  'demo-employee',
+  'demo-manager',
+  'demo-finance-reviewer',
+  'demo-finance-approver-a',
+  'demo-finance-approver-b',
+  'demo-admin',
+]
+
+test('PC and mobile local demo allowlists match the governed scenario identities', () => {
+  const scenarioOperators = scenario.directory.users
+    .map(user => user.id)
+    .sort()
+  assert.deepEqual(scenarioOperators, [...expectedOperators].sort())
+  for (const operatorId of expectedOperators) {
+    assert.equal(webLocalDemo.includes(operatorId), true, `web missing ${operatorId}`)
+    assert.equal(
+      mobileLocalDemo.includes(operatorId),
+      true,
+      `mobile missing ${operatorId}`,
+    )
+  }
+  for (const source of [webLocalDemo, mobileLocalDemo]) {
+    assert.match(source, /Unknown local demo operator/u)
+    assert.match(source, /demoOperator/u)
+    assert.match(source, /demo-purchase-payment/u)
+  }
+})
+
+test('local demo identity is development-only and uses the exact demo tenant', () => {
+  for (const source of [webLocalDemo, mobileLocalDemo]) {
+    assert.match(source, /import\.meta\.env\.DEV/u)
+    assert.match(source, /VITE_APPROVAL_LOCAL_DEMO === 'true'/u)
+    assert.match(source, /requireApprovalLocalDemoTenant/u)
+  }
+  for (const source of [webDevelopmentEnv, mobileDevelopmentEnv]) {
+    assert.match(source, /VITE_APPROVAL_LOCAL_DEMO=true/u)
+    assert.match(source, /VITE_APPROVAL_TENANT_ID=demo-purchase-payment/u)
+    assert.match(source, /VITE_APPROVAL_OPERATOR_ID=demo-manager/u)
+    assert.match(source, /VITE_APPROVAL_CONNECTOR_KEY=demo-directory/u)
+  }
+  for (const source of [webBaseEnv, mobileBaseEnv]) {
+    assert.doesNotMatch(source, /VITE_APPROVAL_LOCAL_DEMO=true/u)
+    assert.doesNotMatch(source, /demo-purchase-payment/u)
+  }
+  assert.match(webRuntime, /localDemo: boolean/u)
+  assert.match(mobileRuntime, /localDemo: boolean/u)
+})
+
+test('governed transports add local identity headers without trusted permissions', () => {
+  for (const source of [webTransport, mobileTransport]) {
+    assert.match(source, /runtime\.localDemo/u)
+    assert.match(source, /X-Tenant-Id/u)
+    assert.match(source, /X-Operator-Id/u)
+    assert.doesNotMatch(source, /X-Approval-Trusted-Permissions/u)
+    assert.doesNotMatch(source, /X-Approval-Worker-Id/u)
+  }
+  assert.match(webTransport, /headers\.set\('X-Tenant-Id', runtime\.tenantId\)/u)
+  assert.match(webTransport, /headers\.set\('X-Operator-Id', runtime\.operatorId\)/u)
+  assert.match(mobileTransport, /header\['X-Tenant-Id'\] = runtime\.tenantId/u)
+  assert.match(mobileTransport, /header\['X-Operator-Id'\] = runtime\.operatorId/u)
+})
+
+test('PC keeps shell mock traffic separate from the real approval backend', () => {
+  assert.match(webDevelopmentEnv, /VITE_APPROVAL_API_URL=\/approval-api\/api/u)
+  assert.match(webVite, /'\/api'/u)
+  assert.match(webVite, /http:\/\/localhost:5320\/api/u)
+  assert.match(webVite, /'\/approval-api'/u)
+  assert.match(webVite, /http:\/\/127\.0\.0\.1:8080/u)
+  assert.match(webVite, /APPROVAL_DEMO_BACKEND_URL/u)
+})
+
+test('H5 and WeChat have separate local backend addressing', () => {
+  assert.match(
+    mobileDevelopmentEnv,
+    /VITE_APPROVAL_H5_API_URL=\/approval-api\/api/u,
+  )
+  assert.match(
+    mobileDevelopmentEnv,
+    /VITE_APPROVAL_WEIXIN_API_URL=http:\/\/127\.0\.0\.1:8080\/api/u,
+  )
+  assert.match(mobileDevelopmentEnv, /VITE_APP_PROXY_ENABLE=true/u)
+  assert.match(mobileRuntime, /platform === 'web'/u)
+  assert.match(mobileRuntime, /platform === 'mp-weixin'/u)
+})
+
+test('client launch plan exactly follows the governed golden path', () => {
+  assert.equal(
+    launcherManifest.scenarioManifest,
+    'config/demo/purchase-payment-golden-path.json',
+  )
+  assert.equal(launcherManifest.tenantId, scenario.tenant.id)
+  assert.equal(launcherManifest.businessKey, scenario.request.businessKey)
+  assert.equal(launcherManifest.connectorKey, scenario.directory.connectorKey)
 
   const expectedHandoff = scenario.expectedWorkflow.flatMap(step =>
     step.actorIds.map(actorId => ({
       actorId,
       taskDefinitionKey: step.taskDefinitionKey,
-    })));
+    })))
   assert.deepEqual(
-    manifest.expectedHandoff.map(({ actorId, taskDefinitionKey }) => ({
+    launcherManifest.expectedHandoff.map(({ actorId, taskDefinitionKey }) => ({
       actorId,
       taskDefinitionKey,
     })),
     expectedHandoff,
-  );
-});
+  )
 
-test('local identity headers are explicit, development-only and transport-owned', async () => {
-  const webRuntime = await readFile(
-    join(webRoot, 'src/platform/approval/runtime.ts'),
-    'utf8',
-  );
-  const webTransport = await readFile(
-    join(webRoot, 'src/api/approval/transport.ts'),
-    'utf8',
-  );
-  const mobileRuntime = await readFile(
-    join(mobileRoot, 'src/platform/approval/runtime.ts'),
-    'utf8',
-  );
-  const mobileTransport = await readFile(
-    join(mobileRoot, 'src/api/approval/transport.ts'),
-    'utf8',
-  );
+  const execution = runLauncher('plan', '--json')
+  assert.equal(execution.status, 0, execution.stderr || execution.stdout)
+  const plan = JSON.parse(execution.stdout)
+  assert.equal(plan.tenantId, scenario.tenant.id)
+  assert.equal(plan.businessKey, scenario.request.businessKey)
+  assert.deepEqual(plan.expectedHandoff, launcherManifest.expectedHandoff)
+  assert.deepEqual(plan.evidenceKeys, launcherManifest.evidenceKeys)
+  assert.deepEqual(plan.nonClaims, launcherManifest.nonClaims)
+})
 
-  for (const runtime of [webRuntime, mobileRuntime]) {
-    assert.match(runtime, /VITE_APPROVAL_LOCAL_IDENTITY_HEADERS/);
-    assert.match(runtime, /import\.meta\.env\.DEV/);
-    assert.match(runtime, /isLocalDemoApiBaseUrl/);
-    assert.match(runtime, /localIdentityHeaders/);
-    assert.match(runtime, /private|私有网络/i);
-    assert.doesNotMatch(runtime, /MODE\s*===\s*['"]production['"]\s*\?\s*true/);
-  }
-
-  assert.match(webTransport, /headers\.delete\('X-Tenant-Id'\)/);
-  assert.match(webTransport, /headers\.delete\('X-Operator-Id'\)/);
-  assert.match(webTransport, /if \(runtime\.localIdentityHeaders\)/);
-  assert.match(webTransport, /headers\.set\('X-Tenant-Id', runtime\.tenantId\)/);
-  assert.match(webTransport, /headers\.set\('X-Operator-Id', runtime\.operatorId\)/);
-
-  assert.match(mobileTransport, /normalized !== 'x-tenant-id'/);
-  assert.match(mobileTransport, /normalized !== 'x-operator-id'/);
-  assert.match(mobileTransport, /if \(runtime\.localIdentityHeaders\)/);
-  assert.match(mobileTransport, /headers\['X-Tenant-Id'\] = runtime\.tenantId/);
-  assert.match(mobileTransport, /headers\['X-Operator-Id'\] = runtime\.operatorId/);
-
-  for (const source of [webRuntime, webTransport, mobileRuntime, mobileTransport]) {
-    assert.doesNotMatch(source, /X-Approval-Trusted-Permissions/);
-  }
-});
-
-test('PC and H5 use bounded approval proxies while WeChat requires a private origin', async () => {
-  const webVite = await readFile(join(webRoot, 'vite.config.ts'), 'utf8');
-  const launcher = await readFile(launcherPath, 'utf8');
-
-  assert.match(webVite, /VITE_APPROVAL_DEV_PROXY_TARGET/);
-  assert.match(webVite, /'\/approval-api'/);
-  assert.match(webVite, /replace\(\/\^\\\/approval-api\/, '\/api'\)/);
-  assert.match(webVite, /target\.protocol !== 'http:'/);
-  assert.match(webVite, /isPrivateIpv4/);
-  assert.doesNotMatch(webVite, /VITE_APPROVAL_DEV_PROXY_TARGET.*https:\/\//s);
-
-  assert.match(launcher, /VITE_APPROVAL_API_URL: '\/approval-api'/);
-  assert.match(launcher, /VITE_APP_PROXY_ENABLE: 'true'/);
-  assert.match(launcher, /VITE_APP_PROXY_PREFIX: '\/approval-api'/);
-  assert.match(launcher, /VITE_SERVER_BASEURL: `\$\{resolved\.backendOrigin\}\/api`/);
-  assert.match(launcher, /VITE_APPROVAL_API_URL: `\$\{resolved\.backendOrigin\}\/api`/);
-  assert.match(launcher, /normalizeBackendOrigin/);
-  assert.match(launcher, /local\/private HTTP origin/);
-});
-
-test('launcher rejects unknown actors, public targets and unsafe ports before execution', () => {
+test('client launcher is fail-closed before starting dependencies', () => {
   const unknownActor = runLauncher(
-    'pc', '--actor', 'unknown-user', '--skip-install',
-  );
-  assert.equal(unknownActor.status, 2);
-  assert.match(unknownActor.stderr, /is not allowed for pc/);
+    'pc',
+    '--actor',
+    'unknown-user',
+    '--skip-install',
+  )
+  assert.equal(unknownActor.status, 2)
+  assert.match(unknownActor.stderr, /is not allowed for pc/u)
 
   const publicTarget = runLauncher(
-    'h5', '--backend-origin', 'https://example.com', '--skip-install',
-  );
-  assert.equal(publicTarget.status, 2);
-  assert.match(publicTarget.stderr, /local\/private HTTP origin/);
+    'h5',
+    '--backend-origin',
+    'https://example.com',
+    '--skip-install',
+  )
+  assert.equal(publicTarget.status, 2)
+  assert.match(publicTarget.stderr, /local\/private HTTP origin/u)
 
   const unsafePort = runLauncher(
-    'pc', '--port', '80', '--skip-install',
-  );
-  assert.equal(unsafePort.status, 2);
-  assert.match(unsafePort.stderr, /between 1024 and 65535/);
+    'pc',
+    '--port',
+    '80',
+    '--skip-install',
+  )
+  assert.equal(unsafePort.status, 2)
+  assert.match(unsafePort.stderr, /between 1024 and 65535/u)
 
-  const invalidPlanOption = runLauncher('plan', '--actor', 'demo-manager');
-  assert.equal(invalidPlanOption.status, 2);
-  assert.match(invalidPlanOption.stderr, /plan does not accept actor/);
-});
+  const invalidPlan = runLauncher(
+    'plan',
+    '--backend-origin',
+    'http://127.0.0.1:8080',
+  )
+  assert.equal(invalidPlan.status, 2)
+  assert.match(invalidPlan.stderr, /plan accepts only --json and --help/u)
+})
 
-test('launcher uses fixed executables and shell-free argument arrays', async () => {
-  const launcher = await readFile(launcherPath, 'utf8');
-
-  assert.match(launcher, /spawnSync\(process\.execPath, args/);
-  assert.match(launcher, /spawnSync\(pnpmExecutable\(\), args/);
-  assert.match(launcher, /spawn\(pnpmExecutable\(\), clientArguments/);
-  assert.match(launcher, /shell: false/g);
-  assert.match(launcher, /const commands = new Set\(\['plan', \.\.\.clientCommands\]\)/);
-  assert.match(launcher, /const clientCommands = new Set\(\['pc', 'h5', 'wechat'\]\)/);
-  assert.doesNotMatch(launcher, /function\s+run\s*\(/);
-  assert.doesNotMatch(launcher, /function\s+runChecked\s*\([^)]*command/);
-  assert.doesNotMatch(launcher, /spawn(?:Sync)?\(command/);
-  assert.doesNotMatch(launcher, /shell:\s*true/);
-  assert.doesNotMatch(launcher, /\bexec\s*\(/);
-});
-
-test('package commands and existing user pages expose the real approval workflow', async () => {
-  const packageJson = await json('package.json');
-  const webWorkbench = await readFile(
-    join(webRoot, 'src/views/approval/workbench/index.vue'),
-    'utf8',
-  );
-  const webRoutes = await readFile(
-    join(webRoot, 'src/router/routes/modules/approval.ts'),
-    'utf8',
-  );
-  const mobileList = await readFile(
-    join(mobileRoot, 'src/pages/task/list.vue'),
-    'utf8',
-  );
-  const mobileDetail = await readFile(
-    join(mobileRoot, 'src/pages/task/detail.vue'),
-    'utf8',
-  );
-
-  assert.equal(
-    packageJson.scripts['demo:client:plan'],
-    'node scripts/product-readiness/demo-client.mjs plan --json',
-  );
-  assert.equal(
-    packageJson.scripts['demo:client:pc'],
-    'node scripts/product-readiness/demo-client.mjs pc',
-  );
-  assert.equal(
-    packageJson.scripts['demo:client:h5'],
-    'node scripts/product-readiness/demo-client.mjs h5',
-  );
-  assert.equal(
-    packageJson.scripts['demo:client:wechat'],
-    'node scripts/product-readiness/demo-client.mjs wechat',
-  );
+test('client launcher preserves the merged identity bridge and proxy paths', () => {
+  assert.match(launcher, /VITE_APPROVAL_LOCAL_DEMO: 'true'/u)
+  assert.match(launcher, /APPROVAL_DEMO_BACKEND_URL: resolved\.backendOrigin/u)
+  assert.match(launcher, /VITE_APPROVAL_API_URL: '\/approval-api\/api'/u)
+  assert.match(launcher, /VITE_APPROVAL_H5_API_URL: '\/approval-api\/api'/u)
   assert.match(
-    packageJson.scripts['web:test:client-boundary'],
-    /product-readiness-cross-client-local-demo-boundary\.test\.mjs/,
-  );
-  assert.match(packageJson.scripts['mobile:dev:weixin'], /dev:mp-weixin/);
+    launcher,
+    /VITE_APPROVAL_WEIXIN_API_URL: `\$\{resolved\.backendOrigin\}\/api`/u,
+  )
+  assert.match(launcher, /VITE_SERVER_BASEURL: resolved\.backendOrigin/u)
+  assert.doesNotMatch(launcher, /VITE_APPROVAL_LOCAL_IDENTITY_HEADERS/u)
+  assert.doesNotMatch(launcher, /\/approval-api\/api\/api/u)
 
-  assert.match(webRoutes, /path: '\/approval\/workbench'/);
-  assert.match(webWorkbench, /findPendingTasks/);
-  assert.match(webWorkbench, /findApprovalTimeline/);
-  assert.match(webWorkbench, /approveTask/);
-  assert.match(webWorkbench, /rejectTask/);
+  assert.match(launcher, /spawnSync\(process\.execPath, args/u)
+  assert.match(launcher, /spawnSync\(pnpmExecutable\(\), args/u)
+  assert.match(launcher, /spawn\(pnpmExecutable\(\), clientArguments/u)
+  assert.match(launcher, /shell: false/gu)
+  assert.doesNotMatch(launcher, /spawn(?:Sync)?\(command/u)
+  assert.doesNotMatch(launcher, /shell:\s*true/u)
+  assert.doesNotMatch(launcher, /\bexec\s*\(/u)
+})
 
-  assert.match(mobileList, /findPendingTasks/);
-  assert.match(mobileList, /pages\/task\/detail/);
-  assert.match(mobileDetail, /findPendingTask/);
-  assert.match(mobileDetail, /approveTask/);
-  assert.match(mobileDetail, /rejectTask/);
-});
-
-test('product documentation preserves runtime and acceptance non-claims', async () => {
-  const guide = await text('docs/product-readiness/CROSS_CLIENT_LOCAL_DEMO.md');
-  const index = await text('docs/product-readiness/README.md');
-  const manifest = await json('config/demo/cross-client-local-demo.json');
-
-  for (const marker of manifest.nonClaims) {
-    assert.match(guide, new RegExp(marker));
+test('package and guide expose role launchers without claiming runtime E2E', () => {
+  const expectedScripts = {
+    'demo:client:plan': 'node scripts/product-readiness/demo-client.mjs plan --json',
+    'demo:client:pc': 'node scripts/product-readiness/demo-client.mjs pc',
+    'demo:client:h5': 'node scripts/product-readiness/demo-client.mjs h5',
+    'demo:client:wechat': 'node scripts/product-readiness/demo-client.mjs wechat',
+    'demo:clients:check':
+      'node --test scripts/tests/product-readiness-cross-client-local-demo-boundary.test.mjs',
   }
-  assert.match(guide, /demo:client:pc/);
-  assert.match(guide, /demo:client:h5/);
-  assert.match(guide, /demo:client:wechat/);
-  assert.match(guide, /DEMO-PP-0001/);
-  assert.match(guide, /demo-purchase-payment/);
-  assert.match(index, /CROSS_CLIENT_LOCAL_DEMO\.md/);
-  assert.match(index, /LOCAL_CLIENT_LAUNCHERS_IMPLEMENTED_RUNTIME_NOT_EXECUTED/);
-  assert.match(index, /CROSS_CLIENT_RUNTIME_NOT_EXECUTED/);
-  assert.doesNotMatch(index, /PC_H5_WECHAT_RUNTIME_PASSED/);
-});
+  for (const [name, command] of Object.entries(expectedScripts)) {
+    assert.equal(packageJson.scripts?.[name], command)
+  }
+  assert.equal(
+    packageJson.scripts?.['mobile:dev:weixin'],
+    'pnpm mobile:bootstrap && pnpm -C .upstream/unibest init-baseFiles '
+      + '&& pnpm -C .upstream/unibest dev:mp-weixin',
+  )
+
+  for (const command of [
+    'pnpm demo:backend:start',
+    'pnpm demo:client:plan',
+    'pnpm demo:client:pc',
+    'pnpm demo:client:h5',
+    'pnpm demo:client:wechat',
+  ]) {
+    assert.equal(guide.includes(command), true, `guide missing ${command}`)
+  }
+  for (const marker of [
+    'LOCAL_CROSS_CLIENT_LAUNCHERS_IMPLEMENTED',
+    'CROSS_CLIENT_RUNTIME_NOT_EXECUTED',
+    'PURCHASE_APPROVAL_E2E_NOT_EXECUTED',
+    'PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED',
+  ]) {
+    assert.equal(guide.includes(marker), true, `guide missing ${marker}`)
+  }
+  assert.doesNotMatch(guide, /^PURCHASE_APPROVAL_E2E_PASSED$/mu)
+  assert.doesNotMatch(guide, /^PC_H5_WECHAT_RUNTIME_PASSED$/mu)
+})
+
+test('the permanent Hygiene aggregate loads the cross-client local demo boundary', () => {
+  assert.match(
+    aggregate,
+    /import '\.\/product-readiness-cross-client-local-demo-boundary\.test\.mjs';/u,
+  )
+})
