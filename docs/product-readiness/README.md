@@ -2,7 +2,7 @@
 
 Tracking issue: [#107 — Prove the product is usable, scalable, and recoverable](https://github.com/akaryc1b/approval-platform/issues/107)
 
-This directory is the current index for product-level evidence. It does not turn a build, boundary test, mock, scenario contract, documentation update, launcher implementation, or backend-only runtime slice into a product acceptance claim.
+This directory is the current index for product-level evidence. It does not turn a build, boundary test, mock, scenario contract, documentation update, launcher implementation, client binding, or backend-only runtime slice into a product acceptance claim.
 
 > A successful preflight or backend integration test is not product acceptance; neither is a launcher plan or build. The product is ready only when users can complete work across the supported clients and operators can keep or recover the service.
 
@@ -18,7 +18,7 @@ This living index follows the current pull-request base. Exact base and Head SHA
 | New-user startup within 10 minutes | `NOT_YET_VERIFIED` | Requires a timed run from a clean supported environment |
 | Deterministic demo tenant, users and data | `LOCAL_OPT_IN_SEED_IMPLEMENTED_AND_CI_VERIFIED` | Explicit `local`-profile seed loads governed identities, fixed attachment metadata and one request; no shared demo environment is claimed |
 | Purchase-payment backend approval chain | `BACKEND_APPROVAL_CHAIN_VERIFIED_FULL_PRODUCT_E2E_NOT_EXECUTED` | Real HTTP actions completed manager approval, finance review and two-person countersign against PostgreSQL; final projection, participant timeline and completion Outbox evidence were verified |
-| PC/H5/WeChat product scenario | `NOT_YET_EXECUTED` | Builds do not prove that the clients complete the same business scenario or show the same final state |
+| PC/H5/WeChat local demo binding | `IMPLEMENTED_RUNTIME_NOT_YET_EXECUTED` | Development-only allowlisted identities and backend addressing exist; builds and static checks do not prove cross-client runtime agreement |
 | Payment sandbox integration | `NOT_YET_VERIFIED` | The completion Outbox row is not an external delivery result; mocks and in-memory adapters do not count |
 | Browser and accessibility matrix | `NOT_YET_VERIFIED` | Requires automated and manual scenario evidence |
 | Capacity and performance envelope | `NOT_YET_MEASURED` | No unsupported TPS or capacity claim is allowed |
@@ -36,6 +36,7 @@ Use the following terms narrowly:
 - `BACKEND_LOCAL_START_VERIFIED`: the executable server started against PostgreSQL and its bounded health check returned `UP`.
 - `BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED`: the seeded high-value request was advanced through the existing HTTP task-action API from `managerApproval` to `financeReview`, two `financeCountersign` tasks and final `COMPLETED`, with no demo action endpoint or authorization bypass.
 - `COMPLETION_OUTBOX_EVENT_RECORDED`: the final approval transaction wrote one completion event to the real JDBC Outbox for the governed connector and instance. This is not proof of Connector dispatch or payment.
+- `CROSS_CLIENT_LOCAL_DEMO_BINDING_IMPLEMENTED`: PC, H5 and WeChat development builds can address the real local approval backend and select only allowlisted deterministic demo operators. It is not runtime E2E evidence.
 - `QUICK_START_10_MINUTES_PASSED`: an unfamiliar user completed the published startup outcome on a clean supported environment within 600 seconds, with retained timing and environment evidence.
 - `PURCHASE_APPROVAL_E2E_PASSED`: reserved for the complete supported-client approval workflow with user-visible state agreement; backend-only CI does not satisfy it.
 - `PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED`: a request left the platform, reached an explicitly identified sandbox, and returned a verified idempotent result.
@@ -49,6 +50,8 @@ Use the following terms narrowly:
 - `pnpm demo:backend:start` — isolated Compose, Maven preparation, real backend, health and seed verification in one attached command;
 - `pnpm demo:backend:stop` — stops the isolated local Compose project without deleting its data;
 - [`PURCHASE_PAYMENT_GOLDEN_PATH.md`](PURCHASE_PAYMENT_GOLDEN_PATH.md) — deterministic purchase-payment contract, backend approval-chain evidence and exact non-claims;
+- [`CROSS_CLIENT_LOCAL_DEMO.md`](CROSS_CLIENT_LOCAL_DEMO.md) — development-only PC/H5/WeChat backend binding and role-selection instructions;
+- `pnpm demo:clients:check` — allowlist, local-only identity, proxy/addressing and non-claim boundary;
 - `pnpm demo:scenario:check` — read-only scenario/API/template contract;
 - `pnpm demo:seed:check` — fail-closed local-only, migration ordering, backend-chain and no-direct-business-SQL boundary;
 - `PurchasePaymentDemoSeedIntegrationTest` — PostgreSQL Testcontainer, real random-port Spring Boot, Actuator health, idempotent seed replay, four real approval actions, final projection, participant timeline and JDBC completion Outbox verification.
@@ -71,9 +74,10 @@ DETERMINISTIC_DEMO_SEED_IMPLEMENTED
 BACKEND_LOCAL_START_VERIFIED
 BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED
 COMPLETION_OUTBOX_EVENT_RECORDED
+CROSS_CLIENT_LOCAL_DEMO_BINDING_IMPLEMENTED
 ```
 
-The launcher has permanent plan and safety boundary tests, while its component runtime path is covered by the Spring Boot integration test. Those facts do not manufacture a clean-machine duration or unfamiliar-user result.
+The launcher and client bindings have permanent plan and safety boundary tests, while the backend component runtime path is covered by the Spring Boot integration test. Those facts do not manufacture a clean-machine duration, unfamiliar-user result, browser run or WeChat run.
 
 ## Current non-claims
 
@@ -86,7 +90,7 @@ PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
 ```
 
-The backend test does not prove PC/H5/WeChat interaction, browser compatibility, accessibility, attachment binding/download, notification delivery, Connector dispatch, external payment, outage recovery, capacity or operational recovery.
+The backend test and client builds do not prove PC/H5/WeChat interaction, browser compatibility, accessibility, attachment binding/download, notification delivery, Connector dispatch, external payment, outage recovery, capacity or operational recovery.
 
 The two seeded attachment objects are uploaded through `ApprovalAttachmentService` and referenced by the request. They remain unbound until the platform exposes an application-layer bind operation; this work intentionally does not call `ApprovalAttachmentStore.bindToInstance` directly.
 
@@ -98,7 +102,7 @@ Issue #107 uses three coherent delivery areas, not another gate hierarchy:
 2. Golden Path;
 3. Capacity and Recovery.
 
-The launcher safety boundary and backend approval chain remain in the existing permanent validation workflow. Expensive browser, cross-client, capacity and recovery suites should be scheduled or release-candidate scoped. Documentation-only corrections must not manufacture readiness or create another automatic workflow.
+The launcher safety boundary, client binding boundary and backend approval chain remain in the existing permanent validation workflow. Expensive browser, cross-client, capacity and recovery suites should be scheduled or release-candidate scoped. Documentation-only corrections must not manufacture readiness or create another automatic workflow.
 
 ## Safety boundary
 
@@ -107,7 +111,7 @@ The Product Readiness work must not:
 - enable production migration, AI, Connector, Secret, Provider, scheduler or traffic mutation;
 - commit credentials or customer data;
 - replace authorization with a demo bypass;
-- represent local headers, backend-only actions, Outbox persistence, mocks, static responses or successful builds as production payment or full product evidence;
+- represent local headers, client bindings, backend-only actions, Outbox persistence, mocks, static responses or successful builds as production payment or full product evidence;
 - create a second automatic PR/main workflow.
 
-Start with [`QUICK_START.md`](QUICK_START.md), then validate and run the [`purchase-payment contract`](PURCHASE_PAYMENT_GOLDEN_PATH.md).
+Start with [`QUICK_START.md`](QUICK_START.md), then validate and run the [`purchase-payment contract`](PURCHASE_PAYMENT_GOLDEN_PATH.md) through the [`cross-client local demo`](CROSS_CLIENT_LOCAL_DEMO.md).
