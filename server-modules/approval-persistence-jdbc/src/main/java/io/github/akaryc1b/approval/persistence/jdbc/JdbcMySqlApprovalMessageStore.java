@@ -99,32 +99,61 @@ public final class JdbcMySqlApprovalMessageStore implements ApprovalMessageStore
             }
             return 1;
         } catch (DuplicateKeyException exception) {
-            if (deduplicationKeyExists(
-                message.tenantId(),
-                message.dedupKey()
-            )) {
+            if (isLegalDeduplicationReplay(message)) {
                 return 0;
             }
             throw exception;
         }
     }
 
-    private boolean deduplicationKeyExists(String tenantId, String dedupKey) {
-        Integer exists = jdbc.queryForObject(
+    private boolean isLegalDeduplicationReplay(ApprovalMessage message) {
+        Optional<UUID> dedupOwner = deduplicationOwner(
+            message.tenantId(),
+            message.dedupKey()
+        );
+        if (dedupOwner.isEmpty()) {
+            return false;
+        }
+        Optional<UUID> messageOwner = messageIdOwner(message.messageId());
+        return messageOwner.isEmpty() || messageOwner.equals(dedupOwner);
+    }
+
+    private Optional<UUID> deduplicationOwner(
+        String tenantId,
+        String dedupKey
+    ) {
+        return jdbc.query(
             """
-            select exists (
-                select 1
-                from ap_approval_message
-                where tenant_id = :tenantId
-                  and dedup_key = :dedupKey
-            )
+            select message_id
+            from ap_approval_message
+            where tenant_id = :tenantId
+              and dedup_key = :dedupKey
             """,
             new MapSqlParameterSource()
                 .addValue("tenantId", tenantId)
                 .addValue("dedupKey", dedupKey),
-            Integer.class
-        );
-        return exists != null && exists == 1;
+            (resultSet, rowNumber) -> values.uuid(resultSet, "message_id")
+        ).stream().findFirst();
+    }
+
+    private Optional<UUID> messageIdOwner(UUID messageId) {
+        return jdbc.query(
+            """
+            select message_id
+            from ap_approval_message
+            where message_id = :messageId
+            """,
+            new MapSqlParameterSource().addValue(
+                "messageId",
+                values.bindUuid(
+                    Objects.requireNonNull(
+                        messageId,
+                        "messageId must not be null"
+                    )
+                )
+            ),
+            (resultSet, rowNumber) -> values.uuid(resultSet, "message_id")
+        ).stream().findFirst();
     }
 
     @Override
