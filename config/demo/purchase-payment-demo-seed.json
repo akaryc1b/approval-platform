@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "scenarioManifest": "config/demo/purchase-payment-golden-path.json",
+  "attachments": [
+    {
+      "logicalId": "demo-attachment-invoice-0001",
+      "attachmentId": "3680e624-4ca6-54f9-8e1c-7736f5fc936d",
+      "fileName": "demo-invoice-0001.txt",
+      "contentType": "text/plain",
+      "contentUtf8": "Approval Platform deterministic demo invoice for DEMO-PP-0001."
+    },
+    {
+      "logicalId": "demo-attachment-contract-0001",
+      "attachmentId": "34d69df2-f36d-5692-a445-0dce71dd90f9",
+      "fileName": "demo-contract-0001.txt",
+      "contentType": "text/plain",
+      "contentUtf8": "Approval Platform deterministic demo purchase contract for DEMO-PP-0001."
+    }
+  ]
+}

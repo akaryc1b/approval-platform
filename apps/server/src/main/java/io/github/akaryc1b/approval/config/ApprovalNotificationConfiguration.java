@@ -15,7 +15,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -100,7 +99,6 @@ public class ApprovalNotificationConfiguration {
     }
 
     @Bean
-    @Primary
     AuditEventSink notificationAwareAuditEventSink(
         @Qualifier("auditEventSink") AuditEventSink delegate,
         ApprovalNotificationService approvalNotificationService

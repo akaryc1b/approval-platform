@@ -17,6 +17,7 @@ const validatorPath = resolve(
 );
 const statusPath = resolve(root, 'docs/product-readiness/README.md');
 const guidePath = resolve(root, 'docs/product-readiness/PURCHASE_PAYMENT_GOLDEN_PATH.md');
+const quickStartPath = resolve(root, 'docs/product-readiness/QUICK_START.md');
 const packageJsonPath = resolve(root, 'package.json');
 const hygieneAggregatePath = resolve(root, 'scripts/tests/m3-repository-hygiene.test.mjs');
 
@@ -76,17 +77,22 @@ test('contract fails closed on duplicate identities and production sandbox claim
   assert.throws(() => validateScenario(productionSandbox), /sandbox.production must remain false/u);
 });
 
-test('product-readiness documents describe a contract without claiming seed or E2E execution', () => {
-  const status = text(statusPath);
-  const guide = text(guidePath);
-  for (const source of [status, guide]) {
+test('documents distinguish read-only contract, backend execution and full product E2E', () => {
+  const sources = [text(statusPath), text(guidePath), text(quickStartPath)];
+  for (const source of sources) {
     assert.match(source, /PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED/u);
-    assert.match(source, /DETERMINISTIC_DEMO_SEED_NOT_APPLIED/u);
+    assert.match(source, /DETERMINISTIC_DEMO_SEED_IMPLEMENTED/u);
+    assert.match(source, /BACKEND_LOCAL_START_VERIFIED/u);
+    assert.match(source, /BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED/u);
+    assert.match(source, /COMPLETION_OUTBOX_EVENT_RECORDED/u);
     assert.match(source, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
+    assert.match(source, /CROSS_CLIENT_RUNTIME_NOT_EXECUTED/u);
     assert.match(source, /PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED/u);
     assert.match(source, /PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED/u);
   }
-  assert.doesNotMatch(guide, /PRODUCTION_PAYMENT_INTEGRATION_VERIFIED/u);
+  assert.match(text(guidePath), /DETERMINISTIC_DEMO_SEED_NOT_APPLIED/u);
+  assert.doesNotMatch(text(guidePath), /^PURCHASE_APPROVAL_E2E_STATUS=PASSED$/mu);
+  assert.doesNotMatch(text(guidePath), /^PRODUCTION_PAYMENT_INTEGRATION_STATUS=VERIFIED$/mu);
 });
 
 test('package entrypoint and permanent Hygiene aggregate load the scenario contract', () => {
