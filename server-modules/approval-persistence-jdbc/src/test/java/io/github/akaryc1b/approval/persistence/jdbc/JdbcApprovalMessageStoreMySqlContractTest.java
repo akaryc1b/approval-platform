@@ -32,7 +32,7 @@ class JdbcApprovalMessageStoreMySqlContractTest {
             "isLegalDeduplicationReplay",
             "deduplicationOwner",
             "messageIdOwner",
-            "dedupOwner.isPresent()",
+            "if (dedupOwner.isEmpty())",
             "messageOwner.isEmpty()",
             "messageOwner.equals(dedupOwner)",
             "tenant_id = :tenantId",

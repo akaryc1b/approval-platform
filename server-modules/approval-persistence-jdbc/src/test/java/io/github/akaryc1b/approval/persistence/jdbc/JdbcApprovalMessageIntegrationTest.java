@@ -23,7 +23,6 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
@@ -243,7 +242,7 @@ class JdbcApprovalMessageIntegrationTest {
     }
 
     @Test
-    void conflictTargetRejectsMixedDedupAndMessageIdOwners() {
+    void conflictTargetPreservesCurrentMixedOwnerDedupReplayWithoutMutation() {
         ApprovalMessage dedupOwner = message(
             uuid(731),
             "manager-1",
@@ -277,16 +276,13 @@ class JdbcApprovalMessageIntegrationTest {
             TASK_ID,
             MessageType.COPY,
             "mixed owner",
-            "must fail closed",
+            "must not mutate existing rows",
             Map.of("owner", "mixed"),
             dedupOwner.dedupKey(),
             NOW.plusSeconds(3)
         );
 
-        assertThrows(
-            DuplicateKeyException.class,
-            () -> messageStore.append(List.of(mixedOwnerConflict))
-        );
+        assertEquals(0, messageStore.append(List.of(mixedOwnerConflict)));
         assertEquals(
             2,
             messageStore.findReceipts("tenant-a", INSTANCE_ID).size()
