@@ -17,6 +17,8 @@ import {
 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { summarizeTaskHistory } from './runtime-task-history.mjs';
+
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const scenarioPath = resolve(
   repositoryRoot,
@@ -625,8 +627,11 @@ async function observe(contract, options) {
     if (finalInstance.instance.status !== 'COMPLETED') {
       throw new Error(`final instance status is ${finalInstance.instance.status}`);
     }
-    if (Array.isArray(finalInstance.tasks) && finalInstance.tasks.length !== 0) {
-      throw new Error('completed instance still exposes active tasks');
+    const finalTaskSummary = summarizeTaskHistory(finalInstance.tasks);
+    if (finalTaskSummary.activeTaskCount !== 0) {
+      throw new Error(
+        `completed instance still exposes ${finalTaskSummary.activeTaskCount} active tasks`,
+      );
     }
     const finalTimeline = await readTimeline(
       contract,
@@ -643,9 +648,10 @@ async function observe(contract, options) {
     evidence.completedAt = new Date().toISOString();
     evidence.final = {
       status: finalInstance.instance.status,
-      activeTaskCount: Array.isArray(finalInstance.tasks)
-        ? finalInstance.tasks.length
-        : null,
+      activeTaskCount: finalTaskSummary.activeTaskCount,
+      activeTaskIds: finalTaskSummary.activeTaskIds,
+      taskHistoryCount: finalTaskSummary.historyTaskCount,
+      taskStatusCounts: finalTaskSummary.statusCounts,
       auditEventIds,
       timelineEventCount: finalTimeline.items.length,
       observedAt: evidence.completedAt,
