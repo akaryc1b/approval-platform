@@ -271,8 +271,19 @@ test('package and guide expose role launchers without claiming runtime E2E', () 
   ]) {
     assert.equal(guide.includes(marker), true, `guide missing ${marker}`)
   }
-  assert.doesNotMatch(guide, /^PURCHASE_APPROVAL_E2E_PASSED$/mu)
-  assert.doesNotMatch(guide, /^PC_H5_WECHAT_RUNTIME_PASSED$/mu)
+  const forbiddenConclusionHeading = guide.indexOf('## 禁止推导的结论')
+  assert.ok(forbiddenConclusionHeading >= 0, 'guide missing forbidden conclusion section')
+  for (const marker of [
+    'PURCHASE_APPROVAL_E2E_PASSED',
+    'PC_H5_WECHAT_RUNTIME_PASSED',
+  ]) {
+    const occurrences = [...guide.matchAll(new RegExp(`^${marker}$`, 'gmu'))]
+    assert.equal(occurrences.length, 1, `${marker} must appear once as a non-claim`)
+    assert.ok(
+      occurrences[0].index > forbiddenConclusionHeading,
+      `${marker} may appear only after the forbidden conclusion heading`,
+    )
+  }
 })
 
 test('the permanent Hygiene aggregate loads the cross-client local demo boundary', () => {
