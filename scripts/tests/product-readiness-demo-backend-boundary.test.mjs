@@ -11,6 +11,7 @@ const packagePath = resolve(root, 'package.json');
 const quickStartPath = resolve(root, 'docs/product-readiness/QUICK_START.md');
 const statusPath = resolve(root, 'docs/product-readiness/README.md');
 const aggregatePath = resolve(root, 'scripts/tests/m3-repository-hygiene.test.mjs');
+const rootPomPath = resolve(root, 'pom.xml');
 
 function text(path) {
   assert.equal(existsSync(path), true, `missing ${path}`);
@@ -84,6 +85,36 @@ test('revision is read from the root pom and passed to both Maven invocations', 
   );
 });
 
+test('reactor install publishes consumer-safe CI-friendly POMs', () => {
+  const source = text(rootPomPath);
+  assert.match(
+    source,
+    /<flatten\.maven\.version>1\.7\.3<\/flatten\.maven\.version>/u,
+  );
+  assert.match(source, /<artifactId>flatten-maven-plugin<\/artifactId>/u);
+  assert.match(
+    source,
+    /<flattenMode>resolveCiFriendliesOnly<\/flattenMode>/u,
+  );
+  assert.match(source, /<updatePomFile>true<\/updatePomFile>/u);
+  assert.match(
+    source,
+    /<outputDirectory>\$\{project\.build\.directory\}<\/outputDirectory>/u,
+  );
+  assert.match(
+    source,
+    /<flattenedPomFilename>flattened-pom\.xml<\/flattenedPomFilename>/u,
+  );
+  assert.match(
+    source,
+    /<id>flatten<\/id>[\s\S]*<phase>process-resources<\/phase>[\s\S]*<goal>flatten<\/goal>/u,
+  );
+  assert.match(
+    source,
+    /<id>flatten\.clean<\/id>[\s\S]*<goal>clean<\/goal>/u,
+  );
+});
+
 test('backend command uses fixed executables, local values and no direct database writes', () => {
   const source = text(commandPath);
   assert.match(source, /shell: false/gu);
@@ -101,8 +132,14 @@ test('backend command uses fixed executables, local values and no direct databas
   assert.doesNotMatch(source, /function runChecked\(label, command, args\)/u);
   assert.doesNotMatch(source, /function runCaptured\(command, args\)/u);
   assert.doesNotMatch(source, /execSync|execFileSync|\bexec\s*\(/u);
-  assert.doesNotMatch(source, /JdbcTemplate|DataSource|psql|ACT_[A-Z_]+|DELETE\s+FROM|DROP\s+TABLE/iu);
-  assert.doesNotMatch(source, /spring-boot\.run\.profiles=prod|SPRING_PROFILES_ACTIVE.*prod/iu);
+  assert.doesNotMatch(
+    source,
+    /JdbcTemplate|DataSource|psql|ACT_[A-Z_]+|DELETE\s+FROM|DROP\s+TABLE/iu,
+  );
+  assert.doesNotMatch(
+    source,
+    /spring-boot\.run\.profiles=prod|SPRING_PROFILES_ACTIVE.*prod/iu,
+  );
 });
 
 test('local data reset is fail-closed before Docker execution', () => {
@@ -139,7 +176,7 @@ test('package and docs expose one command without manufacturing product acceptan
     assert.equal(quickStart.includes(command), true, `Quick Start missing ${command}`);
   }
   for (const source of [quickStart, status]) {
-    assert.match(source, /DEMO_BACKEND_ONE_COMMAND_IMPLEMED/u);
+    assert.match(source, /DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED/u);
     assert.match(source, /QUICK_START_10_MINUTES_NOT_EXECUTED/u);
     assert.match(source, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
   }
