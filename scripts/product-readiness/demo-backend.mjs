@@ -7,6 +7,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const rootPomPath = resolve(root, 'pom.xml');
 const composeFile = 'deploy/compose/docker-compose.yml';
 const composeProject = 'approval-platform-demo';
 const healthUrl = 'http://localhost:8080/actuator/health';
@@ -44,12 +45,28 @@ function usage() {
   return `Usage: node scripts/product-readiness/demo-backend.mjs [command] [options]\n\nCommands:\n  start   Run preflight, start PostgreSQL/Redis, build, start the real backend,\n          wait for Actuator UP and the deterministic seed, then remain attached.\n  plan    Print the exact non-destructive startup plan without executing it.\n  stop    Stop local Compose infrastructure without deleting its volume.\n  reset   Delete the disposable local Compose volume. Requires\n          --confirm-local-data-loss.\n\nOptions:\n  --json                     Machine-readable output for plan.\n  --confirm-local-data-loss  Required only for reset.\n  --help                     Show this help.\n\nThis command does not prove the 10-minute Quick Start, a complete approval E2E,\npayment integration, cross-client consistency, capacity, or recovery.`;
 }
 
+function rootRevision() {
+  if (!existsSync(rootPomPath)) throw new Error('Missing root pom.xml');
+  const source = readFileSync(rootPomPath, 'utf8');
+  const match = source.match(/<revision>([^<]+)<\/revision>/u);
+  const revision = match?.[1]?.trim();
+  if (!revision || revision.includes('${')) {
+    throw new Error('root pom.xml must declare a concrete revision');
+  }
+  if (!/^[0-9A-Za-z][0-9A-Za-z._-]*$/u.test(revision)) {
+    throw new Error('root pom.xml revision contains unsupported characters');
+  }
+  return revision;
+}
+
 function startupPlan() {
   const compose = `docker compose --project-name ${composeProject} -f ${composeFile}`;
+  const revision = rootRevision();
   return {
     schemaVersion: 1,
     entrypoint: 'pnpm demo:backend:start',
     destructive: false,
+    revision,
     steps: [
       {
         id: 'preflight',
@@ -69,11 +86,13 @@ function startupPlan() {
       },
       {
         id: 'reactor-build',
-        command: 'mvn -B -ntp -DskipTests install',
+        command: `mvn -B -ntp -Drevision=${revision} -DskipTests install`,
       },
       {
         id: 'backend',
-        command: 'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true mvn -B -ntp -pl :approval-server spring-boot:run -Dspring-boot.run.profiles=local',
+        command: 'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true '
+          + `mvn -B -ntp -Drevision=${revision} -pl :approval-server `
+          + 'spring-boot:run -Dspring-boot.run.profiles=local',
       },
       {
         id: 'health',
@@ -305,8 +324,14 @@ async function start() {
     output => /PONG/iu.test(output),
     infrastructureTimeoutMs,
   );
+
+  const revision = rootRevision();
   runMavenChecked('Build Maven reactor for local startup', [
-    '-B', '-ntp', '-DskipTests', 'install',
+    '-B',
+    '-ntp',
+    `-Drevision=${revision}`,
+    '-DskipTests',
+    'install',
   ]);
 
   const localDatabaseEnvironment = readLocalDatabaseEnvironment();
@@ -314,6 +339,7 @@ async function start() {
   const child = spawn(mavenExecutable(), [
     '-B',
     '-ntp',
+    `-Drevision=${revision}`,
     '-pl',
     ':approval-server',
     'spring-boot:run',

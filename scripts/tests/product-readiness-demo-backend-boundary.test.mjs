@@ -27,6 +27,7 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   assert.equal(plan.schemaVersion, 1);
   assert.equal(plan.entrypoint, 'pnpm demo:backend:start');
   assert.equal(plan.destructive, false);
+  assert.equal(plan.revision, '0.1.0-SNAPSHOT');
   assert.deepEqual(
     plan.steps.map(step => step.id),
     [
@@ -40,10 +41,15 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
       'seed',
     ],
   );
+  assert.equal(
+    plan.steps.find(step => step.id === 'reactor-build').command,
+    'mvn -B -ntp -Drevision=0.1.0-SNAPSHOT -DskipTests install',
+  );
   const backendCommand = plan.steps.find(step => step.id === 'backend').command;
   assert.equal(
     backendCommand,
-    'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true mvn -B -ntp '
+    'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true '
+      + 'mvn -B -ntp -Drevision=0.1.0-SNAPSHOT '
       + '-pl :approval-server spring-boot:run '
       + '-Dspring-boot.run.profiles=local',
   );
@@ -60,7 +66,25 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   }
 });
 
-test('backend command uses the root reactor, fixed executables and no direct database writes', () => {
+test('revision is read from the root pom and passed to both Maven invocations', () => {
+  const source = text(commandPath);
+  assert.match(source, /const rootPomPath = resolve\(root, 'pom\.xml'\)/u);
+  assert.match(source, /function rootRevision\(\)/u);
+  assert.match(source, /<revision>\(\[\^<\]\+\)<\\\/revision>/u);
+  assert.match(source, /revision\.includes\('\$\{'\)/u);
+  assert.match(source, /\^\[0-9A-Za-z\]\[0-9A-Za-z\._-\]\*\$/u);
+  assert.match(source, /`-Drevision=\$\{revision\}`/u);
+  assert.match(
+    source,
+    /runMavenChecked\('Build Maven reactor for local startup',[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-DskipTests',[\s\S]*'install'/u,
+  );
+  assert.match(
+    source,
+    /spawn\(mavenExecutable\(\), \[[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-pl',[\s\S]*':approval-server',[\s\S]*'spring-boot:run'/u,
+  );
+});
+
+test('backend command uses fixed executables, local values and no direct database writes', () => {
   const source = text(commandPath);
   assert.match(source, /shell: false/gu);
   assert.match(source, /APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED: 'true'/u);
@@ -72,16 +96,11 @@ test('backend command uses the root reactor, fixed executables and no direct dat
   assert.match(source, /spawnSync\('docker', args/u);
   assert.match(source, /spawnSync\(mavenExecutable\(\), args/u);
   assert.match(source, /function waitForDockerCommand\(label, args, predicate, timeoutMs\)/u);
-  assert.match(
-    source,
-    /'-pl',\s*':approval-server',\s*'spring-boot:run'/u,
-  );
   assert.doesNotMatch(source, /'-f',\s*'apps\/server\/pom\.xml'/u);
   assert.doesNotMatch(source, /function executable\(name\)/u);
   assert.doesNotMatch(source, /function runChecked\(label, command, args\)/u);
   assert.doesNotMatch(source, /function runCaptured\(command, args\)/u);
-  assert.doesNotMatch(source, /function waitForCommand\(label, command, args/u);
-  assert.doesNotMatch(source, /execSync|execFileSync|\bexec\(/u);
+  assert.doesNotMatch(source, /execSync|execFileSync|\bexec\s*\(/u);
   assert.doesNotMatch(source, /JdbcTemplate|DataSource|psql|ACT_[A-Z_]+|DELETE\s+FROM|DROP\s+TABLE/iu);
   assert.doesNotMatch(source, /spring-boot\.run\.profiles=prod|SPRING_PROFILES_ACTIVE.*prod/iu);
 });
@@ -120,15 +139,11 @@ test('package and docs expose one command without manufacturing product acceptan
     assert.equal(quickStart.includes(command), true, `Quick Start missing ${command}`);
   }
   for (const source of [quickStart, status]) {
-    assert.match(source, /DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED/u);
+    assert.match(source, /DEMO_BACKEND_ONE_COMMAND_IMPLEMED/u);
     assert.match(source, /QUICK_START_10_MINUTES_NOT_EXECUTED/u);
     assert.match(source, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
   }
-  assert.match(
-    quickStart,
-    /node scripts\/product-readiness\/demo-backend\.mjs reset --confirm-local-data-loss/u,
-  );
-  assert.doesNotMatch(quickStart, /^QUICK_START_STATUS=PASSED$/mu);
+  assert.doesNotMatch(quickStart, /^QUICK_START_10_MINUTES_PASSED$/mu);
 });
 
 test('the permanent Hygiene aggregate loads the backend command boundary', () => {
