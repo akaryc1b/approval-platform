@@ -5,6 +5,8 @@ import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { summarizeTaskHistory } from '../product-readiness/runtime-task-history.mjs';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const observerPath = resolve(
   root,
@@ -115,7 +117,51 @@ test('observer reads runtime state and never performs an approval write', () => 
   assert.doesNotMatch(observer, /X-Approval-Worker-Id/u);
 });
 
-test('retained evidence binds contracts, tasks, audits and final state', () => {
+test('retained task history counts only pending and completing tasks as active', () => {
+  const completedHistory = summarizeTaskHistory([
+    { taskId: 'manager-task', status: 'COMPLETED' },
+    { taskId: 'finance-review-task', status: 'COMPLETED' },
+    { taskId: 'finance-a-task', status: 'COMPLETED' },
+    { taskId: 'finance-b-task', status: 'COMPLETED' },
+    { taskId: 'withdrawn-task', status: 'CANCELED' },
+  ]);
+  assert.equal(completedHistory.activeTaskCount, 0);
+  assert.deepEqual(completedHistory.activeTaskIds, []);
+  assert.equal(completedHistory.historyTaskCount, 5);
+  assert.deepEqual(completedHistory.statusCounts, {
+    PENDING: 0,
+    COMPLETING: 0,
+    COMPLETED: 4,
+    CANCELED: 1,
+  });
+
+  const activeHistory = summarizeTaskHistory([
+    { taskId: 'pending-task', status: 'PENDING' },
+    { taskId: 'completing-task', status: 'COMPLETING' },
+    { taskId: 'completed-task', status: 'COMPLETED' },
+  ]);
+  assert.equal(activeHistory.activeTaskCount, 2);
+  assert.deepEqual(activeHistory.activeTaskIds, [
+    'pending-task',
+    'completing-task',
+  ]);
+  assert.equal(activeHistory.historyTaskCount, 3);
+
+  assert.throws(
+    () => summarizeTaskHistory([{ taskId: 'unknown-task', status: 'UNKNOWN' }]),
+    /unknown status UNKNOWN/u,
+  );
+  assert.throws(
+    () => summarizeTaskHistory([{ taskId: '', status: 'PENDING' }]),
+    /missing taskId/u,
+  );
+  assert.throws(
+    () => summarizeTaskHistory(undefined),
+    /must be an array/u,
+  );
+});
+
+test('retained evidence binds contracts, tasks, audits and final active state', () => {
   assert.match(observer, /createHash\('sha256'\)/u);
   assert.match(observer, /crossClientSha256/u);
   assert.match(observer, /scenarioSha256/u);
@@ -123,7 +169,11 @@ test('retained evidence binds contracts, tasks, audits and final state', () => {
   assert.match(observer, /auditEventIds/u);
   assert.match(observer, /cross-client handoff changed the governed instanceId/u);
   assert.match(observer, /finalInstance\.instance\.status !== 'COMPLETED'/u);
-  assert.match(observer, /completed instance still exposes active tasks/u);
+  assert.match(observer, /summarizeTaskHistory\(finalInstance\.tasks\)/u);
+  assert.match(observer, /finalTaskSummary\.activeTaskCount !== 0/u);
+  assert.match(observer, /taskHistoryCount: finalTaskSummary\.historyTaskCount/u);
+  assert.match(observer, /taskStatusCounts: finalTaskSummary\.statusCounts/u);
+  assert.doesNotMatch(observer, /finalInstance\.tasks\.length !== 0/u);
   assert.match(observer, /status: 'IN_PROGRESS'/u);
   assert.match(observer, /evidence\.status = 'PASSED'/u);
   assert.match(observer, /evidence\.status = 'FAILED'/u);
