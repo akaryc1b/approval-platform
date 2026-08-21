@@ -29,7 +29,7 @@ import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
 import io.github.akaryc1b.approval.engine.flowable.FlowableApprovalEngine;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAttachmentStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalCommentStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalCommentStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMessageStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalParticipationQuery;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalProjectionStoreFactory;
@@ -122,9 +122,14 @@ public class ApprovalPlatformConfiguration {
     @Bean
     ApprovalCommentStore approvalCommentStore(
         DataSource dataSource,
-        ObjectMapper approvalPersistenceObjectMapper
+        ObjectMapper approvalPersistenceObjectMapper,
+        PlatformTransactionManager transactionManager
     ) {
-        return new JdbcApprovalCommentStore(dataSource, approvalPersistenceObjectMapper);
+        return JdbcApprovalCommentStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper,
+            transactionManager
+        );
     }
 
     @Bean
