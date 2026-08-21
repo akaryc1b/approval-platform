@@ -40,7 +40,7 @@ The MySQL implementation must preserve:
 - attachment readability determined by the current comment audience;
 - additional participant discovery from approval messages and governed task
   collaboration;
-- optimistic version compare-and-swap for edit and delete;
+- optimistic CAS (compare-and-swap) for edit and delete;
 - tombstone deletion with complete deleted metadata;
 - comment mutation and immutable revision insertion in one transaction;
 - rollback of the comment mutation if revision persistence fails;
