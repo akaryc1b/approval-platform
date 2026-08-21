@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { delimiter, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const repositoryRoot = resolve(
@@ -97,7 +97,12 @@ export function java21Environment() {
       process.platform === 'win32' ? 'java.exe' : 'java',
     );
     if (existsSync(executable)) {
-      return { ...process.env, JAVA_HOME: javaHome };
+      const javaBin = resolve(javaHome, 'bin');
+      return {
+        ...process.env,
+        JAVA_HOME: javaHome,
+        PATH: `${javaBin}${delimiter}${process.env.PATH || ''}`,
+      };
     }
   }
   return process.env;

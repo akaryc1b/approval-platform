@@ -27,6 +27,9 @@ function runSmoke(...args) {
 }
 
 const smoke = text('scripts/product-readiness/pc-h5-runtime-smoke.mjs');
+const runtimeContract = text(
+  'scripts/product-readiness/pc-h5-runtime/contract.mjs',
+);
 const processSupport = [
   text('scripts/product-readiness/pc-h5-runtime/processes.mjs'),
   text('scripts/product-readiness/pc-h5-runtime/ci-scope.mjs'),
@@ -77,6 +80,8 @@ test('orchestrator uses fixed executables, local services and path-gated CI', ()
   assert.match(processSupport, /GITHUB_EVENT_PATH/u);
   assert.match(processSupport, /PC_H5_RUNTIME_SCOPE=/u);
   assert.match(smoke, /http:\/\/127\.0\.0\.1:8080/u);
+  assert.match(runtimeContract, /JAVA_HOME_21_X64/u);
+  assert.match(runtimeContract, /PATH: `\$\{javaBin\}\$\{delimiter\}/u);
   assert.doesNotMatch(processSupport, /spawn(?:Sync)?\(command/u);
   assert.doesNotMatch(processSupport, /shell:\s*true/u);
   assert.doesNotMatch(processSupport, /\bexec\s*\(/u);
