@@ -28,7 +28,7 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   assert.equal(plan.entrypoint, 'pnpm demo:backend:start');
   assert.equal(plan.destructive, false);
   assert.deepEqual(
-    plan.steps.map((step) => step.id),
+    plan.steps.map(step => step.id),
     [
       'preflight',
       'infrastructure',
@@ -40,10 +40,14 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
       'seed',
     ],
   );
-  assert.match(
-    plan.steps.find((step) => step.id === 'backend').command,
-    /^APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true mvn /u,
+  const backendCommand = plan.steps.find(step => step.id === 'backend').command;
+  assert.equal(
+    backendCommand,
+    'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true mvn -B -ntp '
+      + '-pl :approval-server spring-boot:run '
+      + '-Dspring-boot.run.profiles=local',
   );
+  assert.doesNotMatch(backendCommand, /-f apps\/server\/pom\.xml/u);
   assert.equal(plan.successMarkers.includes('BACKEND_LOCAL_START_VERIFIED'), true);
   for (const marker of [
     'QUICK_START_10_MINUTES_NOT_EXECUTED',
@@ -56,7 +60,7 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   }
 });
 
-test('backend command uses argument arrays, local values and no shell or direct database writes', () => {
+test('backend command uses the root reactor, fixed executables and no direct database writes', () => {
   const source = text(commandPath);
   assert.match(source, /shell: false/gu);
   assert.match(source, /APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED: 'true'/u);
@@ -68,6 +72,11 @@ test('backend command uses argument arrays, local values and no shell or direct 
   assert.match(source, /spawnSync\('docker', args/u);
   assert.match(source, /spawnSync\(mavenExecutable\(\), args/u);
   assert.match(source, /function waitForDockerCommand\(label, args, predicate, timeoutMs\)/u);
+  assert.match(
+    source,
+    /'-pl',\s*':approval-server',\s*'spring-boot:run'/u,
+  );
+  assert.doesNotMatch(source, /'-f',\s*'apps\/server\/pom\.xml'/u);
   assert.doesNotMatch(source, /function executable\(name\)/u);
   assert.doesNotMatch(source, /function runChecked\(label, command, args\)/u);
   assert.doesNotMatch(source, /function runCaptured\(command, args\)/u);
