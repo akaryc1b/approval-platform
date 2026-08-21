@@ -11,8 +11,11 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -25,6 +28,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -103,10 +107,50 @@ class JdbcInboxOutboxIntegrationTest {
     }
 
     @Test
+    void duplicateOutboxAdmissionDoesNotAbortTheSurroundingTransaction() {
+        OutboxMessage first = message("request-10", "event-key-10", NOW);
+        OutboxMessage duplicate = message("request-11", "event-key-10", NOW);
+        OutboxMessage independent = message("request-12", "event-key-12", NOW);
+        TransactionTemplate transaction = new TransactionTemplate(
+            new JdbcTransactionManager(dataSource)
+        );
+
+        transaction.executeWithoutResult(status -> {
+            assertEquals(AppendResult.INSERTED, outbox.append(first));
+            assertEquals(AppendResult.DUPLICATE, outbox.append(duplicate));
+            assertEquals(AppendResult.INSERTED, outbox.append(independent));
+        });
+
+        assertEquals(2, new JdbcTemplate(dataSource).queryForObject(
+            "select count(*) from ap_outbox",
+            Integer.class
+        ));
+        OutboxMessage collisionSource = message("request-13", "event-key-13", NOW);
+        OutboxMessage primaryKeyCollision = new OutboxMessage(
+            first.id(),
+            collisionSource.context(),
+            collisionSource.event(),
+            collisionSource.availableAt(),
+            collisionSource.createdAt()
+        );
+        assertThrows(
+            DuplicateKeyException.class,
+            () -> outbox.append(primaryKeyCollision)
+        );
+    }
+
+    @Test
     void expiredOutboxLeaseCanBeRecoveredByAnotherWorker() {
         OutboxMessage message = message("request-1", "event-key-1", NOW);
         outbox.append(message);
         outbox.claimDue(NOW, 1, "worker-a", Duration.ofSeconds(30));
+        assertFalse(outbox.markDelivered(
+            message.id(),
+            "worker-a",
+            "expired-provider",
+            204,
+            NOW.plusSeconds(30)
+        ));
 
         var recovered = outbox.claimDue(NOW.plusSeconds(31), 1, "worker-b", Duration.ofMinutes(1));
 
@@ -133,6 +177,25 @@ class JdbcInboxOutboxIntegrationTest {
         assertEquals(
             BeginStatus.PAYLOAD_MISMATCH,
             inbox.begin(key, "hash-b", NOW.plusSeconds(3), "worker-c", Duration.ofMinutes(1)).status()
+        );
+    }
+
+    @Test
+    void expiredInboxOwnerCannotCompleteOrFail() {
+        var key = new InboxMessageKey("tenant-a", "generic-webhook", "message-expired");
+        inbox.begin(key, "hash-a", NOW, "worker-a", Duration.ofSeconds(30));
+
+        assertFalse(inbox.complete(key, "worker-a", NOW.plusSeconds(30)));
+        assertFalse(inbox.fail(key, "worker-a", "expired", NOW.plusSeconds(30)));
+        assertEquals(
+            BeginStatus.ACQUIRED,
+            inbox.begin(
+                key,
+                "hash-a",
+                NOW.plusSeconds(30),
+                "worker-b",
+                Duration.ofMinutes(1)
+            ).status()
         );
     }
 

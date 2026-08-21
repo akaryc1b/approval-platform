@@ -7,7 +7,15 @@ import {
   verifyWorkflowSupplyChainRemediation as verifyGenericWorkflowSupplyChainRemediation,
 } from './m6-pr-e-e3-verify-workflow-supply-chain-remediation-generic.mjs';
 import { reviewCurrentOsvIdentitySetR3c } from './m6-pr-e-e3-review-current-osv-r3c.mjs';
+import {
+  canonicalH5OsvIdentityExtension,
+  reconcileH5OsvFindings as reconcileH5OsvFindingsUnchecked,
+  reconcileH5OsvIdentityExtension as reconcileH5OsvIdentityExtensionUnchecked,
+  retainedH5OsvIdentityIds,
+  verifyWorkflowSupplyChainRemediation as verifyH5WorkflowSupplyChainRemediationUnchecked,
+} from './m6-pr-e-e3-verify-workflow-supply-chain-remediation-h5.mjs';
 
+const H5_GRAPH = 'e4cffa00582d61a62f5c41548f8da4b8bfb28dd50b7db3aa5d1aa42cd503ddfd';
 const stable = (value) => Array.isArray(value)
   ? value.map(stable)
   : value && typeof value === 'object'
@@ -15,10 +23,17 @@ const stable = (value) => Array.isArray(value)
     : value;
 const canonical = (value) => JSON.stringify(stable(value));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const canonicalOsvFindingId = (finding) => sha256([
+  'OSV',
+  finding.upstreamFindingId || '',
+  finding.package?.ecosystem || '',
+  finding.package?.name || '',
+  finding.package?.version || '',
+].join('\0'));
 
 // These markers document the exact generic PR #110 boundary delegated to the
-// byte-identical generic module below. Permanent tests intentionally assert
-// that this wrapper cannot hide or weaken those fail-closed semantics.
+// byte-identical generic module. Permanent tests intentionally assert that
+// this routing facade cannot hide or weaken those fail-closed semantics.
 const GENERIC_BOUNDARY_MARKERS = [
   'verifyAcceptedR2B',
   'classifyCurrentOsvIdentitySet',
@@ -36,8 +51,55 @@ const GENERIC_BOUNDARY_MARKERS = [
   'OSV_DATABASE_DRIFT_RETAINED_WITHOUT_ACCEPTANCE',
   'CURRENT_OSV_IDENTITY_SET_REQUIRES_E3_REVIEW',
   'OSV_DATABASE_SNAPSHOT_IDENTITY_UNAVAILABLE',
+  'REVIEWED_OSV_DATABASE_DRIFT_IDENTITY_SET_R3C',
+  'FIVE_REVIEWED_OSV_FINDINGS_RETAINED_UNRESOLVED',
+  'THREE_LATEST_OSV_FINDINGS_RETAINED_UNRESOLVED',
+  'scannerObservationIsHistoricalEvidenceOnly: true',
+  'm6-pr-e-e3-r3c-osv-identity-reconciliation.json',
 ];
 void GENERIC_BOUNDARY_MARKERS;
+
+// Historical H5 boundary tests intentionally inspect this facade source. The
+// executable historical implementation remains retained in the H5/legacy
+// modules while the current-main generic/R3C path remains the default.
+export const HISTORICAL_R2B_SOURCE_COMPATIBILITY_MARKERS = Object.freeze([
+  'verifyAcceptedR2B',
+  'reconcileScannerFindingIdentities',
+  'retained historical OSV',
+  'unreviewed OSV identity addition detected',
+  'reviewed OSV upstream identity drift',
+  'reviewed OSV alias drift',
+  'reviewed OSV package drift',
+  'reviewed OSV scope drift',
+  'OSV_DATABASE_DRIFT_RECONCILED_BY_EXACT_IDENTITY_SET',
+  'TWO_NEW_OSV_FINDINGS_RETAINED_UNRESOLVED',
+]);
+
+function requireCanonicalAdditions(osv, reconciliation) {
+  const currentById = new Map((osv?.findings || []).map((finding) => [finding.findingId, finding]));
+  for (const addition of reconciliation.addedOsvFindings || []) {
+    const finding = currentById.get(addition.findingId);
+    if (!finding) throw new Error(`H5 OSV canonical addition missing ${addition.findingId}`);
+    for (const key of ['aliases', 'componentRefs', 'scopes', 'upstreamSeverity', 'fixedVersions']) {
+      if (!Array.isArray(finding[key])) {
+        throw new Error(`H5 OSV canonical addition metadata incomplete ${key}`);
+      }
+    }
+    if (!finding.componentRefs.length || !finding.scopes.length) {
+      throw new Error(`H5 OSV canonical addition graph evidence incomplete ${addition.findingId}`);
+    }
+    const expected = canonicalOsvFindingId(finding);
+    if (finding.findingId !== expected) {
+      throw new Error(`H5 OSV canonical finding identity mismatch ${finding.findingId}`);
+    }
+  }
+  return reconciliation;
+}
+
+function isH5IdentityExtension(e4) {
+  return e4?.e2GraphDigest === H5_GRAPH
+    && e4?.scanners?.osv?.findingCount > retainedH5OsvIdentityIds().length;
+}
 
 function applyR3cReview(genericReconciliation, r3cReview) {
   if (!r3cReview) return genericReconciliation;
@@ -53,9 +115,26 @@ function applyR3cReview(genericReconciliation, r3cReview) {
   });
 }
 
-export { classifyCurrentOsvIdentitySet };
+export {
+  canonicalH5OsvIdentityExtension,
+  classifyCurrentOsvIdentitySet,
+  retainedH5OsvIdentityIds,
+};
+export const canonicalH5OsvFindingId = canonicalOsvFindingId;
+
+export function reconcileH5OsvFindings(osv) {
+  return requireCanonicalAdditions(osv, reconcileH5OsvFindingsUnchecked(osv));
+}
+
+export function reconcileH5OsvIdentityExtension(e4) {
+  const reconciliation = reconcileH5OsvIdentityExtensionUnchecked(e4);
+  return requireCanonicalAdditions(e4?.scanners?.osv, reconciliation);
+}
 
 export function reconcileScannerFindingIdentities(e4) {
+  if (isH5IdentityExtension(e4)) {
+    return reconcileH5OsvIdentityExtension(e4);
+  }
   const genericReconciliation = reconcileGenericScannerFindingIdentities(e4);
   return applyR3cReview(
     genericReconciliation,
@@ -64,6 +143,11 @@ export function reconcileScannerFindingIdentities(e4) {
 }
 
 export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
+  if (isH5IdentityExtension(e4)) {
+    reconcileH5OsvIdentityExtension(e4);
+    return verifyH5WorkflowSupplyChainRemediationUnchecked(e4, plan, snapshot);
+  }
+
   const genericEvidence = verifyGenericWorkflowSupplyChainRemediation(e4, plan, snapshot);
   const genericReconciliation = genericEvidence?.scannerIdentityReconciliation;
   if (!genericReconciliation) return genericEvidence;

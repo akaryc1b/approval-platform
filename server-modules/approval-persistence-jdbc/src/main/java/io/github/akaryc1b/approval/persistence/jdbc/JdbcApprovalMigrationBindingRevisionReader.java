@@ -13,11 +13,15 @@ public final class JdbcApprovalMigrationBindingRevisionReader
     implements ApprovalMigrationBindingRevisionReader {
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final JdbcDatabaseValueAdapter values;
 
     public JdbcApprovalMigrationBindingRevisionReader(DataSource dataSource) {
-        jdbc = new NamedParameterJdbcTemplate(
-            Objects.requireNonNull(dataSource, "dataSource must not be null")
+        DataSource source = Objects.requireNonNull(
+            dataSource,
+            "dataSource must not be null"
         );
+        jdbc = new NamedParameterJdbcTemplate(source);
+        values = JdbcDatabaseValueAdapter.resolve(source);
     }
 
     @Override
@@ -33,7 +37,7 @@ public final class JdbcApprovalMigrationBindingRevisionReader
             where attempt.tenant_id=:tenantId and attempt.attempt_id=:attemptId
             """, new MapSqlParameterSource()
                 .addValue("tenantId", tenantId)
-                .addValue("attemptId", attemptId),
+                .addValue("attemptId", values.bindUuid(attemptId)),
             (row, number) -> row.getLong(1)).stream().findFirst().orElse(null);
         if (revision == null || revision < 1) {
             throw new IllegalStateException("exact runtime-binding revision was not found");

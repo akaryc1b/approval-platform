@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalMessageService;
 import io.github.akaryc1b.approval.application.ApprovalMessageService.CopyCommand;
 import io.github.akaryc1b.approval.application.ApprovalMessageService.UrgeCommand;
+import io.github.akaryc1b.approval.application.port.ApprovalMessageStore.ApprovalMessage;
 import io.github.akaryc1b.approval.application.port.ApprovalMessageStore.MessageIdentity;
+import io.github.akaryc1b.approval.application.port.ApprovalMessageStore.MessageType;
 import io.github.akaryc1b.approval.application.port.ApprovalParticipationQuery.StartedInstanceCriteria;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
@@ -47,11 +49,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JdbcApprovalMessageIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-07-18T04:00:00Z");
-    private static final UUID INSTANCE_ID = UUID.fromString("00000000-0000-0000-0000-000000000701");
-    private static final UUID TASK_ID = UUID.fromString("00000000-0000-0000-0000-000000000702");
+    private static final UUID INSTANCE_ID = UUID.fromString(
+        "00000000-0000-0000-0000-000000000701"
+    );
+    private static final UUID TASK_ID = UUID.fromString(
+        "00000000-0000-0000-0000-000000000702"
+    );
 
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+        "postgres:16-alpine"
+    )
         .withDatabaseName("approval_message_test")
         .withUsername("approval")
         .withPassword("approval");
@@ -124,7 +132,10 @@ class JdbcApprovalMessageIntegrationTest {
         assertEquals(urged, replayedUrge);
         assertEquals(1, urged.createdMessages());
         assertEquals(List.of("manager-1"), urged.recipients());
-        assertEquals(1, messageStore.countUnread(new MessageIdentity("tenant-a", "manager-1")));
+        assertEquals(
+            1,
+            messageStore.countUnread(new MessageIdentity("tenant-a", "manager-1"))
+        );
         assertEquals(1, countAudit("INSTANCE_URGED"));
 
         assertThrows(
@@ -149,7 +160,12 @@ class JdbcApprovalMessageIntegrationTest {
             "请关注该付款审批"
         ));
         assertEquals(1, copied.createdMessages());
-        assertEquals(1, messageStore.countUnread(new MessageIdentity("tenant-a", "finance-reviewer")));
+        assertEquals(
+            1,
+            messageStore.countUnread(
+                new MessageIdentity("tenant-a", "finance-reviewer")
+            )
+        );
         assertEquals(1, countAudit("INSTANCE_COPIED"));
 
         assertThrows(
@@ -162,20 +178,41 @@ class JdbcApprovalMessageIntegrationTest {
             ))
         );
 
-        var managerMessages = service.findMessages("tenant-a", "manager-1", false, 20, 0);
+        var managerMessages = service.findMessages(
+            "tenant-a",
+            "manager-1",
+            false,
+            20,
+            0
+        );
         assertEquals(1, managerMessages.total());
         assertFalse(managerMessages.items().getFirst().read());
         UUID managerMessageId = managerMessages.items().getFirst().messageId();
 
-        var firstRead = service.markRead("tenant-a", "manager-1", managerMessageId).orElseThrow();
-        var repeatedRead = service.markRead("tenant-a", "manager-1", managerMessageId).orElseThrow();
+        var firstRead = service.markRead(
+            "tenant-a",
+            "manager-1",
+            managerMessageId
+        ).orElseThrow();
+        var repeatedRead = service.markRead(
+            "tenant-a",
+            "manager-1",
+            managerMessageId
+        ).orElseThrow();
 
         assertTrue(firstRead.firstRead());
         assertFalse(repeatedRead.firstRead());
-        assertEquals(0, messageStore.countUnread(new MessageIdentity("tenant-a", "manager-1")));
+        assertEquals(
+            0,
+            messageStore.countUnread(new MessageIdentity("tenant-a", "manager-1"))
+        );
         assertEquals(1, countAudit("MESSAGE_READ"));
 
-        var receipts = service.findReceipts("tenant-a", "initiator-1", INSTANCE_ID);
+        var receipts = service.findReceipts(
+            "tenant-a",
+            "initiator-1",
+            INSTANCE_ID
+        );
         assertEquals(2, receipts.size());
         assertEquals(1, receipts.stream().filter(receipt -> receipt.read()).count());
 
@@ -202,6 +239,70 @@ class JdbcApprovalMessageIntegrationTest {
         )).orElseThrow();
         assertTrue(timeline.items().stream()
             .anyMatch(item -> "INSTANCE_COPIED".equals(item.action())));
+    }
+
+    @Test
+    void conflictTargetPreservesCurrentMixedOwnerDedupReplayWithoutMutation() {
+        ApprovalMessage dedupOwner = message(
+            uuid(731),
+            "manager-1",
+            "initiator-1",
+            "dedup owner",
+            "dedup owner body",
+            Map.of("owner", "dedup"),
+            "postgres-dedup-owner",
+            NOW.plusSeconds(1)
+        );
+        ApprovalMessage messageIdOwner = message(
+            uuid(732),
+            "finance-reviewer",
+            "initiator-1",
+            "message id owner",
+            "message id owner body",
+            Map.of("owner", "message-id"),
+            "postgres-message-id-owner",
+            NOW.plusSeconds(2)
+        );
+
+        assertEquals(2, messageStore.append(List.of(dedupOwner, messageIdOwner)));
+        assertEquals(0, messageStore.append(List.of(dedupOwner)));
+
+        ApprovalMessage mixedOwnerConflict = new ApprovalMessage(
+            messageIdOwner.messageId(),
+            "tenant-a",
+            "outsider",
+            "different-sender",
+            INSTANCE_ID,
+            TASK_ID,
+            MessageType.COPY,
+            "mixed owner",
+            "must not mutate existing rows",
+            Map.of("owner", "mixed"),
+            dedupOwner.dedupKey(),
+            NOW.plusSeconds(3)
+        );
+
+        assertEquals(0, messageStore.append(List.of(mixedOwnerConflict)));
+        assertEquals(
+            2,
+            messageStore.findReceipts("tenant-a", INSTANCE_ID).size()
+        );
+        assertEquals(
+            "dedup owner",
+            jdbc.queryForObject(
+                "select title from ap_approval_message where message_id = ?",
+                String.class,
+                dedupOwner.messageId()
+            )
+        );
+        assertEquals(
+            "message id owner",
+            jdbc.queryForObject(
+                "select title from ap_approval_message where message_id = ?",
+                String.class,
+                messageIdOwner.messageId()
+            )
+        );
     }
 
     private void createRunningInstance() {
@@ -271,6 +372,38 @@ class JdbcApprovalMessageIntegrationTest {
             null
         );
         projections.createInstance(instance, List.of(managerTask));
+    }
+
+    private static ApprovalMessage message(
+        UUID messageId,
+        String recipientId,
+        String senderId,
+        String title,
+        String body,
+        Map<String, String> metadata,
+        String dedupKey,
+        Instant createdAt
+    ) {
+        return new ApprovalMessage(
+            messageId,
+            "tenant-a",
+            recipientId,
+            senderId,
+            INSTANCE_ID,
+            TASK_ID,
+            MessageType.URGE,
+            title,
+            body,
+            metadata,
+            dedupKey,
+            createdAt
+        );
+    }
+
+    private static UUID uuid(long suffix) {
+        return UUID.fromString(
+            "00000000-0000-0000-0000-" + String.format("%012d", suffix)
+        );
     }
 
     private static UserIdentitySnapshot identity(String id, String displayName) {

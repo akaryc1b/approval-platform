@@ -51,6 +51,12 @@ const forbiddenExtensions = new Set([
   '.zip',
 ]);
 
+const governedEncodedResources = new Set(
+  Array.from({ length: 9 }, (_, index) =>
+    'server-modules/approval-persistence-jdbc/src/main/resources/'
+      + `db/mysqlmigration/baseline-${String(index + 1).padStart(3, '0')}.b64`),
+);
+
 function pathSegments(path) {
   return path.split('/');
 }
@@ -62,8 +68,16 @@ test('tracked tree contains no build or dependency directories', () => {
 });
 
 test('tracked tree contains no generated payload, log or binary extensions', () => {
-  const offenders = trackedFiles.filter(path => forbiddenExtensions.has(extname(path).toLowerCase()));
+  const offenders = trackedFiles.filter(path =>
+    forbiddenExtensions.has(extname(path).toLowerCase())
+      && !governedEncodedResources.has(path));
   assert.deepEqual(offenders, []);
+});
+
+test('only the governed MySQL V50 baseline may use encoded source resources', () => {
+  const encodedResources = trackedFiles.filter(path =>
+    ['.base64', '.b64'].includes(extname(path).toLowerCase()));
+  assert.deepEqual(encodedResources, [...governedEncodedResources].sort());
 });
 
 test('tracked tree contains no temporary PR workflows or patch helpers', () => {

@@ -23,17 +23,39 @@ const storePortPath = path.join(
   'server-modules/approval-ai-core/src/main/java/' +
     'io/github/akaryc1b/approval/ai/core/ApprovalAssistanceDurableEvidenceStore.java',
 );
-const jdbcStorePath = path.join(
+const jdbcRoot = path.join(
   root,
   'server-modules/approval-persistence-jdbc/src/main/java/' +
-    'io/github/akaryc1b/approval/persistence/jdbc/' +
-    'JdbcApprovalAssistanceDurableEvidenceStore.java',
+    'io/github/akaryc1b/approval/persistence/jdbc',
+);
+const jdbcStorePath = path.join(
+  jdbcRoot,
+  'JdbcApprovalAssistanceDurableEvidenceStore.java',
+);
+const mysqlStorePath = path.join(
+  jdbcRoot,
+  'JdbcMySqlApprovalAssistanceDurableEvidenceStore.java',
+);
+const storeFactoryPath = path.join(
+  jdbcRoot,
+  'JdbcApprovalAssistanceDurableEvidenceStoreFactory.java',
+);
+const mysqlGuardPath = path.join(
+  root,
+  'server-modules/approval-persistence-jdbc/src/main/java/db/mysqlmigration/' +
+    'MySqlV50AiEvidenceGuards.java',
 );
 const integrationTestPath = path.join(
   root,
   'server-modules/approval-persistence-jdbc/src/test/java/' +
     'io/github/akaryc1b/approval/persistence/jdbc/' +
     'JdbcApprovalAssistanceDurableEvidenceStoreIntegrationTest.java',
+);
+const mysqlIntegrationTestPath = path.join(
+  root,
+  'server-modules/approval-persistence-jdbc/src/test/java/' +
+    'io/github/akaryc1b/approval/persistence/jdbc/' +
+    'JdbcApprovalAssistanceDurableEvidenceStoreMySqlIntegrationTest.java',
 );
 const generationServicePath = path.join(
   root,
@@ -66,13 +88,17 @@ function text(file) {
   return readFileSync(file, 'utf8');
 }
 
-test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure', () => {
+test('P4 durable evidence is exact hash-only dual-database internal infrastructure', () => {
   for (const requiredPath of [
     migrationPath,
     evidencePath,
     storePortPath,
     jdbcStorePath,
+    mysqlStorePath,
+    storeFactoryPath,
+    mysqlGuardPath,
     integrationTestPath,
+    mysqlIntegrationTestPath,
     generationServicePath,
     generationControllerPath,
     productionConfigPath,
@@ -122,7 +148,11 @@ test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure
   assert.doesNotMatch(executableSql, /\b(?:text|json|jsonb|bytea)\b/i);
   assert.doesNotMatch(
     executableSql,
-    /^\s*(?:raw|payload|body|content|summary|observation_text|risk_text|recommendation_text|limitation_text)[a-z0-9_]*\s+/im,
+    new RegExp(
+      '^\\s*(?:raw|payload|body|content|summary|observation_text|risk_text|' +
+        'recommendation_text|limitation_text)[a-z0-9_]*\\s+',
+      'im',
+    ),
   );
 
   const evidence = text(evidencePath);
@@ -173,7 +203,30 @@ test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure
   ]) {
     assert.match(jdbcStore, required);
   }
+
+  const mysqlStore = text(mysqlStorePath);
+  for (const required of [
+    /JdbcDatabaseValueAdapter\.resolve\(source\)/,
+    /JdbcMySqlTransactionLockManager/,
+    /ApprovalAssistanceDurableEvidence exact = requireCanonicalEvidence\(evidence\)/,
+    /acquireIdentityLocks\(exact\)/,
+    /insertStoredEvent\(eventId, exact, eventHash\)/,
+    /insertTombstoneEvent\(/,
+    /tombstone_hash/,
+    /AuditHashCanonicalizer\.canonicalInstant/,
+    /MySQL evidence event\/state authority diverged/,
+  ]) {
+    assert.match(mysqlStore, required);
+  }
   for (const forbidden of [
+    /\bon conflict\b/i,
+    /for update of/i,
+    /insert ignore/i,
+    /on duplicate key update/i,
+    /replace into/i,
+    /foreign_key_checks/i,
+    /pg_advisory/i,
+    /::jsonb/,
     /@RestController\b/,
     /@Scheduled\b/,
     /org\.flowable/,
@@ -182,11 +235,49 @@ test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure
     /ApprovalCommand/,
     /SecretMaterial/,
   ]) {
-    assert.doesNotMatch(jdbcStore, forbidden);
+    assert.doesNotMatch(mysqlStore, forbidden);
+  }
+
+  const factory = text(storeFactoryPath);
+  assert.match(factory, /ApprovalDatabaseVendorResolver/);
+  assert.match(factory, /case POSTGRESQL/);
+  assert.match(factory, /case MYSQL/);
+  assert.match(factory, /JdbcMySqlApprovalAssistanceDurableEvidenceStore/);
+
+  const mysqlGuards = text(mysqlGuardPath).toLowerCase();
+  for (const required of [
+    'add column tombstone_hash char(64)',
+    'trg_ai_assistance_evidence_update_guard_v49',
+    'trg_ai_assistance_event_before_insert_v49',
+    'trg_ai_assistance_event_after_insert_v49',
+    'trg_ai_assistance_state_before_insert_v49',
+    'trg_ai_assistance_state_before_update_v49',
+    'p4 tombstone event lacks exact active predecessor state',
+    'p4 tombstone event evidence is incomplete',
+    'p4 tombstone event lost evidence-state cas',
+  ]) {
+    assert.equal(mysqlGuards.includes(required), true, required);
+  }
+  for (const forbidden of [
+    'set global',
+    'set persist',
+    'foreign_key_checks',
+    'insert ignore',
+    'on duplicate key update',
+    'replace into',
+  ]) {
+    assert.equal(mysqlGuards.includes(forbidden), false, forbidden);
   }
 
   const productionConfig = text(productionConfigPath);
-  assert.match(productionConfig, /new JdbcApprovalAssistanceDurableEvidenceStore\(/);
+  assert.match(
+    productionConfig,
+    /JdbcApprovalAssistanceDurableEvidenceStoreFactory\.create\(/,
+  );
+  assert.doesNotMatch(
+    productionConfig,
+    /new JdbcApprovalAssistanceDurableEvidenceStore\(/,
+  );
   assert.match(productionConfig, /ApprovalAssistanceDurableEvidenceStore/);
 
   const generationService = text(generationServicePath);
@@ -200,7 +291,7 @@ test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure
     /(?:Jdbc)?ApprovalAssistanceDurableEvidenceStore|evidenceStore\.store/,
   );
 
-  const integration = text(integrationTestPath);
+  const integrations = `${text(integrationTestPath)}\n${text(mysqlIntegrationTestPath)}`;
   for (const required of [
     /storesAndReplaysExactEvidenceAsOneActiveRevision/,
     /sameRequestWithDifferentEvidenceIdentityConflicts/,
@@ -215,7 +306,11 @@ test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure
     /eventWithoutMatchingStateIsRejectedAtCommit/,
     /wrongPredecessorAndTimeInversionAreRejectedBeforeCommit/,
     /schemaContainsNoRawPayloadTextJsonOrBinaryColumn/,
+    /selectsMySqlAuthorityAndStoresReplaysAndReadsExactEvidence/,
+    /outerRollbackRemovesEvidenceEventAndTriggerMaterializedState/,
+    /physicalMutationAndStructurallyInvalidEvidenceFailClosed/,
+    /schemaRetainsHashOnlyTypesAndExactMySqlP4Triggers/,
   ]) {
-    assert.match(integration, required);
+    assert.match(integrations, required);
   }
 });

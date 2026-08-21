@@ -24,7 +24,7 @@ import io.github.akaryc1b.approval.persistence.jdbc.ApprovalDefinitionJacksonSup
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalCompiledArtifactStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalDefinitionVersionStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalDesignDraftStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalReleasePackageStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalReleasePackageStoreFactory;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -97,7 +97,7 @@ public class ApprovalDesignConfiguration {
 
     @Bean
     ApprovalReleasePackageStore approvalReleasePackageStore(DataSource dataSource) {
-        return new JdbcApprovalReleasePackageStore(dataSource);
+        return JdbcApprovalReleasePackageStoreFactory.create(dataSource);
     }
 
     @Bean

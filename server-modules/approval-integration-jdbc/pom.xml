@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>approval-integration-jdbc</artifactId>
-    <description>PostgreSQL Inbox and Outbox persistence with Flyway migrations</description>
+    <description>PostgreSQL and MySQL Inbox and Outbox persistence</description>
 
     <dependencies>
         <dependency>
@@ -22,6 +22,10 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
