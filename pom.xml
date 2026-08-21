@@ -43,6 +43,7 @@
         <maven.surefire.version>3.5.5</maven.surefire.version>
         <maven.enforcer.version>3.5.0</maven.enforcer.version>
         <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
+        <flatten.maven.version>1.7.3</flatten.maven.version>
         <jacoco.version>0.8.15</jacoco.version>
     </properties>
 
@@ -114,6 +115,32 @@
         </pluginManagement>
 
         <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten.maven.version}</version>
+                <configuration>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    <updatePomFile>true</updatePomFile>
+                    <outputDirectory>${project.build.directory}</outputDirectory>
+                    <flattenedPomFilename>flattened-pom.xml</flattenedPomFilename>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>

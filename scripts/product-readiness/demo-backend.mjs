@@ -7,6 +7,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const rootPomPath = resolve(root, 'pom.xml');
 const composeFile = 'deploy/compose/docker-compose.yml';
 const composeProject = 'approval-platform-demo';
 const healthUrl = 'http://localhost:8080/actuator/health';
@@ -16,30 +17,27 @@ const pollIntervalMs = 1_500;
 const seedMarker = 'PURCHASE_PAYMENT_DEMO_SEED_APPLIED';
 const commands = new Set(['start', 'plan', 'stop', 'reset']);
 
+class UsageError extends Error {}
+
 function parseArguments(argv) {
   const values = [...argv];
   let command = 'start';
-  if (values[0] && !values[0].startsWith('--')) {
-    command = values.shift();
-  }
-  if (!commands.has(command)) {
-    throw new UsageError(`Unknown command: ${command}`);
-  }
+  if (values[0] && !values[0].startsWith('--')) command = values.shift();
+  if (!commands.has(command)) throw new UsageError(`Unknown command: ${command}`);
 
   const flags = new Set(values);
   const allowed = new Set(['--help']);
   if (command === 'plan') allowed.add('--json');
   if (command === 'reset') allowed.add('--confirm-local-data-loss');
-  const unknown = [...flags].filter((flag) => !allowed.has(flag));
+  const unknown = [...flags].filter(flag => !allowed.has(flag));
   if (unknown.length > 0) {
     throw new UsageError(`Unknown option(s) for ${command}: ${unknown.join(', ')}`);
   }
-
   return {
     command,
+    confirmLocalDataLoss: flags.has('--confirm-local-data-loss'),
     help: flags.has('--help'),
     json: flags.has('--json'),
-    confirmLocalDataLoss: flags.has('--confirm-local-data-loss'),
   };
 }
 
@@ -47,12 +45,28 @@ function usage() {
   return `Usage: node scripts/product-readiness/demo-backend.mjs [command] [options]\n\nCommands:\n  start   Run preflight, start PostgreSQL/Redis, build, start the real backend,\n          wait for Actuator UP and the deterministic seed, then remain attached.\n  plan    Print the exact non-destructive startup plan without executing it.\n  stop    Stop local Compose infrastructure without deleting its volume.\n  reset   Delete the disposable local Compose volume. Requires\n          --confirm-local-data-loss.\n\nOptions:\n  --json                     Machine-readable output for plan.\n  --confirm-local-data-loss  Required only for reset.\n  --help                     Show this help.\n\nThis command does not prove the 10-minute Quick Start, a complete approval E2E,\npayment integration, cross-client consistency, capacity, or recovery.`;
 }
 
+function rootRevision() {
+  if (!existsSync(rootPomPath)) throw new Error('Missing root pom.xml');
+  const source = readFileSync(rootPomPath, 'utf8');
+  const match = source.match(/<revision>([^<]+)<\/revision>/u);
+  const revision = match?.[1]?.trim();
+  if (!revision || revision.includes('${')) {
+    throw new Error('root pom.xml must declare a concrete revision');
+  }
+  if (!/^[0-9A-Za-z][0-9A-Za-z._-]*$/u.test(revision)) {
+    throw new Error('root pom.xml revision contains unsupported characters');
+  }
+  return revision;
+}
+
 function startupPlan() {
   const compose = `docker compose --project-name ${composeProject} -f ${composeFile}`;
+  const revision = rootRevision();
   return {
     schemaVersion: 1,
     entrypoint: 'pnpm demo:backend:start',
     destructive: false,
+    revision,
     steps: [
       {
         id: 'preflight',
@@ -72,11 +86,13 @@ function startupPlan() {
       },
       {
         id: 'reactor-build',
-        command: 'mvn -B -ntp -DskipTests install',
+        command: `mvn -B -ntp -Drevision=${revision} -DskipTests install`,
       },
       {
         id: 'backend',
-        command: 'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true mvn -B -ntp -f apps/server/pom.xml spring-boot:run -Dspring-boot.run.profiles=local',
+        command: 'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true '
+          + `mvn -B -ntp -Drevision=${revision} -pl :approval-server `
+          + 'spring-boot:run -Dspring-boot.run.profiles=local',
       },
       {
         id: 'health',
@@ -103,20 +119,20 @@ function startupPlan() {
 }
 
 function printPlan(jsonOutput) {
-  const plan = startupPlan();
+  const value = startupPlan();
   if (jsonOutput) {
-    console.log(JSON.stringify(plan, null, 2));
+    console.log(JSON.stringify(value, null, 2));
     return;
   }
   console.log('Approval Platform demo backend startup plan');
   console.log('Read-only plan: no process, container, database or volume is changed.\n');
-  for (const [index, step] of plan.steps.entries()) {
+  for (const [index, step] of value.steps.entries()) {
     console.log(`${String(index + 1).padStart(2, '0')}. ${step.id}: ${step.command}`);
   }
   console.log('\nExpected runtime markers after a successful real execution:');
-  for (const marker of plan.successMarkers) console.log(marker);
+  for (const marker of value.successMarkers) console.log(marker);
   console.log('\nExplicit non-claims:');
-  for (const marker of plan.nonClaims) console.log(marker);
+  for (const marker of value.nonClaims) console.log(marker);
 }
 
 function mavenExecutable() {
@@ -133,8 +149,8 @@ function runNodeChecked(label, args) {
   const result = spawnSync(process.execPath, args, {
     cwd: root,
     env: process.env,
-    stdio: 'inherit',
     shell: false,
+    stdio: 'inherit',
   });
   requireSuccessfulProcess(label, result);
 }
@@ -144,8 +160,8 @@ function runDockerChecked(label, args) {
   const result = spawnSync('docker', args, {
     cwd: root,
     env: process.env,
-    stdio: 'inherit',
     shell: false,
+    stdio: 'inherit',
   });
   requireSuccessfulProcess(label, result);
 }
@@ -155,8 +171,8 @@ function runMavenChecked(label, args) {
   const result = spawnSync(mavenExecutable(), args, {
     cwd: root,
     env: process.env,
-    stdio: 'inherit',
     shell: false,
+    stdio: 'inherit',
   });
   requireSuccessfulProcess(label, result);
 }
@@ -183,7 +199,7 @@ function bounded(value) {
 }
 
 function delay(milliseconds) {
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+  return new Promise(resolvePromise => setTimeout(resolvePromise, milliseconds));
 }
 
 async function waitForDockerCommand(label, args, predicate, timeoutMs) {
@@ -218,13 +234,12 @@ function readLocalDatabaseEnvironment() {
       throw new Error(`Missing local database variable ${name} in .env.example`);
     }
   }
-
-  return Object.fromEntries(required.map((name) => [name, parsed.get(name)]));
+  return Object.fromEntries(required.map(name => [name, parsed.get(name)]));
 }
 
 function attachOutput(child, state) {
   const forward = (stream, target) => {
-    stream.on('data', (chunk) => {
+    stream.on('data', chunk => {
       const text = chunk.toString('utf8');
       target.write(text);
       state.recentOutput = `${state.recentOutput}${text}`.slice(-65_536);
@@ -244,9 +259,8 @@ async function readHealth() {
     });
     const body = await response.text();
     if (!response.ok) return { ready: false, detail: `HTTP ${response.status}: ${body}` };
-    const payload = JSON.parse(body);
     return {
-      ready: payload?.status === 'UP',
+      ready: JSON.parse(body)?.status === 'UP',
       detail: body,
     };
   } catch {
@@ -294,23 +308,30 @@ async function start() {
   runNodeChecked('Read-only workstation preflight', [
     'scripts/product-readiness/demo-preflight.mjs',
   ]);
-  runDockerChecked('Start isolated local PostgreSQL and Redis', composeArguments(
-    'up', '-d', 'postgres', 'redis',
-  ));
+  runDockerChecked(
+    'Start isolated local PostgreSQL and Redis',
+    composeArguments('up', '-d', 'postgres', 'redis'),
+  );
   await waitForDockerCommand(
     'PostgreSQL',
     composeArguments('exec', '-T', 'postgres', 'pg_isready', '-U', 'approval', '-d', 'approval'),
-    (output) => /accepting connections/iu.test(output),
+    output => /accepting connections/iu.test(output),
     infrastructureTimeoutMs,
   );
   await waitForDockerCommand(
     'Redis',
     composeArguments('exec', '-T', 'redis', 'redis-cli', 'ping'),
-    (output) => /PONG/iu.test(output),
+    output => /PONG/iu.test(output),
     infrastructureTimeoutMs,
   );
+
+  const revision = rootRevision();
   runMavenChecked('Build Maven reactor for local startup', [
-    '-B', '-ntp', '-DskipTests', 'install',
+    '-B',
+    '-ntp',
+    `-Drevision=${revision}`,
+    '-DskipTests',
+    'install',
   ]);
 
   const localDatabaseEnvironment = readLocalDatabaseEnvironment();
@@ -318,8 +339,9 @@ async function start() {
   const child = spawn(mavenExecutable(), [
     '-B',
     '-ntp',
-    '-f',
-    'apps/server/pom.xml',
+    `-Drevision=${revision}`,
+    '-pl',
+    ':approval-server',
     'spring-boot:run',
     '-Dspring-boot.run.profiles=local',
   ], {
@@ -334,13 +356,13 @@ async function start() {
     stdio: ['inherit', 'pipe', 'pipe'],
   });
   const state = { recentOutput: '', seedLine: null, spawnError: null };
-  child.once('error', (error) => {
+  child.once('error', error => {
     state.spawnError = error;
   });
   attachOutput(child, state);
 
   let stopping = false;
-  const requestStop = (signal) => {
+  const requestStop = signal => {
     if (stopping) return;
     stopping = true;
     console.log(`\nStopping the attached local backend after ${signal}.`);
@@ -383,7 +405,10 @@ async function start() {
 }
 
 function stop() {
-  runDockerChecked('Stop isolated local infrastructure without deleting data', composeArguments('down'));
+  runDockerChecked(
+    'Stop isolated local infrastructure without deleting data',
+    composeArguments('down'),
+  );
   console.log('DEMO_BACKEND_LOCAL_INFRASTRUCTURE_STOPPED');
 }
 
@@ -393,13 +418,12 @@ function reset(confirmLocalDataLoss) {
       'reset requires --confirm-local-data-loss; no Docker command was executed',
     );
   }
-  runDockerChecked('Delete disposable local infrastructure and PostgreSQL volume', composeArguments(
-    'down', '-v', '--remove-orphans',
-  ));
+  runDockerChecked(
+    'Delete disposable local infrastructure and PostgreSQL volume',
+    composeArguments('down', '-v', '--remove-orphans'),
+  );
   console.log('DEMO_BACKEND_LOCAL_DATA_RESET');
 }
-
-class UsageError extends Error {}
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
@@ -422,7 +446,7 @@ async function main() {
   await start();
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error(`DEMO_BACKEND_COMMAND_FAILED: ${error.message}`);
   if (error instanceof UsageError) console.error(usage());
   process.exitCode = error instanceof UsageError ? 2 : 1;

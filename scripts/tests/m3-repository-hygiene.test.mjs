@@ -14,6 +14,7 @@ import './product-readiness-purchase-payment-contract.test.mjs';
 import './product-readiness-demo-seed-boundary.test.mjs';
 import './product-readiness-cross-client-local-demo-boundary.test.mjs';
 import './product-readiness-cross-client-runtime-evidence-boundary.test.mjs';
+import './product-readiness-pc-h5-runtime-boundary.test.mjs';
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
