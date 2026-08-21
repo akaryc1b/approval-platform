@@ -88,7 +88,12 @@ abstract class JdbcApprovalCommentStoreMySqlIntegrationSupport
     @AfterEach
     void cleanComments() {
         jdbc.update("delete from ap_approval_comment_revision");
-        jdbc.update("delete from ap_approval_comment");
+        jdbc.update(
+            "delete from ap_approval_comment where parent_comment_id is not null"
+        );
+        jdbc.update(
+            "delete from ap_approval_comment where parent_comment_id is null"
+        );
         jdbc.update("delete from ap_approval_message");
         jdbc.update(
             "delete from ap_task_collaboration_participant"
