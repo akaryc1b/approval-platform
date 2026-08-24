@@ -134,13 +134,14 @@ test('PC keeps shell mock traffic separate from the real approval backend', () =
 test('H5 and WeChat have separate local backend addressing', () => {
   assert.match(
     mobileDevelopmentEnv,
-    /VITE_APPROVAL_H5_API_URL=\/approval-api\/api/u,
+    /VITE_APPROVAL_H5_API_URL=\/api/u,
   )
   assert.match(
     mobileDevelopmentEnv,
     /VITE_APPROVAL_WEIXIN_API_URL=http:\/\/127\.0\.0\.1:8080\/api/u,
   )
   assert.match(mobileDevelopmentEnv, /VITE_APP_PROXY_ENABLE=true/u)
+  assert.match(mobileDevelopmentEnv, /VITE_APP_PROXY_PREFIX=\/approval-api/u)
   assert.match(mobileRuntime, /platform === 'web'/u)
   assert.match(mobileRuntime, /platform === 'mp-weixin'/u)
 })
@@ -214,17 +215,22 @@ test('client launcher is fail-closed before starting dependencies', () => {
   assert.match(invalidPlan.stderr, /plan accepts only --json and --help/u)
 })
 
-test('client launcher preserves the merged identity bridge and proxy paths', () => {
+test('client launcher preserves the identity bridge and composes the H5 proxy once', () => {
   assert.match(launcher, /VITE_APPROVAL_LOCAL_DEMO: 'true'/u)
   assert.match(launcher, /APPROVAL_DEMO_BACKEND_URL: resolved\.backendOrigin/u)
   assert.match(launcher, /VITE_APPROVAL_API_URL: '\/approval-api\/api'/u)
-  assert.match(launcher, /VITE_APPROVAL_H5_API_URL: '\/approval-api\/api'/u)
+  assert.match(launcher, /VITE_APPROVAL_H5_API_URL: '\/api'/u)
+  assert.match(launcher, /VITE_APP_PROXY_PREFIX: '\/approval-api'/u)
   assert.match(
     launcher,
     /VITE_APPROVAL_WEIXIN_API_URL: `\$\{resolved\.backendOrigin\}\/api`/u,
   )
   assert.match(launcher, /VITE_SERVER_BASEURL: resolved\.backendOrigin/u)
   assert.doesNotMatch(launcher, /VITE_APPROVAL_LOCAL_IDENTITY_HEADERS/u)
+  assert.doesNotMatch(
+    launcher,
+    /VITE_APPROVAL_H5_API_URL: '\/approval-api\/api'/u,
+  )
   assert.doesNotMatch(launcher, /\/approval-api\/api\/api/u)
 
   assert.match(launcher, /spawnSync\(process\.execPath, args/u)
