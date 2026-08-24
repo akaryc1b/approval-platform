@@ -3,58 +3,72 @@ import { expect } from '@playwright/test';
 
 import { businessKey, pcUrl } from './product-readiness-pc-h5-runtime-api';
 
-function exactApprovalResponse(response: Response, taskId: string) {
-  let pathname = '';
+function responsePath(response: Response) {
   try {
-    pathname = new URL(response.url()).pathname;
+    return new URL(response.url()).pathname;
   } catch {
-    return false;
+    return '';
   }
+}
+
+function exactApprovalResponse(response: Response, taskId: string) {
   return response.request().method() === 'POST'
-    && pathname === `/api/approval/tasks/${taskId}/approve`
+    && responsePath(response) === `/api/approval/tasks/${taskId}/approve`
     && response.status() === 200;
+}
+
+function exactLoginResponse(response: Response) {
+  return response.request().method() === 'POST'
+    && responsePath(response) === '/api/auth/login';
 }
 
 export async function ensurePcLogin(page: Page) {
   await page.goto(pcUrl, { waitUntil: 'domcontentloaded' });
+
   const username = page.locator("input[name='username']");
-  const loginVisible = await username
-    .isVisible({ timeout: 5_000 })
-    .catch(() => false);
-  if (!loginVisible) return;
-
-  await username.fill('vben');
-  await page.locator("input[name='password']").fill('123456');
-
+  const password = page.locator("input[name='password']");
   const slider = page.locator("div[name='captcha']");
   const action = page.locator("div[name='captcha-action']");
-  if (await slider.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    const sliderBox = await slider.boundingBox();
-    const actionBox = await action.boundingBox();
-    if (!sliderBox || !actionBox) {
-      throw new Error('PC login captcha is not measurable');
-    }
-    const startX = actionBox.x + actionBox.width / 2;
-    const startY = actionBox.y + actionBox.height / 2;
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
-    await page.mouse.move(
-      sliderBox.x + sliderBox.width - actionBox.width / 2,
-      startY,
-      { steps: 24 },
-    );
-    await page.mouse.up();
-  }
-
-  const namedLogin = page.getByRole('button', {
+  const login = page.getByRole('button', {
     name: /login|登录/iu,
   }).last();
-  if (await namedLogin.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await namedLogin.click();
-  } else {
-    await page.locator("button[type='submit']").first().click();
+
+  await expect(username).toBeVisible({ timeout: 15_000 });
+  await expect(password).toBeVisible();
+  await expect(slider).toBeVisible();
+  await expect(action).toBeVisible();
+  await expect(login).toBeVisible();
+
+  await username.fill('vben');
+  await password.fill('123456');
+
+  const sliderBox = await slider.boundingBox();
+  const actionBox = await action.boundingBox();
+  if (!sliderBox || !actionBox) {
+    throw new Error('PC login captcha is not measurable');
   }
-  await expect(username).toBeHidden({ timeout: 15_000 });
+  const startX = actionBox.x + actionBox.width / 2;
+  const startY = actionBox.y + actionBox.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(
+    sliderBox.x + sliderBox.width - actionBox.width / 2,
+    startY,
+    { steps: 24 },
+  );
+  await page.mouse.up();
+
+  const movedActionBox = await action.boundingBox();
+  if (!movedActionBox || movedActionBox.x <= actionBox.x) {
+    throw new Error('PC login captcha did not move to a verified state');
+  }
+
+  const [loginResponse] = await Promise.all([
+    page.waitForResponse(exactLoginResponse, { timeout: 30_000 }),
+    login.click(),
+  ]);
+  expect(loginResponse.status()).toBe(200);
+  await expect(username).toBeHidden({ timeout: 30_000 });
 }
 
 export async function clickPcApproval(
