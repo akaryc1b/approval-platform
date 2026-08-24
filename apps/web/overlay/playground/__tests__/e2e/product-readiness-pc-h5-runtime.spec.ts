@@ -206,7 +206,12 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       .toBeVisible();
     await capture(pc, 'pc-manager-before.png');
 
-    const pcApproval = await clickPcApproval(pc, pcPending.task.taskId);
+    const pcApproval = await clickPcApproval(pc, {
+      actorId: authoritativeActors.managerApproval,
+      businessKey,
+      processInstanceId,
+      taskId: pcPending.task.taskId,
+    });
     const pcApprovalHeaders = expectResponseIdentity(
       pcApproval,
       authoritativeActors.managerApproval,
@@ -272,7 +277,12 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
 
     const h5Approval = await clickH5Approval(
       h5Reviewer,
-      h5Pending.task.taskId,
+      {
+        actorId: authoritativeActors.financeReview,
+        businessKey,
+        processInstanceId,
+        taskId: h5Pending.task.taskId,
+      },
       '财务审核',
     );
     const h5ApprovalHeaders = expectResponseIdentity(
@@ -370,7 +380,12 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
 
     const countersignAApproval = await clickH5Approval(
       h5CountersignA,
-      countersignA.taskId,
+      {
+        actorId: authoritativeActors.financeCountersign[0],
+        businessKey,
+        processInstanceId,
+        taskId: countersignA.taskId,
+      },
       '财务会签',
     );
     const countersignAHeaders = expectResponseIdentity(
@@ -430,7 +445,12 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
 
     const countersignBApproval = await clickH5Approval(
       h5CountersignB,
-      countersignB.taskId,
+      {
+        actorId: authoritativeActors.financeCountersign[1],
+        businessKey,
+        processInstanceId,
+        taskId: countersignB.taskId,
+      },
       '财务会签',
     );
     const countersignBHeaders = expectResponseIdentity(

@@ -1,11 +1,19 @@
-import type { Page, Response } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 import {
   businessKey,
   exactApprovalApiPath,
   pcUrl,
+  tenantId,
 } from './product-readiness-pc-h5-runtime-api';
+
+export interface ApprovalActionExpectation {
+  actorId: string;
+  businessKey: string;
+  processInstanceId: string;
+  taskId: string;
+}
 
 function responsePath(response: Response) {
   try {
@@ -15,18 +23,54 @@ function responsePath(response: Response) {
   }
 }
 
-function exactApprovalResponse(response: Response, taskId: string) {
-  return response.request().method() === 'POST'
-    && exactApprovalApiPath(
+async function exactApprovalResponse(
+  response: Response,
+  expectation: ApprovalActionExpectation,
+) {
+  const request = response.request();
+  const headers = request.headers();
+  if (request.method() !== 'POST'
+    || !exactApprovalApiPath(
       response.url(),
-      `/api/approval/tasks/${taskId}/approve`,
+      `/api/approval/tasks/${expectation.taskId}/approve`,
     )
-    && response.status() === 200;
+    || response.status() !== 200
+    || headers['x-tenant-id'] !== tenantId
+    || headers['x-operator-id'] !== expectation.actorId) {
+    return false;
+  }
+
+  try {
+    const body = await response.json() as {
+      completedTaskId?: string;
+      instanceId?: string;
+    };
+    return body.completedTaskId === expectation.taskId
+      && body.instanceId === expectation.processInstanceId;
+  } catch {
+    return false;
+  }
 }
 
 function exactLoginResponse(response: Response) {
   return response.request().method() === 'POST'
     && responsePath(response) === '/api/auth/login';
+}
+
+async function triggerApproval(
+  page: Page,
+  confirmation: Locator,
+  expectation: ApprovalActionExpectation,
+) {
+  await expect(confirmation).toBeVisible({ timeout: 5_000 });
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      candidate => exactApprovalResponse(candidate, expectation),
+      { timeout: 30_000 },
+    ),
+    confirmation.click({ timeout: 10_000 }),
+  ]);
+  return response;
 }
 
 export async function ensurePcLogin(page: Page) {
@@ -81,57 +125,50 @@ export async function ensurePcLogin(page: Page) {
 
 export async function clickPcApproval(
   page: Page,
-  taskId: string,
+  expectation: ApprovalActionExpectation,
 ): Promise<Response> {
-  const responsePromise = page.waitForResponse(
-    response => exactApprovalResponse(response, taskId),
-    { timeout: 30_000 },
-  );
-
   const card = page.locator('.task-item')
-    .filter({ hasText: businessKey })
+    .filter({ hasText: expectation.businessKey })
     .first();
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: '处理', exact: true }).click();
   await expect(page.getByText('审批详情', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '同意', exact: true }).last().click();
-  await page.getByRole('button', {
-    name: '确认同意',
-    exact: true,
-  }).click();
+  await page.getByRole('button', { name: '同意', exact: true }).last().click({
+    timeout: 10_000,
+  });
 
-  return responsePromise;
+  return triggerApproval(
+    page,
+    page.getByRole('button', {
+      name: '确认同意',
+      exact: true,
+    }),
+    expectation,
+  );
 }
 
 export async function clickH5Approval(
   page: Page,
-  taskId: string,
+  expectation: ApprovalActionExpectation,
   stageLabel: '财务会签' | '财务审核',
 ): Promise<Response> {
-  const responsePromise = page.waitForResponse(
-    response => exactApprovalResponse(response, taskId),
-    { timeout: 30_000 },
-  );
-
   const card = page.locator('.task-card')
-    .filter({ hasText: businessKey })
+    .filter({ hasText: expectation.businessKey })
     .first();
   await expect(card).toBeVisible();
-  await card.click();
+  await card.click({ timeout: 10_000 });
   await expect(page.getByText(stageLabel, { exact: true }).first())
     .toBeVisible();
   await page.locator('.action-bar')
     .getByText('同意', { exact: true })
-    .click();
+    .click({ timeout: 10_000 });
 
   const modalPrimary = page.locator(
-    'uni-modal .uni-modal__btn_primary, .uni-modal .uni-modal__btn_primary',
+    'uni-modal .uni-modal__btn_primary',
   ).last();
-  if (await modalPrimary.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await modalPrimary.click();
-  } else {
-    await page.getByText('确认同意', { exact: true }).last().click();
-  }
+  const confirmation = await modalPrimary.isVisible({ timeout: 3_000 })
+    ? modalPrimary
+    : page.getByText('确认同意', { exact: true }).last();
 
-  return responsePromise;
+  return triggerApproval(page, confirmation, expectation);
 }
