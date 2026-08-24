@@ -1,14 +1,16 @@
-# PC 与 H5 真实审批交接 Smoke
+# PC 与 H5 真实审批运行 Smoke
 
-该 Smoke 在真实 PostgreSQL、Redis、Spring Boot、Flowable、Vben PC、UniApp H5 和系统 Chromium 上执行采购付款前两个审批节点：
+该 Smoke 在真实 PostgreSQL、Redis、Spring Boot、Flowable、Vben PC、UniApp H5 和系统 Chromium 上执行同一条确定性采购付款实例的审批动作：
 
 ```text
 PC / demo-manager / managerApproval
 → H5 / demo-finance-reviewer / financeReview
-→ 同一实例产生两条 financeCountersign 待办
+→ H5 / demo-finance-approver-a / financeCountersign
+→ H5 / demo-finance-approver-b / financeCountersign
+→ COMPLETED
 ```
 
-它用于证明 PC 和 H5 的开发客户端不只是能够构建，而是能够通过已经合并的本地身份桥和代理，真实读取并修改同一条确定性业务实例。
+实例由受治理的后端 Seed 创建；所有审批写入都由 PC 或 H5 页面上的真实按钮触发。测试进程只使用真实后端读接口核对待办、实例状态和时间线，不直接写审批 API 或数据库。
 
 ## 命令
 
@@ -18,45 +20,36 @@ PC / demo-manager / managerApproval
 pnpm demo:runtime:pc-h5:plan
 ```
 
+边界检查：
+
+```bash
+pnpm demo:runtime:pc-h5:check
+```
+
 显式运行：
 
 ```bash
 pnpm demo:runtime:pc-h5
 ```
 
-静态边界：
+现有 `web:test:client-boundary` 在 GitHub Actions 中先执行廉价边界检查，再根据 Pull Request 或 Push 的精确变更集决定是否启动高成本 Smoke。运行时 API、UI、Spec、诊断器、Playwright 配置、Demo 后端、客户端启动器和确定性 Seed 变化时会选择该 Smoke；无关路径不会重复启动完整环境。
 
-```bash
-pnpm demo:runtime:pc-h5:check
-```
+## 运行约束
 
-GitHub Actions 中，现有 `web:test:client-boundary` 会先执行廉价边界检查，再由 `ci` 模式读取 Pull Request 或 Push 的精确变更集。只有以下运行相关路径变化时才启动高成本 Smoke：
+Smoke 必须使用仓库固定的 Corepack 与 pnpm 版本，并执行以下真实链路：
 
-```text
-确定性 Demo 配置
-本地 Demo 后端或客户端启动器
-PC 审批 API、运行配置或审批工作台
-H5 审批 API、运行配置或任务页面
-PC/H5 Playwright Smoke 自身
-```
-
-普通文档、无关后端或其他模块修改不会重复安装并启动完整 Demo。
-
-## 执行内容
-
-1. 安装固定版本的 Vben 和 UniApp 生成工作区；
+1. 安装生成后的 Vben 与 UniApp 工作区；
 2. 启动隔离的 PostgreSQL、Redis、Spring Boot、Flowable 和采购付款 Seed；
-3. 以 `demo-manager` 启动 PC；
-4. 以 `demo-finance-reviewer` 启动 H5；
-5. 使用 GitHub Runner 已安装的系统 Chrome/Chromium 打开真实页面；
-6. 在 PC 页面点击“处理”与“同意”，完成 `managerApproval`；
-7. 在 H5 页面点击同一业务单并完成 `financeReview`；
-8. 验证两个客户端请求均携带准确的本地 Demo 租户与操作人；
-9. 验证两个步骤属于同一 `instanceId`；
-10. 验证下一阶段存在两条不同的 `financeCountersign` 待办；
-11. 保存请求 ID、任务 ID、审计事件 ID、截图和 SHA-256。
+3. 启动 PC 客户端与一套 H5 开发服务器；
+4. 在 PC 页面以 `demo-manager` 完成 `managerApproval`；
+5. 在 H5 页面以 `demo-finance-reviewer` 完成 `financeReview`；
+6. 通过 URL 范围内的本地 Demo 身份分别以 `demo-finance-approver-a` 与 `demo-finance-approver-b` 完成两条不同的 `financeCountersign`；
+7. 验证两个会签 `taskId` 不同，且每个任务只对权威 Seed 指定的操作人可见；
+8. 验证所有请求均携带准确的 `tenantId`、`operatorId`、`requestId` 和 `traceId`；
+9. 验证四个审批结果、四条审计事件、同一 `businessKey` 与同一 `instanceId`；
+10. 验证最终实例为 `COMPLETED`，且四个权威操作人均无该业务键的待办。
 
-浏览器测试不会直接调用审批写 API。审批写入必须由页面上的真实操作按钮触发；测试进程只使用后端读接口核对待办、时间线和实例状态。
+等待逻辑必须在导航或 UI 操作前注册，并同时绑定 HTTP Method、精确 Path、Status、Tenant、Actor、businessKey、taskDefinitionKey 和 processInstanceId。状态推进使用有界真实 API 轮询，不使用固定 sleep，不延长超时掩盖失败，也不捕获错误后继续成功。
 
 ## 成功声明
 
@@ -66,17 +59,11 @@ PC/H5 Playwright Smoke 自身
 PC_H5_APPROVAL_HANDOFF_PASSED
 ```
 
-该声明的精确定义是：
-
-- PC 经理页面完成了 `managerApproval`；
-- H5 财务页面完成了同一实例的 `financeReview`；
-- 两个客户端使用同一租户、业务键和实例；
-- 后端进入双人 `financeCountersign` 阶段；
-- 截图与机器可读证据已经保留。
+该声明只证明：同一后端 Seed 实例通过 PC 与 H5 的真实 UI 完成了经理审批、财务复核和两人财务会签，并到达 `COMPLETED`。
 
 ## 永久非声明
 
-该 Smoke 没有运行微信小程序，也没有完成最终审批或支付，因此必须同时保留：
+该 Smoke 没有通过产品 UI 发起实例，没有运行微信小程序，也没有执行支付、兼容性、无障碍、Quick Start、性能或恢复验收。因此必须同时保留：
 
 ```text
 PURCHASE_APPROVAL_E2E_NOT_EXECUTED
@@ -89,9 +76,9 @@ PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
 QUICK_START_10_MINUTES_NOT_EXECUTED
 ```
 
-一次系统 Chromium 运行不能代表 Chrome、Edge、Firefox、Safari、iOS、Android 或微信运行时兼容性。Headless 浏览器截图也不能替代真实用户操作录像或无障碍人工检查。
+一次 Headless 系统 Chromium 运行不能代表 Chrome、Edge、Firefox、Safari、iOS、Android 或微信运行时兼容性，也不能替代真实用户操作、无障碍人工检查、生产支付或完整采购到付款 E2E。
 
-## 证据位置
+## 成功证据
 
 运行证据写入未跟踪目录：
 
@@ -99,7 +86,7 @@ QUICK_START_10_MINUTES_NOT_EXECUTED
 build/product-readiness/pc-h5-runtime/
 ```
 
-其中至少包括：
+成功运行至少包括：
 
 ```text
 pc-h5-runtime-evidence.json
@@ -107,24 +94,60 @@ pc-manager-before.png
 pc-manager-after.png
 h5-finance-before.png
 h5-finance-after.png
+h5-countersign-a-before.png
+h5-countersign-a-after.png
+h5-countersign-b-before.png
+h5-countersign-b-after.png
+playwright/**/trace.zip
 backend.log
 pc.log
 h5.log
 ```
 
-机器可读证据包含：
+机器证据记录：
 
 ```text
+exact pull-request Head SHA
+GitHub Run ID
 tenantId
 businessKey
 instanceId
-manager taskId
-finance review taskId
-finance countersign taskIds
-requestIds
-auditEventIds
-screenshot SHA-256
-exact GitHub SHA and Run ID
+权威 Seed 来源与操作人
+四个 taskId、taskDefinitionKey、请求头和动作结果
+四个 auditEventId 与 requestId
+每个阶段的真实待办可见性
+每一步前后的实例状态
+最终 COMPLETED 状态
+截图 SHA-256
+明确 non-claims
 ```
 
-证据目录不得提交到仓库。GitHub Actions 只把它作为永久验证制品保存。
+## 失败诊断
+
+失败时保持 fail-closed，并至少写出：
+
+```text
+runtime-diagnostics.json
+runtime-diagnostics.md
+pc-demo-manager-runtime-failure.png
+h5-demo-finance-reviewer-runtime-failure.png
+h5-demo-finance-approver-a-runtime-failure.png
+h5-demo-finance-approver-b-runtime-failure.png
+playwright/**/trace.zip
+playwright/**/error-context.md
+playwright/**/*test-failed*.png
+```
+
+诊断包含当前 URL、页面标题、DOM 关键文本、任务卡数量、最近请求与响应、失败请求、console errors、page errors、当前 Actor、租户、业务键、流程实例、四个权威操作人的真实待办、当前实例状态和时间线。
+
+## 永久 Artifact
+
+现有 Vben workflow 只永久上传固定日志文件。Smoke 因此把允许的 JSON、Markdown、PNG 和 ZIP 文件按相对路径、字节数、SHA-256 与 Base64 编入 `root-install.log` 的机器可读 envelope：
+
+```text
+APPROVAL_PC_H5_RUNTIME_EVIDENCE_ENVELOPE_BEGIN
+{"evidenceKind":"PC_H5_BROWSER_RUNTIME_CI_ARTIFACT_ENVELOPE_V1",...}
+APPROVAL_PC_H5_RUNTIME_EVIDENCE_ENVELOPE_END
+```
+
+该 envelope 位于 `approval-vben-<runId>` artifact。成功与失败都必须留存；通过时还会校验八张截图、机器证据和 `trace.zip`。任何留存失败都会让 Smoke 继续失败，不能把缺失 Trace、截图或机器证据解释为通过。

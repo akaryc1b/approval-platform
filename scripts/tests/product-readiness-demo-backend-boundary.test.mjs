@@ -44,13 +44,15 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   );
   assert.equal(
     plan.steps.find(step => step.id === 'reactor-build').command,
-    'mvn -B -ntp -Drevision=0.1.0-SNAPSHOT -DskipTests install',
+    'mvn -B -ntp -Pproduct-readiness-demo '
+      + '-Drevision=0.1.0-SNAPSHOT -DskipTests install',
   );
   const backendCommand = plan.steps.find(step => step.id === 'backend').command;
   assert.equal(
     backendCommand,
     'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true '
-      + 'mvn -B -ntp -Drevision=0.1.0-SNAPSHOT '
+      + 'mvn -B -ntp -Pproduct-readiness-demo '
+      + '-Drevision=0.1.0-SNAPSHOT '
       + '-pl :approval-server spring-boot:run '
       + '-Dspring-boot.run.profiles=local',
   );
@@ -67,50 +69,61 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   }
 });
 
-test('revision is read from the root pom and passed to both Maven invocations', () => {
+test('revision and the demo-only Maven profile reach both Maven invocations', () => {
   const source = text(commandPath);
   assert.match(source, /const rootPomPath = resolve\(root, 'pom\.xml'\)/u);
+  assert.match(source, /const demoMavenProfile = 'product-readiness-demo'/u);
   assert.match(source, /function rootRevision\(\)/u);
   assert.match(source, /<revision>\(\[\^<\]\+\)<\\\/revision>/u);
   assert.match(source, /revision\.includes\('\$\{'\)/u);
   assert.match(source, /\^\[0-9A-Za-z\]\[0-9A-Za-z\._-\]\*\$/u);
+  assert.match(source, /`-P\$\{demoMavenProfile\}`/u);
   assert.match(source, /`-Drevision=\$\{revision\}`/u);
   assert.match(
     source,
-    /runMavenChecked\('Build Maven reactor for local startup',[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-DskipTests',[\s\S]*'install'/u,
+    /runMavenChecked\('Build Maven reactor for local startup',[\s\S]*`-P\$\{demoMavenProfile\}`,[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-DskipTests',[\s\S]*'install'/u,
   );
   assert.match(
     source,
-    /spawn\(mavenExecutable\(\), \[[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-pl',[\s\S]*':approval-server',[\s\S]*'spring-boot:run'/u,
+    /spawn\(mavenExecutable\(\), \[[\s\S]*`-P\$\{demoMavenProfile\}`,[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-pl',[\s\S]*':approval-server',[\s\S]*'spring-boot:run'/u,
   );
 });
 
-test('reactor install publishes consumer-safe CI-friendly POMs', () => {
+test('consumer-safe POM flattening is isolated to the explicit demo profile', () => {
   const source = text(rootPomPath);
+  const profileStart = source.indexOf('<profiles>');
+  assert.notEqual(profileStart, -1);
+  assert.doesNotMatch(
+    source.slice(0, profileStart),
+    /<artifactId>flatten-maven-plugin<\/artifactId>/u,
+  );
+  const profiles = source.slice(profileStart);
+  assert.match(profiles, /<id>product-readiness-demo<\/id>/u);
+  assert.doesNotMatch(profiles, /<activation>/u);
   assert.match(
     source,
     /<flatten\.maven\.version>1\.7\.3<\/flatten\.maven\.version>/u,
   );
-  assert.match(source, /<artifactId>flatten-maven-plugin<\/artifactId>/u);
+  assert.match(profiles, /<artifactId>flatten-maven-plugin<\/artifactId>/u);
   assert.match(
-    source,
+    profiles,
     /<flattenMode>resolveCiFriendliesOnly<\/flattenMode>/u,
   );
-  assert.match(source, /<updatePomFile>true<\/updatePomFile>/u);
+  assert.match(profiles, /<updatePomFile>true<\/updatePomFile>/u);
   assert.match(
-    source,
+    profiles,
     /<outputDirectory>\$\{project\.build\.directory\}<\/outputDirectory>/u,
   );
   assert.match(
-    source,
+    profiles,
     /<flattenedPomFilename>flattened-pom\.xml<\/flattenedPomFilename>/u,
   );
   assert.match(
-    source,
+    profiles,
     /<id>flatten<\/id>[\s\S]*<phase>process-resources<\/phase>[\s\S]*<goal>flatten<\/goal>/u,
   );
   assert.match(
-    source,
+    profiles,
     /<id>flatten\.clean<\/id>[\s\S]*<goal>clean<\/goal>/u,
   );
 });

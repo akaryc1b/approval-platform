@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { repositoryRoot } from './contract.mjs';
 
@@ -7,7 +7,7 @@ const relevantPaths = [
   /^apps\/mobile\/overlay\/src\/(?:api\/approval|pages\/task|platform\/approval)/u,
   /^apps\/server\/src\/(?:main|test)\/java\/.*\/demo\//u,
   /^apps\/web\/overlay\/apps\/web-ele\/src\/(?:api\/approval|platform\/approval|views\/approval)/u,
-  /^apps\/web\/overlay\/playground\/(?:__tests__\/e2e\/product-readiness-pc-h5-runtime(?:\.helpers)?\.ts|product-readiness\.playwright\.config\.ts)$/u,
+  /^apps\/web\/overlay\/playground\/(?:__tests__\/e2e\/product-readiness-pc-h5-runtime(?:-(?:api|diagnostics|ui)|\.spec)\.ts|product-readiness\.playwright\.config\.ts)$/u,
   /^config\/demo\//u,
   /^scripts\/product-readiness\/(?:demo-backend|demo-client|pc-h5-runtime-smoke|purchase-payment-scenario-contract)\.mjs$/u,
   /^scripts\/product-readiness\/pc-h5-runtime\//u,

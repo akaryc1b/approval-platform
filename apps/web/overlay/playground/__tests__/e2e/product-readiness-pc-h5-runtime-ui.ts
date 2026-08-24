@@ -3,6 +3,18 @@ import { expect } from '@playwright/test';
 
 import { businessKey, pcUrl } from './product-readiness-pc-h5-runtime-api';
 
+function exactApprovalResponse(response: Response, taskId: string) {
+  let pathname = '';
+  try {
+    pathname = new URL(response.url()).pathname;
+  } catch {
+    return false;
+  }
+  return response.request().method() === 'POST'
+    && pathname === `/api/approval/tasks/${taskId}/approve`
+    && response.status() === 200;
+}
+
 export async function ensurePcLogin(page: Page) {
   await page.goto(pcUrl, { waitUntil: 'domcontentloaded' });
   const username = page.locator("input[name='username']");
@@ -42,17 +54,17 @@ export async function ensurePcLogin(page: Page) {
   } else {
     await page.locator("button[type='submit']").first().click();
   }
-  await page.waitForTimeout(1_000);
+  await expect(username).toBeHidden({ timeout: 15_000 });
 }
 
 export async function clickPcApproval(
   page: Page,
   taskId: string,
 ): Promise<Response> {
-  const responsePromise = page.waitForResponse(response =>
-    response.request().method() === 'POST'
-      && response.url().includes(`/api/approval/tasks/${taskId}/approve`),
-  { timeout: 30_000 });
+  const responsePromise = page.waitForResponse(
+    response => exactApprovalResponse(response, taskId),
+    { timeout: 30_000 },
+  );
 
   const card = page.locator('.task-item')
     .filter({ hasText: businessKey })
@@ -66,26 +78,25 @@ export async function clickPcApproval(
     exact: true,
   }).click();
 
-  const response = await responsePromise;
-  expect(response.status()).toBe(200);
-  return response;
+  return responsePromise;
 }
 
 export async function clickH5Approval(
   page: Page,
   taskId: string,
+  stageLabel: '财务会签' | '财务审核',
 ): Promise<Response> {
-  const responsePromise = page.waitForResponse(response =>
-    response.request().method() === 'POST'
-      && response.url().includes(`/api/approval/tasks/${taskId}/approve`),
-  { timeout: 30_000 });
+  const responsePromise = page.waitForResponse(
+    response => exactApprovalResponse(response, taskId),
+    { timeout: 30_000 },
+  );
 
   const card = page.locator('.task-card')
     .filter({ hasText: businessKey })
     .first();
   await expect(card).toBeVisible();
   await card.click();
-  await expect(page.getByText('财务审核', { exact: true }).first())
+  await expect(page.getByText(stageLabel, { exact: true }).first())
     .toBeVisible();
   await page.locator('.action-bar')
     .getByText('同意', { exact: true })
@@ -100,7 +111,5 @@ export async function clickH5Approval(
     await page.getByText('确认同意', { exact: true }).last().click();
   }
 
-  const response = await responsePromise;
-  expect(response.status()).toBe(200);
-  return response;
+  return responsePromise;
 }

@@ -1,8 +1,14 @@
+import { resolve } from 'node:path';
+
 import { defineConfig } from '@playwright/test';
 
 const executablePath = process.env.APPROVAL_DEMO_CHROME_PATH;
 if (!executablePath) {
   throw new Error('APPROVAL_DEMO_CHROME_PATH is required');
+}
+const evidenceDirectory = process.env.APPROVAL_DEMO_EVIDENCE_DIR;
+if (!evidenceDirectory) {
+  throw new Error('APPROVAL_DEMO_EVIDENCE_DIR is required');
 }
 
 const timeout = Number.parseInt(
@@ -14,7 +20,7 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   forbidOnly: true,
   fullyParallel: false,
-  outputDir: process.env.APPROVAL_DEMO_EVIDENCE_DIR,
+  outputDir: resolve(evidenceDirectory, 'playwright'),
   projects: [
     {
       name: 'system-chromium',
@@ -34,7 +40,7 @@ export default defineConfig({
   use: {
     headless: true,
     screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    trace: 'on',
     video: 'off',
   },
   workers: 1,

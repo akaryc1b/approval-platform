@@ -30,6 +30,9 @@ const smoke = text('scripts/product-readiness/pc-h5-runtime-smoke.mjs');
 const runtimeContract = text(
   'scripts/product-readiness/pc-h5-runtime/contract.mjs',
 );
+const evidenceSupport = text(
+  'scripts/product-readiness/pc-h5-runtime/evidence.mjs',
+);
 const processSupport = [
   text('scripts/product-readiness/pc-h5-runtime/processes.mjs'),
   text('scripts/product-readiness/pc-h5-runtime/ci-scope.mjs'),
@@ -46,16 +49,31 @@ const playwrightApi = text(
 const playwrightUi = text(
   'apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-ui.ts',
 );
+const playwrightDiagnostics = text(
+  'apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-diagnostics.ts',
+);
 const packageJson = JSON.parse(text('package.json'));
 const guide = text('docs/product-readiness/PC_H5_RUNTIME_SMOKE.md');
+const goldenPath = JSON.parse(
+  text('config/demo/purchase-payment-golden-path.json'),
+);
 const aggregate = text('scripts/tests/m3-repository-hygiene.test.mjs');
 
-test('runtime smoke exposes a read-only plan and skips CI outside GitHub Actions', () => {
+test('runtime smoke exposes a read-only four-action plan and skips non-CI', () => {
   const planned = runSmoke('plan', '--json');
   assert.equal(planned.status, 0, planned.stderr || planned.stdout);
   const plan = JSON.parse(planned.stdout);
   assert.equal(plan.claim, 'PC_H5_APPROVAL_HANDOFF_PASSED');
   assert.equal(plan.evidenceKind, 'PC_H5_BROWSER_APPROVAL_HANDOFF_V1');
+  assert.equal(
+    plan.stages.some(stage =>
+      stage.includes('two distinct financeCountersign tasks')),
+    true,
+  );
+  assert.equal(
+    plan.stages.some(stage => stage.includes('reaches COMPLETED')),
+    true,
+  );
   assert.deepEqual(plan.nonClaims, [
     'PURCHASE_APPROVAL_E2E_NOT_EXECUTED',
     'WECHAT_MINI_PROGRAM_RUNTIME_NOT_EXECUTED',
@@ -79,6 +97,7 @@ test('orchestrator uses fixed executables, local services and path-gated CI', ()
   assert.match(processSupport, /shell: false/gu);
   assert.match(processSupport, /GITHUB_EVENT_PATH/u);
   assert.match(processSupport, /PC_H5_RUNTIME_SCOPE=/u);
+  assert.match(processSupport, /product-readiness-pc-h5-runtime.*diagnostics/u);
   assert.match(smoke, /http:\/\/127\.0\.0\.1:8080/u);
   assert.match(runtimeContract, /JAVA_HOME_21_X64/u);
   assert.match(runtimeContract, /PATH: `\$\{javaBin\}\$\{delimiter\}/u);
@@ -95,17 +114,18 @@ test('orchestrator uses fixed executables, local services and path-gated CI', ()
   );
 });
 
-test('browser test approves through visible PC and H5 controls', () => {
-  assert.match(playwrightSpec, /clickPcApproval/u);
+test('browser test performs one PC and three H5 approvals through visible controls', () => {
+  assert.equal((playwrightSpec.match(/await clickPcApproval\(/gu) || []).length, 1);
+  assert.equal((playwrightSpec.match(/await clickH5Approval\(/gu) || []).length, 3);
   assert.match(playwrightUi, /getByRole\('button', \{ name: '同意'/u);
-  assert.match(playwrightSpec, /clickH5Approval/u);
   assert.match(playwrightUi, /locator\('\.action-bar'\)/u);
-  assert.match(playwrightUi, /getByText\('同意'/u);
+  assert.match(playwrightUi, /stageLabel: '财务会签' \| '财务审核'/u);
   assert.match(playwrightUi, /uni-modal__btn_primary/u);
   assert.match(playwrightSpec, /PC_H5_APPROVAL_HANDOFF_PASSED/u);
   assert.match(playwrightSpec, /financeCountersign/u);
-  assert.match(playwrightSpec, /screenshot/u);
-  assert.match(playwrightApi, /X-Operator-Id/u);
+  assert.match(playwrightSpec, /waitForCompletedInstance/u);
+  assert.match(playwrightSpec, /instanceOrigin: 'DETERMINISTIC_BACKEND_SEED'/u);
+  assert.match(playwrightApi, /taskActionResult/u);
   assert.doesNotMatch(
     `${playwrightSpec}\n${playwrightApi}`,
     /request\.post\(/u,
@@ -120,11 +140,188 @@ test('browser test approves through visible PC and H5 controls', () => {
   );
 });
 
-test('system Chromium configuration is explicit and downloads no browser', () => {
+test('pending waits precede every navigation and bind the exact runtime identity', () => {
+  assert.match(
+    playwrightSpec,
+    /Promise\.all\(\[\s*pendingResponse\(pc,[\s\S]*pc\.goto\(pcUrl/u,
+  );
+  for (const page of ['h5Reviewer', 'h5CountersignA', 'h5CountersignB']) {
+    assert.match(
+      playwrightSpec,
+      new RegExp(
+        `Promise\\.all\\(\\[\\s*pendingResponse\\(${page},[\\s\\S]*${page}\\.goto\\(`,
+        'u',
+      ),
+    );
+  }
+  for (const marker of [
+    "request.method() !== 'GET'",
+    "candidate.status() !== 200",
+    "headers['x-tenant-id'] !== tenantId",
+    "headers['x-operator-id'] !== expectation.actorId",
+    'task.businessKey === businessKey',
+    'task.taskDefinitionKey === expectation.taskDefinitionKey',
+    'task.instanceId === expectation.processInstanceId',
+    "new URL(url).pathname === expectedPath",
+  ]) {
+    assert.equal(playwrightApi.includes(marker), true, `API wait missing ${marker}`);
+  }
+  assert.match(playwrightApi, /waitForPendingForActor/u);
+  assert.match(playwrightApi, /waitForPendingTaskToDisappear/u);
+  assert.match(playwrightApi, /waitForStartedInstance/u);
+  assert.match(playwrightApi, /waitForCompletedInstance/u);
+  assert.match(playwrightApi, /setTimeout\(resolvePromise, milliseconds\)/u);
+  assert.doesNotMatch(playwrightSpec, /waitForTimeout/u);
+  assert.doesNotMatch(playwrightUi, /waitForTimeout/u);
+});
+
+test('H5 actor selection remains stable before hash navigation', () => {
+  assert.match(playwrightApi, /url\.searchParams\.set\('demoOperator', actorId\)/u);
+  assert.match(playwrightApi, /url\.hash = hashPath/u);
+  assert.match(playwrightSpec, /h5UrlForActor\(authoritativeActors\.financeReview\)/u);
+  assert.match(
+    playwrightSpec,
+    /h5UrlForActor\(authoritativeActors\.financeCountersign\[0\]\)/u,
+  );
+  assert.match(
+    playwrightSpec,
+    /h5UrlForActor\(authoritativeActors\.financeCountersign\[1\]\)/u,
+  );
+  assert.match(smoke, /http:\/\/127\.0\.0\.1:9000\/#\/pages\/task\/list/u);
+  assert.doesNotMatch(
+    smoke,
+    /#\/pages\/task\/list\?demoOperator=/u,
+  );
+});
+
+test('assignment evidence matches the authoritative deterministic seed', () => {
+  assert.equal(goldenPath.tenant.id, 'demo-purchase-payment');
+  assert.equal(goldenPath.request.businessKey, 'DEMO-PP-0001');
+  assert.deepEqual(
+    goldenPath.expectedWorkflow.map(step => ({
+      actorIds: step.actorIds,
+      mode: step.mode,
+      taskDefinitionKey: step.taskDefinitionKey,
+    })),
+    [
+      {
+        actorIds: ['demo-manager'],
+        mode: 'SINGLE',
+        taskDefinitionKey: 'managerApproval',
+      },
+      {
+        actorIds: ['demo-finance-reviewer'],
+        mode: 'SINGLE',
+        taskDefinitionKey: 'financeReview',
+      },
+      {
+        actorIds: [
+          'demo-finance-approver-a',
+          'demo-finance-approver-b',
+        ],
+        mode: 'ALL',
+        taskDefinitionKey: 'financeCountersign',
+      },
+    ],
+  );
+  assert.match(playwrightApi, /purchase-payment-golden-path\.json/u);
+  assert.match(playwrightSpec, /pendingAssignments/u);
+  assert.match(playwrightSpec, /operator-scoped real pending task visibility/u);
+  assert.match(
+    playwrightSpec,
+    /countersignA\.taskId\)\.not\.toBe\(countersignB\.taskId/u,
+  );
+  assert.match(playwrightSpec, /expectOnlyActorTask/u);
+  assert.match(playwrightSpec, /expectNoActorTasks/u);
+});
+
+test('machine evidence requires four distinct actions and final completion', () => {
+  for (const actor of [
+    'demo-manager',
+    'demo-finance-reviewer',
+    'demo-finance-approver-a',
+    'demo-finance-approver-b',
+  ]) {
+    assert.equal(evidenceSupport.includes(actor), true, `validator missing ${actor}`);
+  }
+  assert.match(evidenceSupport, /evidence\.steps\?\.length !== expectedSteps\.length/u);
+  assert.match(evidenceSupport, /new Set\(taskIds\)\.size !== taskIds\.length/u);
+  assert.match(evidenceSupport, /completedTaskId !== step\.taskId/u);
+  assert.match(evidenceSupport, /auditRequestId !== step\.request\.requestId/u);
+  assert.match(evidenceSupport, /finalState\?\.status !== 'COMPLETED'/u);
+  assert.match(evidenceSupport, /all four approval actions/u);
+  assert.match(playwrightSpec, /auditRequestId/u);
+  assert.match(playwrightSpec, /finalState: completedState/u);
+});
+
+test('runtime failures preserve diagnostics for every actor and remain fail-closed', () => {
+  assert.ok(
+    playwrightSpec.indexOf('attachPageRuntimeDiagnostics')
+      < playwrightSpec.indexOf('ensurePcLogin'),
+  );
+  for (const event of ['request', 'response', 'requestfailed', 'console', 'pageerror']) {
+    assert.match(playwrightDiagnostics, new RegExp(`page\\.on\\('${event}'`, 'u'));
+  }
+  for (const marker of [
+    'runtime-diagnostics.json',
+    'runtime-diagnostics.md',
+    'pc-demo-manager-runtime-failure.png',
+    'h5-demo-finance-reviewer-runtime-failure.png',
+    'h5-demo-finance-approver-a-runtime-failure.png',
+    'h5-demo-finance-approver-b-runtime-failure.png',
+    '/api/approval/tasks/pending',
+    '/api/approval/instances/started',
+    '/timeline',
+    'consoleErrors',
+    'pageErrors',
+    'failedRequests',
+    'taskDefinitionKey',
+    'authoritativeActors',
+    'processState',
+    'processTimeline',
+  ]) {
+    const source = marker.endsWith('.png') ? smoke : playwrightDiagnostics;
+    assert.equal(source.includes(marker), true, `runtime diagnostics missing ${marker}`);
+  }
+  assert.match(playwrightDiagnostics, /diagnosticScreenshotFile/u);
+  assert.match(playwrightSpec, /throw error;/u);
+  assert.match(playwrightSpec, /runtime diagnostics failed/u);
+  assert.doesNotMatch(playwrightSpec, /catch\s*\([^)]*\)\s*\{\s*\}/u);
+});
+
+test('success and failure evidence are retained in the permanent Vben artifact', () => {
+  for (const marker of [
+    'APPROVAL_PC_H5_RUNTIME_EVIDENCE_ENVELOPE_BEGIN',
+    'APPROVAL_PC_H5_RUNTIME_EVIDENCE_ENVELOPE_END',
+    'root-install.log',
+    'PC_H5_BROWSER_RUNTIME_CI_ARTIFACT_ENVELOPE_V1',
+    'h5-countersign-a-before.png',
+    'h5-countersign-b-after.png',
+    'trace.zip',
+    'error-context.md',
+    'sha256',
+    'base64',
+    'APPROVAL_DEMO_EXACT_HEAD_SHA',
+    'pull_request?.head?.sha',
+  ]) {
+    assert.equal(smoke.includes(marker), true, `smoke missing ${marker}`);
+  }
+  assert.match(smoke, /appendCiEvidenceEnvelope\('PASSED'/u);
+  assert.match(smoke, /appendCiEvidenceEnvelope\('FAILED'/u);
+  assert.match(smoke, /CI runtime evidence retention failed/u);
+  assert.match(smoke, /finalInstanceStatus=/u);
+  assert.match(playwrightSpec, /APPROVAL_DEMO_EXACT_HEAD_SHA/u);
+  assert.match(playwrightDiagnostics, /APPROVAL_DEMO_EXACT_HEAD_SHA/u);
+});
+
+test('system Chromium and passing trace configuration are explicit', () => {
   assert.match(playwrightConfig, /APPROVAL_DEMO_CHROME_PATH/u);
+  assert.match(playwrightConfig, /APPROVAL_DEMO_EVIDENCE_DIR/u);
+  assert.match(playwrightConfig, /resolve\(evidenceDirectory, 'playwright'\)/u);
   assert.match(playwrightConfig, /executablePath/u);
   assert.match(playwrightConfig, /--no-sandbox/u);
   assert.match(playwrightConfig, /workers: 1/u);
+  assert.match(playwrightConfig, /trace: 'on'/u);
   assert.doesNotMatch(playwrightConfig, /install-deps/u);
   assert.doesNotMatch(playwrightConfig, /playwright install/u);
 });
@@ -152,6 +349,11 @@ test('package, guide and permanent Hygiene expose the bounded smoke', () => {
     'PURCHASE_APPROVAL_E2E_NOT_EXECUTED',
     'WECHAT_MINI_PROGRAM_RUNTIME_NOT_EXECUTED',
     'PC_H5_WECHAT_RUNTIME_NOT_EXECUTED',
+    'demo-finance-approver-a',
+    'demo-finance-approver-b',
+    'runtime-diagnostics.json',
+    'trace.zip',
+    'PC_H5_BROWSER_RUNTIME_CI_ARTIFACT_ENVELOPE_V1',
   ]) {
     assert.equal(guide.includes(marker), true, `guide missing ${marker}`);
   }

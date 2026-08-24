@@ -10,6 +10,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const rootPomPath = resolve(root, 'pom.xml');
 const composeFile = 'deploy/compose/docker-compose.yml';
 const composeProject = 'approval-platform-demo';
+const demoMavenProfile = 'product-readiness-demo';
 const healthUrl = 'http://localhost:8080/actuator/health';
 const infrastructureTimeoutMs = 120_000;
 const backendTimeoutMs = 240_000;
@@ -62,6 +63,7 @@ function rootRevision() {
 function startupPlan() {
   const compose = `docker compose --project-name ${composeProject} -f ${composeFile}`;
   const revision = rootRevision();
+  const profile = `-P${demoMavenProfile}`;
   return {
     schemaVersion: 1,
     entrypoint: 'pnpm demo:backend:start',
@@ -86,12 +88,12 @@ function startupPlan() {
       },
       {
         id: 'reactor-build',
-        command: `mvn -B -ntp -Drevision=${revision} -DskipTests install`,
+        command: `mvn -B -ntp ${profile} -Drevision=${revision} -DskipTests install`,
       },
       {
         id: 'backend',
         command: 'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true '
-          + `mvn -B -ntp -Drevision=${revision} -pl :approval-server `
+          + `mvn -B -ntp ${profile} -Drevision=${revision} -pl :approval-server `
           + 'spring-boot:run -Dspring-boot.run.profiles=local',
       },
       {
@@ -329,6 +331,7 @@ async function start() {
   runMavenChecked('Build Maven reactor for local startup', [
     '-B',
     '-ntp',
+    `-P${demoMavenProfile}`,
     `-Drevision=${revision}`,
     '-DskipTests',
     'install',
@@ -339,6 +342,7 @@ async function start() {
   const child = spawn(mavenExecutable(), [
     '-B',
     '-ntp',
+    `-P${demoMavenProfile}`,
     `-Drevision=${revision}`,
     '-pl',
     ':approval-server',
