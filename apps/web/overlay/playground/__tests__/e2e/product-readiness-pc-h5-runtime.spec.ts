@@ -123,6 +123,13 @@ async function capture(page: Parameters<typeof attachPageRuntimeDiagnostics>[0],
   });
 }
 
+async function expectH5BusinessCard(
+  page: Parameters<typeof attachPageRuntimeDiagnostics>[0],
+) {
+  await expect(page.locator('.task-card').filter({ hasText: businessKey }).first())
+    .toBeVisible();
+}
+
 test('PC manager and H5 finance actors complete the same seeded approval instance', async ({
   browser,
   request,
@@ -260,8 +267,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       h5Pending.response,
       authoritativeActors.financeReview,
     );
-    await expect(h5Reviewer.getByText(businessKey, { exact: true }).first())
-      .toBeVisible();
+    await expectH5BusinessCard(h5Reviewer);
     await capture(h5Reviewer, 'h5-finance-before.png');
 
     const h5Approval = await clickH5Approval(
@@ -359,8 +365,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       h5CountersignAPending.response,
       authoritativeActors.financeCountersign[0],
     );
-    await expect(h5CountersignA.getByText(businessKey, { exact: true }).first())
-      .toBeVisible();
+    await expectH5BusinessCard(h5CountersignA);
     await capture(h5CountersignA, 'h5-countersign-a-before.png');
 
     const countersignAApproval = await clickH5Approval(
@@ -420,8 +425,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       h5CountersignBPending.response,
       authoritativeActors.financeCountersign[1],
     );
-    await expect(h5CountersignB.getByText(businessKey, { exact: true }).first())
-      .toBeVisible();
+    await expectH5BusinessCard(h5CountersignB);
     await capture(h5CountersignB, 'h5-countersign-b-before.png');
 
     const countersignBApproval = await clickH5Approval(
