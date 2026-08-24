@@ -30,8 +30,9 @@ export async function ensurePcLogin(page: Page) {
   const slider = page.locator("div[name='captcha']");
   const action = page.locator("div[name='captcha-action']");
   const login = page.getByRole('button', {
-    name: /login|登录/iu,
-  }).last();
+    name: 'login',
+    exact: true,
+  });
 
   await expect(username).toBeVisible({ timeout: 15_000 });
   await expect(password).toBeVisible();
