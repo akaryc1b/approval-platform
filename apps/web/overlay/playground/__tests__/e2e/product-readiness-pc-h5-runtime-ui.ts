@@ -1,7 +1,11 @@
 import type { Page, Response } from '@playwright/test';
 import { expect } from '@playwright/test';
 
-import { businessKey, pcUrl } from './product-readiness-pc-h5-runtime-api';
+import {
+  businessKey,
+  exactApprovalApiPath,
+  pcUrl,
+} from './product-readiness-pc-h5-runtime-api';
 
 function responsePath(response: Response) {
   try {
@@ -13,7 +17,10 @@ function responsePath(response: Response) {
 
 function exactApprovalResponse(response: Response, taskId: string) {
   return response.request().method() === 'POST'
-    && responsePath(response) === `/api/approval/tasks/${taskId}/approve`
+    && exactApprovalApiPath(
+      response.url(),
+      `/api/approval/tasks/${taskId}/approve`,
+    )
     && response.status() === 200;
 }
 

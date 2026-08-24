@@ -30,6 +30,7 @@ export const evidenceDirectory = requiredEnvironment(
 export const pcUrl = requiredEnvironment('APPROVAL_DEMO_PC_URL');
 const h5BaseUrl = requiredEnvironment('APPROVAL_DEMO_H5_URL');
 
+const approvalProxyPrefix = '/approval-api';
 const pendingPath = '/api/approval/tasks/pending';
 const pollIntervalMs = 500;
 const pollTimeoutMs = 30_000;
@@ -80,9 +81,12 @@ function delay(milliseconds: number) {
   return new Promise(resolvePromise => setTimeout(resolvePromise, milliseconds));
 }
 
-function exactPath(url: string, expectedPath: string) {
+export function exactApprovalApiPath(url: string, expectedPath: string) {
   try {
-    return new URL(url).pathname === expectedPath;
+    const directPath = new URL(url).pathname === expectedPath;
+    const proxiedPath = new URL(url).pathname
+      === `${approvalProxyPrefix}${expectedPath}`;
+    return directPath || proxiedPath;
   } catch {
     return false;
   }
@@ -143,7 +147,7 @@ export async function pendingResponse(
   const response = await page.waitForResponse(async candidate => {
     const request = candidate.request();
     if (request.method() !== 'GET'
-      || !exactPath(candidate.url(), pendingPath)
+      || !exactApprovalApiPath(candidate.url(), pendingPath)
       || candidate.status() !== 200) {
       return false;
     }
