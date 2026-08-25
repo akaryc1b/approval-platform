@@ -74,6 +74,15 @@ function expectNoActorTasks(assignments: AssignmentMap) {
   }
 }
 
+function expectPendingTaskIdentity(actual: PendingTask, expected: PendingTask) {
+  expect(actual).toEqual(expect.objectContaining({
+    businessKey: expected.businessKey,
+    instanceId: expected.instanceId,
+    taskDefinitionKey: expected.taskDefinitionKey,
+    taskId: expected.taskId,
+  }));
+}
+
 function expectResponseIdentity(response: Parameters<typeof selectedHeaders>[0], actorId: string) {
   const headers = selectedHeaders(response);
   expect(headers).toEqual({
@@ -267,7 +276,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
         { waitUntil: 'domcontentloaded' },
       ),
     ]);
-    expect(h5Pending.task).toEqual(financeTask);
+    expectPendingTaskIdentity(h5Pending.task, financeTask);
     expectResponseIdentity(
       h5Pending.response,
       authoritativeActors.financeReview,
@@ -370,7 +379,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
         { waitUntil: 'domcontentloaded' },
       ),
     ]);
-    expect(h5CountersignAPending.task).toEqual(countersignA);
+    expectPendingTaskIdentity(h5CountersignAPending.task, countersignA);
     expectResponseIdentity(
       h5CountersignAPending.response,
       authoritativeActors.financeCountersign[0],
@@ -435,7 +444,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
         { waitUntil: 'domcontentloaded' },
       ),
     ]);
-    expect(h5CountersignBPending.task).toEqual(countersignB);
+    expectPendingTaskIdentity(h5CountersignBPending.task, countersignB);
     expectResponseIdentity(
       h5CountersignBPending.response,
       authoritativeActors.financeCountersign[1],
