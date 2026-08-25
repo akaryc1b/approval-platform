@@ -14,6 +14,7 @@ export const businessKey = 'DEMO-PP-0001';
 export const assignmentSource =
   'config/demo/purchase-payment-golden-path.json';
 export const authoritativeActors = {
+  initiator: 'demo-employee',
   managerApproval: 'demo-manager',
   financeReview: 'demo-finance-reviewer',
   financeCountersign: [
@@ -304,7 +305,7 @@ export async function timeline(
 ) {
   const response = await request.get(
     `${backendOrigin}/api/approval/instances/${instanceId}/timeline`,
-    { headers: demoHeaders('demo-admin', 'timeline') },
+    { headers: demoHeaders(authoritativeActors.initiator, 'timeline') },
   );
   expect(response.status()).toBe(200);
   const payload = await response.json() as { items?: TimelineItem[] };
@@ -319,7 +320,7 @@ export async function startedInstance(request: APIRequestContext) {
   });
   const response = await request.get(
     `${backendOrigin}/api/approval/instances/started?${query}`,
-    { headers: demoHeaders('demo-employee', 'started') },
+    { headers: demoHeaders(authoritativeActors.initiator, 'started') },
   );
   expect(response.status()).toBe(200);
   const payload = await response.json() as { items?: StartedInstance[] };

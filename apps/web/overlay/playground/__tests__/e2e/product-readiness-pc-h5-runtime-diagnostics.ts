@@ -280,7 +280,7 @@ async function backendSnapshot(
   });
   const started = await readJson(
     request,
-    'demo-employee',
+    authoritativeActors.initiator,
     'started',
     `${backendOrigin}/api/approval/instances/started?${startedQuery}`,
   );
@@ -295,7 +295,7 @@ async function backendSnapshot(
   const processTimeline = discoveredInstanceId
     ? await readJson(
         request,
-        'demo-admin',
+        authoritativeActors.initiator,
         'timeline',
         `${backendOrigin}/api/approval/instances/${discoveredInstanceId}/timeline`,
       )
