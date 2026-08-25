@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   appendFileSync,
@@ -9,6 +10,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { relative, resolve, sep } from 'node:path';
 
@@ -49,6 +51,7 @@ const retainedEvidenceExtensions = new Set([
   '.zip',
 ]);
 const requiredPassFiles = [
+  'source-identity.json',
   'pc-h5-runtime-evidence.json',
   'pc-manager-before.png',
   'pc-manager-after.png',
@@ -61,12 +64,46 @@ const requiredPassFiles = [
 ];
 const sha40 = /^[0-9a-f]{40}$/u;
 
-function exactWorkflowHead() {
+function gitExecutable() {
+  return process.platform === 'win32' ? 'git.exe' : 'git';
+}
+
+function gitRevision(revision, label) {
+  const result = spawnSync(
+    gitExecutable(),
+    ['rev-parse', '--verify', revision],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: process.env,
+      shell: false,
+    },
+  );
+  if (result.error || result.status !== 0) {
+    const detail = [result.stdout, result.stderr]
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    throw new Error(
+      `${label} could not be resolved${detail ? `: ${detail}` : ''}`,
+    );
+  }
+  const candidate = result.stdout.trim();
+  if (!sha40.test(candidate)) {
+    throw new Error(`${label} is not a 40-character Git SHA: ${candidate}`);
+  }
+  return candidate;
+}
+
+function expectedWorkflowHead() {
   const eventPath = process.env.GITHUB_EVENT_PATH;
   if (eventPath && existsSync(eventPath)) {
     try {
       const event = JSON.parse(readFileSync(eventPath, 'utf8'));
       const candidate = event?.pull_request?.head?.sha;
+      if (candidate !== undefined && !sha40.test(candidate || '')) {
+        throw new Error('pull_request.head.sha is invalid');
+      }
       if (sha40.test(candidate || '')) return candidate;
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -75,11 +112,59 @@ function exactWorkflowHead() {
   }
   const candidate = process.env.APPROVAL_DEMO_EXACT_HEAD_SHA
     || process.env.GITHUB_SHA;
+  if (candidate !== undefined && candidate !== '' && !sha40.test(candidate)) {
+    throw new Error(`configured exact Head SHA is invalid: ${candidate}`);
+  }
   if (sha40.test(candidate || '')) return candidate;
   if (process.env.GITHUB_ACTIONS === 'true') {
     throw new Error('exact pull request Head SHA is unavailable');
   }
   return null;
+}
+
+function workflowSourceIdentity() {
+  const checkedOutSha = gitRevision('HEAD', 'checked-out revision');
+  const exactHeadSha = expectedWorkflowHead() || checkedOutSha;
+  const checkedOutTreeSha = gitRevision(
+    `${checkedOutSha}^{tree}`,
+    'checked-out source tree',
+  );
+  const exactHeadTreeSha = gitRevision(
+    `${exactHeadSha}^{tree}`,
+    'exact Head source tree',
+  );
+  if (checkedOutTreeSha !== exactHeadTreeSha) {
+    throw new Error(
+      'checked-out source tree does not match the exact pull request Head: '
+        + JSON.stringify({
+          checkedOutSha,
+          checkedOutTreeSha,
+          exactHeadSha,
+          exactHeadTreeSha,
+        }),
+    );
+  }
+  return {
+    checkedOutSha,
+    checkedOutTreeSha,
+    exactHeadSha,
+    exactHeadTreeSha,
+    sourceTreeMatchesExactHead: true,
+  };
+}
+
+function writeSourceIdentity(sourceIdentity) {
+  writeFileSync(
+    resolve(outputDirectory, 'source-identity.json'),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      evidenceKind: 'PC_H5_RUNTIME_SOURCE_IDENTITY_V1',
+      githubRunId: process.env.GITHUB_RUN_ID || null,
+      capturedAt: new Date().toISOString(),
+      ...sourceIdentity,
+    }, null, 2)}\n`,
+    { encoding: 'utf8', mode: 0o600 },
+  );
 }
 
 function collectEvidenceFiles(directory, files = []) {
@@ -109,7 +194,7 @@ function evidenceRelativePath(target) {
   return path;
 }
 
-function appendCiEvidenceEnvelope(status, exactHeadSha) {
+function appendCiEvidenceEnvelope(status, sourceIdentity) {
   if (process.env.GITHUB_ACTIONS !== 'true') return;
   const artifactLog = resolve(repositoryRoot, 'root-install.log');
   if (!existsSync(artifactLog)) {
@@ -153,7 +238,7 @@ function appendCiEvidenceEnvelope(status, exactHeadSha) {
     schemaVersion: 1,
     evidenceKind: 'PC_H5_BROWSER_RUNTIME_CI_ARTIFACT_ENVELOPE_V1',
     status,
-    exactHeadSha,
+    ...sourceIdentity,
     githubRunId: process.env.GITHUB_RUN_ID || null,
     capturedAt: new Date().toISOString(),
     expectedFailureArtifacts: [
@@ -178,7 +263,7 @@ function appendCiEvidenceEnvelope(status, exactHeadSha) {
 }
 
 function verifyRetainedRuntimeEvidence(evidence, exactHeadSha) {
-  if (exactHeadSha && evidence.commitSha !== exactHeadSha) {
+  if (evidence.commitSha !== exactHeadSha) {
     throw new Error(
       `runtime evidence Head mismatch: expected ${exactHeadSha}, got ${evidence.commitSha}`,
     );
@@ -202,7 +287,9 @@ async function executeSmoke() {
 
   const javaEnvironment = java21Environment();
   const browserPath = chromeExecutable();
-  const exactHeadSha = exactWorkflowHead();
+  const sourceIdentity = workflowSourceIdentity();
+  const exactHeadSha = sourceIdentity.exactHeadSha;
+  writeSourceIdentity(sourceIdentity);
   const managed = [];
   let ciEvidenceRetained = process.env.GITHUB_ACTIONS !== 'true';
   try {
@@ -282,7 +369,7 @@ async function executeSmoke() {
         APPROVAL_DEMO_BACKEND_ORIGIN: 'http://127.0.0.1:8080',
         APPROVAL_DEMO_CHROME_PATH: browserPath,
         APPROVAL_DEMO_EVIDENCE_DIR: outputDirectory,
-        APPROVAL_DEMO_EXACT_HEAD_SHA: exactHeadSha || '',
+        APPROVAL_DEMO_EXACT_HEAD_SHA: exactHeadSha,
         APPROVAL_DEMO_H5_URL:
           'http://127.0.0.1:9000/#/pages/task/list',
         APPROVAL_DEMO_PC_URL:
@@ -293,10 +380,13 @@ async function executeSmoke() {
 
     const evidence = verifyEvidence();
     verifyRetainedRuntimeEvidence(evidence, exactHeadSha);
-    appendCiEvidenceEnvelope('PASSED', exactHeadSha);
+    appendCiEvidenceEnvelope('PASSED', sourceIdentity);
     ciEvidenceRetained = true;
     console.log('\nPC_H5_APPROVAL_HANDOFF_PASSED');
     console.log(`exactHeadSha=${evidence.commitSha}`);
+    console.log(`checkedOutSha=${sourceIdentity.checkedOutSha}`);
+    console.log(`checkedOutTreeSha=${sourceIdentity.checkedOutTreeSha}`);
+    console.log(`exactHeadTreeSha=${sourceIdentity.exactHeadTreeSha}`);
     console.log(`instanceId=${evidence.instanceId}`);
     console.log(`managerTaskId=${evidence.steps[0].taskId}`);
     console.log(`financeReviewTaskId=${evidence.steps[1].taskId}`);
@@ -309,7 +399,7 @@ async function executeSmoke() {
   } catch (error) {
     if (!ciEvidenceRetained) {
       try {
-        appendCiEvidenceEnvelope('FAILED', exactHeadSha);
+        appendCiEvidenceEnvelope('FAILED', sourceIdentity);
         ciEvidenceRetained = true;
       } catch (retentionError) {
         const original = error instanceof Error ? error.message : String(error);

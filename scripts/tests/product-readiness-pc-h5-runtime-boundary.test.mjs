@@ -33,9 +33,12 @@ const runtimeContract = text(
 const evidenceSupport = text(
   'scripts/product-readiness/pc-h5-runtime/evidence.mjs',
 );
+const ciScope = text(
+  'scripts/product-readiness/pc-h5-runtime/ci-scope.mjs',
+);
 const processSupport = [
   text('scripts/product-readiness/pc-h5-runtime/processes.mjs'),
-  text('scripts/product-readiness/pc-h5-runtime/ci-scope.mjs'),
+  ciScope,
 ].join('\n');
 const playwrightConfig = text(
   'apps/web/overlay/playground/product-readiness.playwright.config.ts',
@@ -101,6 +104,9 @@ test('orchestrator uses fixed executables, local services and path-gated CI', ()
   assert.match(smoke, /http:\/\/127\.0\.0\.1:8080/u);
   assert.match(runtimeContract, /JAVA_HOME_21_X64/u);
   assert.match(runtimeContract, /PATH: `\$\{javaBin\}\$\{delimiter\}/u);
+  assert.equal(ciScope.includes('apps\\/mobile\\/overlay\\/'), true);
+  assert.equal(ciScope.includes('apps\\/mobile\\/upstream\\.json'), true);
+  assert.equal(ciScope.includes('bootstrap-unibest'), true);
   assert.doesNotMatch(processSupport, /spawn(?:Sync)?\(command/u);
   assert.doesNotMatch(processSupport, /shell:\s*true/u);
   assert.doesNotMatch(processSupport, /\bexec\s*\(/u);
@@ -112,6 +118,24 @@ test('orchestrator uses fixed executables, local services and path-gated CI', ()
     `${smoke}\n${processSupport}`,
     /X-Approval-Worker-Id/u,
   );
+});
+
+test('runtime evidence retains and validates the actual checkout identity', () => {
+  for (const marker of [
+    'workflowSourceIdentity',
+    "['rev-parse', '--verify', revision]",
+    'checkedOutSha',
+    'checkedOutTreeSha',
+    'exactHeadSha',
+    'exactHeadTreeSha',
+    'sourceTreeMatchesExactHead',
+    'source-identity.json',
+    'PC_H5_RUNTIME_SOURCE_IDENTITY_V1',
+  ]) {
+    assert.equal(smoke.includes(marker), true, `source identity missing ${marker}`);
+  }
+  assert.match(smoke, /checked-out source tree does not match/u);
+  assert.match(smoke, /verifyRetainedRuntimeEvidence\(evidence, exactHeadSha\)/u);
 });
 
 test('browser test performs one PC and three H5 approvals through visible controls', () => {
@@ -171,6 +195,10 @@ test('pending waits precede every navigation and bind the exact runtime identity
   assert.match(playwrightApi, /waitForStartedInstance/u);
   assert.match(playwrightApi, /waitForCompletedInstance/u);
   assert.match(playwrightApi, /setTimeout\(resolvePromise, milliseconds\)/u);
+  assert.match(
+    playwrightApi,
+    /demoHeaders\(authoritativeActors\.initiator, 'timeline'\)/u,
+  );
   assert.doesNotMatch(playwrightSpec, /waitForTimeout/u);
   assert.doesNotMatch(playwrightUi, /waitForTimeout/u);
 });
@@ -283,6 +311,10 @@ test('runtime failures preserve diagnostics for every actor and remain fail-clos
     const source = marker.endsWith('.png') ? smoke : playwrightDiagnostics;
     assert.equal(source.includes(marker), true, `runtime diagnostics missing ${marker}`);
   }
+  assert.match(
+    playwrightDiagnostics,
+    /exactApprovalApiPath\([\s\S]*response\.url\(\)[\s\S]*\/api\/approval\/tasks\/pending/u,
+  );
   assert.match(playwrightDiagnostics, /diagnosticScreenshotFile/u);
   assert.match(playwrightSpec, /throw error;/u);
   assert.match(playwrightSpec, /runtime diagnostics failed/u);
@@ -295,6 +327,7 @@ test('success and failure evidence are retained in the permanent Vben artifact',
     'APPROVAL_PC_H5_RUNTIME_EVIDENCE_ENVELOPE_END',
     'root-install.log',
     'PC_H5_BROWSER_RUNTIME_CI_ARTIFACT_ENVELOPE_V1',
+    'source-identity.json',
     'h5-countersign-a-before.png',
     'h5-countersign-b-after.png',
     'trace.zip',

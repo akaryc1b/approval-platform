@@ -14,6 +14,7 @@ import {
   backendOrigin,
   businessKey,
   evidenceDirectory,
+  exactApprovalApiPath,
   tenantId,
 } from './product-readiness-pc-h5-runtime-api';
 
@@ -130,7 +131,10 @@ export function attachPageRuntimeDiagnostics(
       status: response.status(),
     };
     retainRecent(diagnostics.responses, summary);
-    if (new URL(response.url()).pathname === '/api/approval/tasks/pending') {
+    if (exactApprovalApiPath(
+      response.url(),
+      '/api/approval/tasks/pending',
+    )) {
       const bodyRead = response.json()
         .then(body => {
           summary.body = body;
