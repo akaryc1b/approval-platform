@@ -20,7 +20,7 @@ const commands = new Set(['plan', 'run', 'ci']);
 export class UsageError extends Error {}
 
 export function usage() {
-  return `Usage: node scripts/product-readiness/pc-h5-runtime-smoke.mjs <command> [options]\n\nCommands:\n  plan  Print the bounded PC/H5 runtime smoke plan.\n  run   Execute the smoke explicitly.\n  ci    Execute only for a relevant GitHub Actions change set.\n\nOptions:\n  --json  Machine-readable plan output.\n  --help  Show this help.\n\nThe smoke starts the real local backend, PC client, H5 client and a system\nChromium browser. It completes managerApproval in PC, then financeReview and\nboth authoritative financeCountersign tasks in H5, and proves that the same\nseeded instance reaches COMPLETED. The Seed, not a client initiation flow,\ncreates the instance. The smoke does not execute WeChat, prove a complete\npurchase approval E2E, verify a payment provider, establish browser\ncompatibility, or claim production readiness.`;
+  return `Usage: node scripts/product-readiness/pc-h5-runtime-smoke.mjs <command> [options]\n\nCommands:\n  plan  Print the bounded PC/H5 runtime smoke plan.\n  run   Execute the smoke explicitly.\n  ci    Execute only for a relevant GitHub Actions change set.\n\nOptions:\n  --json  Machine-readable plan output.\n  --help  Show this help.\n\nThe smoke starts the real local backend, PC client, H5 client and a system\nChromium browser. It completes managerApproval in PC, then financeReview and\nboth authoritative financeCountersign tasks in H5, and proves that the same\nseeded instance remains RUNNING with a distinct paymentConfirmation task for\nthe governed WeChat actor. The Seed, not a client initiation flow, creates the\ninstance. The smoke does not execute WeChat, complete the purchase approval\nE2E, verify a payment provider, establish browser compatibility, or claim\nproduction readiness.`;
 }
 
 export function parseArguments(argv) {
@@ -53,12 +53,13 @@ export function smokePlan() {
     stages: [
       'install generated Vben and UniApp workspaces',
       'start PostgreSQL, Redis, Spring Boot, Flowable and deterministic seed',
-      'start PC as demo-manager',
-      'start H5 with URL-scoped authoritative finance actors',
+      'start PC as the governed managerApproval actor',
+      'start H5 with URL-scoped governed finance actors',
       'use a real Chromium page to approve managerApproval in PC',
       'use a real Chromium page to approve financeReview in H5',
       'use real Chromium H5 pages to approve two distinct financeCountersign tasks',
-      'verify the same seeded instance reaches COMPLETED with no pending task',
+      'verify the same seeded instance remains RUNNING at paymentConfirmation',
+      'verify the paymentConfirmation task is distinct and assigned to the governed WeChat actor',
       'retain screenshots, request headers, action results, task IDs and audit IDs',
     ],
     claim: 'PC_H5_APPROVAL_HANDOFF_PASSED',

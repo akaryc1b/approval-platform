@@ -352,28 +352,28 @@ function validateWorkflow(manifest, templateSource, users) {
       requireIdentifier(stage.decision, `${path}.decision`),
       requireIdentifier(stage.client, `${path}.client`),
     ];
+    if (index === expectedWorkflow.length - 1) {
+      if (actual[2].length !== 1
+        || actual[2][0] !== rules.initiatorUserId.value) {
+        fail('payment confirmation actor must equal the governed initiator');
+      }
+      if (actual[4] !== 'wechat') {
+        fail('payment confirmation must run in the WeChat client');
+      }
+    }
     if (JSON.stringify(actual) !== JSON.stringify(expectedWorkflow[index])) {
       fail(`${path} does not match the governed high-value purchase-to-payment path`);
     }
-  }
-
-  const paymentStage = workflow.at(-1);
-  if (paymentStage.actorIds.length !== 1
-    || paymentStage.actorIds[0] !== rules.initiatorUserId.value) {
-    fail('payment confirmation actor must equal the governed initiator');
-  }
-  if (paymentStage.client !== 'wechat') {
-    fail('payment confirmation must run in the WeChat client');
   }
 
   const templateBindings = [
     'public static final String DEFINITION_KEY = "purchase-payment";',
     'public static final int PROCESS_VERSION = 3;',
     'public static final BigDecimal HIGH_VALUE_THRESHOLD = new BigDecimal("10000.00");',
+    'public static final String MANAGER_APPROVAL_TASK_KEY = "managerApproval";',
+    'public static final String FINANCE_REVIEW_TASK_KEY = "financeReview";',
+    'public static final String FINANCE_COUNTERSIGN_TASK_KEY = "financeCountersign";',
     'public static final String PAYMENT_CONFIRMATION_TASK_KEY = "paymentConfirmation";',
-    '"managerApproval"',
-    '"financeReview"',
-    '"financeCountersign"',
     'PAYMENT_CONFIRMATION_TASK_KEY,',
     'INITIATOR_ASSIGNEE_VARIABLE,',
   ];

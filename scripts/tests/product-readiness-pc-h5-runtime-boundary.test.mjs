@@ -62,7 +62,7 @@ const goldenPath = JSON.parse(
 );
 const aggregate = text('scripts/tests/m3-repository-hygiene.test.mjs');
 
-test('runtime smoke exposes a read-only four-action plan and skips non-CI', () => {
+test('runtime smoke exposes a read-only four-action payment-handoff plan and skips non-CI', () => {
   const planned = runSmoke('plan', '--json');
   assert.equal(planned.status, 0, planned.stderr || planned.stdout);
   const plan = JSON.parse(planned.stdout);
@@ -74,7 +74,13 @@ test('runtime smoke exposes a read-only four-action plan and skips non-CI', () =
     true,
   );
   assert.equal(
-    plan.stages.some(stage => stage.includes('reaches COMPLETED')),
+    plan.stages.some(stage =>
+      stage.includes('remains RUNNING at paymentConfirmation')),
+    true,
+  );
+  assert.equal(
+    plan.stages.some(stage =>
+      stage.includes('governed WeChat actor')),
     true,
   );
   assert.deepEqual(plan.nonClaims, [
@@ -147,7 +153,9 @@ test('browser test performs one PC and three H5 approvals through visible contro
   assert.match(playwrightUi, /uni-modal__btn_primary/u);
   assert.match(playwrightSpec, /PC_H5_APPROVAL_HANDOFF_PASSED/u);
   assert.match(playwrightSpec, /financeCountersign/u);
-  assert.match(playwrightSpec, /waitForCompletedInstance/u);
+  assert.match(playwrightSpec, /paymentHandoff/u);
+  assert.match(playwrightSpec, /waitForPendingForActor/u);
+  assert.doesNotMatch(playwrightSpec, /waitForCompletedInstance/u);
   assert.match(playwrightSpec, /instanceOrigin: 'DETERMINISTIC_BACKEND_SEED'/u);
   assert.match(playwrightApi, /taskActionResult/u);
   assert.doesNotMatch(
@@ -193,7 +201,6 @@ test('pending waits precede every navigation and bind the exact runtime identity
   assert.match(playwrightApi, /waitForPendingForActor/u);
   assert.match(playwrightApi, /waitForPendingTaskToDisappear/u);
   assert.match(playwrightApi, /waitForStartedInstance/u);
-  assert.match(playwrightApi, /waitForCompletedInstance/u);
   assert.match(playwrightApi, /setTimeout\(resolvePromise, milliseconds\)/u);
   assert.match(
     playwrightApi,
@@ -222,23 +229,26 @@ test('H5 actor selection remains stable before hash navigation', () => {
   );
 });
 
-test('assignment evidence matches the authoritative deterministic seed', () => {
+test('assignment evidence is derived from the authoritative four-stage manifest', () => {
   assert.equal(goldenPath.tenant.id, 'demo-purchase-payment');
   assert.equal(goldenPath.request.businessKey, 'DEMO-PP-0001');
   assert.deepEqual(
     goldenPath.expectedWorkflow.map(step => ({
       actorIds: step.actorIds,
+      client: step.client,
       mode: step.mode,
       taskDefinitionKey: step.taskDefinitionKey,
     })),
     [
       {
         actorIds: ['demo-manager'],
+        client: 'pc',
         mode: 'SINGLE',
         taskDefinitionKey: 'managerApproval',
       },
       {
         actorIds: ['demo-finance-reviewer'],
+        client: 'h5',
         mode: 'SINGLE',
         taskDefinitionKey: 'financeReview',
       },
@@ -247,12 +257,20 @@ test('assignment evidence matches the authoritative deterministic seed', () => {
           'demo-finance-approver-a',
           'demo-finance-approver-b',
         ],
+        client: 'h5',
         mode: 'ALL',
         taskDefinitionKey: 'financeCountersign',
+      },
+      {
+        actorIds: ['demo-employee'],
+        client: 'wechat',
+        mode: 'SINGLE',
+        taskDefinitionKey: 'paymentConfirmation',
       },
     ],
   );
   assert.match(playwrightApi, /purchase-payment-golden-path\.json/u);
+  assert.match(playwrightApi, /governedScenario\.expectedWorkflow/u);
   assert.match(playwrightSpec, /pendingAssignments/u);
   assert.match(playwrightSpec, /operator-scoped real pending task visibility/u);
   assert.match(
@@ -260,29 +278,30 @@ test('assignment evidence matches the authoritative deterministic seed', () => {
     /countersignA\.taskId\)\.not\.toBe\(countersignB\.taskId/u,
   );
   assert.match(playwrightSpec, /expectOnlyActorTask/u);
-  assert.match(playwrightSpec, /expectNoActorTasks/u);
+  assert.match(playwrightSpec, /authoritativeActors\.paymentConfirmation/u);
 });
 
-test('machine evidence requires four distinct actions and final completion', () => {
-  for (const actor of [
-    'demo-manager',
-    'demo-finance-reviewer',
-    'demo-finance-approver-a',
-    'demo-finance-approver-b',
+test('machine evidence requires four processed actions and an independent payment handoff', () => {
+  for (const marker of [
+    'scenario.expectedWorkflow',
+    "governedStage('paymentConfirmation')",
+    'paymentHandoff',
+    'payment confirmation task ID must be independent',
+    "finalState?.status !== 'RUNNING'",
+    'awaiting-payment state',
   ]) {
-    assert.equal(evidenceSupport.includes(actor), true, `validator missing ${actor}`);
+    assert.equal(evidenceSupport.includes(marker), true, `validator missing ${marker}`);
   }
   assert.match(evidenceSupport, /evidence\.steps\?\.length !== expectedSteps\.length/u);
-  assert.match(evidenceSupport, /new Set\(taskIds\)\.size !== taskIds\.length/u);
+  assert.match(evidenceSupport, /new Set\(processedTaskIds\)\.size/u);
   assert.match(evidenceSupport, /completedTaskId !== step\.taskId/u);
   assert.match(evidenceSupport, /auditRequestId !== step\.request\.requestId/u);
-  assert.match(evidenceSupport, /finalState\?\.status !== 'COMPLETED'/u);
-  assert.match(evidenceSupport, /all four approval actions/u);
   assert.match(playwrightSpec, /auditRequestId/u);
-  assert.match(playwrightSpec, /finalState: completedState/u);
+  assert.match(playwrightSpec, /finalState: awaitingPaymentState/u);
+  assert.match(playwrightSpec, /paymentTask\.taskId/u);
 });
 
-test('runtime failures preserve diagnostics for every actor and remain fail-closed', () => {
+test('runtime failures preserve diagnostics for every browser actor and remain fail-closed', () => {
   assert.ok(
     playwrightSpec.indexOf('attachPageRuntimeDiagnostics')
       < playwrightSpec.indexOf('ensurePcLogin'),

@@ -147,6 +147,7 @@ class ApprovalBatchSimulationServiceTest {
         assertEquals(ScenarioRunStatus.PASSED, high.runStatus());
         assertTrue(high.expectationFailures().isEmpty());
         assertTrue(high.pathSummary().contains("financeReview[APPROVED]"));
+        assertTrue(high.pathSummary().contains("paymentConfirmation[APPROVED]"));
         assertTrue(high.identityResolutions().stream().anyMatch(value ->
             value.nodeId().equals("managerApproval") && value.resolvable()
         ));
@@ -539,11 +540,19 @@ class ApprovalBatchSimulationServiceTest {
         List<String> expectedSkipped,
         int maxTransitions
     ) {
+        Map<String, ApprovalDefinitionSimulator.Decision> governedDecisions =
+            new LinkedHashMap<>(decisions);
+        if (expectedStatus == ApprovalDefinitionSimulator.SimulationStatus.COMPLETED) {
+            governedDecisions.putIfAbsent(
+                PurchasePaymentTemplate.PAYMENT_CONFIRMATION_TASK_KEY,
+                ApprovalDefinitionSimulator.Decision.APPROVE
+            );
+        }
         return new NamedScenario(
             id,
             id,
             Map.of("amount", amount),
-            decisions,
+            governedDecisions,
             identities,
             expectedStatus,
             expectedVisited,

@@ -5,33 +5,56 @@ import { resolve } from 'node:path';
 import {
   evidencePath,
   outputDirectory,
+  repositoryRoot,
 } from './contract.mjs';
+
+const assignmentSource = 'config/demo/purchase-payment-golden-path.json';
+const scenario = JSON.parse(readFileSync(
+  resolve(repositoryRoot, assignmentSource),
+  'utf8',
+));
+const governedStages = new Map(
+  scenario.expectedWorkflow.map(stage => [stage.taskDefinitionKey, stage]),
+);
+
+function governedStage(taskDefinitionKey) {
+  const stage = governedStages.get(taskDefinitionKey);
+  if (!stage) throw new Error(`missing governed stage ${taskDefinitionKey}`);
+  return stage;
+}
+
+const managerStage = governedStage('managerApproval');
+const financeReviewStage = governedStage('financeReview');
+const countersignStage = governedStage('financeCountersign');
+const paymentStage = governedStage('paymentConfirmation');
+if (managerStage.actorIds.length !== 1
+  || financeReviewStage.actorIds.length !== 1
+  || countersignStage.actorIds.length !== 2
+  || paymentStage.actorIds.length !== 1
+  || paymentStage.actorIds[0] !== scenario.assigneeRules.initiatorUserId.value
+  || paymentStage.client !== 'wechat') {
+  throw new Error('governed PC/H5 to WeChat handoff is invalid');
+}
 
 const expectedSteps = [
   {
-    actorId: 'demo-manager',
-    client: 'pc',
+    actorId: managerStage.actorIds[0],
+    client: managerStage.client,
     instanceStatus: 'RUNNING',
-    taskDefinitionKey: 'managerApproval',
+    taskDefinitionKey: managerStage.taskDefinitionKey,
   },
   {
-    actorId: 'demo-finance-reviewer',
-    client: 'h5',
+    actorId: financeReviewStage.actorIds[0],
+    client: financeReviewStage.client,
     instanceStatus: 'RUNNING',
-    taskDefinitionKey: 'financeReview',
+    taskDefinitionKey: financeReviewStage.taskDefinitionKey,
   },
-  {
-    actorId: 'demo-finance-approver-a',
-    client: 'h5',
+  ...countersignStage.actorIds.map(actorId => ({
+    actorId,
+    client: countersignStage.client,
     instanceStatus: 'RUNNING',
-    taskDefinitionKey: 'financeCountersign',
-  },
-  {
-    actorId: 'demo-finance-approver-b',
-    client: 'h5',
-    instanceStatus: 'COMPLETED',
-    taskDefinitionKey: 'financeCountersign',
-  },
+    taskDefinitionKey: countersignStage.taskDefinitionKey,
+  })),
 ];
 
 const expectedScreenshots = [
@@ -72,7 +95,7 @@ function verifyStep(step, expected, instanceId) {
     throw new Error(`runtime step identity mismatch for ${expected.actorId}`);
   }
   if (step.request?.operatorId !== expected.actorId
-    || step.request?.tenantId !== 'demo-purchase-payment'
+    || step.request?.tenantId !== scenario.tenant.id
     || !nonEmpty(step.request?.requestId)
     || !nonEmpty(step.request?.traceId)) {
     throw new Error(`runtime request identity mismatch for ${expected.actorId}`);
@@ -98,39 +121,54 @@ export function verifyEvidence() {
     || evidence.claim !== 'PC_H5_APPROVAL_HANDOFF_PASSED') {
     throw new Error('runtime evidence identity is invalid');
   }
-  if (evidence.businessKey !== 'DEMO-PP-0001'
-    || evidence.tenantId !== 'demo-purchase-payment'
+  if (evidence.businessKey !== scenario.request.businessKey
+    || evidence.tenantId !== scenario.tenant.id
     || evidence.instanceOrigin !== 'DETERMINISTIC_BACKEND_SEED') {
     throw new Error('runtime evidence does not match the deterministic scenario');
   }
   if (!nonEmpty(evidence.instanceId)
     || evidence.steps?.length !== expectedSteps.length) {
-    throw new Error('runtime evidence does not retain all four approval actions');
+    throw new Error('runtime evidence does not retain all four browser approval actions');
   }
 
   evidence.steps.forEach((step, index) => {
     verifyStep(step, expectedSteps[index], evidence.instanceId);
   });
-  const taskIds = evidence.steps.map(step => step.taskId);
-  if (new Set(taskIds).size !== taskIds.length) {
-    throw new Error('runtime approval task IDs must all be distinct');
+  const processedTaskIds = evidence.steps.map(step => step.taskId);
+  if (new Set(processedTaskIds).size !== processedTaskIds.length) {
+    throw new Error('runtime processed approval task IDs must all be distinct');
   }
 
-  const countersignTaskIds = evidence.steps.slice(2).map(step => step.taskId).sort();
-  if (evidence.countersignStage?.taskDefinitionKey !== 'financeCountersign'
+  const countersignTaskIds = evidence.steps
+    .filter(step => step.taskDefinitionKey === countersignStage.taskDefinitionKey)
+    .map(step => step.taskId)
+    .sort();
+  if (evidence.countersignStage?.taskDefinitionKey
+      !== countersignStage.taskDefinitionKey
     || evidence.countersignStage?.actorIds?.join(',')
-      !== 'demo-finance-approver-a,demo-finance-approver-b'
+      !== countersignStage.actorIds.join(',')
     || evidence.countersignStage?.taskIds?.slice().sort().join(',')
       !== countersignTaskIds.join(',')) {
     throw new Error('runtime evidence did not retain both processed countersign tasks');
   }
-  if (evidence.finalState?.instanceId !== evidence.instanceId
-    || evidence.finalState?.status !== 'COMPLETED'
-    || evidence.finalState?.currentTaskDefinitionKey) {
-    throw new Error('runtime evidence did not retain the completed process state');
+
+  const paymentHandoff = evidence.paymentHandoff;
+  if (paymentHandoff?.client !== paymentStage.client
+    || paymentHandoff?.actorId !== paymentStage.actorIds[0]
+    || paymentHandoff?.taskDefinitionKey !== paymentStage.taskDefinitionKey
+    || !nonEmpty(paymentHandoff?.taskId)) {
+    throw new Error('runtime evidence did not retain the governed payment handoff');
   }
-  if (evidence.assignmentEvidence?.source
-    !== 'config/demo/purchase-payment-golden-path.json') {
+  if (processedTaskIds.includes(paymentHandoff.taskId)) {
+    throw new Error('payment confirmation task ID must be independent');
+  }
+  if (evidence.finalState?.instanceId !== evidence.instanceId
+    || evidence.finalState?.status !== 'RUNNING'
+    || evidence.finalState?.currentTaskDefinitionKey
+      !== paymentStage.taskDefinitionKey) {
+    throw new Error('runtime evidence did not retain the awaiting-payment state');
+  }
+  if (evidence.assignmentEvidence?.source !== assignmentSource) {
     throw new Error('runtime evidence lost its authoritative assignment source');
   }
 
