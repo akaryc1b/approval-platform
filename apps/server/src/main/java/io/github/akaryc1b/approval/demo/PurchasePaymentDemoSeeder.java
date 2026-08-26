@@ -540,7 +540,7 @@ public final class PurchasePaymentDemoSeeder {
                 "demo-seed-attachment-" + fixture.logicalId() + "-request-v1",
                 "demo-seed-attachment-" + fixture.logicalId() + "-v1"
             );
-            AttachmentSummary summary = PurchasePaymentDemoRequestEvidenceScope.call(
+            AttachmentSummary uploaded = PurchasePaymentDemoRequestEvidenceScope.call(
                 attachmentContext,
                 () -> service.upload(new ApprovalAttachmentService.UploadCommand(
                     attachmentContext,
@@ -549,17 +549,23 @@ public final class PurchasePaymentDemoSeeder {
                     fixture.content()
                 ))
             );
-            if (!fixture.attachmentId().equals(summary.attachmentId())) {
+            if (!fixture.attachmentId().equals(uploaded.attachmentId())) {
                 throw new IllegalStateException(
                     "idempotent attachment result did not preserve the fixed UUID"
                 );
             }
+            AttachmentSummary current = attachmentStore.find(
+                scenario.tenantId(),
+                uploaded.attachmentId()
+            ).orElseThrow(() -> new IllegalStateException(
+                "demo attachment is missing after idempotent upload"
+            )).summary();
             result.add(new PurchasePaymentDemoSeedState.AttachmentEvidence(
                 fixture.logicalId(),
-                summary.attachmentId(),
-                summary.fileName(),
-                summary.sha256(),
-                summary.bound()
+                current.attachmentId(),
+                current.fileName(),
+                current.sha256(),
+                current.bound()
             ));
         }
         return List.copyOf(result);

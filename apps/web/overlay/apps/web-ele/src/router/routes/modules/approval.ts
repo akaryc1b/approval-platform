@@ -1,5 +1,11 @@
 import type { RouteRecordRaw } from 'vue-router';
 
+import { approvalLocalDemoEnabled } from '#/platform/approval/local-demo';
+
+const approvalWorkbenchAuthority = approvalLocalDemoEnabled()
+  ? ['approval:workbench:view', 'super']
+  : ['approval:workbench:view'];
+
 const routes: RouteRecordRaw[] = [
   {
     name: 'ApprovalPlatform',
@@ -16,7 +22,7 @@ const routes: RouteRecordRaw[] = [
         path: '/approval/workbench',
         component: () => import('#/views/approval/workbench/index.vue'),
         meta: {
-          authority: ['approval:workbench:view'],
+          authority: approvalWorkbenchAuthority,
           icon: 'lucide:inbox',
           title: '审批工作台',
         },

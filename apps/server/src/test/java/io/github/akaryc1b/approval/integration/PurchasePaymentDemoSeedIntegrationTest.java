@@ -107,8 +107,8 @@ class PurchasePaymentDemoSeedIntegrationTest {
             "3680e624-4ca6-54f9-8e1c-7736f5fc936d",
             evidence.attachments().getFirst().attachmentId().toString()
         );
-        assertFalse(evidence.attachments().stream()
-            .anyMatch(PurchasePaymentDemoSeedState.AttachmentEvidence::bound));
+        assertTrue(evidence.attachments().stream()
+            .allMatch(PurchasePaymentDemoSeedState.AttachmentEvidence::bound));
 
         HttpClient client = HttpClient.newHttpClient();
         HttpResponse<String> health = client.send(

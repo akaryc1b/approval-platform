@@ -326,7 +326,7 @@ function clientEnvironment(manifest, resolved, command) {
     return {
       ...common,
       VITE_APPROVAL_API_URL: '/api',
-      VITE_APPROVAL_H5_API_URL: '/approval-api/api',
+      VITE_APPROVAL_H5_API_URL: '/api',
       VITE_APPROVAL_WEIXIN_API_URL: `${resolved.backendOrigin}/api`,
       VITE_APP_PORT: String(resolved.port),
       VITE_APP_PROXY_ENABLE: 'true',
@@ -337,7 +337,7 @@ function clientEnvironment(manifest, resolved, command) {
   return {
     ...common,
     VITE_APPROVAL_API_URL: '/api',
-    VITE_APPROVAL_H5_API_URL: '/approval-api/api',
+    VITE_APPROVAL_H5_API_URL: '/api',
     VITE_APPROVAL_WEIXIN_API_URL: `${resolved.backendOrigin}/api`,
     VITE_APP_PROXY_ENABLE: 'false',
     VITE_SERVER_BASEURL: resolved.backendOrigin,

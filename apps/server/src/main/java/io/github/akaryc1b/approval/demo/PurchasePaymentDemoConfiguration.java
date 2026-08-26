@@ -3,6 +3,9 @@ package io.github.akaryc1b.approval.demo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalDesignService;
 import io.github.akaryc1b.approval.application.ApprovalFormDesignService;
+import io.github.akaryc1b.approval.application.ApprovalFormSubmissionService;
+import io.github.akaryc1b.approval.application.ApprovalFormSubmissionService.SubmissionCommand;
+import io.github.akaryc1b.approval.application.ApprovalFormSubmissionService.SubmissionResult;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseActivationService;
 import io.github.akaryc1b.approval.application.ApprovalProcessReleaseLifecycleService;
 import io.github.akaryc1b.approval.application.ApprovalReleaseDeploymentService;
@@ -15,6 +18,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver;
+import io.github.akaryc1b.approval.domain.context.RequestContext;
+import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -30,6 +35,8 @@ import org.springframework.core.io.ClassPathResource;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Explicitly enabled, local-profile-only purchase-payment demo seed.
@@ -43,6 +50,7 @@ import java.time.Clock;
 )
 public class PurchasePaymentDemoConfiguration {
 
+    private static final String TRACE_ID = "demo-purchase-payment-seed-v1";
     private static final Logger LOGGER =
         LoggerFactory.getLogger(PurchasePaymentDemoConfiguration.class);
 
@@ -120,11 +128,75 @@ public class PurchasePaymentDemoConfiguration {
     @Bean
     ApplicationRunner purchasePaymentDemoSeedRunner(
         PurchasePaymentDemoSeeder seeder,
-        PurchasePaymentDemoSeedState state
+        PurchasePaymentDemoSeedState state,
+        PurchasePaymentDemoScenario scenario,
+        ApprovalFormSubmissionService formSubmissionService
     ) {
         return arguments -> {
-            PurchasePaymentDemoSeedState.SeedEvidence evidence = seeder.apply();
+            PurchasePaymentDemoSeedState.SeedEvidence initialEvidence = seeder.apply();
+            List<String> attachmentIds = initialEvidence.attachments().stream()
+                .map(value -> value.attachmentId().toString())
+                .toList();
+            RequestContext formContext = new RequestContext(
+                scenario.tenantId(),
+                scenario.assigneeRules().initiatorUserId().value(),
+                "demo-seed-form-submit-request-v1",
+                "demo-seed-form-submit-v1",
+                TRACE_ID
+            );
+            SubmissionResult submission = PurchasePaymentDemoRequestEvidenceScope.call(
+                formContext,
+                () -> formSubmissionService.submit(new SubmissionCommand(
+                    formContext,
+                    PurchasePaymentTemplate.DEFINITION_KEY,
+                    PurchasePaymentTemplate.FORM_VERSION,
+                    scenario.request().businessKey(),
+                    Map.of(
+                        "amount", scenario.request().amount(),
+                        "supplier", scenario.request().supplier(),
+                        "purchaseOrderReference", scenario.request().purchaseOrderReference(),
+                        "attachments", attachmentIds
+                    ),
+                    Map.of(
+                        "connectorKey", scenario.assigneeRules().connectorKey(),
+                        "initiatorUserId", Map.of(
+                            "source", scenario.assigneeRules().initiatorUserId().source(),
+                            "objectType", scenario.assigneeRules().initiatorUserId().objectType(),
+                            "value", scenario.assigneeRules().initiatorUserId().value()
+                        ),
+                        "financeReviewerRoleCode",
+                        scenario.assigneeRules().financeReviewerRoleCode(),
+                        "financeApproverPositionCode",
+                        scenario.assigneeRules().financeApproverPositionCode(),
+                        "maximumFinanceApprovers",
+                        scenario.assigneeRules().maximumFinanceApprovers()
+                    )
+                ))
+            );
+            if (!initialEvidence.instanceId().equals(submission.instanceId())) {
+                throw new IllegalStateException(
+                    "demo form submission did not preserve the seeded instance identity"
+                );
+            }
+            if (!initialEvidence.businessKey().equals(submission.businessKey())) {
+                throw new IllegalStateException(
+                    "demo form submission did not preserve the seeded business key"
+                );
+            }
+
+            PurchasePaymentDemoSeedState.SeedEvidence evidence = markAttachmentsBound(
+                initialEvidence
+            );
             state.record(evidence);
+            LOGGER.info(
+                "PURCHASE_PAYMENT_DEMO_FORM_SUBMISSION_APPLIED tenantId={} businessKey={} "
+                    + "instanceId={} submissionId={} replayed={}",
+                evidence.tenantId(),
+                evidence.businessKey(),
+                evidence.instanceId(),
+                submission.submissionId(),
+                submission.replayedExistingSubmission()
+            );
             LOGGER.info(
                 "PURCHASE_PAYMENT_DEMO_SEED_APPLIED tenantId={} businessKey={} "
                     + "instanceId={} status={} taskIds={} attachmentIds={}",
@@ -138,6 +210,30 @@ public class PurchasePaymentDemoConfiguration {
                     .toList()
             );
         };
+    }
+
+    private static PurchasePaymentDemoSeedState.SeedEvidence markAttachmentsBound(
+        PurchasePaymentDemoSeedState.SeedEvidence evidence
+    ) {
+        return new PurchasePaymentDemoSeedState.SeedEvidence(
+            evidence.tenantId(),
+            evidence.businessKey(),
+            evidence.instanceId(),
+            evidence.status(),
+            evidence.definitionKey(),
+            evidence.engineDefinitionId(),
+            evidence.taskIds(),
+            evidence.attachments().stream()
+                .map(value -> new PurchasePaymentDemoSeedState.AttachmentEvidence(
+                    value.logicalId(),
+                    value.attachmentId(),
+                    value.fileName(),
+                    value.sha256(),
+                    true
+                ))
+                .toList(),
+            evidence.seededAt()
+        );
     }
 
     @Bean("purchasePaymentDemoSeed")

@@ -113,6 +113,29 @@ await cp(overlayDirectory, upstreamDirectory, {
   recursive: true,
 });
 
+// The pinned Unibest development server enables Eruda for every H5 run. The
+// product-readiness local demo uses real visible controls, so its generated
+// workspace must not place a debug overlay above those controls. Keep normal
+// upstream development behavior unchanged and fail closed if the pinned
+// boundary drifts.
+const viteConfigPath = resolve(upstreamDirectory, 'vite.config.ts');
+const upstreamErudaBoundary =
+  "open: UNI_PLATFORM === 'h5' && mode === 'development',";
+const governedErudaBoundary = [
+  "open: UNI_PLATFORM === 'h5'",
+  "          && mode === 'development'",
+  "          && env.VITE_APPROVAL_LOCAL_DEMO !== 'true',",
+].join('\n');
+let viteConfig = await readFile(viteConfigPath, 'utf8');
+const erudaBoundaryMatches = viteConfig.split(upstreamErudaBoundary).length - 1;
+if (erudaBoundaryMatches !== 1) {
+  throw new Error(
+    `Pinned Unibest Eruda boundary changed; expected one match, found ${erudaBoundaryMatches}.`,
+  );
+}
+viteConfig = viteConfig.replace(upstreamErudaBoundary, governedErudaBoundary);
+await writeFile(viteConfigPath, viteConfig, 'utf8');
+
 const packagePath = resolve(upstreamDirectory, 'package.json');
 const packageJson = JSON.parse(await readFile(packagePath, 'utf8'));
 packageJson.name = '@approval/mobile';

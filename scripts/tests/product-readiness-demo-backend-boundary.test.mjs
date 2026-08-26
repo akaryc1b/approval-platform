@@ -11,6 +11,7 @@ const packagePath = resolve(root, 'package.json');
 const quickStartPath = resolve(root, 'docs/product-readiness/QUICK_START.md');
 const statusPath = resolve(root, 'docs/product-readiness/README.md');
 const aggregatePath = resolve(root, 'scripts/tests/m3-repository-hygiene.test.mjs');
+const rootPomPath = resolve(root, 'pom.xml');
 
 function text(path) {
   assert.equal(existsSync(path), true, `missing ${path}`);
@@ -27,8 +28,9 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   assert.equal(plan.schemaVersion, 1);
   assert.equal(plan.entrypoint, 'pnpm demo:backend:start');
   assert.equal(plan.destructive, false);
+  assert.equal(plan.revision, '0.1.0-SNAPSHOT');
   assert.deepEqual(
-    plan.steps.map((step) => step.id),
+    plan.steps.map(step => step.id),
     [
       'preflight',
       'infrastructure',
@@ -40,10 +42,21 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
       'seed',
     ],
   );
-  assert.match(
-    plan.steps.find((step) => step.id === 'backend').command,
-    /^APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true mvn /u,
+  assert.equal(
+    plan.steps.find(step => step.id === 'reactor-build').command,
+    'mvn -B -ntp -Pproduct-readiness-demo '
+      + '-Drevision=0.1.0-SNAPSHOT -DskipTests install',
   );
+  const backendCommand = plan.steps.find(step => step.id === 'backend').command;
+  assert.equal(
+    backendCommand,
+    'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true '
+      + 'mvn -B -ntp -Pproduct-readiness-demo '
+      + '-Drevision=0.1.0-SNAPSHOT '
+      + '-pl :approval-server spring-boot:run '
+      + '-Dspring-boot.run.profiles=local',
+  );
+  assert.doesNotMatch(backendCommand, /-f apps\/server\/pom\.xml/u);
   assert.equal(plan.successMarkers.includes('BACKEND_LOCAL_START_VERIFIED'), true);
   for (const marker of [
     'QUICK_START_10_MINUTES_NOT_EXECUTED',
@@ -56,7 +69,66 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   }
 });
 
-test('backend command uses argument arrays, local values and no shell or direct database writes', () => {
+test('revision and the demo-only Maven profile reach both Maven invocations', () => {
+  const source = text(commandPath);
+  assert.match(source, /const rootPomPath = resolve\(root, 'pom\.xml'\)/u);
+  assert.match(source, /const demoMavenProfile = 'product-readiness-demo'/u);
+  assert.match(source, /function rootRevision\(\)/u);
+  assert.match(source, /<revision>\(\[\^<\]\+\)<\\\/revision>/u);
+  assert.match(source, /revision\.includes\('\$\{'\)/u);
+  assert.match(source, /\^\[0-9A-Za-z\]\[0-9A-Za-z\._-\]\*\$/u);
+  assert.match(source, /`-P\$\{demoMavenProfile\}`/u);
+  assert.match(source, /`-Drevision=\$\{revision\}`/u);
+  assert.match(
+    source,
+    /runMavenChecked\('Build Maven reactor for local startup',[\s\S]*`-P\$\{demoMavenProfile\}`,[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-DskipTests',[\s\S]*'install'/u,
+  );
+  assert.match(
+    source,
+    /spawn\(mavenExecutable\(\), \[[\s\S]*`-P\$\{demoMavenProfile\}`,[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-pl',[\s\S]*':approval-server',[\s\S]*'spring-boot:run'/u,
+  );
+});
+
+test('consumer-safe POM flattening is isolated to the explicit demo profile', () => {
+  const source = text(rootPomPath);
+  const profileStart = source.indexOf('<profiles>');
+  assert.notEqual(profileStart, -1);
+  assert.doesNotMatch(
+    source.slice(0, profileStart),
+    /<artifactId>flatten-maven-plugin<\/artifactId>/u,
+  );
+  const profiles = source.slice(profileStart);
+  assert.match(profiles, /<id>product-readiness-demo<\/id>/u);
+  assert.doesNotMatch(profiles, /<activation>/u);
+  assert.match(
+    source,
+    /<flatten\.maven\.version>1\.7\.3<\/flatten\.maven\.version>/u,
+  );
+  assert.match(profiles, /<artifactId>flatten-maven-plugin<\/artifactId>/u);
+  assert.match(
+    profiles,
+    /<flattenMode>resolveCiFriendliesOnly<\/flattenMode>/u,
+  );
+  assert.match(profiles, /<updatePomFile>true<\/updatePomFile>/u);
+  assert.match(
+    profiles,
+    /<outputDirectory>\$\{project\.build\.directory\}<\/outputDirectory>/u,
+  );
+  assert.match(
+    profiles,
+    /<flattenedPomFilename>flattened-pom\.xml<\/flattenedPomFilename>/u,
+  );
+  assert.match(
+    profiles,
+    /<id>flatten<\/id>[\s\S]*<phase>process-resources<\/phase>[\s\S]*<goal>flatten<\/goal>/u,
+  );
+  assert.match(
+    profiles,
+    /<id>flatten\.clean<\/id>[\s\S]*<goal>clean<\/goal>/u,
+  );
+});
+
+test('backend command uses fixed executables, local values and no direct database writes', () => {
   const source = text(commandPath);
   assert.match(source, /shell: false/gu);
   assert.match(source, /APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED: 'true'/u);
@@ -68,13 +140,19 @@ test('backend command uses argument arrays, local values and no shell or direct 
   assert.match(source, /spawnSync\('docker', args/u);
   assert.match(source, /spawnSync\(mavenExecutable\(\), args/u);
   assert.match(source, /function waitForDockerCommand\(label, args, predicate, timeoutMs\)/u);
+  assert.doesNotMatch(source, /'-f',\s*'apps\/server\/pom\.xml'/u);
   assert.doesNotMatch(source, /function executable\(name\)/u);
   assert.doesNotMatch(source, /function runChecked\(label, command, args\)/u);
   assert.doesNotMatch(source, /function runCaptured\(command, args\)/u);
-  assert.doesNotMatch(source, /function waitForCommand\(label, command, args/u);
-  assert.doesNotMatch(source, /execSync|execFileSync|\bexec\(/u);
-  assert.doesNotMatch(source, /JdbcTemplate|DataSource|psql|ACT_[A-Z_]+|DELETE\s+FROM|DROP\s+TABLE/iu);
-  assert.doesNotMatch(source, /spring-boot\.run\.profiles=prod|SPRING_PROFILES_ACTIVE.*prod/iu);
+  assert.doesNotMatch(source, /execSync|execFileSync|\bexec\s*\(/u);
+  assert.doesNotMatch(
+    source,
+    /JdbcTemplate|DataSource|psql|ACT_[A-Z_]+|DELETE\s+FROM|DROP\s+TABLE/iu,
+  );
+  assert.doesNotMatch(
+    source,
+    /spring-boot\.run\.profiles=prod|SPRING_PROFILES_ACTIVE.*prod/iu,
+  );
 });
 
 test('local data reset is fail-closed before Docker execution', () => {
@@ -115,11 +193,7 @@ test('package and docs expose one command without manufacturing product acceptan
     assert.match(source, /QUICK_START_10_MINUTES_NOT_EXECUTED/u);
     assert.match(source, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
   }
-  assert.match(
-    quickStart,
-    /node scripts\/product-readiness\/demo-backend\.mjs reset --confirm-local-data-loss/u,
-  );
-  assert.doesNotMatch(quickStart, /^QUICK_START_STATUS=PASSED$/mu);
+  assert.doesNotMatch(quickStart, /^QUICK_START_10_MINUTES_PASSED$/mu);
 });
 
 test('the permanent Hygiene aggregate loads the backend command boundary', () => {
