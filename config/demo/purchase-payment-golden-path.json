@@ -102,7 +102,8 @@
       "actorIds": [
         "demo-manager"
       ],
-      "decision": "APPROVED"
+      "decision": "APPROVED",
+      "client": "pc"
     },
     {
       "taskDefinitionKey": "financeReview",
@@ -110,7 +111,8 @@
       "actorIds": [
         "demo-finance-reviewer"
       ],
-      "decision": "APPROVED"
+      "decision": "APPROVED",
+      "client": "h5"
     },
     {
       "taskDefinitionKey": "financeCountersign",
@@ -119,7 +121,17 @@
         "demo-finance-approver-a",
         "demo-finance-approver-b"
       ],
-      "decision": "APPROVED"
+      "decision": "APPROVED",
+      "client": "h5"
+    },
+    {
+      "taskDefinitionKey": "paymentConfirmation",
+      "mode": "SINGLE",
+      "actorIds": [
+        "demo-employee"
+      ],
+      "decision": "APPROVED",
+      "client": "wechat"
     }
   ],
   "apiContract": {
