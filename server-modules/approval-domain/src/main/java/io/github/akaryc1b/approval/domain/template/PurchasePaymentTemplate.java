@@ -22,8 +22,6 @@ public final class PurchasePaymentTemplate {
     public static final String MANAGER_ASSIGNEE_VARIABLE = "managerAssignee";
     public static final String FINANCE_REVIEWER_VARIABLE = "financeReviewer";
     public static final String FINANCE_APPROVERS_VARIABLE = "financeApprovers";
-    public static final String PAYMENT_CONFIRMATION_ASSIGNEE_VARIABLE =
-        "paymentConfirmationAssignee";
     public static final String PAYMENT_CONFIRMATION_TASK_KEY = "paymentConfirmation";
     public static final String REVISION_TASK_KEY = "initiatorRevision";
 
@@ -97,7 +95,7 @@ public final class PurchasePaymentTemplate {
                     "Authoritative payment confirmation",
                     new ApprovalDefinition.AssigneeRule(
                         ApprovalDefinition.AssigneeResolver.VARIABLE_USER,
-                        PAYMENT_CONFIRMATION_ASSIGNEE_VARIABLE,
+                        INITIATOR_ASSIGNEE_VARIABLE,
                         ApprovalDefinition.EmptyAssigneePolicy.FAIL
                     ),
                     ApprovalDefinition.ApprovalMode.single(),
