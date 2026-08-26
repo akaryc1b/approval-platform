@@ -39,22 +39,36 @@ test('deterministic purchase-payment scenario contract validates against the rea
   assert.equal(report.sandbox, 'PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED');
   assert.equal(report.productionPayment, 'PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED');
   assert.equal(report.deterministicUserCount, 6);
-  assert.equal(report.approvalStageCount, 3);
+  assert.equal(report.approvalStageCount, 4);
+  assert.equal(report.paymentConfirmationActorId, 'demo-employee');
+  assert.equal(report.paymentConfirmationClient, 'wechat');
   assert.match(report.manifestSha256, /^[0-9a-f]{64}$/u);
 });
 
-test('manifest exercises the high-value manager, finance review and parallel countersign path', () => {
+test('manifest exercises the high-value purchase-to-payment cross-client path', () => {
   const manifest = JSON.parse(text(manifestPath));
   assert.equal(manifest.request.amount, '12500.00');
   assert.deepEqual(
     manifest.expectedWorkflow.map((stage) => stage.taskDefinitionKey),
-    ['managerApproval', 'financeReview', 'financeCountersign'],
+    [
+      'managerApproval',
+      'financeReview',
+      'financeCountersign',
+      'paymentConfirmation',
+    ],
+  );
+  assert.deepEqual(
+    manifest.expectedWorkflow.map((stage) => stage.client),
+    ['pc', 'h5', 'h5', 'wechat'],
   );
   assert.deepEqual(
     manifest.expectedWorkflow[2].actorIds,
     ['demo-finance-approver-a', 'demo-finance-approver-b'],
   );
   assert.equal(manifest.expectedWorkflow[2].mode, 'ALL');
+  assert.deepEqual(manifest.expectedWorkflow[3].actorIds, ['demo-employee']);
+  assert.equal(manifest.expectedWorkflow[3].mode, 'SINGLE');
+  assert.equal(manifest.assigneeRules.initiatorUserId.value, 'demo-employee');
   assert.equal(manifest.assigneeRules.maximumFinanceApprovers, 2);
 });
 
@@ -75,6 +89,22 @@ test('contract fails closed on duplicate identities and production sandbox claim
   const productionSandbox = structuredClone(readScenario());
   productionSandbox.sandbox.production = true;
   assert.throws(() => validateScenario(productionSandbox), /sandbox.production must remain false/u);
+});
+
+test('contract fails closed when payment confirmation is not authoritative WeChat work', () => {
+  const wrongActor = structuredClone(readScenario());
+  wrongActor.expectedWorkflow[3].actorIds = ['demo-finance-approver-a'];
+  assert.throws(
+    () => validateScenario(wrongActor),
+    /payment confirmation actor must equal the governed initiator/u,
+  );
+
+  const wrongClient = structuredClone(readScenario());
+  wrongClient.expectedWorkflow[3].client = 'h5';
+  assert.throws(
+    () => validateScenario(wrongClient),
+    /payment confirmation must run in the WeChat client/u,
+  );
 });
 
 test('documents distinguish read-only contract, backend execution and full product E2E', () => {
