@@ -79,7 +79,9 @@ function requireSafeKeys(value, path = '$') {
 function uniqueStrings(values, path) {
   const strings = requireArray(values, path).map((value, index) =>
     requireString(value, `${path}[${index}]`));
-  if (new Set(strings).size !== strings.length) fail(`${path} must not contain duplicates`);
+  if (new Set(strings).size !== strings.length) {
+    fail(`${path} must not contain duplicates`);
+  }
   return strings;
 }
 
@@ -98,7 +100,9 @@ function isAsciiIdentifier(value) {
 
 function requireIdentifier(value, path) {
   const identifier = requireString(value, path);
-  if (!isAsciiIdentifier(identifier)) fail(`${path} must use only ASCII letters, digits, '-' or '_'`);
+  if (!isAsciiIdentifier(identifier)) {
+    fail(`${path} must use only ASCII letters, digits, '-' or '_'`);
+  }
   return identifier;
 }
 
@@ -110,7 +114,9 @@ function moneyToCents(value, path) {
   }
   for (const part of parts) {
     for (const character of part) {
-      if (character < '0' || character > '9') fail(`${path} must contain only decimal digits`);
+      if (character < '0' || character > '9') {
+        fail(`${path} must contain only decimal digits`);
+      }
     }
   }
   return (BigInt(parts[0]) * 100n) + BigInt(parts[1]);
@@ -126,31 +132,42 @@ function canonicalJson(value) {
 }
 
 function requireLiteral(source, literal, sourceName) {
-  if (!source.includes(literal)) fail(`${sourceName} is missing literal contract: ${literal}`);
+  if (!source.includes(literal)) {
+    fail(`${sourceName} is missing literal contract: ${literal}`);
+  }
 }
 
 function validateUsers(directory) {
   exactKeys(directory, ['connectorKey', 'source', 'users'], 'directory');
   const connectorKey = requireIdentifier(directory.connectorKey, 'directory.connectorKey');
   const source = requireIdentifier(directory.source, 'directory.source');
-  if (connectorKey !== source) fail('directory connectorKey and source must match for the demo contract');
+  if (connectorKey !== source) {
+    fail('directory connectorKey and source must match for the demo contract');
+  }
 
   const users = requireArray(directory.users, 'directory.users');
-  if (users.length !== 6) fail('directory.users must contain exactly six deterministic demo users');
+  if (users.length !== 6) {
+    fail('directory.users must contain exactly six deterministic demo users');
+  }
   const byId = new Map();
   for (const [index, userValue] of users.entries()) {
     const path = `directory.users[${index}]`;
     const user = requireObject(userValue, path);
-    exactKeys(user, ['id', 'displayName', 'roleCodes', 'positionCodes', 'managerId'], path);
+    exactKeys(
+      user,
+      ['id', 'displayName', 'roleCodes', 'positionCodes', 'managerId'],
+      path,
+    );
     const id = requireIdentifier(user.id, `${path}.id`);
     if (byId.has(id)) fail(`duplicate demo user id ${id}`);
     const normalized = {
       id,
       displayName: requireString(user.displayName, `${path}.displayName`),
-      roleCodes: uniqueStrings(user.roleCodes, `${path}.roleCodes`).map((role) =>
-        requireIdentifier(role, `${path}.roleCodes`)),
-      positionCodes: uniqueStrings(user.positionCodes, `${path}.positionCodes`).map((position) =>
-        requireIdentifier(position, `${path}.positionCodes`)),
+      roleCodes: uniqueStrings(user.roleCodes, `${path}.roleCodes`).map((role, roleIndex) =>
+        requireIdentifier(role, `${path}.roleCodes[${roleIndex}]`)),
+      positionCodes: uniqueStrings(user.positionCodes, `${path}.positionCodes`)
+        .map((position, positionIndex) =>
+          requireIdentifier(position, `${path}.positionCodes[${positionIndex}]`)),
       managerId: requireNullableString(user.managerId, `${path}.managerId`),
     };
     byId.set(id, normalized);
@@ -165,7 +182,9 @@ function validateUsers(directory) {
 
 function validateApiContract(apiContract, controllerSource, userIds) {
   exactKeys(apiContract, ['basePath', 'headers', 'operations'], 'apiContract');
-  if (apiContract.basePath !== '/api/approval') fail('apiContract.basePath must be /api/approval');
+  if (apiContract.basePath !== '/api/approval') {
+    fail('apiContract.basePath must be /api/approval');
+  }
   const expectedHeaders = [
     'X-Tenant-Id',
     'X-Operator-Id',
@@ -187,13 +206,16 @@ function validateApiContract(apiContract, controllerSource, userIds) {
     ['timeline', 'GET', '/instances/{instanceId}/timeline', 'demo-admin'],
   ];
   const operations = requireArray(apiContract.operations, 'apiContract.operations');
-  if (operations.length !== expectedOperations.length) fail('apiContract.operations length is invalid');
+  if (operations.length !== expectedOperations.length) {
+    fail('apiContract.operations length is invalid');
+  }
   for (let index = 0; index < expectedOperations.length; index += 1) {
-    const operation = requireObject(operations[index], `apiContract.operations[${index}]`);
-    exactKeys(operation, ['name', 'method', 'path', 'actorId'], `apiContract.operations[${index}]`);
+    const path = `apiContract.operations[${index}]`;
+    const operation = requireObject(operations[index], path);
+    exactKeys(operation, ['name', 'method', 'path', 'actorId'], path);
     const actual = [operation.name, operation.method, operation.path, operation.actorId];
     if (JSON.stringify(actual) !== JSON.stringify(expectedOperations[index])) {
-      fail(`apiContract.operations[${index}] does not match the governed API sequence`);
+      fail(`${path} does not match the governed API sequence`);
     }
     if (operation.actorId !== 'ACTIVE_TASK_ACTOR' && !userIds.has(operation.actorId)) {
       fail(`api operation actor ${operation.actorId} is not a deterministic demo user`);
@@ -214,7 +236,9 @@ function validateApiContract(apiContract, controllerSource, userIds) {
     'private static final String IDEMPOTENCY_KEY = "Idempotency-Key";',
     'private static final String TRACE_ID = "X-Trace-Id";',
   ];
-  for (const binding of sourceBindings) requireLiteral(controllerSource, binding, 'PurchasePaymentController');
+  for (const binding of sourceBindings) {
+    requireLiteral(controllerSource, binding, 'PurchasePaymentController');
+  }
 }
 
 function validateWorkflow(manifest, templateSource, users) {
@@ -232,11 +256,16 @@ function validateWorkflow(manifest, templateSource, users) {
   if (requireString(request.supplier, 'request.supplier').length > 200) {
     fail('request.supplier exceeds the controller limit');
   }
-  if (requireString(request.purchaseOrderReference, 'request.purchaseOrderReference').length > 100) {
+  if (requireString(
+    request.purchaseOrderReference,
+    'request.purchaseOrderReference',
+  ).length > 100) {
     fail('request.purchaseOrderReference exceeds the controller limit');
   }
   const attachmentIds = uniqueStrings(request.attachmentIds, 'request.attachmentIds');
-  if (attachmentIds.length < 1) fail('request.attachmentIds must contain at least one attachment');
+  if (attachmentIds.length < 1) {
+    fail('request.attachmentIds must contain at least one attachment');
+  }
 
   const rules = requireObject(manifest.assigneeRules, 'assigneeRules');
   exactKeys(
@@ -250,18 +279,34 @@ function validateWorkflow(manifest, templateSource, users) {
     ],
     'assigneeRules',
   );
-  if (rules.connectorKey !== users.connectorKey) fail('assigneeRules.connectorKey must match directory.connectorKey');
-  exactKeys(rules.initiatorUserId, ['source', 'objectType', 'value'], 'assigneeRules.initiatorUserId');
-  if (rules.initiatorUserId.source !== users.source) fail('initiator source must match the demo directory source');
-  if (rules.initiatorUserId.objectType !== 'user') fail('initiator objectType must be user');
-  if (rules.initiatorUserId.value !== 'demo-employee') fail('initiator must be demo-employee');
+  if (rules.connectorKey !== users.connectorKey) {
+    fail('assigneeRules.connectorKey must match directory.connectorKey');
+  }
+  exactKeys(
+    rules.initiatorUserId,
+    ['source', 'objectType', 'value'],
+    'assigneeRules.initiatorUserId',
+  );
+  if (rules.initiatorUserId.source !== users.source) {
+    fail('initiator source must match the demo directory source');
+  }
+  if (rules.initiatorUserId.objectType !== 'user') {
+    fail('initiator objectType must be user');
+  }
+  if (rules.initiatorUserId.value !== 'demo-employee') {
+    fail('initiator must be demo-employee');
+  }
 
   const employee = users.byId.get('demo-employee');
   if (!employee || employee.managerId !== 'demo-manager') {
     fail('demo-employee must resolve deterministically to demo-manager');
   }
-  const reviewerRole = requireIdentifier(rules.financeReviewerRoleCode, 'assigneeRules.financeReviewerRoleCode');
-  const reviewers = [...users.byId.values()].filter((user) => user.roleCodes.includes(reviewerRole));
+  const reviewerRole = requireIdentifier(
+    rules.financeReviewerRoleCode,
+    'assigneeRules.financeReviewerRoleCode',
+  );
+  const reviewers = [...users.byId.values()]
+    .filter((user) => user.roleCodes.includes(reviewerRole));
   if (reviewers.length !== 1 || reviewers[0].id !== 'demo-finance-reviewer') {
     fail('finance reviewer role must resolve to exactly demo-finance-reviewer');
   }
@@ -273,7 +318,8 @@ function validateWorkflow(manifest, templateSource, users) {
     .filter((user) => user.positionCodes.includes(approverPosition))
     .map((user) => user.id)
     .sort();
-  if (!Number.isInteger(rules.maximumFinanceApprovers) || rules.maximumFinanceApprovers !== 2) {
+  if (!Number.isInteger(rules.maximumFinanceApprovers)
+    || rules.maximumFinanceApprovers !== 2) {
     fail('maximumFinanceApprovers must be exactly 2 for the deterministic countersign contract');
   }
   const expectedApprovers = ['demo-finance-approver-a', 'demo-finance-approver-b'];
@@ -282,34 +328,58 @@ function validateWorkflow(manifest, templateSource, users) {
   }
 
   const expectedWorkflow = [
-    ['managerApproval', 'SINGLE', ['demo-manager'], 'APPROVED'],
-    ['financeReview', 'SINGLE', ['demo-finance-reviewer'], 'APPROVED'],
-    ['financeCountersign', 'ALL', expectedApprovers, 'APPROVED'],
+    ['managerApproval', 'SINGLE', ['demo-manager'], 'APPROVED', 'pc'],
+    ['financeReview', 'SINGLE', ['demo-finance-reviewer'], 'APPROVED', 'h5'],
+    ['financeCountersign', 'ALL', expectedApprovers, 'APPROVED', 'h5'],
+    ['paymentConfirmation', 'SINGLE', ['demo-employee'], 'APPROVED', 'wechat'],
   ];
   const workflow = requireArray(manifest.expectedWorkflow, 'expectedWorkflow');
-  if (workflow.length !== expectedWorkflow.length) fail('expectedWorkflow must contain exactly three approval stages');
+  if (workflow.length !== expectedWorkflow.length) {
+    fail('expectedWorkflow must contain exactly four purchase-to-payment stages');
+  }
   for (let index = 0; index < expectedWorkflow.length; index += 1) {
-    const stage = requireObject(workflow[index], `expectedWorkflow[${index}]`);
-    exactKeys(stage, ['taskDefinitionKey', 'mode', 'actorIds', 'decision'], `expectedWorkflow[${index}]`);
+    const path = `expectedWorkflow[${index}]`;
+    const stage = requireObject(workflow[index], path);
+    exactKeys(
+      stage,
+      ['taskDefinitionKey', 'mode', 'actorIds', 'decision', 'client'],
+      path,
+    );
     const actual = [
-      stage.taskDefinitionKey,
-      stage.mode,
-      uniqueStrings(stage.actorIds, `expectedWorkflow[${index}].actorIds`).sort(),
-      stage.decision,
+      requireIdentifier(stage.taskDefinitionKey, `${path}.taskDefinitionKey`),
+      requireIdentifier(stage.mode, `${path}.mode`),
+      uniqueStrings(stage.actorIds, `${path}.actorIds`),
+      requireIdentifier(stage.decision, `${path}.decision`),
+      requireIdentifier(stage.client, `${path}.client`),
     ];
     if (JSON.stringify(actual) !== JSON.stringify(expectedWorkflow[index])) {
-      fail(`expectedWorkflow[${index}] does not match the high-value approval path`);
+      fail(`${path} does not match the governed high-value purchase-to-payment path`);
     }
+  }
+
+  const paymentStage = workflow.at(-1);
+  if (paymentStage.actorIds.length !== 1
+    || paymentStage.actorIds[0] !== rules.initiatorUserId.value) {
+    fail('payment confirmation actor must equal the governed initiator');
+  }
+  if (paymentStage.client !== 'wechat') {
+    fail('payment confirmation must run in the WeChat client');
   }
 
   const templateBindings = [
     'public static final String DEFINITION_KEY = "purchase-payment";',
+    'public static final int PROCESS_VERSION = 3;',
     'public static final BigDecimal HIGH_VALUE_THRESHOLD = new BigDecimal("10000.00");',
+    'public static final String PAYMENT_CONFIRMATION_TASK_KEY = "paymentConfirmation";',
     '"managerApproval"',
     '"financeReview"',
     '"financeCountersign"',
+    'PAYMENT_CONFIRMATION_TASK_KEY,',
+    'INITIATOR_ASSIGNEE_VARIABLE,',
   ];
-  for (const binding of templateBindings) requireLiteral(templateSource, binding, 'PurchasePaymentTemplate');
+  for (const binding of templateBindings) {
+    requireLiteral(templateSource, binding, 'PurchasePaymentTemplate');
+  }
 }
 
 function validateEvidenceBoundaries(manifest) {
@@ -331,16 +401,27 @@ function validateEvidenceBoundaries(manifest) {
     'auditEventIds',
     'finalStatus',
   ];
-  const sharedKeys = uniqueStrings(manifest.clientEvidence.sharedBusinessKeys, 'clientEvidence.sharedBusinessKeys');
+  const sharedKeys = uniqueStrings(
+    manifest.clientEvidence.sharedBusinessKeys,
+    'clientEvidence.sharedBusinessKeys',
+  );
   if (JSON.stringify(sharedKeys) !== JSON.stringify(expectedSharedKeys)) {
     fail('clientEvidence.sharedBusinessKeys must preserve the cross-client evidence identity set');
   }
 
   exactKeys(manifest.sandbox, ['kind', 'provider', 'status', 'production'], 'sandbox');
-  if (manifest.sandbox.kind !== 'PAYMENT_SANDBOX') fail('sandbox.kind must be PAYMENT_SANDBOX');
-  if (manifest.sandbox.provider !== 'UNASSIGNED') fail('sandbox.provider must remain UNASSIGNED');
-  if (manifest.sandbox.status !== 'NOT_YET_CONFIGURED') fail('sandbox.status must remain NOT_YET_CONFIGURED');
-  if (manifest.sandbox.production !== false) fail('sandbox.production must remain false');
+  if (manifest.sandbox.kind !== 'PAYMENT_SANDBOX') {
+    fail('sandbox.kind must be PAYMENT_SANDBOX');
+  }
+  if (manifest.sandbox.provider !== 'UNASSIGNED') {
+    fail('sandbox.provider must remain UNASSIGNED');
+  }
+  if (manifest.sandbox.status !== 'NOT_YET_CONFIGURED') {
+    fail('sandbox.status must remain NOT_YET_CONFIGURED');
+  }
+  if (manifest.sandbox.production !== false) {
+    fail('sandbox.production must remain false');
+  }
 
   const nonClaims = uniqueStrings(manifest.nonClaims, 'nonClaims');
   if (JSON.stringify(nonClaims) !== JSON.stringify(requiredNonClaims)) {
@@ -382,7 +463,9 @@ export function validateScenario(
   if (manifest.status.contract !== 'PURCHASE_PAYMENT_SCENARIO_CONTRACT_AVAILABLE') {
     fail('status.contract is invalid');
   }
-  if (manifest.status.seed !== 'NOT_YET_APPLIED') fail('status.seed must be NOT_YET_APPLIED');
+  if (manifest.status.seed !== 'NOT_YET_APPLIED') {
+    fail('status.seed must be NOT_YET_APPLIED');
+  }
   if (manifest.status.execution !== 'NOT_YET_EXECUTED') {
     fail('status.execution must be NOT_YET_EXECUTED');
   }
@@ -399,6 +482,7 @@ export function validateScenario(
   validateApiContract(manifest.apiContract, controllerSource, new Set(users.byId.keys()));
   validateEvidenceBoundaries(manifest);
 
+  const paymentStage = manifest.expectedWorkflow.at(-1);
   const canonical = canonicalJson(manifest);
   return {
     schemaVersion: 1,
@@ -409,6 +493,8 @@ export function validateScenario(
     amount: manifest.request.amount,
     deterministicUserCount: users.byId.size,
     approvalStageCount: manifest.expectedWorkflow.length,
+    paymentConfirmationActorId: paymentStage.actorIds[0],
+    paymentConfirmationClient: paymentStage.client,
     claim: 'PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED',
     seed: 'DETERMINISTIC_DEMO_SEED_NOT_APPLIED',
     execution: 'PURCHASE_APPROVAL_E2E_NOT_EXECUTED',
@@ -424,7 +510,8 @@ function printHelp() {
 function main() {
   const argumentsSet = new Set(process.argv.slice(2));
   const allowedArguments = new Set(['--help', '--json']);
-  const unknownArguments = [...argumentsSet].filter((argument) => !allowedArguments.has(argument));
+  const unknownArguments = [...argumentsSet]
+    .filter((argument) => !allowedArguments.has(argument));
   if (argumentsSet.has('--help')) {
     printHelp();
     return;
@@ -449,6 +536,8 @@ function main() {
     console.log(`Amount: ${report.amount}`);
     console.log(`Users: ${report.deterministicUserCount}`);
     console.log(`Approval stages: ${report.approvalStageCount}`);
+    console.log(`Payment confirmation actor: ${report.paymentConfirmationActorId}`);
+    console.log(`Payment confirmation client: ${report.paymentConfirmationClient}`);
     console.log(report.claim);
     console.log(report.seed);
     console.log(report.execution);
