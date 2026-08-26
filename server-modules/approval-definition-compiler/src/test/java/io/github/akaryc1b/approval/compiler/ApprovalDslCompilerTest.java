@@ -26,7 +26,7 @@ class ApprovalDslCompilerTest {
         var second = compiler.compile(process, form);
 
         assertEquals(first, second);
-        assertEquals("purchase-payment-v2.bpmn20.xml", first.resourceName());
+        assertEquals("purchase-payment-v3.bpmn20.xml", first.resourceName());
         assertEquals("1.2.0", first.compilerVersion());
         assertEquals(64, first.contentHash().length());
         assertTrue(first.bpmnXml().contains("<process id=\"purchase-payment\""));
@@ -39,7 +39,24 @@ class ApprovalDslCompilerTest {
         ));
         assertTrue(first.bpmnXml().contains("${approvalDecision == 'REJECTED'}"));
         assertTrue(first.bpmnXml().contains("targetRef=\"initiatorRevision\""));
+        assertTrue(first.bpmnXml().contains("id=\"paymentConfirmation\""));
+        assertTrue(first.bpmnXml().contains("Authoritative payment confirmation"));
         assertTrue(validator.validate(process, form).valid());
+
+        ApprovalDefinition.ApprovalStep countersign = approvalStep(
+            process,
+            PurchasePaymentTemplate.FINANCE_COUNTERSIGN_TASK_KEY
+        );
+        ApprovalDefinition.ApprovalStep paymentConfirmation = approvalStep(
+            process,
+            PurchasePaymentTemplate.PAYMENT_CONFIRMATION_TASK_KEY
+        );
+        assertEquals(PurchasePaymentTemplate.PAYMENT_CONFIRMATION_TASK_KEY, countersign.next());
+        assertEquals("end", paymentConfirmation.next());
+        assertEquals(
+            PurchasePaymentTemplate.INITIATOR_ASSIGNEE_VARIABLE,
+            paymentConfirmation.assignee().variable()
+        );
     }
 
     @Test
@@ -154,6 +171,18 @@ class ApprovalDslCompilerTest {
         assertFalse(report.valid());
         assertTrue(report.issues().stream()
             .anyMatch(issue -> "FORM_PROCESS_KEY_MISMATCH".equals(issue.code())));
+    }
+
+    private static ApprovalDefinition.ApprovalStep approvalStep(
+        ApprovalDefinition definition,
+        String taskDefinitionKey
+    ) {
+        return definition.nodes().stream()
+            .filter(ApprovalDefinition.ApprovalStep.class::isInstance)
+            .map(ApprovalDefinition.ApprovalStep.class::cast)
+            .filter(step -> taskDefinitionKey.equals(step.id()))
+            .findFirst()
+            .orElseThrow();
     }
 
     private static ApprovalDefinition.AssigneeRule singleAssignee(String variable) {
