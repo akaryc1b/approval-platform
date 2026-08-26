@@ -13,7 +13,7 @@ import java.util.List;
 public final class PurchasePaymentTemplate {
 
     public static final String DEFINITION_KEY = "purchase-payment";
-    public static final int PROCESS_VERSION = 2;
+    public static final int PROCESS_VERSION = 3;
     public static final int FORM_VERSION = 1;
     public static final int UI_SCHEMA_VERSION = 1;
     public static final BigDecimal HIGH_VALUE_THRESHOLD = new BigDecimal("10000.00");
@@ -22,6 +22,9 @@ public final class PurchasePaymentTemplate {
     public static final String MANAGER_ASSIGNEE_VARIABLE = "managerAssignee";
     public static final String FINANCE_REVIEWER_VARIABLE = "financeReviewer";
     public static final String FINANCE_APPROVERS_VARIABLE = "financeApprovers";
+    public static final String PAYMENT_CONFIRMATION_ASSIGNEE_VARIABLE =
+        "paymentConfirmationAssignee";
+    public static final String PAYMENT_CONFIRMATION_TASK_KEY = "paymentConfirmation";
     public static final String REVISION_TASK_KEY = "initiatorRevision";
 
     private PurchasePaymentTemplate() {
@@ -86,6 +89,18 @@ public final class PurchasePaymentTemplate {
                         ApprovalDefinition.EmptyAssigneePolicy.FAIL
                     ),
                     ApprovalDefinition.ApprovalMode.all(),
+                    PAYMENT_CONFIRMATION_TASK_KEY,
+                    REVISION_TASK_KEY
+                ),
+                new ApprovalDefinition.ApprovalStep(
+                    PAYMENT_CONFIRMATION_TASK_KEY,
+                    "Authoritative payment confirmation",
+                    new ApprovalDefinition.AssigneeRule(
+                        ApprovalDefinition.AssigneeResolver.VARIABLE_USER,
+                        PAYMENT_CONFIRMATION_ASSIGNEE_VARIABLE,
+                        ApprovalDefinition.EmptyAssigneePolicy.FAIL
+                    ),
+                    ApprovalDefinition.ApprovalMode.single(),
                     "end",
                     REVISION_TASK_KEY
                 ),
@@ -189,6 +204,11 @@ public final class PurchasePaymentTemplate {
                 permissions("financeCountersign",
                     access("amount", UiSchemaDefinition.FieldAccess.READONLY),
                     access("supplier", UiSchemaDefinition.FieldAccess.HIDDEN),
+                    access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("attachments", UiSchemaDefinition.FieldAccess.READONLY)),
+                permissions(PAYMENT_CONFIRMATION_TASK_KEY,
+                    access("amount", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("supplier", UiSchemaDefinition.FieldAccess.READONLY),
                     access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.READONLY),
                     access("attachments", UiSchemaDefinition.FieldAccess.READONLY)),
                 permissions(REVISION_TASK_KEY,
