@@ -37,7 +37,7 @@
     "wechat": {
       "label": "WeChat Mini Program approval center",
       "route": "pages/task/list",
-      "defaultActor": "demo-finance-approver-a",
+      "defaultActor": "demo-employee",
       "allowedActors": [
         "demo-admin",
         "demo-employee",
@@ -60,14 +60,19 @@
       "taskDefinitionKey": "financeReview"
     },
     {
-      "client": "wechat",
+      "client": "h5",
       "actorId": "demo-finance-approver-a",
       "taskDefinitionKey": "financeCountersign"
     },
     {
-      "client": "wechat",
+      "client": "h5",
       "actorId": "demo-finance-approver-b",
       "taskDefinitionKey": "financeCountersign"
+    },
+    {
+      "client": "wechat",
+      "actorId": "demo-employee",
+      "taskDefinitionKey": "paymentConfirmation"
     }
   ],
   "evidenceKeys": [
