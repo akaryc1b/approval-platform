@@ -268,16 +268,33 @@ function verifyRetainedRuntimeEvidence(evidence, exactHeadSha) {
       `runtime evidence Head mismatch: expected ${exactHeadSha}, got ${evidence.commitSha}`,
     );
   }
-  const taskIds = evidence.countersignStage?.taskIds || [];
-  const processedTaskIds = evidence.steps?.slice(2).map(step => step.taskId) || [];
-  if (taskIds.length !== 2
-    || new Set(taskIds).size !== 2
-    || taskIds.slice().sort().join(',') !== processedTaskIds.slice().sort().join(',')) {
+  const countersignTaskIds = evidence.countersignStage?.taskIds || [];
+  const processedCountersignTaskIds = (evidence.steps || [])
+    .filter(step => step.taskDefinitionKey === 'financeCountersign')
+    .map(step => step.taskId);
+  if (countersignTaskIds.length !== 2
+    || new Set(countersignTaskIds).size !== 2
+    || countersignTaskIds.slice().sort().join(',')
+      !== processedCountersignTaskIds.slice().sort().join(',')) {
     throw new Error('runtime evidence must retain two processed countersign task IDs');
   }
-  if (evidence.finalState?.status !== 'COMPLETED'
-    || evidence.finalState?.currentTaskDefinitionKey) {
-    throw new Error('runtime evidence must retain the completed process state');
+
+  const processedTaskIds = (evidence.steps || []).map(step => step.taskId);
+  const paymentTaskId = evidence.paymentHandoff?.taskId;
+  if (typeof paymentTaskId !== 'string'
+    || !paymentTaskId
+    || processedTaskIds.includes(paymentTaskId)) {
+    throw new Error(
+      'runtime evidence must retain an independent payment confirmation task ID',
+    );
+  }
+  if (evidence.paymentHandoff?.taskDefinitionKey !== 'paymentConfirmation'
+    || evidence.paymentHandoff?.client !== 'wechat') {
+    throw new Error('runtime evidence must retain the governed WeChat payment handoff');
+  }
+  if (evidence.finalState?.status !== 'RUNNING'
+    || evidence.finalState?.currentTaskDefinitionKey !== 'paymentConfirmation') {
+    throw new Error('runtime evidence must retain the awaiting-payment process state');
   }
 }
 
@@ -375,6 +392,7 @@ async function executeSmoke() {
         APPROVAL_DEMO_PC_URL:
           'http://127.0.0.1:5777/approval/workbench?demoOperator=demo-manager',
         APPROVAL_DEMO_PLAYWRIGHT_TIMEOUT_MS: String(browserTimeoutMs),
+        APPROVAL_DEMO_REPOSITORY_ROOT: repositoryRoot,
       },
     );
 
@@ -392,7 +410,11 @@ async function executeSmoke() {
     console.log(`financeReviewTaskId=${evidence.steps[1].taskId}`);
     console.log(`financeCountersignATaskId=${evidence.steps[2].taskId}`);
     console.log(`financeCountersignBTaskId=${evidence.steps[3].taskId}`);
+    console.log(`paymentConfirmationTaskId=${evidence.paymentHandoff.taskId}`);
     console.log(`finalInstanceStatus=${evidence.finalState.status}`);
+    console.log(
+      `finalTaskDefinitionKey=${evidence.finalState.currentTaskDefinitionKey}`,
+    );
     for (const nonClaim of smokePlan().nonClaims) {
       console.log(nonClaim);
     }
