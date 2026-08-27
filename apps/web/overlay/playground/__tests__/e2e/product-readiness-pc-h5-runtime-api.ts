@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import type {
   APIRequestContext,
@@ -13,8 +12,7 @@ import { expect } from '@playwright/test';
 export const assignmentSource =
   'config/demo/purchase-payment-golden-path.json';
 const repositoryRoot = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../../../..',
+  requiredEnvironment('APPROVAL_DEMO_REPOSITORY_ROOT'),
 );
 const governedScenario = JSON.parse(readFileSync(
   resolve(repositoryRoot, assignmentSource),
