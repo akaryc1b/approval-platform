@@ -13,6 +13,10 @@ public final class SignedWebhookVerifier {
     private final HmacSha256WebhookSigner signer;
     private final Duration allowedClockSkew;
 
+    public SignedWebhookVerifier(Duration allowedClockSkew) {
+        this(new HmacSha256WebhookSigner(), allowedClockSkew);
+    }
+
     public SignedWebhookVerifier(
         HmacSha256WebhookSigner signer,
         Duration allowedClockSkew
