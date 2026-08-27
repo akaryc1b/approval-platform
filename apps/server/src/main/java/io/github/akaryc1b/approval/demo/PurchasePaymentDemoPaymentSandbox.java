@@ -2,22 +2,12 @@ package io.github.akaryc1b.approval.demo;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.akaryc1b.approval.integration.webhook.HmacSha256WebhookSigner;
 import io.github.akaryc1b.approval.integration.webhook.SignedWebhookVerifier;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalBusinessEventOutbox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -28,54 +18,49 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Local-profile-only signed payment callback sandbox shared by runtime E2E and tests.
+ * Local-only signed callback sandbox used by the purchase-to-payment runtime.
+ *
+ * <p>The HTTP transport is owned by Spring MVC. This class retains only the
+ * governed request validation, deterministic outage/recovery state and
+ * idempotent payment-side-effect evidence.</p>
  */
 public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
 
     public static final String CALLBACK_PATH = "/payment-sandbox/v1/events";
-    public static final String EVIDENCE_KIND = "PURCHASE_PAYMENT_LOCAL_SANDBOX_V1";
 
-    private static final Logger LOGGER =
-        LoggerFactory.getLogger(PurchasePaymentDemoPaymentSandbox.class);
-    private static final int MAX_HEADER_LINE_BYTES = 16_384;
-    private static final int MAX_BODY_BYTES = 1_048_576;
-    private static final int SOCKET_TIMEOUT_MILLIS = 5_000;
+    private static final Logger LOGGER = LoggerFactory.getLogger(
+        PurchasePaymentDemoPaymentSandbox.class
+    );
 
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final byte[] secret;
     private final String keyId;
     private final PurchasePaymentDemoScenario scenario;
-    private final int configuredPort;
+    private final URI endpoint;
     private final Path controlFile;
     private final Path statusFile;
     private final SignedWebhookVerifier verifier;
     private final AtomicBoolean available = new AtomicBoolean(false);
     private final AtomicInteger attempts = new AtomicInteger();
     private final AtomicInteger accepted = new AtomicInteger();
-    private final AtomicReference<Throwable> failure = new AtomicReference<>();
-    private final ConcurrentHashMap<String, String> paymentResults =
-        new ConcurrentHashMap<>();
     private final AtomicReference<UUID> acceptedEventId = new AtomicReference<>();
     private final AtomicReference<String> acceptedIdempotencyKey = new AtomicReference<>();
     private final AtomicReference<String> lastRequestId = new AtomicReference<>();
     private final AtomicReference<Integer> lastHttpStatus = new AtomicReference<>();
-
-    private ServerSocket server;
-    private ExecutorService executor;
+    private final AtomicReference<Throwable> failure = new AtomicReference<>();
+    private final Map<String, String> paymentResults = new ConcurrentHashMap<>();
 
     public PurchasePaymentDemoPaymentSandbox(
         ObjectMapper objectMapper,
@@ -83,7 +68,7 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         byte[] secret,
         String keyId,
         PurchasePaymentDemoScenario scenario,
-        int configuredPort,
+        URI endpoint,
         Path controlFile,
         Path statusFile,
         Duration maximumClockSkew
@@ -94,85 +79,49 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         );
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.secret = Objects.requireNonNull(secret, "secret must not be null").clone();
-        this.keyId = requireText(keyId, "keyId");
-        this.scenario = Objects.requireNonNull(scenario, "scenario must not be null");
-        this.configuredPort = configuredPort;
-        this.controlFile = normalize(controlFile);
-        this.statusFile = normalize(statusFile);
-        this.verifier = new SignedWebhookVerifier(
-            new HmacSha256WebhookSigner(),
-            Objects.requireNonNull(maximumClockSkew, "maximumClockSkew must not be null")
-        );
         if (this.secret.length < 32) {
             Arrays.fill(this.secret, (byte) 0);
             throw new IllegalArgumentException("sandbox secret must contain at least 32 bytes");
         }
-        if (configuredPort != 0 && (configuredPort < 1024 || configuredPort > 65_535)) {
-            Arrays.fill(this.secret, (byte) 0);
-            throw new IllegalArgumentException(
-                "sandbox port must be 0 or between 1024 and 65535"
-            );
-        }
-        if (maximumClockSkew.isZero() || maximumClockSkew.isNegative()) {
-            Arrays.fill(this.secret, (byte) 0);
-            throw new IllegalArgumentException("maximumClockSkew must be positive");
-        }
-        if (this.controlFile != null && this.controlFile.equals(this.statusFile)) {
-            Arrays.fill(this.secret, (byte) 0);
-            throw new IllegalArgumentException(
-                "sandbox control and status files must be different"
-            );
-        }
+        this.keyId = requireText(keyId, "keyId");
+        this.scenario = Objects.requireNonNull(scenario, "scenario must not be null");
+        this.endpoint = Objects.requireNonNull(endpoint, "endpoint must not be null");
+        this.controlFile = normalize(controlFile);
+        this.statusFile = normalize(statusFile);
+        this.verifier = new SignedWebhookVerifier(maximumClockSkew);
     }
 
-    public synchronized void start() throws IOException {
-        if (server != null) {
-            throw new IllegalStateException("payment sandbox is already started");
-        }
-        server = new ServerSocket();
-        server.bind(
-            new InetSocketAddress(InetAddress.getByName("127.0.0.1"), configuredPort),
-            16
-        );
-        executor = Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "purchase-payment-demo-sandbox");
-            thread.setDaemon(true);
-            return thread;
-        });
-        executor.submit(this::acceptLoop);
+    public synchronized void initialize() throws IOException {
+        deleteControlFile();
+        available.set(false);
         writeStatus();
         LOGGER.info(
-            "PURCHASE_PAYMENT_LOCAL_SANDBOX_STARTED endpoint={} available={}",
-            endpoint(),
-            available.get()
+            "PURCHASE_PAYMENT_LOCAL_SANDBOX_STARTED endpoint={}",
+            endpoint
         );
     }
 
     public URI endpoint() {
-        ServerSocket active = requireServer();
-        return URI.create(
-            "http://127.0.0.1:" + active.getLocalPort() + CALLBACK_PATH
-        );
+        return endpoint;
     }
 
     public void resetUnavailable() {
+        deleteControlFile();
         available.set(false);
         attempts.set(0);
         accepted.set(0);
-        paymentResults.clear();
         acceptedEventId.set(null);
         acceptedIdempotencyKey.set(null);
         lastRequestId.set(null);
         lastHttpStatus.set(null);
         failure.set(null);
-        deleteControlFile();
+        paymentResults.clear();
         writeStatusUnchecked();
     }
 
     public void restore() {
         available.set(true);
         writeStatusUnchecked();
-        LOGGER.info("PURCHASE_PAYMENT_LOCAL_SANDBOX_RECOVERED endpoint={}", endpoint());
     }
 
     public int deliveryAttempts() {
@@ -195,15 +144,15 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         return lastRequestId.get();
     }
 
-    public Throwable failure() {
-        return failure.get();
+    public String failure() {
+        return failureMessage();
     }
 
     public Snapshot snapshot() {
         return new Snapshot(
             1,
-            EVIDENCE_KIND,
-            endpoint().toString(),
+            "PURCHASE_PAYMENT_LOCAL_SANDBOX_V1",
+            endpoint.toString(),
             currentAvailability(),
             attempts.get(),
             accepted.get(),
@@ -216,33 +165,30 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         );
     }
 
-    private void acceptLoop() {
-        ServerSocket active = requireServer();
-        while (!active.isClosed()) {
-            try (Socket connection = active.accept()) {
-                connection.setSoTimeout(SOCKET_TIMEOUT_MILLIS);
-                handle(connection);
-            } catch (SocketException exception) {
-                if (!active.isClosed()) {
-                    recordFailure(exception);
-                }
-            } catch (IOException | RuntimeException exception) {
-                recordFailure(exception);
-            }
-        }
-    }
-
-    private void handle(Socket connection) throws IOException {
+    public SandboxResponse handle(
+        String method,
+        String path,
+        Map<String, String> headers,
+        String body
+    ) {
         attempts.incrementAndGet();
         int status = 500;
         try {
-            SandboxRequest request = readRequest(connection);
+            SandboxRequest request = new SandboxRequest(
+                requireText(method, "method"),
+                requireText(path, "path"),
+                normalizeHeaders(headers),
+                Objects.requireNonNull(body, "body must not be null")
+            );
             ValidatedEvent event = validateRequest(request);
             lastRequestId.set(event.requestId());
             if (!currentAvailability()) {
                 status = 503;
-                respond(connection, status, "payment sandbox unavailable", null);
-                return;
+                return new SandboxResponse(
+                    status,
+                    "payment sandbox unavailable",
+                    null
+                );
             }
 
             String canonicalPayload = objectMapper.writeValueAsString(event.payload());
@@ -260,8 +206,7 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
                 );
             }
             status = 200;
-            respond(
-                connection,
+            return new SandboxResponse(
                 status,
                 "payment sandbox accepted",
                 "local-payment-sandbox-" + event.eventId()
@@ -269,7 +214,7 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         } catch (IOException | RuntimeException exception) {
             recordFailure(exception);
             status = 400;
-            respond(connection, status, "invalid sandbox request", null);
+            return new SandboxResponse(status, "invalid sandbox request", null);
         } finally {
             lastHttpStatus.set(status);
             writeStatusUnchecked();
@@ -367,6 +312,20 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         );
     }
 
+    private static Map<String, String> normalizeHeaders(Map<String, String> headers) {
+        Objects.requireNonNull(headers, "headers must not be null");
+        Map<String, String> normalized = new LinkedHashMap<>();
+        headers.forEach((name, value) -> {
+            String key = requireText(name, "header name").toLowerCase(Locale.ROOT);
+            String candidate = requireText(value, "header value");
+            String previous = normalized.putIfAbsent(key, candidate);
+            if (previous != null && !previous.equals(candidate)) {
+                throw new IllegalArgumentException("conflicting duplicate HTTP header");
+            }
+        });
+        return Map.copyOf(normalized);
+    }
+
     private boolean currentAvailability() {
         if (!available.get() && controlFile != null && Files.isRegularFile(controlFile)) {
             available.set(true);
@@ -438,127 +397,8 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         }
     }
 
-    private static SandboxRequest readRequest(Socket connection) throws IOException {
-        BufferedInputStream input = new BufferedInputStream(connection.getInputStream());
-        String requestLine = readHttpLine(input);
-        String[] requestParts = requestLine.split(" ", 3);
-        if (requestParts.length != 3) {
-            throw new IOException("invalid HTTP request line");
-        }
-
-        Map<String, String> headers = new ConcurrentHashMap<>();
-        while (true) {
-            String line = readHttpLine(input);
-            if (line.isEmpty()) {
-                break;
-            }
-            int separator = line.indexOf(':');
-            if (separator <= 0) {
-                throw new IOException("invalid HTTP header line");
-            }
-            headers.put(
-                line.substring(0, separator).trim().toLowerCase(Locale.ROOT),
-                line.substring(separator + 1).trim()
-            );
-        }
-
-        String contentLengthValue = headers.get("content-length");
-        if (contentLengthValue == null) {
-            throw new IOException("missing Content-Length header");
-        }
-        int contentLength;
-        try {
-            contentLength = Integer.parseInt(contentLengthValue);
-        } catch (NumberFormatException exception) {
-            throw new IOException("invalid Content-Length header", exception);
-        }
-        if (contentLength < 0 || contentLength > MAX_BODY_BYTES) {
-            throw new IOException("HTTP request body exceeds sandbox boundary");
-        }
-        byte[] bodyBytes = input.readNBytes(contentLength);
-        if (bodyBytes.length != contentLength) {
-            throw new EOFException("truncated HTTP request body");
-        }
-        return new SandboxRequest(
-            requestParts[0],
-            requestParts[1],
-            Map.copyOf(headers),
-            new String(bodyBytes, StandardCharsets.UTF_8)
-        );
-    }
-
-    private static String readHttpLine(BufferedInputStream input) throws IOException {
-        ByteArrayOutputStream line = new ByteArrayOutputStream();
-        while (line.size() <= MAX_HEADER_LINE_BYTES) {
-            int value = input.read();
-            if (value < 0) {
-                throw new EOFException("unexpected end of HTTP headers");
-            }
-            if (value == '\n') {
-                byte[] bytes = line.toByteArray();
-                int length = bytes.length;
-                if (length > 0 && bytes[length - 1] == '\r') {
-                    length -= 1;
-                }
-                return new String(
-                    bytes,
-                    0,
-                    length,
-                    StandardCharsets.ISO_8859_1
-                );
-            }
-            line.write(value);
-        }
-        throw new IOException("HTTP header line exceeds sandbox boundary");
-    }
-
     private static String requireHeader(Map<String, String> headers, String name) {
         return requireText(headers.get(name.toLowerCase(Locale.ROOT)), name);
-    }
-
-    private static void respond(
-        Socket connection,
-        int status,
-        String body,
-        String requestId
-    ) throws IOException {
-        byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
-        String reason = switch (status) {
-            case 200 -> "OK";
-            case 400 -> "Bad Request";
-            case 503 -> "Service Unavailable";
-            default -> "Sandbox Response";
-        };
-        StringBuilder headers = new StringBuilder()
-            .append("HTTP/1.1 ")
-            .append(status)
-            .append(' ')
-            .append(reason)
-            .append("\r\n")
-            .append("Content-Type: text/plain; charset=utf-8\r\n")
-            .append("Content-Length: ")
-            .append(bodyBytes.length)
-            .append("\r\n")
-            .append("Connection: close\r\n");
-        if (requestId != null) {
-            headers.append("X-Request-Id: ").append(requestId).append("\r\n");
-        }
-        headers.append("\r\n");
-
-        BufferedOutputStream output = new BufferedOutputStream(
-            connection.getOutputStream()
-        );
-        output.write(headers.toString().getBytes(StandardCharsets.ISO_8859_1));
-        output.write(bodyBytes);
-        output.flush();
-    }
-
-    private ServerSocket requireServer() {
-        ServerSocket active = server;
-        if (active == null) {
-            throw new IllegalStateException("payment sandbox has not started");
-        }
-        return active;
     }
 
     private static Path normalize(Path value) {
@@ -579,28 +419,9 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
     }
 
     @Override
-    public synchronized void close() throws Exception {
-        ServerSocket active = server;
-        if (active == null) {
-            return;
-        }
-        try {
-            active.close();
-            ExecutorService activeExecutor = executor;
-            if (activeExecutor != null) {
-                activeExecutor.shutdownNow();
-                if (!activeExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    throw new IllegalStateException(
-                        "payment sandbox executor did not stop"
-                    );
-                }
-            }
-        } finally {
-            Arrays.fill(secret, (byte) 0);
-            server = null;
-            executor = null;
-            LOGGER.info("PURCHASE_PAYMENT_LOCAL_SANDBOX_STOPPED");
-        }
+    public synchronized void close() {
+        Arrays.fill(secret, (byte) 0);
+        LOGGER.info("PURCHASE_PAYMENT_LOCAL_SANDBOX_STOPPED");
     }
 
     public record Snapshot(
@@ -616,6 +437,13 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         Integer lastHttpStatus,
         String failure,
         Instant updatedAt
+    ) {
+    }
+
+    public record SandboxResponse(
+        int status,
+        String body,
+        String requestId
     ) {
     }
 

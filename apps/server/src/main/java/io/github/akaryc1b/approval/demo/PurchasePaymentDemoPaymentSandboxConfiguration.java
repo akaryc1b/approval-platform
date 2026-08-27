@@ -2,7 +2,7 @@ package io.github.akaryc1b.approval.demo;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.config.GenericConnectorProperties;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -15,10 +15,8 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Locale;
 
-/**
- * Local-only configuration for the shared purchase-payment callback sandbox.
- */
 @Configuration(proxyBeanMethods = false)
 @Profile("local")
 @ConditionalOnProperty(
@@ -31,30 +29,28 @@ import java.util.Arrays;
 )
 public class PurchasePaymentDemoPaymentSandboxConfiguration {
 
-    @Bean(initMethod = "start", destroyMethod = "close")
+    @Bean
     PurchasePaymentDemoPaymentSandbox purchasePaymentDemoPaymentSandbox(
-        Properties properties,
-        GenericConnectorProperties connectorProperties,
-        @Qualifier("approvalPersistenceObjectMapper") ObjectMapper objectMapper,
+        ObjectMapper approvalPersistenceObjectMapper,
+        Clock approvalClock,
         PurchasePaymentDemoScenario scenario,
-        Clock approvalClock
+        GenericConnectorProperties connectorProperties,
+        Properties properties
     ) {
         properties.validate();
-        validateConnector(properties, connectorProperties, scenario);
+        URI endpoint = resolveEndpoint(connectorProperties, properties);
+        validateConnector(connectorProperties, scenario, endpoint);
         byte[] secret = connectorProperties.secretBytes();
         try {
             return new PurchasePaymentDemoPaymentSandbox(
-                objectMapper,
+                approvalPersistenceObjectMapper,
                 approvalClock,
                 secret,
-                requireText(
-                    connectorProperties.getKeyId(),
-                    "approval.connector.generic.key-id"
-                ),
+                connectorProperties.getKeyId(),
                 scenario,
-                properties.getPort(),
-                properties.controlFilePath(),
-                properties.statusFilePath(),
+                endpoint,
+                path(properties.getControlFile()),
+                path(properties.getStatusFile()),
                 properties.getMaximumClockSkew()
             );
         } finally {
@@ -62,68 +58,103 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
         }
     }
 
-    private static void validateConnector(
-        Properties properties,
-        GenericConnectorProperties connector,
-        PurchasePaymentDemoScenario scenario
+    @Bean
+    ApplicationRunner initializePurchasePaymentDemoPaymentSandbox(
+        PurchasePaymentDemoPaymentSandbox sandbox
     ) {
-        if (!connector.isEnabled()) {
+        return arguments -> sandbox.initialize();
+    }
+
+    private static URI resolveEndpoint(
+        GenericConnectorProperties connectorProperties,
+        Properties properties
+    ) {
+        return connectorProperties.isEnabled()
+            ? connectorProperties.getCallbackUri()
+            : properties.getEndpoint();
+    }
+
+    private static void validateConnector(
+        GenericConnectorProperties connectorProperties,
+        PurchasePaymentDemoScenario scenario,
+        URI endpoint
+    ) {
+        validateEndpoint(endpoint, connectorProperties.isEnabled());
+        if (!connectorProperties.isEnabled()) {
             return;
         }
-        if (!scenario.connectorKey().equals(connector.getConnectorKey())) {
+        if (!scenario.assigneeRules().connectorKey().equals(
+            connectorProperties.getConnectorKey()
+        )) {
             throw new IllegalStateException(
-                "local payment sandbox connector key must match the governed scenario"
+                "generic connector key must match the governed demo scenario"
             );
         }
-        if (properties.getPort() == 0) {
+        if (!endpoint.equals(connectorProperties.getCallbackUri())) {
             throw new IllegalStateException(
-                "local payment sandbox requires an explicit port when dispatch is enabled"
-            );
-        }
-        URI callback = connector.getCallbackUri();
-        if (callback == null
-            || !"http".equalsIgnoreCase(callback.getScheme())
-            || !"127.0.0.1".equals(callback.getHost())
-            || callback.getPort() != properties.getPort()
-            || !PurchasePaymentDemoPaymentSandbox.CALLBACK_PATH.equals(
-                callback.getPath()
-            )) {
-            throw new IllegalStateException(
-                "generic callback URI must target the configured loopback payment sandbox"
+                "generic connector callback URI must match the local payment sandbox"
             );
         }
     }
 
-    private static String requireText(String value, String name) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalStateException(name + " must not be blank");
+    private static void validateEndpoint(URI endpoint, boolean connectorEnabled) {
+        if (endpoint == null) {
+            throw new IllegalStateException("payment sandbox endpoint must not be null");
         }
-        return value.trim();
+        String host = endpoint.getHost() == null
+            ? ""
+            : endpoint.getHost().toLowerCase(Locale.ROOT);
+        boolean loopback = "localhost".equals(host)
+            || "127.0.0.1".equals(host)
+            || "::1".equals(host);
+        if (!"http".equalsIgnoreCase(endpoint.getScheme()) || !loopback) {
+            throw new IllegalStateException(
+                "payment sandbox endpoint must use loopback HTTP"
+            );
+        }
+        if (!PurchasePaymentDemoPaymentSandbox.CALLBACK_PATH.equals(endpoint.getPath())) {
+            throw new IllegalStateException("payment sandbox callback path is invalid");
+        }
+        if (endpoint.getUserInfo() != null
+            || endpoint.getQuery() != null
+            || endpoint.getFragment() != null) {
+            throw new IllegalStateException(
+                "payment sandbox endpoint must not contain credentials, query or fragment"
+            );
+        }
+        int port = endpoint.getPort();
+        if (connectorEnabled && (port < 1024 || port > 65_535)) {
+            throw new IllegalStateException(
+                "enabled payment sandbox endpoint port must be between 1024 and 65535"
+            );
+        }
+        if (!connectorEnabled && port != 0 && (port < 1024 || port > 65_535)) {
+            throw new IllegalStateException(
+                "payment sandbox endpoint port must be zero or between 1024 and 65535"
+            );
+        }
+    }
+
+    private static Path path(String value) {
+        return value == null || value.isBlank() ? null : Path.of(value);
     }
 
     @ConfigurationProperties(prefix = "approval.demo.purchase-payment.sandbox")
     public static class Properties {
 
-        private boolean enabled;
-        private int port = 18_081;
+        private URI endpoint = URI.create(
+            "http://127.0.0.1:0" + PurchasePaymentDemoPaymentSandbox.CALLBACK_PATH
+        );
         private String controlFile;
         private String statusFile;
         private Duration maximumClockSkew = Duration.ofMinutes(5);
 
-        public boolean isEnabled() {
-            return enabled;
+        public URI getEndpoint() {
+            return endpoint;
         }
 
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        public int getPort() {
-            return port;
-        }
-
-        public void setPort(int port) {
-            this.port = port;
+        public void setEndpoint(URI endpoint) {
+            this.endpoint = endpoint;
         }
 
         public String getControlFile() {
@@ -150,45 +181,15 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
             this.maximumClockSkew = maximumClockSkew;
         }
 
-        Path controlFilePath() {
-            return path(controlFile);
-        }
-
-        Path statusFilePath() {
-            return path(statusFile);
-        }
-
         void validate() {
-            if (!enabled) {
-                throw new IllegalStateException(
-                    "payment sandbox configuration must be explicitly enabled"
-                );
-            }
-            if (port != 0 && (port < 1024 || port > 65_535)) {
-                throw new IllegalStateException(
-                    "payment sandbox port must be 0 or between 1024 and 65535"
-                );
-            }
+            validateEndpoint(endpoint, false);
             if (maximumClockSkew == null
-                || maximumClockSkew.isZero()
-                || maximumClockSkew.isNegative()) {
+                || maximumClockSkew.isNegative()
+                || maximumClockSkew.isZero()) {
                 throw new IllegalStateException(
                     "payment sandbox maximum-clock-skew must be positive"
                 );
             }
-            Path control = controlFilePath();
-            Path status = statusFilePath();
-            if (control != null && control.equals(status)) {
-                throw new IllegalStateException(
-                    "payment sandbox control-file and status-file must differ"
-                );
-            }
-        }
-
-        private static Path path(String value) {
-            return value == null || value.isBlank()
-                ? null
-                : Path.of(value.trim()).toAbsolutePath().normalize();
         }
     }
 }

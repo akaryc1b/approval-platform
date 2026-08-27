@@ -25,6 +25,7 @@ import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -34,6 +35,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
@@ -61,11 +63,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ActiveProfiles("local")
 @SpringBootTest(
     classes = ApprovalPlatformApplication.class,
-    webEnvironment = SpringBootTest.WebEnvironment.NONE,
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
         "approval.demo.purchase-payment.enabled=true",
         "approval.demo.purchase-payment.sandbox.enabled=true",
-        "approval.demo.purchase-payment.sandbox.port=0",
         "approval.connector.generic.enabled=false",
         "approval.connector.generic.key-id=local-payment-sandbox-key-v1",
         "approval.connector.generic.secret="
@@ -93,6 +94,9 @@ class PurchasePaymentSandboxRecoveryIntegrationTest {
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
+
+    @LocalServerPort
+    int serverPort;
 
     @Autowired
     PurchasePaymentDemoSeedState seedState;
@@ -142,7 +146,11 @@ class PurchasePaymentSandboxRecoveryIntegrationTest {
                     .followRedirects(HttpClient.Redirect.NEVER)
                     .build(),
                 context -> new GenericWebhookEndpoint(
-                    sandbox.endpoint(),
+                    URI.create(
+                        "http://127.0.0.1:"
+                            + serverPort
+                            + PurchasePaymentDemoPaymentSandbox.CALLBACK_PATH
+                    ),
                     "local-payment-sandbox-key-v1",
                     SANDBOX_SECRET,
                     Duration.ofSeconds(2),
