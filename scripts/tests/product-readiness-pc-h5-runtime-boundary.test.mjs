@@ -391,10 +391,15 @@ test('package, guide and permanent Hygiene expose the bounded smoke', () => {
     packageJson.scripts?.['demo:runtime:pc-h5:check'],
     'node --test scripts/tests/product-readiness-pc-h5-runtime-boundary.test.mjs',
   );
-  assert.match(
-    packageJson.scripts?.['web:test:client-boundary'] || '',
-    /pc-h5-runtime-smoke\.mjs ci/u,
-  );
+
+  const clientBoundary = packageJson.scripts?.['web:test:client-boundary'] || '';
+  assert.doesNotMatch(clientBoundary, /pc-h5-runtime-smoke\.mjs ci/u);
+  assert.doesNotMatch(clientBoundary, /purchase-payment-e2e\.mjs ci/u);
+
+  const purchasePaymentRuntime =
+    packageJson.scripts?.['demo:runtime:purchase-payment:e2e:ci'] || '';
+  assert.match(purchasePaymentRuntime, /pc-h5-runtime-smoke\.mjs ci/u);
+  assert.match(purchasePaymentRuntime, /purchase-payment-e2e\.mjs ci/u);
 
   for (const marker of [
     'PC_H5_APPROVAL_HANDOFF_PASSED',
