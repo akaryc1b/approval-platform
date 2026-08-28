@@ -1,179 +1,159 @@
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
-  chromeExecutable,
-  java21Environment,
-} from '../pc-h5-runtime/contract.mjs';
+  ledgerPath,
+  loadContract,
+  outputRoot,
+  runIdentifier,
+  sourceIdentity,
+  writeJson,
+} from './contract.mjs';
 import {
-  delay,
-  runNodeChecked,
-  runPnpmChecked,
-  startManagedNode,
-  terminateManaged,
-  waitForHttp,
-  waitForMarker,
-} from '../pc-h5-runtime/processes.mjs';
+  appendCiEvidenceEnvelope,
+  nextSuccessfulLedger,
+  resetLedger,
+} from './evidence.mjs';
 import {
-  backendOrigin,
-  backendTimeoutMs,
-  browserTimeoutMs,
-  clientTimeoutMs,
-  eventType,
-  h5Origin,
-  ledgerT]€ШYЫЫќXЭ€Э]]›ЫЭ€ТSЭ]]\™XЭЬћK€Ы[ќ\ќ[\Л€™\ЬЪ]ЬћT›ЫЭ€ќ[’Y[ќYљY\‹€ЫЭ\ЩRY[ќ]K€]ZY€Ьљ]RњЫЫ‹џHњ›ЫH	Л‹ШЫЫќXЭ›ZњЙОВљ[\ЬќВ€\[™ЪQ]љY[ЩQ[ќ™[ЬK€™^ЭXШЩ\ЬЩќ[YЩ\‹€]Y\ћSЭ]›Ю€™XYШ[™›ЮЭ]\Л€™\Щ]YЩ\‹€[Y]TТQ]љY[ЩK€ШZ]›Ь”Ьќ]Z[X›K€ШZ]›Ь”Э]KџHњ›ЫH	Л‹Щ]љY[ЩK›ZњЙОВ‚™ќ[Э[Ы€™\Щ]\ЬЬШX›Q]J[ќљ\›Ы›Y[ќ
-HВ€ќ[“›ЩPЪXЪЩY
-€	С[]H\ЬЬШX›HШШ[ќ[ќ[YH]IЛ€В€	ЬШЬљ\ЛЬ›ЩXЭ\™XY[™\ЬЛЩ[[ЛXXЪЩ[™›ZњЙЛ€	Ь™\Щ]	Л€	ЛKXЫЫ™љ\›K[ШШ[Y]K[ЬЬЙЛ€K€[ќљ\›Ы›Y[ќ€
-NВџB‚‚™ќ[Э[Ы€ЭYЩTТQ]љY[ЩJќ[‘\™XЭЬћKЫЫќXЭY[ќ]K™]\ЩQ^\Э[™КHВ€Y€
-\™]\ЩQ^\Э[™КHВ€™\Щ]\ЬЬШX›Q]J]LЊQ[ќљ\›Ы›Y[ќ
+  cleanupRuntime,
+  stagePcH5Evidence,
+} from './lifecycle.mjs';
+import {
+  backendEnvironment,
+  runPaymentStage,
+} from './payment.mjs';
 
-JNВ€ќ[“›ЩPЪXЪЩY
-€	С^XЭ]HH^\Э[™ИЛТHќ[ќ[YH[™Щ™‰Л€ЙЬШЬљ\ЛЬ›ЩXЭ\™XY[™\ЬЛЬЛZK\ќ[ќ[YK\Ы[ЪЩK›ZњЙЛ	Ьќ[‰ЧK€]LЊQ[ќљ\›Ы›Y[ќ
+export async function execute(reusePcH5) {
+  const contract = loadContract();
+  const identity = sourceIdentity();
+  const runId = runIdentifier();
+  mkdirSync(outputRoot, { recursive: true, mode: 0o700 });
+  const runDirectory = resolve(outputRoot, runId);
+  mkdirSync(runDirectory, { recursive: true, mode: 0o700 });
+  writeJson(resolve(runDirectory, 'source-identity.json'), {
+    schemaVersion: 1,
+    evidenceKind: 'PURCHASE_PAYMENT_E2E_SOURCE_IDENTITY_V1',
+    runId,
+    capturedAt: new Date().toISOString(),
+    ...identity,
+  });
+  writeJson(resolve(runDirectory, 'acceptance-contract.json'), contract.acceptance);
 
-K€
-NВ€B€ЫЫњЭ]љY[ЩT]H™\ЫЫ™J€ТSЭ]]\™XЭЬћK€	ЬЛZK\ќ[ќ[YKY]љY[ЩKљњЫЫ‰Л€
-NВ€Y€
-Y^\ЭФЮ[К]љY[ЩT]
-JHВ€›ЭИ™]И\њ›ЬЉ	Ь™XЩY[™ИЛТHќ[ќ[YH]љY[ЩH\И[]Z[X›IКNВ€B€ЫЫњЭ]љY[ЩHH[Y]TТQ]љY[ЩJ€™XYњЫЫЉ]љY[ЩT]
-K€ЫЫќXЭ€Y[ќ]K€
-NВ€ЬЮ[К€ТSЭ]]\™XЭЬћK€™\ЫЫ™Jќ[‘\™XЭЬћK	ЬЛZK\ќ[ќ[YIКK€И™XЭ\њЪ]™N€ќYHK€
-NВ€™]\›€]љY[ЩNВџB‚‚™ќ[Э[Ы€XЪЩ[™[ќљ\›Ы›Y[ќ
-ќ[‘\™XЭЬћKЫЫќXЭ
-HВ€ЫЫњЭШ[XЪИH	ШXЪЩ[™ЬљYЪ[џKЬ^[Y[ќ\Ш[™›ЮЭЊKЩ]™[ќШВ€™]\›€В€‹‹љ]LЊQ[ќљ\›Ы›Y[ќ
+  const managed = [];
+  let executionResult;
+  let executionError;
+  let cleanupEvidence;
+  let cleanupError;
+  const environment = backendEnvironment(runDirectory, contract);
+  try {
+    const pcH5Evidence = stagePcH5Evidence(
+      runDirectory,
+      contract,
+      identity,
+      reusePcH5,
+    );
+    executionResult = {
+      pcH5Evidence,
+      payment: await runPaymentStage(
+        runDirectory,
+        contract,
+        identity,
+        pcH5Evidence,
+        managed,
+      ),
+    };
+  } catch (error) {
+    executionError = error;
+  } finally {
+    try {
+      cleanupEvidence = await cleanupRuntime(
+        managed,
+        environment,
+        runDirectory,
+      );
+    } catch (error) {
+      cleanupError = error;
+    }
+  }
 
-K€T“ХђSСSSЧФVSQS•ФРS‘“ЦСSђP“Q€	ЭќYIЛ€T“ХђSСSSЧФVSQS•ФРS‘“ЦСS‘ТS•€Ш[XЪЛ€T“ХђSСSSЧФVSQS•ФРS‘“ЦРУУ•“УС’SN‚€™\ЫЫ™Jќ[‘\™XЭЬћK	Ь^[Y[ќ\Ш[™›Ю\™XЫЭ™\‹ЫЫќ›Ы	КK€T“ХђSСSSЧФVSQS•ФРS‘“ЦФХUTЧС’SN‚€™\ЫЫ™Jќ[‘\™XЭЬћK	Ь^[Y[ќ\Ш[™›Ю\Э]\ЛљњЫЫ‰КK€T“ХђSСSSЧФVSQS•ФРS‘“ЦРУРТЧФТСUО€	ФSIЛ€T“ХђSССS‘T’PЧРУУ“‘PХФ—СSђP“Q€	ЭќYIЛ€T“ХђSССS‘T’PЧРУУ“‘PХФ—ТСVN€ЫЫќXЭњШЩ[\љ[Л™\™XЭЬћKЫЫ›™XЭЬ’Щ^K€T“ХђSССS‘T’PЧТФХРђTСWХT’N€	Ъ‹ЛМLЌЛЊЊЊNЊNLL	Л€T“ХђSССS‘T’PЧРРSђPТЧХT’N€Ш[XЪЛ€T“ХђSССS‘T’PЧТСVWТQ€	Ь\Ъ\ЩK\^[Y[ќ[ШШ[X[K]ЊIЛ€T“ХђSССS‘T’PЧФСPФ‘U‚€	Ь\Ъ\ЩK\^[Y[ќ[ШШ[X[K\ЩXЬ™][X]\љX[LЊЌ‰Л€T“ХђSССS‘T’PЧХSQSХU€	Ф”ЙЛ€T“ХђSССS‘T’PЧСTФUТСSђP“Q€	ЭќYIЛ€T“ХђSССS‘T’PЧСTФUТС’VQСSVN€	ФЌTЙЛ€T“ХђSССS‘T’PЧСTФUТРђUТФТV‘N€	МL	Л€T“ХђSССS‘T’PЧСTФUТУPTСN€	ФTЙЛ€T“ХђSССS‘T’PЧФ‘U–WТS’UPSСSVN€	ФLЙЛ€T“ХђSССS‘T’PЧФ‘U–WУPVSUSWСSVN€	ФLЙЛ€T“ХђSССS‘T’PЧФ‘U–WУPVSUSWРUSTО€	НIЛ€T“ХђSССS‘T’PЧФ‘U–WТ’UT—ФђUSО€	М	Л€NВџB‚™ќ[Э[Ы€[YЫЫ\][Ы“Э]›ЮY[ќ]J€›ЭЛ€[њЭ[ЩRY€ЫЫ\]Y]™[ќ\K€^[Y[ќ™\]Y\ЭЉHВ€™]\›€›ЭЛYЩЬ™YШ]RYOOH[њЭ[ЩRY€	‰€›ЭЛ™]™[ќ\HOOHЫЫ\]Y]™[ќ\B€	‰€›ЭЛњ™\]Y\ЭYOOH^[Y[ќ™\]Y\Эњ™\]Y\ЭY€	‰€›ЭЛќXЩRYOOH^[Y[ќ™\]Y\ЭќXЩRY€	‰€›ЭЛљY[\Э[ЮRЩ^HOOH	ШЫЫ\]Y]™[ќ\_N‰Ъ[њЭ[ЩRYX€	‰€]ZYќ\Э
-›ЭЛљY	ЙКB€	‰€]ZYќ\Э
-›ЭЛ™]™[ќY	ЙКNВџB‚\Ю[Иќ[Э[Ы€ќ[”^[Y[ќЭYЩJ€ќ[‘\™XЭЬћK€ЫЫќXЭ€Y[ќ]K€ТQ]љY[ЩK€X[YЩYЉHВ€›Ь€
-ЫЫњЭЬќЩ€НMННЛLJHВ€]ШZ]ШZ]›Ь”Ьќ]Z[X›JЬќ
-NВ€B‚€ЫЫњЭЫЫ\]Y]™[ќ\HH]™[ќ\J
-NВ€ЫЫњЭ[ќљ\›Ы›Y[ќHXЪЩ[™[ќљ\›Ы›Y[ќ
-ќ[‘\™XЭЬћKЫЫќXЭ
-NВ€ЫЫњЭШ[™›ЮЭ]\Ф]H[ќљ\›Ы›Y[ќђT“ХђSСSSЧФVSQS•ФРS‘“ЦФХUTЧС’SNВ€ЫЫњЭ™XЫЭ™\ћPЫЫќ›Ы]H[ќљ\›Ы›Y[ќђT“ХђSСSSЧФVSQS•ФРS‘“ЦРУУ•“УС’SNВ‚€ЫЫњЭXЪЩ[™HЭ\ќX[YЩY›ЩJ€	Ф™\Э\ќHШ[YHXЪЩ[™]HЪ]ШШ[^[Y[ќШ[™›Ю[™Э]›Ю\Ь]Ъ\‰Л€ЙЬШЬљ\ЛЬ›ЩXЭ\™XY[™\ЬЛЩ[[ЛXXЪЩ[™›ZњЙЛ	ЬЭ\ќ	ЧK€™\ЫЫ™Jќ[‘\™XЭЬћK	ШXЪЩ[™\^[Y[ќ›ЩЙКK€[ќљ\›Ы›Y[ќ€
-NВ€X[YЩYњ\Ъ
-XЪЩ[™
-NВ€]ШZ]ШZ]›Ь“X\љЩ\ЉXЪЩ[™	РђPТСS‘УРРSФХT•Х‘T’Q’QQ	ЛXЪЩ[™[Y[Э]\КNВ€]ШZ]ШZ]›Ь“X\љЩ\ЉXЪЩ[™	ФTђТTСWФVSQS•СSSЧФСQQРTQQ	ЛXЪЩ[™[Y[Э]\КNВ‚€ЫЫњЭ[љ]X[Ш[™›ЮH]ШZ]ШZ]›Ь”Э]J€	Т[љ]X[[]Z[X›H^[Y[ќШ[™›Ю	Л€
+  if (executionError || cleanupError) {
+    resetLedger(identity, runId);
+    const details = {
+      execution: executionError instanceof Error
+        ? executionError.message
+        : executionError ? String(executionError) : null,
+      cleanup: cleanupError instanceof Error
+        ? cleanupError.message
+        : cleanupError ? String(cleanupError) : null,
+    };
+    writeJson(resolve(runDirectory, 'runtime-failure.json'), {
+      schemaVersion: 1,
+      evidenceKind: 'PURCHASE_PAYMENT_LOCAL_ALPHA_E2E_FAILURE_V1',
+      runId,
+      failedAt: new Date().toISOString(),
+      ...details,
+    });
+    appendCiEvidenceEnvelope('FAILED', runDirectory, identity);
+    throw new Error(`purchase-payment E2E failed: ${JSON.stringify(details)}`, {
+      cause: executionError || cleanupError,
+    });
+  }
 
-HO€™XYШ[™›ЮЭ]\КШ[™›ЮЭ]\Ф]
-K€[YHO€[YK]Z[X›HOOH[ЩB€	‰€[YK™[]™\ћP][\ИOOH€	‰€[YKXШЩ\Y^[Y[ќ™\Э[ИOOH€
-NВ€Ьљ]RњЫЫЉ™\ЫЫ™Jќ[‘\™XЭЬћK	Ь^[Y[ќ\Ш[™›ЮZ[љ]X[љњЫЫ‰КK[љ]X[Ш[™›Ю
-NВ‚€ЫЫњЭ™Y›Ь™T^[Y[ќH]Y\ћSЭ]›Ю
-ТQ]љY[ЩKљ[њЭ[ЩRYЫЫ\]Y]™[ќ\JNВ€Y€
-™Y›Ь™T^[Y[ќ›[™ЭOOH
-HВ€›ЭИ™]И\њ›ЬЉ	ШЫЫ\][Ы€Э]›Ю]™[ќ^\ЭИ™Y›Ь™H^[Y[ќЫЫ™љ\›X][Ы‰КNВ€B€Ьљ]RњЫЫЉ™\ЫЫ™Jќ[‘\™XЭЬћK	ЫЭ]›ЮX™Y›Ь™K\^[Y[ќљњЫЫ‰КK™Y›Ь™T^[Y[ќ
-NВ‚€ќ[”њPЪXЪЩY
-€	РќZ[ЩPЪ]Z[љH›ЩЬ[H
-ќZ[[Ы›NИќ[ќ[YH™[XZ[њИH›Ы‹XЫZ[JIЛ€ЙЫ[Шљ[NќZ[ќЩZ^[‰ЧK€›ШЩ\ЬЛ™[ќ‹€
-NВ‚€ЫЫњЭHHЭ\ќX[YЩY›ЩJ€	ФЭ\ќH^[Y[ќXЫЫ™љ\›X][Ы€Э\њ›ЩШ]H\ИЫЭ™\›™Y[[ЛY[\ЮYYIЛ€В€	ЬШЬљ\ЛЬ›ЩXЭ\™XY[™\ЬЛЩ[[ЛXЫY[ќ›ZњЙЛ€	ЪIЛ€	ЛKXXЭЬ‰Л€ЫЫќXЭњЫXЮKXЭЬ’Y€	ЛK\Ьќ	Л€	ОL	Л€	ЛK\ЪЪ\Z[њЭ[	Л€K€™\ЫЫ™Jќ[‘\™XЭЬћK	ЪK\^[Y[ќ›ЩЙКK€›ШЩ\ЬЛ™[ќ‹€
-NВ€X[YЩYњ\Ъ
-JNВ€]ШZ]ШZ]›Ь’
-	ЪSЬљYЪ[џKШЫY[ќ[Y[Э]\КNВ‚€ќ[”њPЪXЪЩY
-€	РЫЫ\]H^[Y[ќЫЫ™љ\›X][Ы€›ЭYЪHљ\ЪX›HH[Шљ[HRIЛ€В€	ЛKY\‰Л€	Лќ\Э™X[KЭ™[‰Л€	ЛKYљ[\‰Л€	Р™[‹Ь^YЬ›Э[™	Л€	Щ^XЙЛ€	Ь^]ЬљYЪ	Л€	Э\Э	Л€	ЛKXЫЫ™љYП\›ЩXЭ\™XY[™\ЬЛњ^]ЬљYЪЫЫ™љYЛќЙЛ€	ЧЧЭ\ЭЧЧЛЩL™KЬ›ЩXЭ\™XY[™\ЬЛZK\^[Y[ќ\ќ[ќ[YKњЬXЛќЙЛ€K€В€‹‹њ›ШЩ\ЬЛ™[ќ‹€T“ХђSСSSЧРђPТСS‘УФ’QТSЋ€XЪЩ[™ЬљYЪ[‹€T“ХђSСSSЧРТ“УQWФU€Ъ›ЫYQ^XЭ]X›J
-K€T“ХђSСSSЧСU’QSђСWСTЋ€ќ[‘\™XЭЬћK€T“ХђSСSSЧСVPХТPQФТN€Y[ќ]KЫЫ[Z]ЪK€T“ХђSСSSЧСVPХQФVSQS•ХTТЧТQ‚€ТQ]љY[ЩKњ^[Y[ќ[™Щ™‹ќ\ЪТY€T“ХђSСSSЧТWХT“€	ЪSЬљYЪ[џKИЛЬYЩ\ЛЭ\ЪЛЫ\Э€T“ХђSСSSЧТS”ХSђСWТQ€ТQ]љY[ЩKљ[њЭ[ЩRY€T“ХђSСSSЧФVUФ’QТХSQSХUУTО€Эљ[™Књ›ЭЬЩ\•[Y[Э]\КK€T“ХђSСSSЧФ‘TФТUФ–WФ“УХ€™\ЬЪ]ЬћT›ЫЭ€K€
-NВ‚€ЫЫњЭQ]љY[ЩT]H™\ЫЫ™J€ќ[‘\™XЭЬћK€	ЪK\^[Y[ќ\ќ[ќ[YKY]љY[ЩKљњЫЫ‰Л€
-NВ€Y€
-Y^\ЭФЮ[КQ]љY[ЩT]
-JHВ€›ЭИ™]И\њ›ЬЉ	ТH^[Y[ќќ[ќ[YH]љY[ЩHШ\И›ЭЬ™X]Y	КNВ€B€ЫЫњЭQ]љY[ЩHH™XYњЫЫЉQ]љY[ЩT]
-NВ€Y€
-Q]љY[ЩKњЭ]\ИOOH	ФTФСQ	В€Q]љY[ЩKњЭYЩSX\љЩ\€OOH	ТWФVSQS•РУУ‘’T“PUSУ—ФХQСWФTФСQ	В€Q]љY[ЩKЫЫ[Z]ЪHOOHY[ќ]KЫЫ[Z]ЪB€Q]љY[ЩKљ[њЭ[ЩRYOOHТQ]љY[ЩKљ[њЭ[ЩRY€Q]љY[ЩKќ\ЪТYOOHТQ]љY[ЩKњ^[Y[ќ[™Щ™‹ќ\ЪТY€Q]љY[ЩKќ\™Щ]ЫY[ќOOHЫЫќXЭњЫXЮKќ\™Щ]ЫY[ќ€Q]љY[ЩKXШЩ\[ЩPЫY[ќOOHЫЫќXЭњЫXЮKXШЩ\[ЩPЫY[ќ€Q]љY[ЩK™љ[[Э]OЛњЭ]\ИOOH	РУУTUQ	КHВ€›ЭИ™]И\њ›ЬЉ	ТH^[Y[ќќ[ќ[YH]љY[ЩH\И[ЫЫњЪ\Э[ќ	КNВ€B‚€ЫЫњЭ[™[™ИH]ШZ]ШZ]›Ь”Э]J€	НLИ™XЫЭ™\ћH]љY[ЩIЛ€
+  const ledger = nextSuccessfulLedger(identity, runId);
+  const claimsDeclared = ledger.successfulRunIds.length >= 2;
+  const summary = {
+    schemaVersion: 1,
+    evidenceKind: 'PURCHASE_PAYMENT_LOCAL_ALPHA_E2E_V1',
+    runId,
+    commitSha: identity.commitSha,
+    treeSha: identity.treeSha,
+    tenantId: contract.scenario.tenant.id,
+    businessKey: contract.scenario.request.businessKey,
+    instanceId: executionResult.pcH5Evidence.instanceId,
+    targetClient: contract.policy.targetClient,
+    acceptanceClient: contract.policy.acceptanceClient,
+    acceptanceMode: contract.policy.acceptanceMode,
+    taskIds: [
+      ...executionResult.pcH5Evidence.steps.map(step => step.taskId),
+      executionResult.pcH5Evidence.paymentHandoff.taskId,
+    ],
+    finalStatus: executionResult.payment.h5Evidence.finalState.status,
+    outboxStatus: executionResult.payment.delivered.outbox[0].status,
+    acceptedPaymentSideEffects:
+      executionResult.payment.delivered.sandbox.acceptedPaymentResults,
+    wechatMiniProgramBuild: 'PASSED_BUILD_ONLY',
+    cleanup: cleanupEvidence,
+    successfulRunIds: ledger.successfulRunIds,
+    claimsDeclared,
+    claims: claimsDeclared
+      ? contract.acceptance.claimsAfterTwoConsecutiveCleanRuns
+      : [],
+    nonClaims: contract.acceptance.nonClaims,
+    completedAt: new Date().toISOString(),
+  };
+  try {
+    writeJson(resolve(runDirectory, 'runtime-summary.json'), summary);
+    writeJson(ledgerPath, ledger);
+    appendCiEvidenceEnvelope('PASSED', runDirectory, identity);
+  } catch (error) {
+    resetLedger(identity, runId);
+    throw error;
+  }
 
-HO€
-В€Э]›Ю€]Y\ћSЭ]›Ю
-ТQ]љY[ЩKљ[њЭ[ЩRYЫЫ\]Y]™[ќ\JK€Ш[™›Ю€™XYШ[™›ЮЭ]\КШ[™›ЮЭ]\Ф]
-K€JK€[YHO€[YK›Э]›Ю›[™ЭOOHB€	‰€[YЫЫ\][Ы“Э]›ЮY[ќ]J€[YK›Э]›ЮМK€ТQ]љY[ЩKљ[њЭ[ЩRY€ЫЫ\]Y]™[ќ\K€Q]љY[ЩKњ™\]Y\Э€
-B€	‰€[YK›Э]›ЮМKњЭ]\ИOOH	ФS‘S‘ЙВ€	‰€[YK›Э]›ЮМK][\ИЏHB€	‰€[YKњШ[™›Ю›\ЭЭ]\ИOOHLВ€	‰€[YKњШ[™›Ю™[]™\ћP][\ИЏHB€	‰€[YKњШ[™›ЮXШЩ\Y^[Y[ќ™\Э[ИOOH€
-NВ€Ьљ]RњЫЫЉ™\ЫЫ™Jќ[‘\™XЭЬћK	ЫЭ]›Ю\[™[™ЛY]љY[ЩKљњЫЫ‰КK[™[™КNВ‚€Ьљ]Qљ[TЮ[К™XЫЭ™\ћPЫЫќ›Ы]	Ь™XЫЭ™\—‰ЛВ€[ЫЩ[™О€	Э]Ћ	Л€[ЩN€НЊ€JNВ‚€ЫЫњЭ[]™\™YH]ШZ]ШZ]›Ь”Э]J€	УЭ]›Ю[]™\™YYќ\€Ш[™›Ю™XЫЭ™\ћIЛ€
-
-HO€
-В€Э]›Ю€]Y\ћSЭ]›Ю
-ТQ]љY[ЩKљ[њЭ[ЩRYЫЫ\]Y]™[ќ\JK€Ш[™›Ю€™XYШ[™›ЮЭ]\КШ[™›ЮЭ]\Ф]
-K€JK€[YHO€[YK›Э]›Ю›[™ЭOOHB€	‰€[YЫЫ\][Ы“Э]›ЮY[ќ]J€[YK›Э]›ЮМK€ТQ]љY[ЩKљ[њЭ[ЩRY€ЫЫ\]Y]™[ќ\K€Q]љY[ЩKњ™\]Y\Э€
-B€	‰€[YK›Э]›ЮМKњЭ]\ИOOH	СSU‘T‘Q	В€	‰€[YK›Э]›ЮМKњ™\ЬЫњЩPЫЩHOOHЊ€	‰€\[Щ€[YK›Э]›ЮМKњ›ЭљY\”™\]Y\ЭYOOH	ЬЭљ[™ЙВ€	‰€[YK›Э]›ЮМKњ›ЭљY\”™\]Y\ЭY›[™Э€€	‰€[YKњШ[™›Ю]Z[X›HOOHќYB€	‰€[YKњШ[™›ЮXШЩ\Y^[Y[ќ™\Э[ИOOHB€	‰€[YKњШ[™›ЮXШЩ\Y]™[ќYOOH[YK›Э]›ЮМK™]™[ќY€	‰€[YKњШ[™›ЮXШЩ\YY[\Э[ЮRЩ^B€OOH[YK›Э]›ЮМKљY[\Э[ЮRЩ^K€
-NВ€Ьљ]RњЫЫЉ™\ЫЫ™Jќ[‘\™XЭЬћK	ЫЭ]›ЮY[]™\™YY]љY[ЩKљњЫЫ‰КK[]™\™Y
-NВ‚€]ЭX›SШњЩ\ќ][ЫњИHВ€]ШZ]ШZ]›Ь”Э]J€	С^XЭK[Ы™H^[Y[ќЪYHY™™XЭЭXљ[]HЪ[™ЭЙЛ€
-
-HO€
-В€Э]›Ю€]Y\ћSЭ]›Ю
-ТQ]љY[ЩKљ[њЭ[ЩRYЫЫ\]Y]™[ќ\JK€Ш[™›Ю€™XYШ[™›ЮЭ]\КШ[™›ЮЭ]\Ф]
-K€JK€
-[YJHO€В€Y€
-[YK›Э]›Ю›[™Э€H[YKњШ[™›ЮXШЩ\Y^[Y[ќ™\Э[И€JHВ€›ЭИ™]И\њ›ЬЉ	Щ\XШ]HЫЫ\][Ы€]™[ќЬ€^[Y[ќЪYHY™™XЭ]XЭY	КNВ€B€ЫЫњЭЭX›HH[YK›Э]›Ю›[™ЭOOHB€	‰€[YЫЫ\][Ы“Э]›ЮY[ќ]J€[YK›Э]›ЮМK€ТQ]љY[ЩKљ[њЭ[ЩRY€ЫЫ\]Y]™[ќ\K€Q]љY[ЩKњ™\]Y\Э€
-B€	‰€[YK›Э]›ЮМKњЭ]\ИOOH	СSU‘T‘Q	В€	‰€[YKњШ[™›ЮXШЩ\Y^[Y[ќ™\Э[ИOOHNВ€ЭX›SШњЩ\ќ][ЫњИHЭX›HИЭX›SШњЩ\ќ][ЫњИ
-ИH€В€™]\›€ЭX›SШњЩ\ќ][ЫњИЏHВ€K€
-NВ‚€™]\›€В€ЫЫ\]Y]™[ќ\K€Q]љY[ЩK€[™[™Л€[]™\™Y€NВџB‚™ќ[Э[Ы€\›Z[]T›ШЩ\ЬСЬ›Э\
-Ъ[ЪYЫ[
-HВ€Y€
-XЪ[ЛњYЪ[™^]ЫЩHOOHќ[
-H™]\›ЋВ€ћHВ€Y€
-›ШЩ\ЬЛњ]›Ь›HOOH	ЭЪ[ЊМ‰КHЪ[љЪ[
-ЪYЫ[
-NВ€[ЩH›ШЩ\ЬЛљЪ[
-XЪ[њYЪYЫ[
-NВ€HШ]Ъ
-\њ›ЬЉHВ€Y€
-\њ›Ь‹ЫЩHOOH	СTФђТ	КH›ЭИ\њ›ЬЋВ€BџB‚\Ю[Иќ[Э[Ы€ЭЬX[YЩY
-›ШЩ\ЬФЭ]JHВ€\›Z[]SX[YЩY
-›ШЩ\ЬФЭ]JNВ€]XY[™HH]K››ЭК
-H
-ИLМВ€Ъ[H
-›ШЩ\ЬФЭ]KЪ[™^]ЫЩHOOHќ[	‰€]K››ЭК
-HXY[™JHВ€]ШZ][^JЫ[ќ\ќ[\КNВ€B€Y€
-›ШЩ\ЬФЭ]KЪ[™^]ЫЩHOOHќ[
-H™]\›ЋВ‚€\›Z[]T›ШЩ\ЬСЬ›Э\
-›ШЩ\ЬФЭ]KЪ[	ФТQТТS	КNВ€XY[™HH]K››ЭК
-H
-ИWМВ€Ъ[H
-›ШЩ\ЬФЭ]KЪ[™^]ЫЩHOOHќ[	‰€]K››ЭК
-HXY[™JHВ€]ШZ][^JЫ[ќ\ќ[\КNВ€B€Y€
-›ШЩ\ЬФЭ]KЪ[™^]ЫЩHOOHќ[
-HВ€›ЭИ™]И\њ›ЬЉ	Ь›ШЩ\ЬФЭ]K›X™[HY›Э\›Z[]HYќ\€ТQТТS
-NВ€BџB‚‚\Ю[Иќ[Э[Ы€ЫX[ќ\ќ[ќ[YJX[YЩY[ќљ\›Ы›Y[ќќ[‘\™XЭЬћJHВ€ЫЫњЭXЭ[ЫњИHЧNВ€›Ь€
-ЫЫњЭ›ШЩ\ЬФЭ]HЩ€X[YЩYњ™]™\њЩJ
-JHВ€]ШZ]ЭЬX[YЩY
-›ШЩ\ЬФЭ]JNВ€XЭ[ЫњЛњ\Ъ
-ЭЬY‰Ь›ШЩ\ЬФЭ]K›X™[X
-NВ€B€™\Щ]\ЬЬШX›Q]J[ќљ\›Ы›Y[ќ
-NВ€XЭ[ЫњЛњ\Ъ
-	Щ[]Y\›Э[\]›Ь›KY[[Л]›Ы[YIКNВ€›Ь€
-ЫЫњЭЬќЩ€НMННЛLJHВ€]ШZ]ШZ]›Ь”Ьќ]Z[X›JЬќ
-NВ€XЭ[ЫњЛњ\Ъ
-™[X\ЩY\Ьќ‰ЬЬќX
-NВ€B€ЫЫњЭ]љY[ЩHHВ€ШЪ[XU™\њЪ[ЫЋ€K€]љY[ЩRЪ[™€	ФTђТTСWФVSQS•СL‘WРУPS•TХЊIЛ€XЭ[ЫњЛ€ЫЫ\]Y]€™]И]J
-KќТTУФЭљ[™К
-K€NВ€Ьљ]RњЫЫЉ™\ЫЫ™Jќ[‘\™XЭЬћK	ШЫX[ќ\Y]љY[ЩKљњЫЫ‰КK]љY[ЩJNВ€™]\›€]љY[ЩNВџB‚‚™^Ьќ\Ю[Иќ[Э[Ы€^XЭ]J™]\ЩTТJHВ€ЫЫњЭЫЫќXЭHШYЫЫќXЭ
-
-NВ€ЫЫњЭY[ќ]HHЫЭ\ЩRY[ќ]J
-NВ€ЫЫњЭќ[’YHќ[’Y[ќYљY\Љ
-NВ€ZЩ\”Ю[КЭ]]›ЫЭИ™XЭ\њЪ]™N€ќYK[ЩN€НМJNВ€ЫЫњЭќ[‘\™XЭЬћHH™\ЫЫ™JЭ]]›ЫЭќ[’Y
-NВ€ZЩ\”Ю[Кќ[‘\™XЭЬћKИ™XЭ\њЪ]™N€ќYK[ЩN€НМJNВ€Ьљ]RњЫЫЉ™\ЫЫ™Jќ[‘\™XЭЬћK	ЬЫЭ\ЩKZY[ќ]KљњЫЫ‰КKВ€ШЪ[XU™\њЪ[ЫЋ€K€]љY[ЩRЪ[™€	ФTђТTСWФVSQS•СL‘WФУХTђСWТQS•UWХЊIЛ€ќ[’Y€Ш\\™Y]€™]И]J
-KќТTУФЭљ[™К
-K€‹‹љY[ќ]K€JNВ€Ьљ]RњЫЫЉ™\ЫЫ™Jќ[‘\™XЭЬћK	ШXШЩ\[ЩKXЫЫќXЭљњЫЫ‰КKЫЫќXЭXШЩ\[ЩJNВ‚€ЫЫњЭX[YЩYHЧNВ€]^XЭ][Ы”™\Э[В€]^XЭ][Ы‘\њ›ЬЋВ€]ЫX[ќ\]љY[ЩNВ€]ЫX[ќ\\њ›ЬЋВ€ЫЫњЭ[ќљ\›Ы›Y[ќHXЪЩ[™[ќљ\›Ы›Y[ќ
-ќ[‘\™XЭЬћKЫЫќXЭ
-NВ€ћHВ€ЫЫњЭТQ]љY[ЩHHЭYЩTТQ]љY[ЩJ€ќ[‘\™XЭЬћK€ЫЫќXЭ€Y[ќ]K€™]\ЩTТK€
-NВ€^XЭ][Ы”™\Э[HВ€ТQ]љY[ЩK€^[Y[ќ€]ШZ]ќ[”^[Y[ќЭYЩJ€ќ[‘\™XЭЬћK€ЫЫќXЭ€Y[ќ]K€ТQ]љY[ЩK€X[YЩY€
-K€NВ€HШ]Ъ
-\њ›ЬЉHВ€^XЭ][Ы‘\њ›Ь€H\њ›ЬЋВ€Hљ[[HВ€ћHВ€ЫX[ќ\]љY[ЩHH]ШZ]ЫX[ќ\ќ[ќ[YJ€X[YЩY€[ќљ\›Ы›Y[ќ€ќ[‘\™XЭЬћK€
-NВ€HШ]Ъ
-\њ›ЬЉHВ€ЫX[ќ\\њ›Ь€H\њ›ЬЋВ€B€B‚€Y€
-^XЭ][Ы‘\њ›Ь€ЫX[ќ\\њ›ЬЉHВ€™\Щ]YЩ\ЉY[ќ]Kќ[’Y
-NВ€ЫЫњЭ]Z[ИHВ€^XЭ][ЫЋ€^XЭ][Ы‘\њ›Ь€[њЭ[Щ[Щ€\њ›Ь‚€И^XЭ][Ы‘\њ›Ь‹›Y\ЬШYЩB€€^XЭ][Ы‘\њ›Ь€ИЭљ[™К^XЭ][Ы‘\њ›ЬЉH€ќ[€ЫX[ќ\€ЫX[ќ\\њ›Ь€[њЭ[Щ[Щ€\њ›Ь‚€ИЫX[ќ\\њ›Ь‹›Y\ЬШYЩB€€ЫX[ќ\\њ›Ь€ИЭљ[™КЫX[ќ\\њ›ЬЉH€ќ[€NВ€Ьљ]RњЫЫЉ™\ЫЫ™Jќ[‘\™XЭЬћK	Ьќ[ќ[YKYZ[\™KљњЫЫ‰КKВ€ШЪ[XU™\њЪ[ЫЋ€K€]љY[ЩRЪ[™€	ФTђТTСWФVSQS•УРРSРSWСL‘WСђRST‘WХЊIЛ€ќ[’Y€Z[Y]€™]И]J
-KќТTУФЭљ[™К
-K€‹‹™]Z[Л€JNВ€\[™ЪQ]љY[ЩQ[ќ™[ЬJ	СђRSQ	Лќ[‘\™XЭЬћKY[ќ]JNВ€›ЭИ™]И\њ›ЬЉ\Ъ\ЩK\^[Y[ќL‘HZ[Y€	Т”УУ‹њЭљ[™ЪYћJ]Z[К_XВ€Ш]\ЩN€^XЭ][Ы‘\њ›Ь€ЫX[ќ\\њ›Ь‹€JNВ€B‚€ЫЫњЭYЩ\€H™^ЭXШЩ\ЬЩќ[YЩ\ЉY[ќ]Kќ[’Y
-NВ€ЫЫњЭЫZ[\СXЫ\™YHYЩ\‹њЭXШЩ\ЬЩќ[ќ[’YЛ›[™ЭЏHЋВ€ЫЫњЭЭ[[X\ћHHВ€ШЪ[XU™\њЪ[ЫЋ€K€]љY[ЩRЪ[™€	ФTђТTСWФVSQS•УРРSРSWСL‘WХЊIЛ€ќ[’Y€ЫЫ[Z]ЪN€Y[ќ]KЫЫ[Z]ЪK€™YTЪN€Y[ќ]Kќ™YTЪK€[[ќY€ЫЫќXЭњШЩ[\љ[Лќ[[ќљY€ќ\Ъ[™\ЬТЩ^N€ЫЫќXЭњШЩ[\љ[Лњ™\]Y\Эќ\Ъ[™\ЬТЩ^K€[њЭ[ЩRY€^XЭ][Ы”™\Э[њТQ]љY[ЩKљ[њЭ[ЩRY€\™Щ]ЫY[ќ€ЫЫќXЭњЫXЮKќ\™Щ]ЫY[ќ€XШЩ\[ЩPЫY[ќ€ЫЫќXЭњЫXЮKXШЩ\[ЩPЫY[ќ€XШЩ\[ЩS[ЩN€ЫЫќXЭњЫXЮKXШЩ\[ЩS[ЩK€\ЪТYО€В€‹‹™^XЭ][Ы”™\Э[њТQ]љY[ЩKњЭ\Л›X\
-Э\O€Э\ќ\ЪТY
-K€^XЭ][Ы”™\Э[њТQ]љY[ЩKњ^[Y[ќ[™Щ™‹ќ\ЪТY€K€љ[[Э]\О€^XЭ][Ы”™\Э[њ^[Y[ќљQ]љY[ЩK™љ[[Э]KњЭ]\Л€Э]›ЮЭ]\О€^XЭ][Ы”™\Э[њ^[Y[ќ™[]™\™Y›Э]›ЮМKњЭ]\Л€XШЩ\Y^[Y[ќЪYQY™™XЭО‚€^XЭ][Ы”™\Э[њ^[Y[ќ™[]™\™YњШ[™›ЮXШЩ\Y^[Y[ќ™\Э[Л€ЩXЪ]Z[љT›ЩЬ[PќZ[€	ФTФСQР•RSУУ“IЛ€ЫX[ќ\€ЫX[ќ\]љY[ЩK€ЭXШЩ\ЬЩќ[ќ[’YО€YЩ\‹њЭXШЩ\ЬЩќ[ќ[’YЛ€ЫZ[\СXЫ\™Y€ЫZ[\О€ЫZ[\СXЫ\™Y€ИЫЫќXЭXШЩ\[ЩKЫZ[\РYќ\•ЫРЫЫњЩXЭ]]™PЫX[”ќ[њВ€€ЧK€›ЫђЫZ[\О€ЫЫќXЭXШЩ\[ЩK››ЫђЫZ[\Л€ЫЫ\]Y]€™]И]J
-KќТTУФЭљ[™К
-K€NВ€ћHВ€Ьљ]RњЫЫЉ™\ЫЫ™Jќ[‘\™XЭЬћK	Ьќ[ќ[YK\Э[[X\ћKљњЫЫ‰КKЭ[[X\ћJNВ€Ьљ]RњЫЫЉYЩ\”]YЩ\ЉNВ€\[™ЪQ]љY[ЩQ[ќ™[ЬJ	ФTФСQ	Лќ[‘\™XЭЬћKY[ќ]JNВ€HШ]Ъ
-\њ›ЬЉHВ€™\Щ]YЩ\ЉY[ќ]Kќ[’Y
-NВ€›ЭИ\њ›ЬЋВ€B‚€ЫЫњЫЫK›ЩКTђТTСWФVSQS•СL‘WФ•S—ТQIЬќ[’YX
-NВ€ЫЫњЫЫK›ЩКTђТTСWФVSQS•СL‘WСU’QSђСOIЬќ[‘\™XЭЬћ_X
-NВ€Y€
-XЫZ[\СXЫ\™Y
-HВ€ЫЫњЫЫK›ЩК	ФTђТTСWФVSQS•СL‘WС’T”ХРУPS—Ф•S—Ф‘PУФ‘Q	КNВ€ЫЫњЫЫK›ЩК	ХУЧРУУ”СPХUU‘WРУPS—Ф•S”ЧФ‘TURT‘Q	КNВ€›Ь€
-ЫЫњЭ›ЫђЫZ[HЩ€ЫЫќXЭXШЩ\[ЩK››ЫђЫZ[\КHВ€ЫЫњЫЫK›ЩК›ЫђЫZ[JNВ€B€™]\›ЋВ€B€›Ь€
-ЫЫњЭЫZ[HЩ€ЫЫќXЭXШЩ\[ЩKЫZ[\РYќ\•ЫРЫЫњЩXЭ]]™PЫX[”ќ[њКHВ€ЫЫњЫЫK›ЩКЫZ[JNВ€B€›Ь€
-ЫЫњЭ›ЫђЫZ[HЩ€ЫЫќXЭXШЩ\[ЩK››ЫђЫZ[\КHВ€ЫЫњЫЫK›ЩК›ЫђЫZ[JNВ€BџB
+  console.log(`PURCHASE_PAYMENT_E2E_RUN_ID=${runId}`);
+  console.log(`PURCHASE_PAYMENT_E2E_EVIDENCE=${runDirectory}`);
+  if (!claimsDeclared) {
+    console.log('PURCHASE_PAYMENT_E2E_FIRST_CLEAN_RUN_RECORDED');
+    console.log('TWO_CONSECUTIVE_CLEAN_RUNS_REQUIRED');
+    for (const nonClaim of contract.acceptance.nonClaims) {
+      console.log(nonClaim);
+    }
+    return;
+  }
+  for (const claim of contract.acceptance.claimsAfterTwoConsecutiveCleanRuns) {
+    console.log(claim);
+  }
+  for (const nonClaim of contract.acceptance.nonClaims) {
+    console.log(nonClaim);
+  }
+}

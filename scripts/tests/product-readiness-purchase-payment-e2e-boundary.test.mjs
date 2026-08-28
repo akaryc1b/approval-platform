@@ -36,6 +36,8 @@ const orchestrator = [
   text('scripts/product-readiness/purchase-payment-e2e.mjs'),
   text('scripts/product-readiness/purchase-payment-e2e/contract.mjs'),
   text('scripts/product-readiness/purchase-payment-e2e/evidence.mjs'),
+  text('scripts/product-readiness/purchase-payment-e2e/lifecycle.mjs'),
+  text('scripts/product-readiness/purchase-payment-e2e/payment.mjs'),
   text('scripts/product-readiness/purchase-payment-e2e/runtime.mjs'),
 ].join('\n');
 const paymentSpec = text(
