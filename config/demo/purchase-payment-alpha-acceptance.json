@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "scenarioManifest": "config/demo/purchase-payment-golden-path.json",
+  "paymentConfirmationAcceptance": {
+    "taskDefinitionKey": "paymentConfirmation",
+    "actorId": "demo-employee",
+    "targetClient": "wechat",
+    "acceptanceClient": "h5",
+    "acceptanceMode": "H5_MOBILE_SURROGATE"
+  },
+  "claimsAfterTwoConsecutiveCleanRuns": [
+    "PURCHASE_PAYMENT_LOCAL_ALPHA_E2E_PASSED",
+    "H5_PAYMENT_CONFIRMATION_PASSED",
+    "PURCHASE_APPROVAL_E2E_PASSED",
+    "PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED",
+    "OUTBOX_RETRY_AND_IDEMPOTENCY_PASSED",
+    "TWO_CONSECUTIVE_CLEAN_RUNS_PASSED"
+  ],
+  "nonClaims": [
+    "WECHAT_DEVTOOLS_RUNTIME_NOT_VERIFIED",
+    "WECHAT_PHYSICAL_DEVICE_NOT_VERIFIED",
+    "PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED",
+    "PERFORMANCE_NOT_VERIFIED",
+    "BROWSER_COMPATIBILITY_NOT_VERIFIED",
+    "ACCESSIBILITY_NOT_VERIFIED",
+    "RPO_RTO_NOT_VERIFIED",
+    "MYSQL_8_4_NOT_VERIFIED"
+  ]
+}

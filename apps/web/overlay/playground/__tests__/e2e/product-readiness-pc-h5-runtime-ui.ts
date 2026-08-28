@@ -150,7 +150,7 @@ export async function clickPcApproval(
 export async function clickH5Approval(
   page: Page,
   expectation: ApprovalActionExpectation,
-  stageLabel: '财务会签' | '财务审核',
+  stageLabel: '财务会签' | '财务审核' | '付款确认',
 ): Promise<Response> {
   const card = page.locator('.task-card')
     .filter({ hasText: expectation.businessKey })

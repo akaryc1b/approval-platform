@@ -4,15 +4,19 @@ import { existsSync, readFileSync } from 'node:fs';
 import { repositoryRoot } from './contract.mjs';
 
 const relevantPaths = [
+  /^\.gitignore$/u,
+  /^package\.json$/u,
   /^apps\/mobile\/overlay\//u,
   /^apps\/mobile\/upstream\.json$/u,
   /^apps\/server\/src\/(?:main|test)\/java\/.*\/demo\//u,
   /^apps\/web\/overlay\/apps\/web-ele\/src\/(?:api\/approval|platform\/approval|views\/approval)/u,
-  /^apps\/web\/overlay\/playground\/(?:__tests__\/e2e\/product-readiness-pc-h5-runtime(?:-(?:api|diagnostics|ui)|\.spec)\.ts|product-readiness\.playwright\.config\.ts)$/u,
+  /^apps\/web\/overlay\/playground\/(?:__tests__\/e2e\/(?:product-readiness-pc-h5-runtime(?:-(?:api|diagnostics|ui)|\.spec)|product-readiness-h5-payment-runtime\.spec)\.ts|product-readiness\.playwright\.config\.ts)$/u,
+  /^config\/demo\/purchase-payment-alpha-acceptance\.json$/u,
   /^config\/demo\//u,
-  /^scripts\/product-readiness\/(?:demo-backend|demo-client|pc-h5-runtime-smoke|purchase-payment-scenario-contract)\.mjs$/u,
+  /^scripts\/product-readiness\/(?:demo-backend|demo-client|pc-h5-runtime-smoke|purchase-payment-e2e|purchase-payment-scenario-contract)\.mjs$/u,
   /^scripts\/product-readiness\/pc-h5-runtime\//u,
-  /^scripts\/tests\/product-readiness-pc-h5-runtime-boundary\.test\.mjs$/u,
+  /^scripts\/product-readiness\/purchase-payment-e2e\//u,
+  /^scripts\/tests\/(?:m3-repository-hygiene|product-readiness-pc-h5-runtime-boundary|product-readiness-purchase-payment-e2e-boundary)\.test\.mjs$/u,
   /^scripts\/upstream\/bootstrap-unibest\.mjs$/u,
 ];
 
