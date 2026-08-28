@@ -50,6 +50,7 @@ const ciScope = text(
   'scripts/product-readiness/pc-h5-runtime/ci-scope.mjs',
 );
 const packageJson = JSON.parse(text('package.json'));
+const workflow = text('.github/workflows/approval-platform-validation.yml');
 const gitignore = text('.gitignore');
 const aggregate = text('scripts/tests/m3-repository-hygiene.test.mjs');
 
@@ -165,7 +166,7 @@ test('payment confirmation uses visible H5 controls without direct approval HTTP
   assert.match(uiSupport, /uni-modal__btn_primary/u);
 });
 
-test('package, CI scope and repository hygiene expose the new bounded E2E', () => {
+test('static client checks and path-scoped runtime have separate workflow phases', () => {
   const expected = {
     'demo:runtime:purchase-payment:e2e:plan':
       'node scripts/product-readiness/purchase-payment-e2e.mjs plan --json',
@@ -179,10 +180,29 @@ test('package, CI scope and repository hygiene expose the new bounded E2E', () =
   for (const [name, command] of Object.entries(expected)) {
     assert.equal(packageJson.scripts?.[name], command);
   }
+
   const clientBoundary = packageJson.scripts?.['web:test:client-boundary'] || '';
+  assert.match(clientBoundary, /approval-client-boundary\.test\.mjs/u);
   assert.match(clientBoundary, /product-readiness-purchase-payment-e2e-boundary/u);
-  assert.match(clientBoundary, /pc-h5-runtime-smoke\.mjs ci/u);
-  assert.match(clientBoundary, /purchase-payment-e2e\.mjs ci/u);
+  assert.doesNotMatch(clientBoundary, /pc-h5-runtime-smoke\.mjs ci/u);
+  assert.doesNotMatch(clientBoundary, /purchase-payment-e2e\.mjs ci/u);
+
+  const webJobStart = workflow.indexOf('\n  web:');
+  const mobileJobStart = workflow.indexOf('\n  mobile:');
+  assert.ok(webJobStart >= 0 && mobileJobStart > webJobStart);
+  const webJob = workflow.slice(webJobStart, mobileJobStart);
+  assert.match(webJob, /timeout-minutes: 90/u);
+  assert.match(webJob, /pnpm web:test:client-boundary/u);
+  assert.match(webJob, /pnpm demo:runtime:purchase-payment:e2e:ci/u);
+  assert.match(webJob, /Upload purchase-payment E2E evidence/u);
+  assert.match(webJob, /\.runtime\/purchase-payment-e2e/u);
+  assert.match(webJob, /build\/product-readiness\/pc-h5-runtime/u);
+  assert.match(webJob, /include-hidden-files: true/u);
+  assert.ok(
+    webJob.indexOf('pnpm web:build')
+      < webJob.indexOf('pnpm demo:runtime:purchase-payment:e2e:ci'),
+  );
+
   assert.match(ciScope, /purchase-payment-alpha-acceptance/u);
   assert.match(ciScope, /product-readiness-h5-payment-runtime/u);
   assert.match(ciScope, /purchase-payment-e2e/u);
