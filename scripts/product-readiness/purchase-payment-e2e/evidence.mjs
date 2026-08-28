@@ -19,6 +19,7 @@ import {
   outputRoot,
   pollIntervalMs,
   readJson,
+  repositoryRoot,
   requireSuccess,
   requireText,
   runCaptured,
@@ -125,7 +126,6 @@ export function composeArguments(...args) {
   ];
 }
 
-
 export function validatePcH5Evidence(value, contract, identity) {
   if (value?.claim !== 'PC_H5_APPROVAL_HANDOFF_PASSED'
     || value?.commitSha !== identity.commitSha
@@ -152,7 +152,6 @@ export function validatePcH5Evidence(value, contract, identity) {
   }
   return value;
 }
-
 
 function safeSqlLiteral(value, name) {
   const text = requireText(value, name);
@@ -239,7 +238,6 @@ export async function waitForState(label, read, accepted, timeoutMs = stateTimeo
   throw new Error(`${label} did not reach the required state: ${detail}`);
 }
 
-
 function portAvailable(port) {
   return new Promise((resolvePromise, reject) => {
     const server = createServer();
@@ -265,7 +263,6 @@ export async function waitForPortAvailable(port) {
   const detail = lastError instanceof Error ? lastError.message : String(lastError);
   throw new Error(`port ${port} was not released: ${detail}`);
 }
-
 
 function emptyLedger(identity) {
   return {
