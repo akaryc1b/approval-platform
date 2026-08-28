@@ -172,7 +172,7 @@ export async function clickH5Approval(
     name: '同意',
     exact: true,
   }).last();
-  const uniButton = actionBar.locator('uni-button')
+  const uniButton = page.locator('.action-bar uni-button')
     .filter({ hasText: /^同意$/u })
     .last();
   const exactTextControl = actionBar.getByText('同意', {
