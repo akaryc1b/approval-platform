@@ -13,6 +13,12 @@ import {
 } from './purchase-payment-e2e/contract.mjs';
 import { execute } from './purchase-payment-e2e/runtime.mjs';
 
+function ensureCanonicalPcUrl() {
+  if (!process.env.APPROVAL_DEMO_PC_URL?.trim()) {
+    process.env.APPROVAL_DEMO_PC_URL = 'http://127.0.0.1:5777/';
+  }
+}
+
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   if (options.help) {
@@ -24,6 +30,7 @@ async function main() {
     printPlan(contract, options.json);
     return;
   }
+  ensureCanonicalPcUrl();
   if (options.command === 'ci') {
     if (!shouldRunInCi()) return;
     await execute(true);

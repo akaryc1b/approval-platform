@@ -63,8 +63,12 @@ export function stagePcH5Evidence(
   return evidence;
 }
 
+function processExited(child) {
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
 function terminateProcessGroup(child, signal) {
-  if (!child?.pid || child.exitCode !== null) return;
+  if (!child?.pid || processExited(child)) return;
   try {
     if (process.platform === 'win32') child.kill(signal);
     else process.kill(-child.pid, signal);
@@ -76,17 +80,17 @@ function terminateProcessGroup(child, signal) {
 async function stopManaged(processState) {
   terminateManaged(processState);
   let deadline = Date.now() + 10_000;
-  while (processState.child.exitCode === null && Date.now() < deadline) {
+  while (!processExited(processState.child) && Date.now() < deadline) {
     await delay(pollIntervalMs);
   }
-  if (processState.child.exitCode !== null) return;
+  if (processExited(processState.child)) return;
 
   terminateProcessGroup(processState.child, 'SIGKILL');
   deadline = Date.now() + 5_000;
-  while (processState.child.exitCode === null && Date.now() < deadline) {
+  while (!processExited(processState.child) && Date.now() < deadline) {
     await delay(pollIntervalMs);
   }
-  if (processState.child.exitCode === null) {
+  if (!processExited(processState.child)) {
     throw new Error(`${processState.label} did not terminate after SIGKILL`);
   }
 }
