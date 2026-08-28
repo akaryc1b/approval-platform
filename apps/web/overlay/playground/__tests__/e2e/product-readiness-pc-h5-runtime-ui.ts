@@ -160,9 +160,18 @@ export async function clickH5Approval(
   await expect(page.getByText(stageLabel, { exact: true }).first())
     .toBeVisible();
 
-  const approvalButton = page.locator('.action-bar uni-button')
+  const actionBar = page.locator('.action-bar');
+  await expect(actionBar).toBeVisible({ timeout: 10_000 });
+  const renderedButton = actionBar.getByRole('button', {
+    name: '同意',
+    exact: true,
+  }).last();
+  const uniButton = page.locator('.action-bar uni-button')
     .filter({ hasText: /^同意$/u })
     .last();
+  const approvalButton = await renderedButton.count() > 0
+    ? renderedButton
+    : uniButton;
   await expect(approvalButton).toBeVisible({ timeout: 10_000 });
   await approvalButton.click({ timeout: 10_000 });
 
