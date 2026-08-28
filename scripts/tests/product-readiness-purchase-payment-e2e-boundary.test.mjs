@@ -161,7 +161,10 @@ test('payment confirmation uses visible H5 controls without direct approval HTTP
     uiSupport,
     /stageLabel: '财务会签' \| '财务审核' \| '付款确认'/u,
   );
-  assert.match(uiSupport, /getByText\('同意', \{ exact: true \}\)/u);
+  assert.match(uiSupport, /locator\('\.action-bar uni-button'\)/u);
+  assert.match(uiSupport, /filter\(\{ hasText: \/\^同意\$\/u \}\)/u);
+  assert.match(uiSupport, /approvalButton\.click\(\{ timeout: 10_000 \}\)/u);
+  assert.doesNotMatch(uiSupport, /force:\s*true/u);
   assert.match(uiSupport, /uni-modal__btn_primary/u);
 });
 

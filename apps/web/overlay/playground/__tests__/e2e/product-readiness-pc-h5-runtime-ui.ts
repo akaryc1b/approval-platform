@@ -159,9 +159,12 @@ export async function clickH5Approval(
   await card.click({ timeout: 10_000 });
   await expect(page.getByText(stageLabel, { exact: true }).first())
     .toBeVisible();
-  await page.locator('.action-bar')
-    .getByText('同意', { exact: true })
-    .click({ timeout: 10_000 });
+
+  const approvalButton = page.locator('.action-bar uni-button')
+    .filter({ hasText: /^同意$/u })
+    .last();
+  await expect(approvalButton).toBeVisible({ timeout: 10_000 });
+  await approvalButton.click({ timeout: 10_000 });
 
   const modalPrimary = page.locator(
     'uni-modal .uni-modal__btn_primary',
