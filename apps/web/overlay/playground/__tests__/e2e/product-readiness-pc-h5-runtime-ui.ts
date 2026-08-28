@@ -162,6 +162,9 @@ export async function clickH5Approval(
 
   const actionBar = page.locator('.action-bar');
   await expect(actionBar).toBeVisible({ timeout: 10_000 });
+  const wotButton = actionBar.locator('.wd-button.is-primary')
+    .filter({ hasText: /^同意$/u })
+    .last();
   const renderedButton = actionBar.getByRole('button', {
     name: '同意',
     exact: true,
@@ -169,9 +172,11 @@ export async function clickH5Approval(
   const uniButton = page.locator('.action-bar uni-button')
     .filter({ hasText: /^同意$/u })
     .last();
-  const approvalButton = await renderedButton.count() > 0
-    ? renderedButton
-    : uniButton;
+  const approvalButton = await wotButton.count() > 0
+    ? wotButton
+    : await renderedButton.count() > 0
+      ? renderedButton
+      : uniButton;
   await expect(approvalButton).toBeVisible({ timeout: 10_000 });
   await approvalButton.click({ timeout: 10_000 });
 
