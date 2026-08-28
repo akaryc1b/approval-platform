@@ -34,6 +34,9 @@ async function main() {
   if (options.command === 'ci') {
     if (!shouldRunInCi()) return;
     await execute(true);
+    rmSync(pcH5OutputDirectory, { force: true, recursive: true });
+    console.log('PURCHASE_PAYMENT_E2E_SECOND_CLEAN_RUN_STARTING');
+    await execute(false);
     return;
   }
   rmSync(pcH5OutputDirectory, { force: true, recursive: true });
