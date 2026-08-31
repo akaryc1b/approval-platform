@@ -161,17 +161,26 @@ function waitForInteractiveStop(managed) {
   });
 }
 
-async function cleanup(managed, environment, runDirectory) {
+async function cleanup(
+  managed,
+  environment,
+  runDirectory,
+  runtimeMutationStarted,
+) {
   const actions = [];
   for (const processState of [...managed].reverse()) {
     await stopManaged(processState);
     actions.push(`stopped:${processState.label}`);
   }
-  resetDisposableData(environment);
-  actions.push('deleted:approval-platform-demo-volume');
-  for (const port of [5432, 5777, 6379, 8080, 9000]) {
-    await waitForPortAvailable(port);
-    actions.push(`released-port:${port}`);
+  if (runtimeMutationStarted) {
+    resetDisposableData(environment);
+    actions.push('deleted:approval-platform-demo-volume');
+    for (const port of [5432, 5777, 6379, 8080, 9000]) {
+      await waitForPortAvailable(port);
+      actions.push(`released-port:${port}`);
+    }
+  } else {
+    actions.push('skipped-reset:preflight-failed-before-runtime-mutation');
   }
   const evidence = {
     schemaVersion: 1,
@@ -217,12 +226,14 @@ export async function execute({ keepAlive }) {
   let cleanupEvidence;
   let executionError;
   let cleanupError;
+  let runtimeMutationStarted = false;
   try {
     runNodeChecked(
       'Run read-only Quick Start preflight before disposable reset',
       ['scripts/product-readiness/demo-preflight.mjs'],
       environment,
     );
+    runtimeMutationStarted = true;
     resetDisposableData(environment);
 
     const backend = startManagedNode(
@@ -375,11 +386,11 @@ export async function execute({ keepAlive }) {
     console.log(`QUICK_START_READY_SECONDS=${elapsedSeconds}`);
     console.log(`QUICK_START_PC_URL=${pcUrl}`);
     console.log(`QUICK_START_H5_URL=${h5Url}`);
-    console.log(`QUICK_START_TENANT=${contract.scenario.tenant.id}`);
+    console.log `QUICK_START_TENANT=${contract.scenario.tenant.id}`);
     console.log(`QUICK_START_BUSINESS_KEY=${contract.scenario.request.businessKey}`);
-    console.log(`QUICK_START_PC_ACTOR=${contract.clients.pc.actorId}`);
-    console.log(`QUICK_START_H5_ACTOR=${contract.clients.h5.actorId}`);
-    console.log(`QUICK_START_EVIDENCE=${runDirectory}`);
+    console.log `QUICK_START_PC_ACTOR=${contract.clients.pc.actorId}`);
+    console.log `QUICK_START_H5_ACTOR=${contract.clients.h5.actorId}`);
+    console.log `QUICK_START_EVIDENCE=${runDirectory}`);
 
     if (keepAlive) {
       console.log('Press Ctrl-C to stop and clean the local Quick Start runtime.');
@@ -389,7 +400,12 @@ export async function execute({ keepAlive }) {
     executionError = error;
   } finally {
     try {
-      cleanupEvidence = await cleanup(managed, environment, runDirectory);
+      cleanupEvidence = await cleanup(
+        managed,
+        environment,
+        runDirectory,
+        runtimeMutationStarted,
+      );
     } catch (error) {
       cleanupError = error;
     }

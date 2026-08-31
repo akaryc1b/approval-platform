@@ -108,12 +108,20 @@ test('orchestrator reuses existing backend, clients and generated workspaces', (
   }
   assert.match(
     runtime,
-    /try \{\s*runNodeChecked\(\s*'Run read-only Quick Start preflight before disposable reset',[\s\S]*?'scripts\/product-readiness\/demo-preflight\.mjs'[\s\S]*?\);\s*resetDisposableData\(environment\);/u,
+    /try \{\s*runNodeChecked\(\s*'Run read-only Quick Start preflight before disposable reset',[\s\S]*?'scripts\/product-readiness\/demo-preflight\.mjs'[\s\S]*?\);\s*runtimeMutationStarted = true;\s*resetDisposableData\(environment\);/u,
+  );
+  assert.match(runtime, /let runtimeMutationStarted = false;/u);
+  assert.match(
+    runtime,
+    /if \(runtimeMutationStarted\) \{[\s\S]*?resetDisposableData\(environment\);[\s\S]*?\} else \{[\s\S]*?skipped-reset:preflight-failed-before-runtime-mutation/u,
+  );
+  assert.match(
+    runtime,
+    /cleanup\([\s\S]*?runDirectory,[\s\S]*?runtimeMutationStarted,[\s\S]*?\)/u,
   );
   assert.match(runtime, /remainingMilliseconds\(deadline/u);
   assert.match(runtime, /AbortSignal\.timeout/u);
   assert.match(runtime, /finally/u);
-  assert.match(runtime, /cleanup\(managed, environment, runDirectory\)/u);
   assert.match(
     runtime,
     /for \(const port of \[5432, 5777, 6379, 8080, 9000\]\)/u,
