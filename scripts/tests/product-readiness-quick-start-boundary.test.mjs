@@ -167,14 +167,20 @@ test('evidence binds source, environment, timing, screenshots, cleanup and two r
     'quick-start-h5.png',
     'trace.zip',
     'sha256',
+    'browserExecutable',
   ]) {
     assert.equal(evidence.includes(marker), true, `evidence support missing ${marker}`);
   }
   assert.equal(
-    (launcher.match(/await execute\(\{ keepAlive: false \}\)/gu) || []).length,
+    (launcher.match(/await executeWithLedgerReset\(\{ keepAlive: false \}\)/gu) || []).length,
     2,
   );
   assert.match(launcher, /QUICK_START_SECOND_CLEAN_RUN_STARTING/u);
+  assert.match(launcher, /APPROVAL_DEMO_COMMAND_TIMEOUT_MS/u);
+  assert.match(
+    launcher,
+    /resetLedger\(sourceIdentity\(\), launcherFailureId\(\)\)/u,
+  );
 });
 
 test('Chrome discovery supports explicit, Linux, macOS and Windows paths', () => {
