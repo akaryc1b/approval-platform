@@ -10,6 +10,14 @@ import {
 } from './quick-start/contract.mjs';
 import { execute } from './quick-start/runtime.mjs';
 
+const commandTimeoutVariable = 'APPROVAL_DEMO_COMMAND_TIMEOUT_MS';
+
+function configureBoundedChildCommands(contract) {
+  process.env[commandTimeoutVariable] = String(
+    contract.maximumReadySeconds * 1_000,
+  );
+}
+
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   if (options.help) {
@@ -21,6 +29,7 @@ async function main() {
     printPlan(contract, options.json);
     return;
   }
+  configureBoundedChildCommands(contract);
   if (options.command === 'ci') {
     if (!shouldRunInCi()) return;
     await execute({ keepAlive: false });

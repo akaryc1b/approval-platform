@@ -4,6 +4,8 @@ import { createWriteStream } from 'node:fs';
 import { repositoryRoot } from './contract.mjs';
 
 const pollIntervalMs = 1_000;
+const defaultCheckedProcessTimeoutMs = 15 * 60_000;
+const maximumCheckedProcessTimeoutMs = 60 * 60_000;
 
 function pnpmExecutable() {
   return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
@@ -11,6 +13,21 @@ function pnpmExecutable() {
 
 function processExited(child) {
   return child.exitCode !== null || child.signalCode !== null;
+}
+
+function checkedProcessTimeout(environment, timeoutMs) {
+  const configured = timeoutMs
+    ?? environment?.APPROVAL_DEMO_COMMAND_TIMEOUT_MS
+    ?? defaultCheckedProcessTimeoutMs;
+  const value = Number(configured);
+  if (!Number.isFinite(value)
+      || value <= 0
+      || value > maximumCheckedProcessTimeoutMs) {
+    throw new Error(
+      'checked process timeout must be between 1 ms and 60 minutes',
+    );
+  }
+  return Math.floor(value);
 }
 
 function requireSuccessfulProcess(label, result) {
@@ -35,7 +52,7 @@ export function runPnpmChecked(
     env: environment,
     shell: false,
     stdio: 'inherit',
-    timeout: timeoutMs,
+    timeout: checkedProcessTimeout(environment, timeoutMs),
   });
   requireSuccessfulProcess(label, result);
 }
@@ -52,7 +69,7 @@ export function runNodeChecked(
     env: environment,
     shell: false,
     stdio: 'inherit',
-    timeout: timeoutMs,
+    timeout: checkedProcessTimeout(environment, timeoutMs),
   });
   requireSuccessfulProcess(label, result);
 }
