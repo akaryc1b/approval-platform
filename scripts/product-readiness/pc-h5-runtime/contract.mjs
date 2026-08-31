@@ -111,15 +111,34 @@ export function java21Environment() {
 }
 
 export function chromeExecutable() {
-  for (const candidate of [
+  const configured = process.env.APPROVAL_DEMO_CHROME_PATH?.trim();
+  const programFiles = [
+    process.env.PROGRAMFILES,
+    process.env['PROGRAMFILES(X86)'],
+    process.env.LOCALAPPDATA,
+  ].filter(Boolean);
+  const candidates = [
+    configured,
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
-  ]) {
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    ...programFiles.flatMap(base => [
+      resolve(base, 'Google/Chrome/Application/chrome.exe'),
+      resolve(base, 'Chromium/Application/chrome.exe'),
+      resolve(base, 'Microsoft/Edge/Application/msedge.exe'),
+    ]),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
-  throw new Error('no system Chrome or Chromium executable is available');
+  throw new Error(
+    'no supported system Chrome, Chromium or Edge executable is available; '
+    + 'set APPROVAL_DEMO_CHROME_PATH to an explicit browser executable',
+  );
 }
 
 export function readEvidence() {

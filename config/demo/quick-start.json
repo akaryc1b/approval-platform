@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "scenarioManifest": "config/demo/purchase-payment-golden-path.json",
+  "crossClientManifest": "config/demo/cross-client-local-demo.json",
+  "maximumReadySeconds": 600,
+  "backendHealthUrl": "http://127.0.0.1:8080/actuator/health",
+  "clients": {
+    "pc": {
+      "actorId": "demo-manager",
+      "port": 5777,
+      "route": "/approval/workbench"
+    },
+    "h5": {
+      "actorId": "demo-manager",
+      "port": 9000,
+      "route": "/pages/task/list"
+    }
+  },
+  "claimsAfterTwoConsecutiveCleanRuns": [
+    "QUICK_START_10_MINUTES_PASSED",
+    "DEMO_BACKEND_READY_PASSED",
+    "PC_DEMO_READY_PASSED",
+    "H5_DEMO_READY_PASSED",
+    "TWO_CONSECUTIVE_CLEAN_QUICK_START_RUNS_PASSED"
+  ],
+  "nonClaims": [
+    "WECHAT_DEVTOOLS_RUNTIME_NOT_VERIFIED",
+    "WECHAT_PHYSICAL_DEVICE_NOT_VERIFIED",
+    "PRODUCTION_DEPLOYMENT_NOT_VERIFIED",
+    "PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED",
+    "PERFORMANCE_CAPACITY_NOT_VERIFIED",
+    "BROWSER_COMPATIBILITY_NOT_VERIFIED",
+    "ACCESSIBILITY_NOT_VERIFIED",
+    "RPO_RTO_NOT_VERIFIED",
+    "MYSQL_8_4_NOT_VERIFIED",
+    "RELEASE_NOT_CREATED"
+  ]
+}
