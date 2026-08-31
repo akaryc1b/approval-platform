@@ -109,6 +109,10 @@ test('orchestrator reuses existing backend, clients and generated workspaces', (
   assert.match(runtime, /AbortSignal\.timeout/u);
   assert.match(runtime, /finally/u);
   assert.match(runtime, /cleanup\(managed, environment, runDirectory\)/u);
+  assert.match(
+    runtime,
+    /for \(const port of \[5432, 5777, 6379, 8080, 9000\]\)/u,
+  );
   assert.doesNotMatch(runtime, /\bACT_[A-Z0-9_]+\b/u);
   assert.doesNotMatch(runtime, /\b(?:insert into|update ap_|delete from)\b/iu);
   assert.doesNotMatch(runtime, /\/api\/approval\/tasks\/[^\s]*\/approve/u);

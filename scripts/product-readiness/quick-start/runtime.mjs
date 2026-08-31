@@ -169,7 +169,7 @@ async function cleanup(managed, environment, runDirectory) {
   }
   resetDisposableData(environment);
   actions.push('deleted:approval-platform-demo-volume');
-  for (const port of [5777, 8080, 9000]) {
+  for (const port of [5432, 5777, 6379, 8080, 9000]) {
     await waitForPortAvailable(port);
     actions.push(`released-port:${port}`);
   }
