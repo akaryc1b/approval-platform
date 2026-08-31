@@ -92,6 +92,7 @@ test('governed Quick Start identity and deadline are explicit', () => {
 
 test('orchestrator reuses existing backend, clients and generated workspaces', () => {
   for (const marker of [
+    "'scripts/product-readiness/demo-preflight.mjs'",
     "'scripts/product-readiness/demo-backend.mjs'",
     "'scripts/product-readiness/demo-client.mjs'",
     "['web:install']",
@@ -105,6 +106,10 @@ test('orchestrator reuses existing backend, clients and generated workspaces', (
   ]) {
     assert.equal(runtime.includes(marker), true, `runtime missing ${marker}`);
   }
+  assert.match(
+    runtime,
+    /try \{\s*runNodeChecked\(\s*'Run read-only Quick Start preflight before disposable reset',[\s\S]*?'scripts\/product-readiness\/demo-preflight\.mjs'[\s\S]*?\);\s*resetDisposableData\(environment\);/u,
+  );
   assert.match(runtime, /remainingMilliseconds\(deadline/u);
   assert.match(runtime, /AbortSignal\.timeout/u);
   assert.match(runtime, /finally/u);

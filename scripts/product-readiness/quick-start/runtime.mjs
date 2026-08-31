@@ -218,6 +218,11 @@ export async function execute({ keepAlive }) {
   let executionError;
   let cleanupError;
   try {
+    runNodeChecked(
+      'Run read-only Quick Start preflight before disposable reset',
+      ['scripts/product-readiness/demo-preflight.mjs'],
+      environment,
+    );
     resetDisposableData(environment);
 
     const backend = startManagedNode(
