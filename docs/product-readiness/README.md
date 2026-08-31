@@ -32,6 +32,9 @@ This directory separates runnable local product evidence from build, architectur
 
 ```bash
 pnpm demo:preflight
+pnpm demo:backend:plan
+pnpm demo:backend:start
+pnpm demo:backend:stop
 pnpm demo:quickstart:plan
 pnpm demo:quickstart
 pnpm demo:quickstart:check
@@ -39,6 +42,27 @@ pnpm demo:runtime:purchase-payment:e2e
 ```
 
 `pnpm demo:quickstart` owns startup, visible PC/H5 readiness, timing evidence and cleanup. `pnpm demo:runtime:purchase-payment:e2e` is the separate complete local approval-to-sandbox path. Neither command is a production deployment procedure.
+
+## Component and validator markers
+
+The permanent boundaries still require the narrower backend, Seed and read-only scenario-contract vocabulary:
+
+```text
+DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED
+PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED
+DETERMINISTIC_DEMO_SEED_IMPLEMENTED
+BACKEND_LOCAL_START_VERIFIED
+BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED
+COMPLETION_OUTBOX_EVENT_RECORDED
+SHARED_DEMO_ENVIRONMENT_SEED_NOT_APPLIED
+QUICK_START_10_MINUTES_NOT_EXECUTED
+PURCHASE_APPROVAL_E2E_NOT_EXECUTED
+CROSS_CLIENT_RUNTIME_NOT_EXECUTED
+PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
+PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
+```
+
+These markers are scoped to the command that emitted or documented them. The read-only scenario validator can correctly report `_NOT_EXECUTED` while a separately authorized exact-Head runtime has accepted the purchase-to-payment E2E. The component vocabulary is retained for compatibility and does not downgrade the merged Alpha evidence or release a pending Quick Start claim.
 
 ## Claim vocabulary
 

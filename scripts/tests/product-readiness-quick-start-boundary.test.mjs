@@ -181,8 +181,8 @@ test('package and path-scoped CI expose the Quick Start without a second workflo
     'node --test scripts/tests/product-readiness-quick-start-boundary.test.mjs',
   );
   assert.match(packageJson.scripts['web:test:client-boundary'], /demo-quickstart\.mjs ci/u);
-  assert.match(ciScope, /demo-quickstart/u);
-  assert.match(ciScope, /product-readiness\/quick-start/u);
+  const normalizedCiScope = ciScope.replaceAll(String.raw`\/`, '/');
+  assert.match(normalizedCiScope, /scripts\/product-readiness\/quick-start\//u);
   assert.match(ciScope, /product-readiness-quick-start-ready/u);
   assert.match(
     aggregate,

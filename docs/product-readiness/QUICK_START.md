@@ -55,6 +55,14 @@ pnpm demo:quickstart:plan
 
 It prints the governed tenant, business key, actor-scoped URLs, 600-second limit, lifecycle stages, evidence location, gated claims and explicit non-claims. It does not start a process, container or database.
 
+The existing component lifecycle remains available for focused diagnosis:
+
+```bash
+pnpm demo:backend:plan
+pnpm demo:backend:start
+pnpm demo:backend:stop
+```
+
 Static boundaries can be checked separately:
 
 ```bash
@@ -65,6 +73,27 @@ pnpm demo:quickstart:check
 ```
 
 These checks do not prove timed startup.
+
+## Existing component evidence vocabulary
+
+The following markers remain documented for compatibility with the narrower commands and permanent boundary tests:
+
+```text
+DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED
+PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED
+DETERMINISTIC_DEMO_SEED_IMPLEMENTED
+BACKEND_LOCAL_START_VERIFIED
+BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED
+COMPLETION_OUTBOX_EVENT_RECORDED
+SHARED_DEMO_ENVIRONMENT_SEED_NOT_APPLIED
+QUICK_START_10_MINUTES_NOT_EXECUTED
+PURCHASE_APPROVAL_E2E_NOT_EXECUTED
+CROSS_CLIENT_RUNTIME_NOT_EXECUTED
+PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
+PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
+```
+
+These are command-scoped markers, not one global status block. For example, `PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED` describes the read-only manifest validator, while its `_NOT_EXECUTED` markers state that the validator itself did not start a runtime. They do not erase the separately retained purchase-to-payment E2E acceptance. Likewise, `QUICK_START_10_MINUTES_NOT_EXECUTED` remains the preflight/backend-component non-claim until exact-Head Quick Start evidence releases the timed claim.
 
 ## Run the Quick Start
 
