@@ -3,7 +3,7 @@
 ```text
 QUICK_START_COMMAND_STATUS=IMPLEMENTED
 QUICK_START_ACCEPTANCE_SOURCE=EXACT_HEAD_RUNTIME_EVIDENCE
-QUICK_START_10_MINUTES_NOT_YET_ACCEPTED
+QUICK_START_ACCEPTANCE_STATUS=EXACT_HEAD_EVIDENCE_GATED
 ```
 
 This guide is the supported local Product Alpha entry path tracked by Issue #133. It starts the existing platform stack and proves that the governed purchase-payment request is visible in both the PC and H5 clients. The guide does not turn a successful build or an unmeasured run into a 10-minute acceptance claim.

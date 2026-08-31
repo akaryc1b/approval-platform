@@ -11,7 +11,7 @@ This directory separates runnable local product evidence from build, architectur
 | Repository/workstation preflight | `IMPLEMENTED` | Read-only prerequisite and configuration validation |
 | One-command backend | `IMPLEMENTED_AND_RUNTIME_VERIFIED` | Existing PostgreSQL/Redis/Spring Boot/Flowable/Seed lifecycle |
 | Purchase-to-payment golden path | `MERGED_LOCAL_ALPHA_H5_SURROGATE_ACCEPTED` | Real PC/H5 actions, completion Outbox, signed local sandbox 503/recovery and exactly-one side effect; not production payment or real WeChat runtime |
-| One-command PC/H5 Quick Start | `IMPLEMENTED_TIMED_ACCEPTANCE_PENDING` | `pnpm demo:quickstart` starts the governed visible demo and records a 600-second measured result; exact-Head two-run evidence is still the acceptance authority |
+| One-command PC/H5 Quick Start | `IMPLEMENTED_EXACT_HEAD_EVIDENCE_GATED` | `pnpm demo:quickstart` starts the governed visible demo and records a 600-second measured result; exact-Head two-run evidence and the permanent Workflow are the acceptance authority |
 | WeChat runtime and physical-device evidence | `NOT_VERIFIED` | Build success and H5 surrogate evidence do not count |
 | Browser/accessibility matrix | `NOT_VERIFIED` | Requires separate automated and manual evidence |
 | Performance/capacity envelope | `NOT_MEASURED` | No unsupported TPS or capacity claim |
@@ -62,7 +62,7 @@ PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
 ```
 
-These markers are scoped to the command that emitted or documented them. The read-only scenario validator can correctly report `_NOT_EXECUTED` while a separately authorized exact-Head runtime has accepted the purchase-to-payment E2E. The component vocabulary is retained for compatibility and does not downgrade the merged Alpha evidence or release a pending Quick Start claim.
+These markers are scoped to the command that emitted or documented them. The read-only scenario validator can correctly report `_NOT_EXECUTED` while a separately authorized exact-Head runtime has accepted the purchase-to-payment E2E. The component vocabulary is retained for compatibility and does not downgrade the merged Alpha evidence or itself release a Quick Start claim.
 
 ## Claim vocabulary
 

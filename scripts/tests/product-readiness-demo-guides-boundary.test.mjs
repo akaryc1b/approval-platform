@@ -41,7 +41,7 @@ test('Quick Start documents the executable measured path without self-declaring 
   for (const marker of [
     'QUICK_START_COMMAND_STATUS=IMPLEMENTED',
     'QUICK_START_ACCEPTANCE_SOURCE=EXACT_HEAD_RUNTIME_EVIDENCE',
-    'QUICK_START_10_MINUTES_NOT_YET_ACCEPTED',
+    'QUICK_START_ACCEPTANCE_STATUS=EXACT_HEAD_EVIDENCE_GATED',
     'pnpm demo:quickstart',
     'pnpm demo:quickstart:plan',
     '.runtime/quick-start/<run-id>/',
@@ -87,7 +87,7 @@ test('user, administrator and operator guides preserve the governed local bounda
 test('product-readiness index distinguishes implemented paths from production claims', () => {
   for (const marker of [
     'MERGED_LOCAL_ALPHA_H5_SURROGATE_ACCEPTED',
-    'IMPLEMENTED_TIMED_ACCEPTANCE_PENDING',
+    'IMPLEMENTED_EXACT_HEAD_EVIDENCE_GATED',
     'QUICK_START_10_MINUTES_PASSED',
     'PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED',
     'PRODUCTION_PAYMENT_INTEGRATION_VERIFIED',
