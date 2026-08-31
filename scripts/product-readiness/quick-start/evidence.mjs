@@ -11,6 +11,7 @@ import {
 import { arch, cpus, platform, release, totalmem } from 'node:os';
 import { relative, resolve, sep } from 'node:path';
 
+import { chromeExecutable } from '../pc-h5-runtime/contract.mjs';
 import {
   ledgerPath,
   outputRoot,
@@ -33,8 +34,8 @@ function executable(name) {
     : name;
 }
 
-function commandVersion(command, args, environment) {
-  const result = spawnSync(executable(command), args, {
+function captureVersion(command, args, environment) {
+  const result = spawnSync(command, args, {
     cwd: repositoryRoot,
     encoding: 'utf8',
     env: environment,
@@ -53,7 +54,12 @@ function commandVersion(command, args, environment) {
     .slice(0, 4);
 }
 
+function commandVersion(command, args, environment) {
+  return captureVersion(executable(command), args, environment);
+}
+
 export function environmentSnapshot(environment = process.env) {
+  const browserExecutable = chromeExecutable();
   return {
     schemaVersion: 1,
     evidenceKind: 'QUICK_START_ENVIRONMENT_V1',
@@ -76,6 +82,10 @@ export function environmentSnapshot(environment = process.env) {
       docker: commandVersion('docker', ['--version'], environment),
       compose: commandVersion('docker', ['compose', 'version'], environment),
       git: commandVersion('git', ['--version'], environment),
+      browser: {
+        executable: browserExecutable,
+        version: captureVersion(browserExecutable, ['--version'], environment),
+      },
     },
   };
 }

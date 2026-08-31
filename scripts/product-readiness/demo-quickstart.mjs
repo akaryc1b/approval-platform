@@ -5,9 +5,11 @@ import {
   loadContract,
   parseArguments,
   printPlan,
+  sourceIdentity,
   UsageError,
   usage,
 } from './quick-start/contract.mjs';
+import { resetLedger } from './quick-start/evidence.mjs';
 import { execute } from './quick-start/runtime.mjs';
 
 const commandTimeoutVariable = 'APPROVAL_DEMO_COMMAND_TIMEOUT_MS';
@@ -16,6 +18,26 @@ function configureBoundedChildCommands(contract) {
   process.env[commandTimeoutVariable] = String(
     contract.maximumReadySeconds * 1_000,
   );
+}
+
+function launcherFailureId() {
+  return `launcher-${new Date().toISOString().replace(/[:.]/gu, '-')}`;
+}
+
+async function executeWithLedgerReset(options) {
+  try {
+    return await execute(options);
+  } catch (error) {
+    try {
+      resetLedger(sourceIdentity(), launcherFailureId());
+    } catch (resetError) {
+      const detail = resetError instanceof Error
+        ? resetError.message
+        : String(resetError);
+      console.error(`QUICK_START_LEDGER_RESET_FAILED: ${detail}`);
+    }
+    throw error;
+  }
 }
 
 async function main() {
@@ -32,12 +54,12 @@ async function main() {
   configureBoundedChildCommands(contract);
   if (options.command === 'ci') {
     if (!shouldRunInCi()) return;
-    await execute({ keepAlive: false });
+    await executeWithLedgerReset({ keepAlive: false });
     console.log('QUICK_START_SECOND_CLEAN_RUN_STARTING');
-    await execute({ keepAlive: false });
+    await executeWithLedgerReset({ keepAlive: false });
     return;
   }
-  await execute({ keepAlive: true });
+  await executeWithLedgerReset({ keepAlive: true });
 }
 
 main().catch((error) => {
