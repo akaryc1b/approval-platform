@@ -461,9 +461,14 @@ class JdbcApprovalDesignReleaseIntegrationTest {
             "PostgreSQL high value",
             Map.of("amount", new BigDecimal("10000")),
             Map.of(
-                "managerApproval", ApprovalDefinitionSimulator.Decision.APPROVE,
-                "financeReview", ApprovalDefinitionSimulator.Decision.APPROVE,
-                "financeCountersign", ApprovalDefinitionSimulator.Decision.APPROVE
+                PurchasePaymentTemplate.MANAGER_APPROVAL_TASK_KEY,
+                ApprovalDefinitionSimulator.Decision.APPROVE,
+                PurchasePaymentTemplate.FINANCE_REVIEW_TASK_KEY,
+                ApprovalDefinitionSimulator.Decision.APPROVE,
+                PurchasePaymentTemplate.FINANCE_COUNTERSIGN_TASK_KEY,
+                ApprovalDefinitionSimulator.Decision.APPROVE,
+                PurchasePaymentTemplate.PAYMENT_CONFIRMATION_TASK_KEY,
+                ApprovalDefinitionSimulator.Decision.APPROVE
             ),
             Map.of(),
             ApprovalDefinitionSimulator.SimulationStatus.COMPLETED,

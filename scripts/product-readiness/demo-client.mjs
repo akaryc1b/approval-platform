@@ -179,9 +179,19 @@ function loadContract() {
   }
 
   const expected = scenario.expectedWorkflow.flatMap(step =>
-    step.actorIds.map(actorId => `${step.taskDefinitionKey}:${actorId}`));
-  const handoff = manifest.expectedHandoff.map(step =>
-    `${step.taskDefinitionKey}:${step.actorId}`);
+    step.actorIds.map(actorId =>
+      `${step.client}:${step.taskDefinitionKey}:${actorId}`));
+  const handoff = manifest.expectedHandoff.map((step, index) => {
+    if (!clientCommands.has(step.client)) {
+      throw new Error(`expectedHandoff[${index}] references unknown client ${step.client}`);
+    }
+    if (!manifest.clients[step.client].allowedActors.includes(step.actorId)) {
+      throw new Error(
+        `expectedHandoff[${index}] actor ${step.actorId} is not allowed for ${step.client}`,
+      );
+    }
+    return `${step.client}:${step.taskDefinitionKey}:${step.actorId}`;
+  });
   if (JSON.stringify(handoff) !== JSON.stringify(expected)) {
     throw new Error('cross-client handoff does not match expectedWorkflow');
   }
@@ -276,19 +286,27 @@ function resolvedClient(manifest, options) {
   return { actor, backendOrigin, client, port };
 }
 
+function clientLaunchCommand(command, actorId) {
+  return `pnpm demo:client:${command} -- --actor ${actorId}`;
+}
+
 function launchPlan(manifest) {
+  const clients = Object.fromEntries([...clientCommands].map(command => [
+    command,
+    clientLaunchCommand(command, manifest.clients[command].defaultActor),
+  ]));
   return {
     schemaVersion: 1,
     tenantId: manifest.tenantId,
     businessKey: manifest.businessKey,
     backend: 'pnpm demo:backend:start',
-    clients: {
-      pc: 'pnpm demo:client:pc -- --actor demo-manager',
-      h5: 'pnpm demo:client:h5 -- --actor demo-finance-reviewer',
-      wechatA: 'pnpm demo:client:wechat -- --actor demo-finance-approver-a',
-      wechatB: 'pnpm demo:client:wechat -- --actor demo-finance-approver-b',
-      finalRead: 'pnpm demo:client:pc -- --actor demo-employee --port 5778',
-    },
+    clients,
+    handoffCommands: manifest.expectedHandoff.map(step => ({
+      actorId: step.actorId,
+      client: step.client,
+      command: clientLaunchCommand(step.client, step.actorId),
+      taskDefinitionKey: step.taskDefinitionKey,
+    })),
     expectedHandoff: manifest.expectedHandoff,
     evidenceKeys: manifest.evidenceKeys,
     nonClaims: manifest.nonClaims,

@@ -54,6 +54,7 @@ function taskStage(task: PendingTaskDetails) {
     financeReview: '财务审核',
     initiatorRevision: '发起人修改',
     managerApproval: '部门负责人审批',
+    paymentConfirmation: '付款确认',
   }
   return labels[task.taskDefinitionKey] || task.taskName
 }

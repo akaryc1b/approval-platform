@@ -9,19 +9,80 @@ import type {
 } from '@playwright/test';
 import { expect } from '@playwright/test';
 
-export const tenantId = 'demo-purchase-payment';
-export const businessKey = 'DEMO-PP-0001';
 export const assignmentSource =
   'config/demo/purchase-payment-golden-path.json';
-export const authoritativeActors = {
-  initiator: 'demo-employee',
-  managerApproval: 'demo-manager',
-  financeReview: 'demo-finance-reviewer',
-  financeCountersign: [
-    'demo-finance-approver-a',
-    'demo-finance-approver-b',
-  ],
+const repositoryRoot = resolve(
+  requiredEnvironment('APPROVAL_DEMO_REPOSITORY_ROOT'),
+);
+const governedScenario = JSON.parse(readFileSync(
+  resolve(repositoryRoot, assignmentSource),
+  'utf8',
+)) as {
+  tenant: { id: string };
+  request: { businessKey: string };
+  assigneeRules: { initiatorUserId: { value: string } };
+  expectedWorkflow: Array<{
+    actorIds: string[];
+    client: string;
+    taskDefinitionKey: string;
+  }>;
+};
+
+function governedStage(taskDefinitionKey: string) {
+  const matches = governedScenario.expectedWorkflow.filter(stage =>
+    stage.taskDefinitionKey === taskDefinitionKey);
+  if (matches.length !== 1) {
+    throw new Error(
+      `governed scenario must contain exactly one ${taskDefinitionKey} stage`,
+    );
+  }
+  return matches[0];
+}
+
+function governedSingleActor(taskDefinitionKey: string) {
+  const stage = governedStage(taskDefinitionKey);
+  if (stage.actorIds.length !== 1) {
+    throw new Error(`${taskDefinitionKey} must have exactly one governed actor`);
+  }
+  return stage.actorIds[0];
+}
+
+const managerStage = governedStage('managerApproval');
+const financeReviewStage = governedStage('financeReview');
+const financeCountersignStage = governedStage('financeCountersign');
+const paymentConfirmationStage = governedStage('paymentConfirmation');
+
+if (managerStage.client !== 'pc'
+  || financeReviewStage.client !== 'h5'
+  || financeCountersignStage.client !== 'h5'
+  || paymentConfirmationStage.client !== 'wechat') {
+  throw new Error('governed scenario client handoff is invalid');
+}
+if (financeCountersignStage.actorIds.length !== 2) {
+  throw new Error('financeCountersign must have exactly two governed actors');
+}
+
+export const tenantId = governedScenario.tenant.id;
+export const businessKey = governedScenario.request.businessKey;
+export const authoritativeTaskKeys = {
+  managerApproval: managerStage.taskDefinitionKey,
+  financeReview: financeReviewStage.taskDefinitionKey,
+  financeCountersign: financeCountersignStage.taskDefinitionKey,
+  paymentConfirmation: paymentConfirmationStage.taskDefinitionKey,
 } as const;
+export const authoritativeActors = {
+  initiator: governedScenario.assigneeRules.initiatorUserId.value,
+  managerApproval: governedSingleActor(authoritativeTaskKeys.managerApproval),
+  financeReview: governedSingleActor(authoritativeTaskKeys.financeReview),
+  financeCountersign: [...financeCountersignStage.actorIds] as [string, string],
+  paymentConfirmation: governedSingleActor(
+    authoritativeTaskKeys.paymentConfirmation,
+  ),
+} as const;
+if (authoritativeActors.initiator !== authoritativeActors.paymentConfirmation) {
+  throw new Error('payment confirmation actor must equal the governed initiator');
+}
+
 export const backendOrigin = requiredEnvironment(
   'APPROVAL_DEMO_BACKEND_ORIGIN',
 );

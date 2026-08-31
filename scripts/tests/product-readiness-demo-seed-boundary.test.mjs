@@ -136,9 +136,17 @@ test('permanent CI starts the real backend and completes the governed approval c
   assert.match(integrationTest, /\/actuator\/health/u);
   assert.match(integrationTest, /PurchasePaymentDemoSeedState\.SeedEvidence replay/u);
   assert.match(integrationTest, /\/tasks\/".*\/approve/u);
-  assert.match(integrationTest, /managerApproval/u);
-  assert.match(integrationTest, /financeReview/u);
-  assert.match(integrationTest, /financeCountersign/u);
+  for (const constant of [
+    'MANAGER_APPROVAL_TASK_KEY',
+    'FINANCE_REVIEW_TASK_KEY',
+    'FINANCE_COUNTERSIGN_TASK_KEY',
+    'PAYMENT_CONFIRMATION_TASK_KEY',
+  ]) {
+    assert.match(
+      integrationTest,
+      new RegExp(`PurchasePaymentTemplate\\.${constant}`, 'u'),
+    );
+  }
   assert.match(integrationTest, /"COMPLETED"/u);
   assert.match(integrationTest, /\/timeline/u);
   assert.match(integrationTest, /from ap_outbox/u);

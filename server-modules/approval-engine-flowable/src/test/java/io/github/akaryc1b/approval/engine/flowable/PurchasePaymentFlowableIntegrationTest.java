@@ -17,12 +17,14 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PurchasePaymentFlowableIntegrationTest {
 
     private static final String TENANT_ID = "tenant-a";
+    private static final String INITIATOR_ID = "initiator-1";
 
     private ProcessEngine processEngine;
     private ApprovalEngine engine;
@@ -64,10 +66,13 @@ class PurchasePaymentFlowableIntegrationTest {
     }
 
     @Test
-    void lowValueRequestSkipsFinanceReviewAndRequiresEveryCountersigner() {
+    void lowValueRequestSkipsFinanceReviewAndRequiresPaymentConfirmation() {
         String instanceId = start(new BigDecimal("5000.00"), "low-value-po");
         ApprovalEngine.TaskSnapshot managerTask = onlyTask(instanceId);
-        assertEquals("managerApproval", managerTask.taskDefinitionKey());
+        assertEquals(
+            PurchasePaymentTemplate.MANAGER_APPROVAL_TASK_KEY,
+            managerTask.taskDefinitionKey()
+        );
         assertEquals("manager-1", managerTask.assigneeId());
 
         ApprovalEngine.EngineOperationException wrongOperator = assertThrows(
@@ -81,33 +86,74 @@ class PurchasePaymentFlowableIntegrationTest {
         assertEquals(2, countersign.size());
         assertEquals(
             Set.of("finance-a", "finance-b"),
-            countersign.stream().map(ApprovalEngine.TaskSnapshot::assigneeId).collect(Collectors.toSet())
+            countersign.stream()
+                .map(ApprovalEngine.TaskSnapshot::assigneeId)
+                .collect(Collectors.toSet())
         );
-        assertTrue(countersign.stream()
-            .allMatch(task -> "financeCountersign".equals(task.taskDefinitionKey())));
+        assertTrue(countersign.stream().allMatch(task ->
+            PurchasePaymentTemplate.FINANCE_COUNTERSIGN_TASK_KEY.equals(
+                task.taskDefinitionKey()
+            )
+        ));
+        assertNotEquals(countersign.get(0).taskId(), countersign.get(1).taskId());
 
-        complete(countersign.getFirst(), countersign.getFirst().assigneeId(), "APPROVED");
-        assertEquals(1, activeTasks(instanceId).size());
-        ApprovalEngine.TaskSnapshot remaining = activeTasks(instanceId).getFirst();
+        ApprovalEngine.TaskSnapshot firstCountersign = countersign.getFirst();
+        complete(firstCountersign, firstCountersign.assigneeId(), "APPROVED");
+        ApprovalEngine.TaskSnapshot remaining = onlyTask(instanceId);
+        assertNotEquals(firstCountersign.taskId(), remaining.taskId());
         complete(remaining, remaining.assigneeId(), "APPROVED");
+
+        ApprovalEngine.TaskSnapshot paymentConfirmation = onlyTask(instanceId);
+        assertEquals(
+            PurchasePaymentTemplate.PAYMENT_CONFIRMATION_TASK_KEY,
+            paymentConfirmation.taskDefinitionKey()
+        );
+        assertEquals(INITIATOR_ID, paymentConfirmation.assigneeId());
+        assertNotEquals(firstCountersign.taskId(), paymentConfirmation.taskId());
+        assertNotEquals(remaining.taskId(), paymentConfirmation.taskId());
+
+        complete(paymentConfirmation, INITIATOR_ID, "APPROVED");
         assertTrue(activeTasks(instanceId).isEmpty());
     }
 
     @Test
-    void highValueRequestAddsFinanceReviewBeforeParallelCountersign() {
+    void highValueRequestAddsFinanceReviewBeforePaymentConfirmation() {
         String instanceId = start(new BigDecimal("25000.00"), "high-value-po");
         ApprovalEngine.TaskSnapshot managerTask = onlyTask(instanceId);
         complete(managerTask, "manager-1", "APPROVED");
 
         ApprovalEngine.TaskSnapshot financeReview = onlyTask(instanceId);
-        assertEquals("financeReview", financeReview.taskDefinitionKey());
+        assertEquals(
+            PurchasePaymentTemplate.FINANCE_REVIEW_TASK_KEY,
+            financeReview.taskDefinitionKey()
+        );
         assertEquals("finance-reviewer", financeReview.assigneeId());
         complete(financeReview, "finance-reviewer", "APPROVED");
 
         List<ApprovalEngine.TaskSnapshot> countersign = activeTasks(instanceId);
         assertEquals(2, countersign.size());
+        assertTrue(countersign.stream().allMatch(task ->
+            PurchasePaymentTemplate.FINANCE_COUNTERSIGN_TASK_KEY.equals(
+                task.taskDefinitionKey()
+            )
+        ));
+        assertNotEquals(countersign.get(0).taskId(), countersign.get(1).taskId());
+
+        for (ApprovalEngine.TaskSnapshot task : countersign) {
+            complete(task, task.assigneeId(), "APPROVED");
+        }
+
+        ApprovalEngine.TaskSnapshot paymentConfirmation = onlyTask(instanceId);
+        assertEquals(
+            PurchasePaymentTemplate.PAYMENT_CONFIRMATION_TASK_KEY,
+            paymentConfirmation.taskDefinitionKey()
+        );
+        assertEquals(INITIATOR_ID, paymentConfirmation.assigneeId());
         assertTrue(countersign.stream()
-            .allMatch(task -> "financeCountersign".equals(task.taskDefinitionKey())));
+            .noneMatch(task -> task.taskId().equals(paymentConfirmation.taskId())));
+
+        complete(paymentConfirmation, INITIATOR_ID, "APPROVED");
+        assertTrue(activeTasks(instanceId).isEmpty());
     }
 
     @Test
@@ -119,12 +165,15 @@ class PurchasePaymentFlowableIntegrationTest {
 
         ApprovalEngine.TaskSnapshot revision = onlyTask(instanceId);
         assertEquals(PurchasePaymentTemplate.REVISION_TASK_KEY, revision.taskDefinitionKey());
-        assertEquals("initiator-1", revision.assigneeId());
+        assertEquals(INITIATOR_ID, revision.assigneeId());
 
-        complete(revision, "initiator-1", "RESUBMITTED");
+        complete(revision, INITIATOR_ID, "RESUBMITTED");
 
         ApprovalEngine.TaskSnapshot restartedManager = onlyTask(instanceId);
-        assertEquals("managerApproval", restartedManager.taskDefinitionKey());
+        assertEquals(
+            PurchasePaymentTemplate.MANAGER_APPROVAL_TASK_KEY,
+            restartedManager.taskDefinitionKey()
+        );
         assertEquals("manager-1", restartedManager.assigneeId());
     }
 
@@ -141,7 +190,7 @@ class PurchasePaymentFlowableIntegrationTest {
         List<ApprovalEngine.TaskSnapshot> active = activeTasks(instanceId);
         assertEquals(1, active.size());
         assertEquals(PurchasePaymentTemplate.REVISION_TASK_KEY, active.getFirst().taskDefinitionKey());
-        assertEquals("initiator-1", active.getFirst().assigneeId());
+        assertEquals(INITIATOR_ID, active.getFirst().assigneeId());
     }
 
     private String start(BigDecimal amount, String businessKey) {
@@ -149,7 +198,7 @@ class PurchasePaymentFlowableIntegrationTest {
             TENANT_ID,
             PurchasePaymentTemplate.DEFINITION_KEY,
             businessKey,
-            "initiator-1",
+            INITIATOR_ID,
             Map.of(
                 "amount", amount,
                 PurchasePaymentTemplate.MANAGER_ASSIGNEE_VARIABLE, "manager-1",

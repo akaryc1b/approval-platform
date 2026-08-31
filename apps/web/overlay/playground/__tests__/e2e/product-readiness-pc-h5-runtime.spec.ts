@@ -10,6 +10,7 @@ import type {
 import {
   assignmentSource,
   authoritativeActors,
+  authoritativeTaskKeys,
   businessKey,
   evidenceDirectory,
   h5UrlForActor,
@@ -22,7 +23,6 @@ import {
   taskActionResult,
   tenantId,
   timeline,
-  waitForCompletedInstance,
   waitForPendingForActor,
   waitForPendingTaskToDisappear,
   waitForStartedInstance,
@@ -42,6 +42,7 @@ const allSeedActors = [
   authoritativeActors.managerApproval,
   authoritativeActors.financeReview,
   ...authoritativeActors.financeCountersign,
+  authoritativeActors.paymentConfirmation,
 ] as const;
 
 type AssignmentMap = Record<string, PendingTask[]>;
@@ -65,12 +66,6 @@ function expectOnlyActorTask(
     } else {
       expect(assignments[seedActor]).toHaveLength(0);
     }
-  }
-}
-
-function expectNoActorTasks(assignments: AssignmentMap) {
-  for (const seedActor of allSeedActors) {
-    expect(assignments[seedActor]).toHaveLength(0);
   }
 }
 
@@ -139,7 +134,7 @@ async function expectH5BusinessCard(
     .toBeVisible();
 }
 
-test('PC manager and H5 finance actors complete the same seeded approval instance', async ({
+test('PC manager and H5 finance actors hand off the seeded instance to WeChat payment confirmation', async ({
   browser,
   request,
 }) => {
@@ -178,7 +173,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
     const [pcPending] = await Promise.all([
       pendingResponse(pc, {
         actorId: authoritativeActors.managerApproval,
-        taskDefinitionKey: 'managerApproval',
+        taskDefinitionKey: authoritativeTaskKeys.managerApproval,
       }),
       pc.goto(pcUrl, { waitUntil: 'domcontentloaded' }),
     ]);
@@ -190,12 +185,12 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
     expect(pcPending.task).toEqual(expect.objectContaining({
       businessKey,
       instanceId: processInstanceId,
-      taskDefinitionKey: 'managerApproval',
+      taskDefinitionKey: authoritativeTaskKeys.managerApproval,
     }));
 
     const managerState = await startedInstance(request);
     expect(managerState).toEqual(expect.objectContaining({
-      currentTaskDefinitionKey: 'managerApproval',
+      currentTaskDefinitionKey: authoritativeTaskKeys.managerApproval,
       instanceId: processInstanceId,
       status: 'RUNNING',
     }));
@@ -207,7 +202,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       managerAssignments,
       authoritativeActors.managerApproval,
       pcPending.task.taskId,
-      'managerApproval',
+      authoritativeTaskKeys.managerApproval,
       processInstanceId,
     );
 
@@ -242,12 +237,12 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       waitForPendingForActor(request, {
         actorId: authoritativeActors.financeReview,
         processInstanceId,
-        taskDefinitionKey: 'financeReview',
+        taskDefinitionKey: authoritativeTaskKeys.financeReview,
       }),
       waitForStartedInstance(
         request,
         processInstanceId,
-        'financeReview',
+        authoritativeTaskKeys.financeReview,
       ),
     ]);
     expectActiveTaskIds(pcApprovalResult, [financeTask]);
@@ -261,7 +256,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       financeAssignments,
       authoritativeActors.financeReview,
       financeTask.taskId,
-      'financeReview',
+      authoritativeTaskKeys.financeReview,
       processInstanceId,
     );
 
@@ -269,7 +264,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       pendingResponse(h5Reviewer, {
         actorId: authoritativeActors.financeReview,
         processInstanceId,
-        taskDefinitionKey: 'financeReview',
+        taskDefinitionKey: authoritativeTaskKeys.financeReview,
       }),
       h5Reviewer.goto(
         h5UrlForActor(authoritativeActors.financeReview),
@@ -315,28 +310,28 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       waitForPendingForActor(request, {
         actorId: authoritativeActors.financeCountersign[0],
         processInstanceId,
-        taskDefinitionKey: 'financeCountersign',
+        taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
       }),
       waitForPendingForActor(request, {
         actorId: authoritativeActors.financeCountersign[1],
         processInstanceId,
-        taskDefinitionKey: 'financeCountersign',
+        taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
       }),
       waitForStartedInstance(
         request,
         processInstanceId,
-        'financeCountersign',
+        authoritativeTaskKeys.financeCountersign,
       ),
     ]);
     await capture(h5Reviewer, 'h5-finance-after.png');
 
     expect(countersignA).toEqual(expect.objectContaining({
       instanceId: processInstanceId,
-      taskDefinitionKey: 'financeCountersign',
+      taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
     }));
     expect(countersignB).toEqual(expect.objectContaining({
       instanceId: processInstanceId,
-      taskDefinitionKey: 'financeCountersign',
+      taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
     }));
     expect(countersignA.taskId).not.toBe(countersignB.taskId);
     expectActiveTaskIds(h5ApprovalResult, [countersignA, countersignB]);
@@ -354,7 +349,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
     ).toEqual([
       expect.objectContaining({
         instanceId: processInstanceId,
-        taskDefinitionKey: 'financeCountersign',
+        taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
         taskId: countersignA.taskId,
       }),
     ]);
@@ -363,16 +358,18 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
     ).toEqual([
       expect.objectContaining({
         instanceId: processInstanceId,
-        taskDefinitionKey: 'financeCountersign',
+        taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
         taskId: countersignB.taskId,
       }),
     ]);
+    expect(countersignAssignments[authoritativeActors.paymentConfirmation])
+      .toHaveLength(0);
 
     const [h5CountersignAPending] = await Promise.all([
       pendingResponse(h5CountersignA, {
         actorId: authoritativeActors.financeCountersign[0],
         processInstanceId,
-        taskDefinitionKey: 'financeCountersign',
+        taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
       }),
       h5CountersignA.goto(
         h5UrlForActor(authoritativeActors.financeCountersign[0]),
@@ -416,7 +413,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
     );
     const afterCountersignAState = await startedInstance(request);
     expect(afterCountersignAState).toEqual(expect.objectContaining({
-      currentTaskDefinitionKey: 'financeCountersign',
+      currentTaskDefinitionKey: authoritativeTaskKeys.financeCountersign,
       instanceId: processInstanceId,
       status: 'RUNNING',
     }));
@@ -428,7 +425,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       afterCountersignAAssignments,
       authoritativeActors.financeCountersign[1],
       countersignB.taskId,
-      'financeCountersign',
+      authoritativeTaskKeys.financeCountersign,
       processInstanceId,
     );
     await capture(h5CountersignA, 'h5-countersign-a-after.png');
@@ -437,7 +434,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       pendingResponse(h5CountersignB, {
         actorId: authoritativeActors.financeCountersign[1],
         processInstanceId,
-        taskDefinitionKey: 'financeCountersign',
+        taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
       }),
       h5CountersignB.goto(
         h5UrlForActor(authoritativeActors.financeCountersign[1]),
@@ -471,23 +468,38 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       countersignBResult,
       countersignB.taskId,
       processInstanceId,
-      'COMPLETED',
+      'RUNNING',
     );
-    expectActiveTaskIds(countersignBResult, []);
 
-    const [, completedState] = await Promise.all([
+    const [, paymentTask, awaitingPaymentState] = await Promise.all([
       waitForPendingTaskToDisappear(
         request,
         authoritativeActors.financeCountersign[1],
         countersignB.taskId,
       ),
-      waitForCompletedInstance(request, processInstanceId),
+      waitForPendingForActor(request, {
+        actorId: authoritativeActors.paymentConfirmation,
+        processInstanceId,
+        taskDefinitionKey: authoritativeTaskKeys.paymentConfirmation,
+      }),
+      waitForStartedInstance(
+        request,
+        processInstanceId,
+        authoritativeTaskKeys.paymentConfirmation,
+      ),
     ]);
-    const completedAssignments = await pendingAssignments(
+    expectActiveTaskIds(countersignBResult, [paymentTask]);
+    const awaitingPaymentAssignments = await pendingAssignments(
       request,
       allSeedActors,
     );
-    expectNoActorTasks(completedAssignments);
+    expectOnlyActorTask(
+      awaitingPaymentAssignments,
+      authoritativeActors.paymentConfirmation,
+      paymentTask.taskId,
+      authoritativeTaskKeys.paymentConfirmation,
+      processInstanceId,
+    );
     await capture(h5CountersignB, 'h5-countersign-b-after.png');
 
     const taskIds = [
@@ -495,6 +507,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
       h5Pending.task.taskId,
       countersignA.taskId,
       countersignB.taskId,
+      paymentTask.taskId,
     ];
     expect(new Set(taskIds).size).toBe(taskIds.length);
 
@@ -538,24 +551,25 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
         source: assignmentSource,
         semantics: 'operator-scoped real pending task visibility',
         authoritativeActors,
+        authoritativeTaskKeys,
         managerStage: managerAssignments,
         financeReviewStage: financeAssignments,
         financeCountersignStage: countersignAssignments,
         afterCountersignA: afterCountersignAAssignments,
-        completed: completedAssignments,
+        awaitingPayment: awaitingPaymentAssignments,
       },
       processStates: {
         beforeManagerApproval: managerState,
         afterManagerApproval: financeState,
         afterFinanceReview: countersignState,
         afterCountersignA: afterCountersignAState,
-        afterCountersignB: completedState,
+        afterCountersignB: awaitingPaymentState,
       },
       steps: [
         {
           client: 'pc',
           actorId: authoritativeActors.managerApproval,
-          taskDefinitionKey: 'managerApproval',
+          taskDefinitionKey: authoritativeTaskKeys.managerApproval,
           taskId: pcPending.task.taskId,
           request: pcApprovalHeaders,
           result: pcApprovalResult,
@@ -565,7 +579,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
         {
           client: 'h5',
           actorId: authoritativeActors.financeReview,
-          taskDefinitionKey: 'financeReview',
+          taskDefinitionKey: authoritativeTaskKeys.financeReview,
           taskId: h5Pending.task.taskId,
           request: h5ApprovalHeaders,
           result: h5ApprovalResult,
@@ -575,7 +589,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
         {
           client: 'h5',
           actorId: authoritativeActors.financeCountersign[0],
-          taskDefinitionKey: 'financeCountersign',
+          taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
           taskId: countersignA.taskId,
           request: countersignAHeaders,
           result: countersignAResult,
@@ -585,7 +599,7 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
         {
           client: 'h5',
           actorId: authoritativeActors.financeCountersign[1],
-          taskDefinitionKey: 'financeCountersign',
+          taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
           taskId: countersignB.taskId,
           request: countersignBHeaders,
           result: countersignBResult,
@@ -594,11 +608,17 @@ test('PC manager and H5 finance actors complete the same seeded approval instanc
         },
       ],
       countersignStage: {
-        taskDefinitionKey: 'financeCountersign',
+        taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
         actorIds: [...authoritativeActors.financeCountersign],
         taskIds: [countersignA.taskId, countersignB.taskId].sort(),
       },
-      finalState: completedState,
+      paymentHandoff: {
+        client: 'wechat',
+        actorId: authoritativeActors.paymentConfirmation,
+        taskDefinitionKey: authoritativeTaskKeys.paymentConfirmation,
+        taskId: paymentTask.taskId,
+      },
+      finalState: awaitingPaymentState,
       screenshots: [
         screenshotEvidence('pc-manager-before.png'),
         screenshotEvidence('pc-manager-after.png'),

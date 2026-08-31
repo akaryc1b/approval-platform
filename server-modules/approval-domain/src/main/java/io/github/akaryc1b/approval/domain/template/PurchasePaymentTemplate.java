@@ -13,7 +13,7 @@ import java.util.List;
 public final class PurchasePaymentTemplate {
 
     public static final String DEFINITION_KEY = "purchase-payment";
-    public static final int PROCESS_VERSION = 2;
+    public static final int PROCESS_VERSION = 3;
     public static final int FORM_VERSION = 1;
     public static final int UI_SCHEMA_VERSION = 1;
     public static final BigDecimal HIGH_VALUE_THRESHOLD = new BigDecimal("10000.00");
@@ -22,6 +22,11 @@ public final class PurchasePaymentTemplate {
     public static final String MANAGER_ASSIGNEE_VARIABLE = "managerAssignee";
     public static final String FINANCE_REVIEWER_VARIABLE = "financeReviewer";
     public static final String FINANCE_APPROVERS_VARIABLE = "financeApprovers";
+
+    public static final String MANAGER_APPROVAL_TASK_KEY = "managerApproval";
+    public static final String FINANCE_REVIEW_TASK_KEY = "financeReview";
+    public static final String FINANCE_COUNTERSIGN_TASK_KEY = "financeCountersign";
+    public static final String PAYMENT_CONFIRMATION_TASK_KEY = "paymentConfirmation";
     public static final String REVISION_TASK_KEY = "initiatorRevision";
 
     private PurchasePaymentTemplate() {
@@ -38,10 +43,10 @@ public final class PurchasePaymentTemplate {
                 new ApprovalDefinition.StartNode(
                     "start",
                     "Start",
-                    "managerApproval"
+                    MANAGER_APPROVAL_TASK_KEY
                 ),
                 new ApprovalDefinition.ApprovalStep(
-                    "managerApproval",
+                    MANAGER_APPROVAL_TASK_KEY,
                     "Initiator manager approval",
                     new ApprovalDefinition.AssigneeRule(
                         ApprovalDefinition.AssigneeResolver.INITIATOR_MANAGER,
@@ -61,12 +66,12 @@ public final class PurchasePaymentTemplate {
                             ApprovalDefinition.ComparisonOperator.GREATER_THAN_OR_EQUAL,
                             HIGH_VALUE_THRESHOLD
                         ),
-                        "financeReview"
+                        FINANCE_REVIEW_TASK_KEY
                     )),
-                    "financeCountersign"
+                    FINANCE_COUNTERSIGN_TASK_KEY
                 ),
                 new ApprovalDefinition.ApprovalStep(
-                    "financeReview",
+                    FINANCE_REVIEW_TASK_KEY,
                     "High-value finance approval",
                     new ApprovalDefinition.AssigneeRule(
                         ApprovalDefinition.AssigneeResolver.VARIABLE_USER,
@@ -74,11 +79,11 @@ public final class PurchasePaymentTemplate {
                         ApprovalDefinition.EmptyAssigneePolicy.FAIL
                     ),
                     ApprovalDefinition.ApprovalMode.single(),
-                    "financeCountersign",
+                    FINANCE_COUNTERSIGN_TASK_KEY,
                     REVISION_TASK_KEY
                 ),
                 new ApprovalDefinition.ApprovalStep(
-                    "financeCountersign",
+                    FINANCE_COUNTERSIGN_TASK_KEY,
                     "Parallel finance countersign",
                     new ApprovalDefinition.AssigneeRule(
                         ApprovalDefinition.AssigneeResolver.VARIABLE_USER_LIST,
@@ -86,6 +91,18 @@ public final class PurchasePaymentTemplate {
                         ApprovalDefinition.EmptyAssigneePolicy.FAIL
                     ),
                     ApprovalDefinition.ApprovalMode.all(),
+                    PAYMENT_CONFIRMATION_TASK_KEY,
+                    REVISION_TASK_KEY
+                ),
+                new ApprovalDefinition.ApprovalStep(
+                    PAYMENT_CONFIRMATION_TASK_KEY,
+                    "Authoritative payment confirmation",
+                    new ApprovalDefinition.AssigneeRule(
+                        ApprovalDefinition.AssigneeResolver.VARIABLE_USER,
+                        INITIATOR_ASSIGNEE_VARIABLE,
+                        ApprovalDefinition.EmptyAssigneePolicy.FAIL
+                    ),
+                    ApprovalDefinition.ApprovalMode.single(),
                     "end",
                     REVISION_TASK_KEY
                 ),
@@ -97,7 +114,7 @@ public final class PurchasePaymentTemplate {
                         INITIATOR_ASSIGNEE_VARIABLE,
                         ApprovalDefinition.EmptyAssigneePolicy.FAIL
                     ),
-                    "managerApproval"
+                    MANAGER_APPROVAL_TASK_KEY
                 ),
                 new ApprovalDefinition.EndNode("end", "Completed")
             )
@@ -176,19 +193,24 @@ public final class PurchasePaymentTemplate {
                     access("supplier", UiSchemaDefinition.FieldAccess.EDITABLE),
                     access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.EDITABLE),
                     access("attachments", UiSchemaDefinition.FieldAccess.EDITABLE)),
-                permissions("managerApproval",
+                permissions(MANAGER_APPROVAL_TASK_KEY,
                     access("amount", UiSchemaDefinition.FieldAccess.READONLY),
                     access("supplier", UiSchemaDefinition.FieldAccess.READONLY),
                     access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.READONLY),
                     access("attachments", UiSchemaDefinition.FieldAccess.HIDDEN)),
-                permissions("financeReview",
+                permissions(FINANCE_REVIEW_TASK_KEY,
                     access("amount", UiSchemaDefinition.FieldAccess.READONLY),
                     access("supplier", UiSchemaDefinition.FieldAccess.READONLY),
                     access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.READONLY),
                     access("attachments", UiSchemaDefinition.FieldAccess.READONLY)),
-                permissions("financeCountersign",
+                permissions(FINANCE_COUNTERSIGN_TASK_KEY,
                     access("amount", UiSchemaDefinition.FieldAccess.READONLY),
                     access("supplier", UiSchemaDefinition.FieldAccess.HIDDEN),
+                    access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("attachments", UiSchemaDefinition.FieldAccess.READONLY)),
+                permissions(PAYMENT_CONFIRMATION_TASK_KEY,
+                    access("amount", UiSchemaDefinition.FieldAccess.READONLY),
+                    access("supplier", UiSchemaDefinition.FieldAccess.READONLY),
                     access("purchaseOrderReference", UiSchemaDefinition.FieldAccess.READONLY),
                     access("attachments", UiSchemaDefinition.FieldAccess.READONLY)),
                 permissions(REVISION_TASK_KEY,

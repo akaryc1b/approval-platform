@@ -9,6 +9,10 @@ function pnpmExecutable() {
   return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 }
 
+function processExited(child) {
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
 export function runPnpmChecked(label, args, environment = process.env) {
   console.log(`\n==> ${label}`);
   const result = spawnSync(pnpmExecutable(), args, {
@@ -55,21 +59,26 @@ export function startManagedNode(label, args, logFile, environment) {
   child.once('error', error => {
     state.spawnError = error;
   });
+  stream.once('error', error => {
+    state.spawnError = error;
+  });
   const record = chunk => {
     const text = chunk.toString('utf8');
     process.stdout.write(text);
-    stream.write(text);
+    if (!stream.destroyed && !stream.writableEnded) stream.write(text);
     state.buffer = `${state.buffer}${text}`.slice(-256_000);
   };
   child.stdout.on('data', record);
   child.stderr.on('data', record);
-  child.once('exit', () => stream.end());
+  child.once('close', () => {
+    if (!stream.destroyed && !stream.writableEnded) stream.end();
+  });
   return { child, label, state };
 }
 
 export function terminateManaged(processState) {
   const child = processState?.child;
-  if (!child?.pid || child.exitCode !== null) return;
+  if (!child?.pid || processExited(child)) return;
   try {
     if (process.platform === 'win32') child.kill('SIGTERM');
     else process.kill(-child.pid, 'SIGTERM');
@@ -90,7 +99,7 @@ export async function waitForMarker(processState, marker, timeoutMs) {
       throw processState.state.spawnError;
     }
     if (processState.state.buffer.includes(marker)) return;
-    if (processState.child.exitCode !== null) {
+    if (processExited(processState.child)) {
       throw new Error(`${processState.label} exited before ${marker}`);
     }
     await delay(pollIntervalMs);

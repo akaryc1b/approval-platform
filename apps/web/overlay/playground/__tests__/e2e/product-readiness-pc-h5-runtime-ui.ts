@@ -150,7 +150,7 @@ export async function clickPcApproval(
 export async function clickH5Approval(
   page: Page,
   expectation: ApprovalActionExpectation,
-  stageLabel: '财务会签' | '财务审核',
+  stageLabel: '财务会签' | '财务审核' | '付款确认',
 ): Promise<Response> {
   const card = page.locator('.task-card')
     .filter({ hasText: expectation.businessKey })
@@ -159,9 +159,36 @@ export async function clickH5Approval(
   await card.click({ timeout: 10_000 });
   await expect(page.getByText(stageLabel, { exact: true }).first())
     .toBeVisible();
-  await page.locator('.action-bar')
-    .getByText('同意', { exact: true })
-    .click({ timeout: 10_000 });
+
+  const actionBar = page.locator('.action-bar');
+  await expect(actionBar).toBeVisible({ timeout: 10_000 });
+  const wotButton = actionBar.locator('.wd-button.is-primary')
+    .filter({ hasText: /^同意$/u })
+    .last();
+  const customElement = actionBar.locator('wd-button')
+    .filter({ hasText: /^同意$/u })
+    .last();
+  const renderedButton = actionBar.getByRole('button', {
+    name: '同意',
+    exact: true,
+  }).last();
+  const uniButton = page.locator('.action-bar uni-button')
+    .filter({ hasText: /^同意$/u })
+    .last();
+  const exactTextControl = actionBar.getByText('同意', {
+    exact: true,
+  }).last();
+  const approvalButton = await wotButton.count() > 0
+    ? wotButton
+    : await customElement.count() > 0
+      ? customElement
+      : await renderedButton.count() > 0
+        ? renderedButton
+        : await uniButton.count() > 0
+          ? uniButton
+          : exactTextControl;
+  await expect(approvalButton).toBeVisible({ timeout: 10_000 });
+  await approvalButton.click({ timeout: 10_000 });
 
   const modalPrimary = page.locator(
     'uni-modal .uni-modal__btn_primary',

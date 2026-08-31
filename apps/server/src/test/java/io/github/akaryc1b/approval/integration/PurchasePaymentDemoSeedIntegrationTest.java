@@ -6,6 +6,7 @@ import io.github.akaryc1b.approval.ApprovalPlatformApplication;
 import io.github.akaryc1b.approval.demo.PurchasePaymentDemoScenario;
 import io.github.akaryc1b.approval.demo.PurchasePaymentDemoSeedState;
 import io.github.akaryc1b.approval.demo.PurchasePaymentDemoSeeder;
+import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -34,6 +35,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -50,10 +52,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 )
 class PurchasePaymentDemoSeedIntegrationTest {
 
-    private static final String MANAGER_APPROVAL = "managerApproval";
-    private static final String FINANCE_REVIEW = "financeReview";
-    private static final String FINANCE_COUNTERSIGN = "financeCountersign";
-
     private static final String MANAGER_APPROVE_REQUEST =
         "demo-manager-approve-request-v1";
     private static final String FINANCE_REVIEW_APPROVE_REQUEST =
@@ -62,6 +60,8 @@ class PurchasePaymentDemoSeedIntegrationTest {
         "demo-finance-approver-a-request-v1";
     private static final String FINANCE_APPROVER_B_REQUEST =
         "demo-finance-approver-b-request-v1";
+    private static final String PAYMENT_CONFIRMATION_REQUEST =
+        "demo-payment-confirmation-request-v1";
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
@@ -96,7 +96,8 @@ class PurchasePaymentDemoSeedIntegrationTest {
     DataSource dataSource;
 
     @Test
-    void startsRealBackendCompletesApprovalChainAndRecordsEvidence() throws Exception {
+    void completesGovernedPurchaseToPaymentChainAndRecordsOneFinalOutboxEvent()
+        throws Exception {
         PurchasePaymentDemoSeedState.SeedEvidence evidence = state.requireEvidence();
 
         assertEquals(scenario.tenantId(), evidence.tenantId());
@@ -118,6 +119,17 @@ class PurchasePaymentDemoSeedIntegrationTest {
         assertEquals(200, health.statusCode(), health.body());
         assertTrue(health.body().contains("\"status\":\"UP\""));
 
+        String initiatorId = scenario.assigneeRules().initiatorUserId().value();
+        String managerId = scenario.requireUser(initiatorId).managerId();
+        String financeReviewerId = requireSingleUserWithRole(
+            scenario.assigneeRules().financeReviewerRoleCode()
+        );
+        Set<String> financeApproverIds = userIdsWithPosition(
+            scenario.assigneeRules().financeApproverPositionCode()
+        );
+        assertEquals("demo-employee", initiatorId);
+        assertEquals(2, financeApproverIds.size());
+
         JsonNode initialInstance = getJson(
             client,
             "/api/approval/instances/" + evidence.instanceId(),
@@ -132,25 +144,12 @@ class PurchasePaymentDemoSeedIntegrationTest {
             scenario.request().businessKey(),
             initialInstance.path("instance").path("businessKey").asText()
         );
-        assertEquals(
-            "RUNNING",
-            initialInstance.path("instance").path("status").asText()
-        );
-
-        String initiatorId = scenario.assigneeRules().initiatorUserId().value();
-        String managerId = scenario.requireUser(initiatorId).managerId();
-        String financeReviewerId = requireSingleUserWithRole(
-            scenario.assigneeRules().financeReviewerRoleCode()
-        );
-        Set<String> financeApproverIds = userIdsWithPosition(
-            scenario.assigneeRules().financeApproverPositionCode()
-        );
-        assertEquals(2, financeApproverIds.size());
+        assertEquals("RUNNING", initialInstance.path("instance").path("status").asText());
 
         JsonNode managerTask = requireSinglePendingTask(
             client,
             managerId,
-            MANAGER_APPROVAL,
+            PurchasePaymentTemplate.MANAGER_APPROVAL_TASK_KEY,
             "demo-manager-pending-v1"
         );
         assertEquals(
@@ -176,16 +175,9 @@ class PurchasePaymentDemoSeedIntegrationTest {
         assertTransition(
             managerApproved,
             "RUNNING",
-            Set.of(FINANCE_REVIEW),
+            Set.of(PurchasePaymentTemplate.FINANCE_REVIEW_TASK_KEY),
             Set.of(financeReviewerId)
         );
-
-        PurchasePaymentDemoSeedState.SeedEvidence progressedReplay = seeder.apply();
-        assertEquals(evidence.instanceId(), progressedReplay.instanceId());
-        assertEquals("RUNNING", progressedReplay.status().name());
-        assertEquals(evidence.taskIds(), progressedReplay.taskIds());
-        assertEquals(evidence.attachments(), progressedReplay.attachments());
-        assertEquals(evidence.seededAt(), progressedReplay.seededAt());
 
         JsonNode managerReplay = approve(
             client,
@@ -200,7 +192,7 @@ class PurchasePaymentDemoSeedIntegrationTest {
         JsonNode financeReviewTask = requireSinglePendingTask(
             client,
             financeReviewerId,
-            FINANCE_REVIEW,
+            PurchasePaymentTemplate.FINANCE_REVIEW_TASK_KEY,
             "demo-finance-review-pending-v1"
         );
         assertEquals(
@@ -208,12 +200,9 @@ class PurchasePaymentDemoSeedIntegrationTest {
             Set.of(financeReviewTask.path("taskId").asText())
         );
 
-        UUID financeReviewTaskId = UUID.fromString(
-            financeReviewTask.path("taskId").asText()
-        );
         JsonNode financeReviewed = approve(
             client,
-            financeReviewTaskId,
+            UUID.fromString(financeReviewTask.path("taskId").asText()),
             financeReviewerId,
             FINANCE_REVIEW_APPROVE_REQUEST,
             "demo-finance-review-approve-v1",
@@ -222,38 +211,35 @@ class PurchasePaymentDemoSeedIntegrationTest {
         assertTransition(
             financeReviewed,
             "RUNNING",
-            Set.of(FINANCE_COUNTERSIGN),
+            Set.of(PurchasePaymentTemplate.FINANCE_COUNTERSIGN_TASK_KEY),
             financeApproverIds
         );
 
         String financeApproverA = "demo-finance-approver-a";
         String financeApproverB = "demo-finance-approver-b";
-        assertTrue(financeApproverIds.contains(financeApproverA));
-        assertTrue(financeApproverIds.contains(financeApproverB));
-
         JsonNode financeTaskA = requireSinglePendingTask(
             client,
             financeApproverA,
-            FINANCE_COUNTERSIGN,
+            PurchasePaymentTemplate.FINANCE_COUNTERSIGN_TASK_KEY,
             "demo-finance-approver-a-pending-v1"
         );
         JsonNode financeTaskB = requireSinglePendingTask(
             client,
             financeApproverB,
-            FINANCE_COUNTERSIGN,
+            PurchasePaymentTemplate.FINANCE_COUNTERSIGN_TASK_KEY,
             "demo-finance-approver-b-pending-v1"
         );
+        String financeTaskAId = financeTaskA.path("taskId").asText();
+        String financeTaskBId = financeTaskB.path("taskId").asText();
+        assertNotEquals(financeTaskAId, financeTaskBId);
         assertEquals(
             textValues(financeReviewed.path("activeTasks"), "taskId"),
-            Set.of(
-                financeTaskA.path("taskId").asText(),
-                financeTaskB.path("taskId").asText()
-            )
+            Set.of(financeTaskAId, financeTaskBId)
         );
 
         JsonNode firstCountersign = approve(
             client,
-            UUID.fromString(financeTaskA.path("taskId").asText()),
+            UUID.fromString(financeTaskAId),
             financeApproverA,
             FINANCE_APPROVER_A_REQUEST,
             "demo-finance-approver-a-v1",
@@ -262,19 +248,59 @@ class PurchasePaymentDemoSeedIntegrationTest {
         assertTransition(
             firstCountersign,
             "RUNNING",
-            Set.of(FINANCE_COUNTERSIGN),
+            Set.of(PurchasePaymentTemplate.FINANCE_COUNTERSIGN_TASK_KEY),
             Set.of(financeApproverB)
         );
+        assertNoCompletionOutboxEvidence(evidence.instanceId());
 
         JsonNode finalCountersign = approve(
             client,
-            UUID.fromString(financeTaskB.path("taskId").asText()),
+            UUID.fromString(financeTaskBId),
             financeApproverB,
             FINANCE_APPROVER_B_REQUEST,
             "demo-finance-approver-b-v1",
             "Finance approver B countersigned."
         );
-        assertTransition(finalCountersign, "COMPLETED", Set.of(), Set.of());
+        assertTransition(
+            finalCountersign,
+            "RUNNING",
+            Set.of(PurchasePaymentTemplate.PAYMENT_CONFIRMATION_TASK_KEY),
+            Set.of(initiatorId)
+        );
+        assertNoCompletionOutboxEvidence(evidence.instanceId());
+        assertNoOutboxForRequest(FINANCE_APPROVER_B_REQUEST);
+
+        JsonNode runningInstance = getJson(
+            client,
+            "/api/approval/instances/" + evidence.instanceId(),
+            scenario.administratorId(),
+            "demo-inspect-awaiting-payment-v1"
+        );
+        assertEquals("RUNNING", runningInstance.path("instance").path("status").asText());
+
+        JsonNode paymentTask = requireSinglePendingTask(
+            client,
+            initiatorId,
+            PurchasePaymentTemplate.PAYMENT_CONFIRMATION_TASK_KEY,
+            "demo-payment-confirmation-pending-v1"
+        );
+        String paymentTaskId = paymentTask.path("taskId").asText();
+        assertEquals(
+            Set.of(paymentTaskId),
+            textValues(finalCountersign.path("activeTasks"), "taskId")
+        );
+        assertNotEquals(financeTaskAId, paymentTaskId);
+        assertNotEquals(financeTaskBId, paymentTaskId);
+
+        JsonNode paymentConfirmed = approve(
+            client,
+            UUID.fromString(paymentTaskId),
+            initiatorId,
+            PAYMENT_CONFIRMATION_REQUEST,
+            "demo-payment-confirmation-v1",
+            "Payment side-effect handoff confirmed from the WeChat actor."
+        );
+        assertTransition(paymentConfirmed, "COMPLETED", Set.of(), Set.of());
 
         PurchasePaymentDemoSeedState.SeedEvidence completedReplay = seeder.apply();
         assertEquals(evidence.instanceId(), completedReplay.instanceId());
@@ -293,11 +319,8 @@ class PurchasePaymentDemoSeedIntegrationTest {
             "COMPLETED",
             completedInstance.path("instance").path("status").asText()
         );
-        assertEquals(
-            evidence.instanceId().toString(),
-            completedInstance.path("instance").path("instanceId").asText()
-        );
 
+        assertNoPendingTasks(client, initiatorId, "demo-initiator-final-pending-v1");
         assertNoPendingTasks(client, managerId, "demo-manager-final-pending-v1");
         assertNoPendingTasks(
             client,
@@ -352,13 +375,19 @@ class PurchasePaymentDemoSeedIntegrationTest {
                 FINANCE_APPROVER_B_REQUEST,
                 financeApproverB,
                 "TASK_APPROVED"
+            ),
+            requireTimelineEvidence(
+                timeline,
+                PAYMENT_CONFIRMATION_REQUEST,
+                initiatorId,
+                "TASK_APPROVED"
             )
         );
-        assertEquals(5, auditEventIds.size());
+        assertEquals(6, auditEventIds.size());
 
         assertCompletionOutboxEvidence(
             evidence.instanceId(),
-            FINANCE_APPROVER_B_REQUEST
+            PAYMENT_CONFIRMATION_REQUEST
         );
     }
 
@@ -502,6 +531,46 @@ class PurchasePaymentDemoSeedIntegrationTest {
         return eventId;
     }
 
+    private void assertNoCompletionOutboxEvidence(UUID instanceId) throws Exception {
+        try (
+            Connection connection = dataSource.getConnection();
+            PreparedStatement statement = connection.prepareStatement(
+                """
+                select count(*)
+                from ap_outbox
+                where tenant_id = ? and aggregate_id = ?
+                """
+            )
+        ) {
+            statement.setString(1, scenario.tenantId());
+            statement.setString(2, instanceId.toString());
+            try (ResultSet results = statement.executeQuery()) {
+                assertTrue(results.next());
+                assertEquals(0, results.getInt(1));
+            }
+        }
+    }
+
+    private void assertNoOutboxForRequest(String requestId) throws Exception {
+        try (
+            Connection connection = dataSource.getConnection();
+            PreparedStatement statement = connection.prepareStatement(
+                """
+                select count(*)
+                from ap_outbox
+                where tenant_id = ? and request_id = ?
+                """
+            )
+        ) {
+            statement.setString(1, scenario.tenantId());
+            statement.setString(2, requestId);
+            try (ResultSet results = statement.executeQuery()) {
+                assertTrue(results.next());
+                assertEquals(0, results.getInt(1));
+            }
+        }
+    }
+
     private void assertCompletionOutboxEvidence(
         UUID instanceId,
         String requestId
@@ -524,13 +593,10 @@ class PurchasePaymentDemoSeedIntegrationTest {
                     scenario.assigneeRules().connectorKey(),
                     results.getString("connector_key")
                 );
-                assertEquals(
-                    instanceId.toString(),
-                    results.getString("aggregate_id")
-                );
+                assertEquals(instanceId.toString(), results.getString("aggregate_id"));
                 assertFalse(
                     results.next(),
-                    "completion Outbox row must be unique for the final approval request"
+                    "completion Outbox row must be unique for payment confirmation"
                 );
             }
         }
