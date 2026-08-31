@@ -6,22 +6,30 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const quickStartPath = resolve(root, 'docs/product-readiness/QUICK_START.md');
-const statusPath = resolve(root, 'docs/product-readiness/README.md');
 const preflightPath = resolve(root, 'scripts/product-readiness/demo-preflight.mjs');
-const packageJsonPath = resolve(root, 'package.json');
-const hygieneAggregatePath = resolve(root, 'scripts/tests/m3-repository-hygiene.test.mjs');
 
-function text(path) {
-  assert.equal(existsSync(path), true, `missing ${path}`);
+function text(relativePath) {
+  const path = resolve(root, relativePath);
+  assert.equal(existsSync(path), true, `missing ${relativePath}`);
   return readFileSync(path, 'utf8');
 }
 
-test('repository-only preflight passes and never claims workstation or timed acceptance', () => {
-  const execution = spawnSync(process.execPath, [preflightPath, '--repository-only', '--json'], {
-    cwd: root,
-    encoding: 'utf8',
-  });
+const quickStart = text('docs/product-readiness/QUICK_START.md');
+const status = text('docs/product-readiness/README.md');
+const userGuide = text('docs/product-readiness/USER_GUIDE.md');
+const adminGuide = text('docs/product-readiness/ADMIN_GUIDE.md');
+const operatorGuide = text('docs/product-readiness/OPERATOR_GUIDE.md');
+const rootReadme = text('README.md');
+const docsIndex = text('docs/README.md');
+const packageJson = JSON.parse(text('package.json'));
+const aggregate = text('scripts/tests/m3-repository-hygiene.test.mjs');
+
+test('repository-only preflight remains read-only and withholds timed acceptance', () => {
+  const execution = spawnSync(
+    process.execPath,
+    [preflightPath, '--repository-only', '--json'],
+    { cwd: root, encoding: 'utf8', shell: false },
+  );
   assert.equal(execution.status, 0, execution.stderr || execution.stdout);
   const report = JSON.parse(execution.stdout);
   assert.equal(report.claim, 'DEMO_REPOSITORY_CONTRACT_PASSED');
@@ -29,52 +37,91 @@ test('repository-only preflight passes and never claims workstation or timed acc
   assert.equal(report.mode, 'repository-only');
 });
 
-test('Quick Start remains an honest executable candidate path', () => {
-  const quickStart = text(quickStartPath);
-  const packageJson = JSON.parse(text(packageJsonPath));
-  assert.match(quickStart, /QUICK_START_STATUS=BASELINE_NOT_YET_10_MINUTE_VERIFIED/u);
-  assert.match(quickStart, /DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED/u);
-  assert.match(
-    quickStart,
-    /PURCHASE_PAYMENT_GOLDEN_PATH_STATUS=BACKEND_APPROVAL_CHAIN_VERIFIED_FULL_PRODUCT_E2E_NOT_EXECUTED/u,
-  );
-  assert.match(
-    quickStart,
-    /DETERMINISTIC_DEMO_SEED_STATUS=IMPLEMENTED_LOCAL_OPT_IN/u,
-  );
-  assert.match(quickStart, /DETERMINISTIC_DEMO_SEED_IMPLEMENTED/u);
-  assert.match(quickStart, /BACKEND_LOCAL_START_VERIFIED/u);
-  assert.match(quickStart, /BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED/u);
-  assert.match(quickStart, /COMPLETION_OUTBOX_EVENT_RECORDED/u);
-  assert.match(quickStart, /DEMO_REPOSITORY_CONTRACT_PASSED/u);
-  assert.match(quickStart, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
-  assert.match(quickStart, /CROSS_CLIENT_RUNTIME_NOT_EXECUTED/u);
-  assert.doesNotMatch(quickStart, /^QUICK_START_STATUS=PASSED$/mu);
-  assert.doesNotMatch(quickStart, /^PURCHASE_PAYMENT_GOLDEN_PATH_STATUS=PASSED$/mu);
-  assert.doesNotMatch(quickStart, /^PRODUCTION_PAYMENT_INTEGRATION_STATUS=VERIFIED$/mu);
-  assert.doesNotMatch(quickStart, /^pnpm install --frozen-lockfile\s*$/mu);
-  for (const scriptName of ['web:install', 'web:dev', 'mobile:install', 'mobile:dev:h5', 'mobile:build:weixin']) {
-    assert.equal(typeof packageJson.scripts?.[scriptName], 'string', `missing package script ${scriptName}`);
-    assert.equal(quickStart.includes(`pnpm ${scriptName}`), true, `Quick Start missing pnpm ${scriptName}`);
+test('Quick Start documents the executable measured path without self-declaring acceptance', () => {
+  for (const marker of [
+    'QUICK_START_COMMAND_STATUS=IMPLEMENTED',
+    'QUICK_START_ACCEPTANCE_SOURCE=EXACT_HEAD_RUNTIME_EVIDENCE',
+    'QUICK_START_10_MINUTES_NOT_YET_ACCEPTED',
+    'pnpm demo:quickstart',
+    'pnpm demo:quickstart:plan',
+    '.runtime/quick-start/<run-id>/',
+    'QUICK_START_READY_SECONDS',
+    'A run over 600 seconds fails',
+    'quick-start-pc.png',
+    'quick-start-h5.png',
+    'cleanup-evidence.json',
+    'demo-manager',
+    'DEMO-PP-0001',
+  ]) {
+    assert.equal(quickStart.includes(marker), true, `Quick Start missing ${marker}`);
   }
+  assert.doesNotMatch(quickStart, /^QUICK_START_STATUS=PASSED$/mu);
+  assert.doesNotMatch(quickStart, /^PRODUCTION_DEPLOYMENT_STATUS=VERIFIED$/mu);
+  assert.doesNotMatch(quickStart, /\b[0-9a-f]{40}\b/u);
 });
 
-test('product-readiness status distinguishes repository, backend and product evidence without a moving SHA', () => {
-  const status = text(statusPath);
-  assert.match(status, /DEMO_REPOSITORY_CONTRACT_PASSED/u);
-  assert.match(status, /DEMO_PREFLIGHT_PASSED/u);
-  assert.match(status, /DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED/u);
-  assert.match(status, /DETERMINISTIC_DEMO_SEED_IMPLEMENTED/u);
-  assert.match(status, /BACKEND_LOCAL_START_VERIFIED/u);
-  assert.match(status, /BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED/u);
-  assert.match(status, /COMPLETION_OUTBOX_EVENT_RECORDED/u);
-  assert.match(status, /PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED/u);
-  assert.match(status, /A successful preflight or backend integration test is not product acceptance/u);
-  assert.match(status, /Exact base and Head SHAs belong in PR metadata and retained workflow evidence/u);
+test('user, administrator and operator guides preserve the governed local boundary', () => {
+  assert.match(userGuide, /DEMO-PP-0001/u);
+  assert.match(userGuide, /demo-manager/u);
+  assert.match(userGuide, /username: vben/u);
+  assert.match(userGuide, /password: 123456/u);
+  assert.match(userGuide, /does not approve the task/u);
+
+  assert.match(adminGuide, /purchase-payment-golden-path\.json/u);
+  assert.match(adminGuide, /cross-client-local-demo\.json/u);
+  assert.match(adminGuide, /quick-start\.json/u);
+  assert.match(adminGuide, /Do not edit PostgreSQL rows or Flowable `ACT_\*` tables/u);
+  assert.match(adminGuide, /local-header identity/u);
+
+  assert.match(operatorGuide, /approval-platform-demo/u);
+  assert.match(operatorGuide, /ports 5777, 8080 and 9000/u);
+  assert.match(operatorGuide, /Ctrl-C/u);
+  assert.match(operatorGuide, /reset --confirm-local-data-loss/u);
+  assert.match(operatorGuide, /No additional automatic Workflow/u);
+});
+
+test('product-readiness index distinguishes implemented paths from production claims', () => {
+  for (const marker of [
+    'MERGED_LOCAL_ALPHA_H5_SURROGATE_ACCEPTED',
+    'IMPLEMENTED_TIMED_ACCEPTANCE_PENDING',
+    'QUICK_START_10_MINUTES_PASSED',
+    'PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED',
+    'PRODUCTION_PAYMENT_INTEGRATION_VERIFIED',
+    'A marker name appearing in documentation does not release the marker',
+  ]) {
+    assert.equal(status.includes(marker), true, `status missing ${marker}`);
+  }
   assert.doesNotMatch(status, /\b[0-9a-f]{40}\b/u);
 });
 
-test('the permanent hygiene aggregate loads the product-readiness boundary', () => {
-  const aggregate = text(hygieneAggregatePath);
-  assert.match(aggregate, /import '\.\/product-readiness-demo-guides-boundary\.test\.mjs';/u);
+test('root and documentation indexes expose the bounded Quick Start entry', () => {
+  assert.match(rootReadme, /pnpm demo:quickstart/u);
+  assert.match(rootReadme, /docs\/product-readiness\/QUICK_START\.md/u);
+  assert.match(docsIndex, /product-readiness\/QUICK_START\.md/u);
+  assert.match(docsIndex, /product-readiness\/USER_GUIDE\.md/u);
+  assert.match(docsIndex, /product-readiness\/ADMIN_GUIDE\.md/u);
+  assert.match(docsIndex, /product-readiness\/OPERATOR_GUIDE\.md/u);
+});
+
+test('package and permanent hygiene aggregate retain the Quick Start documentation contract', () => {
+  for (const scriptName of [
+    'demo:quickstart:plan',
+    'demo:quickstart',
+    'demo:quickstart:check',
+    'demo:quickstart:ci',
+  ]) {
+    assert.equal(
+      typeof packageJson.scripts?.[scriptName],
+      'string',
+      `missing package script ${scriptName}`,
+    );
+  }
+  assert.match(
+    aggregate,
+    /import '\.\/product-readiness-demo-guides-boundary\.test\.mjs';/u,
+  );
+  assert.match(
+    aggregate,
+    /import '\.\/product-readiness-quick-start-boundary\.test\.mjs';/u,
+  );
 });

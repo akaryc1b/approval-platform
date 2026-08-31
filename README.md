@@ -32,10 +32,22 @@ Approval Platform 不是业务系统中的简单审批组件，也不是 Flowabl
 - UniApp Vue 3、Unibest、Wot UI；
 - pnpm workspace、Java/TypeScript SDK 与连接器模块。
 
+## 本地 Product Alpha
+
+从受支持的本地环境启动可操作演示：
+
+```bash
+pnpm demo:quickstart
+```
+
+命令、前置条件、证据和明确非声明见 [`10-Minute Quick Start`](docs/product-readiness/QUICK_START.md)。该入口不是 Release 或生产部署说明。
+
 ## 文档入口
 
 | 需要了解的内容 | 权威入口 |
 | --- | --- |
+| 本地 10 分钟 Quick Start | [`docs/product-readiness/QUICK_START.md`](docs/product-readiness/QUICK_START.md) |
+| 产品可用性证据 | [`docs/product-readiness/README.md`](docs/product-readiness/README.md) |
 | 当前能力状态 | [`docs/current/capability-status.md`](docs/current/capability-status.md) |
 | 当前架构 | [`docs/current/architecture.md`](docs/current/architecture.md) |
 | 当前运维边界 | [`docs/current/operations.md`](docs/current/operations.md) |
@@ -59,6 +71,8 @@ Approval Platform 不是业务系统中的简单审批组件，也不是 Flowabl
 ## English Summary
 
 Approval Platform is an independently deployable approval and workflow collaboration platform built around a product-owned Approval DSL, Form Schema, immutable governance evidence, and a formal Flowable Engine SPI.
+
+For the bounded local Product Alpha entry path, see the [10-Minute Quick Start](docs/product-readiness/QUICK_START.md). It is not a Release or production-deployment guide.
 
 README is not the authority for milestone or capability status. Use the generated [Current Capability Status](docs/current/capability-status.md), [Current Compatibility](docs/current/compatibility.md), release snapshots, and immutable acceptance records. Implemented, tested, accepted, merged, released, and production-supported are intentionally separate states.
 

@@ -1,267 +1,206 @@
-# Approval Platform Quick Start Candidate
+# Approval Platform — 10-Minute Quick Start
 
 ```text
-QUICK_START_STATUS=BASELINE_NOT_YET_10_MINUTE_VERIFIED
-DEMO_BACKEND_ONE_COMMAND_STATUS=IMPLEMENTED_NOT_CLEAN_MACHINE_TIMED
-DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED
-BACKEND_LOCAL_START_STATUS=VERIFIED_IN_EPHEMERAL_CI
-DETERMINISTIC_DEMO_SEED_STATUS=IMPLEMENTED_LOCAL_OPT_IN
-DETERMINISTIC_DEMO_SEED_IMPLEMENTED
-BACKEND_PURCHASE_APPROVAL_CHAIN_STATUS=VERIFIED_IN_EPHEMERAL_CI
-COMPLETION_OUTBOX_EVENT_STATUS=RECORDED_IN_EPHEMERAL_CI
-PC_CLIENT_SCENARIO_STATUS=NOT_YET_VERIFIED
-H5_CLIENT_SCENARIO_STATUS=NOT_YET_VERIFIED
-WECHAT_MINI_PROGRAM_SCENARIO_STATUS=NOT_YET_VERIFIED
-PURCHASE_PAYMENT_GOLDEN_PATH_STATUS=BACKEND_APPROVAL_CHAIN_VERIFIED_FULL_PRODUCT_E2E_NOT_EXECUTED
+QUICK_START_COMMAND_STATUS=IMPLEMENTED
+QUICK_START_ACCEPTANCE_SOURCE=EXACT_HEAD_RUNTIME_EVIDENCE
+QUICK_START_10_MINUTES_NOT_YET_ACCEPTED
 ```
 
-This is the source-based candidate path for the Demo and Guides work in Issue #107. It deliberately does **not** claim that a new user can start and operate a complete product demo within 10 minutes.
+This guide is the supported local Product Alpha entry path tracked by Issue #133. It starts the existing platform stack and proves that the governed purchase-payment request is visible in both the PC and H5 clients. The guide does not turn a successful build or an unmeasured run into a 10-minute acceptance claim.
 
-The repository provides a single non-destructive backend entry command. It runs the workstation preflight, starts isolated PostgreSQL and Redis containers, waits for both services, builds the Maven reactor, starts the real Spring Boot application with the explicit local seed, waits for Actuator `UP` and the deterministic seed marker, and remains attached to the backend process.
+## Outcome
 
-The launcher plan and safety boundaries are permanently checked. The underlying runtime is separately verified against PostgreSQL, and permanent Maven validation now completes the backend approval chain through the existing HTTP API. The complete command has not been timed from a clean unfamiliar-user environment and does not drive PC/H5/WeChat, so it is neither `QUICK_START_10_MINUTES_PASSED` nor `PURCHASE_APPROVAL_E2E_PASSED`.
+From the repository root, one command performs the complete startup lifecycle:
 
-## Supported candidate environment
+```bash
+pnpm demo:quickstart
+```
 
-Use a clean macOS or Linux environment with:
+A successful ready state means all of the following are true on the same source tree:
+
+```text
+repository and workstation preflight passed
+PostgreSQL 16 and Redis 7.4 are ready
+Spring Boot + Flowable reached Actuator UP
+the deterministic purchase-payment Seed was applied
+PC is reachable on port 5777 as demo-manager
+H5 is reachable on port 9000 as demo-manager
+DEMO-PP-0001 is visible in both real client pages
+startup timing and environment evidence were written
+```
+
+The command then remains attached. Press `Ctrl-C` once to stop the clients and backend and remove the disposable local containers, network, PostgreSQL volume and occupied ports.
+
+## Prerequisites
+
+Use a clean macOS, Linux or Windows workstation with:
 
 - Java 21;
 - Maven 3.9.6 or newer;
 - Node 22.18+ within the 22.x line, or Node 24.x;
-- pnpm 10 (the repository currently declares pnpm 10.33.4);
+- pnpm 10; this repository declares pnpm 10.33.4;
 - Docker Engine or Docker Desktop with Docker Compose v2;
-- enough local memory and disk for Maven, retained upstream frontends, PostgreSQL and Redis.
+- Google Chrome, Chromium or Microsoft Edge. Set `APPROVAL_DEMO_CHROME_PATH` only when automatic browser discovery cannot find the executable;
+- enough memory and disk for the Maven reactor, generated frontend workspaces, PostgreSQL and Redis.
 
-WeChat runtime verification additionally requires supported WeChat Developer Tools and a separately documented test identity/app configuration. The repository does not claim that setup as complete.
+The command runs the existing `demo-preflight.mjs` before changing runtime state. Missing or unsupported tools fail closed with a remediation message.
 
-## 1. Run the read-only preflight
+## Inspect the plan first
 
-From the repository root:
+The plan command is read-only:
 
 ```bash
-pnpm demo:preflight
+pnpm demo:quickstart:plan
 ```
 
-For machine-readable output:
+It prints the governed tenant, business key, actor-scoped URLs, 600-second limit, lifecycle stages, evidence location, gated claims and explicit non-claims. It does not start a process, container or database.
+
+Static boundaries can be checked separately:
 
 ```bash
-node scripts/product-readiness/demo-preflight.mjs --json
-```
-
-Repository contracts can be checked separately without implying workstation readiness:
-
-```bash
-node scripts/product-readiness/demo-preflight.mjs --repository-only --json
+pnpm demo:preflight -- --repository-only
 pnpm demo:scenario:check
-pnpm demo:seed:check
+pnpm demo:clients:check
+pnpm demo:quickstart:check
 ```
 
-The restricted preflight reports `DEMO_REPOSITORY_CONTRACT_PASSED`; the full preflight may report `DEMO_PREFLIGHT_PASSED`; and the scenario check reports `PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED`. These checks do not start containers, mutate a database, call an external Provider or prove a user scenario.
+These checks do not prove timed startup.
 
-## 2. Inspect the exact startup plan without executing it
+## Run the Quick Start
 
 ```bash
-pnpm demo:backend:plan
+pnpm demo:quickstart
 ```
 
-The JSON plan is read-only and must report:
+Do not run a separate backend or client command in parallel. The Quick Start owns the local ports and lifecycle:
+
+| Component | Address | Governed identity |
+| --- | --- | --- |
+| Backend health | `http://127.0.0.1:8080/actuator/health` | N/A |
+| PC workbench | printed as `QUICK_START_PC_URL` | `demo-manager` |
+| H5 task list | printed as `QUICK_START_H5_URL` | `demo-manager` |
+
+The PC development login is local demo authentication only:
 
 ```text
-destructive=false
-QUICK_START_10_MINUTES_NOT_EXECUTED
-PURCHASE_APPROVAL_E2E_NOT_EXECUTED
-PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
-CROSS_CLIENT_RUNTIME_NOT_EXECUTED
-PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
+username: vben
+password: 123456
 ```
 
-It also shows the exact preflight, Compose, Maven, health and seed sequence used by the real command.
+The browser automation completes the local login slider and verifies the task card. It does not approve the task or mutate the workflow.
 
-## 3. Start the real local backend and deterministic seed with one command
-
-```bash
-pnpm demo:backend:start
-```
-
-The command performs this bounded sequence:
+When ready, the terminal prints:
 
 ```text
-read-only workstation preflight
--> isolated Compose project approval-platform-demo
--> PostgreSQL 16 and Redis 7.4 readiness
--> mvn -B -ntp -DskipTests install
--> real Spring Boot server with the local profile
--> explicit APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true
--> Actuator HTTP status UP
--> PURCHASE_PAYMENT_DEMO_SEED_APPLIED
+QUICK_START_RUN_ID=<run-id>
+QUICK_START_READY_SECONDS=<measured-seconds>
+QUICK_START_PC_URL=<url>
+QUICK_START_H5_URL=<url>
+QUICK_START_TENANT=demo-purchase-payment
+QUICK_START_BUSINESS_KEY=DEMO-PP-0001
+QUICK_START_PC_ACTOR=demo-manager
+QUICK_START_H5_ACTOR=demo-manager
+QUICK_START_EVIDENCE=.runtime/quick-start/<run-id>
 ```
 
-The command reads only the documented local database variables from `.env.example` and overrides matching inherited database variables. This prevents an accidental local demo run from reusing an unrelated database target. The seed remains false in the checked-in example and is enabled only for the child backend process.
+## Evidence
 
-The command stays attached so the backend log remains visible. A successful run prints:
+Every run writes to an untracked directory:
 
 ```text
-DEMO_BACKEND_ONE_COMMAND_STARTED
-BACKEND_LOCAL_START_VERIFIED
-PURCHASE_PAYMENT_DEMO_SEED_APPLIED ... instanceId=...
-QUICK_START_10_MINUTES_NOT_EXECUTED
-PURCHASE_APPROVAL_E2E_NOT_EXECUTED
+.runtime/quick-start/<run-id>/
 ```
 
-Press `Ctrl-C` to stop the attached backend process. PostgreSQL and Redis remain running until the explicit stop command.
-
-## 4. Verify and inspect the deterministic runtime slice
-
-In another terminal:
-
-```bash
-curl -fsS http://127.0.0.1:8080/actuator/health
-```
-
-The response must contain:
-
-```json
-{"status":"UP"}
-```
-
-Copy the `instanceId` from the seed log and inspect the request:
-
-```bash
-curl -fsS \
-  -H 'X-Tenant-Id: demo-purchase-payment' \
-  -H 'X-Operator-Id: demo-admin' \
-  -H 'X-Request-Id: demo-inspect-instance-v1' \
-  -H 'X-Trace-Id: demo-inspect-instance-v1' \
-  http://127.0.0.1:8080/api/approval/instances/INSTANCE_ID
-```
-
-Inspect the first assigned task:
-
-```bash
-curl -fsS \
-  -H 'X-Tenant-Id: demo-purchase-payment' \
-  -H 'X-Operator-Id: demo-manager' \
-  -H 'X-Request-Id: demo-inspect-manager-task-v1' \
-  -H 'X-Trace-Id: demo-inspect-manager-task-v1' \
-  http://127.0.0.1:8080/api/approval/tasks/pending
-```
-
-Permanent CI continues from this point through manager approval, finance review and both parallel countersign tasks. It verifies the final `COMPLETED` instance, participant timeline and one JDBC completion Outbox row:
+The bounded evidence set includes:
 
 ```text
-BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED
-COMPLETION_OUTBOX_EVENT_RECORDED
+source-identity.json
+environment.json
+contract.json
+backend-health.json
+quick-start-browser-evidence.json
+quick-start-pc.png
+quick-start-h5.png
+startup-summary.json
+cleanup-evidence.json
+runtime-summary.json
+playwright/trace.zip
+backend.log
+pc.log
+h5.log
 ```
 
-That is backend evidence. This candidate guide does not yet provide an unfamiliar-user walkthrough, retained screenshots/video, client interaction, attachment binding/download, Connector dispatch or a timed completion result.
+`source-identity.json` binds the checked-out tree to the exact Head. `environment.json` records the operating system, architecture, CPU count/model, memory and tool versions. `startup-summary.json` records the UTC start and ready timestamps and the measured duration. A run over 600 seconds fails and resets the consecutive-run ledger.
 
-## 5. Existing client development entrypoints
+No `.runtime` content is committed.
 
-These commands expose current development/build entrypoints. They are not yet a unified product demo.
+## Acceptance rule
 
-The repository currently has no root `pnpm-lock.yaml`, so this path must not begin with a root frozen-lockfile install. Retained frontend bootstrap commands own their install semantics.
+One successful execution records only the first clean run. The following claims are allowed only after two distinct clean run IDs on the same exact commit and tree, with complete cleanup after each run:
 
-### PC
-
-```bash
-pnpm web:install
-pnpm web:dev
+```text
+QUICK_START_10_MINUTES_PASSED
+DEMO_BACKEND_READY_PASSED
+PC_DEMO_READY_PASSED
+H5_DEMO_READY_PASSED
+TWO_CONSECUTIVE_CLEAN_QUICK_START_RUNS_PASSED
 ```
 
-### H5
+The existing permanent Workflow executes the two-run CI form only when the changed path set is relevant. Documentation-only changes do not select the full timed runtime. Exact Head, Run IDs, artifact digest and observed claim markers belong in the PR acceptance comment, not in this living guide.
 
-```bash
-pnpm mobile:install
-pnpm mobile:dev:h5
+## Stop and cleanup
+
+Press `Ctrl-C` in the Quick Start terminal. Cleanup is mandatory and fail-closed:
+
+```text
+stop H5
+stop PC
+stop backend
+remove approval-platform-demo containers
+remove the disposable PostgreSQL volume
+remove the Compose network
+release ports 5777, 8080 and 9000
+write cleanup-evidence.json
 ```
 
-### WeChat Mini Program build
+A cleanup failure makes the command fail even when the clients had reached ready state.
 
-```bash
-pnpm mobile:build:weixin
-```
-
-A successful development server or build is not `CROSS_CLIENT_RUNTIME_VERIFIED`. PC, H5 and WeChat must still operate on the same seeded tenant, request, tasks, audit identifiers and final state.
-
-## 6. Stop or explicitly reset local infrastructure
-
-After stopping the attached backend with `Ctrl-C`, stop PostgreSQL and Redis while preserving the PostgreSQL volume:
-
-```bash
-pnpm demo:backend:stop
-```
-
-Destroy the disposable local demo volume only when an explicit clean reset is intended:
+For recovery after an externally interrupted process, use the existing explicit reset command:
 
 ```bash
 node scripts/product-readiness/demo-backend.mjs reset --confirm-local-data-loss
 ```
 
-Running `reset` without the confirmation flag exits before any Docker command. Reset is performed through disposable local infrastructure, not by editing platform or Flowable tables.
+This deletes only the disposable `approval-platform-demo` resources. The script does not update platform tables or Flowable `ACT_*` tables.
 
-## Manual expansion for troubleshooting
+## Next product paths
 
-The one-command launcher owns the normal candidate path. Equivalent lower-level operations are retained only for diagnosis:
+The Quick Start stops at a visible, operable seeded task. The complete purchase-to-payment Alpha path remains available separately:
 
 ```bash
-docker compose --project-name approval-platform-demo \
-  -f deploy/compose/docker-compose.yml up -d postgres redis
-mvn -B -ntp -DskipTests install
-APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true \
-mvn -B -ntp -f apps/server/pom.xml spring-boot:run \
-  -Dspring-boot.run.profiles=local
+pnpm demo:runtime:purchase-payment:e2e
 ```
 
-The base configuration keeps Flowable schema updates disabled. The explicit `local` profile permits local schema bootstrap, uses local-header identity, retains management-permission enforcement, and enables the seed only when the environment switch is true. Never activate this profile or seed as a production default.
+See:
 
-## Timed evidence template
+- [User Guide](USER_GUIDE.md)
+- [Administrator Guide](ADMIN_GUIDE.md)
+- [Operator Guide](OPERATOR_GUIDE.md)
+- [Purchase-Payment Golden Path](PURCHASE_PAYMENT_GOLDEN_PATH.md)
 
-A future clean-machine run must retain at least:
-
-```text
-COMMIT_SHA=
-STARTED_AT_UTC=
-COMPLETED_AT_UTC=
-ELAPSED_SECONDS=
-OS_AND_VERSION=
-CPU=
-MEMORY=
-JAVA_VERSION=
-MAVEN_VERSION=
-NODE_VERSION=
-PNPM_VERSION=
-DOCKER_VERSION=
-COMPOSE_VERSION=
-BACKEND_HEALTH_RESULT=
-DEMO_SEED_RESULT=
-PC_ENTRY_RESULT=
-DEMO_USER_RESULT=
-PURCHASE_REQUEST_ID=
-```
-
-The 10-minute outcome cannot pass until an unfamiliar user can start the documented environment, open the deterministic request and reach the published user-visible outcome within 600 seconds.
-
-## Known blockers before a real 10-minute or product E2E claim
-
-- no prebuilt, versioned demo release bundle or image set is documented here;
-- no verified PC/H5/WeChat authentication and API-environment walkthrough is delivered here;
-- no retained screenshot set or unedited timed recording exists here;
-- no client-driven complete approval sequence or cross-client final-state agreement exists;
-- no attachment binding and participant-readable download proof exists;
-- no Connector sandbox delivery, returned result or outage/recovery evidence exists;
-- no shared demo environment has been seeded.
-
-These gaps must remain visible instead of being replaced by a build, one-command launcher or backend-only success claim.
-
-## Current non-claims
+## Explicit non-claims
 
 ```text
-SHARED_DEMO_ENVIRONMENT_SEED_NOT_APPLIED
-QUICK_START_10_MINUTES_NOT_EXECUTED
-PURCHASE_APPROVAL_E2E_NOT_EXECUTED
-CROSS_CLIENT_RUNTIME_NOT_EXECUTED
-PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
+WECHAT_DEVTOOLS_RUNTIME_NOT_VERIFIED
+WECHAT_PHYSICAL_DEVICE_NOT_VERIFIED
+PRODUCTION_DEPLOYMENT_NOT_VERIFIED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
+PERFORMANCE_CAPACITY_NOT_VERIFIED
+BROWSER_COMPATIBILITY_NOT_VERIFIED
+ACCESSIBILITY_NOT_VERIFIED
+RPO_RTO_NOT_VERIFIED
+MYSQL_8_4_NOT_VERIFIED
+RELEASE_NOT_CREATED
 ```
 
-The static `pnpm demo:scenario:check` command still prints `DETERMINISTIC_DEMO_SEED_NOT_APPLIED` and `PURCHASE_APPROVAL_E2E_NOT_EXECUTED` because that command itself is read-only and the full supported-client product E2E has not run.
+The Quick Start is a local Product Alpha path, not a Release or production deployment procedure.
