@@ -165,15 +165,13 @@ No `.runtime` content is committed.
 
 ## Acceptance rule
 
-One successful execution records only the first clean run. The following claims are allowed only after two distinct clean run IDs on the same exact commit and tree, with complete cleanup after each run:
+One successful execution records only the first clean run. The following gated claims are allowed only after two distinct clean run IDs on the same exact commit and tree, with complete cleanup after each run:
 
-```text
-QUICK_START_10_MINUTES_PASSED
-DEMO_BACKEND_READY_PASSED
-PC_DEMO_READY_PASSED
-H5_DEMO_READY_PASSED
-TWO_CONSECUTIVE_CLEAN_QUICK_START_RUNS_PASSED
-```
+- gated claim: `QUICK_START_10_MINUTES_PASSED`
+- gated claim: `DEMO_BACKEND_READY_PASSED`
+- gated claim: `PC_DEMO_READY_PASSED`
+- gated claim: `H5_DEMO_READY_PASSED`
+- gated claim: `TWO_CONSECUTIVE_CLEAN_QUICK_START_RUNS_PASSED`
 
 The existing permanent Workflow executes the two-run CI form only when the changed path set is relevant. Documentation-only changes do not select the full timed runtime. Exact Head, Run IDs, artifact digest and observed claim markers belong in the PR acceptance comment, not in this living guide.
 
