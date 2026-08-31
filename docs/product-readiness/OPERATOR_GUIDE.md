@@ -21,7 +21,7 @@ H5 port: 9000
 evidence root: .runtime/quick-start/
 ```
 
-The Quick Start removes its containers, network and disposable PostgreSQL volume during cleanup. It also verifies that ports 5777, 8080 and 9000 are available before reporting cleanup success.
+The Quick Start removes its containers, network and disposable PostgreSQL volume during cleanup. It also verifies that ports 5432, 5777, 6379, 8080 and 9000 are available before reporting cleanup success.
 
 ## Preflight
 

@@ -186,7 +186,7 @@ stop backend
 remove approval-platform-demo containers
 remove the disposable PostgreSQL volume
 remove the Compose network
-release ports 5777, 8080 and 9000
+release ports 5432, 5777, 6379, 8080 and 9000
 write cleanup-evidence.json
 ```
 

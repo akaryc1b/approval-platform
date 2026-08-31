@@ -50,6 +50,7 @@ test('Quick Start documents the executable measured path without self-declaring 
     'quick-start-pc.png',
     'quick-start-h5.png',
     'cleanup-evidence.json',
+    'release ports 5432, 5777, 6379, 8080 and 9000',
     'demo-manager',
     'DEMO-PP-0001',
   ]) {
@@ -74,7 +75,10 @@ test('user, administrator and operator guides preserve the governed local bounda
   assert.match(adminGuide, /local-header identity/u);
 
   assert.match(operatorGuide, /approval-platform-demo/u);
-  assert.match(operatorGuide, /ports 5777, 8080 and 9000/u);
+  assert.match(
+    operatorGuide,
+    /ports 5432, 5777, 6379, 8080 and 9000/u,
+  );
   assert.match(operatorGuide, /Ctrl-C/u);
   assert.match(operatorGuide, /reset --confirm-local-data-loss/u);
   assert.match(operatorGuide, /No additional automatic Workflow/u);
