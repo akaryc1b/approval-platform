@@ -180,7 +180,24 @@ test('package and path-scoped CI expose the Quick Start without a second workflo
     packageJson.scripts['demo:quickstart:check'],
     'node --test scripts/tests/product-readiness-quick-start-boundary.test.mjs',
   );
-  assert.match(packageJson.scripts['web:test:client-boundary'], /demo-quickstart\.mjs ci/u);
+  const clientBoundary = packageJson.scripts['web:test:client-boundary'];
+  const quickStartIndex = clientBoundary.indexOf(
+    'node scripts/product-readiness/demo-quickstart.mjs ci',
+  );
+  const pcH5Index = clientBoundary.indexOf(
+    'node scripts/product-readiness/pc-h5-runtime-smoke.mjs ci',
+  );
+  const purchasePaymentIndex = clientBoundary.indexOf(
+    'node scripts/product-readiness/purchase-payment-e2e.mjs ci',
+  );
+  assert.notEqual(quickStartIndex, -1);
+  assert.notEqual(pcH5Index, -1);
+  assert.notEqual(purchasePaymentIndex, -1);
+  assert.equal(
+    quickStartIndex < pcH5Index && pcH5Index < purchasePaymentIndex,
+    true,
+    'timed Quick Start must run before the heavier approval E2E can warm its dependencies',
+  );
   const normalizedCiScope = ciScope.replaceAll(String.raw`\/`, '/');
   assert.match(normalizedCiScope, /scripts\/product-readiness\/quick-start\//u);
   assert.match(ciScope, /product-readiness-quick-start-ready/u);
