@@ -13,36 +13,48 @@ function processExited(child) {
   return child.exitCode !== null || child.signalCode !== null;
 }
 
-export function runPnpmChecked(label, args, environment = process.env) {
+function requireSuccessfulProcess(label, result) {
+  if (result.error) {
+    throw new Error(`${label} could not start: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    const signal = result.signal ? ` signal ${result.signal}` : '';
+    throw new Error(`${label} failed with exit code ${result.status}${signal}`);
+  }
+}
+
+export function runPnpmChecked(
+  label,
+  args,
+  environment = process.env,
+  timeoutMs = undefined,
+) {
   console.log(`\n==> ${label}`);
   const result = spawnSync(pnpmExecutable(), args, {
     cwd: repositoryRoot,
     env: environment,
     shell: false,
     stdio: 'inherit',
+    timeout: timeoutMs,
   });
-  if (result.error) {
-    throw new Error(`${label} could not start: ${result.error.message}`);
-  }
-  if (result.status !== 0) {
-    throw new Error(`${label} failed with exit code ${result.status}`);
-  }
+  requireSuccessfulProcess(label, result);
 }
 
-export function runNodeChecked(label, args, environment = process.env) {
+export function runNodeChecked(
+  label,
+  args,
+  environment = process.env,
+  timeoutMs = undefined,
+) {
   console.log(`\n==> ${label}`);
   const result = spawnSync(process.execPath, args, {
     cwd: repositoryRoot,
     env: environment,
     shell: false,
     stdio: 'inherit',
+    timeout: timeoutMs,
   });
-  if (result.error) {
-    throw new Error(`${label} could not start: ${result.error.message}`);
-  }
-  if (result.status !== 0) {
-    throw new Error(`${label} failed with exit code ${result.status}`);
-  }
+  requireSuccessfulProcess(label, result);
 }
 
 export function startManagedNode(label, args, logFile, environment) {
