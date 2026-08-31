@@ -386,11 +386,11 @@ export async function execute({ keepAlive }) {
     console.log(`QUICK_START_READY_SECONDS=${elapsedSeconds}`);
     console.log(`QUICK_START_PC_URL=${pcUrl}`);
     console.log(`QUICK_START_H5_URL=${h5Url}`);
-    console.log `QUICK_START_TENANT=${contract.scenario.tenant.id}`);
+    console.log(`QUICK_START_TENANT=${contract.scenario.tenant.id}`);
     console.log(`QUICK_START_BUSINESS_KEY=${contract.scenario.request.businessKey}`);
-    console.log `QUICK_START_PC_ACTOR=${contract.clients.pc.actorId}`);
-    console.log `QUICK_START_H5_ACTOR=${contract.clients.h5.actorId}`);
-    console.log `QUICK_START_EVIDENCE=${runDirectory}`);
+    console.log(`QUICK_START_PC_ACTOR=${contract.clients.pc.actorId}`);
+    console.log(`QUICK_START_H5_ACTOR=${contract.clients.h5.actorId}`);
+    console.log(`QUICK_START_EVIDENCE=${runDirectory}`);
 
     if (keepAlive) {
       console.log('Press Ctrl-C to stop and clean the local Quick Start runtime.');
