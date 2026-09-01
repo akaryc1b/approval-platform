@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "product-alpha-pc-h5-browser-accessibility",
+  "locale": "zh-CN",
+  "scenarioSource": "config/demo/quick-start.json",
+  "maximumRuntimeSeconds": 1200,
+  "projects": [
+    {
+      "id": "system-chromium",
+      "engine": "chromium",
+      "runtime": "SYSTEM_CHROME",
+      "scope": "AUTHENTICATED_PC_KEYBOARD_AND_PC_H5_CRITICAL_SURFACES"
+    },
+    {
+      "id": "bundled-firefox",
+      "engine": "firefox",
+      "runtime": "PLAYWRIGHT",
+      "scope": "PC_H5_CRITICAL_SURFACE_SMOKE"
+    },
+    {
+      "id": "bundled-webkit",
+      "engine": "webkit",
+      "runtime": "PLAYWRIGHT_WEBKIT",
+      "scope": "PC_H5_CRITICAL_SURFACE_SMOKE"
+    }
+  ],
+  "viewports": {
+    "pc": {
+      "width": 1440,
+      "height": 900
+    },
+    "h5": {
+      "width": 390,
+      "height": 844
+    }
+  },
+  "thresholds": {
+    "criticalViolations": 0,
+    "seriousViolations": 0,
+    "minimumUniqueCjkGlyphHashes": 6,
+    "minimumInkPixels": 20,
+    "minimumContrastRatio": 3
+  },
+  "claims": [
+    "PC_H5_CHROMIUM_COMPATIBILITY_BASELINE_PASSED",
+    "PC_H5_FIREFOX_COMPATIBILITY_SMOKE_PASSED",
+    "PC_H5_WEBKIT_ENGINE_COMPATIBILITY_SMOKE_PASSED",
+    "PC_AUTHENTICATED_KEYBOARD_TASK_FLOW_PASSED",
+    "BASELINE_AUTOMATED_ACCESSIBILITY_PASSED",
+    "PC_H5_CJK_RENDERING_MATRIX_PASSED",
+    "BROWSER_ACCESSIBILITY_MATRIX_PUBLISHED"
+  ],
+  "nonClaims": [
+    "FULL_BROWSER_COMPATIBILITY_NOT_VERIFIED",
+    "EDGE_RUNTIME_NOT_VERIFIED",
+    "SAFARI_BROWSER_NOT_VERIFIED",
+    "IOS_SAFARI_NOT_VERIFIED",
+    "ANDROID_CHROME_NOT_VERIFIED",
+    "WECHAT_WEBVIEW_NOT_VERIFIED",
+    "WECHAT_DEVTOOLS_RUNTIME_NOT_VERIFIED",
+    "AUTHENTICATION_KEYBOARD_ACCESSIBILITY_NOT_VERIFIED",
+    "H5_KEYBOARD_TASK_NAVIGATION_NOT_VERIFIED",
+    "FULL_WCAG_CONFORMANCE_NOT_VERIFIED",
+    "SCREEN_READER_MANUAL_TEST_NOT_VERIFIED",
+    "PERFORMANCE_CAPACITY_NOT_VERIFIED",
+    "RPO_RTO_NOT_VERIFIED",
+    "MYSQL_8_4_NOT_VERIFIED"
+  ]
+}
