@@ -1,6 +1,17 @@
 # Documentation Index
 
-仓库文档按“当前事实、历史验收、发布快照、稳定参考、未来路线”分离。任何文档都不能同时承担这五种职责。
+仓库文档按“当前事实、产品可用性、历史验收、发布快照、稳定参考、未来路线”分离。任何文档都不能同时承担全部职责。
+
+## 产品可用性
+
+`docs/product-readiness/` 提供可执行的本地产品路径、用户说明和运行证据边界。它不能把构建或本地验证自动提升为 Release 或 Production Support。
+
+- [`product-readiness/README.md`](product-readiness/README.md)
+- [`product-readiness/QUICK_START.md`](product-readiness/QUICK_START.md)
+- [`product-readiness/USER_GUIDE.md`](product-readiness/USER_GUIDE.md)
+- [`product-readiness/ADMIN_GUIDE.md`](product-readiness/ADMIN_GUIDE.md)
+- [`product-readiness/OPERATOR_GUIDE.md`](product-readiness/OPERATOR_GUIDE.md)
+- [`product-readiness/PURCHASE_PAYMENT_GOLDEN_PATH.md`](product-readiness/PURCHASE_PAYMENT_GOLDEN_PATH.md)
 
 ## 当前事实
 

@@ -4,6 +4,8 @@ import { createWriteStream } from 'node:fs';
 import { repositoryRoot } from './contract.mjs';
 
 const pollIntervalMs = 1_000;
+const defaultCheckedProcessTimeoutMs = 15 * 60_000;
+const maximumCheckedProcessTimeoutMs = 60 * 60_000;
 
 function pnpmExecutable() {
   return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
@@ -13,36 +15,63 @@ function processExited(child) {
   return child.exitCode !== null || child.signalCode !== null;
 }
 
-export function runPnpmChecked(label, args, environment = process.env) {
+function checkedProcessTimeout(environment, timeoutMs) {
+  const configured = timeoutMs
+    ?? environment?.APPROVAL_DEMO_COMMAND_TIMEOUT_MS
+    ?? defaultCheckedProcessTimeoutMs;
+  const value = Number(configured);
+  if (!Number.isFinite(value)
+      || value <= 0
+      || value > maximumCheckedProcessTimeoutMs) {
+    throw new Error(
+      'checked process timeout must be between 1 ms and 60 minutes',
+    );
+  }
+  return Math.floor(value);
+}
+
+function requireSuccessfulProcess(label, result) {
+  if (result.error) {
+    throw new Error(`${label} could not start: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    const signal = result.signal ? ` signal ${result.signal}` : '';
+    throw new Error(`${label} failed with exit code ${result.status}${signal}`);
+  }
+}
+
+export function runPnpmChecked(
+  label,
+  args,
+  environment = process.env,
+  timeoutMs = undefined,
+) {
   console.log(`\n==> ${label}`);
   const result = spawnSync(pnpmExecutable(), args, {
     cwd: repositoryRoot,
     env: environment,
     shell: false,
     stdio: 'inherit',
+    timeout: checkedProcessTimeout(environment, timeoutMs),
   });
-  if (result.error) {
-    throw new Error(`${label} could not start: ${result.error.message}`);
-  }
-  if (result.status !== 0) {
-    throw new Error(`${label} failed with exit code ${result.status}`);
-  }
+  requireSuccessfulProcess(label, result);
 }
 
-export function runNodeChecked(label, args, environment = process.env) {
+export function runNodeChecked(
+  label,
+  args,
+  environment = process.env,
+  timeoutMs = undefined,
+) {
   console.log(`\n==> ${label}`);
   const result = spawnSync(process.execPath, args, {
     cwd: repositoryRoot,
     env: environment,
     shell: false,
     stdio: 'inherit',
+    timeout: checkedProcessTimeout(environment, timeoutMs),
   });
-  if (result.error) {
-    throw new Error(`${label} could not start: ${result.error.message}`);
-  }
-  if (result.status !== 0) {
-    throw new Error(`${label} failed with exit code ${result.status}`);
-  }
+  requireSuccessfulProcess(label, result);
 }
 
 export function startManagedNode(label, args, logFile, environment) {
