@@ -32,6 +32,11 @@ const spec = text(
   'apps/web/overlay/playground/__tests__/e2e/'
   + 'product-readiness-browser-accessibility.spec.ts',
 );
+const mobileIndex = text('apps/mobile/overlay/index.html');
+const mobileMain = text('apps/mobile/overlay/src/main.ts');
+const h5Accessibility = text(
+  'apps/mobile/overlay/src/platform/h5-accessibility.ts',
+);
 const packageJson = JSON.parse(text('package.json'));
 const ciScope = text(
   'scripts/product-readiness/pc-h5-runtime/ci-scope.mjs',
@@ -161,6 +166,31 @@ test('real browser evidence covers names, contrast, CJK glyphs and keyboard focu
   assert.doesNotMatch(spec, /request\.post\(/u);
   assert.doesNotMatch(spec, /waitForTimeout/u);
   assert.doesNotMatch(spec, /clickPcApproval|clickH5Approval/u);
+});
+
+test('H5 shell exposes language, focus and keyboard activation semantics', () => {
+  assert.match(mobileIndex, /<html lang="zh-CN"/u);
+  assert.match(mobileIndex, /uni-button\.wd-button:focus-visible/u);
+  assert.match(mobileMain, /installH5Accessibility/u);
+  for (const marker of [
+    "const buttonSelector = 'uni-button.wd-button'",
+    "button.setAttribute('role', 'button')",
+    "button.setAttribute('tabindex', isDisabled ? '-1' : '0')",
+    "button.setAttribute('aria-disabled', String(isDisabled))",
+    "document.documentElement.lang = 'zh-CN'",
+    'MutationObserver',
+    "event.key !== 'Enter'",
+    "event.key !== ' '",
+    'button.click()',
+  ]) {
+    assert.equal(
+      h5Accessibility.includes(marker),
+      true,
+      `H5 accessibility bridge missing ${marker}`,
+    );
+  }
+  assert.doesNotMatch(h5Accessibility, /setTimeout/u);
+  assert.doesNotMatch(h5Accessibility, /catch\s*\([^)]*\)\s*\{\s*\}/u);
 });
 
 test('package scripts and existing CI scope expose one bounded runtime', () => {
