@@ -9,6 +9,7 @@ import {
   UsageError,
   usage,
 } from './quick-start/contract.mjs';
+import { ensureCjkFontRuntime } from './quick-start/cjk-fonts.mjs';
 import { resetLedger } from './quick-start/evidence.mjs';
 import { execute } from './quick-start/runtime.mjs';
 
@@ -54,11 +55,13 @@ async function main() {
   configureBoundedChildCommands(contract);
   if (options.command === 'ci') {
     if (!shouldRunInCi()) return;
+    ensureCjkFontRuntime();
     await executeWithLedgerReset({ keepAlive: false });
     console.log('QUICK_START_SECOND_CLEAN_RUN_STARTING');
     await executeWithLedgerReset({ keepAlive: false });
     return;
   }
+  ensureCjkFontRuntime();
   await executeWithLedgerReset({ keepAlive: true });
 }
 
