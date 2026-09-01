@@ -6,7 +6,6 @@ let observer: MutationObserver | undefined
 function disabled(button: HTMLElement) {
   return button.classList.contains('is-disabled')
     || button.hasAttribute('disabled')
-    || button.getAttribute('aria-disabled') === 'true'
 }
 
 function normalizeButton(button: HTMLElement) {
