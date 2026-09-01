@@ -25,9 +25,7 @@ function normalizeTree(root: ParentNode) {
   if (root instanceof HTMLElement && root.matches(buttonSelector)) {
     normalizeButton(root)
   }
-  for (const button of root.querySelectorAll<HTMLElement>(buttonSelector)) {
-    normalizeButton(button)
-  }
+  root.querySelectorAll<HTMLElement>(buttonSelector).forEach(normalizeButton)
 }
 
 function startObserver() {
@@ -39,9 +37,9 @@ function startObserver() {
         if (record.target.matches(buttonSelector)) normalizeButton(record.target)
         continue
       }
-      for (const node of record.addedNodes) {
+      record.addedNodes.forEach((node) => {
         if (node instanceof HTMLElement) normalizeTree(node)
-      }
+      })
     }
   })
   observer.observe(document.documentElement, {
