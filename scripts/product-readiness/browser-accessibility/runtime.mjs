@@ -33,11 +33,13 @@ function processExited(child) {
 }
 
 function marker(buffer, name) {
-  const match = buffer.match(
-    new RegExp(`(?:^|\\n)${name}=([^\\r\\n]+)`, 'u'),
-  );
-  if (!match?.[1]) throw new Error(`Quick Start did not expose ${name}`);
-  return match[1].trim();
+  const prefix = `${name}=`;
+  const line = buffer
+    .split(/\r?\n/u)
+    .find(value => value.startsWith(prefix));
+  const value = line?.slice(prefix.length).trim();
+  if (!value) throw new Error(`Quick Start did not expose ${name}`);
+  return value;
 }
 
 async function waitForExit(processState, timeoutMs) {
@@ -276,10 +278,14 @@ export async function execute(contract) {
       terminateManaged(quickStart);
       await waitForExit(quickStart, 180_000);
       if (!quickStartEvidence) {
-        const match = quickStart.state.buffer.match(
-          /(?:^|\n)QUICK_START_EVIDENCE=([^\r\n]+)/u,
-        );
-        quickStartEvidence = match?.[1]?.trim();
+        try {
+          quickStartEvidence = marker(
+            quickStart.state.buffer,
+            'QUICK_START_EVIDENCE',
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) throw error;
+        }
       }
       if (!quickStartEvidence) {
         throw new Error('Quick Start evidence path is unavailable');

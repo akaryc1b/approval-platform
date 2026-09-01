@@ -1,10 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
 } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 
 import {
   repositoryRoot,
@@ -63,9 +64,22 @@ function requiredString(value, label) {
   return value.trim();
 }
 
-function readJson(path) {
-  if (!existsSync(path)) throw new Error(`missing required file: ${path}`);
-  return JSON.parse(readFileSync(path, 'utf8'));
+function trustedRepositoryJson(relativePath, label) {
+  const normalized = requiredString(relativePath, label).replaceAll('\\', '/');
+  if (normalized.startsWith('/')
+      || normalized.split('/').some(segment => segment === '..')) {
+    throw new Error(`${label} must remain within the repository`);
+  }
+  const absolutePath = resolve(repositoryRoot, normalized);
+  const repositoryPrefix = `${repositoryRoot}${sep}`;
+  if (absolutePath !== repositoryRoot
+      && !absolutePath.startsWith(repositoryPrefix)) {
+    throw new Error(`${label} escaped the repository`);
+  }
+  if (!existsSync(absolutePath)) {
+    throw new Error(`missing required file: ${normalized}`);
+  }
+  return JSON.parse(readFileSync(absolutePath, 'utf8'));
 }
 
 function resolveGovernedScenario(manifest) {
@@ -73,12 +87,18 @@ function resolveGovernedScenario(manifest) {
     manifest.scenarioSource,
     'scenarioSource',
   );
-  const quickStart = readJson(resolve(repositoryRoot, quickStartRelative));
+  const quickStart = trustedRepositoryJson(
+    quickStartRelative,
+    'scenarioSource',
+  );
   const scenarioRelative = requiredString(
     quickStart.scenarioManifest,
     'quick-start scenarioManifest',
   );
-  const scenario = readJson(resolve(repositoryRoot, scenarioRelative));
+  const scenario = trustedRepositoryJson(
+    scenarioRelative,
+    'quick-start scenarioManifest',
+  );
   return {
     tenantId: requiredString(scenario.tenant?.id, 'scenario tenant.id'),
     businessKey: requiredString(
@@ -97,7 +117,10 @@ function resolveGovernedScenario(manifest) {
 }
 
 export function loadContract() {
-  const manifest = readJson(manifestPath);
+  if (!existsSync(manifestPath)) {
+    throw new Error('browser accessibility manifest is missing');
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   if (manifest.schemaVersion !== 1) {
     throw new Error('browser accessibility schemaVersion must be 1');
   }
@@ -245,7 +268,7 @@ export function printPlan(contract, jsonOutput) {
 export function runIdentifier() {
   return `${new Date().toISOString().replace(/[:.]/gu, '-')}`
     + `-${process.pid.toString(16)}`
-    + `-${Math.random().toString(16).slice(2, 10)}`;
+    + `-${randomUUID().replaceAll('-', '').slice(0, 12)}`;
 }
 
 export function writeJson(path, value) {

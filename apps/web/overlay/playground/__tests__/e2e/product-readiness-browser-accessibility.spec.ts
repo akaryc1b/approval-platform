@@ -11,35 +11,57 @@ import {
 } from './product-readiness-pc-h5-runtime-api';
 import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
 
-function requiredEnvironment(name: string) {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`${name} is required`);
-  return value;
+function requiredValue(label: string, value: string | undefined) {
+  const normalized = value?.trim();
+  if (!normalized) throw new Error(`${label} is required`);
+  return normalized;
 }
 
-const repositoryRoot = requiredEnvironment('APPROVAL_DEMO_REPOSITORY_ROOT');
-const evidenceDirectory = requiredEnvironment(
+const repositoryRoot = requiredValue(
+  'APPROVAL_DEMO_REPOSITORY_ROOT',
+  process.env.APPROVAL_DEMO_REPOSITORY_ROOT,
+);
+const evidenceDirectory = requiredValue(
   'APPROVAL_BROWSER_ACCESSIBILITY_EVIDENCE_DIR',
+  process.env.APPROVAL_BROWSER_ACCESSIBILITY_EVIDENCE_DIR,
 );
-const exactHeadSha = requiredEnvironment('APPROVAL_DEMO_EXACT_HEAD_SHA');
-const exactTreeSha = requiredEnvironment('APPROVAL_DEMO_EXACT_TREE_SHA');
-const h5Url = requiredEnvironment('APPROVAL_DEMO_H5_URL');
-const configuredBusinessKey = requiredEnvironment(
+const exactHeadSha = requiredValue(
+  'APPROVAL_DEMO_EXACT_HEAD_SHA',
+  process.env.APPROVAL_DEMO_EXACT_HEAD_SHA,
+);
+const exactTreeSha = requiredValue(
+  'APPROVAL_DEMO_EXACT_TREE_SHA',
+  process.env.APPROVAL_DEMO_EXACT_TREE_SHA,
+);
+const h5Url = requiredValue(
+  'APPROVAL_DEMO_H5_URL',
+  process.env.APPROVAL_DEMO_H5_URL,
+);
+const configuredBusinessKey = requiredValue(
   'APPROVAL_DEMO_QUICK_START_BUSINESS_KEY',
+  process.env.APPROVAL_DEMO_QUICK_START_BUSINESS_KEY,
 );
-const h5ActorId = requiredEnvironment('APPROVAL_DEMO_QUICK_START_H5_ACTOR');
-const pcActorId = requiredEnvironment('APPROVAL_DEMO_QUICK_START_PC_ACTOR');
-const configuredTenant = requiredEnvironment(
+const h5ActorId = requiredValue(
+  'APPROVAL_DEMO_QUICK_START_H5_ACTOR',
+  process.env.APPROVAL_DEMO_QUICK_START_H5_ACTOR,
+);
+const pcActorId = requiredValue(
+  'APPROVAL_DEMO_QUICK_START_PC_ACTOR',
+  process.env.APPROVAL_DEMO_QUICK_START_PC_ACTOR,
+);
+const configuredTenant = requiredValue(
   'APPROVAL_DEMO_QUICK_START_TENANT',
+  process.env.APPROVAL_DEMO_QUICK_START_TENANT,
 );
+
 const matrix = JSON.parse(readFileSync(resolve(
   repositoryRoot,
-  requiredEnvironment('APPROVAL_BROWSER_ACCESSIBILITY_MANIFEST'),
+  'config/demo/browser-accessibility-matrix.json',
 ), 'utf8')) as {
   locale: string;
   projects: Array<{
     engine: 'chromium' | 'firefox' | 'webkit';
-    id: string;
+    id: 'bundled-firefox' | 'bundled-webkit' | 'system-chromium';
     runtime: string;
     scope: string;
   }>;
@@ -71,6 +93,19 @@ interface Violation {
 }
 
 const cjkProbeText = '审批任务采购付款工作台';
+const projectIds = new Set([
+  'system-chromium',
+  'bundled-firefox',
+  'bundled-webkit',
+]);
+const evidenceNames = new Set([
+  'h5-task-detail.png',
+  'h5-task-list.png',
+  'matrix-evidence.json',
+  'pc-confirmation-dialog.png',
+  'pc-task-detail.png',
+  'pc-task-list.png',
+]);
 
 async function collectCjkEvidence(page: Page) {
   await page.evaluate(async () => {
@@ -127,9 +162,9 @@ async function collectCjkEvidence(page: Page) {
   return { ...evidence, cjkGlyphsRendered: true };
 }
 
-async function controlEvidence(control: Locator, label: string) {
+async function controlEvidence(control: Locator, selector: string) {
   await expect(control).toBeVisible();
-  return control.evaluate((element, selector) => {
+  return control.evaluate((element, label) => {
     function channels(value: string) {
       const match = value.match(
         /rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)(?:\s*,\s*(\d+(?:\.\d+)?))?\s*\)/u,
@@ -146,8 +181,8 @@ async function controlEvidence(control: Locator, label: string) {
     function background(start: Element) {
       let current: Element | null = start;
       while (current) {
-        const value = channels(getComputedStyle(current).backgroundColor);
-        if (value && value.a > 0.01) return value;
+        const color = channels(getComputedStyle(current).backgroundColor);
+        if (color && color.a > 0.01) return color;
         current = current.parentElement;
       }
       return { a: 1, b: 255, g: 255, r: 255 };
@@ -199,10 +234,10 @@ async function controlEvidence(control: Locator, label: string) {
         outlineWidth: style.outlineWidth,
       },
       role: element.getAttribute('role') || element.tagName.toLowerCase(),
-      selector,
+      selector: label,
       tabIndex: (element as HTMLElement).tabIndex,
     };
-  }, label);
+  }, selector);
 }
 
 async function auditControls(
@@ -253,7 +288,7 @@ async function documentEvidence(page: Page, surface: string) {
         severity: 'serious',
       });
     }
-    const duplicateIds = [..document.querySelectorAll('[id]')]
+    const duplicateIds = Array.from(document.querySelectorAll('[id]'))
       .map(element => element.id)
       .filter(Boolean)
       .filter((id, index, values) => values.indexOf(id) !== index);
@@ -305,22 +340,29 @@ async function tabTo(
   throw new Error(`${label} was not reached by keyboard`);
 }
 
-async function h5ActionControl(actionBar: Locator, label: '同意' | '驳回') {
-  for (const candidate of [
-    actionBar.getByRole('button', { name: label, exact: true }).last(),
-    actionBar.locator('.wd-button')
-      .filter({ hasText: new RegExp(`^${label}$`, 'u') }).last(),
-    actionBar.locator('wd-button')
-      .filter({ hasText: new RegExp(`^${label}$`, 'u') }).last(),
-    actionBar.locator('uni-button')
-      .filter({ hasText: new RegExp(`^${label}$`, 'u') }).last(),
-  ]) {
-    if (await candidate.count() > 0) return candidate;
+async function exactTextButton(container: Locator, label: '同意' | '驳回') {
+  const roleButton = container.getByRole('button', {
+    name: label,
+    exact: true,
+  }).last();
+  if (await roleButton.count() > 0) return roleButton;
+  const candidates = container.locator('button, [role="button"], .wd-button');
+  const count = await candidates.count();
+  for (let index = 0; index < count; index += 1) {
+    const candidate = candidates.nth(index);
+    const text = (await candidate.textContent())?.replace(/\s+/gu, ' ').trim();
+    if (text === label) return candidate;
   }
   throw new Error(`H5 ${label} action does not expose a button`);
 }
 
-function evidencePath(projectId: string, name: string) {
+function evidencePath(
+  projectId: 'bundled-firefox' | 'bundled-webkit' | 'system-chromium',
+  name: string,
+) {
+  if (!projectIds.has(projectId) || !evidenceNames.has(name)) {
+    throw new Error('browser evidence path is not governed');
+  }
   const directory = resolve(evidenceDirectory, projectId);
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   return resolve(directory, name);
@@ -420,9 +462,11 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
     await h5Task.click();
     const actionBar = h5.locator('.action-bar');
     await expect(actionBar).toBeVisible({ timeout: 20_000 });
-    const h5Actions = await auditControls([
-      { label: 'h5-agree', locator: await h5ActionControl(actionBar, '同意') },
-      { label: 'h5-reject', locator: await h5ActionControl(actionBar, '驳回') },
+    const h5Agree = await exactTextButton(actionBar, '同意');
+    const h5Reject = await exactTextButton(actionBar, '驳回');
+    const h5Detail = await auditControls([
+      { label: 'h5-agree', locator: h5Agree },
+      { label: 'h5-reject', locator: h5Reject },
     ]);
     await h5.screenshot({
       fullPage: true,
@@ -434,7 +478,7 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
       ...pcDetail.serious,
       ...pcDocument.serious,
       ...h5Document.serious,
-      ...h5Actions.serious,
+      ...h5Detail.serious,
     ];
     const critical: Violation[] = [];
     expect(critical).toHaveLength(matrix.thresholds.criticalViolations);
@@ -481,7 +525,7 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
         controls: {
           pcList: pcList.evidence,
           pcDetail: pcDetail.evidence,
-          h5Detail: h5Actions.evidence,
+          h5Detail: h5Detail.evidence,
         },
         documents: { pc: pcDocument, h5: h5Document },
       },
