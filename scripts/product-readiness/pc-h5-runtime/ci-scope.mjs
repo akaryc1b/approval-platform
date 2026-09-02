@@ -14,13 +14,15 @@ const relevantPaths = [
   /^config\/demo\/purchase-payment-alpha-acceptance\.json$/u,
   /^config\/demo\/quick-start\.json$/u,
   /^config\/demo\/browser-accessibility-matrix\.json$/u,
+  /^config\/demo\/capacity-recovery\.json$/u,
   /^config\/demo\//u,
-  /^scripts\/product-readiness\/(?:demo-backend|demo-client|demo-quickstart|pc-h5-runtime-smoke|purchase-payment-e2e|purchase-payment-scenario-contract|browser-accessibility)\.mjs$/u,
+  /^scripts\/product-readiness\/(?:demo-backend|demo-client|demo-quickstart|pc-h5-runtime-smoke|purchase-payment-e2e|purchase-payment-scenario-contract|browser-accessibility|capacity-recovery)\.mjs$/u,
   /^scripts\/product-readiness\/browser-accessibility\//u,
+  /^scripts\/product-readiness\/capacity-recovery\//u,
   /^scripts\/product-readiness\/pc-h5-runtime\//u,
   /^scripts\/product-readiness\/purchase-payment-e2e\//u,
   /^scripts\/product-readiness\/quick-start\//u,
-  /^scripts\/tests\/(?:m3-repository-hygiene|product-readiness-pc-h5-runtime-boundary|product-readiness-purchase-payment-e2e-boundary|product-readiness-quick-start-boundary|product-readiness-browser-accessibility-boundary)\.test\.mjs$/u,
+  /^scripts\/tests\/(?:m3-repository-hygiene|product-readiness-pc-h5-runtime-boundary|product-readiness-purchase-payment-e2e-boundary|product-readiness-quick-start-boundary|product-readiness-browser-accessibility-boundary|product-readiness-capacity-recovery-boundary)\.test\.mjs$/u,
   /^scripts\/upstream\/bootstrap-unibest\.mjs$/u,
 ];
 
