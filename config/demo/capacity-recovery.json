@@ -1,16 +1,17 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "product-alpha-capacity-recovery",
   "scenarioSource": "config/demo/purchase-payment-golden-path.json",
   "quickStartSource": "config/demo/quick-start.json",
   "databaseVendor": "PostgreSQL 16",
   "applicationInstances": 1,
   "maximumRuntimeSeconds": 3600,
+  "extendedProfileRuntimeSeconds": 900,
   "profiles": [
     {
       "id": "small-demo",
       "displayName": "Small Demo",
-      "status": "EXECUTABLE",
+      "status": "EXECUTABLE_INITIAL",
       "dataset": {
         "tenants": 1,
         "directoryUsers": 6,
@@ -43,38 +44,76 @@
     },
     {
       "id": "standard-deployment",
-      "displayName": "Standard Deployment",
-      "status": "PLANNED",
+      "displayName": "Standard Deployment — Local Reference",
+      "status": "EXECUTABLE_EXTENDED",
       "dataset": {
-        "tenants": 5,
-        "directoryUsers": 500,
-        "departments": 50,
-        "roles": 20,
-        "processDefinitions": 25,
-        "nodesPerProcess": 20,
-        "activeInstances": 1000,
-        "historicalInstances": 10000,
-        "formFields": 50,
-        "childTableRows": 20,
-        "attachmentBytesPerRequest": 1048576
+        "tenants": 1,
+        "directoryUsers": 6,
+        "departments": 1,
+        "roles": 4,
+        "processDefinitions": 1,
+        "nodesPerProcess": 8,
+        "seededInstances": 1,
+        "generatedInstances": 24,
+        "cumulativeGeneratedInstances": 24,
+        "formFields": 4,
+        "attachmentMetadataPerRequest": 1,
+        "attachmentBytesPerRequest": 1024
+      },
+      "workload": {
+        "generatedInstances": 24,
+        "startConcurrency": 6,
+        "approvalConcurrency": 8,
+        "readRequests": 480,
+        "readConcurrency": 12,
+        "overloadReadRequests": 240,
+        "overloadReadConcurrency": 24,
+        "requestTimeoutMs": 5000,
+        "stateTimeoutMs": 180000
+      },
+      "thresholds": {
+        "maximumErrorRate": 0,
+        "maximumReadP95Ms": 3000,
+        "maximumReadP99Ms": 5000,
+        "minimumReadThroughputPerSecond": 5,
+        "minimumCompletedFlowsPerSecond": 0.02
       }
     },
     {
       "id": "large-tenant",
-      "displayName": "Large Tenant",
-      "status": "PLANNED",
+      "displayName": "Large Tenant — Local Reference",
+      "status": "EXECUTABLE_EXTENDED",
       "dataset": {
         "tenants": 1,
-        "directoryUsers": 10000,
-        "departments": 1000,
-        "roles": 100,
-        "processDefinitions": 100,
-        "nodesPerProcess": 50,
-        "activeInstances": 10000,
-        "historicalInstances": 1000000,
-        "formFields": 200,
-        "childTableRows": 100,
-        "attachmentBytesPerRequest": 10485760
+        "directoryUsers": 6,
+        "departments": 1,
+        "roles": 4,
+        "processDefinitions": 1,
+        "nodesPerProcess": 8,
+        "seededInstances": 1,
+        "generatedInstances": 72,
+        "cumulativeGeneratedInstances": 96,
+        "formFields": 4,
+        "attachmentMetadataPerRequest": 1,
+        "attachmentBytesPerRequest": 1024
+      },
+      "workload": {
+        "generatedInstances": 72,
+        "startConcurrency": 12,
+        "approvalConcurrency": 16,
+        "readRequests": 1440,
+        "readConcurrency": 24,
+        "overloadReadRequests": 480,
+        "overloadReadConcurrency": 48,
+        "requestTimeoutMs": 8000,
+        "stateTimeoutMs": 300000
+      },
+      "thresholds": {
+        "maximumErrorRate": 0,
+        "maximumReadP95Ms": 4000,
+        "maximumReadP99Ms": 8000,
+        "minimumReadThroughputPerSecond": 5,
+        "minimumCompletedFlowsPerSecond": 0.02
       }
     }
   ],
@@ -90,12 +129,33 @@
     "OUTBOX_CONNECTOR_RECOVERY_REUSED_AND_MEASURED",
     "CAPACITY_RECOVERY_INITIAL_SLICE_PUBLISHED"
   ],
+  "extendedClaims": [
+    "STANDARD_DEPLOYMENT_LOCAL_REFERENCE_PASSED",
+    "LARGE_TENANT_LOCAL_REFERENCE_PASSED",
+    "MULTI_INSTANCE_APPROVAL_THROUGHPUT_MEASURED",
+    "OUTBOX_BACKLOG_CREATION_VOLUME_MEASURED",
+    "BEYOND_CONFIGURED_READ_POINT_OBSERVED",
+    "CAPACITY_PROFILE_MATRIX_PUBLISHED"
+  ],
   "nonClaims": [
-    "STANDARD_DEPLOYMENT_CAPACITY_NOT_VERIFIED",
-    "LARGE_TENANT_CAPACITY_NOT_VERIFIED",
     "PRODUCTION_CAPACITY_NOT_VERIFIED",
+    "MAXIMUM_STABLE_ENVELOPE_NOT_VERIFIED",
     "PEAK_RESOURCE_ENVELOPE_NOT_VERIFIED",
     "MULTI_NODE_CAPACITY_NOT_VERIFIED",
+    "OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED",
+    "UPGRADE_REHEARSAL_NOT_VERIFIED",
+    "BACKUP_RESTORE_NOT_VERIFIED",
+    "RPO_RTO_NOT_VERIFIED",
+    "MYSQL_8_4_NOT_VERIFIED",
+    "PRODUCTION_DEPLOYMENT_NOT_VERIFIED",
+    "RELEASE_NOT_CREATED"
+  ],
+  "extendedNonClaims": [
+    "PRODUCTION_CAPACITY_NOT_VERIFIED",
+    "MAXIMUM_STABLE_ENVELOPE_NOT_VERIFIED",
+    "PEAK_RESOURCE_ENVELOPE_NOT_VERIFIED",
+    "MULTI_NODE_CAPACITY_NOT_VERIFIED",
+    "OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED",
     "UPGRADE_REHEARSAL_NOT_VERIFIED",
     "BACKUP_RESTORE_NOT_VERIFIED",
     "RPO_RTO_NOT_VERIFIED",
