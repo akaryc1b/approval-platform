@@ -20,6 +20,7 @@ import './product-readiness-quick-start-boundary.test.mjs';
 import './product-readiness-cjk-font-rendering-boundary.test.mjs';
 import './product-readiness-browser-accessibility-boundary.test.mjs';
 import './product-readiness-capacity-recovery-boundary.test.mjs';
+import './product-readiness-capacity-recovery-retry.test.mjs';
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';

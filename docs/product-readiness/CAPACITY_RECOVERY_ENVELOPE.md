@@ -104,6 +104,36 @@ HIGHER_THAN_CONFIGURED_READ_POINT_OBSERVED_NOT_MAXIMUM_ENVELOPE
 
 It demonstrates observed behavior above the configured read concurrency. It does not search for or identify the maximum stable envelope.
 
+## Bounded retryable approval-command handling
+
+The extended profile matrix preserves its configured approval concurrency. It does not hide an engine-level optimistic-locking response by lowering the declared workload. Instead, only this exact local command boundary may use bounded transport retry:
+
+```text
+POST http://127.0.0.1:8080/api/approval/tasks/<uuid>/approve
+```
+
+A retry is allowed only when all of the following are true:
+
+```text
+HTTP status = 500
+error.code = APPROVAL_COMMAND_FAILED
+error.retryable = true
+an Idempotency-Key is present
+request body is reusable and bounded
+```
+
+The policy permits at most four total attempts with deterministic delays of 50, 100 and 200 milliseconds. Every retry keeps the same idempotency key and uses a fresh request and trace ID. Network failures, non-retryable responses, reads, attachment uploads, instance starts and other writes are not retried by this policy.
+
+Every approval-command transport attempt is retained in:
+
+```text
+profile-matrix-command-retry-evidence.json
+```
+
+The file records the exact commit and tree, logical command count, transport-attempt count, retryable responses, recovered commands, terminal failures and each attempt outcome. It is required in a successful profile-matrix artifact envelope. The ordinary profile request summary therefore represents terminal logical outcomes and includes total retry latency, while this separate evidence file prevents transient attempts from disappearing from the record.
+
+A recovered retry is not itself a capacity claim, and it does not prove a maximum stable envelope.
+
 ## Measurement and evidence
 
 A successful profile records:
@@ -112,8 +142,9 @@ A successful profile records:
 - operating-system, CPU, memory and tool versions;
 - PostgreSQL server version, database size, connections, commits, rollbacks, block reads/hits, temporary bytes, locks and deadlocks;
 - point-in-time backend process-tree RSS, virtual memory and CPU observations;
-- every HTTP operation, status and latency;
-- request count, throughput, error rate and P50/P95/P99 latency by operation;
+- every terminal HTTP operation, status and latency;
+- every bounded approval-command transport attempt and retry outcome;
+- request count, throughput, terminal error rate and P50/P95/P99 latency by operation;
 - observed task-stage queue delay;
 - completed purchase flows per second;
 - database storage growth;
@@ -122,7 +153,7 @@ A successful profile records:
 
 Process observations are point-in-time samples. They are explicitly not a peak CPU or memory envelope.
 
-Each profile passes only when its configured point satisfies its governed zero-error, latency and throughput thresholds. Every successful profile remains labelled:
+Each profile passes only when its configured point satisfies its governed zero-terminal-error, latency and throughput thresholds. Every successful profile remains labelled:
 
 ```text
 PASSED_AT_CONFIGURED_POINT_ONLY

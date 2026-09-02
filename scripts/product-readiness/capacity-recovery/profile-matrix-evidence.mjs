@@ -65,6 +65,7 @@ export function appendProfileMatrixEnvelope(status, runDirectory, identity) {
     for (const required of [
       'source-identity.json',
       'profile-matrix-contract.json',
+      'profile-matrix-command-retry-evidence.json',
       'standard-deployment-profile.json',
       'large-tenant-profile.json',
       'profile-matrix-cleanup.json',
