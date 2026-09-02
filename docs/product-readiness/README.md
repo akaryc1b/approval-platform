@@ -14,7 +14,7 @@ This directory separates runnable local product evidence from build, architectur
 | One-command PC/H5 Quick Start | `IMPLEMENTED_EXACT_HEAD_EVIDENCE_GATED` | `pnpm demo:quickstart` starts the governed visible demo and records a 600-second measured result; exact-Head two-run evidence and the permanent Workflow are the acceptance authority |
 | WeChat runtime and physical-device evidence | `NOT_VERIFIED` | Build success and H5 surrogate evidence do not count |
 | Browser/accessibility matrix | `MERGED_ENGINE_BASELINE_ACCEPTED` | Chromium baseline plus Firefox and Playwright WebKit smoke, CJK rendering and authenticated PC keyboard evidence; not real Safari, broad browser support or full WCAG |
-| Performance/capacity envelope | `INITIAL_SMALL_DEMO_EXECUTABLE_EVIDENCE_GATED` | Small Demo configured-point measurement is executable; Standard Deployment, Large Tenant, peak and production envelopes remain unverified |
+| Performance/capacity envelope | `THREE_LOCAL_REFERENCE_PROFILES_IMPLEMENTED_EVIDENCE_GATED` | Small Demo evidence is accepted for its recorded Head; Standard Deployment and Large Tenant local-reference implementations have current-Head evidence pending |
 | Upgrade, backup/restore and RPO/RTO | `NOT_REHEARSED` | Runbooks, migration history and local Outbox recovery are insufficient |
 | Release and production deployment | `NOT_CREATED` | Default branch is not a Release |
 
@@ -47,7 +47,7 @@ pnpm demo:runtime:capacity-recovery:check
 pnpm demo:runtime:capacity-recovery
 ```
 
-`pnpm demo:quickstart` owns startup, visible PC/H5 readiness, timing evidence and cleanup. `pnpm demo:runtime:purchase-payment:e2e` is the separate complete local approval-to-sandbox path. `pnpm demo:runtime:browser-accessibility` reuses Quick Start for the bounded engine/accessibility matrix. `pnpm demo:runtime:capacity-recovery` measures one Small Demo workload point and reuses accepted Outbox recovery evidence. None of these commands is a production deployment procedure.
+`pnpm demo:quickstart` owns startup, visible PC/H5 readiness, timing evidence and cleanup. `pnpm demo:runtime:purchase-payment:e2e` is the separate complete local approval-to-sandbox path. `pnpm demo:runtime:browser-accessibility` reuses Quick Start for the bounded engine/accessibility matrix. `pnpm demo:runtime:capacity-recovery` measures Small Demo, Standard Deployment and Large Tenant local-reference profiles, then reuses the accepted purchase-payment recovery path. None of these commands is a production deployment procedure.
 
 ## Component and validator markers
 
@@ -84,6 +84,9 @@ These markers are scoped to the command that emitted or documented them. The rea
 - `PC_H5_FIREFOX_COMPATIBILITY_SMOKE_PASSED`: the bounded Firefox PC/H5 smoke passed; it is not broad Firefox acceptance.
 - `PC_H5_WEBKIT_ENGINE_COMPATIBILITY_SMOKE_PASSED`: Playwright WebKit passed the bounded engine smoke; it is not real Safari acceptance.
 - `SMALL_DEMO_CAPACITY_BASELINE_PASSED`: the exact configured Small Demo point passed its declared thresholds; it is not a maximum or production capacity claim.
+- `STANDARD_DEPLOYMENT_LOCAL_REFERENCE_PASSED`: the exact governed Standard local-reference profile passed; it is not a production deployment sizing claim.
+- `LARGE_TENANT_LOCAL_REFERENCE_PASSED`: the exact governed Large local-reference profile passed; it is not proof of a 10,000-user or million-history production tenant.
+- `OUTBOX_BACKLOG_CREATION_VOLUME_MEASURED`: the profile matrix created and counted completion-Outbox PENDING rows with dispatch disabled; it does not prove high-volume drain recovery.
 - `OUTBOX_CONNECTOR_RECOVERY_REUSED_AND_MEASURED`: exact-Head E2E PENDING/503 and DELIVERED evidence was reused and its retained evidence interval measured; it is not production RTO.
 - `PRODUCTION_PAYMENT_INTEGRATION_VERIFIED`: reserved for separately authorized real-provider acceptance; never inferred from a sandbox.
 
@@ -138,11 +141,11 @@ ANDROID_CHROME_NOT_VERIFIED
 WECHAT_WEBVIEW_NOT_VERIFIED
 FULL_WCAG_CONFORMANCE_NOT_VERIFIED
 SCREEN_READER_MANUAL_TEST_NOT_VERIFIED
-STANDARD_DEPLOYMENT_CAPACITY_NOT_VERIFIED
-LARGE_TENANT_CAPACITY_NOT_VERIFIED
 PRODUCTION_CAPACITY_NOT_VERIFIED
+MAXIMUM_STABLE_ENVELOPE_NOT_VERIFIED
 PEAK_RESOURCE_ENVELOPE_NOT_VERIFIED
 MULTI_NODE_CAPACITY_NOT_VERIFIED
+OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED
 UPGRADE_REHEARSAL_NOT_VERIFIED
 BACKUP_RESTORE_NOT_VERIFIED
 RPO_RTO_NOT_VERIFIED
