@@ -1,8 +1,8 @@
-# Capacity and Recovery Operating Envelope — Initial Slice
+# Capacity and Recovery Operating Envelope
 
 Tracking: [#140 — Publish capacity and recovery operating envelope](https://github.com/akaryc1b/approval-platform/issues/140), supporting [#107](https://github.com/akaryc1b/approval-platform/issues/107).
 
-This page defines the first executable capacity/recovery slice for the existing purchase-payment product path. It publishes measured local evidence for one configured workload point. It does not publish a production sizing promise, marketing TPS figure, peak-resource envelope, RPO or RTO.
+This page defines the executable local-reference capacity and recovery path for the existing purchase-payment product scenario. It publishes measured evidence only after an exact-Head runtime succeeds. It does not publish a production sizing promise, marketing TPS figure, maximum stable envelope, peak-resource envelope, RPO or RTO.
 
 ## Entrypoints
 
@@ -23,17 +23,17 @@ The directory is ignored by Git and must not be committed.
 
 ## Governed profiles
 
-| Profile | Current executable status | Dataset boundary |
+| Profile | Implementation status | Local-reference dataset |
 | --- | --- | --- |
-| Small Demo | `EXECUTABLE` | One tenant, six directory identities, one eight-node purchase-payment definition, one deterministic seeded instance and six generated instances |
-| Standard Deployment | `PLANNED` | Five tenants, 500 identities, 25 definitions, 1,000 active and 10,000 historical instances |
-| Large Tenant | `PLANNED` | One tenant, 10,000 identities, 100 definitions, 10,000 active and 1,000,000 historical instances |
+| Small Demo | `EXECUTABLE_INITIAL` / exact-Head evidence accepted for the earlier slice | One tenant, six governed directory identities, one eight-node purchase-payment definition, one deterministic seeded instance and six generated instances |
+| Standard Deployment — Local Reference | `EXECUTABLE_EXTENDED` / evidence pending on the current Head | One tenant, the governed six-identity directory, 24 generated purchase-payment instances, 480 configured reads, 240 higher-concurrency reads and complete five-task approval flows |
+| Large Tenant — Local Reference | `EXECUTABLE_EXTENDED` / evidence pending on the current Head | The same governed tenant and directory, 72 additional generated instances, 1,440 configured reads, 480 higher-concurrency reads and a cumulative 96 generated instances across the extended matrix |
 
-Only Small Demo may emit the initial slice claims. The two larger profiles remain declarations for later workload generation and do not inherit Small Demo results.
+The profile names describe workload classes, not production deployment promises. The Standard and Large profiles deliberately use the existing local Product Alpha tenant, users, process definition, form and attachment model so the test measures the same real business path instead of synthesizing a second platform.
 
 ## Small Demo measured path
 
-The runtime reuses `demo-backend.mjs`, PostgreSQL 16, Redis, Spring Boot, Flowable and the deterministic purchase-payment Seed. It then uses the public application HTTP boundaries to:
+The initial runtime reuses `demo-backend.mjs`, PostgreSQL 16, Redis, Spring Boot, Flowable and the deterministic purchase-payment Seed. It then uses public application HTTP boundaries to:
 
 ```text
 upload one bounded attachment per request
@@ -47,9 +47,66 @@ upload one bounded attachment per request
 → clean the existing disposable runtime lifecycle
 ```
 
-The approval stages use bounded concurrency 4 across independent process instances. They do not write platform or Flowable tables directly.
+The accepted earlier exact-Head Small Demo result is labelled:
 
-A successful execution records:
+```text
+PASSED_AT_CONFIGURED_POINT_ONLY
+```
+
+That means the exact configured point passed. It is not a maximum or production capacity statement.
+
+## Extended Standard and Large matrix
+
+After the initial Small Demo plus purchase-payment recovery run, the same one-command entrypoint starts a fresh disposable local backend lifecycle and executes the two larger local-reference profiles serially.
+
+For each profile it performs:
+
+```text
+bounded attachment uploads
+→ concurrent purchase-payment starts
+→ configured pending-list/detail read pressure
+→ a higher-concurrency read observation
+→ manager approval
+→ finance review
+→ two-person finance countersign
+→ payment confirmation
+→ completed-instance checks
+→ sampled timeline checks
+→ read-only completion-Outbox backlog count
+```
+
+The Standard profile uses:
+
+```text
+generated instances: 24
+start concurrency: 6
+approval concurrency: 8
+configured reads: 480 at concurrency 12
+higher-point reads: 240 at concurrency 24
+```
+
+The Large profile adds:
+
+```text
+generated instances: 72
+cumulative generated instances: 96
+start concurrency: 12
+approval concurrency: 16
+configured reads: 1,440 at concurrency 24
+higher-point reads: 480 at concurrency 48
+```
+
+The higher read point is retained as:
+
+```text
+HIGHER_THAN_CONFIGURED_READ_POINT_OBSERVED_NOT_MAXIMUM_ENVELOPE
+```
+
+It demonstrates observed behavior above the configured read concurrency. It does not search for or identify the maximum stable envelope.
+
+## Measurement and evidence
+
+A successful profile records:
 
 - exact commit and tree identity;
 - operating-system, CPU, memory and tool versions;
@@ -57,37 +114,23 @@ A successful execution records:
 - point-in-time backend process-tree RSS, virtual memory and CPU observations;
 - every HTTP operation, status and latency;
 - request count, throughput, error rate and P50/P95/P99 latency by operation;
-- observed stage queue delay;
+- observed task-stage queue delay;
 - completed purchase flows per second;
 - database storage growth;
 - exact tenant, business-key, attachment and instance identities;
-- cleanup results.
+- complete cleanup results.
 
-The process observations are point-in-time samples. They are explicitly not a peak CPU or memory envelope.
+Process observations are point-in-time samples. They are explicitly not a peak CPU or memory envelope.
 
-## Configured acceptance point
-
-Small Demo passes only when the configured workload satisfies all declared thresholds:
-
-```text
-error rate = 0
-pending-list/detail P95 <= 2,500 ms
-pending-list/detail P99 <= 5,000 ms
-pending-list/detail throughput >= 1 request/second
-completed purchase flows >= 0.02 flow/second
-```
-
-The emitted profile status is:
+Each profile passes only when its configured point satisfies its governed zero-error, latency and throughput thresholds. Every successful profile remains labelled:
 
 ```text
 PASSED_AT_CONFIGURED_POINT_ONLY
 ```
 
-This means the exact configured point passed. It does not mean the system was driven beyond that point, and it is not a maximum production capacity statement.
+## Outbox and Connector recovery
 
-## Outbox and Connector recovery reuse
-
-The capacity command does not create a second Outbox, Connector or sandbox test. It requires exact-Head evidence from the accepted purchase-payment E2E:
+The capacity command does not create a second Outbox, Connector or payment sandbox. It reuses the existing purchase-payment E2E to prove:
 
 ```text
 transactional completion Outbox
@@ -98,9 +141,7 @@ transactional completion Outbox
 → exactly one payment side effect is accepted
 ```
 
-CI reuses the immediately preceding exact-Head E2E evidence. A local run without accepted exact-Head evidence executes enough clean E2E runs to satisfy the existing two-run gate.
-
-The capacity summary measures the filesystem evidence interval between retained PENDING and DELIVERED records. That number is labelled:
+The measured interval between the retained PENDING and DELIVERED evidence is labelled:
 
 ```text
 FILESYSTEM_EVIDENCE_INTERVAL_NOT_PRODUCTION_RTO
@@ -108,9 +149,13 @@ FILESYSTEM_EVIDENCE_INTERVAL_NOT_PRODUCTION_RTO
 
 It must never be presented as production RTO.
 
-## Initial bounded claims
+The extended profile matrix separately creates a bounded completion-Outbox backlog while the dispatcher is disabled. It measures the exact PENDING row count for the generated completed instances. It does not yet run a high-volume Connector drain, so this remains explicit:
 
-Only a successful exact-Head runtime and complete cleanup may emit:
+```text
+OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED
+```
+
+## Claims already accepted for the earlier Small Demo Head
 
 ```text
 SMALL_DEMO_CAPACITY_BASELINE_PASSED
@@ -120,14 +165,31 @@ OUTBOX_CONNECTOR_RECOVERY_REUSED_AND_MEASURED
 CAPACITY_RECOVERY_INITIAL_SLICE_PUBLISHED
 ```
 
+These claims remain bound to their recorded exact Head, Workflow Run and Artifact. Their presence here does not release them for a later Head.
+
+## Extended claims gated on current exact-Head evidence
+
+The executable code may emit the following only after both larger profiles and cleanup succeed:
+
+```text
+STANDARD_DEPLOYMENT_LOCAL_REFERENCE_PASSED
+LARGE_TENANT_LOCAL_REFERENCE_PASSED
+MULTI_INSTANCE_APPROVAL_THROUGHPUT_MEASURED
+OUTBOX_BACKLOG_CREATION_VOLUME_MEASURED
+BEYOND_CONFIGURED_READ_POINT_OBSERVED
+CAPACITY_PROFILE_MATRIX_PUBLISHED
+```
+
+Until a natural Workflow and retained Artifact are audited, these are implementation targets with evidence pending, not accepted results.
+
 ## Explicit limitations
 
 ```text
-STANDARD_DEPLOYMENT_CAPACITY_NOT_VERIFIED
-LARGE_TENANT_CAPACITY_NOT_VERIFIED
 PRODUCTION_CAPACITY_NOT_VERIFIED
+MAXIMUM_STABLE_ENVELOPE_NOT_VERIFIED
 PEAK_RESOURCE_ENVELOPE_NOT_VERIFIED
 MULTI_NODE_CAPACITY_NOT_VERIFIED
+OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED
 UPGRADE_REHEARSAL_NOT_VERIFIED
 BACKUP_RESTORE_NOT_VERIFIED
 RPO_RTO_NOT_VERIFIED
@@ -136,8 +198,8 @@ PRODUCTION_DEPLOYMENT_NOT_VERIFIED
 RELEASE_NOT_CREATED
 ```
 
-PostgreSQL 16 is the only database target for this slice. The independent MySQL 8.4 work in PR #92 is neither modified nor treated as accepted.
+PostgreSQL 16 is the only database target for this work. The independent MySQL 8.4 work in PR #92 is neither modified nor treated as accepted.
 
 ## Remaining delivery
 
-Issue #140 remains open after the initial slice. Subsequent work must add real Standard Deployment and Large Tenant datasets, observed behavior beyond the stable point, multi-node application measurements, and an executable in-flight upgrade plus backup/restore rehearsal with deterministic consistency summaries and actual bounded RPO/RTO measurements.
+Issue #140 remains open. After exact-Head Standard and Large evidence, the same Draft PR must still add a bounded high-volume Outbox/Connector backlog drain, then an executable in-flight upgrade plus backup/restore rehearsal with deterministic pre/post consistency summaries and actual measured local RPO/RTO. Multi-node and production-capacity claims remain separate work.
