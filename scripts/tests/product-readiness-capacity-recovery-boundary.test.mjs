@@ -99,6 +99,7 @@ test('runtime reuses public product boundaries and accepted recovery lifecycle',
   assert.match(runtime, /AbortSignal\.timeout/u);
   assert.match(runtime, /remainingMilliseconds/u);
   assert.match(runtime, /two clean exact-Head recovery runs/iu);
+  assert.match(launcher, /reuseRecoveryEvidence:\s*false/u);
   assert.doesNotMatch(runtime, /\bACT_[A-Z0-9_]+\b/u);
   assert.doesNotMatch(runtime, /\b(?:insert into|update ap_|delete from)\b/iu);
   assert.doesNotMatch(runtime, /waitForTimeout/u);
@@ -157,12 +158,14 @@ test('evidence is bounded, exact-Head bound and retained in the existing artifac
   assert.match(contract, /STANDARD_DEPLOYMENT_CAPACITY_NOT_VERIFIED/u);
 });
 
-test('capacity CI is path-scoped and documentation-only changes stay cheap', () => {
+test('capacity CI is isolated and documentation-only changes stay cheap', () => {
   assert.match(launcher, /shouldRunInCi/u);
   assert.match(ciScope, /CAPACITY_RECOVERY_SCOPE/u);
   assert.match(ciScope, /capacity-recovery/u);
   assert.doesNotMatch(ciScope, /docs\\\//u);
-  assert.match(sharedCiScope, /capacity-recovery/u);
+  assert.match(sharedCiScope, /capacityOnlyChangeSet/u);
+  assert.match(sharedCiScope, /SKIPPED_CAPACITY_ONLY/u);
+  assert.match(sharedCiScope, /CAPACITY_RECOVERY_ENVELOPE/u);
 });
 
 test('package scripts and aggregate expose the initial capacity slice', () => {
