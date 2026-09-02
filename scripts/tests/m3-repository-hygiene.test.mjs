@@ -19,6 +19,7 @@ import './product-readiness-purchase-payment-e2e-boundary.test.mjs';
 import './product-readiness-quick-start-boundary.test.mjs';
 import './product-readiness-cjk-font-rendering-boundary.test.mjs';
 import './product-readiness-browser-accessibility-boundary.test.mjs';
+import './product-readiness-capacity-recovery-boundary.test.mjs';
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
