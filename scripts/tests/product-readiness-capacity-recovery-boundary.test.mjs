@@ -108,12 +108,6 @@ test('launcher executes initial recovery and extended profile matrix serially', 
   assert.match(launcher, /execute\(contract,[\s\S]*?reuseRecoveryEvidence:\s*false/u);
   assert.match(launcher, /await executeProfileMatrix\(contract\)/u);
   assert.equal(
-    launcher.indexOf('await execute(contract'),
-    launcher.indexOf('await executeProfileMatrix(contract)') < 0
-      ? -1
-      : launcher.indexOf('await execute(contract'),
-  );
-  assert.equal(
     launcher.indexOf('await execute(contract')
       < launcher.indexOf('await executeProfileMatrix(contract)'),
     true,
@@ -162,7 +156,7 @@ test('standard and large matrix uses bounded public workload and read-only backl
     'overloadRead',
     'runBoundedPool',
     'queryOutboxBacklog',
-    "'PENDING'",
+    'byStatus.PENDING',
     'OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED',
     'capturePostgres',
     'captureProcess',
