@@ -1,80 +1,147 @@
 # Approval Platform
 
-[中文](#项目定位) | [English](#english-summary)
+**面向企业和团队的通用审批与流程协作平台。**
 
-面向独立部署的通用审批与流程协作平台。平台以 Approval DSL、Form Schema 和平台自有治理证据为产品模型，通过正式 Engine SPI 使用 Flowable 作为流程执行内核，并提供 Web、H5、微信小程序、SDK、Connector 和受治理 AI 扩展边界。
+Approval Platform 把表单、审批流程、待办协作、审计证据和外部系统回调放在一套可独立部署的平台中。业务系统通过 API、SDK 或 Connector 接入，不需要直接依赖 Flowable 内部 API 或表结构。
 
-> **状态说明**：README 不再维护里程碑、数据库版本或逐项能力状态。请以机器生成的 [`Current Capability Status`](docs/current/capability-status.md) 为当前事实入口。代码已存在、测试通过、正式验收、合并、发布和生产支持是六个不同状态，不能相互自动推导。
+[10 分钟本地体验](docs/product-readiness/QUICK_START.md) ·
+[完整采购付款演示](docs/product-readiness/PURCHASE_PAYMENT_GOLDEN_PATH.md) ·
+[用户指南](docs/product-readiness/USER_GUIDE.md) ·
+[在线试用计划](docs/product-readiness/ONLINE_DEMO.md) ·
+[当前能力状态](docs/current/capability-status.md)
 
-## 项目定位
+> **当前阶段：Product Alpha。** 已经可以在本地一键启动，并完成一条真实的采购到付款沙箱流程；当前没有公共在线试用地址。仓库尚未发布正式 Release，也没有声明 Production Support。
 
-Approval Platform 不是业务系统中的简单审批组件，也不是 Flowable API 或内部表的直接封装。它提供独立的审批产品层、运行时治理、审计证据和多端交互，并通过 REST、Webhook、SDK 与连接器接入宿主系统。
+## 产品解决什么问题
 
-核心原则：
+很多业务系统都需要审批，但通常会重复建设流程设计、表单、待办、会签、撤回、转交、审计和外部回调。Approval Platform 将这些共性能力收敛为独立产品层：
 
-- 业务系统不直接依赖 Flowable API；
-- 生产代码不查询或修改 Flowable `ACT_*` 内部表；
-- Approval DSL 是产品流程模型，BPMN/DMN 是确定性编译产物；
-- Form Schema 与 UI Schema 独立于具体前端组件；
-- 身份、租户、权限、运行时绑定和审计证据由服务端权威产生；
-- 浏览器、Mobile、SDK、Connector 和 AI 输入不能制造可信执行上下文；
-- 外部连接器、引擎和 AI Provider 调用不被伪装成平台数据库原子事务；
-- 历史版本、执行尝试、UNKNOWN、reconciliation、审计链和验收记录保留可追踪证据；
-- AI 建议不等于审批决定，Provider 不得直接调用审批命令。
+| 场景 | 产品能力 |
+| --- | --- |
+| 设计申请 | 版本化 Form Schema、UI Schema、表单设计与不可变发布包 |
+| 设计流程 | Approval DSL、条件路由、并行分支、会签、驳回与修订 |
+| 处理工作 | 待办、已办、发起、审批、撤回、转交和安全取回 |
+| 多端协作 | PC、H5 与微信小程序共享服务端权威语义 |
+| 系统集成 | SDK、事件契约、Outbox、签名回调和受治理 Connector |
+| 治理与审计 | 租户隔离、幂等、审计、SLA、发布生命周期和迁移证据 |
+| AI 辅助 | 可追溯的摘要与风险建议；始终需要人工复核，AI 不执行审批命令 |
 
-## 技术基线
+当前默认分支中的具体实现、测试和验收状态，以机器生成的 [Current Capability Status](docs/current/capability-status.md) 为准。
 
-具体版本和兼容结论由 [`Current Compatibility`](docs/current/compatibility.md) 生成并维护。主要技术栈包括：
+## 一条可以直接体验的业务流程
 
-- Java、Spring Boot、Flowable 和 Maven 多模块；
-- PostgreSQL、Flyway 和平台自有 JDBC 持久化；
-- Vue 3、Vben Admin、Element Plus；
-- UniApp Vue 3、Unibest、Wot UI；
-- pnpm workspace、Java/TypeScript SDK 与连接器模块。
+仓库内置确定性的高金额采购付款场景：
 
-## 本地 Product Alpha
+```text
+确定性 Seed 准备由员工发起的采购付款申请
+→ PC 经理审批
+→ H5 财务复核
+→ H5 两人财务会签
+→ H5 代替目标微信端完成付款确认
+→ 审批实例 COMPLETED
+→ 事务 Outbox 产生付款事件
+→ 本地签名付款沙箱先返回 HTTP 503
+→ 消息保持 PENDING
+→ 下游恢复后重试并变为 DELIVERED
+→ 仅产生一次已接受的付款副作用
+```
 
-从受支持的本地环境启动可操作演示：
+这条路径使用真实应用服务、PostgreSQL 16、Redis、Spring Boot、Flowable、PC/H5 页面、Outbox 和 Connector 沙箱。它不代表真实银行或生产支付系统已经接入；目标微信端目前仍由 H5 运行时替代验收。
+
+## 开始体验
+
+### 1. 10 分钟启动 PC 与 H5
+
+准备 Java 21、Maven、Node.js、pnpm、Docker 和 Chrome/Chromium/Edge，然后在仓库根目录执行：
 
 ```bash
 pnpm demo:quickstart
 ```
 
-命令、前置条件、证据和明确非声明见 [`10-Minute Quick Start`](docs/product-readiness/QUICK_START.md)。该入口不是 Release 或生产部署说明。
+该命令会启动 PostgreSQL、Redis、后端、确定性演示数据、PC 和 H5，并验证同一采购任务在两个客户端可见。按一次 `Ctrl-C` 会执行受控清理。
+
+完整前置条件和操作步骤见 [10-Minute Quick Start](docs/product-readiness/QUICK_START.md)。
+
+### 2. 运行完整采购到付款沙箱流程
+
+```bash
+pnpm demo:runtime:purchase-payment:e2e
+```
+
+该命令通过可见的 PC/H5 控件完成审批、付款确认、沙箱故障恢复、幂等校验和清理。详情见 [Purchase-Payment Golden Path](docs/product-readiness/PURCHASE_PAYMENT_GOLDEN_PATH.md)。
+
+### 3. 在线试用
+
+公共在线试用环境尚未上线。计划先交付一个**邀请制、数据可重置、会话隔离、限制外部出口的非生产评估沙箱**，通过验证后再决定是否开放公共访问。
+
+方案、上线门槛和安全边界见 [Online Evaluation Sandbox](docs/product-readiness/ONLINE_DEMO.md)。
+
+## 当前可用程度
+
+| 产品结果 | 当前状态 |
+| --- | --- |
+| 一键本地 Quick Start | 已合并并通过两次独立的 10 分钟内运行证据 |
+| 采购到付款黄金路径 | 已合并；PC/H5 可见操作、Outbox、签名本地付款沙箱和故障恢复已验证 |
+| PC/H5 浏览器与基础无障碍 | Chromium、Firefox 和 Playwright WebKit 的受限基线已合并 |
+| 微信运行时与真机 | 尚未验证；当前黄金路径使用 H5 mobile surrogate |
+| 容量、升级和恢复 | 正在补齐测量与演练，尚不能声明生产容量或 RPO/RTO |
+| 在线评估环境 | 已规划，尚无公共 URL |
+| Release / Production Support | `UNRELEASED` / `NOT_DECLARED` |
 
 ## 文档入口
 
-| 需要了解的内容 | 权威入口 |
+| 读者需求 | 文档 |
 | --- | --- |
-| 本地 10 分钟 Quick Start | [`docs/product-readiness/QUICK_START.md`](docs/product-readiness/QUICK_START.md) |
-| 产品可用性证据 | [`docs/product-readiness/README.md`](docs/product-readiness/README.md) |
-| 当前能力状态 | [`docs/current/capability-status.md`](docs/current/capability-status.md) |
-| 当前架构 | [`docs/current/architecture.md`](docs/current/architecture.md) |
-| 当前运维边界 | [`docs/current/operations.md`](docs/current/operations.md) |
-| 当前兼容性 | [`docs/current/compatibility.md`](docs/current/compatibility.md) |
-| 历史验收证据 | [`docs/acceptance/README.md`](docs/acceptance/README.md) |
-| 发布快照 | [`docs/releases/README.md`](docs/releases/README.md) |
-| 稳定协议与参考 | [`docs/reference/README.md`](docs/reference/README.md) |
-| 未来路线 | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
-| 完整索引 | [`docs/README.md`](docs/README.md) |
+| 快速体验 | [Quick Start](docs/product-readiness/QUICK_START.md) |
+| 完成采购付款场景 | [Golden Path](docs/product-readiness/PURCHASE_PAYMENT_GOLDEN_PATH.md) |
+| 普通用户操作 | [User Guide](docs/product-readiness/USER_GUIDE.md) |
+| 管理员配置 | [Administrator Guide](docs/product-readiness/ADMIN_GUIDE.md) |
+| 运行和清理 | [Operator Guide](docs/product-readiness/OPERATOR_GUIDE.md) |
+| 在线试用建设 | [Online Demo](docs/product-readiness/ONLINE_DEMO.md) |
+| 当前产品能力 | [Capability Status](docs/current/capability-status.md) |
+| 当前兼容性 | [Compatibility](docs/current/compatibility.md) |
+| 架构与设计 | [Architecture](docs/current/architecture.md) |
+| API、Schema 与协议 | [Reference Index](docs/reference/README.md) |
+| 完整文档目录 | [Documentation Index](docs/README.md) |
 
-## 使用与部署边界
+## 技术概览
 
-默认分支不是 Release。任何部署前都应先确认：
+- Java 21、Spring Boot、Flowable、Maven 多模块；
+- PostgreSQL 16、Redis、Flyway、平台自有 JDBC 持久化；
+- Vue 3、Vben Admin、Element Plus；
+- UniApp Vue 3、Unibest、Wot UI；
+- Java / TypeScript SDK、Connector、Outbox 与签名回调；
+- 受治理、默认关闭的 AI Provider 与人工复核型审批辅助。
 
-1. 所需能力在 Capability Status 中的精确状态；
-2. 目标数据库、运行时和客户端组合在 Compatibility 中明确列出；
-3. 对应 Release 存在真实 tag、GitHub Release、manifest 和制品摘要；
-4. Operations 中的备份、恢复、身份、权限、默认关闭项和 incident 边界已经满足；
-5. Production Supported 已被显式声明，而不是从测试或验收结果推断。
+Approval DSL 是产品流程模型，BPMN/DMN 是确定性编译产物。生产代码不直接查询或修改 Flowable `ACT_*` 内部表。
+
+## 当前边界
+
+- PostgreSQL 16 是当前已验收参考数据库；MySQL 8.4 仍是未合并兼容目标。
+- 已验证的是本地 Product Alpha 和本地付款沙箱，不是真实生产支付。
+- 浏览器与无障碍结果是受限基线，不是完整 WCAG、屏幕阅读器或真实移动设备认证。
+- 默认分支不是正式 Release；测试、验收和合并不能自动推导 Production Support。
+- 在线试用上线前必须完成数据隔离、重置、限流、外部出口和容量门槛验证。
+
+开发、架构、运维和历史验收细节保留在 `docs/` 中，不再占用 README 的产品入口位置。
 
 ## English Summary
 
-Approval Platform is an independently deployable approval and workflow collaboration platform built around a product-owned Approval DSL, Form Schema, immutable governance evidence, and a formal Flowable Engine SPI.
+Approval Platform is an independently deployable approval and workflow collaboration platform for versioned forms, approval design, task collaboration, audit evidence, SDKs, connectors, and human-reviewed AI assistance.
 
-For the bounded local Product Alpha entry path, see the [10-Minute Quick Start](docs/product-readiness/QUICK_START.md). It is not a Release or production-deployment guide.
+The current Product Alpha includes a measured local Quick Start and a complete PC/H5 purchase-to-payment sandbox path with Outbox retry and idempotency evidence. A public hosted demo is planned but is not available yet. The repository is unreleased and does not declare production support.
 
-README is not the authority for milestone or capability status. Use the generated [Current Capability Status](docs/current/capability-status.md), [Current Compatibility](docs/current/compatibility.md), release snapshots, and immutable acceptance records. Implemented, tested, accepted, merged, released, and production-supported are intentionally separate states.
+Start with:
+
+```bash
+pnpm demo:quickstart
+```
+
+Then run the complete local sandbox flow with:
+
+```bash
+pnpm demo:runtime:purchase-payment:e2e
+```
 
 ## License
 
