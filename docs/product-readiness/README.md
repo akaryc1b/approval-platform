@@ -110,6 +110,7 @@ pnpm demo:runtime:browser-accessibility
 仓库保留更窄组件命令的声明词汇。例如，只读场景校验器和 Seed 集成测试不会启动完整 PC/H5 产品路径，因此它们会正确输出：
 
 ```text
+DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED
 PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED
 DETERMINISTIC_DEMO_SEED_IMPLEMENTED
 BACKEND_LOCAL_START_VERIFIED
