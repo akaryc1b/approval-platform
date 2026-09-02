@@ -21,6 +21,12 @@ const launcher = text('scripts/product-readiness/capacity-recovery.mjs');
 const contract = text('scripts/product-readiness/capacity-recovery/contract.mjs');
 const runtime = text('scripts/product-readiness/capacity-recovery/runtime.mjs');
 const evidence = text('scripts/product-readiness/capacity-recovery/evidence.mjs');
+const profileMatrix = text(
+  'scripts/product-readiness/capacity-recovery/profile-matrix.mjs',
+);
+const profileEvidence = text(
+  'scripts/product-readiness/capacity-recovery/profile-matrix-evidence.mjs',
+);
 const ciScope = text('scripts/product-readiness/capacity-recovery/ci-scope.mjs');
 const sharedCiScope = text('scripts/product-readiness/pc-h5-runtime/ci-scope.mjs');
 const packageJson = JSON.parse(text('package.json'));
@@ -30,24 +36,41 @@ const operatingEnvelope = text(
   'docs/product-readiness/CAPACITY_RECOVERY_ENVELOPE.md',
 );
 
-test('capacity plan declares three profiles and one executable initial point', () => {
-  assert.equal(manifest.schemaVersion, 1);
+test('capacity plan declares three executable local reference profiles', () => {
+  assert.equal(manifest.schemaVersion, 2);
   assert.equal(manifest.databaseVendor, 'PostgreSQL 16');
   assert.equal(manifest.applicationInstances, 1);
   assert.deepEqual(
     manifest.profiles.map(profile => [profile.id, profile.status]),
     [
-      ['small-demo', 'EXECUTABLE'],
-      ['standard-deployment', 'PLANNED'],
-      ['large-tenant', 'PLANNED'],
+      ['small-demo', 'EXECUTABLE_INITIAL'],
+      ['standard-deployment', 'EXECUTABLE_EXTENDED'],
+      ['large-tenant', 'EXECUTABLE_EXTENDED'],
     ],
   );
   assert.equal(
-    manifest.nonClaims.includes('RPO_RTO_NOT_VERIFIED'),
+    manifest.profiles[2].dataset.cumulativeGeneratedInstances,
+    manifest.profiles[1].workload.generatedInstances
+      + manifest.profiles[2].workload.generatedInstances,
+  );
+  assert.equal(
+    manifest.extendedClaims.includes(
+      'MULTI_INSTANCE_APPROVAL_THROUGHPUT_MEASURED',
+    ),
     true,
   );
   assert.equal(
-    manifest.nonClaims.includes('MYSQL_8_4_NOT_VERIFIED'),
+    manifest.extendedNonClaims.includes(
+      'OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED',
+    ),
+    true,
+  );
+  assert.equal(
+    manifest.extendedNonClaims.includes('RPO_RTO_NOT_VERIFIED'),
+    true,
+  );
+  assert.equal(
+    manifest.extendedNonClaims.includes('MYSQL_8_4_NOT_VERIFIED'),
     true,
   );
 });
@@ -69,14 +92,35 @@ test('plan command is read-only and machine-readable', () => {
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const plan = JSON.parse(result.stdout);
+  assert.equal(plan.schemaVersion, 2);
   assert.equal(plan.entrypoint, 'pnpm demo:runtime:capacity-recovery');
   assert.equal(plan.databaseVendor, 'PostgreSQL 16');
-  assert.equal(plan.executableProfile, 'small-demo');
+  assert.deepEqual(plan.executableProfiles, [
+    'small-demo',
+    'standard-deployment',
+    'large-tenant',
+  ]);
   assert.equal(plan.profiles.length, 3);
   assert.equal(plan.evidenceRoot, '.runtime/capacity-recovery/<run-id>/');
 });
 
-test('runtime reuses public product boundaries and accepted recovery lifecycle', () => {
+test('launcher executes initial recovery and extended profile matrix serially', () => {
+  assert.match(launcher, /execute\(contract,[\s\S]*?reuseRecoveryEvidence:\s*false/u);
+  assert.match(launcher, /await executeProfileMatrix\(contract\)/u);
+  assert.equal(
+    launcher.indexOf('await execute(contract'),
+    launcher.indexOf('await executeProfileMatrix(contract)') < 0
+      ? -1
+      : launcher.indexOf('await execute(contract'),
+  );
+  assert.equal(
+    launcher.indexOf('await execute(contract')
+      < launcher.indexOf('await executeProfileMatrix(contract)'),
+    true,
+  );
+});
+
+test('initial runtime reuses public product boundaries and accepted recovery lifecycle', () => {
   for (const marker of [
     "'scripts/product-readiness/demo-backend.mjs', 'start'",
     '/api/approval/attachments',
@@ -99,11 +143,53 @@ test('runtime reuses public product boundaries and accepted recovery lifecycle',
   assert.match(runtime, /AbortSignal\.timeout/u);
   assert.match(runtime, /remainingMilliseconds/u);
   assert.match(runtime, /two clean exact-Head recovery runs/iu);
-  assert.match(launcher, /reuseRecoveryEvidence:\s*false/u);
   assert.doesNotMatch(runtime, /\bACT_[A-Z0-9_]+\b/u);
   assert.doesNotMatch(runtime, /\b(?:insert into|update ap_|delete from)\b/iu);
   assert.doesNotMatch(runtime, /waitForTimeout/u);
   assert.doesNotMatch(runtime, /catch\s*\([^)]*\)\s*\{\s*\}/u);
+});
+
+test('standard and large matrix uses bounded public workload and read-only backlog evidence', () => {
+  for (const marker of [
+    'standardDeployment',
+    'largeTenant',
+    "'scripts/product-readiness/demo-backend.mjs', 'start'",
+    '/api/approval/attachments',
+    '/api/approval/instances/purchase-payment',
+    '/api/approval/tasks/pending',
+    '/api/approval/tasks/${task.taskId}/approve',
+    'configuredRead',
+    'overloadRead',
+    'runBoundedPool',
+    'queryOutboxBacklog',
+    "'PENDING'",
+    'OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED',
+    'capturePostgres',
+    'captureProcess',
+    'profile-matrix-cleanup.json',
+    'appendProfileMatrixEnvelope',
+    'finally',
+  ]) {
+    assert.equal(
+      profileMatrix.includes(marker),
+      true,
+      `profile matrix missing ${marker}`,
+    );
+  }
+  assert.match(profileMatrix, /AbortSignal\.timeout/u);
+  assert.match(profileMatrix, /remainingMilliseconds/u);
+  assert.match(profileMatrix, /dispatcherEnabled:\s*false/u);
+  assert.match(profileMatrix, /maximumStableEnvelope:\s*'NOT_SEARCHED'/u);
+  assert.doesNotMatch(profileMatrix, /\bACT_[A-Z0-9_]+\b/u);
+  assert.doesNotMatch(
+    profileMatrix,
+    /\b(?:insert into|update ap_|delete from)\b/iu,
+  );
+  assert.doesNotMatch(profileMatrix, /waitForTimeout/u);
+  assert.doesNotMatch(
+    profileMatrix,
+    /catch\s*\([^)]*\)\s*\{\s*\}/u,
+  );
 });
 
 test('statistics produce bounded interpolated latency and error summaries', () => {
@@ -140,7 +226,7 @@ test('bounded pool never exceeds configured concurrency', async () => {
   assert.deepEqual(result, [2, 4, 6, 8, 10, 12]);
 });
 
-test('evidence is bounded, exact-Head bound and retained in the existing artifact', () => {
+test('initial and extended evidence are bounded and retained in the existing artifact', () => {
   for (const marker of [
     'CAPACITY_RECOVERY_CI_ARTIFACT_ENVELOPE_V1',
     'root-install.log',
@@ -153,9 +239,26 @@ test('evidence is bounded, exact-Head bound and retained in the existing artifac
   ]) {
     assert.equal(evidence.includes(marker), true, `evidence missing ${marker}`);
   }
+  for (const marker of [
+    'CAPACITY_PROFILE_MATRIX_CI_ARTIFACT_ENVELOPE_V1',
+    'root-install.log',
+    'maximumFileBytes',
+    'maximumTotalBytes',
+    'standard-deployment-profile.json',
+    'large-tenant-profile.json',
+    'profile-matrix-cleanup.json',
+    'profile-matrix-summary.json',
+  ]) {
+    assert.equal(
+      profileEvidence.includes(marker),
+      true,
+      `profile evidence missing ${marker}`,
+    );
+  }
   assert.match(contract, /sourceIdentity/u);
   assert.match(contract, /PostgreSQL 16/u);
-  assert.match(contract, /STANDARD_DEPLOYMENT_CAPACITY_NOT_VERIFIED/u);
+  assert.match(contract, /extendedClaims/u);
+  assert.match(contract, /RPO_RTO_NOT_VERIFIED/u);
 });
 
 test('capacity CI is isolated and documentation-only changes stay cheap', () => {
@@ -168,7 +271,7 @@ test('capacity CI is isolated and documentation-only changes stay cheap', () => 
   assert.match(sharedCiScope, /CAPACITY_RECOVERY_ENVELOPE/u);
 });
 
-test('package scripts and aggregate expose the initial capacity slice', () => {
+test('package scripts and aggregate expose one capacity command', () => {
   assert.equal(
     packageJson.scripts['demo:runtime:capacity-recovery'],
     'node scripts/product-readiness/capacity-recovery.mjs run',
@@ -200,11 +303,13 @@ test('package scripts and aggregate expose the initial capacity slice', () => {
   );
 });
 
-test('documentation publishes only the measured initial boundary', () => {
+test('documentation distinguishes executable local references from accepted evidence', () => {
   assert.match(readinessIndex, /CAPACITY_RECOVERY_ENVELOPE\.md/u);
-  assert.match(readinessIndex, /Small Demo/u);
+  assert.match(readinessIndex, /Standard Deployment/u);
+  assert.match(readinessIndex, /Large Tenant/u);
   assert.match(operatingEnvelope, /PASSED_AT_CONFIGURED_POINT_ONLY/u);
-  assert.match(operatingEnvelope, /STANDARD_DEPLOYMENT_CAPACITY_NOT_VERIFIED/u);
+  assert.match(operatingEnvelope, /EXECUTABLE_EXTENDED/u);
+  assert.match(operatingEnvelope, /evidence pending/iu);
   assert.match(operatingEnvelope, /RPO_RTO_NOT_VERIFIED/u);
   assert.doesNotMatch(operatingEnvelope, /production supported/iu);
 });
