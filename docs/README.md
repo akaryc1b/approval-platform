@@ -47,9 +47,11 @@ Capability Status 与 Compatibility 由 `config/capabilities.json`、仓库运�
 - [Acceptance Index](acceptance/README.md)
 - [M3 Final Acceptance](M3_FINAL_ACCEPTANCE.md)
 - [M4 Final Acceptance](M4_FINAL_ACCEPTANCE.md)
-- [M5 Final Permanent Acceptance Evidence](M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md)
+- [M5 Final Permanent Acceptance Evidence](M5_FINAL_PERMANENT_ACCEPTANCE_EVIDENCE.md) — historical pre-merge final permanent acceptance record；
 - [M6 Overall Formal Acceptance](m6/M6_OVERALL_FORMAL_ACCEPTANCE.md)
 - [M6-G End-to-End Production Readiness Acceptance](m6/M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE.md)
+
+这里的历史 `pre-merge final permanent acceptance` 只描述对应里程碑当时的验收身份，不会自动成为当前 Release、部署或 Production Support 声明。
 
 ## 发布快照
 
