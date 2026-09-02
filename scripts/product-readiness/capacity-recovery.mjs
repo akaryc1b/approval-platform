@@ -23,7 +23,7 @@ async function main() {
   }
   if (options.command === 'ci' && !shouldRunInCi()) return;
   await execute(contract, {
-    reuseRecoveryEvidence: options.command === 'ci',
+    reuseRecoveryEvidence: false,
   });
 }
 
