@@ -141,7 +141,7 @@ function normalizeThresholds(profile) {
 }
 
 function normalizeProfile(profile, index) {
-  const label = requiredString(profile.id, `profiles[${index}].id`);
+  const label = requireString(profile.id, `profiles[${index}].id`);
   const extended = index > 0;
   const workload = {
     generatedInstances: requireInteger(
