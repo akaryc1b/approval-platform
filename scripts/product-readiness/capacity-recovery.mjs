@@ -8,6 +8,7 @@ import {
   UsageError,
   usage,
 } from './capacity-recovery/contract.mjs';
+import { executeProfileMatrix } from './capacity-recovery/profile-matrix.mjs';
 import { execute } from './capacity-recovery/runtime.mjs';
 
 async function main() {
@@ -25,6 +26,7 @@ async function main() {
   await execute(contract, {
     reuseRecoveryEvidence: false,
   });
+  await executeProfileMatrix(contract);
 }
 
 main().catch((error) => {
