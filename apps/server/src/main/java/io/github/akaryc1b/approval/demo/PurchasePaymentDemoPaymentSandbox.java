@@ -51,6 +51,8 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
     private final URI endpoint;
     private final Path controlFile;
     private final Path statusFile;
+    private final String businessKeyPrefix;
+    private final String purchaseOrderReferencePrefix;
     private final SignedWebhookVerifier verifier;
     private final AtomicBoolean available = new AtomicBoolean(false);
     private final AtomicInteger attempts = new AtomicInteger();
@@ -73,6 +75,34 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         Path statusFile,
         Duration maximumClockSkew
     ) {
+        this(
+            objectMapper,
+            clock,
+            secret,
+            keyId,
+            scenario,
+            endpoint,
+            controlFile,
+            statusFile,
+            null,
+            null,
+            maximumClockSkew
+        );
+    }
+
+    public PurchasePaymentDemoPaymentSandbox(
+        ObjectMapper objectMapper,
+        Clock clock,
+        byte[] secret,
+        String keyId,
+        PurchasePaymentDemoScenario scenario,
+        URI endpoint,
+        Path controlFile,
+        Path statusFile,
+        String businessKeyPrefix,
+        String purchaseOrderReferencePrefix,
+        Duration maximumClockSkew
+    ) {
         this.objectMapper = Objects.requireNonNull(
             objectMapper,
             "objectMapper must not be null"
@@ -88,6 +118,16 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         this.endpoint = Objects.requireNonNull(endpoint, "endpoint must not be null");
         this.controlFile = normalize(controlFile);
         this.statusFile = normalize(statusFile);
+        this.businessKeyPrefix = normalizeOptional(businessKeyPrefix);
+        this.purchaseOrderReferencePrefix = normalizeOptional(
+            purchaseOrderReferencePrefix
+        );
+        if ((this.businessKeyPrefix == null)
+            != (this.purchaseOrderReferencePrefix == null)) {
+            throw new IllegalArgumentException(
+                "sandbox volume prefixes must be configured together"
+            );
+        }
         this.verifier = new SignedWebhookVerifier(maximumClockSkew);
     }
 
@@ -286,8 +326,16 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
             aggregateId.equals(payload.path("instanceId").asText()),
             "sandbox instance identity is invalid"
         );
+        String businessKey = requireText(
+            payload.path("businessKey").asText(),
+            "businessKey"
+        );
         require(
-            scenario.request().businessKey().equals(payload.path("businessKey").asText()),
+            matchesExpected(
+                businessKey,
+                scenario.request().businessKey(),
+                businessKeyPrefix
+            ),
             "sandbox business key is invalid"
         );
         require(
@@ -298,9 +346,15 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
             scenario.request().supplier().equals(payload.path("supplier").asText()),
             "sandbox supplier is invalid"
         );
+        String purchaseOrderReference = requireText(
+            payload.path("purchaseOrderReference").asText(),
+            "purchaseOrderReference"
+        );
         require(
-            scenario.request().purchaseOrderReference().equals(
-                payload.path("purchaseOrderReference").asText()
+            matchesExpected(
+                purchaseOrderReference,
+                scenario.request().purchaseOrderReference(),
+                purchaseOrderReferencePrefix
             ),
             "sandbox purchase order reference is invalid"
         );
@@ -310,6 +364,15 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
             requestId,
             event.deepCopy()
         );
+    }
+
+    private static boolean matchesExpected(
+        String value,
+        String expected,
+        String configuredPrefix
+    ) {
+        return expected.equals(value)
+            || configuredPrefix != null && value.startsWith(configuredPrefix);
     }
 
     private static Map<String, String> normalizeHeaders(Map<String, String> headers) {
@@ -403,6 +466,10 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
 
     private static Path normalize(Path value) {
         return value == null ? null : value.toAbsolutePath().normalize();
+    }
+
+    private static String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private static String requireText(String value, String name) {

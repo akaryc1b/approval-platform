@@ -2,7 +2,9 @@
 
 Tracking: [#140 — Publish capacity and recovery operating envelope](https://github.com/akaryc1b/approval-platform/issues/140), supporting [#107](https://github.com/akaryc1b/approval-platform/issues/107).
 
-This page defines the executable local-reference capacity and recovery path for the existing purchase-payment product scenario. It publishes measured evidence only after an exact-Head runtime succeeds. It does not publish a production sizing promise, marketing TPS figure, maximum stable envelope, peak-resource envelope, RPO or RTO.
+This page defines the executable local-reference capacity and recovery path for the existing purchase-payment Product Alpha scenario. It publishes results only after an exact-Head runtime, threshold checks, retained Artifact audit and fail-closed cleanup succeed.
+
+It does **not** publish a production sizing promise, marketing TPS figure, maximum stable envelope, peak-resource envelope, production RPO or production RTO.
 
 ## Entrypoints
 
@@ -13,69 +15,61 @@ pnpm demo:runtime:capacity-recovery
 pnpm demo:runtime:capacity-recovery:ci
 ```
 
-Every runtime writes only to:
+Every runtime writes untracked evidence under:
 
 ```text
 .runtime/capacity-recovery/<run-id>/
 ```
 
-The directory is ignored by Git and must not be committed.
+The command now executes four serial stages:
+
+```text
+Small Demo configured point and accepted single-event recovery
+→ Standard Deployment local-reference profile
+→ Large Tenant local-reference profile
+→ configured-volume Outbox / Generic REST Connector backlog drain
+```
+
+The final backup/restore and local RPO/RTO rehearsal remains separate unfinished work in the same Draft PR.
 
 ## Governed profiles
 
 | Profile | Implementation status | Local-reference dataset |
 | --- | --- | --- |
-| Small Demo | `EXECUTABLE_INITIAL` / exact-Head evidence accepted for the earlier slice | One tenant, six governed directory identities, one eight-node purchase-payment definition, one deterministic seeded instance and six generated instances |
-| Standard Deployment — Local Reference | `EXECUTABLE_EXTENDED` / evidence pending on the current Head | One tenant, the governed six-identity directory, 24 generated purchase-payment instances, 480 configured reads, 240 higher-concurrency reads and complete five-task approval flows |
-| Large Tenant — Local Reference | `EXECUTABLE_EXTENDED` / evidence pending on the current Head | The same governed tenant and directory, 72 additional generated instances, 1,440 configured reads, 480 higher-concurrency reads and a cumulative 96 generated instances across the extended matrix |
+| Small Demo | `EXECUTABLE_INITIAL` | One tenant, six governed identities, one eight-node purchase-payment definition, one seeded instance and six generated instances |
+| Standard Deployment — Local Reference | `EXECUTABLE_EXTENDED` | 24 generated instances, 480 configured reads, 240 higher-concurrency reads and complete five-task approval flows |
+| Large Tenant — Local Reference | `EXECUTABLE_EXTENDED` | 72 additional generated instances, 1,440 configured reads, 480 higher-concurrency reads and 96 cumulative instances |
+| Outbox / Connector backlog drain | `IMPLEMENTED_EXACT_HEAD_EVIDENCE_PENDING` | A fresh bounded set of 96 completed instances delivered through the existing Generic REST Connector and signed local payment sandbox |
 
-The profile names describe workload classes, not production deployment promises. The Standard and Large profiles deliberately use the existing local Product Alpha tenant, users, process definition, form and attachment model so the test measures the same real business path instead of synthesizing a second platform.
+The profile names describe workload classes. They are not production deployment sizes.
 
-## Small Demo measured path
+## Capacity profile path
 
-The initial runtime reuses `demo-backend.mjs`, PostgreSQL 16, Redis, Spring Boot, Flowable and the deterministic purchase-payment Seed. It then uses public application HTTP boundaries to:
+The Small, Standard and Large profiles reuse:
 
-```text
-upload one bounded attachment per request
-→ start six unique purchase-payment instances with concurrency 2
-→ execute 60 pending-task list/detail reads with concurrency 6
-→ approve manager tasks
-→ approve finance-review tasks
-→ complete two governed finance-countersign tasks per instance
-→ approve payment confirmation
-→ re-read every completed instance and timeline
-→ clean the existing disposable runtime lifecycle
-```
+- PostgreSQL 16;
+- Redis;
+- Spring Boot and Flowable;
+- the governed purchase-payment process and six-identity directory;
+- real attachment, start, pending-task, task-action, instance and timeline APIs;
+- the transactional completion Outbox.
 
-The accepted earlier exact-Head Small Demo result is labelled:
-
-```text
-PASSED_AT_CONFIGURED_POINT_ONLY
-```
-
-That means the exact configured point passed. It is not a maximum or production capacity statement.
-
-## Extended Standard and Large matrix
-
-After the initial Small Demo plus purchase-payment recovery run, the same one-command entrypoint starts a fresh disposable local backend lifecycle and executes the two larger local-reference profiles serially.
-
-For each profile it performs:
+The configured profile matrix performs:
 
 ```text
 bounded attachment uploads
 → concurrent purchase-payment starts
-→ configured pending-list/detail read pressure
-→ a higher-concurrency read observation
+→ configured list/detail read pressure
+→ higher-concurrency read observation
 → manager approval
 → finance review
 → two-person finance countersign
 → payment confirmation
-→ completed-instance checks
-→ sampled timeline checks
+→ completed-instance and sampled-timeline checks
 → read-only completion-Outbox backlog count
 ```
 
-The Standard profile uses:
+Standard Deployment uses:
 
 ```text
 generated instances: 24
@@ -85,7 +79,7 @@ configured reads: 480 at concurrency 12
 higher-point reads: 240 at concurrency 24
 ```
 
-The Large profile adds:
+Large Tenant adds:
 
 ```text
 generated instances: 72
@@ -96,111 +90,116 @@ configured reads: 1,440 at concurrency 24
 higher-point reads: 480 at concurrency 48
 ```
 
-The higher read point is retained as:
-
-```text
-HIGHER_THAN_CONFIGURED_READ_POINT_OBSERVED_NOT_MAXIMUM_ENVELOPE
-```
-
-It demonstrates observed behavior above the configured read concurrency. It does not search for or identify the maximum stable envelope.
-
-## Bounded retryable approval-command handling
-
-The extended profile matrix preserves its configured approval concurrency. It does not hide an engine-level optimistic-locking response by lowering the declared workload. Instead, only this exact local command boundary may use bounded transport retry:
-
-```text
-POST http://127.0.0.1:8080/api/approval/tasks/<uuid>/approve
-```
-
-A retry is allowed only when all of the following are true:
-
-```text
-HTTP status = 500
-error.code = APPROVAL_COMMAND_FAILED
-error.retryable = true
-an Idempotency-Key is present
-request body is reusable and bounded
-```
-
-The policy permits at most four total attempts with deterministic delays of 50, 100 and 200 milliseconds. Every retry keeps the same idempotency key and uses a fresh request and trace ID. Network failures, non-retryable responses, reads, attachment uploads, instance starts and other writes are not retried by this policy.
-
-Every approval-command transport attempt is retained in:
-
-```text
-profile-matrix-command-retry-evidence.json
-```
-
-The file records the exact commit and tree, logical command count, transport-attempt count, retryable responses, recovered commands, terminal failures and each attempt outcome. It is required in a successful profile-matrix artifact envelope. The ordinary profile request summary therefore represents terminal logical outcomes and includes total retry latency, while this separate evidence file prevents transient attempts from disappearing from the record.
-
-A recovered retry is not itself a capacity claim, and it does not prove a maximum stable envelope.
-
-## Measurement and evidence
-
-A successful profile records:
-
-- exact commit and tree identity;
-- operating-system, CPU, memory and tool versions;
-- PostgreSQL server version, database size, connections, commits, rollbacks, block reads/hits, temporary bytes, locks and deadlocks;
-- point-in-time backend process-tree RSS, virtual memory and CPU observations;
-- every terminal HTTP operation, status and latency;
-- every bounded approval-command transport attempt and retry outcome;
-- request count, throughput, terminal error rate and P50/P95/P99 latency by operation;
-- observed task-stage queue delay;
-- completed purchase flows per second;
-- database storage growth;
-- exact tenant, business-key, attachment and instance identities;
-- complete cleanup results.
-
-Process observations are point-in-time samples. They are explicitly not a peak CPU or memory envelope.
-
-Each profile passes only when its configured point satisfies its governed zero-terminal-error, latency and throughput thresholds. Every successful profile remains labelled:
+Every successful profile remains labelled:
 
 ```text
 PASSED_AT_CONFIGURED_POINT_ONLY
 ```
 
-## Outbox and Connector recovery
-
-The capacity command does not create a second Outbox, Connector or payment sandbox. It reuses the existing purchase-payment E2E to prove:
+The higher read point remains:
 
 ```text
-transactional completion Outbox
-→ signed local payment sandbox returns HTTP 503
-→ Outbox remains PENDING and recoverable
-→ sandbox recovery is enabled
-→ bounded retry reaches DELIVERED
-→ exactly one payment side effect is accepted
+HIGHER_THAN_CONFIGURED_READ_POINT_OBSERVED_NOT_MAXIMUM_ENVELOPE
 ```
 
-The measured interval between the retained PENDING and DELIVERED evidence is labelled:
+Neither label identifies the maximum stable envelope.
+
+## Bounded approval-command retry
+
+Only this exact local command boundary may retry a server-declared optimistic-locking response:
 
 ```text
-FILESYSTEM_EVIDENCE_INTERVAL_NOT_PRODUCTION_RTO
+POST http://127.0.0.1:8080/api/approval/tasks/<uuid>/approve
+HTTP 500
+code = APPROVAL_COMMAND_FAILED
+retryable = true
 ```
 
-It must never be presented as production RTO.
+The policy permits at most four total attempts with deterministic delays of 50, 100 and 200 milliseconds. It preserves the same idempotency key, uses fresh request and trace IDs, and retains each transport attempt.
 
-The extended profile matrix separately creates a bounded completion-Outbox backlog while the dispatcher is disabled. It measures the exact PENDING row count for the generated completed instances. It does not yet run a high-volume Connector drain, so this remains explicit:
+Network failures, reads, attachments, process starts and unrelated writes are not retried.
+
+## Configured-volume Outbox / Connector drain
+
+The backlog-drain stage does not create a second Outbox, Connector, workflow or payment provider. It starts the existing local backend with:
+
+- the existing Generic REST Connector;
+- the existing Outbox dispatcher;
+- the existing loopback-only signed payment sandbox;
+- an explicit local-only business-key and purchase-order prefix allowlist;
+- a bounded batch size of 96;
+- bounded retry delay and maximum attempts.
+
+It then executes:
 
 ```text
-OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED
+create 96 unique real purchase-payment instances
+→ complete all five approval tasks for each instance
+→ signed payment sandbox remains unavailable
+→ every target completion event receives HTTP 503
+→ every target event remains PENDING and recoverable
+→ verify 96 unique Outbox IDs, event IDs, aggregate IDs and idempotency keys
+→ enable the existing sandbox recovery control
+→ wait until every target event becomes DELIVERED
+→ verify HTTP 200 and unique provider request IDs
+→ verify the sandbox accepts exactly 96 unique payment results
+→ hold a five-observation exactly-once stability window
+→ clean backend, ports, containers and disposable data
 ```
 
-## Claims already accepted for the earlier Small Demo Head
+The sandbox volume mode remains restricted to the local profile and to prefixes extending the governed demo identity. Exact-value validation remains the default for the accepted single-event golden path.
+
+The implementation is complete on the candidate branch, but acceptance remains **evidence pending** until the new exact Head succeeds.
+
+The candidate claim is:
 
 ```text
-SMALL_DEMO_CAPACITY_BASELINE_PASSED
-SMALL_DEMO_CONCURRENT_PURCHASE_FLOW_PASSED
-SMALL_DEMO_READ_PRESSURE_PASSED
-OUTBOX_CONNECTOR_RECOVERY_REUSED_AND_MEASURED
-CAPACITY_RECOVERY_INITIAL_SLICE_PUBLISHED
+OUTBOX_CONNECTOR_BACKLOG_DRAIN_LOCAL_CONFIGURED_VOLUME_PASSED
 ```
 
-These claims remain bound to their recorded exact Head, Workflow Run and Artifact. Their presence here does not release them for a later Head.
+It may be accepted only after the new exact Head completes naturally and its retained Artifact is audited.
 
-## Extended claims gated on current exact-Head evidence
+The measured recovery interval is labelled:
 
-The executable code may emit the following only after both larger profiles and cleanup succeed:
+```text
+LOCAL_SINGLE_NODE_CONFIGURED_VOLUME_NOT_PRODUCTION_RTO
+```
+
+It is not production recovery throughput and not production RTO.
+
+## Retained machine evidence
+
+The profile matrix retains:
+
+```text
+source-identity.json
+profile-matrix-contract.json
+profile-matrix-host.json
+profile-matrix-command-retry-evidence.json
+standard-deployment-profile.json
+standard-deployment-request-samples.json
+large-tenant-profile.json
+large-tenant-request-samples.json
+profile-matrix-cleanup.json
+profile-matrix-summary.json
+```
+
+The configured-volume drain retains:
+
+```text
+source-identity.json
+backlog-drain-contract.json
+backlog-drain-instances.json
+backlog-drain-command-attempts.json
+outbox-backlog-unavailable.json
+outbox-backlog-delivered.json
+backlog-drain-cleanup.json
+outbox-backlog-drain-summary.json
+```
+
+In GitHub Actions, bounded JSON evidence is embedded in the existing `root-install.log` Artifact envelope with per-file size and SHA-256 digests. Evidence remains untracked and must never be committed.
+
+## Claims gated on exact-Head evidence
 
 ```text
 STANDARD_DEPLOYMENT_LOCAL_REFERENCE_PASSED
@@ -209,9 +208,39 @@ MULTI_INSTANCE_APPROVAL_THROUGHPUT_MEASURED
 OUTBOX_BACKLOG_CREATION_VOLUME_MEASURED
 BEYOND_CONFIGURED_READ_POINT_OBSERVED
 CAPACITY_PROFILE_MATRIX_PUBLISHED
+OUTBOX_CONNECTOR_BACKLOG_DRAIN_LOCAL_CONFIGURED_VOLUME_PASSED
 ```
 
-Until a natural Workflow and retained Artifact are audited, these are implementation targets with evidence pending, not accepted results.
+Implementation or marker presence alone releases no claim.
+
+## Remaining recovery rehearsal
+
+Issue #140 remains open. Before PR #142 can become Ready, the same branch must still execute:
+
+```text
+create a real in-flight purchase-payment instance
+→ capture deterministic pre-backup business summaries
+→ stop the backend
+→ take a PostgreSQL backup
+→ rebuild a disposable PostgreSQL / Redis lifecycle
+→ restore the backup
+→ start the same candidate application
+→ compare instance, task, audit, attachment and Outbox summaries
+→ continue the in-flight workflow through public APIs
+→ complete payment and Outbox delivery
+→ measure local backup, restore, health and first-business-read intervals
+```
+
+Required candidate outcomes are:
+
+```text
+LOCAL_BACKUP_RESTORE_REHEARSAL_PASSED
+PRE_POST_BUSINESS_CONSISTENCY_PASSED
+LOCAL_RPO_MEASURED
+LOCAL_RTO_MEASURED
+```
+
+They must remain qualified as local, quiesced, single-node evidence.
 
 ## Explicit limitations
 
@@ -220,17 +249,16 @@ PRODUCTION_CAPACITY_NOT_VERIFIED
 MAXIMUM_STABLE_ENVELOPE_NOT_VERIFIED
 PEAK_RESOURCE_ENVELOPE_NOT_VERIFIED
 MULTI_NODE_CAPACITY_NOT_VERIFIED
-OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED
+PRODUCTION_OUTBOX_DRAIN_RATE_NOT_VERIFIED
+MULTI_NODE_OUTBOX_DRAIN_NOT_VERIFIED
 UPGRADE_REHEARSAL_NOT_VERIFIED
 BACKUP_RESTORE_NOT_VERIFIED
 RPO_RTO_NOT_VERIFIED
+PRODUCTION_RPO_NOT_VERIFIED
+PRODUCTION_RTO_NOT_VERIFIED
 MYSQL_8_4_NOT_VERIFIED
 PRODUCTION_DEPLOYMENT_NOT_VERIFIED
 RELEASE_NOT_CREATED
 ```
 
-PostgreSQL 16 is the only database target for this work. The independent MySQL 8.4 work in PR #92 is neither modified nor treated as accepted.
-
-## Remaining delivery
-
-Issue #140 remains open. After exact-Head Standard and Large evidence, the same Draft PR must still add a bounded high-volume Outbox/Connector backlog drain, then an executable in-flight upgrade plus backup/restore rehearsal with deterministic pre/post consistency summaries and actual measured local RPO/RTO. Multi-node and production-capacity claims remain separate work.
+PostgreSQL 16 is the only database target for this work. The independent MySQL 8.4 work in PR #92 is not modified or treated as accepted.

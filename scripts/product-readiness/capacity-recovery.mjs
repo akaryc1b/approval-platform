@@ -5,14 +5,35 @@ import {
   loadContract,
   outputRoot,
   parseArguments,
-  printPlan,
+  plan,
   sourceIdentity,
   UsageError,
   usage,
 } from './capacity-recovery/contract.mjs';
+import {
+  backlogDrainPlan,
+  executeBacklogDrain,
+} from './capacity-recovery/backlog-drain.mjs';
 import { executeProfileMatrix } from './capacity-recovery/profile-matrix.mjs';
 import { installProfileCommandRetryEvidence } from './capacity-recovery/retryable-command-fetch.mjs';
 import { execute } from './capacity-recovery/runtime.mjs';
+
+function printPlan(contract, jsonOutput) {
+  const value = plan(contract);
+  const backlog = backlogDrainPlan(contract);
+  value.stages = [...value.stages, backlog.stage];
+  value.extendedClaims = [
+    ...value.extendedClaims,
+    backlog.claim,
+  ];
+  value.nonClaims = value.nonClaims.filter(marker =>
+    marker !== 'OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED');
+  value.nonClaims.push(...backlog.nonClaims);
+  value.backlogDrain = backlog;
+  console.log(jsonOutput
+    ? JSON.stringify(value, null, 2)
+    : `Approval Platform capacity/recovery plan\n${JSON.stringify(value, null, 2)}`);
+}
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
@@ -38,6 +59,7 @@ async function main() {
   } finally {
     retryEvidence.restore();
   }
+  await executeBacklogDrain(contract);
 }
 
 main().catch((error) => {
