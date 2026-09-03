@@ -153,7 +153,6 @@ export function validateUnavailable(value, expectedRows) {
 
 export function validateDelivered(value, expectedRows) {
   validateCommonRows(value.rows, expectedRows);
-  requireUnique(value.rows, 'providerRequestId', 'providerRequestId');
   for (const row of value.rows) {
     if (row.status !== 'DELIVERED'
         || row.attempts < 1
@@ -164,6 +163,7 @@ export function validateDelivered(value, expectedRows) {
       return false;
     }
   }
+  requireUnique(value.rows, 'providerRequestId', 'providerRequestId');
   return value.sandbox?.available === true
     && value.sandbox.acceptedPaymentResults === expectedRows
     && value.sandbox.lastHttpStatus === 200

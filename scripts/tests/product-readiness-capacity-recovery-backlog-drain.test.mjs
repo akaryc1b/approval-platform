@@ -9,6 +9,48 @@ function text(path) {
   return readFileSync(resolve(root, path), 'utf8');
 }
 
+function deterministicUuid(value) {
+  return `00000000-0000-4000-8000-${value.toString(16).padStart(12, '0')}`;
+}
+
+function deliveredObservation(completedEventType, deliveredRows) {
+  const rows = Array.from({ length: 96 }, (_, index) => {
+    const eventId = deterministicUuid(index + 1_001);
+    const aggregateId = deterministicUuid(index + 2_001);
+    const delivered = index < deliveredRows;
+    return {
+      id: deterministicUuid(index + 1),
+      eventId,
+      eventType: completedEventType,
+      aggregateId,
+      status: delivered ? 'DELIVERED' : 'PENDING',
+      attempts: 1,
+      lastError: delivered
+        ? null
+        : 'HTTP 503: payment sandbox unavailable',
+      responseCode: delivered ? 200 : null,
+      providerRequestId: delivered
+        ? `local-payment-sandbox-${eventId}`
+        : null,
+      requestId: `backlog-request-${index + 1}`,
+      traceId: `backlog-trace-${index + 1}`,
+      idempotencyKey: `${completedEventType}:${aggregateId}`,
+      availableAt: '2026-09-03 12:44:08+00',
+      deliveredAt: delivered ? '2026-09-03 12:44:18+00' : null,
+    };
+  });
+  return {
+    rows,
+    sandbox: {
+      available: true,
+      deliveryAttempts: 96 + deliveredRows,
+      acceptedPaymentResults: deliveredRows,
+      lastHttpStatus: deliveredRows > 0 ? 200 : 503,
+      failure: null,
+    },
+  };
+}
+
 const launcher = text('scripts/product-readiness/capacity-recovery.mjs');
 const backlogDrain = text(
   'scripts/product-readiness/capacity-recovery/backlog-drain.mjs',
@@ -135,6 +177,36 @@ test('backlog evidence verifies identities, 503, delivery and cleanup', () => {
   ]) {
     assert.equal(backlogSources.includes(marker), true, `missing ${marker}`);
   }
+  assert.equal(
+    backlogEvidence.indexOf("row.status !== 'DELIVERED'")
+      < backlogEvidence.indexOf(
+        "requireUnique(value.rows, 'providerRequestId'",
+      ),
+    true,
+    'provider request uniqueness must be checked only after every row is delivered',
+  );
+});
+
+test('delivered polling tolerates partial delivery and accepts the complete state', async () => {
+  const [{ validateDelivered }, { eventType }] = await Promise.all([
+    import(new URL(
+      '../product-readiness/capacity-recovery/backlog-drain-evidence.mjs',
+      import.meta.url,
+    )),
+    import(new URL(
+      '../product-readiness/purchase-payment-e2e/contract.mjs',
+      import.meta.url,
+    )),
+  ]);
+  const completedEventType = eventType();
+  assert.equal(
+    validateDelivered(deliveredObservation(completedEventType, 48), 96),
+    false,
+  );
+  assert.equal(
+    validateDelivered(deliveredObservation(completedEventType, 96), 96),
+    true,
+  );
 });
 
 test('local sandbox volume mode remains explicit and bounded', () => {
