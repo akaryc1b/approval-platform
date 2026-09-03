@@ -2,21 +2,23 @@
 
 ```text
 QUICK_START_COMMAND_STATUS=IMPLEMENTED
-QUICK_START_ACCEPTANCE_SOURCE=EXACT_HEAD_RUNTIME_EVIDENCE
-QUICK_START_ACCEPTANCE_STATUS=EXACT_HEAD_EVIDENCE_GATED
+QUICK_START_ACCEPTANCE_SOURCE=RETAINED_EXACT_HEAD_AND_POST_MERGE_EVIDENCE
+QUICK_START_ACCEPTANCE_STATUS=MERGED_LOCAL_ALPHA_ACCEPTED
 ```
 
-This guide is the supported local Product Alpha entry path tracked by Issue #133. It starts the existing platform stack and proves that the governed purchase-payment request is visible in both the PC and H5 clients. The guide does not turn a successful build or an unmeasured run into a 10-minute acceptance claim.
+这是当前受支持的本地 Product Alpha 入口。它已经在同一源码树上通过两次独立、清洁、10 分钟内的运行，并在合并后的默认分支重新验证。
 
-## Outcome
+本指南说明如何复现该路径。一次新的本地成功运行不会自动创建 Release、Production Support 或新的全局验收声明。
 
-From the repository root, one command performs the complete startup lifecycle:
+## 你会得到什么
+
+在仓库根目录执行一个命令：
 
 ```bash
 pnpm demo:quickstart
 ```
 
-A successful ready state means all of the following are true on the same source tree:
+成功进入 ready 状态时，同一源码树上的以下结果同时成立：
 
 ```text
 repository and workstation preflight passed
@@ -29,33 +31,33 @@ DEMO-PP-0001 is visible in both real client pages
 startup timing and environment evidence were written
 ```
 
-The command then remains attached. Press `Ctrl-C` once to stop the clients and backend and remove the disposable local containers, network, PostgreSQL volume and occupied ports.
+命令随后保持附着。按一次 `Ctrl-C` 会停止客户端和后端，并删除一次性本地容器、网络、PostgreSQL volume 和占用端口。
 
-## Prerequisites
+## 前置条件
 
-Use a clean macOS, Linux or Windows workstation with:
+使用干净的 macOS、Linux 或 Windows 工作站，并准备：
 
-- Java 21;
-- Maven 3.9.6 or newer;
-- Node 22.18+ within the 22.x line, or Node 24.x;
-- pnpm 10; this repository declares pnpm 10.33.4;
-- Docker Engine or Docker Desktop with Docker Compose v2;
-- Google Chrome, Chromium or Microsoft Edge. Set `APPROVAL_DEMO_CHROME_PATH` only when automatic browser discovery cannot find the executable;
-- enough memory and disk for the Maven reactor, generated frontend workspaces, PostgreSQL and Redis.
+- Java 21；
+- Maven 3.9.6 或更高版本；
+- Node 22.18+（22.x）或 Node 24.x；
+- pnpm 10；仓库当前声明 pnpm 10.33.4；
+- Docker Engine 或 Docker Desktop，以及 Docker Compose v2；
+- Google Chrome、Chromium 或 Microsoft Edge。只有自动发现失败时才设置 `APPROVAL_DEMO_CHROME_PATH`；
+- 足够的内存和磁盘空间，用于 Maven reactor、前端工作区、PostgreSQL 和 Redis。
 
-The command runs the existing `demo-preflight.mjs` before changing runtime state. Missing or unsupported tools fail closed with a remediation message.
+命令会先执行现有 `demo-preflight.mjs`。缺少工具或版本不受支持时会 fail closed，并给出修复提示。
 
-## Inspect the plan first
+## 先查看计划
 
-The plan command is read-only:
+下面的命令只读，不启动服务：
 
 ```bash
 pnpm demo:quickstart:plan
 ```
 
-It prints the governed tenant, business key, actor-scoped URLs, 600-second limit, lifecycle stages, evidence location, gated claims and explicit non-claims. It does not start a process, container or database.
+它会输出租户、业务键、角色 URL、600 秒上限、生命周期阶段、证据目录、可声明结果和明确非声明。
 
-The existing component lifecycle remains available for focused diagnosis:
+组件诊断入口仍然可用：
 
 ```bash
 pnpm demo:backend:plan
@@ -63,7 +65,7 @@ pnpm demo:backend:start
 pnpm demo:backend:stop
 ```
 
-Static boundaries can be checked separately:
+静态边界可单独检查：
 
 ```bash
 pnpm demo:preflight -- --repository-only
@@ -72,11 +74,11 @@ pnpm demo:clients:check
 pnpm demo:quickstart:check
 ```
 
-These checks do not prove timed startup.
+这些组件命令不会单独证明 10 分钟完整启动。
 
-## Existing component evidence vocabulary
+## 组件命令的声明词汇
 
-The following markers remain documented for compatibility with the narrower commands and permanent boundary tests:
+以下标记为较窄的只读校验、后端和 Seed 命令保留：
 
 ```text
 DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED
@@ -93,32 +95,32 @@ PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
 ```
 
-These are command-scoped markers, not one global status block. For example, `PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED` describes the read-only manifest validator, while its `_NOT_EXECUTED` markers state that the validator itself did not start a runtime. They do not erase the separately retained purchase-to-payment E2E acceptance. Likewise, `QUICK_START_10_MINUTES_NOT_EXECUTED` remains the preflight/backend-component non-claim until exact-Head Quick Start evidence releases the timed claim.
+这些是命令作用域标记，不是全局状态。例如，只读场景校验器不会启动运行时，所以它输出的 `_NOT_EXECUTED` 是正确的；它不会撤销已经由独立运行时接受的 Quick Start 或采购到付款证据。
 
-## Run the Quick Start
+## 运行 Quick Start
 
 ```bash
 pnpm demo:quickstart
 ```
 
-Do not run a separate backend or client command in parallel. The Quick Start owns the local ports and lifecycle:
+不要同时运行另一套后端或客户端命令。Quick Start 独占本地端口和生命周期：
 
-| Component | Address | Governed identity |
+| 组件 | 地址 | 受治理身份 |
 | --- | --- | --- |
 | Backend health | `http://127.0.0.1:8080/actuator/health` | N/A |
-| PC workbench | printed as `QUICK_START_PC_URL` | `demo-manager` |
-| H5 task list | printed as `QUICK_START_H5_URL` | `demo-manager` |
+| PC workbench | 终端输出的 `QUICK_START_PC_URL` | `demo-manager` |
+| H5 task list | 终端输出的 `QUICK_START_H5_URL` | `demo-manager` |
 
-The PC development login is local demo authentication only:
+PC 开发登录只用于本地演示：
 
 ```text
 username: vben
 password: 123456
 ```
 
-The browser automation completes the local login slider and verifies the task card. It does not approve the task or mutate the workflow.
+浏览器自动化会完成本地滑块登录并验证任务卡片。Quick Start 本身不会审批任务或推进流程。
 
-When ready, the terminal prints:
+ready 后，终端输出：
 
 ```text
 QUICK_START_RUN_ID=<run-id>
@@ -132,15 +134,15 @@ QUICK_START_H5_ACTOR=demo-manager
 QUICK_START_EVIDENCE=.runtime/quick-start/<run-id>
 ```
 
-## Evidence
+## 证据
 
-Every run writes to an untracked directory:
+每次运行写入未跟踪目录：
 
 ```text
 .runtime/quick-start/<run-id>/
 ```
 
-The bounded evidence set includes:
+主要证据包括：
 
 ```text
 source-identity.json
@@ -159,25 +161,29 @@ pc.log
 h5.log
 ```
 
-`source-identity.json` binds the checked-out tree to the exact Head. `environment.json` records the operating system, architecture, CPU count/model, memory and tool versions. `startup-summary.json` records the UTC start and ready timestamps and the measured duration. A run over 600 seconds fails and resets the consecutive-run ledger.
+`source-identity.json` 绑定实际源码树；`environment.json` 记录系统、架构、CPU、内存和工具版本；`startup-summary.json` 记录 UTC 开始、ready 时间和实测时长。A run over 600 seconds fails，并重置连续运行 ledger。
 
-No `.runtime` content is committed.
+`.runtime` 内容不会提交到 Git。
 
-## Acceptance rule
+## 验收与后续变更规则
 
-One successful execution records only the first clean run. The following gated claims are allowed only after two distinct clean run IDs on the same exact commit and tree, with complete cleanup after each run:
+首次 Product Alpha 验收要求同一 commit/tree 上两个不同 run ID 的清洁运行，并要求每次完整清理。默认分支中的当前入口已经满足该规则。
 
-- gated claim: `QUICK_START_10_MINUTES_PASSED`
-- gated claim: `DEMO_BACKEND_READY_PASSED`
-- gated claim: `PC_DEMO_READY_PASSED`
-- gated claim: `H5_DEMO_READY_PASSED`
-- gated claim: `TWO_CONSECUTIVE_CLEAN_QUICK_START_RUNS_PASSED`
+未来只要 Quick Start 的受控路径发生变化，新的候选源码树仍必须重新满足相同规则，才可以在其验收记录中发布：
 
-The existing permanent Workflow executes the two-run CI form only when the changed path set is relevant. Documentation-only changes do not select the full timed runtime. Exact Head, Run IDs, artifact digest and observed claim markers belong in the PR acceptance comment, not in this living guide.
+```text
+QUICK_START_10_MINUTES_PASSED
+DEMO_BACKEND_READY_PASSED
+PC_DEMO_READY_PASSED
+H5_DEMO_READY_PASSED
+TWO_CONSECUTIVE_CLEAN_QUICK_START_RUNS_PASSED
+```
 
-## Stop and cleanup
+精确 Head、Run ID、Artifact digest 和观测结果属于不可变 PR/Issue 证据，不复制到 living 指南。
 
-Press `Ctrl-C` in the Quick Start terminal. Cleanup is mandatory and fail-closed:
+## 停止与清理
+
+在 Quick Start 终端按一次 `Ctrl-C`。清理是强制且 fail closed 的：
 
 ```text
 stop H5
@@ -190,44 +196,53 @@ release ports 5432, 5777, 6379, 8080 and 9000
 write cleanup-evidence.json
 ```
 
-A cleanup failure makes the command fail even when the clients had reached ready state.
+即使页面已经 ready，只要清理失败，命令仍会失败。
 
-For recovery after an externally interrupted process, use the existing explicit reset command:
+外部中断后可使用显式 reset：
 
 ```bash
 node scripts/product-readiness/demo-backend.mjs reset --confirm-local-data-loss
 ```
 
-This deletes only the disposable `approval-platform-demo` resources. The script does not update platform tables or Flowable `ACT_*` tables.
+该命令只删除一次性 `approval-platform-demo` 资源，不会更新平台业务表或 Flowable `ACT_*` 表。
 
-## Next product paths
+## 下一步：完整采购到付款
 
-The Quick Start stops at a visible, operable seeded task. The complete purchase-to-payment Alpha path remains available separately:
+Quick Start 停在一个可见、可操作的确定性任务。完整路径使用：
 
 ```bash
 pnpm demo:runtime:purchase-payment:e2e
 ```
 
-See:
+继续阅读：
 
 - [User Guide](USER_GUIDE.md)
 - [Administrator Guide](ADMIN_GUIDE.md)
 - [Operator Guide](OPERATOR_GUIDE.md)
 - [Purchase-Payment Golden Path](PURCHASE_PAYMENT_GOLDEN_PATH.md)
+- [Online Evaluation Sandbox](ONLINE_DEMO.md)
 
-## Explicit non-claims
+## 当前非声明
 
 ```text
 WECHAT_DEVTOOLS_RUNTIME_NOT_VERIFIED
 WECHAT_PHYSICAL_DEVICE_NOT_VERIFIED
 PRODUCTION_DEPLOYMENT_NOT_VERIFIED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
-PERFORMANCE_CAPACITY_NOT_VERIFIED
-BROWSER_COMPATIBILITY_NOT_VERIFIED
-ACCESSIBILITY_NOT_VERIFIED
+FULL_BROWSER_COMPATIBILITY_NOT_VERIFIED
+SAFARI_BROWSER_NOT_VERIFIED
+IOS_SAFARI_NOT_VERIFIED
+ANDROID_CHROME_NOT_VERIFIED
+WECHAT_WEBVIEW_NOT_VERIFIED
+FULL_WCAG_CONFORMANCE_NOT_VERIFIED
+SCREEN_READER_MANUAL_TEST_NOT_VERIFIED
+PRODUCTION_CAPACITY_NOT_VERIFIED
+UPGRADE_REHEARSAL_NOT_VERIFIED
+BACKUP_RESTORE_NOT_VERIFIED
 RPO_RTO_NOT_VERIFIED
 MYSQL_8_4_NOT_VERIFIED
+ONLINE_DEMO_NOT_AVAILABLE
 RELEASE_NOT_CREATED
 ```
 
-The Quick Start is a local Product Alpha path, not a Release or production deployment procedure.
+Quick Start 是本地 Product Alpha 路径，不是在线服务、Release 或生产部署过程。

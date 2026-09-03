@@ -58,6 +58,10 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   );
   assert.doesNotMatch(backendCommand, /-f apps\/server\/pom\.xml/u);
   assert.equal(plan.successMarkers.includes('BACKEND_LOCAL_START_VERIFIED'), true);
+  assert.equal(
+    plan.successMarkers.includes('QUICK_START_10_MINUTES_PASSED'),
+    false,
+  );
   for (const marker of [
     'QUICK_START_10_MINUTES_NOT_EXECUTED',
     'PURCHASE_APPROVAL_E2E_NOT_EXECUTED',
@@ -165,7 +169,7 @@ test('local data reset is fail-closed before Docker execution', () => {
   assert.match(execution.stderr, /no Docker command was executed/u);
 });
 
-test('package and docs expose one command without manufacturing product acceptance', () => {
+test('docs separate backend command scope from accepted Product Alpha evidence', () => {
   const packageJson = JSON.parse(text(packagePath));
   assert.equal(
     packageJson.scripts?.['demo:backend:plan'],
@@ -193,7 +197,14 @@ test('package and docs expose one command without manufacturing product acceptan
     assert.match(source, /QUICK_START_10_MINUTES_NOT_EXECUTED/u);
     assert.match(source, /PURCHASE_APPROVAL_E2E_NOT_EXECUTED/u);
   }
-  assert.doesNotMatch(quickStart, /^QUICK_START_10_MINUTES_PASSED$/mu);
+  assert.match(
+    quickStart,
+    /QUICK_START_ACCEPTANCE_STATUS=MERGED_LOCAL_ALPHA_ACCEPTED/u,
+  );
+  assert.match(quickStart, /^QUICK_START_10_MINUTES_PASSED$/mu);
+  assert.match(status, /MERGED_MEASURED_LOCAL_ALPHA_ACCEPTED/u);
+  assert.doesNotMatch(quickStart, /^PRODUCTION_DEPLOYMENT_STATUS=VERIFIED$/mu);
+  assert.doesNotMatch(status, /^PRODUCTION_SUPPORT_STATUS=DECLARED$/mu);
 });
 
 test('the permanent Hygiene aggregate loads the backend command boundary', () => {

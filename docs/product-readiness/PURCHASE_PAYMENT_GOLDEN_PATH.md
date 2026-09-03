@@ -1,304 +1,204 @@
-# Purchase-Payment Golden Path Contract and Local Seed
+# Purchase-to-Payment Product Alpha Golden Path
 
 ```text
 PURCHASE_PAYMENT_SCENARIO_CONTRACT_STATUS=AVAILABLE
 DETERMINISTIC_DEMO_SEED_STATUS=IMPLEMENTED_LOCAL_OPT_IN
-BACKEND_LOCAL_START_STATUS=VERIFIED_IN_EPHEMERAL_CI
-BACKEND_PURCHASE_APPROVAL_CHAIN_STATUS=VERIFIED_IN_EPHEMERAL_CI
-COMPLETION_OUTBOX_EVENT_STATUS=RECORDED_IN_EPHEMERAL_CI
-SHARED_DEMO_ENVIRONMENT_SEED_STATUS=NOT_APPLIED
-PURCHASE_APPROVAL_E2E_STATUS=NOT_YET_EXECUTED
-CROSS_CLIENT_RUNTIME_STATUS=NOT_YET_EXECUTED
-PURCHASE_TO_PAYMENT_SANDBOX_E2E_STATUS=NOT_YET_EXECUTED
+BACKEND_PURCHASE_APPROVAL_CHAIN_STATUS=VERIFIED
+PURCHASE_APPROVAL_E2E_STATUS=MERGED_LOCAL_ALPHA_ACCEPTED
+CROSS_CLIENT_RUNTIME_STATUS=PC_H5_ACCEPTED_WECHAT_TARGET_UNVERIFIED
+PURCHASE_TO_PAYMENT_SANDBOX_E2E_STATUS=MERGED_LOCAL_ALPHA_ACCEPTED
 PRODUCTION_PAYMENT_INTEGRATION_STATUS=NOT_VERIFIED
+ONLINE_DEMO_STATUS=NOT_AVAILABLE
 ```
 
-This document governs the deterministic purchase-payment evidence used by the Golden Path delivery area in Issue #107. It binds one high-value request to the existing design, form, release, deployment, activation, purchase-payment, task-action, projection, audit and integration Outbox authorities.
+这是一条可重复执行的本地 Product Alpha 业务路径。它从真实客户端操作开始，完成审批、付款确认、Outbox 事件、签名本地付款沙箱故障恢复和幂等校验。
 
-The retained integration test starts a real random-port Spring Boot server against PostgreSQL, applies the explicit local seed, verifies Actuator health, replays the seed idempotently, and then uses the existing HTTP API to complete:
+## 一键运行
 
-```text
-managerApproval
--> financeReview
--> financeCountersign (ALL: two approvers)
--> COMPLETED
-```
-
-It verifies the final instance, empty participant task lists, five distinct timeline events and one completion Outbox record. It does **not** prove PC/H5/WeChat interaction, attachment binding/download, browser or accessibility behavior, Connector dispatch, payment sandbox delivery, a returned external result, outage recovery, or a shared demo environment.
-
-## Read-only contract check
-
-From the repository root:
+从仓库根目录执行：
 
 ```bash
-pnpm demo:scenario:check
+pnpm demo:runtime:purchase-payment:e2e
 ```
 
-Machine-readable output:
+运行计划可只读查看：
 
 ```bash
-node scripts/product-readiness/purchase-payment-scenario-contract.mjs --json
+pnpm demo:runtime:purchase-payment:e2e:plan
 ```
 
-A successful static check emits:
-
-```text
-PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED
-DETERMINISTIC_DEMO_SEED_NOT_APPLIED
-PURCHASE_APPROVAL_E2E_NOT_EXECUTED
-PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
-PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
-```
-
-The command is read-only. Runtime availability and backend execution use separate, narrower claims:
-
-```text
-DETERMINISTIC_DEMO_SEED_IMPLEMENTED
-BACKEND_LOCAL_START_VERIFIED
-BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED
-COMPLETION_OUTBOX_EVENT_RECORDED
-```
-
-The boundary check is:
+静态边界检查：
 
 ```bash
-pnpm demo:seed:check
+pnpm demo:runtime:purchase-payment:e2e:check
 ```
 
-It verifies that the runner is `local`-profile-only, explicit, default-off, resource-backed, free of Demo REST endpoints and direct business-table or Flowable-table mutation, provisions the governed effective release through existing production services, and that permanent CI exercises the existing approval action endpoints through final completion.
+## 用户看到的流程
 
-## Governed inputs
+```text
+确定性 Seed 准备 demo-employee 的高金额采购付款申请
+→ PC / demo-manager / managerApproval
+→ H5 / demo-finance-reviewer / financeReview
+→ H5 / demo-finance-approver-a / financeCountersign
+→ H5 / demo-finance-approver-b / financeCountersign
+→ H5 surrogate / demo-employee / paymentConfirmation
+→ 审批实例 COMPLETED
+→ transactional Outbox 产生完成事件
+→ 签名本地付款沙箱返回 HTTP 503
+→ Outbox 保持 PENDING
+→ 下游恢复
+→ bounded retry 变为 DELIVERED
+→ 重复 dispatch 不再产生新消息
+→ 沙箱只接受一次付款副作用
+→ 自动清理
+```
 
-Scenario contract:
+审批动作通过可见 PC/H5 控件完成；运行器不会直接调用审批 HTTP 接口，也不会写平台表或 Flowable `ACT_*` 表来推进状态。
+
+## 已接受的结果
+
+同一精确源码树上的两次独立清洁运行可以发布：
+
+```text
+PURCHASE_PAYMENT_LOCAL_ALPHA_E2E_PASSED
+H5_PAYMENT_CONFIRMATION_PASSED
+PURCHASE_APPROVAL_E2E_PASSED
+PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED
+OUTBOX_RETRY_AND_IDEMPOTENCY_PASSED
+TWO_CONSECUTIVE_CLEAN_RUNS_PASSED
+```
+
+当前默认分支已经包含满足上述规则的 Product Alpha 路径。精确 commit、Run ID、Artifact digest 和证据摘要保留在不可变 PR/Issue 验收记录中，而不是复制到这个 living 文档。
+
+## 移动端验收边界
+
+产品目标中的付款确认客户端仍是微信小程序，但当前接受范围明确是：
+
+```text
+targetClient = wechat
+acceptanceClient = h5
+acceptanceMode = H5_MOBILE_SURROGATE
+actor = demo-employee
+```
+
+因此：
+
+- H5 付款确认已经验证；
+- 微信小程序构建已经存在；
+- 微信开发者工具运行、微信 WebView 和物理设备操作仍未验证；
+- 文档不能把 H5 surrogate 描述为真实微信验收。
+
+## 确定性业务数据
+
+场景契约：
 
 ```text
 config/demo/purchase-payment-golden-path.json
 ```
 
-Seed fixture:
+Seed fixture：
 
 ```text
 config/demo/purchase-payment-demo-seed.json
 ```
 
-The fixture maps the two logical attachment IDs to fixed UUIDv5 values and non-sensitive text payloads. Both files are packaged into the executable server under `demo/`; no second copy is maintained in application resources.
-
-## Deterministic identities
-
-The contract defines one tenant and six non-secret local identities:
-
-| Identity | Purpose |
+| 字段 | 值 |
 | --- | --- |
-| `demo-admin` | creates, publishes, deploys, activates and inspects the governed scenario |
-| `demo-employee` | submits the request and reads the participant timeline |
-| `demo-manager` | approves the manager task |
-| `demo-finance-reviewer` | approves the high-value finance review |
-| `demo-finance-approver-a` | completes the first parallel countersign |
-| `demo-finance-approver-b` | completes the second parallel countersign |
+| Tenant | `demo-purchase-payment` |
+| Business key | `DEMO-PP-0001` |
+| Amount | `12500.00` |
+| Supplier | `Demo Industrial Supplies Ltd.` |
+| Purchase order | `PO-DEMO-2026-0001` |
+| Attachments | 两个固定、非敏感演示附件 |
 
-The local-only, read-only `PurchasePaymentDemoOrganizationConnector` resolves:
+`12500.00` 会触发高于 `10000.00` 的财务复核与两人会签路径。
 
-```text
-demo-employee.managerId -> demo-manager
-FINANCE_REVIEWER        -> demo-finance-reviewer
-FINANCE_APPROVER        -> demo-finance-approver-a, demo-finance-approver-b
-```
+## 演示角色
 
-These are identifiers, not credentials. No password, token, Secret, production user or authorization bypass is introduced.
+| Identity | 作用 |
+| --- | --- |
+| `demo-admin` | 配置、发布、部署、激活并检查场景 |
+| `demo-employee` | 发起申请、完成付款确认并读取参与者时间线 |
+| `demo-manager` | 完成经理审批 |
+| `demo-finance-reviewer` | 完成高金额财务复核 |
+| `demo-finance-approver-a` | 第一位财务会签人 |
+| `demo-finance-approver-b` | 第二位财务会签人 |
 
-## Deterministic request and attachment metadata
+这些是固定演示标识，不是生产凭据。
 
-```text
-businessKey:            DEMO-PP-0001
-amount:                 12500.00
-supplier:               Demo Industrial Supplies Ltd.
-purchaseOrderReference: PO-DEMO-2026-0001
-attachments:            2 fixed metadata UUIDs
-```
+## 运行时组成
 
-The amount exercises the repository's `10000.00` high-value threshold.
+该命令复用现有 Product Alpha 生命周期：
 
-Attachments are uploaded through `ApprovalAttachmentService` before the request starts. The current application layer does not expose an instance-binding command, so the fixtures remain unbound and this work does not call `ApprovalAttachmentStore.bindToInstance` directly. Binding and participant-readable download evidence remain future product work.
+- PostgreSQL 16 和 Redis；
+- Spring Boot、Flowable 与 Flyway；
+- 确定性 Form/Approval Release 发布、部署与激活；
+- PC 与 H5 客户端；
+- `PurchasePaymentApplicationService`；
+- `ApprovalAttachmentService`；
+- 事务 Outbox 和 `OutboxDispatcher`；
+- `GenericRestBusinessCallbackConnector`；
+- HMAC 签名本地付款沙箱；
+- Playwright 截图、trace、机器证据和 fail-closed cleanup。
 
-## Runtime implementation
+它不会创建第二套后端、Seed、数据库模型、Outbox、Connector 或证据体系。
 
-The switch is available only with the `local` profile and is false by default:
+## 证据
 
-```text
-APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=false
-```
-
-When explicitly enabled, startup:
-
-1. loads and validates both governed JSON inputs;
-2. provides the read-only demo organization connector;
-3. waits for Flowable local schema bootstrap and applies repository migrations V1 through V50 through the explicit local migration boundary;
-4. creates and publishes the canonical Form Package;
-5. creates the immutable process Release Package and completes lifecycle/preflight evidence;
-6. deploys and activates the governed effective release through existing production services;
-7. invokes the singleton production `PurchasePaymentApplicationService` only after the release is effective;
-8. uploads both fixed attachments through `ApprovalAttachmentService`;
-9. starts the request through the existing service authority;
-10. verifies one running instance and exactly one `managerApproval` task for `demo-manager`;
-11. records bounded startup evidence and exposes it through the `purchasePaymentDemoSeed` health component;
-12. fails application startup if any seed step fails.
-
-The permanent integration test then:
-
-1. replays the seed and verifies stable instance, task, attachment and timestamp identity;
-2. approves the manager task and replays the same HTTP request/idempotency key;
-3. approves the single finance-review task;
-4. verifies two parallel countersign tasks assigned to the governed finance approvers;
-5. approves the first countersign and verifies the second remains pending;
-6. approves the second countersign and verifies `COMPLETED` with no active tasks;
-7. verifies all four participant pending-task lists are empty;
-8. reads the participant-authorized timeline and binds five distinct audit event IDs to the start and four task actions;
-9. reads one final JDBC Outbox row for the governed connector, request and instance.
-
-The production controller and singleton purchase-payment service are not replaced. The seed does not construct the legacy effective-release bridge. No Demo action controller, table writer, security exception or automatic production activation is added.
-
-## Run locally
-
-Start the repository backend and seed with the one-command candidate documented in [`QUICK_START.md`](QUICK_START.md):
-
-```bash
-pnpm demo:backend:start
-```
-
-The lower-level equivalent remains:
-
-```bash
-APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true \
-mvn -B -ntp -f apps/server/pom.xml spring-boot:run \
-  -Dspring-boot.run.profiles=local
-```
-
-Successful startup logs:
+每次运行写入：
 
 ```text
-PURCHASE_PAYMENT_DEMO_SEED_APPLIED
+.runtime/purchase-payment-e2e/<run-id>/
 ```
 
-Verify aggregate health:
+主要证据覆盖：
 
-```bash
-curl -fsS http://127.0.0.1:8080/actuator/health
-```
+- source/tree identity；
+- 受治理 tenant、business key、process instance 和 task IDs；
+- PC/H5 可见审批步骤；
+- 最终实例状态和任务历史；
+- Outbox 初始、PENDING、DELIVERED 与重复 dispatch；
+- 沙箱请求、签名、幂等键和仅一次副作用；
+- 截图、Playwright trace、服务日志；
+- 容器、进程、volume 和端口清理。
 
-Inspect the seeded instance using the `instanceId` from the startup marker or health details:
+`.runtime/` 不提交到仓库。
 
-```bash
-curl -fsS \
-  -H 'X-Tenant-Id: demo-purchase-payment' \
-  -H 'X-Operator-Id: demo-admin' \
-  -H 'X-Request-Id: demo-inspect-instance-v1' \
-  -H 'X-Trace-Id: demo-inspect-instance-v1' \
-  http://127.0.0.1:8080/api/approval/instances/INSTANCE_ID
-```
+## 组件命令与整体产品状态的区别
 
-Inspect the manager's pending task:
-
-```bash
-curl -fsS \
-  -H 'X-Tenant-Id: demo-purchase-payment' \
-  -H 'X-Operator-Id: demo-manager' \
-  -H 'X-Request-Id: demo-inspect-manager-task-v1' \
-  -H 'X-Trace-Id: demo-inspect-manager-task-v1' \
-  http://127.0.0.1:8080/api/approval/tasks/pending
-```
-
-Approval actions use the existing endpoint and must provide a fresh request ID and idempotency key:
+只读场景契约、Seed 和后端集成测试的范围更窄，它们仍会正确输出：
 
 ```text
-POST /api/approval/tasks/{taskId}/approve
-X-Tenant-Id
-X-Operator-Id
-X-Request-Id
-Idempotency-Key
-X-Trace-Id
-Content-Type: application/json
-```
-
-The permanent CI test proves this backend sequence. A separate clean-machine, user-driven and client-driven execution is still required before any full E2E or Quick Start claim.
-
-## Permanent runtime verification
-
-`PurchasePaymentDemoSeedIntegrationTest` is part of the existing Maven reactor and the repository's single permanent validation workflow. It uses:
-
-- PostgreSQL 16 Testcontainer;
-- `@SpringBootTest` with a real random HTTP port;
-- explicit `local` profile and seed switch;
-- governed Form/Release/Deployment/Activation authorities;
-- `/actuator/health`;
-- existing instance, pending-task, approve and timeline endpoints;
-- a second `PurchasePaymentDemoSeeder.apply()` call for idempotent seed replay;
-- an identical manager action replay for HTTP/idempotency evidence;
-- read-only JDBC verification of the completion Outbox row.
-
-This is sufficient for:
-
-```text
+PURCHASE_PAYMENT_SCENARIO_CONTRACT_PASSED
+DETERMINISTIC_DEMO_SEED_NOT_APPLIED
 DETERMINISTIC_DEMO_SEED_IMPLEMENTED
 BACKEND_LOCAL_START_VERIFIED
 BACKEND_PURCHASE_APPROVAL_CHAIN_VERIFIED
 COMPLETION_OUTBOX_EVENT_RECORDED
-```
-
-It is not sufficient for:
-
-```text
-QUICK_START_10_MINUTES_PASSED
-PURCHASE_APPROVAL_E2E_PASSED
-CROSS_CLIENT_RUNTIME_VERIFIED
-PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED
-PRODUCTION_PAYMENT_INTEGRATION_VERIFIED
-```
-
-## Existing API bindings
-
-The scenario uses existing `/api/approval` mappings. Runtime task actions use:
-
-```text
-GET  /tasks/pending
-POST /tasks/{taskId}/approve
-GET  /instances/{instanceId}
-GET  /instances/{instanceId}/timeline
-```
-
-Every mutating request retains:
-
-```text
-X-Tenant-Id
-X-Operator-Id
-X-Request-Id
-Idempotency-Key
-X-Trace-Id
-```
-
-## Evidence identity
-
-The backend runtime evidence binds:
-
-```text
-tenantId
-businessKey
-instanceId
-taskIds
-auditEventIds
-finalStatus
-completionOutboxRequestId
-connectorKey
-```
-
-Future PC, H5 and WeChat evidence must refer to the same business identity and final state. Three separately mocked client states do not satisfy this contract.
-
-## Current non-claims
-
-```text
 SHARED_DEMO_ENVIRONMENT_SEED_NOT_APPLIED
-QUICK_START_10_MINUTES_NOT_EXECUTED
 PURCHASE_APPROVAL_E2E_NOT_EXECUTED
 CROSS_CLIENT_RUNTIME_NOT_EXECUTED
 PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
 ```
+
+这些 `_NOT_EXECUTED` 标记只说明该**组件命令本身**没有执行完整产品路径，不会覆盖已接受的一键 E2E 结果。
+
+## 当前非声明
+
+```text
+WECHAT_DEVTOOLS_RUNTIME_NOT_VERIFIED
+WECHAT_PHYSICAL_DEVICE_NOT_VERIFIED
+PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
+PRODUCTION_CAPACITY_NOT_VERIFIED
+MULTI_NODE_CAPACITY_NOT_VERIFIED
+UPGRADE_REHEARSAL_NOT_VERIFIED
+BACKUP_RESTORE_NOT_VERIFIED
+RPO_RTO_NOT_VERIFIED
+MYSQL_8_4_NOT_VERIFIED
+ONLINE_DEMO_NOT_AVAILABLE
+PRODUCTION_DEPLOYMENT_NOT_VERIFIED
+RELEASE_NOT_CREATED
+```
+
+付款结果来自明确标识的本地签名沙箱，不是银行、ERP、支付机构或其他生产 Provider。该命令也不是生产部署流程。
