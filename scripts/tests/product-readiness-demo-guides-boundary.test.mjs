@@ -16,6 +16,7 @@ function text(relativePath) {
 
 const quickStart = text('docs/product-readiness/QUICK_START.md');
 const status = text('docs/product-readiness/README.md');
+const onlineDemo = text('docs/product-readiness/ONLINE_DEMO.md');
 const userGuide = text('docs/product-readiness/USER_GUIDE.md');
 const adminGuide = text('docs/product-readiness/ADMIN_GUIDE.md');
 const operatorGuide = text('docs/product-readiness/OPERATOR_GUIDE.md');
@@ -37,11 +38,11 @@ test('repository-only preflight remains read-only and withholds timed acceptance
   assert.equal(report.mode, 'repository-only');
 });
 
-test('Quick Start documents the executable measured path without self-declaring acceptance', () => {
+test('Quick Start documents the merged measured path without production claims', () => {
   for (const marker of [
     'QUICK_START_COMMAND_STATUS=IMPLEMENTED',
-    'QUICK_START_ACCEPTANCE_SOURCE=EXACT_HEAD_RUNTIME_EVIDENCE',
-    'QUICK_START_ACCEPTANCE_STATUS=EXACT_HEAD_EVIDENCE_GATED',
+    'QUICK_START_ACCEPTANCE_SOURCE=RETAINED_EXACT_HEAD_AND_POST_MERGE_EVIDENCE',
+    'QUICK_START_ACCEPTANCE_STATUS=MERGED_LOCAL_ALPHA_ACCEPTED',
     'pnpm demo:quickstart',
     'pnpm demo:quickstart:plan',
     '.runtime/quick-start/<run-id>/',
@@ -53,10 +54,12 @@ test('Quick Start documents the executable measured path without self-declaring 
     'release ports 5432, 5777, 6379, 8080 and 9000',
     'demo-manager',
     'DEMO-PP-0001',
+    'QUICK_START_10_MINUTES_PASSED',
+    'ONLINE_DEMO_NOT_AVAILABLE',
   ]) {
     assert.equal(quickStart.includes(marker), true, `Quick Start missing ${marker}`);
   }
-  assert.doesNotMatch(quickStart, /^QUICK_START_STATUS=PASSED$/mu);
+  assert.doesNotMatch(quickStart, /EXACT_HEAD_EVIDENCE_GATED/u);
   assert.doesNotMatch(quickStart, /^PRODUCTION_DEPLOYMENT_STATUS=VERIFIED$/mu);
   assert.doesNotMatch(quickStart, /\b[0-9a-f]{40}\b/u);
 });
@@ -84,27 +87,74 @@ test('user, administrator and operator guides preserve the governed local bounda
   assert.match(operatorGuide, /No additional automatic Workflow/u);
 });
 
-test('product-readiness index distinguishes implemented paths from production claims', () => {
+test('product-readiness index reflects merged Product Alpha outcomes', () => {
   for (const marker of [
+    'MERGED_MEASURED_LOCAL_ALPHA_ACCEPTED',
     'MERGED_LOCAL_ALPHA_H5_SURROGATE_ACCEPTED',
-    'IMPLEMENTED_EXACT_HEAD_EVIDENCE_GATED',
+    'MERGED_BOUNDED_BASELINE_ACCEPTED',
+    'PLANNED_NOT_AVAILABLE',
     'QUICK_START_10_MINUTES_PASSED',
     'PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED',
-    'PRODUCTION_PAYMENT_INTEGRATION_VERIFIED',
-    'A marker name appearing in documentation does not release the marker',
+    'BROWSER_ACCESSIBILITY_MATRIX_PUBLISHED',
+    'PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED',
   ]) {
     assert.equal(status.includes(marker), true, `status missing ${marker}`);
   }
+  assert.match(status, /命令作用域声明/u);
+  assert.doesNotMatch(status, /IMPLEMENTED_EXACT_HEAD_EVIDENCE_GATED/u);
   assert.doesNotMatch(status, /\b[0-9a-f]{40}\b/u);
 });
 
-test('root and documentation indexes expose the bounded Quick Start entry', () => {
-  assert.match(rootReadme, /pnpm demo:quickstart/u);
+test('root README is a product landing page instead of a development status dump', () => {
+  for (const marker of [
+    '通用审批与流程协作平台',
+    '产品解决什么问题',
+    '一条可以直接体验的业务流程',
+    'pnpm demo:quickstart',
+    'pnpm demo:runtime:purchase-payment:e2e',
+    '当前没有公共在线试用地址',
+    'docs/product-readiness/ONLINE_DEMO.md',
+    'docs/current/capability-status.md',
+  ]) {
+    assert.equal(rootReadme.includes(marker), true, `root README missing ${marker}`);
+  }
+  assert.doesNotMatch(rootReadme, /\b[0-9a-f]{40}\b/u);
+  assert.doesNotMatch(rootReadme, /M4\s+已通过\s+PR|M5\s+正在|M6\s+规划/iu);
+});
+
+test('online demo guide remains explicitly planned, isolated and non-production', () => {
+  for (const marker of [
+    'ONLINE_DEMO_STATUS=PLANNED_NOT_AVAILABLE',
+    'PUBLIC_URL_STATUS=NOT_PUBLISHED',
+    'TRACKING_ISSUE=#144',
+    'PostgreSQL 16',
+    'Redis',
+    'HTTPS',
+    'rate limiting',
+    '会话与数据隔离',
+    '自动 reset',
+    'signed local payment sandbox',
+    'PR #142',
+    'ONLINE_DEMO_NOT_AVAILABLE',
+  ]) {
+    assert.equal(onlineDemo.includes(marker), true, `online demo missing ${marker}`);
+  }
+  assert.doesNotMatch(onlineDemo, /^ONLINE_DEMO_STATUS=AVAILABLE$/mu);
+  assert.doesNotMatch(onlineDemo, /^PUBLIC_URL_STATUS=PUBLISHED$/mu);
+  assert.doesNotMatch(onlineDemo, /\b[0-9a-f]{40}\b/u);
+});
+
+test('documentation indexes expose product and online-demo entry points', () => {
   assert.match(rootReadme, /docs\/product-readiness\/QUICK_START\.md/u);
+  assert.match(rootReadme, /docs\/product-readiness\/PURCHASE_PAYMENT_GOLDEN_PATH\.md/u);
+  assert.match(rootReadme, /docs\/product-readiness\/ONLINE_DEMO\.md/u);
   assert.match(docsIndex, /product-readiness\/QUICK_START\.md/u);
   assert.match(docsIndex, /product-readiness\/USER_GUIDE\.md/u);
   assert.match(docsIndex, /product-readiness\/ADMIN_GUIDE\.md/u);
   assert.match(docsIndex, /product-readiness\/OPERATOR_GUIDE\.md/u);
+  assert.match(docsIndex, /product-readiness\/PURCHASE_PAYMENT_GOLDEN_PATH\.md/u);
+  assert.match(docsIndex, /product-readiness\/BROWSER_ACCESSIBILITY_MATRIX\.md/u);
+  assert.match(docsIndex, /product-readiness\/ONLINE_DEMO\.md/u);
 });
 
 test('package and permanent hygiene aggregate retain the Quick Start documentation contract', () => {

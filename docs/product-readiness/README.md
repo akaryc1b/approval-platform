@@ -1,42 +1,128 @@
-# Product Readiness / 产品可用性证据
+# Product Readiness / 产品可用性
 
 Tracking issue: [#107 — Prove the product is usable, scalable, and recoverable](https://github.com/akaryc1b/approval-platform/issues/107)
 
-This directory separates runnable local product evidence from build, architecture, release and production-support claims. Exact commit SHAs, Workflow Run IDs and artifact digests belong in immutable PR/Issue acceptance comments; this living index does not copy moving identities.
+本目录回答的是“用户能否启动并完成工作”，而不只是“代码能否编译”。当前默认分支已经包含可测量的本地 Quick Start、完整采购到付款沙箱路径，以及 PC/H5 的浏览器与基础无障碍基线。容量与恢复测量仍在独立候选分支推进，只有精确 Head 的运行证据通过后才能发布对应结论。
 
-## Current product paths
+精确 commit、Workflow Run 和 Artifact 摘要保留在不可变 PR/Issue 验收记录中；这个 living 索引只维护当前结论、候选状态和入口。
 
-| Product outcome | Current default-branch status | Meaning |
+## 当前产品结果
+
+| 产品结果 | 状态 | 含义 |
 | --- | --- | --- |
-| Repository/workstation preflight | `IMPLEMENTED` | Read-only prerequisite and configuration validation |
-| One-command backend | `IMPLEMENTED_AND_RUNTIME_VERIFIED` | Existing PostgreSQL/Redis/Spring Boot/Flowable/Seed lifecycle |
-| Purchase-to-payment golden path | `MERGED_LOCAL_ALPHA_H5_SURROGATE_ACCEPTED` | Real PC/H5 actions, completion Outbox, signed local sandbox 503/recovery and exactly-one side effect; not production payment or real WeChat runtime |
-| One-command PC/H5 Quick Start | `IMPLEMENTED_EXACT_HEAD_EVIDENCE_GATED` | `pnpm demo:quickstart` starts the governed visible demo and records a 600-second measured result; exact-Head two-run evidence and the permanent Workflow are the acceptance authority |
-| WeChat runtime and physical-device evidence | `NOT_VERIFIED` | Build success and H5 surrogate evidence do not count |
-| Browser/accessibility matrix | `MERGED_ENGINE_BASELINE_ACCEPTED` | Chromium baseline plus Firefox and Playwright WebKit smoke, CJK rendering and authenticated PC keyboard evidence; not real Safari, broad browser support or full WCAG |
-| Performance/capacity envelope | `THREE_LOCAL_REFERENCE_PROFILES_IMPLEMENTED_EVIDENCE_GATED` | Small Demo evidence is accepted for its recorded Head; Standard Deployment and Large Tenant local-reference implementations have current-Head evidence pending |
-| Upgrade, backup/restore and RPO/RTO | `NOT_REHEARSED` | Runbooks, migration history and local Outbox recovery are insufficient |
-| Release and production deployment | `NOT_CREATED` | Default branch is not a Release |
+| Repository / workstation preflight | `IMPLEMENTED` | 只读检查工具和仓库约束 |
+| One-command backend | `IMPLEMENTED_AND_RUNTIME_VERIFIED` | PostgreSQL、Redis、Spring Boot、Flowable 与确定性 Seed 生命周期 |
+| 10-minute PC/H5 Quick Start | `MERGED_MEASURED_LOCAL_ALPHA_ACCEPTED` | `pnpm demo:quickstart` 已通过同一源码树上的两次独立清洁运行 |
+| Purchase-to-payment golden path | `MERGED_LOCAL_ALPHA_H5_SURROGATE_ACCEPTED` | PC/H5 可见操作、实例完成、Outbox、本地签名付款沙箱 503/恢复和单次副作用已验证 |
+| PC/H5 browser and accessibility baseline | `MERGED_BOUNDED_BASELINE_ACCEPTED` | Chromium、Firefox 与 Playwright WebKit 的受限关键页面和键盘/程序化名称检查 |
+| WeChat DevTools / physical device | `NOT_VERIFIED` | 构建成功和 H5 mobile surrogate 不等于真实微信运行时 |
+| Public online evaluation sandbox | `PLANNED_NOT_AVAILABLE` | 建设方案已记录；当前没有公共 URL |
+| Capacity and recovery envelope | `THREE_LOCAL_REFERENCE_PROFILES_IMPLEMENTED_EVIDENCE_GATED` | Small Demo 的既有结论只绑定其历史证据；Standard Deployment 与 Large Tenant 已实现为本地参考候选，当前精确 Head 证据仍待通过，不属于默认分支 Current |
+| Upgrade, backup/restore and RPO/RTO | `NOT_REHEARSED` | 运维文档、迁移历史或单次 Outbox 恢复不能替代真实演练 |
+| Release and production deployment | `NOT_CREATED` | 默认分支不是 Release，Production Support 未声明 |
 
-## Start here
+## 从这里开始
 
 - [10-Minute Quick Start](QUICK_START.md)
+- [Purchase-Payment Golden Path](PURCHASE_PAYMENT_GOLDEN_PATH.md)
 - [Local Demo User Guide](USER_GUIDE.md)
 - [Local Demo Administrator Guide](ADMIN_GUIDE.md)
 - [Local Demo Operator Guide](OPERATOR_GUIDE.md)
-- [Purchase-Payment Golden Path](PURCHASE_PAYMENT_GOLDEN_PATH.md)
+- [PC/H5 Browser and Accessibility Matrix](BROWSER_ACCESSIBILITY_MATRIX.md)
+- [Capacity and Recovery Operating Envelope](CAPACITY_RECOVERY_ENVELOPE.md)
+- [Online Evaluation Sandbox](ONLINE_DEMO.md)
 - [Cross-Client Local Demo](CROSS_CLIENT_LOCAL_DEMO.md)
 - [PC/H5 Runtime Smoke](PC_H5_RUNTIME_SMOKE.md)
-- [Browser and Baseline Accessibility Matrix](BROWSER_ACCESSIBILITY_MATRIX.md)
-- [Capacity and Recovery Operating Envelope](CAPACITY_RECOVERY_ENVELOPE.md)
 
-## Executable commands
+## 已接受的本地 Product Alpha
+
+### 10 分钟 Quick Start
+
+```bash
+pnpm demo:quickstart
+```
+
+该命令拥有完整的启动、可见性验证、证据和清理生命周期。它启动真实 PostgreSQL/Redis、Spring Boot/Flowable、确定性采购付款 Seed、PC 与 H5，并验证同一任务在两个客户端可见。
+
+已接受声明：
+
+```text
+QUICK_START_10_MINUTES_PASSED
+DEMO_BACKEND_READY_PASSED
+PC_DEMO_READY_PASSED
+H5_DEMO_READY_PASSED
+TWO_CONSECUTIVE_CLEAN_QUICK_START_RUNS_PASSED
+```
+
+### 采购到付款沙箱路径
+
+```bash
+pnpm demo:runtime:purchase-payment:e2e
+```
+
+该命令通过真实 PC/H5 页面完成经理审批、财务复核、两人会签和付款确认，然后验证事务 Outbox、签名本地付款沙箱、HTTP 503 后恢复、消息投递和幂等副作用。
+
+已接受声明：
+
+```text
+PURCHASE_PAYMENT_LOCAL_ALPHA_E2E_PASSED
+H5_PAYMENT_CONFIRMATION_PASSED
+PURCHASE_APPROVAL_E2E_PASSED
+PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED
+OUTBOX_RETRY_AND_IDEMPOTENCY_PASSED
+TWO_CONSECUTIVE_CLEAN_RUNS_PASSED
+```
+
+### 浏览器与基础无障碍基线
+
+```bash
+pnpm demo:runtime:browser-accessibility
+```
+
+当前受限矩阵覆盖 system Chromium、Playwright Firefox 和 Playwright WebKit，验证 PC/H5 关键页面、中文字符、程序化名称、目标对比度和一条认证后的 PC 键盘任务路径。
+
+已接受声明：
+
+```text
+PC_H5_CHROMIUM_COMPATIBILITY_BASELINE_PASSED
+PC_H5_FIREFOX_COMPATIBILITY_SMOKE_PASSED
+PC_H5_WEBKIT_ENGINE_COMPATIBILITY_SMOKE_PASSED
+PC_AUTHENTICATED_KEYBOARD_TASK_FLOW_PASSED
+BASELINE_AUTOMATED_ACCESSIBILITY_PASSED
+PC_H5_CJK_RENDERING_MATRIX_PASSED
+BROWSER_ACCESSIBILITY_MATRIX_PUBLISHED
+```
+
+## 容量与恢复候选路径
+
+候选分支提供同一条采购付款真实路径的三个本地参考 Profile：
+
+```text
+Small Demo
+Standard Deployment
+Large Tenant
+```
+
+执行入口为：
+
+```bash
+pnpm demo:runtime:capacity-recovery:plan
+pnpm demo:runtime:capacity-recovery:check
+pnpm demo:runtime:capacity-recovery
+```
+
+三个 Profile 的实现存在，不等于三个结果已经被接受。Standard Deployment 与 Large Tenant 必须在当前精确 Head 上完成自然 Workflow、阈值检查、证据留存和完整清理，才能发布候选声明。任何成功 Profile 都只能标记为：
+
+```text
+PASSED_AT_CONFIGURED_POINT_ONLY
+```
+
+这表示配置点通过，不代表最大稳定边界、生产容量或生产规格。当前仍未完成高容量 Outbox/Connector backlog drain、在途升级、备份恢复和实测 RPO/RTO。
+
+## 可执行命令
 
 ```bash
 pnpm demo:preflight
-pnpm demo:backend:plan
-pnpm demo:backend:start
-pnpm demo:backend:stop
 pnpm demo:quickstart:plan
 pnpm demo:quickstart
 pnpm demo:quickstart:check
@@ -47,11 +133,11 @@ pnpm demo:runtime:capacity-recovery:check
 pnpm demo:runtime:capacity-recovery
 ```
 
-`pnpm demo:quickstart` owns startup, visible PC/H5 readiness, timing evidence and cleanup. `pnpm demo:runtime:purchase-payment:e2e` is the separate complete local approval-to-sandbox path. `pnpm demo:runtime:browser-accessibility` reuses Quick Start for the bounded engine/accessibility matrix. `pnpm demo:runtime:capacity-recovery` measures Small Demo, Standard Deployment and Large Tenant local-reference profiles, then reuses the accepted purchase-payment recovery path. None of these commands is a production deployment procedure.
+这些命令是本地 Product Alpha 或受控候选入口，不是生产部署命令。
 
-## Component and validator markers
+## 为什么文档中仍会出现 `_NOT_EXECUTED`
 
-The permanent boundaries still require the narrower backend, Seed and read-only scenario-contract vocabulary:
+仓库保留更窄组件命令的声明词汇。例如，只读场景校验器和 Seed 集成测试不会启动完整 PC/H5 产品路径，因此它们会正确输出：
 
 ```text
 DEMO_BACKEND_ONE_COMMAND_IMPLEMENTED
@@ -68,66 +154,38 @@ PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED
 PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED
 ```
 
-These markers are scoped to the command that emitted or documented them. The read-only scenario validator can correctly report `_NOT_EXECUTED` while a separately authorized exact-Head runtime has accepted the purchase-to-payment E2E. The component vocabulary is retained for compatibility and does not downgrade merged Product Alpha evidence or itself release a Quick Start, browser or capacity claim.
+这些是**命令作用域声明**，不是全局产品状态。静态校验器输出 `_NOT_EXECUTED`，不会覆盖另一个已授权运行时已经接受的 Quick Start 或采购到付款结果，也不会自动释放容量候选声明。
 
-## Claim vocabulary
+## 证据位置
 
-- `DEMO_REPOSITORY_CONTRACT_PASSED`: repository prerequisites are present; workstation tools were not necessarily checked.
-- `DEMO_PREFLIGHT_PASSED`: documented local tools and repository contracts passed; no service was started.
-- `DEMO_BACKEND_READY_PASSED`: the existing local backend reached Actuator `UP` with the deterministic Seed during a bounded Quick Start run.
-- `PC_DEMO_READY_PASSED`: the governed seeded request was visible in the real PC workbench.
-- `H5_DEMO_READY_PASSED`: the same governed request was visible in the real H5 task list.
-- `QUICK_START_10_MINUTES_PASSED`: one exact source tree reached the published ready outcome within 600 seconds in two independent clean runs.
-- `PURCHASE_APPROVAL_E2E_PASSED`: the complete local approval path reached authoritative `COMPLETED` through visible client controls.
-- `PURCHASE_TO_PAYMENT_SANDBOX_E2E_PASSED`: the completion event reached the identified signed local sandbox, recovered from an initial HTTP 503 and produced one accepted idempotent result.
-- `PC_H5_CHROMIUM_COMPATIBILITY_BASELINE_PASSED`: the bounded authenticated Chromium PC/H5 surface passed the published engine checks.
-- `PC_H5_FIREFOX_COMPATIBILITY_SMOKE_PASSED`: the bounded Firefox PC/H5 smoke passed; it is not broad Firefox acceptance.
-- `PC_H5_WEBKIT_ENGINE_COMPATIBILITY_SMOKE_PASSED`: Playwright WebKit passed the bounded engine smoke; it is not real Safari acceptance.
-- `SMALL_DEMO_CAPACITY_BASELINE_PASSED`: the exact configured Small Demo point passed its declared thresholds; it is not a maximum or production capacity claim.
-- `STANDARD_DEPLOYMENT_LOCAL_REFERENCE_PASSED`: the exact governed Standard local-reference profile passed; it is not a production deployment sizing claim.
-- `LARGE_TENANT_LOCAL_REFERENCE_PASSED`: the exact governed Large local-reference profile passed; it is not proof of a 10,000-user or million-history production tenant.
-- `OUTBOX_BACKLOG_CREATION_VOLUME_MEASURED`: the profile matrix created and counted completion-Outbox PENDING rows with dispatch disabled; it does not prove high-volume drain recovery.
-- `OUTBOX_CONNECTOR_RECOVERY_REUSED_AND_MEASURED`: exact-Head E2E PENDING/503 and DELIVERED evidence was reused and its retained evidence interval measured; it is not production RTO.
-- `PRODUCTION_PAYMENT_INTEGRATION_VERIFIED`: reserved for separately authorized real-provider acceptance; never inferred from a sandbox.
-
-A marker name appearing in documentation does not release the marker. Exact-Head runtime evidence and the permanent Workflow are authoritative.
-
-## Runtime evidence roots
-
-Quick Start writes to:
+每个运行将证据写入 `.runtime/` 下的独立目录，并保持未跟踪：
 
 ```text
 .runtime/quick-start/<run-id>/
-```
-
-Browser/accessibility writes to:
-
-```text
+.runtime/purchase-payment-e2e/<run-id>/
 .runtime/browser-accessibility/<run-id>/
-```
-
-Capacity/recovery writes to:
-
-```text
 .runtime/capacity-recovery/<run-id>/
 ```
 
-The purchase-payment E2E retains its independent source evidence under `.runtime/purchase-payment-e2e/`. Every root remains untracked. A startup, runtime, threshold or cleanup failure prevents the corresponding claim. Documentation-only changes remain outside the heavy runtime path scopes.
+证据包含源码树身份、环境、运行时间、业务标识、截图、Playwright trace、后端与客户端日志、数据库/进程观察、Outbox/沙箱状态和清理结果。living 文档不复制易过期的 SHA、Run ID 或 Artifact digest。
 
-## Safety boundary
+## 在线评估环境
 
-Product Readiness work must not:
+当前没有公共在线地址。[Online Evaluation Sandbox](ONLINE_DEMO.md) 定义了邀请制起步、会话/租户隔离、自动重置、限流、附件限制、外部出口禁用、监控和容量门槛。只有这些门槛通过后，README 才会发布真实 URL。
 
-- create a second automatic PR/main Workflow;
-- create a second backend, database, Seed, Outbox, sandbox or client launcher;
-- write platform or Flowable `ACT_*` tables to advance a process;
-- bypass authorization through browser-supplied trusted permissions;
-- use mock readiness, fixed sleeps, swallowed exceptions or unbounded waits;
-- turn a local profile, H5 surrogate, browser engine, build, sandbox or default-branch commit into a production claim;
-- publish a capacity, RPO or RTO number that was not measured;
-- modify or depend on the independent MySQL 8.4 PR #92.
+## 安全边界
 
-## Explicit non-claims
+Product Readiness 工作不得：
+
+- 创建第二套业务后端、数据库模型、Seed、Outbox、付款沙箱或客户端启动器；
+- 写平台业务表或 Flowable `ACT_*` 表来推进流程；
+- 使用浏览器提供的可信权限绕过服务端身份；
+- 使用 mock readiness、固定等待、吞掉异常或无界重试；
+- 发布未经测量的容量、TPS、RPO 或 RTO 数字；
+- 把 H5 surrogate、构建、本地沙箱、本地 Profile 或默认分支提交描述成真实微信、真实支付、Release 或 Production Support；
+- 修改或依赖独立的 MySQL 8.4 候选分支。
+
+## 当前非声明
 
 ```text
 WECHAT_DEVTOOLS_RUNTIME_NOT_VERIFIED
@@ -150,5 +208,6 @@ UPGRADE_REHEARSAL_NOT_VERIFIED
 BACKUP_RESTORE_NOT_VERIFIED
 RPO_RTO_NOT_VERIFIED
 MYSQL_8_4_NOT_VERIFIED
+ONLINE_DEMO_NOT_AVAILABLE
 RELEASE_NOT_CREATED
 ```
