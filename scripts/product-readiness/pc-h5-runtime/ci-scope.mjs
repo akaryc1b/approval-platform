@@ -28,7 +28,7 @@ const capacityCorePaths = [
   /^config\/demo\/capacity-recovery\.json$/u,
   /^scripts\/product-readiness\/capacity-recovery\.mjs$/u,
   /^scripts\/product-readiness\/capacity-recovery\//u,
-  /^scripts\/tests\/product-readiness-capacity-recovery-boundary\.test\.mjs$/u,
+  /^scripts\/tests\/product-readiness-capacity-recovery-[^/]+\.test\.mjs$/u,
   /^docs\/product-readiness\/CAPACITY_RECOVERY_ENVELOPE\.md$/u,
 ];
 
