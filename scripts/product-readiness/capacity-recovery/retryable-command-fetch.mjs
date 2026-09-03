@@ -15,7 +15,9 @@ import { performance } from 'node:perf_hooks';
 
 const approvalPath = /^\/api\/approval\/tasks\/[0-9a-f-]{36}\/approve$/iu;
 const expectedOrigin = 'http://127.0.0.1:8080';
-const evidenceFileName = 'profile-matrix-command-retry-evidence.json';
+const defaultEvidenceFileName = 'profile-matrix-command-retry-evidence.json';
+const defaultContractFileName = 'profile-matrix-contract.json';
+const defaultRunDirectorySuffix = '-profiles';
 const retryableCode = 'APPROVAL_COMMAND_FAILED';
 const maximumAttempts = 4;
 const backoffMilliseconds = Object.freeze([50, 100, 200]);
@@ -60,32 +62,58 @@ function exactIdentity(value) {
 function safeRelative(root, target) {
   const value = relative(root, target).split(sep).join('/');
   if (!value || value.startsWith('../') || value.includes('/../')) {
-    throw new Error(`profile retry evidence escaped its output root: ${target}`);
+    throw new Error(`capacity retry evidence escaped its output root: ${target}`);
   }
   return value;
+}
+
+function safeJsonFileName(value, label) {
+  const text = requiredText(value, label);
+  if (!/^[0-9A-Za-z][0-9A-Za-z._-]*\.json$/u.test(text)
+      || text.includes('..')) {
+    throw new Error(`${label} must be one safe JSON file name`);
+  }
+  return text;
+}
+
+function safeRunDirectorySuffix(value) {
+  if (value === null) return null;
+  const text = requiredText(value, 'runDirectorySuffix');
+  if (!/^-[0-9a-z][0-9a-z-]*$/u.test(text)) {
+    throw new Error('runDirectorySuffix must be null or a safe lowercase suffix');
+  }
+  return text;
 }
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-function activeProfileDirectory(outputRoot, identity, installedAtMs) {
+function activeEvidenceDirectory(
+  outputRoot,
+  identity,
+  installedAtMs,
+  runDirectorySuffix,
+  contractFileName,
+) {
   if (!existsSync(outputRoot)) {
-    throw new Error('capacity profile output root is unavailable for retry evidence');
+    throw new Error('capacity output root is unavailable for retry evidence');
   }
   const canonicalRoot = realpathSync(outputRoot);
   const candidates = [];
   for (const entry of readdirSync(canonicalRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !entry.name.endsWith('-profiles')) continue;
+    if (!entry.isDirectory()) continue;
+    if (runDirectorySuffix !== null
+        && !entry.name.endsWith(runDirectorySuffix)) continue;
     const candidate = resolve(canonicalRoot, entry.name);
     const metadata = lstatSync(candidate);
     if (metadata.isSymbolicLink()) {
-      throw new Error(`profile retry evidence rejects a symbolic-link run: ${candidate}`);
+      throw new Error(`capacity retry evidence rejects a symbolic-link run: ${candidate}`);
     }
     const canonicalCandidate = realpathSync(candidate);
     safeRelative(canonicalRoot, canonicalCandidate);
     const sourcePath = resolve(canonicalCandidate, 'source-identity.json');
-    const contractPath = resolve(canonicalCandidate, 'profile-matrix-contract.json');
+    const contractPath = resolve(canonicalCandidate, contractFileName);
     if (!existsSync(sourcePath) || !existsSync(contractPath)) continue;
     const source = readJson(sourcePath);
     const capturedAt = Date.parse(source.capturedAt || '');
@@ -102,7 +130,7 @@ function activeProfileDirectory(outputRoot, identity, installedAtMs) {
     right.capturedAt - left.capturedAt || right.modifiedAt - left.modifiedAt);
   if (candidates.length !== 1) {
     throw new Error(
-      `expected one active exact-Head profile run for retry evidence, found ${candidates.length}`,
+      `expected one active exact-Head capacity run for retry evidence, found ${candidates.length}`,
     );
   }
   return candidates[0].directory;
@@ -184,6 +212,9 @@ export function createProfileCommandRetryFetch({
   outputRoot,
   identity: rawIdentity,
   installedAtMs = Date.now(),
+  runDirectorySuffix = defaultRunDirectorySuffix,
+  contractFileName = defaultContractFileName,
+  evidenceFileName = defaultEvidenceFileName,
   sleepImplementation = milliseconds =>
     new Promise(resolvePromise => setTimeout(resolvePromise, milliseconds)),
 }) {
@@ -192,6 +223,17 @@ export function createProfileCommandRetryFetch({
   }
   const identity = exactIdentity(rawIdentity);
   const canonicalOutputRoot = resolve(requiredText(outputRoot, 'outputRoot'));
+  const configuredRunDirectorySuffix = safeRunDirectorySuffix(
+    runDirectorySuffix,
+  );
+  const configuredContractFileName = safeJsonFileName(
+    contractFileName,
+    'contractFileName',
+  );
+  const configuredEvidenceFileName = safeJsonFileName(
+    evidenceFileName,
+    'evidenceFileName',
+  );
   const events = [];
   const commands = new Map();
   let eventSequence = 0;
@@ -199,10 +241,12 @@ export function createProfileCommandRetryFetch({
   let runDirectory;
 
   function evidenceDirectory() {
-    runDirectory ||= activeProfileDirectory(
+    runDirectory ||= activeEvidenceDirectory(
       canonicalOutputRoot,
       identity,
       installedAtMs,
+      configuredRunDirectorySuffix,
+      configuredContractFileName,
     );
     return runDirectory;
   }
@@ -213,6 +257,7 @@ export function createProfileCommandRetryFetch({
       schemaVersion: 1,
       evidenceKind: 'CAPACITY_PROFILE_COMMAND_RETRY_EVIDENCE_V1',
       runId: basename(evidenceDirectory()),
+      evidenceFileName: configuredEvidenceFileName,
       ...identity,
       contract: profileCommandRetryContract,
       totals: {
@@ -247,7 +292,7 @@ export function createProfileCommandRetryFetch({
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     writeSequence += 1;
     writeJsonAtomically(
-      resolve(directory, evidenceFileName),
+      resolve(directory, configuredEvidenceFileName),
       evidenceValue(),
       writeSequence,
     );

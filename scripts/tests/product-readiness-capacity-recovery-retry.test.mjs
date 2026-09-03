@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -9,6 +10,8 @@ import {
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
+
+const repositoryRoot = resolve(import.meta.dirname, '../..');
 
 import {
   createProfileCommandRetryFetch,
@@ -22,22 +25,29 @@ function exactIdentity() {
   };
 }
 
-function profileRun(outputRoot, identity) {
-  const runDirectory = resolve(outputRoot, 'test-profiles');
+function capacityRun(
+  outputRoot,
+  identity,
+  {
+    name = 'test-profiles',
+    contractFileName = 'profile-matrix-contract.json',
+  } = {},
+) {
+  const runDirectory = resolve(outputRoot, name);
   mkdirSync(runDirectory, { recursive: true, mode: 0o700 });
   writeFileSync(
     resolve(runDirectory, 'source-identity.json'),
     `${JSON.stringify({
       schemaVersion: 1,
       evidenceKind: 'CAPACITY_PROFILE_MATRIX_SOURCE_IDENTITY_V1',
-      runId: 'test-profiles',
+      runId: name,
       capturedAt: new Date().toISOString(),
       ...identity,
     })}\n`,
     'utf8',
   );
   writeFileSync(
-    resolve(runDirectory, 'profile-matrix-contract.json'),
+    resolve(runDirectory, contractFileName),
     '{}\n',
     'utf8',
   );
@@ -93,10 +103,40 @@ test('profile command retry contract is narrow deterministic and bounded', () =>
   assert.equal(profileCommandRetryContract.nonCommandWritesRetried, false);
 });
 
+test('capacity launcher scopes the same retry contract to Small Demo evidence', () => {
+  const launcher = readFileSync(
+    resolve(
+      repositoryRoot,
+      'scripts/product-readiness/capacity-recovery.mjs',
+    ),
+    'utf8',
+  );
+  const evidence = readFileSync(
+    resolve(
+      repositoryRoot,
+      'scripts/product-readiness/capacity-recovery/evidence.mjs',
+    ),
+    'utf8',
+  );
+  assert.match(launcher, /executeSmallDemoWithRetryEvidence/u);
+  assert.match(launcher, /runDirectorySuffix:\s*null/u);
+  assert.match(launcher, /contractFileName:\s*'profile-contract\.json'/u);
+  assert.match(
+    launcher,
+    /evidenceFileName:\s*'small-demo-command-retry-evidence\.json'/u,
+  );
+  assert.equal(
+    launcher.indexOf('installProfileCommandRetryEvidence({')
+      < launcher.indexOf('await execute(contract'),
+    true,
+  );
+  assert.match(evidence, /small-demo-command-retry-evidence\.json/u);
+});
+
 test('top-level API retryable approval failure is recovered with retained attempts', async () => {
   const outputRoot = mkdtempSync(resolve(tmpdir(), 'approval-capacity-retry-'));
   const identity = exactIdentity();
-  const runDirectory = profileRun(outputRoot, identity);
+  const runDirectory = capacityRun(outputRoot, identity);
   const calls = [];
   const delays = [];
   const responses = [
@@ -145,6 +185,10 @@ test('top-level API retryable approval failure is recovered with retained attemp
     ));
     assert.equal(evidence.commitSha, identity.commitSha);
     assert.equal(evidence.treeSha, identity.treeSha);
+    assert.equal(
+      evidence.evidenceFileName,
+      'profile-matrix-command-retry-evidence.json',
+    );
     assert.equal(evidence.totals.logicalCommandsObserved, 1);
     assert.equal(evidence.totals.transportAttempts, 2);
     assert.equal(evidence.totals.retryableResponses, 1);
@@ -160,10 +204,87 @@ test('top-level API retryable approval failure is recovered with retained attemp
   }
 });
 
+test('small demo can retain the same retry contract in its own exact-run evidence', async () => {
+  const outputRoot = mkdtempSync(resolve(tmpdir(), 'approval-capacity-small-'));
+  const identity = exactIdentity();
+  const runDirectory = capacityRun(outputRoot, identity, {
+    name: 'test-small-demo',
+    contractFileName: 'profile-contract.json',
+  });
+  const responses = [
+    new Response(JSON.stringify(approvalCommandError(true)), { status: 500 }),
+    new Response('{}', { status: 200 }),
+  ];
+  try {
+    const controller = createProfileCommandRetryFetch({
+      outputRoot,
+      identity,
+      installedAtMs: Date.now() - 10,
+      runDirectorySuffix: null,
+      contractFileName: 'profile-contract.json',
+      evidenceFileName: 'small-demo-command-retry-evidence.json',
+      fetchImplementation: async () => responses.shift(),
+      sleepImplementation: async () => {},
+    });
+    const request = approvalRequest();
+    const response = await controller.fetch(request.url, request.options);
+    assert.equal(response.status, 200);
+    const evidencePath = resolve(
+      runDirectory,
+      'small-demo-command-retry-evidence.json',
+    );
+    assert.equal(existsSync(evidencePath), true);
+    assert.equal(
+      existsSync(resolve(
+        runDirectory,
+        'profile-matrix-command-retry-evidence.json',
+      )),
+      false,
+    );
+    const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'));
+    assert.equal(evidence.runId, 'test-small-demo');
+    assert.equal(
+      evidence.evidenceFileName,
+      'small-demo-command-retry-evidence.json',
+    );
+    assert.equal(evidence.totals.transportAttempts, 2);
+    assert.equal(evidence.totals.recoveredCommands, 1);
+    assert.equal(evidence.totals.terminalFailures, 0);
+  } finally {
+    rmSync(outputRoot, { recursive: true, force: true });
+  }
+});
+
+test('retry evidence rejects path-like configuration names', () => {
+  const outputRoot = mkdtempSync(resolve(tmpdir(), 'approval-capacity-path-'));
+  try {
+    assert.throws(
+      () => createProfileCommandRetryFetch({
+        outputRoot,
+        identity: exactIdentity(),
+        contractFileName: '../profile-contract.json',
+        fetchImplementation: async () => new Response('{}'),
+      }),
+      /contractFileName must be one safe JSON file name/u,
+    );
+    assert.throws(
+      () => createProfileCommandRetryFetch({
+        outputRoot,
+        identity: exactIdentity(),
+        evidenceFileName: 'nested/evidence.json',
+        fetchImplementation: async () => new Response('{}'),
+      }),
+      /evidenceFileName must be one safe JSON file name/u,
+    );
+  } finally {
+    rmSync(outputRoot, { recursive: true, force: true });
+  }
+});
+
 test('nested retryable error envelope remains accepted for compatibility', async () => {
   const outputRoot = mkdtempSync(resolve(tmpdir(), 'approval-capacity-nested-'));
   const identity = exactIdentity();
-  const runDirectory = profileRun(outputRoot, identity);
+  const runDirectory = capacityRun(outputRoot, identity);
   const responses = [
     new Response(JSON.stringify({
       error: {
@@ -198,7 +319,7 @@ test('nested retryable error envelope remains accepted for compatibility', async
 test('top-level non-retryable approval response is retained as terminal', async () => {
   const outputRoot = mkdtempSync(resolve(tmpdir(), 'approval-capacity-terminal-'));
   const identity = exactIdentity();
-  const runDirectory = profileRun(outputRoot, identity);
+  const runDirectory = capacityRun(outputRoot, identity);
   let calls = 0;
   try {
     const controller = createProfileCommandRetryFetch({

@@ -35,6 +35,23 @@ function printPlan(contract, jsonOutput) {
     : `Approval Platform capacity/recovery plan\n${JSON.stringify(value, null, 2)}`);
 }
 
+async function executeSmallDemoWithRetryEvidence(contract) {
+  const retryEvidence = installProfileCommandRetryEvidence({
+    outputRoot,
+    identity: sourceIdentity(),
+    runDirectorySuffix: null,
+    contractFileName: 'profile-contract.json',
+    evidenceFileName: 'small-demo-command-retry-evidence.json',
+  });
+  try {
+    await execute(contract, {
+      reuseRecoveryEvidence: false,
+    });
+  } finally {
+    retryEvidence.restore();
+  }
+}
+
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   if (options.help) {
@@ -47,9 +64,7 @@ async function main() {
     return;
   }
   if (options.command === 'ci' && !shouldRunInCi()) return;
-  await execute(contract, {
-    reuseRecoveryEvidence: false,
-  });
+  await executeSmallDemoWithRetryEvidence(contract);
   const retryEvidence = installProfileCommandRetryEvidence({
     outputRoot,
     identity: sourceIdentity(),

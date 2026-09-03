@@ -73,6 +73,7 @@ export function appendCiEvidenceEnvelope(status, runDirectory, identity) {
       'postgres-before.json',
       'postgres-after.json',
       'request-samples.json',
+      'small-demo-command-retry-evidence.json',
       'small-demo-profile.json',
       'small-demo-cleanup.json',
       'recovery-summary.json',
