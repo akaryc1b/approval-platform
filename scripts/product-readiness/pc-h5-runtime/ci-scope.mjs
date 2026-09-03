@@ -38,6 +38,8 @@ const capacityOnlyAllowedPaths = [
   /^scripts\/tests\/m3-repository-hygiene\.test\.mjs$/u,
   /^scripts\/product-readiness\/pc-h5-runtime\/ci-scope\.mjs$/u,
   /^docs\/product-readiness\/README\.md$/u,
+  /^apps\/server\/src\/main\/java\/io\/github\/akaryc1b\/approval\/demo\/PurchasePaymentDemoPaymentSandbox(?:Configuration)?\.java$/u,
+  /^apps\/server\/src\/main\/resources\/application-local\.yml$/u,
 ];
 
 function gitExecutable() {
