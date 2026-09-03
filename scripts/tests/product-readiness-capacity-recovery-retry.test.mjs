@@ -61,6 +61,16 @@ function approvalRequest() {
   };
 }
 
+function approvalCommandError(retryable) {
+  return {
+    code: 'APPROVAL_COMMAND_FAILED',
+    message: 'approval command failed',
+    retryable,
+    requestId: 'request-1',
+    occurredAt: '2026-09-03T01:47:32.169786351Z',
+  };
+}
+
 test('profile command retry contract is narrow deterministic and bounded', () => {
   assert.equal(profileCommandRetryContract.origin, 'http://127.0.0.1:8080');
   assert.equal(profileCommandRetryContract.method, 'POST');
@@ -83,19 +93,14 @@ test('profile command retry contract is narrow deterministic and bounded', () =>
   assert.equal(profileCommandRetryContract.nonCommandWritesRetried, false);
 });
 
-test('retryable approval failure is recovered with one idempotency key and retained attempts', async () => {
+test('top-level API retryable approval failure is recovered with retained attempts', async () => {
   const outputRoot = mkdtempSync(resolve(tmpdir(), 'approval-capacity-retry-'));
   const identity = exactIdentity();
   const runDirectory = profileRun(outputRoot, identity);
   const calls = [];
   const delays = [];
   const responses = [
-    new Response(JSON.stringify({
-      error: {
-        code: 'APPROVAL_COMMAND_FAILED',
-        retryable: true,
-      },
-    }), { status: 500 }),
+    new Response(JSON.stringify(approvalCommandError(true)), { status: 500 }),
     new Response(JSON.stringify({ data: { accepted: true } }), { status: 200 }),
   ];
   try {
@@ -146,6 +151,8 @@ test('retryable approval failure is recovered with one idempotency key and retai
     assert.equal(evidence.totals.commandsRetried, 1);
     assert.equal(evidence.totals.recoveredCommands, 1);
     assert.equal(evidence.totals.terminalFailures, 0);
+    assert.equal(evidence.attempts[0].code, 'APPROVAL_COMMAND_FAILED');
+    assert.equal(evidence.attempts[0].retryable, true);
     assert.equal(evidence.attempts[0].outcome, 'RETRY_SCHEDULED');
     assert.equal(evidence.attempts[1].outcome, 'SUCCEEDED_AFTER_RETRY');
   } finally {
@@ -153,7 +160,42 @@ test('retryable approval failure is recovered with one idempotency key and retai
   }
 });
 
-test('non-retryable approval response is returned once and retained as terminal', async () => {
+test('nested retryable error envelope remains accepted for compatibility', async () => {
+  const outputRoot = mkdtempSync(resolve(tmpdir(), 'approval-capacity-nested-'));
+  const identity = exactIdentity();
+  const runDirectory = profileRun(outputRoot, identity);
+  const responses = [
+    new Response(JSON.stringify({
+      error: {
+        code: 'APPROVAL_COMMAND_FAILED',
+        retryable: true,
+      },
+    }), { status: 500 }),
+    new Response('{}', { status: 200 }),
+  ];
+  try {
+    const controller = createProfileCommandRetryFetch({
+      outputRoot,
+      identity,
+      installedAtMs: Date.now() - 10,
+      fetchImplementation: async () => responses.shift(),
+      sleepImplementation: async () => {},
+    });
+    const request = approvalRequest();
+    const response = await controller.fetch(request.url, request.options);
+    assert.equal(response.status, 200);
+    const evidence = JSON.parse(readFileSync(
+      resolve(runDirectory, 'profile-matrix-command-retry-evidence.json'),
+      'utf8',
+    ));
+    assert.equal(evidence.totals.transportAttempts, 2);
+    assert.equal(evidence.totals.recoveredCommands, 1);
+  } finally {
+    rmSync(outputRoot, { recursive: true, force: true });
+  }
+});
+
+test('top-level non-retryable approval response is retained as terminal', async () => {
   const outputRoot = mkdtempSync(resolve(tmpdir(), 'approval-capacity-terminal-'));
   const identity = exactIdentity();
   const runDirectory = profileRun(outputRoot, identity);
@@ -165,12 +207,10 @@ test('non-retryable approval response is returned once and retained as terminal'
       installedAtMs: Date.now() - 10,
       fetchImplementation: async () => {
         calls += 1;
-        return new Response(JSON.stringify({
-          error: {
-            code: 'APPROVAL_COMMAND_FAILED',
-            retryable: false,
-          },
-        }), { status: 500 });
+        return new Response(
+          JSON.stringify(approvalCommandError(false)),
+          { status: 500 },
+        );
       },
       sleepImplementation: async () => {
         throw new Error('non-retryable response must not sleep');

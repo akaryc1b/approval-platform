@@ -127,10 +127,13 @@ function scopedApprovalCommand(request) {
 function retryableResponsePayload(text) {
   try {
     const value = JSON.parse(text);
-    const error = value?.error;
+    const nested = value?.error;
+    const candidate = nested && typeof nested === 'object' && !Array.isArray(nested)
+      ? nested
+      : value;
     return {
-      code: typeof error?.code === 'string' ? error.code : null,
-      retryable: error?.retryable === true,
+      code: typeof candidate?.code === 'string' ? candidate.code : null,
+      retryable: candidate?.retryable === true,
     };
   } catch {
     return { code: null, retryable: false };
