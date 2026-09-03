@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 
 import { java21Environment } from '../pc-h5-runtime/contract.mjs';
 import { backendOrigin } from './contract.mjs';
+import { upgradeRestorePlan } from './upgrade-restore-contract.mjs';
 
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 export const backendTimeoutMs = 15 * 60_000;
@@ -102,12 +103,14 @@ export function backendEnvironment(runDirectory, contract, prefixes) {
 
 export function backlogDrainPlan(contract) {
   const expectedRows = exactConfiguredRowCount(contract);
+  const upgradeRestore = upgradeRestorePlan(contract);
   return {
     stage:
-      'create and drain a configured-volume completion Outbox backlog through the existing Generic REST Connector and local signed payment sandbox',
+      'create and drain a configured-volume completion Outbox backlog through the existing Generic REST Connector and local signed payment sandbox; then execute the exact-main in-flight PostgreSQL upgrade/restore rehearsal',
     expectedRows,
     claim,
     evidenceKind: 'CAPACITY_OUTBOX_BACKLOG_DRAIN_SUMMARY_V1',
-    nonClaims,
+    nonClaims: [...nonClaims, ...upgradeRestore.nonClaims],
+    upgradeRestore,
   };
 }
