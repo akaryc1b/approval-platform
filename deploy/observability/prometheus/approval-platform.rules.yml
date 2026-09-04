@@ -1,0 +1,153 @@
+groups:
+  - name: approval-platform-availability
+    rules:
+      - alert: ApprovalPlatformDown
+        expr: up{job="approval-platform"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          owner: approval-platform
+          component: runtime
+        annotations:
+          summary: Approval Platform metrics target is unavailable
+          description: Prometheus has been unable to scrape {{ $labels.instance }} for more than two minutes.
+          runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalplatformdown
+
+      - alert: ApprovalPlatformHighHttp5xxRatio
+        expr: |
+          (
+            sum by (job, instance) (
+              rate(http_server_requests_seconds_count{job="approval-platform",status=~"5.."}[5m])
+            )
+            /
+            clamp_min(
+              sum by (job, instance) (
+                rate(http_server_requests_seconds_count{job="approval-platform"}[5m])
+              ),
+              0.001
+            )
+          ) > 0.05
+          and on (job, instance)
+          sum by (job, instance) (
+            rate(http_server_requests_seconds_count{job="approval-platform"}[5m])
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+          owner: approval-platform
+          component: api
+        annotations:
+          summary: Approval Platform HTTP 5xx ratio is elevated
+          description: More than 5% of requests to {{ $labels.instance }} have returned 5xx for ten minutes with a minimum traffic floor.
+          runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalplatformhighhttp5xxratio
+
+      - alert: ApprovalPlatformHighHttpP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, job, instance) (
+              rate(http_server_requests_seconds_bucket{job="approval-platform"}[5m])
+            )
+          ) > 2
+          and on (job, instance)
+          sum by (job, instance) (
+            rate(http_server_requests_seconds_count{job="approval-platform"}[5m])
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          owner: approval-platform
+          component: api
+        annotations:
+          summary: Approval Platform HTTP P95 latency is above two seconds
+          description: P95 request latency on {{ $labels.instance }} has exceeded two seconds for ten minutes with a minimum traffic floor.
+          runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalplatformhighhttpp95latency
+
+  - name: approval-platform-workflow-sla
+    rules:
+      - alert: ApprovalWorkflowOverdueDetected
+        expr: |
+          sum by (application) (
+            increase(approval_sla_execution_worker_total{action="overdue"}[10m])
+          ) > 0
+        labels:
+          severity: warning
+          owner: approval-platform
+          component: workflow-sla
+        annotations:
+          summary: An overdue workflow SLA action was detected
+          description: The SLA worker emitted one or more overdue actions for {{ $labels.application }} in the last ten minutes.
+          runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalworkflowoverduedetected
+
+      - alert: ApprovalWorkflowSlaActionDead
+        expr: |
+          sum by (application, action) (
+            increase(approval_sla_execution_worker_total{result="dead"}[10m])
+          ) > 0
+        labels:
+          severity: critical
+          owner: approval-platform
+          component: workflow-sla
+        annotations:
+          summary: A workflow SLA action reached a terminal failure
+          description: The {{ $labels.action }} SLA action for {{ $labels.application }} reached DEAD and requires operator review.
+          runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalworkflowslaactiondead
+
+      - alert: ApprovalWorkflowSlaActionRetryStorm
+        expr: |
+          sum by (application, action) (
+            increase(approval_sla_execution_worker_total{result="retry_scheduled"}[15m])
+          ) >= 3
+        for: 5m
+        labels:
+          severity: warning
+          owner: approval-platform
+          component: workflow-sla
+        annotations:
+          summary: Workflow SLA actions are repeatedly retrying
+          description: At least three {{ $labels.action }} actions for {{ $labels.application }} scheduled retries in fifteen minutes.
+          runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalworkflowslaactionretrystorm
+
+  - name: approval-platform-connectors
+    rules:
+      - alert: ApprovalConnectorFailureRatio
+        expr: |
+          (
+            sum by (application, provider, operation) (
+              rate(approval_connector_invocation_event_total{outcome=~"failure|refused|malformed_response"}[5m])
+            )
+            /
+            clamp_min(
+              sum by (application, provider, operation) (
+                rate(approval_connector_invocation_event_total[5m])
+              ),
+              0.001
+            )
+          ) > 0.10
+          and on (application, provider, operation)
+          sum by (application, provider, operation) (
+            rate(approval_connector_invocation_event_total[5m])
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+          owner: approval-platform
+          component: connector
+        annotations:
+          summary: Approval connector failure ratio is elevated
+          description: More than 10% of {{ $labels.provider }} {{ $labels.operation }} calls have failed for ten minutes with a minimum traffic floor.
+          runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalconnectorfailureratio
+
+      - alert: ApprovalConnectorTimeoutDetected
+        expr: |
+          sum by (application, provider, operation) (
+            increase(approval_connector_invocation_event_total{failure="transport_timeout"}[10m])
+          ) > 0
+        labels:
+          severity: warning
+          owner: approval-platform
+          component: connector
+        annotations:
+          summary: Approval connector transport timeout detected
+          description: One or more {{ $labels.provider }} {{ $labels.operation }} calls timed out in the last ten minutes.
+          runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalconnectortimeoutdetected
