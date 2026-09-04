@@ -75,7 +75,7 @@ function fetchCommit(commitSha) {
 }
 
 function changedFiles(baseSha, headSha) {
-  if (!fetchCommit(baseSha) || !fetchComit(headSha))) return undefined;
+  if (!fetchCommit(baseSha) || !fetchCommit(headSha)) return undefined;
   const result = runGit(['diff', '--name-only', baseSha, headSha]);
   if (result.error || result.status !== 0) return undefined;
   return result.stdout
