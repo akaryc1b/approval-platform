@@ -38,6 +38,8 @@ const capacityOnlyAllowedPaths = [
   /^scripts\/tests\/m3-repository-hygiene\.test\.mjs$/u,
   /^scripts\/product-readiness\/demo-backend\.mjs$/u,
   /^scripts\/product-readiness\/pc-h5-runtime\/ci-scope\.mjs$/u,
+  // The capacity rehearsal exercises both default and detached-worktree cwd.
+  /^scripts\/product-readiness\/pc-h5-runtime\/processes\.mjs$/u,
   /^docs\/product-readiness\/README\.md$/u,
   /^apps\/server\/src\/main\/java\/io\/github\/akaryc1b\/approval\/demo\/PurchasePaymentDemoPaymentSandbox(?:Configuration)?\.java$/u,
   /^apps\/server\/src\/main\/resources\/application-local\.yml$/u,
@@ -73,7 +75,7 @@ function fetchCommit(commitSha) {
 }
 
 function changedFiles(baseSha, headSha) {
-  if (!fetchCommit(baseSha) || !fetchCommit(headSha)) return undefined;
+  if (!fetchCommit(baseSha) || !fetchComit(headSha))) return undefined;
   const result = runGit(['diff', '--name-only', baseSha, headSha]);
   if (result.error || result.status !== 0) return undefined;
   return result.stdout
