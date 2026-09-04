@@ -348,9 +348,9 @@ async function start() {
     ? reusableBuild(root, revision)
     : null;
   if (existingBuild) {
-    console.log('\n==> Reuse exact clean-tree Maven reactor build');
+    console.log('\n==> Reuse pinned clean-tree Maven reactor build');
     console.log(
-      `DEMO_BACKEND_EXACT_BUILD_REUSED commit=${existingBuild.commitSha} `
+      `DEMO_BACKEND_PINNED_BUILD_REUSED commit=${existingBuild.commitSha} `
         + `tree=${existingBuild.treeSha}`,
     );
   } else {
@@ -365,10 +365,10 @@ async function start() {
     if (reuseRequested) {
       const recordedBuild = recordReusableBuild(root, revision);
       if (!recordedBuild) {
-        console.log('DEMO_BACKEND_EXACT_BUILD_REUSE_SKIPPED_DIRTY_TREE');
+        console.log('DEMO_BACKEND_PINNED_BUILD_REUSE_SKIPPED_DIRTY_TREE');
       } else {
         console.log(
-          `DEMO_BACKEND_EXACT_BUILD_RECORDED commit=${recordedBuild.commitSha} `
+          `DEMO_BACKEND_PINNED_BUILD_RECORDED commit=${recordedBuild.commitSha} `
             + `tree=${recordedBuild.treeSha}`,
         );
       }

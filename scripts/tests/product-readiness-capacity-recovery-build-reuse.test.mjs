@@ -117,8 +117,8 @@ test('only the capacity orchestrator enables exact build reuse', () => {
   assert.match(demoBackend, /capacityBuildReuseRequested\(\)/u);
   assert.match(demoBackend, /reusableBuild\(root, revision\)/u);
   assert.match(demoBackend, /recordReusableBuild\(root, revision\)/u);
-  assert.match(demoBackend, /DEMO_BACKEND_EXACT_BUILD_REUSED/u);
-  assert.match(demoBackend, /DEMO_BACKEND_EXACT_BUILD_RECORDED/u);
+  assert.match(demoBackend, /DEMO_BACKEND_PINNED_BUILD_REUSED/u);
+  assert.match(demoBackend, /DEMO_BACKEND_PINNED_BUILD_RECORDED/u);
   assert.match(
     demoBackend,
     /runMavenChecked\('Build Maven reactor for local startup'/u,
