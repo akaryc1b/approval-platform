@@ -22,6 +22,7 @@ import {
   upgradeRestorePlan,
 } from './capacity-recovery/upgrade-restore.mjs';
 
+const capacityBuildReuseVariable = 'APPROVAL_DEMO_CAPACITY_REUSE_BUILD';
 const implementedRecoveryMarkers = new Set([
   'OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED',
   'UPGRADE_REHEARSAL_NOT_VERIFIED',
@@ -85,6 +86,7 @@ async function main() {
     return;
   }
   if (options.command === 'ci' && !shouldRunInCi()) return;
+  process.env[capacityBuildReuseVariable] = 'true';
   await executeSmallDemoWithRetryEvidence(contract);
   const retryEvidence = installProfileCommandRetryEvidence({
     outputRoot,
