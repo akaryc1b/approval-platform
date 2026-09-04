@@ -7,13 +7,20 @@ import org.slf4j.MDC;
 /** Resolves request and actor evidence established by the server identity filter. */
 final class MdcApprovalRequestEvidenceProvider implements ApprovalRequestEvidenceProvider {
 
+    static final String APPROVAL_TRACE_ID_MDC_KEY = "approvalTraceId";
+
     @Override
     public RequestEvidence current() {
         return new RequestEvidence(
             requiredMdc("operatorId"),
             requiredMdc("requestId"),
-            optionalMdc("traceId")
+            approvalTraceId()
         );
+    }
+
+    private static String approvalTraceId() {
+        String value = optionalMdc(APPROVAL_TRACE_ID_MDC_KEY);
+        return value == null ? optionalMdc("traceId") : value;
     }
 
     private static String requiredMdc(String key) {
