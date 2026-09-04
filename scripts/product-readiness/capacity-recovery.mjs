@@ -17,19 +17,40 @@ import {
 import { executeProfileMatrix } from './capacity-recovery/profile-matrix.mjs';
 import { installProfileCommandRetryEvidence } from './capacity-recovery/retryable-command-fetch.mjs';
 import { execute } from './capacity-recovery/runtime.mjs';
+import {
+  executeUpgradeRestoreRehearsal,
+  upgradeRestorePlan,
+} from './capacity-recovery/upgrade-restore.mjs';
+
+const implementedRecoveryMarkers = new Set([
+  'OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED',
+  'UPGRADE_REHEARSAL_NOT_VERIFIED',
+  'BACKUP_RESTORE_NOT_VERIFIED',
+  'RPO_RTO_NOT_VERIFIED',
+]);
 
 function printPlan(contract, jsonOutput) {
   const value = plan(contract);
   const backlog = backlogDrainPlan(contract);
-  value.stages = [...value.stages, backlog.stage];
+  const upgradeRestore = upgradeRestorePlan(contract);
+  value.stages = [
+    ...value.stages,
+    backlog.stage,
+    upgradeRestore.stage,
+  ];
   value.extendedClaims = [
     ...value.extendedClaims,
     backlog.claim,
+    upgradeRestore.claim,
   ];
-  value.nonClaims = value.nonClaims.filter(marker =>
-    marker !== 'OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED');
-  value.nonClaims.push(...backlog.nonClaims);
+  value.nonClaims = [...new Set([
+    ...value.nonClaims.filter(marker =>
+      !implementedRecoveryMarkers.has(marker)),
+    ...backlog.nonClaims,
+    ...upgradeRestore.nonClaims,
+  ])];
   value.backlogDrain = backlog;
+  value.upgradeRestore = upgradeRestore;
   console.log(jsonOutput
     ? JSON.stringify(value, null, 2)
     : `Approval Platform capacity/recovery plan\n${JSON.stringify(value, null, 2)}`);
@@ -75,6 +96,7 @@ async function main() {
     retryEvidence.restore();
   }
   await executeBacklogDrain(contract);
+  await executeUpgradeRestoreRehearsal(contract);
 }
 
 main().catch((error) => {
