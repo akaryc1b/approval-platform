@@ -16,6 +16,9 @@ const runtime = text(
 const http = text(
   'scripts/product-readiness/capacity-recovery/upgrade-restore-http.mjs',
 );
+const processes = text(
+  'scripts/product-readiness/pc-h5-runtime/processes.mjs',
+);
 const sources = `${contract}\n${runtime}\n${http}`;
 
 test('upgrade restore module loads and publishes one bounded local plan', async () => {
@@ -66,6 +69,25 @@ test('rehearsal binds exact base and candidate refs and uses real PostgreSQL too
   ]) {
     assert.equal(sources.includes(marker), true, `missing ${marker}`);
   }
+});
+
+test('exact-main backend commands execute from the detached base worktree', () => {
+  assert.match(
+    processes,
+    /export function runNodeChecked\([\s\S]*?workingDirectory = repositoryRoot,[\s\S]*?cwd: workingDirectory/u,
+  );
+  assert.match(
+    processes,
+    /export function startManagedNode\([\s\S]*?workingDirectory = repositoryRoot,[\s\S]*?cwd: workingDirectory/u,
+  );
+  assert.match(
+    runtime,
+    /resetDisposableData\([\s\S]*?baseEnvironment\(\),[\s\S]*?worktree,[\s\S]*?\);/u,
+  );
+  assert.match(
+    runtime,
+    /baseBackend = startManagedNode\([\s\S]*?baseEnvironment\(\),\s*worktree,\s*\);/u,
+  );
 });
 
 test('rehearsal verifies exact in-flight business consistency and continuation', () => {
