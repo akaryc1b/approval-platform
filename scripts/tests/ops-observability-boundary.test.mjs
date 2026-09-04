@@ -19,7 +19,7 @@ test('Prometheus and OTLP runtime dependencies are explicit and fail isolated', 
   assert.match(pom, /<artifactId>micrometer-registry-prometheus<\/artifactId>/);
   assert.match(pom, /<artifactId>spring-boot-starter-opentelemetry<\/artifactId>/);
 
-  assert.match(application, /include: health,info,prometheus/);
+  assert.match(application, /include: health,info,metrics,prometheus/);
   for (const sensitiveEndpoint of ['env', 'configprops', 'heapdump', 'threaddump']) {
     assert.doesNotMatch(
       application,
