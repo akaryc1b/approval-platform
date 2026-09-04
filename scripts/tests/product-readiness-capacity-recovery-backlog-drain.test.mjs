@@ -118,6 +118,12 @@ test('launcher executes configured-volume backlog drain after profile matrix', (
       < launcher.indexOf('await executeBacklogDrain(contract)'),
     true,
   );
+  assert.equal(
+    [...launcher.matchAll(/executeUpgradeRestoreRehearsal\(contract\)/gu)].length,
+    1,
+    'upgrade/restore rehearsal must execute exactly once from the top-level launcher',
+  );
+  assert.doesNotMatch(backlogDrain, /executeUpgradeRestoreRehearsal/u);
 });
 
 test('backlog drain uses existing public purchase-payment and Connector paths', () => {

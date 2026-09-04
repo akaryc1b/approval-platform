@@ -50,7 +50,6 @@ import {
   remainingMilliseconds,
   resetDisposableData,
 } from './backlog-drain-lifecycle.mjs';
-import { executeUpgradeRestoreRehearsal } from './upgrade-restore.mjs';
 
 export { backlogDrainPlan };
 
@@ -282,6 +281,5 @@ export async function executeBacklogDrain(contract) {
   console.log(`CAPACITY_BACKLOG_DRAIN_EVIDENCE=${runDirectory}`);
   console.log(claim);
   for (const marker of nonClaims) console.log(marker);
-  const upgradeRestore = await executeUpgradeRestoreRehearsal(contract);
-  return { ...summary, upgradeRestore };
+  return summary;
 }
