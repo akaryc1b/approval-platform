@@ -20,6 +20,7 @@ import {
   waitForMarker,
 } from '../pc-h5-runtime/processes.mjs';
 import {
+  eventType,
   executable,
   requireSuccess,
   runCaptured,
@@ -347,6 +348,11 @@ function queryOutbox(instanceId) {
   if (!/^[0-9a-f-]{36}$/iu.test(instanceId)) {
     throw new Error('upgrade/restore Outbox query requires a UUID instance');
   }
+  const completionEventType = eventType();
+  if (!/^[0-9A-Za-z._:-]+$/u.test(completionEventType)) {
+    throw new Error('authoritative completion Outbox event type is invalid');
+  }
+  // APPROVAL_INSTANCE_COMPLETED is the audit action, not the Outbox event type.
   const sql = [
     'select',
     "  id::text, event_id::text, status, attempts::text,",
@@ -354,7 +360,7 @@ function queryOutbox(instanceId) {
     "  coalesce(provider_request_id, ''), coalesce(delivered_at::text, '')",
     'from ap_outbox',
     `where aggregate_id = '${instanceId}'`,
-    "  and event_type = 'APPROVAL_INSTANCE_COMPLETED'",
+    `  and event_type = '${completionEventType}'`,
     'order by id;',
   ].join('\n');
   const output = requireSuccess(
