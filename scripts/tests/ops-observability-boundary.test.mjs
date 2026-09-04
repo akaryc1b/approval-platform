@@ -142,7 +142,7 @@ test('operations documentation separates operator and business notifications', a
 
   assert.match(guide, /Prometheus is the alerting source of truth/);
   assert.match(guide, /SkyWalking is the distributed-trace backend/);
-  assert.match(guide, /External notification must never execute inside the transaction/);
+  assert.match(guide, /External notification\s+must never execute inside the transaction/);
   assert.match(guide, /must not be inferred as complete/);
   assert.match(runbook, /Do not repair incidents by writing directly to Flowable `ACT_\*` tables/);
   assert.match(runbook, /distinct side effects with distinct idempotency keys/);
