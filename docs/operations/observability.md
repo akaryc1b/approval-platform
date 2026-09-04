@@ -60,8 +60,8 @@ export APPROVAL_OTLP_TRACES_ENDPOINT=http://skywalking-oap:12800/v1/traces
 
 `APPROVAL_MANAGEMENT_ADDRESS=0.0.0.0` is allowed only when port 8081 is protected by a
 private service network, NetworkPolicy, security group or equivalent control. Do not
-publish the management port through the public ingress. Only `health`, `info` and
-`prometheus` are exposed; `env`, `configprops`, `heapdump` and similar endpoints remain
+publish the management port through the public ingress. Only `health`, `info`, `metrics`
+and `prometheus` are exposed; `env`, `configprops`, `heapdump` and similar endpoints remain
 closed.
 
 The OTLP exporter has bounded connect and request timeouts. A collector outage may drop
