@@ -94,7 +94,7 @@ test('retry evidence rejects path-like custom file names', () => {
         contractFileName: '../profile-contract.json',
         fetchImplementation: async () => new Response('{}'),
       }),
-      /must remain within the run directory/u,
+      /contractFileName must be one safe JSON file name/u,
     );
   } finally {
     rmSync(outputRoot, { recursive: true, force: true });
