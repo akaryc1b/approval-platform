@@ -14,6 +14,7 @@ import {
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const approvalPath = /^\/api\/approval\/tasks\/[0-9a-f-]{36}\/approve$/iu;
+const activeTaskStatuses = new Set(['PENDING', 'COMPLETING']);
 
 function stage(contract, key) {
   const matches = contract.scenario.expectedWorkflow.filter(value =>
@@ -234,16 +235,115 @@ export async function createInFlightPurchase(
   };
 }
 
+function requiredInteger(value, label) {
+  if (!Number.isInteger(value)) {
+    throw new Error(`${label} must be an integer`);
+  }
+  return value;
+}
+
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value).sort().map(key => [key, canonicalValue(value[key])]),
+    );
+  }
+  return value ?? null;
+}
+
 function normalizeTask(task) {
+  const status = requiredText(task.status, 'task.status');
   return {
     taskId: requiredText(task.taskId, 'task.taskId'),
     instanceId: requiredText(task.instanceId, 'task.instanceId'),
+    engineTaskId: requiredText(task.engineTaskId, 'task.engineTaskId'),
     taskDefinitionKey: requiredText(
       task.taskDefinitionKey,
       'task.taskDefinitionKey',
     ),
+    name: requiredText(task.name, 'task.name'),
     assigneeId: requiredText(task.assigneeId, 'task.assigneeId'),
+    status,
+    version: requiredInteger(task.version, 'task.version'),
     createdAt: requiredText(task.createdAt, 'task.createdAt'),
+    updatedAt: requiredText(task.updatedAt, 'task.updatedAt'),
+    completedAt: task.completedAt || null,
+  };
+}
+
+function normalizeInstance(instance, instanceId) {
+  if (!uuid.test(instance?.instanceId || '')
+      || instance.instanceId !== instanceId) {
+    throw new Error('instance consistency read returned an invalid identity');
+  }
+  if (!Array.isArray(instance.attachmentIds)) {
+    throw new Error('instance consistency read does not expose attachmentIds');
+  }
+  return {
+    instanceId,
+    tenantId: requiredText(instance.tenantId, 'instance.tenantId'),
+    businessKey: requiredText(instance.businessKey, 'instance.businessKey'),
+    engineInstanceId: requiredText(
+      instance.engineInstanceId,
+      'instance.engineInstanceId',
+    ),
+    definitionKey: requiredText(instance.definitionKey, 'instance.definitionKey'),
+    definitionVersion: requiredInteger(
+      instance.definitionVersion,
+      'instance.definitionVersion',
+    ),
+    formKey: requiredText(instance.formKey, 'instance.formKey'),
+    formVersion: requiredInteger(instance.formVersion, 'instance.formVersion'),
+    compilerVersion: requiredText(
+      instance.compilerVersion,
+      'instance.compilerVersion',
+    ),
+    contentHash: requiredText(instance.contentHash, 'instance.contentHash'),
+    releaseVersion: instance.releaseVersion ?? null,
+    releasePackageHash: instance.releasePackageHash ?? null,
+    formPackageVersion: instance.formPackageVersion ?? null,
+    formPackageHash: instance.formPackageHash ?? null,
+    uiSchemaVersion: instance.uiSchemaVersion ?? null,
+    uiSchemaHash: instance.uiSchemaHash ?? null,
+    engineDefinitionId: instance.engineDefinitionId ?? null,
+    initiatorId: requiredText(instance.initiatorId, 'instance.initiatorId'),
+    amount: String(instance.amount),
+    supplier: requiredText(instance.supplier, 'instance.supplier'),
+    purchaseOrderReference: requiredText(
+      instance.purchaseOrderReference,
+      'instance.purchaseOrderReference',
+    ),
+    attachmentIds: canonicalValue(instance.attachmentIds),
+    assigneeSnapshot: canonicalValue(instance.assigneeSnapshot),
+    requestHash: requiredText(instance.requestHash, 'instance.requestHash'),
+    status: requiredText(instance.status, 'instance.status'),
+    version: requiredInteger(instance.version, 'instance.version'),
+    createdAt: requiredText(instance.createdAt, 'instance.createdAt'),
+    updatedAt: requiredText(instance.updatedAt, 'instance.updatedAt'),
+  };
+}
+
+function normalizeTimelineItem(event) {
+  return {
+    eventId: requiredText(event.eventId, 'timeline.eventId'),
+    action: requiredText(event.action, 'timeline.action'),
+    schemaName: requiredText(event.schemaName, 'timeline.schemaName'),
+    schemaVersion: requiredInteger(
+      event.schemaVersion,
+      'timeline.schemaVersion',
+    ),
+    summary: requiredText(event.summary, 'timeline.summary'),
+    operatorId: requiredText(event.operatorId, 'timeline.operatorId'),
+    aggregateType: requiredText(
+      event.aggregateType,
+      'timeline.aggregateType',
+    ),
+    aggregateId: requiredText(event.aggregateId, 'timeline.aggregateId'),
+    requestId: requiredText(event.requestId, 'timeline.requestId'),
+    traceId: event.traceId || null,
+    occurredAt: requiredText(event.occurredAt, 'timeline.occurredAt'),
+    attributes: canonicalValue(event.attributes || {}),
   };
 }
 
@@ -259,42 +359,35 @@ export async function readConsistency(recorder, contract, instanceId) {
     `/api/approval/instances/${instanceId}/timeline`,
     { actorId },
   );
-  const instance = details?.instance;
-  if (!instance || instance.instanceId !== instanceId) {
-    throw new Error('instance consistency read returned an invalid identity');
+  if (!Array.isArray(details?.tasks)) {
+    throw new Error('instance consistency read does not expose tasks');
   }
-  const activeTasks = (details.activeTasks || [])
+  const tasks = details.tasks
     .map(normalizeTask)
     .sort((left, right) => left.taskId.localeCompare(right.taskId));
+  const activeTasks = tasks.filter(task => activeTaskStatuses.has(task.status));
   const events = timeline?.items;
-  if (!Array.isArray(events) || events.length < 3) {
+  if (timeline?.instanceId !== instanceId
+      || !Array.isArray(events)
+      || events.length < 3) {
     throw new Error('timeline consistency read is incomplete');
   }
   return {
-    instance: {
-      instanceId,
-      tenantId: instance.tenantId,
-      businessKey: instance.businessKey,
-      definitionKey: instance.definitionKey,
-      status: instance.status,
-      startedAt: instance.startedAt,
-      completedAt: instance.completedAt || null,
-    },
+    instance: normalizeInstance(details.instance, instanceId),
+    tasks,
     activeTasks,
-    timeline: events.map(event => ({
-      eventId: requiredText(event.eventId, 'timeline.eventId'),
-      eventType: requiredText(event.eventType, 'timeline.eventType'),
-      taskId: event.taskId || null,
-      taskDefinitionKey: event.taskDefinitionKey || null,
-      actorId: event.actorId || null,
-      occurredAt: requiredText(event.occurredAt, 'timeline.occurredAt'),
-    })),
+    timeline: events
+      .map(normalizeTimelineItem)
+      .sort((left, right) =>
+        left.occurredAt.localeCompare(right.occurredAt)
+          || left.eventId.localeCompare(right.eventId)),
   };
 }
 
 export function requireExactRestoredConsistency(before, after) {
   const comparable = value => JSON.stringify({
     instance: value.instance,
+    tasks: value.tasks,
     activeTasks: value.activeTasks,
     timeline: value.timeline,
   });
