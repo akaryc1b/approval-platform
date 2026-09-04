@@ -216,24 +216,6 @@ function removeWorktree(worktree) {
 
 function createBackup(dumpPath, deadline) {
   const startedAt = new Date();
-  run(composeArguments(
-    'exec',
-    '-T',
-    'postgres',
-    'pg_dump',
-    '-U',
-    'approval',
-    '-d',
-    'approval',
-    '--format=custom',
-    '--no-owner',
-    '--no-privileges',
-    '--file=-',
-  ), {
-    encoding: null,
-    label: 'pg_dump PostgreSQL 16 approval database',
-    timeoutMs: remainingMilliseconds(deadline, 'PostgreSQL pg_dump'),
-  });
   const dump = run(composeArguments(
     'exec',
     '-T',
@@ -246,16 +228,30 @@ function createBackup(dumpPath, deadline) {
     '--format=custom',
     '--no-owner',
     '--no-privileges',
-    '--file=-',
   ), {
     encoding: null,
-    label: 'capture PostgreSQL 16 custom-format backup',
+    label: 'capture PostgreSQL 16 custom-format backup from stdout',
     timeoutMs: remainingMilliseconds(deadline, 'capture PostgreSQL backup'),
   });
-  if (!Buffer.isBuffer(dump) || dump.length === 0
-      || dump.length > maximumDumpBytes) {
-    throw new Error(`PostgreSQL dump size is invalid: ${dump?.length}`);
+  const customFormatHeader = Buffer.from('PGDMP', 'ascii');
+  if (!Buffer.isBuffer(dump)
+      || dump.length === 0
+      || dump.length > maximumDumpBytes
+      || !dump.subarray(0, customFormatHeader.length).equals(customFormatHeader)) {
+    throw new Error(`PostgreSQL custom-format dump is invalid: ${dump?.length}`);
   }
+  run(composeArguments(
+    'exec',
+    '-T',
+    'postgres',
+    'pg_restore',
+    '--list',
+  ), {
+    input: dump,
+    encoding: null,
+    label: 'validate PostgreSQL custom-format backup before volume replacement',
+    timeoutMs: remainingMilliseconds(deadline, 'validate PostgreSQL backup'),
+  });
   writeFileSync(dumpPath, dump, { mode: 0o600 });
   const completedAt = new Date();
   return {
@@ -265,6 +261,8 @@ function createBackup(dumpPath, deadline) {
     sizeBytes: dump.length,
     sha256: createHash('sha256').update(dump).digest('hex'),
     format: 'POSTGRESQL_CUSTOM',
+    archiveHeader: 'PGDMP',
+    archiveValidatedBy: 'pg_restore --list',
     ownerRestored: false,
     privilegesRestored: false,
   };
