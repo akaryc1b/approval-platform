@@ -245,6 +245,7 @@ export function appendEvidenceEnvelope(status, runDirectory, identity) {
       'backlog-drain-command-attempts.json',
       'outbox-backlog-unavailable.json',
       'outbox-backlog-delivered.json',
+      'outbox-backlog-observations.json',
       'backlog-drain-cleanup.json',
       'outbox-backlog-drain-summary.json',
     ]) {

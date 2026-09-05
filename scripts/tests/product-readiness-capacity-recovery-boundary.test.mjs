@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import './product-readiness-capacity-recovery-backlog-observations.test.mjs';
+
 import {
   percentile,
   runBoundedPool,

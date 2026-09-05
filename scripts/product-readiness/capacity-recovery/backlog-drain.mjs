@@ -3,6 +3,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { resolve } from 'node:path';
+import { performance } from 'node:perf_hooks';
 
 import {
   startManagedNode,
@@ -31,7 +32,6 @@ import {
   maximumRuntimeMs,
   nonClaims,
   requestTimeoutMs,
-  rounded,
   snapshot,
   startConcurrency,
   stateTimeoutMs,
@@ -45,6 +45,9 @@ import {
   validateUnavailable,
 } from './backlog-drain-evidence.mjs';
 import { executeBacklogWorkflow } from './backlog-drain-http.mjs';
+import {
+  createBacklogDrainObservations,
+} from './backlog-drain-observations.mjs';
 import {
   cleanup,
   remainingMilliseconds,
@@ -91,6 +94,7 @@ export async function executeBacklogDrain(contract) {
   let cleanupError;
   let cleanupEvidence;
   let summary;
+  let observations;
   try {
     resetDisposableData(
       environment,
@@ -182,7 +186,16 @@ export async function executeBacklogDrain(contract) {
       unavailable,
     ));
 
-    const recoveryStartedAt = Date.now();
+    observations = createBacklogDrainObservations(unavailable.rows, expectedRows);
+    const recoveryStartedAt = performance.now();
+    const readRecoveryState = () => {
+      const value = {
+        rows: queryOutboxRows(instanceIds),
+        sandbox: readSandboxStatus(sandboxStatusPath),
+      };
+      observations.observe(value.rows, performance.now() - recoveryStartedAt);
+      return value;
+    };
     writeFileSync(
       environment.APPROVAL_DEMO_PAYMENT_SANDBOX_CONTROL_FILE,
       'recover\n',
@@ -190,17 +203,13 @@ export async function executeBacklogDrain(contract) {
     );
     const delivered = await waitForState(
       'Configured-volume Outbox backlog delivered after sandbox recovery',
-      () => ({
-        rows: queryOutboxRows(instanceIds),
-        sandbox: readSandboxStatus(sandboxStatusPath),
-      }),
+      readRecoveryState,
       value => validateDelivered(value, expectedRows),
       Math.min(
         stateTimeoutMs,
         remainingMilliseconds(deadline, 'backlog-drain delivered evidence'),
       ),
     );
-    const recoveryCompletedAt = Date.now();
     writeJson(resolve(runDirectory, 'outbox-backlog-delivered.json'), snapshot(
       'CAPACITY_OUTBOX_BACKLOG_DELIVERED_V1',
       delivered,
@@ -208,10 +217,7 @@ export async function executeBacklogDrain(contract) {
 
     for (let observation = 1; observation <= 5; observation += 1) {
       await new Promise(resolvePromise => setTimeout(resolvePromise, 1_000));
-      const stable = {
-        rows: queryOutboxRows(instanceIds),
-        sandbox: readSandboxStatus(sandboxStatusPath),
-      };
+      const stable = readRecoveryState();
       if (!validateDelivered(stable, expectedRows)) {
         throw new Error(
           `backlog drain lost exactly-once stability at observation ${observation}`,
@@ -219,7 +225,7 @@ export async function executeBacklogDrain(contract) {
       }
     }
 
-    const elapsedMs = Math.max(1, recoveryCompletedAt - recoveryStartedAt);
+    const observedDrain = observations.metrics();
     summary = snapshot('CAPACITY_OUTBOX_BACKLOG_DRAIN_SUMMARY_V1', {
       status: 'PASSED_AT_CONFIGURED_VOLUME_ONLY',
       claim,
@@ -235,8 +241,9 @@ export async function executeBacklogDrain(contract) {
       sandboxDeliveryAttempts: delivered.sandbox.deliveryAttempts,
       acceptedPaymentResults: delivered.sandbox.acceptedPaymentResults,
       duplicateAcceptedPaymentResults: 0,
-      recoveryElapsedMs: elapsedMs,
-      deliveredPerSecond: rounded(expectedRows / (elapsedMs / 1000)),
+      recoveryElapsedMs: observedDrain.allDeliveredAfterRecoveryMs,
+      deliveredPerSecond: observedDrain.deliveredPerSecond,
+      observedDrain,
       stableObservations: 5,
       interpretation: 'LOCAL_SINGLE_NODE_CONFIGURED_VOLUME_NOT_PRODUCTION_RTO',
       startedAt: startedAt.toISOString(),
@@ -245,6 +252,17 @@ export async function executeBacklogDrain(contract) {
   } catch (error) {
     executionError = error;
   } finally {
+    // Preserve partial observations on failure without bypassing cleanup.
+    try {
+      if (observations) {
+        writeJson(
+          resolve(runDirectory, 'outbox-backlog-observations.json'),
+          observations.evidence(),
+        );
+      }
+    } catch (error) {
+      executionError ??= error;
+    }
     try {
       cleanupEvidence = await cleanup(
         backend,
