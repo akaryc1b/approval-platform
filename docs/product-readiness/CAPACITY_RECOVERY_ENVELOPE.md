@@ -1,8 +1,8 @@
 # Capacity and Recovery Operating Envelope
 
-Tracking: [#140](https://github.com/akaryc1b/approval-platform/issues/140), supporting [#107](https://github.com/akaryc1b/approval-platform/issues/107). Implementation remains in [Draft PR #142](https://github.com/akaryc1b/approval-platform/pull/142), independent from PR #92.
+Tracking: [#140](https://github.com/akaryc1b/approval-platform/issues/140), supporting [#107](https://github.com/akaryc1b/approval-platform/issues/107). Implementation remains in [PR #142](https://github.com/akaryc1b/approval-platform/pull/142), independent from PR #92.
 
-This is an executable **local-reference** purchase-payment capacity and recovery path, not a production sizing promise. Implementation, a green Workflow, and acceptance of the requested scope are different things.
+This executable path measures the existing purchase-payment scenario on one local-reference PostgreSQL 16 / Redis / Spring Boot / Flowable application. Implementation and test success do not constitute production capacity or recovery guarantees.
 
 ## Entrypoints
 
@@ -13,62 +13,64 @@ pnpm demo:runtime:capacity-recovery
 pnpm demo:runtime:capacity-recovery:ci
 ```
 
-The current serial runtime is:
+The serial runtime now executes:
 
 ```text
 Small Demo and single-event recovery
-→ Standard Deployment and Large Tenant profile matrix
-→ fresh 96-instance Outbox / Generic REST Connector backlog drain
-→ exact-main in-flight PostgreSQL 16 backup/restore into the candidate application
-→ restored-state comparison and continuation of the same workflow
+→ Standard Deployment: create and complete 24 real purchase-payment instances
+→ Large Tenant: create and complete 72 more instances on the same database
+→ stop the profile application, retain PostgreSQL/Redis and the original 96 PENDING events
+→ pin the original rows before starting the existing Connector and unavailable sandbox
+→ observe HTTP 503 for all 96 events
+→ atomically publish the exact generated-event allowlist
+→ enable the existing recovery control file
+→ observe the same 96 events DELIVERED with exactly 96 accepted payment results
+→ five stable observations, then parent-owned full cleanup
+→ exact-PR-base in-flight PostgreSQL backup/restore into the candidate application
+→ restored-state comparison, continuation, exact single-event authorization and cleanup
 ```
 
-The fresh backlog is an existing implementation limitation, not the requested reuse of the profile matrix's 96 rows. The upgrade/restore implementation is already wired into the launcher exactly once; it is not unimplemented future work.
+There is no second batch of 96 workflows. The drain stage does not reset data, upload attachments, start instances or execute approval commands. It receives the two profiles' original completed-instance identities directly before the matrix's `finally` cleanup.
 
-## Current acceptance blockers
+## Candidate status
 
-PR #142 remains Draft and Issues #140 and #107 remain Open.
+The original-backlog handoff and exact-event authorization are implemented together. Their new exact-Head natural runtime and retained Artifact audit remain **evidence pending** until the candidate run completes and its evidence is checked. PR #142 remains Draft; Issues #140 and #107 remain Open until their acceptance requirements are met.
 
-1. **Reuse the existing 96-row backlog.** The profile matrix currently cleans its lifecycle, and the drain stage resets disposable data and creates another 96 workflows. A successful fresh-volume drain does not prove handoff or reuse of the matrix's original rows.
-2. **Replace prefix-based sandbox widening with an exact generated-event allowlist.** Current volume mode still accepts configured business-key and purchase-order prefixes. The observation guard below verifies continuity of the measured rows; it is not callback authorization and does not remove this limitation. No wildcard or prefix allowance can satisfy the requested exact-event boundary.
-3. **Verify the final candidate naturally and audit its retained evidence.** The observation changes described below have unit coverage, but their new exact-Head runtime measurements remain **evidence pending**. Older success cannot be transferred to a new commit or broader claim.
+The predecessor `0fb92e4ec4d6f1c4ec8aaaae5b4f018212e33ece` passed natural Run `33936188078`. That historical run used the preceding fresh-volume/prefix-based path and does not accept these new changes. The current PR records the new commit, tree, Workflow and artifact identities without committing generated runtime evidence.
 
-These are scope and evidence blockers even when the existing configured-volume Workflow succeeds. No Ready transition, merge, Release or deployment is authorized by the historical run alone.
-
-## Governed workload profiles
+## Governed profiles
 
 | Profile | Implementation | Configured local workload |
 | --- | --- | --- |
 | Small Demo | `EXECUTABLE_INITIAL` | Six generated instances; start concurrency 2; approval concurrency 4; 60 reads at concurrency 6 |
-| Standard Deployment — Local Reference | `EXECUTABLE_EXTENDED` | 24 generated instances; start concurrency 6; approval concurrency 8; 480 reads at concurrency 12, then 240 reads at concurrency 24 |
+| Standard Deployment — Local Reference | `EXECUTABLE_EXTENDED` | 24 instances; start concurrency 6; approval concurrency 8; 480 reads at concurrency 12, then 240 reads at concurrency 24 |
 | Large Tenant — Local Reference | `EXECUTABLE_EXTENDED` | 72 additional instances, 96 cumulative; start concurrency 12; approval concurrency 16; 1,440 reads at concurrency 24, then 480 reads at concurrency 48 |
 
-All profiles use the existing PostgreSQL 16, Redis, Spring Boot, Flowable, six-identity directory, public attachment/start/task/instance/timeline APIs and transactional completion Outbox. Successful profiles are only:
+Successful profiles mean only `PASSED_AT_CONFIGURED_POINT_ONLY`. The higher read point is not a maximum stable capacity search. CPU and RSS are point-in-time observations, not a peak-resource envelope.
+
+Only `POST /api/approval/tasks/<uuid>/approve` receiving HTTP 500, `APPROVAL_COMMAND_FAILED` and `retryable = true` may retry: four total attempts, 50/100/200 ms delays, the same idempotency key and fresh request/trace IDs. Transport attempts remain retained in the profile evidence. The drain creates no additional approval-command attempts.
+
+## Original-event continuity and authorization
+
+Before the dispatcher starts, the handoff requires 96 unique original completed instances and 96 PENDING Outbox rows with zero attempts, no delivery timestamp, no provider response and canonical completion idempotency keys. Every later observation preserves the original Outbox ID, event ID, event type, aggregate ID, idempotency key, request ID and trace ID. Missing, duplicate or substituted rows fail closed.
+
+The local sandbox no longer supports business-key or purchase-order prefix widening. Its default golden-path mode still requires the scenario's exact business key and purchase-order reference. The explicit volume/rehearsal mode uses:
 
 ```text
-PASSED_AT_CONFIGURED_POINT_ONLY
+APPROVAL_DEMO_PAYMENT_SANDBOX_EVENT_ALLOWLIST_FILE
 ```
 
-The higher read point is an observation, not a maximum stable capacity search. Process CPU and RSS are point-in-time observations, not a peak-resource envelope.
+A private UTF-8 allowlist is published before the existing recovery control. Its versioned header binds the tenant; each of at most 96 records binds the exact event ID, canonical idempotency key, aggregate ID, business key and purchase-order reference as one tuple. The parser rejects wildcards, empty or oversized fields, malformed UUIDs, duplicate identities, wrong tenants, excessive file sizes, directories and symbolic links.
 
-Only `POST /api/approval/tasks/<uuid>/approve` receiving HTTP 500 with `APPROVAL_COMMAND_FAILED` and `retryable = true` may retry. The bound is four total attempts with 50/100/200 ms delays, the same idempotency key and fresh request/trace IDs. Transport attempts remain retained. Other writes, reads and network failures are not retried by this policy.
+Recovery loads and freezes this allowlist before making the sandbox available. Missing or invalid authorization leaves it unavailable. The existing signature, key ID, tenant, event type, aggregate/payload identity, completion status and supplier checks remain. Before any accepted payment side effect, the callback must match the complete authorized tuple. Replacing the file after activation cannot widen the frozen membership.
 
-## Backlog drain observations
+The sandbox retains every accepted tuple plus the SHA-256 of the exact authorization bytes. Acceptance compares this ledger, not just its count, to the published list: exactly 96 unique event IDs, idempotency keys and payment results. Changed-payload idempotent replays remain rejected.
 
-The existing connector, dispatcher and signed local sandbox remain the execution path. Before recovery, every target row must be `PENDING` with HTTP 503 evidence and zero accepted payment side effects. After recovery, every target row must be `DELIVERED` with HTTP 200 and its exact provider request ID; the sandbox must record exactly 96 accepted results. Five further observations check stability.
+## Drain measurement
 
-The observation guard additionally pins the recovery baseline's Outbox ID, event ID, event type, aggregate ID, idempotency key, request ID and trace ID. Every recovery and stability snapshot must preserve that set and mapping. Duplicate, missing, added or replaced rows, decreasing attempt counts, changed delivery timestamps, and `DELIVERED` status regressions fail closed. A failed observer cannot resume or publish successful metrics.
+The monotonic `performance.now()` clock measures from immediately before writing the recovery control to each event's first observed DELIVERED state. Evidence retains the first completion, full observed drain duration, events/second, interpolated P50/P95/P99, individual samples, observation count and maximum observation gap.
 
-The runtime now records each event's first observed delivery time using Node's monotonic `performance.now()` clock. The start boundary is immediately before writing the existing recovery control file. The measurement ends at the database/status observation, not the provider's internal side effect. Retained results include:
-
-- first observed delivery latency, full observed drain duration and events per second;
-- per-event first-observation samples and interpolated P50/P95/P99;
-- observation count and maximum observation gap, including the stability window;
-- identity continuity and failure diagnostics, including partial samples when a run fails.
-
-The five stability observations do not increase the completed-drain duration or rewrite first-delivery samples. Database wall-clock timestamps are retained for consistency checks but are not subtracted from the Node clock to calculate latency.
-
-Summary fields `recoveryElapsedMs` and `deliveredPerSecond` remain available. `observedDrain` carries the new distribution and explicit measurement boundary:
+The five stability observations do not inflate the completed-drain duration or rewrite first-delivery samples. Partial samples survive failure without bypassing cleanup. The labels remain:
 
 ```text
 RECOVERY_CONTROL_WRITE_START_TO_FIRST_OBSERVED_DELIVERED
@@ -76,50 +78,34 @@ POLL_OBSERVED_COMPLETION_NOT_PROVIDER_LATENCY
 LOCAL_SINGLE_NODE_CONFIGURED_VOLUME_NOT_PRODUCTION_RTO
 ```
 
-Polling granularity and query overhead affect these observations. They are not callback service-time percentiles, production drain capacity or production RTO. New numerical results must come from the new exact-Head retained artifact, not reconstructed timing for an older run.
+These are polling observations including query overhead, not provider service-time percentiles or production recovery throughput.
 
-## In-flight upgrade and restore rehearsal
+## Cleanup ownership and evidence
 
-The implemented rehearsal resolves the exact PR base and candidate SHAs, creates a detached base worktree, starts the baseline application, advances a real purchase to finance countersign, and captures business state. It then quiesces the application, executes PostgreSQL 16 `pg_dump`, rebuilds disposable PostgreSQL/Redis, restores with `pg_restore`, and starts the candidate application.
+The drain stops its backend but deliberately does not destroy its parent's data. Its cleanup evidence explicitly states `scope: BACKEND_ONLY` and `volumeOwner: PROFILE_MATRIX`. The enclosing matrix's `finally` performs the full disposable-volume deletion and verifies ports 5432, 6379 and 8080. A drain-stage pass alone is insufficient: the matrix must also finish successfully with full cleanup evidence before the upgrade stage starts.
 
-It compares the restored instance, task history, active tasks and audit timeline with the pre-backup state, continues the same workflow through public APIs, and verifies HTTP 503 / PENDING / recovery / DELIVERED with one accepted payment side effect. Cleanup covers the backend, ports, containers, disposable volume, temporary backup and worktree.
+Untracked evidence stays under `.runtime/capacity-recovery/<run-id>/`. The existing `root-install.log` Artifact envelopes retain bounded JSON with file sizes and SHA-256 digests. Additional mandatory drain evidence is:
 
-Its claim is limited to:
+```text
+matrix-backlog-handoff.json
+payment-sandbox-allowlist.json
+outbox-backlog-observations.json
+```
+
+The handoff links the originating matrix run and source identity to its original instances and rows. The allowlist JSON retains all entries, the exact UTF-8 control-file content and its digest; auditors can reproduce the bytes without another artifact system. Existing unavailable/delivered snapshots, command-attempt records, summaries and cleanup files remain mandatory.
+
+## In-flight upgrade and restore
+
+The existing rehearsal starts the exact PR base in a detached worktree, advances a real purchase to finance countersign, captures public instance/task/audit state, quiesces the application and takes a validated PostgreSQL 16 custom-format backup. It rebuilds disposable PostgreSQL/Redis, restores that backup, starts the candidate application, compares business state and continues the same instance through public APIs.
+
+Its completion callback now also uses an exact generated-event allowlist (one event), checks HTTP 503/PENDING followed by DELIVERED and verifies one accepted tuple. Backup, worktree, processes, ports and disposable-volume cleanup remain mandatory. The candidate labels are:
 
 ```text
 LOCAL_IN_FLIGHT_POSTGRES_UPGRADE_RESTORE_REHEARSAL_PASSED
 LOCAL_QUIESCED_POSTGRESQL_16_REHEARSAL_NOT_PRODUCTION_RPO_RTO
 ```
 
-Local committed-record loss at a quiesced point and local application-stop-to-first-business-read time do not establish crash consistency, production RPO/RTO, zero-downtime upgrades or rollback safety.
-
-## Historical exact-Head evidence
-
-The preceding natural [Run 33854019996](https://github.com/akaryc1b/approval-platform/actions/runs/33854019996), Workflow #1717, succeeded for:
-
-```text
-Commit: 2c9a8643dac48e767afd71a4ef5321856e10baa1
-Tree:   7ffe4c032135ae2048fe876a51f36ed305939ca6
-Artifact: approval-vben-33854019996
-Artifact ID: 9929995042
-ZIP SHA-256: ca6784a7d7398983e46eb2c27d2f91c7ae5d77209791365eb78b698b7528fc96
-```
-
-The downloaded ZIP and all eight embedded envelopes were checked for their declared byte sizes and SHA-256 digests. They include two PC/H5 runs, two purchase-payment runs, Small Demo, the profile matrix, the fresh-volume drain and the upgrade/restore rehearsal. The envelopes bind to the same candidate tree and Workflow run.
-
-That drain retained 96 PENDING rows followed by 96 DELIVERED rows and 96 accepted results. Its older summary reported 10,723 ms and 8.953 events/second. The old evidence does not contain the new per-event monotonic first-observation distribution, and it does not prove reuse of the matrix backlog or an exact-event allowlist.
-
-## Retained evidence
-
-Runtime evidence stays untracked under `.runtime/capacity-recovery/<run-id>/`. The existing bounded JSON envelopes in the permanent `root-install.log` artifact retain per-file size and SHA-256 digests; no second evidence system or Workflow is introduced.
-
-The drain requires source identity, its contract, generated-instance identities, command attempts, unavailable and delivered snapshots, cleanup, summary, and now:
-
-```text
-outbox-backlog-observations.json
-```
-
-This file contains at most 96 first-delivery samples. Partial observations are written on failure before cleanup, and a missing observations file prevents a passed drain envelope. Raw runtime evidence must not be committed.
+Quiesced committed-record loss and local application-stop-to-first-business-read time do not establish crash consistency, zero-downtime upgrade, rollback safety or production RPO/RTO.
 
 ## Explicit limitations
 
@@ -141,4 +127,4 @@ PRODUCTION_DEPLOYMENT_NOT_VERIFIED
 RELEASE_NOT_CREATED
 ```
 
-PostgreSQL 16 is the only database target of this work. PR #92 is neither modified nor treated as accepted.
+PostgreSQL 16 is the only target of this work. The independent MySQL 8.4 work in PR #92 is neither modified nor treated as accepted.

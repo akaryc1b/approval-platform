@@ -30,6 +30,7 @@ import {
   waitForPortAvailable,
   waitForState,
 } from '../purchase-payment-e2e/evidence.mjs';
+import { publishExactEventAllowlist, verifyExactAcceptedPayments } from './sandbox-event-allowlist.mjs';
 import { seededAttachmentIds } from './backlog-drain-evidence.mjs';
 import {
   composeFile,
@@ -357,7 +358,8 @@ function queryOutbox(instanceId) {
     'select',
     "  id::text, event_id::text, status, attempts::text,",
     "  coalesce(last_error, ''), coalesce(response_code::text, ''),",
-    "  coalesce(provider_request_id, ''), coalesce(delivered_at::text, '')",
+    "  coalesce(provider_request_id, ''), coalesce(delivered_at::text, ''),",
+    "  event_type, aggregate_id, idempotency_key",
     'from ap_outbox',
     `where aggregate_id = '${instanceId}'`,
     `  and event_type = '${completionEventType}'`,
@@ -387,7 +389,7 @@ function queryOutbox(instanceId) {
   if (!output) return [];
   return output.split(/\r?\n/u).filter(Boolean).map((line) => {
     const values = line.split('|');
-    if (values.length !== 8) {
+    if (values.length !== 11) {
       throw new Error(`unexpected upgrade/restore Outbox row: ${line}`);
     }
     return {
@@ -399,6 +401,9 @@ function queryOutbox(instanceId) {
       responseCode: values[5] ? Number.parseInt(values[5], 10) : null,
       providerRequestId: values[6] || null,
       deliveredAt: values[7] || null,
+      eventType: values[8],
+      aggregateId: values[9],
+      idempotencyKey: values[10],
     };
   });
 }
@@ -491,6 +496,7 @@ function appendEvidenceEnvelope(status, runDirectory, identity) {
       'continuation-evidence.json',
       'outbox-pending-evidence.json',
       'outbox-delivered-evidence.json',
+      'payment-sandbox-allowlist.json',
       'upgrade-restore-cleanup.json',
       'upgrade-restore-summary.json',
     ]) {
@@ -571,7 +577,7 @@ export async function executeUpgradeRestoreRehearsal(contract) {
     timeoutMs: remainingMilliseconds(deadline, 'resolve exact upgrade refs'),
   }));
   const prefixes = rehearsalPrefixes(contract);
-  const environment = candidateEnvironment(runDirectory, contract, prefixes);
+  const environment = candidateEnvironment(runDirectory, contract);
 
   let baseBackend;
   let candidateBackend;
@@ -740,6 +746,11 @@ export async function executeUpgradeRestoreRehearsal(contract) {
       'CAPACITY_UPGRADE_RESTORE_OUTBOX_PENDING_V1',
       pending,
     ));
+    const allowlist = publishExactEventAllowlist(
+      environment.APPROVAL_DEMO_PAYMENT_SANDBOX_EVENT_ALLOWLIST_FILE,
+      pending.rows, [inFlight], contract.scenario.tenant.id, eventType(),
+    );
+    writeJson(resolve(runDirectory, 'payment-sandbox-allowlist.json'), allowlist);
     const connectorRecoveryStartedAt = Date.now();
     writeFileSync(
       environment.APPROVAL_DEMO_PAYMENT_SANDBOX_CONTROL_FILE,
@@ -752,7 +763,7 @@ export async function executeUpgradeRestoreRehearsal(contract) {
         rows: queryOutbox(inFlight.instanceId),
         sandbox: readSandboxStatus(sandboxStatusPath),
       }),
-      validDelivered,
+      value => validDelivered(value) && verifyExactAcceptedPayments(value.sandbox, allowlist),
       Math.min(
         stateTimeoutMs,
         remainingMilliseconds(deadline, 'restored Outbox delivery evidence'),
@@ -794,6 +805,8 @@ export async function executeUpgradeRestoreRehearsal(contract) {
           connectorRecoveryCompletedAt - connectorRecoveryStartedAt,
         acceptedPaymentResults: delivered.sandbox.acceptedPaymentResults,
         duplicateAcceptedPaymentResults: 0,
+        exactEventAllowlistVerified: true,
+        allowlistSha256: allowlist.sha256,
       },
       interpretation:
         'LOCAL_QUIESCED_POSTGRESQL_16_REHEARSAL_NOT_PRODUCTION_RPO_RTO',

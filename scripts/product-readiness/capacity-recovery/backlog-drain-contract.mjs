@@ -61,14 +61,7 @@ export function exactConfiguredRowCount(contract) {
   return value;
 }
 
-export function volumePrefixes(contract) {
-  return {
-    businessKey: `${contract.scenario.request.businessKey}-CAPACITY-DRAIN-`,
-    purchaseOrderReference: 'PO-CAPACITY-DRAIN-',
-  };
-}
-
-export function backendEnvironment(runDirectory, contract, prefixes) {
+export function backendEnvironment(runDirectory, contract) {
   const callback = `${backendOrigin}/payment-sandbox/v1/events`;
   return {
     ...java21Environment(),
@@ -79,9 +72,8 @@ export function backendEnvironment(runDirectory, contract, prefixes) {
     APPROVAL_DEMO_PAYMENT_SANDBOX_STATUS_FILE:
       resolve(runDirectory, 'payment-sandbox-status.json'),
     APPROVAL_DEMO_PAYMENT_SANDBOX_CLOCK_SKEW: 'PT5M',
-    APPROVAL_DEMO_PAYMENT_SANDBOX_BUSINESS_KEY_PREFIX: prefixes.businessKey,
-    APPROVAL_DEMO_PAYMENT_SANDBOX_PURCHASE_ORDER_REFERENCE_PREFIX:
-      prefixes.purchaseOrderReference,
+    APPROVAL_DEMO_PAYMENT_SANDBOX_EVENT_ALLOWLIST_FILE:
+      resolve(runDirectory, 'payment-sandbox-events.allowlist'),
     APPROVAL_GENERIC_CONNECTOR_ENABLED: 'true',
     APPROVAL_GENERIC_CONNECTOR_KEY: contract.scenario.directory.connectorKey,
     APPROVAL_GENERIC_HOST_BASE_URI: 'http://127.0.0.1:19090',
@@ -106,7 +98,7 @@ export function backlogDrainPlan(contract) {
   const upgradeRestore = upgradeRestorePlan(contract);
   return {
     stage:
-      'create and drain a configured-volume completion Outbox backlog through the existing Generic REST Connector and local signed payment sandbox; then execute the exact-main in-flight PostgreSQL upgrade/restore rehearsal',
+      'retain and drain the profile matrix original 96 completion events through the existing Generic REST Connector using an exact generated-event allowlist',
     expectedRows,
     claim,
     evidenceKind: 'CAPACITY_OUTBOX_BACKLOG_DRAIN_SUMMARY_V1',

@@ -10,10 +10,7 @@ import {
   UsageError,
   usage,
 } from './capacity-recovery/contract.mjs';
-import {
-  backlogDrainPlan,
-  executeBacklogDrain,
-} from './capacity-recovery/backlog-drain.mjs';
+import { backlogDrainPlan } from './capacity-recovery/backlog-drain.mjs';
 import { executeProfileMatrix } from './capacity-recovery/profile-matrix.mjs';
 import { installProfileCommandRetryEvidence } from './capacity-recovery/retryable-command-fetch.mjs';
 import { execute } from './capacity-recovery/runtime.mjs';
@@ -93,11 +90,11 @@ async function main() {
     identity: sourceIdentity(),
   });
   try {
+    // Matrix owns its original backlog through drain and final volume cleanup.
     await executeProfileMatrix(contract);
   } finally {
     retryEvidence.restore();
   }
-  await executeBacklogDrain(contract);
   await executeUpgradeRestoreRehearsal(contract);
 }
 

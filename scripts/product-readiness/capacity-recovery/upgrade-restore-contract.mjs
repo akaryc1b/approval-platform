@@ -85,7 +85,7 @@ export function rehearsalPrefixes(contract) {
   };
 }
 
-export function candidateEnvironment(runDirectory, contract, prefixes) {
+export function candidateEnvironment(runDirectory, contract) {
   const callback = `${backendOrigin}/payment-sandbox/v1/events`;
   return {
     ...java21Environment(),
@@ -96,9 +96,8 @@ export function candidateEnvironment(runDirectory, contract, prefixes) {
     APPROVAL_DEMO_PAYMENT_SANDBOX_STATUS_FILE:
       resolve(runDirectory, 'payment-sandbox-status.json'),
     APPROVAL_DEMO_PAYMENT_SANDBOX_CLOCK_SKEW: 'PT5M',
-    APPROVAL_DEMO_PAYMENT_SANDBOX_BUSINESS_KEY_PREFIX: prefixes.businessKey,
-    APPROVAL_DEMO_PAYMENT_SANDBOX_PURCHASE_ORDER_REFERENCE_PREFIX:
-      prefixes.purchaseOrderReference,
+    APPROVAL_DEMO_PAYMENT_SANDBOX_EVENT_ALLOWLIST_FILE:
+      resolve(runDirectory, 'payment-sandbox-events.allowlist'),
     APPROVAL_GENERIC_CONNECTOR_ENABLED: 'true',
     APPROVAL_GENERIC_CONNECTOR_KEY: contract.scenario.directory.connectorKey,
     APPROVAL_GENERIC_HOST_BASE_URI: 'http://127.0.0.1:19090',

@@ -40,7 +40,6 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
         properties.validate();
         URI endpoint = resolveEndpoint(connectorProperties, properties);
         validateConnector(connectorProperties, scenario, endpoint);
-        validateVolumePrefixes(scenario, properties);
         byte[] secret = connectorProperties.secretBytes();
         try {
             return new PurchasePaymentDemoPaymentSandbox(
@@ -52,8 +51,7 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
                 endpoint,
                 path(properties.getControlFile()),
                 path(properties.getStatusFile()),
-                properties.getBusinessKeyPrefix(),
-                properties.getPurchaseOrderReferencePrefix(),
+                path(properties.getEventAllowlistFile()),
                 properties.getMaximumClockSkew()
             );
         } finally {
@@ -100,35 +98,6 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
         }
     }
 
-    private static void validateVolumePrefixes(
-        PurchasePaymentDemoScenario scenario,
-        Properties properties
-    ) {
-        String businessKeyPrefix = optional(properties.getBusinessKeyPrefix());
-        String purchaseOrderReferencePrefix = optional(
-            properties.getPurchaseOrderReferencePrefix()
-        );
-        if ((businessKeyPrefix == null) != (purchaseOrderReferencePrefix == null)) {
-            throw new IllegalStateException(
-                "payment sandbox volume prefixes must be configured together"
-            );
-        }
-        if (businessKeyPrefix == null) {
-            return;
-        }
-        String governedBusinessPrefix = scenario.request().businessKey() + "-";
-        if (!businessKeyPrefix.startsWith(governedBusinessPrefix)) {
-            throw new IllegalStateException(
-                "payment sandbox business-key-prefix must extend the governed business key"
-            );
-        }
-        if (!purchaseOrderReferencePrefix.startsWith("PO-")) {
-            throw new IllegalStateException(
-                "payment sandbox purchase-order-reference-prefix must start with PO-"
-            );
-        }
-    }
-
     private static void validateEndpoint(URI endpoint, boolean connectorEnabled) {
         if (endpoint == null) {
             throw new IllegalStateException("payment sandbox endpoint must not be null");
@@ -171,10 +140,6 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
         return value == null || value.isBlank() ? null : Path.of(value);
     }
 
-    private static String optional(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
-
     @ConfigurationProperties(prefix = "approval.demo.purchase-payment.sandbox")
     public static class Properties {
 
@@ -183,8 +148,7 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
         );
         private String controlFile;
         private String statusFile;
-        private String businessKeyPrefix;
-        private String purchaseOrderReferencePrefix;
+        private String eventAllowlistFile;
         private Duration maximumClockSkew = Duration.ofMinutes(5);
 
         public URI getEndpoint() {
@@ -211,22 +175,12 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
             this.statusFile = statusFile;
         }
 
-        public String getBusinessKeyPrefix() {
-            return businessKeyPrefix;
+        public String getEventAllowlistFile() {
+            return eventAllowlistFile;
         }
 
-        public void setBusinessKeyPrefix(String businessKeyPrefix) {
-            this.businessKeyPrefix = businessKeyPrefix;
-        }
-
-        public String getPurchaseOrderReferencePrefix() {
-            return purchaseOrderReferencePrefix;
-        }
-
-        public void setPurchaseOrderReferencePrefix(
-            String purchaseOrderReferencePrefix
-        ) {
-            this.purchaseOrderReferencePrefix = purchaseOrderReferencePrefix;
+        public void setEventAllowlistFile(String eventAllowlistFile) {
+            this.eventAllowlistFile = eventAllowlistFile;
         }
 
         public Duration getMaximumClockSkew() {
@@ -246,18 +200,16 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
                     "payment sandbox maximum-clock-skew must be positive"
                 );
             }
-            String businessPrefix = optional(businessKeyPrefix);
-            String purchasePrefix = optional(purchaseOrderReferencePrefix);
-            if ((businessPrefix == null) != (purchasePrefix == null)) {
-                throw new IllegalStateException(
-                    "payment sandbox volume prefixes must be configured together"
-                );
-            }
-            if (businessPrefix != null
-                && (businessPrefix.length() > 160 || purchasePrefix.length() > 80)) {
-                throw new IllegalStateException(
-                    "payment sandbox volume prefixes exceed bounded lengths"
-                );
+            if (eventAllowlistFile != null && !eventAllowlistFile.isBlank()) {
+                Path allowlist = path(eventAllowlistFile).toAbsolutePath().normalize();
+                for (String reserved : new String[] { controlFile, statusFile }) {
+                    if (reserved != null && !reserved.isBlank()
+                        && allowlist.equals(path(reserved).toAbsolutePath().normalize())) {
+                        throw new IllegalStateException(
+                            "payment sandbox allowlist, control and status files must differ"
+                        );
+                    }
+                }
             }
         }
     }

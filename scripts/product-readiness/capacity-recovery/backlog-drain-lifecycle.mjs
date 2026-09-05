@@ -77,13 +77,19 @@ export function resetDisposableData(environment, timeoutMs) {
   );
 }
 
-export async function cleanup(backend, environment, runDirectory, mutated) {
+export async function cleanup(backend, environment, runDirectory, mutated, volumeOwner = 'DRAIN') {
+  if (!['DRAIN', 'PROFILE_MATRIX'].includes(volumeOwner)) {
+    throw new Error('invalid backlog volume cleanup owner');
+  }
   const actions = [];
   if (backend) {
     await stopManaged(backend);
     actions.push('stopped:backlog-drain-demo-backend');
   }
-  if (mutated) {
+  if (volumeOwner === 'PROFILE_MATRIX') {
+    if (backend) await waitForPortAvailable(8080);
+    actions.push('volume-cleanup-owned-by:profile-matrix-finally');
+  } else if (mutated) {
     resetDisposableData(environment, 15 * 60_000);
     actions.push('deleted:approval-platform-demo-volume');
     for (const port of [5432, 6379, 8080]) {
@@ -96,6 +102,8 @@ export async function cleanup(backend, environment, runDirectory, mutated) {
   const evidence = snapshot('CAPACITY_BACKLOG_DRAIN_CLEANUP_V1', {
     actions,
     status: 'PASSED',
+    scope: volumeOwner === 'PROFILE_MATRIX' ? 'BACKEND_ONLY' : 'BACKEND_AND_VOLUME',
+    volumeOwner,
   });
   writeJson(resolve(runDirectory, 'backlog-drain-cleanup.json'), evidence);
   return evidence;

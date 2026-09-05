@@ -32,6 +32,7 @@ import {
   sourceIdentity,
   writeJson,
 } from './contract.mjs';
+import { executeBacklogDrain } from './backlog-drain.mjs';
 import { appendProfileMatrixEnvelope } from './profile-matrix-evidence.mjs';
 import {
   percentile,
@@ -447,6 +448,7 @@ async function startPurchase(recorder, contract, profile, index, runToken) {
   );
   return {
     businessKey,
+    purchaseOrderReference: `PO-${profile.id}-${runToken}-${index + 1}`,
     attachmentId,
     instanceId: payload.instanceId,
     startedAt: payload.startedAt,
@@ -913,6 +915,7 @@ async function runProfile(contract, profile, backend, runId, cumulativeBefore) {
     },
     instances: instances.map(instance => ({
       businessKey: instance.businessKey,
+      purchaseOrderReference: instance.purchaseOrderReference,
       attachmentId: instance.attachmentId,
       instanceId: instance.instanceId,
       finalStatus: instance.finalStatus,
@@ -975,7 +978,12 @@ export async function executeProfileMatrix(contract) {
   });
   writeJson(resolve(runDirectory, 'profile-matrix-host.json'), hostSnapshot());
 
-  const environment = java21Environment();
+  const environment = {
+    ...java21Environment(),
+    APPROVAL_GENERIC_CONNECTOR_ENABLED: 'false',
+    APPROVAL_GENERIC_DISPATCH_ENABLED: 'false',
+    APPROVAL_DEMO_PAYMENT_SANDBOX_ENABLED: 'false',
+  };
   let backend;
   let mutated = false;
   let executionError;
@@ -983,6 +991,7 @@ export async function executeProfileMatrix(contract) {
   let cleanupEvidence;
   let standard;
   let large;
+  let backlogDrain;
   try {
     resetDisposableData(
       environment,
@@ -1054,6 +1063,13 @@ export async function executeProfileMatrix(contract) {
       resolve(runDirectory, 'large-tenant-profile.json'),
       large.summary,
     );
+    // Keep PostgreSQL/Redis and their original rows; only replace the backend lifecycle.
+    await stopManaged(backend);
+    await waitForPortAvailable(8080);
+    backlogDrain = await executeBacklogDrain(contract, {
+      sourceRunId: runId,
+      instances: [...standard.summary.instances, ...large.summary.instances],
+    });
   } catch (error) {
     executionError = error;
   } finally {
@@ -1102,6 +1118,7 @@ export async function executeProfileMatrix(contract) {
     host: hostSnapshot(),
     standardDeployment: standard.summary,
     largeTenant: large.summary,
+    backlogDrain,
     highestTestedStablePoint: {
       profileId: large.summary.profileId,
       cumulativeGeneratedInstances:
@@ -1120,12 +1137,12 @@ export async function executeProfileMatrix(contract) {
       cumulativeRows:
         standard.summary.outboxBacklog.totalRows
           + large.summary.outboxBacklog.totalRows,
-      drainVolumeClaim:
-        'OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED',
+      drainVolumeClaim: backlogDrain.claim,
     },
     cleanup: cleanupEvidence,
-    claims: contract.extendedClaims,
-    nonClaims: contract.extendedNonClaims,
+    claims: [...contract.extendedClaims, backlogDrain.claim],
+    nonClaims: contract.extendedNonClaims.filter(marker =>
+      marker !== 'OUTBOX_CONNECTOR_BACKLOG_DRAIN_VOLUME_NOT_VERIFIED'),
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),
     elapsedSeconds: rounded(
@@ -1136,7 +1153,7 @@ export async function executeProfileMatrix(contract) {
   appendProfileMatrixEnvelope('PASSED', runDirectory, identity);
   console.log(`CAPACITY_PROFILE_MATRIX_RUN_ID=${runId}`);
   console.log(`CAPACITY_PROFILE_MATRIX_EVIDENCE=${runDirectory}`);
-  for (const claim of contract.extendedClaims) console.log(claim);
-  for (const nonClaim of contract.extendedNonClaims) console.log(nonClaim);
+  for (const claim of summary.claims) console.log(claim);
+  for (const nonClaim of summary.nonClaims) console.log(nonClaim);
   return summary;
 }

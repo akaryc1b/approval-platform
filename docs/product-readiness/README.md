@@ -16,8 +16,8 @@ Tracking issue: [#107 — Prove the product is usable, scalable, and recoverable
 | WeChat DevTools / physical device | `NOT_VERIFIED` | 构建成功和 H5 surrogate 不等于真实微信运行时 |
 | Public online evaluation sandbox | `PLANNED_NOT_AVAILABLE` | 建设方案已记录；当前没有公共 URL |
 | Capacity profile matrix | `THREE_LOCAL_REFERENCE_PROFILES_PRIOR_HEAD_PASSED_REVALIDATION_PENDING` | Small、Standard 和 Large 的配置点已在上一精确 Head 成功；本次代码变更后必须由新 Head 重新验证，仍不是生产容量 |
-| Configured-volume Outbox drain | `IMPLEMENTED_EXACT_HEAD_EVIDENCE_PENDING` | 96 条真实完成事件的 503、PENDING、恢复、DELIVERED 与单次副作用路径已接入候选命令，等待新 Head 证据 |
-| Upgrade, backup/restore and RPO/RTO | `NOT_REHEARSED` | 仍是 PR #142 合并前的主要产品缺口 |
+| Original-volume Outbox drain | `IMPLEMENTED_EXACT_HEAD_EVIDENCE_PENDING` | 直接接续 Standard/Large 原始 96 条积压；精确事件白名单、503/PENDING/恢复/DELIVERED 和逐事件副作用核对已接入，等待新 Head 证据 |
+| Upgrade, backup/restore and local RPO/RTO | `IMPLEMENTED_EXACT_HEAD_REVALIDATION_PENDING` | 在途审批、精确 base 到 candidate 的 PostgreSQL 备份恢复与继续审批已经实现；本次白名单变更后须重新验证，不能视为生产 RPO/RTO |
 | Release and production deployment | `NOT_CREATED` | 默认分支不是 Release，Production Support 未声明 |
 
 ## 从这里开始
@@ -121,7 +121,9 @@ pnpm demo:runtime:capacity-recovery
 Small Demo
 → Standard Deployment
 → Large Tenant
-→ 96 条配置量 Outbox / Connector backlog drain
+→ 原始 96 条 Outbox / Connector backlog drain
+→ 容量矩阵完整清理
+→ 精确 base 到 candidate 的在途 PostgreSQL 备份恢复演练
 ```
 
 三个 Profile 都只表示：
@@ -137,25 +139,28 @@ OUTBOX_CONNECTOR_BACKLOG_DRAIN_LOCAL_CONFIGURED_VOLUME_PASSED
 LOCAL_SINGLE_NODE_CONFIGURED_VOLUME_NOT_PRODUCTION_RTO
 ```
 
-新的批量排空实现使用现有 Generic REST Connector、Outbox Dispatcher 和签名付款沙箱，创建 96 个唯一采购付款实例；在沙箱不可用时验证所有目标事件收到 HTTP 503 并保持 PENDING，恢复后验证全部 DELIVERED、唯一 Provider Request ID、96 个已接受结果和五次稳定观察。
+批量排空复用现有 Generic REST Connector、Outbox Dispatcher 和签名付款沙箱，直接接收 Standard/Large 创建的原始 96 个已完成实例和积压，不再重置数据库或创建另一批流程。在沙箱不可用时验证全部目标事件收到 HTTP 503 并保持 PENDING，然后发布逐事件精确白名单并使用现有 control file 恢复。恢复后核对全部 DELIVERED、原始身份映射、96 个精确已接受付款结果，以及五次稳定观察。
+
+白名单不使用业务键前缀或通配符。排空子阶段只清理自己的后端，数据卷由外层容量矩阵在 `finally` 中统一清理；子阶段成功不能代替最终清理成功。首条延迟、完整排空耗时和 P50/P95/P99 是单调时钟下的轮询观测，不是生产 RTO。
 
 这些候选结论必须绑定新的 Exact-Head Workflow 与保留 Artifact。实现存在或控制台出现 Marker，不等于已经接受。
 
-## 仍需完成的恢复工作
+## 已实现、等待本次 Head 验证的恢复演练
 
-PR #142 在 Ready 前仍需完成：
+PR #142 中的演练已经接入同一命令：
 
 ```text
-真实在途审批
+精确 PR base 启动真实在途审批
 → PostgreSQL quiesced backup
 → 一次性环境重建
-→ restore
+→ candidate 启动恢复的数据
 → 恢复前后业务摘要一致
-→ 继续审批并完成付款
+→ 继续审批并通过精确单事件白名单完成付款
 → 实测本地 RPO/RTO
+→ 清理备份、worktree、进程和数据卷
 ```
 
-该结果仍不能扩展为崩溃一致、多节点或生产 RPO/RTO。
+当前候选仍需要自然 CI 和制品审计，不得把前一提交的成功转移到本次代码。该结果仍不能扩展为崩溃一致、多节点或生产 RPO/RTO。
 
 ## 可执行命令
 
@@ -182,7 +187,7 @@ pnpm demo:runtime:capacity-recovery
 .runtime/capacity-recovery/<run-id>/
 ```
 
-证据包含源码树身份、环境、业务标识、截图、Playwright trace、数据库/进程观察、Outbox/沙箱状态和清理结果。GitHub Actions 中的受控 JSON 通过现有 Artifact envelope 留存，并带文件大小与 SHA-256；`.runtime/` 始终保持未跟踪。
+证据包含源码树身份、环境、业务标识、截图、Playwright trace、数据库/进程观察、Outbox/沙箱状态和清理结果。GitHub Actions 中的受控 JSON 通过现有 Artifact envelope 留存，并带文件大小与 SHA-256；`.runtime/` 始终保持未跟踪。原始积压交接、精确白名单内容和摘要、逐事件观测也通过这一制品机制留存。
 
 ## 在线评估环境
 
@@ -221,9 +226,9 @@ MULTI_NODE_CAPACITY_NOT_VERIFIED
 OUTBOX_CONNECTOR_BACKLOG_DRAIN_EXACT_HEAD_EVIDENCE_PENDING
 PRODUCTION_OUTBOX_DRAIN_RATE_NOT_VERIFIED
 MULTI_NODE_OUTBOX_DRAIN_NOT_VERIFIED
-UPGRADE_REHEARSAL_NOT_VERIFIED
-BACKUP_RESTORE_NOT_VERIFIED
-RPO_RTO_NOT_VERIFIED
+UPGRADE_RESTORE_EXACT_HEAD_EVIDENCE_PENDING
+PRODUCTION_RPO_NOT_VERIFIED
+PRODUCTION_RTO_NOT_VERIFIED
 MYSQL_8_4_NOT_VERIFIED
 ONLINE_DEMO_NOT_AVAILABLE
 RELEASE_NOT_CREATED
