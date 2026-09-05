@@ -6,6 +6,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  recordReusableBuild,
+  reusableBuild,
+} from './capacity-recovery/demo-backend-build-reuse.mjs';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const rootPomPath = resolve(root, 'pom.xml');
 const composeFile = 'deploy/compose/docker-compose.yml';
@@ -17,6 +22,7 @@ const backendTimeoutMs = 240_000;
 const pollIntervalMs = 1_500;
 const seedMarker = 'PURCHASE_PAYMENT_DEMO_SEED_APPLIED';
 const commands = new Set(['start', 'plan', 'stop', 'reset']);
+const capacityBuildReuseVariable = 'APPROVAL_DEMO_CAPACITY_REUSE_BUILD';
 
 class UsageError extends Error {}
 
@@ -58,6 +64,15 @@ function rootRevision() {
     throw new Error('root pom.xml revision contains unsupported characters');
   }
   return revision;
+}
+
+function capacityBuildReuseRequested() {
+  const value = process.env[capacityBuildReuseVariable];
+  if (value === undefined || value === 'false') return false;
+  if (value === 'true') return true;
+  throw new Error(
+    `${capacityBuildReuseVariable} must be true, false or unset`,
+  );
 }
 
 function startupPlan() {
@@ -328,14 +343,37 @@ async function start() {
   );
 
   const revision = rootRevision();
-  runMavenChecked('Build Maven reactor for local startup', [
-    '-B',
-    '-ntp',
-    `-P${demoMavenProfile}`,
-    `-Drevision=${revision}`,
-    '-DskipTests',
-    'install',
-  ]);
+  const reuseRequested = capacityBuildReuseRequested();
+  const existingBuild = reuseRequested
+    ? reusableBuild(root, revision)
+    : null;
+  if (existingBuild) {
+    console.log('\n==> Reuse pinned clean-tree Maven reactor build');
+    console.log(
+      `DEMO_BACKEND_PINNED_BUILD_REUSED commit=${existingBuild.commitSha} `
+        + `tree=${existingBuild.treeSha}`,
+    );
+  } else {
+    runMavenChecked('Build Maven reactor for local startup', [
+      '-B',
+      '-ntp',
+      `-P${demoMavenProfile}`,
+      `-Drevision=${revision}`,
+      '-DskipTests',
+      'install',
+    ]);
+    if (reuseRequested) {
+      const recordedBuild = recordReusableBuild(root, revision);
+      if (!recordedBuild) {
+        console.log('DEMO_BACKEND_PINNED_BUILD_REUSE_SKIPPED_DIRTY_TREE');
+      } else {
+        console.log(
+          `DEMO_BACKEND_PINNED_BUILD_RECORDED commit=${recordedBuild.commitSha} `
+            + `tree=${recordedBuild.treeSha}`,
+        );
+      }
+    }
+  }
 
   const localDatabaseEnvironment = readLocalDatabaseEnvironment();
   console.log('\n==> Start real backend with explicit local seed');

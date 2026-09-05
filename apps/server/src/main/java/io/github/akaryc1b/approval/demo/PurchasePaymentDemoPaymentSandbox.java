@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -51,6 +52,10 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
     private final URI endpoint;
     private final Path controlFile;
     private final Path statusFile;
+    private final Path eventAllowlistFile;
+    private PurchasePaymentDemoEventAllowlist eventAllowlist;
+    private final Map<String, PurchasePaymentDemoEventAllowlist.Entry> acceptedPayments
+        = new LinkedHashMap<>();
     private final SignedWebhookVerifier verifier;
     private final AtomicBoolean available = new AtomicBoolean(false);
     private final AtomicInteger attempts = new AtomicInteger();
@@ -73,6 +78,32 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         Path statusFile,
         Duration maximumClockSkew
     ) {
+        this(
+            objectMapper,
+            clock,
+            secret,
+            keyId,
+            scenario,
+            endpoint,
+            controlFile,
+            statusFile,
+            null,
+            maximumClockSkew
+        );
+    }
+
+    public PurchasePaymentDemoPaymentSandbox(
+        ObjectMapper objectMapper,
+        Clock clock,
+        byte[] secret,
+        String keyId,
+        PurchasePaymentDemoScenario scenario,
+        URI endpoint,
+        Path controlFile,
+        Path statusFile,
+        Path eventAllowlistFile,
+        Duration maximumClockSkew
+    ) {
         this.objectMapper = Objects.requireNonNull(
             objectMapper,
             "objectMapper must not be null"
@@ -88,6 +119,7 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         this.endpoint = Objects.requireNonNull(endpoint, "endpoint must not be null");
         this.controlFile = normalize(controlFile);
         this.statusFile = normalize(statusFile);
+        this.eventAllowlistFile = normalize(eventAllowlistFile);
         this.verifier = new SignedWebhookVerifier(maximumClockSkew);
     }
 
@@ -105,7 +137,7 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         return endpoint;
     }
 
-    public void resetUnavailable() {
+    public synchronized void resetUnavailable() {
         deleteControlFile();
         available.set(false);
         attempts.set(0);
@@ -116,11 +148,13 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         lastHttpStatus.set(null);
         failure.set(null);
         paymentResults.clear();
+        acceptedPayments.clear();
+        eventAllowlist = null;
         writeStatusUnchecked();
     }
 
-    public void restore() {
-        available.set(true);
+    public synchronized void restore() {
+        activateRecovery();
         writeStatusUnchecked();
     }
 
@@ -148,7 +182,7 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         return failureMessage();
     }
 
-    public Snapshot snapshot() {
+    public synchronized Snapshot snapshot() {
         return new Snapshot(
             1,
             "PURCHASE_PAYMENT_LOCAL_SANDBOX_V1",
@@ -161,11 +195,13 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
             lastRequestId.get(),
             lastHttpStatus.get(),
             failureMessage(),
-            clock.instant()
+            clock.instant(),
+            List.copyOf(acceptedPayments.values()),
+            eventAllowlist == null ? null : eventAllowlist.sha256()
         );
     }
 
-    public SandboxResponse handle(
+    public synchronized SandboxResponse handle(
         String method,
         String path,
         Map<String, String> headers,
@@ -191,12 +227,18 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
                 );
             }
 
+            PurchasePaymentDemoEventAllowlist.Entry identity = eventIdentity(event);
+            if (eventAllowlistFile != null) {
+                require(eventAllowlist != null && eventAllowlist.contains(identity),
+                    "sandbox event is not in the exact allowlist");
+            }
             String canonicalPayload = objectMapper.writeValueAsString(event.payload());
             String previous = paymentResults.putIfAbsent(
                 event.idempotencyKey(),
                 canonicalPayload
             );
             if (previous == null) {
+                acceptedPayments.put(event.idempotencyKey(), identity);
                 accepted.incrementAndGet();
                 acceptedEventId.set(event.eventId());
                 acceptedIdempotencyKey.set(event.idempotencyKey());
@@ -286,10 +328,14 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
             aggregateId.equals(payload.path("instanceId").asText()),
             "sandbox instance identity is invalid"
         );
-        require(
-            scenario.request().businessKey().equals(payload.path("businessKey").asText()),
-            "sandbox business key is invalid"
+        String businessKey = requireText(
+            payload.path("businessKey").asText(),
+            "businessKey"
         );
+        if (eventAllowlistFile == null) {
+            require(scenario.request().businessKey().equals(businessKey),
+                "sandbox business key is invalid");
+        }
         require(
             "COMPLETED".equals(payload.path("status").asText()),
             "sandbox completion status is invalid"
@@ -298,18 +344,27 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
             scenario.request().supplier().equals(payload.path("supplier").asText()),
             "sandbox supplier is invalid"
         );
-        require(
-            scenario.request().purchaseOrderReference().equals(
-                payload.path("purchaseOrderReference").asText()
-            ),
-            "sandbox purchase order reference is invalid"
+        String purchaseOrderReference = requireText(
+            payload.path("purchaseOrderReference").asText(),
+            "purchaseOrderReference"
         );
+        if (eventAllowlistFile == null) {
+            require(scenario.request().purchaseOrderReference().equals(purchaseOrderReference),
+                "sandbox purchase order reference is invalid");
+        }
         return new ValidatedEvent(
             eventId,
             idempotencyKey,
             requestId,
             event.deepCopy()
         );
+    }
+
+    private static PurchasePaymentDemoEventAllowlist.Entry eventIdentity(ValidatedEvent event) {
+        JsonNode payload = event.payload().path("payload");
+        return new PurchasePaymentDemoEventAllowlist.Entry(event.eventId(), event.idempotencyKey(),
+            UUID.fromString(event.payload().path("aggregateId").asText()),
+            payload.path("businessKey").asText(), payload.path("purchaseOrderReference").asText());
     }
 
     private static Map<String, String> normalizeHeaders(Map<String, String> headers) {
@@ -327,10 +382,24 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
     }
 
     private boolean currentAvailability() {
-        if (!available.get() && controlFile != null && Files.isRegularFile(controlFile)) {
-            available.set(true);
+        if (!available.get() && failure.get() == null && controlFile != null && Files.isRegularFile(controlFile)) {
+            activateRecovery();
         }
         return available.get();
+    }
+
+    private void activateRecovery() {
+        if (available.get()) return;
+        try {
+            if (eventAllowlistFile != null) {
+                eventAllowlist = PurchasePaymentDemoEventAllowlist.load(
+                    eventAllowlistFile, scenario.tenantId());
+            }
+            available.set(true);
+        } catch (IOException | RuntimeException exception) {
+            recordFailure(exception);
+            // Keep unavailable; diagnostics are written by the caller without recursive activation.
+        }
     }
 
     private void deleteControlFile() {
@@ -436,7 +505,9 @@ public final class PurchasePaymentDemoPaymentSandbox implements AutoCloseable {
         String lastRequestId,
         Integer lastHttpStatus,
         String failure,
-        Instant updatedAt
+        Instant updatedAt,
+        List<PurchasePaymentDemoEventAllowlist.Entry> acceptedPayments,
+        String allowlistSha256
     ) {
     }
 

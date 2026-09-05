@@ -51,6 +51,7 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
                 endpoint,
                 path(properties.getControlFile()),
                 path(properties.getStatusFile()),
+                path(properties.getEventAllowlistFile()),
                 properties.getMaximumClockSkew()
             );
         } finally {
@@ -147,6 +148,7 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
         );
         private String controlFile;
         private String statusFile;
+        private String eventAllowlistFile;
         private Duration maximumClockSkew = Duration.ofMinutes(5);
 
         public URI getEndpoint() {
@@ -173,6 +175,14 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
             this.statusFile = statusFile;
         }
 
+        public String getEventAllowlistFile() {
+            return eventAllowlistFile;
+        }
+
+        public void setEventAllowlistFile(String eventAllowlistFile) {
+            this.eventAllowlistFile = eventAllowlistFile;
+        }
+
         public Duration getMaximumClockSkew() {
             return maximumClockSkew;
         }
@@ -189,6 +199,17 @@ public class PurchasePaymentDemoPaymentSandboxConfiguration {
                 throw new IllegalStateException(
                     "payment sandbox maximum-clock-skew must be positive"
                 );
+            }
+            if (eventAllowlistFile != null && !eventAllowlistFile.isBlank()) {
+                Path allowlist = path(eventAllowlistFile).toAbsolutePath().normalize();
+                for (String reserved : new String[] { controlFile, statusFile }) {
+                    if (reserved != null && !reserved.isBlank()
+                        && allowlist.equals(path(reserved).toAbsolutePath().normalize())) {
+                        throw new IllegalStateException(
+                            "payment sandbox allowlist, control and status files must differ"
+                        );
+                    }
+                }
             }
         }
     }

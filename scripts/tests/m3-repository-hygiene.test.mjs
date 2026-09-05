@@ -19,6 +19,14 @@ import './product-readiness-purchase-payment-e2e-boundary.test.mjs';
 import './product-readiness-quick-start-boundary.test.mjs';
 import './product-readiness-cjk-font-rendering-boundary.test.mjs';
 import './product-readiness-browser-accessibility-boundary.test.mjs';
+import './product-readiness-capacity-recovery-boundary.test.mjs';
+import './product-readiness-capacity-recovery-retry.test.mjs';
+import './product-readiness-capacity-recovery-small-demo-retry.test.mjs';
+import './product-readiness-capacity-recovery-backlog-drain.test.mjs';
+import './product-readiness-capacity-recovery-backup-stream.test.mjs';
+import './product-readiness-capacity-recovery-outbox-event-type.test.mjs';
+import './product-readiness-capacity-recovery-upgrade-restore.test.mjs';
+import './product-readiness-capacity-recovery-build-reuse.test.mjs';
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';

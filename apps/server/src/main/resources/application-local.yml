@@ -14,6 +14,7 @@ approval:
         endpoint: ${APPROVAL_DEMO_PAYMENT_SANDBOX_ENDPOINT:http://127.0.0.1:0/payment-sandbox/v1/events}
         control-file: ${APPROVAL_DEMO_PAYMENT_SANDBOX_CONTROL_FILE:}
         status-file: ${APPROVAL_DEMO_PAYMENT_SANDBOX_STATUS_FILE:}
+        event-allowlist-file: ${APPROVAL_DEMO_PAYMENT_SANDBOX_EVENT_ALLOWLIST_FILE:}
         maximum-clock-skew: ${APPROVAL_DEMO_PAYMENT_SANDBOX_CLOCK_SKEW:5m}
   security:
     identity:
