@@ -1,0 +1,431 @@
+# MySQL 8.4 P3-H5 Staging Evidence
+
+## Status
+
+This record is staging evidence only. It is not formal acceptance and does not claim that H5 has passed Maven, PostgreSQL integration, MySQL 8.4 Testcontainers, permanent CI, artifact verification, Ready review, merge, deployment, or production promotion.
+
+```text
+MYSQL_P3_H5_MIGRATION_EXACT_VERIFICATION_STAGED
+MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
+PR_92_REMAINS_OPEN_DRAFT
+NO_READY
+NO_MERGE
+NO_DEPLOYMENT
+NO_PRODUCTION_PROMOTION
+```
+
+## Source authority
+
+H5 staging was created from the accepted H4 formal Head:
+
+```text
+formal branch: agent/mysql-8-4-production-compatibility
+source Head: eb8fc4b82a0a244418b112bdb71008b9ce179cae
+source accepted Run: 31557032908 / #1432
+source Run conclusion: success
+```
+
+The H4 Run remains predecessor evidence only. It is not H5 proof.
+
+## H5-R0 PostgreSQL equivalence correction
+
+H5-R0 classified the retained PostgreSQL D3 rejected-finalization behavior as:
+
+```text
+PRODUCT_BUG + TEST_GAP
+```
+
+Append-only test-first history:
+
+```text
+c6b733e5a2d1b529a4a8148c1c64fe9241969998
+  test(db-compat): reproduce migration D3 equivalence gap
+
+e74c965c4e860b10f43dba7a96262d35bb0f946c
+  fix(db-compat): align PostgreSQL rejected migration finalization
+```
+
+The production correction changes only the mutable Attempt request reference for a persisted `REJECTED` outcome. Immutable H4 request/outcome evidence remains retained.
+
+## H5 MySQL implementation scope
+
+The staging candidate adds or changes only the bounded D4 compatibility surface:
+
+- `JdbcApprovalMigrationExactVerificationStoreFactory`;
+- `JdbcMySqlApprovalMigrationExactVerificationStore`;
+- `JdbcApprovalMigrationEngineSnapshotHash`;
+- `ApprovalMigrationExecutionConfiguration` D4 wiring to the trusted factory;
+- PostgreSQL D3 rejected-finalization correction and regression;
+- MySQL H5 factory, contract, schema, hash and real integration tests;
+- test-only canonical snapshot hash fixture;
+- H5 contract and this staging evidence record.
+
+No H5 Flyway migration, D6 reconciliation implementation, D7 orchestration implementation, workflow change, public endpoint, `ACT_*` access, deployment logic or production-promotion logic is added.
+
+## Real H2 -> H3 -> H4 -> H5 lineage
+
+The H5 real-MySQL integration fixture does not directly insert a `VERIFYING` Attempt. It enters D4 through the existing accepted authorities:
+
+```text
+H2 provisioning
+-> H3 claim + active migration Fence
+-> H4 prepare immutable Engine Request
+-> H4 returned Engine Outcome
+-> Attempt VERIFYING
+-> H5 prepare
+-> bounded verification snapshot
+-> H5 finalize
+```
+
+The retained H4 real-MySQL suite continues to prove that stale tenant/Attempt/Fence, Runtime Binding drift and Plan target drift cannot create the H4 immutable request lineage consumed by H5.
+
+## H4 immutable evidence integrity hardening
+
+H5 staging additionally verifies the complete immutable H4 Engine Request / Engine Outcome before first D4 finalization authority is accepted.
+
+Test-first hardening history:
+
+```text
+784d0969db2d8b69bec9b0ba76cc507ce1a622ea
+  test(mysql): require complete H4 lineage verification in H5
+
+2a4f3f594662c5b936b55555a2c17112dcc6938e
+  fix(mysql): verify complete H4 immutable lineage before H5
+
+6a4352954358f08873cf9279fb8070b3c3507768
+  docs(db-compat): record complete H4 evidence validation in H5
+
+d1cfa278d832a728d222574bbebf76c446dcfcac
+  test(mysql): reject corrupted H4 evidence before H5
+
+89ebafd5a19879e043f9b9b8c20aab2d9d1aa872
+  test(mysql): retain real H4 corruption regression in H5
+```
+
+The MySQL D4 store now verifies relational/payload equivalence for the H4 request and returned outcome, validates request-to-outcome Attempt/Fence revision continuity, and recomputes:
+
+```text
+m5-engine-request-v1
+m5-engine-request-evidence-v1
+m5-engine-outcome-v1
+```
+
+The real MySQL corruption regression first creates a genuine H2 -> H3 -> H4 `VERIFYING` Attempt and then proves two corruption classes are rejected before any H5 evidence is written:
+
+- H4 Engine Request JSON payload no longer matches its relational target deployment evidence;
+- H4 Engine Outcome relational `outcome_hash` no longer matches the accepted H4 outcome hash protocol.
+
+Both cases must leave the Attempt in `VERIFYING` and retain the single immutable H4 request/outcome rows without creating a D4 evidence row.
+
+This does not re-read mutable Plan or Runtime Binding authority and does not create a MySQL-only migration decision. H4 remains the owner of target selection; H5 validates the immutable evidence that H4 froze.
+
+## Stored D4 replay integrity hardening
+
+The MySQL replay path now self-validates stored D4 evidence before `requireExactReplay` can return it.
+
+Append-only history:
+
+```text
+7be13e1b5253e372081f6d86440a9051bda7be19
+  test(mysql): require H5 replay hash revalidation
+
+fa78345caf2a44f37cb909a3773f1ec58aed6ce8
+  fix(mysql): revalidate stored H5 evidence hashes on replay
+
+079914ecce24a0434c09e645a039b87c4df13304
+  docs(db-compat): require H5 replay evidence self-validation
+```
+
+Before stored D4 evidence is accepted, MySQL recomputes:
+
+```text
+m5-exact-verification-request-v1
+m5-exact-verification-evidence-v1
+```
+
+The request hash is reconstructed from persisted tenant, Attempt, worker, expected Attempt revision, expected Fence revision and request id. The evidence hash is reconstructed from the stored verification identity, H4 request/outcome ids, source/target definitions, classification, snapshot hash and request hash.
+
+This does not re-open historical command authority. The old Fence does not need to remain active and the current Attempt does not need to remain at the pre-finalization revision; therefore exact-target and reconciliation replay semantics remain aligned with PostgreSQL D4.
+
+## Attempt relational evidence hardening
+
+H5 now checks the relational `engine_outcome` column on every MySQL Attempt read against the `ApprovalMigrationAttempt` payload instead of trusting the payload alone.
+
+Test-first history:
+
+```text
+e4cd595b6de4923f346ef535e0fa99d8f5f8e183
+  test(mysql): require H5 attempt outcome relational consistency
+
+1ea8800e06b18f582b1c0cb2dd75ef32fb49ed71
+  fix(mysql): verify H5 attempt outcome relational evidence
+```
+
+The production correction is deliberately limited to:
+
+```text
+SELECT engine_outcome
+-> require relational engine_outcome == Attempt payload engineOutcome
+```
+
+No status transition, revision rule, replay rule or vendor selection changes with this hardening.
+
+## Snapshot hash self-proof — staged correction
+
+Static audit found that `ApprovalMigrationEngineSnapshot` validates only that `snapshotHash` is syntactically a lowercase SHA-256 value. The actual successful bounded snapshot hash is generated by the existing Flowable adapter protocol:
+
+```text
+m5-exact-engine-snapshot-v1
+```
+
+Because the outer D4 evidence hash uses `snapshotHash` as an input, relational/payload agreement plus outer evidence-hash recomputation alone is insufficient against coherent mutation of successful snapshot content, stored `snapshot_hash` and the dependent outer evidence hash.
+
+The finding was classified for H5 staging as:
+
+```text
+SECURITY_HARDENING / MYSQL_D4_SNAPSHOT_HASH_SELF_PROOF
+```
+
+Initial staged hardening history:
+
+```text
+aab13a9f7bd3ce2a82242dedf2bf1b0fe834aab6
+  test(mysql): add canonical H5 snapshot hash fixture
+
+76ebf0fc52dc84ef7ce20aff47b5e40761ab76f8
+  test(mysql): reject coherent H5 snapshot evidence tamper
+
+06f64c9f44f9423438e949654325038643004d51
+  fix(mysql): add bounded H5 snapshot hash verifier
+
+3837704252f2e66e101e754ca33382ae3ddb473a
+  fix(mysql): verify bounded H5 snapshot hash at persistence boundary
+
+fe78b30a77d70d3342a3d25dc41f00f3bd09d2a6
+  test(mysql): pin H5 bounded snapshot hash self-proof
+
+f244c967c47ee3d5b9f41f3d7d19f44ca6b2d02a
+  docs(db-compat): require H5 snapshot hash self-proof
+```
+
+The real integration fixture no longer supplies an arbitrary syntactically valid successful snapshot hash. `MySqlH5ExactVerificationHashFixture` derives the exact existing Flowable canonical hash. A coherent-tamper regression first creates genuine H2 -> H3 -> H4 -> H5 exact-target evidence and then changes successful snapshot content, relational `snapshot_hash`, payload `snapshotHash` and the dependent outer verification evidence hash together. Replay must still fail closed because the bounded successful snapshot no longer derives to the stored hash.
+
+### Read-failure protocol compatibility correction
+
+A subsequent static compatibility audit found that the Application service intentionally uses a **different existing protocol** when the public engine read fails:
+
+```text
+m5-verification-read-failure-v1|<prepared-request-hash>|<stable-code>
+```
+
+The first snapshot verifier implementation was therefore too narrow: it would have forced a legitimate Application-generated failure snapshot through `m5-exact-engine-snapshot-v1` and rejected the legal `READ_FAILURE_RECONCILIATION_REQUIRED` path.
+
+Classification:
+
+```text
+STATIC_COMPATIBILITY_FINDING / READ_FAILURE_SNAPSHOT_HASH_PROTOCOL
+```
+
+Append-only correction history:
+
+```text
+30784e91f4aaf91d6b31efe96730e6042304cf76
+  test(mysql): add canonical H5 read-failure hash oracle
+
+e6dc5282a642a910c7e5dbc196e9d82744c5d049
+  test(mysql): retain H5 read-failure snapshot hash protocol
+
+56d7f4570914b32e3f327bbf42ea4675b6e6e616
+  fix(mysql): preserve H5 read-failure snapshot hash protocol
+
+45aeb2dc8444b6185a9eee39cadbfcb4b29e277d
+  fix(mysql): bind H5 snapshot verification to request hash
+
+271c2a8c3a1d5b97992726faebf81c09681a39d8
+  test(mysql): pin H5 dual snapshot hash protocols
+
+d86df27907ec7ad6a471e398a4930061fb53b985
+  docs(db-compat): preserve H5 dual snapshot hash protocols
+
+a8e96cb172b8dd36cc575435d0c0cd64d398e1f2
+  test(mysql): cover successful H5 snapshot hash protocol
+
+1e11822e574665554e36d80675c61910885b568d
+  test(mysql): cover H5 read-failure reconciliation persistence
+```
+
+The production verifier now receives both `ApprovalMigrationEngineSnapshot` and the authoritative D4 request hash and selects only between the two existing protocols based on `snapshot.readSucceeded()`:
+
+```text
+successful read:
+  m5-exact-engine-snapshot-v1
+
+failed read:
+  m5-verification-read-failure-v1|requestHash|stableCode
+```
+
+First finalization binds verification to `prepared.requestHash()`. Stored replay binds verification to `evidence.requestHash()`. No new hash prefix or client-controlled protocol selector exists.
+
+A focused non-database test covers positive and negative cases for both the successful Flowable snapshot hash and the Application-generated read-failure snapshot hash. Permanent contract coverage also pins the successful canonical field order independently across the Flowable producer, persistence verifier and test oracle.
+
+The real MySQL integration now adds the missing persistence-level read-failure proof. It starts from genuine H2 -> H3 -> H4 `VERIFYING` authority, derives the failure hash from the prepared D4 request hash, persists `READ_FAILURE_RECONCILIATION_REQUIRED`, transitions the Attempt to `RECONCILING`, and then strictly replays the same evidence without a second evidence row, Attempt event or audit effect.
+
+The snapshot self-proof finding is therefore **code-complete on staging but not execution-proven**:
+
+```text
+SNAPSHOT_HASH_SELF_PROOF_STAGED_CLOSED
+READ_FAILURE_PROTOCOL_COMPATIBILITY_STAGED_CLOSED
+READ_FAILURE_PERSISTENCE_COVERAGE_STAGED_CLOSED
+NOT_YET_EXECUTION_PROVEN
+```
+
+## Current focused test surface
+
+The H5 staging candidate contains these Surefire-compatible H5/PG regression classes:
+
+```text
+JdbcApprovalMigrationEngineExecutionRejectedFinalizationIntegrationTest
+JdbcApprovalMigrationExactVerificationStoreFactoryTest
+JdbcApprovalMigrationExactVerificationStoreMySqlContractTest
+JdbcApprovalMigrationExactVerificationStoreMySqlIntegrationTest
+JdbcApprovalMigrationEngineSnapshotHashTest
+MySqlV50H5ExactVerificationSchemaContractTest
+```
+
+`MySqlH5ExactVerificationHashFixture` is a test-only helper and does not match the Surefire test-class naming pattern.
+
+The real H5 MySQL integration covers:
+
+- true H2 -> H3 -> H4 -> H5 lineage;
+- exact-target classification and strict replay;
+- source-runtime mismatch into `RECONCILING`;
+- request-bound read-failure evidence into `READ_FAILURE_RECONCILIATION_REQUIRED`, `RECONCILING` and strict replay;
+- wrong tenant, stale Attempt revision, stale Fence and wrong worker rejection;
+- client classification rejection through the server-derived Application contract;
+- corrupted H4 request payload and outcome hash rejection before D4 evidence;
+- coherent stored successful-snapshot corruption rejection on replay;
+- deterministic concurrent finalization with one authoritative effect;
+- audit failure rolling back evidence, Attempt transition and Attempt event;
+- UUID / `datetime(6)` / JSON round-trip through existing compatibility primitives.
+
+The focused hash test covers positive and negative cases for the successful Flowable snapshot hash and the existing Application-generated read-failure snapshot hash independently of MySQL/Testcontainers.
+
+The static contract additionally pins:
+
+- trusted vendor selection;
+- PostgreSQL 16 / MySQL 8.4 selection and unsupported vendor/version rejection;
+- no PostgreSQL-only SQL in the MySQL store;
+- no `INSERT IGNORE`, `REPLACE` or broad upsert success path;
+- no direct `ACT_*` access;
+- no D6 reconciliation invocation;
+- no fake H5 Attempt insertion or PostgreSQL trigger bypass in the MySQL success fixture;
+- complete H4 immutable request/outcome evidence validation and hash protocols;
+- retention of the real H4 corruption regression;
+- D4 stored request/evidence hash recomputation before replay;
+- Attempt relational `engine_outcome` consistency;
+- successful-read `m5-exact-engine-snapshot-v1` self-proof;
+- request-bound `m5-verification-read-failure-v1` self-proof;
+- canonical successful snapshot field order across producer, verifier and independent test oracle.
+
+## Permanent CI discovery expectation
+
+The existing persistence selector discovers Surefire-compatible test names automatically, so the H5 test classes require no workflow edit.
+
+Accepted H4 #1432 predecessor matrix:
+
+```text
+selected persistence classes: 137
+Surefire report classes:       136
+Persistence test methods:      554
+class shards:                  30 / 34 / 35 / 38
+```
+
+Current H5 staging delta is statically expected to be:
+
+```text
+additional selected classes: 6
+additional test methods:     25
+class-shard delta:           +4 / +1 / +0 / +1
+```
+
+Therefore the expected Run A persistence matrix is:
+
+```text
+selected persistence classes: 143
+Surefire report classes:       142
+Persistence test methods:      579
+class shards:                  34 / 35 / 35 / 39
+```
+
+The existing Java core test count is expected to remain unchanged at 1469, yielding an expected combined test count of 2048 if compilation and all tests succeed. These numbers are a static acceptance oracle only; they are **not** execution evidence and must be reconstructed from actual Run A artifacts before H5 can be proven.
+
+No staging branch workflow Run has been authorized or used as a compiler/debugger.
+
+## Validation blocker
+
+The current execution container cannot obtain an executable repository checkout:
+
+- no repository checkout is mounted;
+- `github.com`, `api.github.com` and `raw.githubusercontent.com` are not resolvable/reachable from the container network;
+- resolving `github.com` externally and forcing the resolved address still cannot establish a direct HTTPS connection from the container;
+- no usable proxy is configured;
+- repository ZIP retrieval through the connected GitHub read surface does not expose a local source archive;
+- Java 21 is present, but Maven/repository dependencies required for the real build are not locally available.
+
+Therefore the following remain unexecuted and must not be represented as green:
+
+```text
+focused Maven/checkstyle verification
+PostgreSQL rejected-finalization regression
+real MySQL 8.4 H5 Testcontainers suite
+focused H5 snapshot-hash tests
+adjacent H1-H4 regression execution
+git diff --check in a real checkout
+```
+
+This is a validation-environment blocker, not a product success or failure classification.
+
+## Formal CI budget
+
+H5 retains the explicit two-run maximum:
+
+```text
+Run A:
+  one natural PR synchronize after a fully validated staging candidate is integrated
+  into agent/mysql-8-4-production-compatibility
+
+Run B:
+  only if Run A exposes a real issue requiring a new correction commit
+```
+
+Forbidden shortcuts remain:
+
+```text
+no workflow_dispatch
+no empty trigger commit
+no same-Head rerun
+no rebase
+no force push
+no direct main push
+```
+
+At this staging record:
+
+```text
+H5 full CI Runs: 0
+H5 permanent artifacts: none
+formal branch updates from H5: 0
+```
+
+## Gate
+
+Until executable local/focused verification is real and green, the candidate must remain on the non-triggering staging branch.
+
+```text
+MYSQL_P3_H5_MIGRATION_EXACT_VERIFICATION_STAGED
+HOLD_FORMAL
+NO_RUN_A_YET
+NO_READY
+NO_MERGE
+MYSQL_8_4_NOT_YET_PRODUCTION_SUPPORTED
+```

@@ -27,15 +27,14 @@ import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort;
 import io.github.akaryc1b.approval.engine.ProcessInstanceVerificationPort;
 import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceMigrationAdapter;
 import io.github.akaryc1b.approval.engine.flowable.FlowableProcessInstanceVerificationAdapter;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationAttemptClaimStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationAttemptProvisioningStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationAttemptClaimStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationAttemptProvisioningStoreFactory;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationBindingRevisionReader;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOrchestrationStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationReconciliationExecutionStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStore;
-import io.github.akaryc1b.approval.persistence.jdbc.PostgresSerializedApprovalMigrationRuntimeBindingCasStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationEngineExecutionStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationExactVerificationStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOrchestrationStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationReconciliationExecutionStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationRuntimeBindingCasStoreFactory;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.ManagementService;
 import org.flowable.engine.ProcessMigrationService;
@@ -102,7 +101,7 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationAttemptProvisioningStore(
+        return JdbcApprovalMigrationAttemptProvisioningStoreFactory.create(
             dataSource,
             objectMapper,
             transactionManager,
@@ -118,7 +117,7 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationAttemptClaimStore(
+        return JdbcApprovalMigrationAttemptClaimStoreFactory.create(
             dataSource,
             objectMapper,
             transactionManager,
@@ -165,7 +164,7 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationEngineExecutionStore(
+        return JdbcApprovalMigrationEngineExecutionStoreFactory.create(
             dataSource,
             objectMapper,
             transactionManager,
@@ -181,7 +180,7 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationExactVerificationStore(
+        return JdbcApprovalMigrationExactVerificationStoreFactory.create(
             dataSource,
             objectMapper,
             transactionManager,
@@ -197,17 +196,12 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        ApprovalMigrationRuntimeBindingCasStore jdbcStore =
-            new JdbcApprovalMigrationRuntimeBindingCasStore(
-                dataSource,
-                objectMapper,
-                transactionManager,
-                auditEventSink,
-                UUID::randomUUID
-            );
-        return new PostgresSerializedApprovalMigrationRuntimeBindingCasStore(
+        return JdbcApprovalMigrationRuntimeBindingCasStoreFactory.create(
             dataSource,
-            jdbcStore
+            objectMapper,
+            transactionManager,
+            auditEventSink,
+            UUID::randomUUID
         );
     }
 
@@ -218,7 +212,7 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationReconciliationExecutionStore(
+        return JdbcApprovalMigrationReconciliationExecutionStoreFactory.create(
             dataSource,
             objectMapper,
             transactionManager,
@@ -241,7 +235,7 @@ public class ApprovalMigrationExecutionConfiguration {
         PlatformTransactionManager transactionManager,
         AuditEventSink auditEventSink
     ) {
-        return new JdbcApprovalMigrationOrchestrationStore(
+        return JdbcApprovalMigrationOrchestrationStoreFactory.create(
             dataSource,
             objectMapper,
             transactionManager,

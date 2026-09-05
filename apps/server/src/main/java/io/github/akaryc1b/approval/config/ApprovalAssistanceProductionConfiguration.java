@@ -8,8 +8,8 @@ import io.github.akaryc1b.approval.ai.core.ApprovalAssistanceGovernanceHistoryQu
 import io.github.akaryc1b.approval.ai.openai.OpenAiResponsesProductionRuntimeFactory;
 import io.github.akaryc1b.approval.api.ApprovalAssistanceGenerationService;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskQuery;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAssistanceDurableEvidenceStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAssistanceGovernanceHistoryQuery;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAssistanceDurableEvidenceStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAssistanceGovernanceHistoryQueryFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -63,7 +63,7 @@ public class ApprovalAssistanceProductionConfiguration {
         DataSource dataSource,
         PlatformTransactionManager transactionManager
     ) {
-        return new JdbcApprovalAssistanceDurableEvidenceStore(
+        return JdbcApprovalAssistanceDurableEvidenceStoreFactory.create(
             dataSource,
             transactionManager,
             UUID::randomUUID
@@ -75,7 +75,7 @@ public class ApprovalAssistanceProductionConfiguration {
         DataSource dataSource,
         PlatformTransactionManager transactionManager
     ) {
-        return new JdbcApprovalAssistanceGovernanceHistoryQuery(
+        return JdbcApprovalAssistanceGovernanceHistoryQueryFactory.create(
             dataSource,
             transactionManager
         );

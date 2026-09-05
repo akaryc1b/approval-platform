@@ -27,11 +27,11 @@ import io.github.akaryc1b.approval.application.port.ApprovalUiSchemaStore;
 import io.github.akaryc1b.approval.application.port.AuditEventSink;
 import io.github.akaryc1b.approval.application.port.FormSubmissionWorkflowStarter;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormDesignDraftStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormPackageStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormSubmissionStore;
-import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalUiSchemaStore;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormDesignDraftStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormPackageStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalFormSubmissionStoreFactory;
+import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalUiSchemaStoreFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -87,7 +87,10 @@ public class ApprovalFormConfiguration {
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper
     ) {
-        return new JdbcApprovalFormStore(dataSource, approvalPersistenceObjectMapper);
+        return JdbcApprovalFormStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper
+        );
     }
 
     @Bean
@@ -95,7 +98,10 @@ public class ApprovalFormConfiguration {
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper
     ) {
-        return new JdbcApprovalFormSubmissionStore(dataSource, approvalPersistenceObjectMapper);
+        return JdbcApprovalFormSubmissionStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper
+        );
     }
 
     @Bean
@@ -103,7 +109,10 @@ public class ApprovalFormConfiguration {
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper
     ) {
-        return new JdbcApprovalUiSchemaStore(dataSource, approvalPersistenceObjectMapper);
+        return JdbcApprovalUiSchemaStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper
+        );
     }
 
     @Bean
@@ -111,12 +120,15 @@ public class ApprovalFormConfiguration {
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper
     ) {
-        return new JdbcApprovalFormDesignDraftStore(dataSource, approvalPersistenceObjectMapper);
+        return JdbcApprovalFormDesignDraftStoreFactory.create(
+            dataSource,
+            approvalPersistenceObjectMapper
+        );
     }
 
     @Bean
     ApprovalFormPackageStore approvalFormPackageStore(DataSource dataSource) {
-        return new JdbcApprovalFormPackageStore(dataSource);
+        return JdbcApprovalFormPackageStoreFactory.create(dataSource);
     }
 
     @Bean
