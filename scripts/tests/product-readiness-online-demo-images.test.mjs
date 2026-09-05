@@ -328,7 +328,10 @@ test('real CLI plan resolves committed defaults without creating outputs or cont
   assert.equal(value.images.length, 3); assert.deepEqual(value.missingInputs, []);
   assert.equal(existsSync(resolve(directory, '.runtime')), false);
 });
-test('existing repository hygiene imports image packaging checks without a second workflow', () => {
-  assert.match(text('scripts/tests/m3-repository-hygiene.test.mjs'), /import '\.\/product-readiness-online-demo-images\.test\.mjs'/u);
+test('existing permanent workflow runs all image checks in the dedicated image job', () => {
+  const workflow = text('.github/workflows/approval-platform-validation.yml');
+  const imageJob = workflow.slice(workflow.indexOf('\n  online-images:'));
+  assert.match(imageJob, /node --test scripts\/tests\/product-readiness-online-demo-images\.test\.mjs/u);
+  assert.match(imageJob, /product-readiness-online-demo-runtime\.test\.mjs/u);
   assert.match(text('deploy/online-demo/README.md'), /Docker is substituted in these unit tests/u);
 });

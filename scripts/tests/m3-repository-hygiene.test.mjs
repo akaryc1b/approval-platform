@@ -27,7 +27,6 @@ import './product-readiness-capacity-recovery-backup-stream.test.mjs';
 import './product-readiness-capacity-recovery-outbox-event-type.test.mjs';
 import './product-readiness-capacity-recovery-upgrade-restore.test.mjs';
 import './product-readiness-capacity-recovery-build-reuse.test.mjs';
-import './product-readiness-online-demo-images.test.mjs';
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';

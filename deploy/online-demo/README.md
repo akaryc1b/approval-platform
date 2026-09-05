@@ -1,61 +1,72 @@
-# Online evaluation images — packaging slice
+# Online evaluation images — packaging and isolated startup
 
 Tracking: [#144](https://github.com/akaryc1b/approval-platform/issues/144), parent [#107](https://github.com/akaryc1b/approval-platform/issues/107).
 
-This directory starts the online evaluation sandbox with three build targets: the existing executable backend, the existing Vben PC application, and the existing UniApp H5 application. It is **not a runnable online deployment**. There is no published URL, registry push, hosting automation, gateway, session isolation, automatic reset or online-demo security profile in this slice.
+This directory packages the existing backend, Vben PC and UniApp H5 applications and provides a real Docker startup check. It is **not an online deployment**. There is no published URL, registry push, hosting automation, HTTPS gateway, invitation/session isolation, automatic evaluator reset or online-demo security profile in this slice.
 
-## Build entrypoint
+## Entrypoints
 
-From a clean committed checkout with Git, Node 22.18+ or 24, and a Docker builder:
+From a clean committed checkout with Git, Node 22.18+ or 24, and a Linux Docker engine:
 
 ```bash
 node scripts/product-readiness/online-demo-images.mjs plan --json
 node scripts/product-readiness/online-demo-images.mjs build
-node --test scripts/tests/product-readiness-online-demo-images.test.mjs
+node scripts/product-readiness/online-demo-images-runtime.mjs run
+node --test scripts/tests/product-readiness-online-demo-images.test.mjs scripts/tests/product-readiness-online-demo-runtime.test.mjs
 ```
 
-`plan` reads the pinned commit and prints JSON without creating files, fetching dependencies, changing refs or contacting Docker. `build` consumes the same source-controlled base pins and builds backend, PC, then H5 serially. It does not start containers, push images, deploy, modify DNS or change any external service.
+`plan` is read-only: it resolves the committed source and base-image pins without creating output or contacting Docker. `build` builds backend, PC, then H5 from one source archive, without starting or publishing containers. `run` performs those same real builds and then starts disposable infrastructure and application containers, checks their HTTP behavior, and cleans its owned resources. Missing Docker or failed builds are errors, not runtime skips.
 
-Default target: `linux/amd64`. `--platform linux/arm64` is also accepted as a build input; successful parsing is not proof that either platform has been built or tested. A matching native builder or correctly configured emulation is required.
+Packaging defaults to `linux/amd64`; `--platform linux/arm64` is accepted by the packaging entrypoint only. The startup check is currently bounded to **linux/amd64**. Neither parsing an architecture nor a successful unit test establishes a successful build on that architecture.
 
-All four base images are pinned in `images/base-images.json`. The manifest records the exact official `docker-library/repo-info` source commit and metadata paths used to obtain the multi-platform index digests. Tags are descriptive only: every reference includes `@sha256:`. An operator can override a pin with `--maven-image`, `--java-image`, `--node-image` or `--nginx-image`; an approved repository and a full nonzero SHA-256 are mandatory. There is no fallback to `latest` or a floating tag. These source-verified pins are not a vulnerability-scan result or a successful pull/build assertion.
+The runtime check is also available as `node scripts/product-readiness/online-demo-images-runtime.mjs ci`. In GitHub Actions it validates the exact PR head or main push checkout against the immutable event and selects relevant packaging, application, dependency and workflow changes. Pure documentation changes skip the expensive build; malformed events, missing ancestry and stale checkouts fail rather than silently skipping. Manual workflow dispatch selects the check explicitly. Outside CI, use the explicit `run` command.
 
 ## Source and dependency boundaries
 
-The builder first rejects tracked working-tree changes. It records the exact commit, tree, application revision, commit timestamp and both existing upstream commits. Every image receives identical `git archive` bytes from that commit, not the working directory. Untracked `.env`, credentials, dependency folders, old artifacts and Git configuration are therefore outside the context. Links, submodules, malformed paths and generated runtime directories in the tracked tree are rejected.
+All four build bases are pinned in `images/base-images.json`. `images/runtime-images.json` separately pins PostgreSQL 16 and Redis 7 for the temporary startup check. Both manifests record the official `docker-library/repo-info` source commit and metadata paths. Every reference includes `@sha256:`; tags are descriptive, with no floating fallback. Packaging overrides require approved repositories and full nonzero SHA-256 digests. Source-verified pins are not vulnerability-scan results.
 
-The wrapper passes only fixed build arguments and a limited tool environment. It does not inherit `VITE_*`, application credentials, Git tokens, proxy credentials, `NODE_OPTIONS` or `JAVA_TOOL_OPTIONS` as build inputs. Registry configuration is left with the operator's Docker client. Docker daemon proxy configuration and build dependencies remain operator-controlled; this wrapper does not establish an outbound network sandbox for builds. Committing a secret is still prohibited: a Git archive is not a secret scanner. Build output may contain dependency diagnostics and should be handled as operator logs.
+The builder rejects tracked working-tree changes, records the exact commit/tree, application revision, timestamp and pinned upstream commits, and feeds identical `git archive` bytes to all three builds. Untracked local credentials, dependency folders, build output and Git configuration are excluded. Tracked links, submodules and unsafe/generated paths are rejected. A committed secret is still prohibited: a source archive is not a secret scanner.
 
-Backend packaging reuses the existing `product-readiness-demo` Maven profile, installs the reactor, and explicitly invokes `package spring-boot:repackage` for `approval-server`. A real `jar` inspection checks Boot layout, the launcher, dependencies and both canonical demo resources before copying the executable JAR into a Java 21 runtime image. The JAR and its SHA-256 sidecar are copied; Maven, source and test tooling are not.
+Only fixed build arguments and a narrow tool environment are passed. Host frontend variables, application credentials, Git tokens, proxy credentials, `NODE_OPTIONS` and `JAVA_TOOL_OPTIONS` are not build inputs. Operator Docker registry configuration and daemon networking remain outside this boundary. Build output may contain dependency diagnostics; handle it as operator evidence.
 
-Clients reuse the pinned upstream bootstrap and overlays. Each workspace is bootstrapped once, then installed/built directly so a later bootstrap cannot reset its resolved dependency state. Root and PC installs use frozen locks. **H5 preserves the repository's existing non-frozen install**: its actual resolved lock is retained in the image, and bit-reproducibility is explicitly unverified. Capturing that lock is not equivalent to installing from it reproducibly. Locking and repeat-build comparisons remain necessary before any reproducible-release claim.
+Backend packaging uses the existing `product-readiness-demo` Maven profile, installs the reactor, and explicitly runs `package spring-boot:repackage`. JAR-layout checks require the Boot launcher, dependencies and both canonical demo resources. The final image contains JRE/JAR, a checksum sidecar and licensing notices, not Maven/source/test tooling.
 
-The static staging helper permits only bounded public asset types, rejects hidden files, symlinks, maps and secret/backup formats, verifies bytes while staging and requires `index.html`. Per-file sizes/digests and the actual resolved dependency lock are placed under `/opt/approval/`, outside `/app/public`. Root licensing notices and each client's pinned upstream MIT license are retained.
+Clients reuse existing pinned upstreams and overlays. Each workspace is bootstrapped once before direct install/build, avoiding a later bootstrap resetting the resolved dependency state. Root and PC installs use frozen locks. **H5 retains the existing non-frozen install**; its resolved lock is preserved, but frozen resolution and repeat-build reproducibility are still outstanding. Normalized timestamps and immutable source do not imply identical image bytes.
 
-## Runtime defaults are intentionally non-public
+Public static inventories are bounded and reject hidden files, links, source maps and secret/backup formats. Each file is checked while staging. The inventory and resolved lock live under `/opt/approval/`, outside `/app/public`; root and upstream licensing notices are retained. The input-derived image tag identifies build inputs, not a registry manifest digest or reproducibility guarantee.
 
-Backend runs as numeric user `10001:10001`, with `SERVER_ADDRESS=127.0.0.1` and no default local/online-demo/production profile activation. This is intentionally not enough to run an Internet-facing instance. A later isolated deployment must provide tested private service connectivity, a dedicated profile, credentials and seed lifecycle without reusing browser-controlled local identity headers.
+## Real isolated startup check
 
-PC/H5 images use the official digest-pinned Nginx base but replace its configuration and entrypoint. Nginx runs as `101:101` on port 8080 with temporary paths under `/tmp`. Only built static assets are served. GET/HEAD are allowed; business, management and payment-sandbox routes return 404. Missing JS/CSS/assets return 404 instead of HTML. API proxying is absent. `noindex`, `no-store`, `nosniff` and frame-denial headers apply. `/healthz` checks static serving only, not backend/database health. `VITE_APPROVAL_LOCAL_DEMO=false` is fixed at build time; no actor, tenant or secret is baked into the clients.
+The checker builds all three images, verifies source/archive labels, platform and declared runtime users, and uses immutable inspected image IDs to create containers. PostgreSQL, Redis and the Node HTTP probe are pulled using digest pins and their inspected IDs are recorded. It creates one randomly named, ownership-labelled **internal Docker network**, with no published host ports or host-directory mounts.
 
-The SPA can be packaged, but its authenticated business flow is not accepted or made usable online by this step. HTTPS, invitation authentication, trusted session/role binding, isolation, reset, limits, egress controls and a complete visible PC/H5 business E2E remain required by #144. Do not publish these images or expose their containers as a completed evaluation service.
+PostgreSQL uses a generated in-memory test password and a tmpfs data directory; Redis persistence is disabled and its data directory is tmpfs. These are disposable startup-test resources, not a hosted isolation or data-retention model. TCP PostgreSQL readiness avoids mistaking its temporary initialization-only Unix socket server for final readiness.
 
-## Receipts and failure behavior
+Backend, PC, H5 and probe containers have resource bounds, read-only root filesystems, dropped capabilities, no-new-privileges and bounded `/tmp`. Application users remain `10001:10001` for backend and `101:101` for clients. The backend keeps `SERVER_ADDRESS=127.0.0.1`. A short-lived Node probe shares its network namespace instead of widening its listener or publishing ports.
 
-The wrapper writes one bounded JSON receipt to `.runtime/online-demo-images/build-*/image-build.json`. Runtime outputs remain untracked. A successful packaging receipt contains the source/archive/base identities and each locally inspected image ID, platform, user and matching source labels. It is labelled `LOCAL_IMAGES_BUILT_NOT_RUNTIME_ACCEPTED`.
+The fresh test database explicitly allows Flowable schema initialization. The test does not activate the local identity profile: it retains principal identity mode, disables the generic Connector/dispatcher and exposes only health through Actuator. It checks backend `UP`, the packaged JAR checksum, and rejection of management environment/metrics routes. **It does not run seeded approval actions or establish online authorization.**
 
-A local Docker image ID is **not a registry manifest digest**. `registryDigest` stays null because this command never pushes. The input-derived tag identifies source and build inputs, not a guarantee of identical image bytes; repeated H5 dependency resolution may differ. Archive timestamps/output timestamps and public-file timestamps are normalized where supported, but complete byte reproducibility is not claimed.
+For each real PC/H5 image, the checker verifies the embedded inventory's source identity, inventory digest, sizes and lock digest. Actual HTTP responses for `index.html`, one JavaScript file and one CSS file must match their inventory bytes/digests and MIME types. It also checks the static server's no-index/no-store/nosniff/frame-denial headers, API/management/payment/hidden/lock/map/missing-asset rejection, and unsupported-method rejection. These are packaged-static startup checks, not browser execution, screenshot acceptance or a complete business E2E.
 
-A failed build/inspection writes `FAILED`, records the failing component and stops later targets. Earlier locally built images are deliberately retained rather than deleting operator-owned images. No partial result is upgraded to success. The receipt is not a signature, SBOM, supply-chain attestation, vulnerability report or online acceptance record.
+The overall execution budget is 38 minutes, including builds; startup polling, commands and response bodies also have bounds. Cleanup has separate bounded commands. It attempts every recorded container independently, checks exact names and ownership labels before deletion, removes only owned container IDs/network, and verifies absence. It never runs a broad prune or deletes earlier local images. An uncertain create result is recorded before the command so cleanup can still locate the owned resource.
 
-## Verification scope
+## Receipts, diagnostics and failure handling
 
-The packaging suite tests argument and pin validation, real temporary Git histories/archives, simulated Docker build success/failure/inspection, public-asset inventories, and real `jar` layout checks on fixtures. **Docker is substituted in these unit tests**; they do not build or execute application images.
+Packaging receipts remain under `.runtime/online-demo-images/build-*/image-build.json`. A packaging-only success is `LOCAL_IMAGES_BUILT_NOT_RUNTIME_ACCEPTED`. A failed build records `FAILED`, stops subsequent targets and retains partial-image information. `localImageId` is a Docker image ID, **not** a registry manifest digest; `registryDigest` stays null because nothing is pushed.
 
-Where Nginx is installed, an additional test runs the real server against static fixtures, as a non-root user, verifies routes/headers/denials and terminates it. Only fixture paths, port, worker count and log paths differ from the committed configuration. Absence of Nginx is reported as an explicit skipped runtime test, never as a server pass. This does not test the pinned container image or the built Vben/UniApp applications.
+Runtime receipts, resource scope, static inventories and bounded failure diagnostics are written under `.runtime/online-demo-image-runtime/run-*/`. A runtime success is `LOCAL_IMAGE_STARTUP_SMOKE_PASSED` **only when all checks and cleanup pass**. Startup failure, invalid bytes, timeout or cleanup failure cannot publish that status. Generated database credentials are excluded from receipts and redacted from diagnostic tails; full container environments are not retained.
 
-The tests are imported by the existing repository-hygiene suite, not a second automatic workflow. The first full image-build/pull, runtime, vulnerability scan, isolated-session and hosted-concurrency evidence are still pending. No public URL or production capacity claim is released by static tests.
+A terminated CI runner or forced process kill cannot guarantee that JavaScript `finally` finishes. Partial `RUNNING` evidence is never acceptance; owned-resource scope is retained when possible, and disposable hosted-runner teardown is the final containment boundary. The checker does not claim a successful cleanup for a cancelled or incomplete run.
 
-## Next implementation within #144
+## Existing workflow integration and verification scope
 
-Add a dedicated fail-closed online-demo configuration and isolated evaluator lifecycle, then a trusted HTTPS invitation gateway and operator reset. Reuse the existing backend, seed, identity authorities, Outbox/Connector and signed sandbox; do not create another business implementation. Bind image manifests, two independent sessions, expiration/reset failures, attachment/egress controls, actual browser behavior and measured hosted limits to the candidate before publication. Hosting, DNS/TLS and registry credentials must come from the chosen environment, never from committed files.
+The existing `.github/workflows/approval-platform-validation.yml` has one dedicated `online-images` job with a 45-minute limit, read-only repository permissions and no persisted checkout credentials. It executes **both complete image test suites**, then the path-scoped real build/startup command, and retains JSON receipts plus logs even on failure. No second automatic workflow, registry authentication, image push or deployment was introduced.
+
+Image tests moved out of the general repository-hygiene aggregate into this dedicated job. They were not removed: changing that aggregate previously selected unrelated Quick Start, browser, golden-path and capacity runtimes. The first packaging candidate's Vben job exhausted its 45-minute budget; it was not accepted as green. Existing product-runtime selection rules and their tests are otherwise unchanged.
+
+**Docker is substituted in these unit tests**. Tests exercise real temporary Git histories/archives, JAR-layout fixtures, actual loopback HTTP probes, and simulated Docker build/start/inspection/failure/cleanup paths. Where installed, a real non-root Nginx fixture also verifies static routes and headers; an absent Nginx binary produces an explicit fixture-test skip. Neither test doubles nor fixture servers establish actual application-image success.
+
+Real image acceptance requires a successful exact-candidate `online-images` run and inspection of its build/runtime receipts and cleanup. Adding this checker is not itself that evidence. Vulnerability scanning, H5 frozen dependency resolution, repeat-build comparison, browser business E2E, evaluator isolation/reset and hosted capacity remain unverified. Raw runtime files remain untracked.
+
+## Next within #144
+
+Implement the dedicated fail-closed online-demo configuration, trusted invitation/session identity, two isolated evaluator lifecycles, expiry/operator reset, attachment and outbound-traffic restrictions, HTTPS gateway and visible PC/H5 E2E. Reuse the existing business backend, Seed, identity authorities and signed payment sandbox. Hosting, DNS/TLS, registry and deployment credentials must come from the chosen environment, never from committed files. Do not publish a public URL or treat startup-only images as a completed evaluation service.
