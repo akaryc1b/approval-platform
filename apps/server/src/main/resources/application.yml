@@ -98,6 +98,33 @@ management:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s,5s
+  tracing:
+    sampling:
+      probability: ${APPROVAL_TRACING_SAMPLING_PROBABILITY:0.1}
+    propagation:
+      produce: W3C
+      consume: W3C,B3,B3_MULTI
+    export:
+      otlp:
+        enabled: ${APPROVAL_OTLP_TRACING_ENABLED:false}
+  opentelemetry:
+    resource-attributes:
+      service.name: ${spring.application.name}
+      deployment.environment.name: ${APPROVAL_ENVIRONMENT:local}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${APPROVAL_OTLP_TRACES_ENDPOINT:http://127.0.0.1:4318/v1/traces}
+          connect-timeout: 2s
+          timeout: 5s
 
 server:
   shutdown: graceful
