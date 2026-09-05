@@ -460,3 +460,44 @@ jobs:
             mobile-h5.log
             mobile-weixin.log
           if-no-files-found: ignore
+
+  online-images:
+    name: Online evaluation / real image startup
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Verify image packaging and runtime contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test scripts/tests/product-readiness-online-demo-images.test.mjs \
+            scripts/tests/product-readiness-online-demo-runtime.test.mjs \
+            2>&1 | tee online-image-contracts.log
+      - name: Build and probe exact-source images when inputs change
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/product-readiness/online-demo-images-runtime.mjs ci \
+            2>&1 | tee online-image-runtime.log
+      - name: Retain image build and runtime evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: approval-online-images-${{ github.run_id }}
+          path: |
+            online-image-contracts.log
+            online-image-runtime.log
+            .runtime/online-demo-images/*/image-build.json
+            .runtime/online-demo-image-runtime/*/*.json
+          include-hidden-files: true
+          if-no-files-found: error
