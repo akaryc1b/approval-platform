@@ -34,9 +34,66 @@ There is no second batch of 96 workflows. The drain stage does not reset data, u
 
 ## Candidate status
 
-The original-backlog handoff and exact-event authorization are implemented together. Their new exact-Head natural runtime and retained Artifact audit remain **evidence pending** until the candidate run completes and its evidence is checked. PR #142 remains Draft; Issues #140 and #107 remain Open until their acceptance requirements are met.
+The original-backlog handoff and exact-event authorization passed natural Run [33943489013](https://github.com/akaryc1b/approval-platform/actions/runs/33943489013) for commit `ded87e55a8d8435e588753821abca7bbd598d1bf`, tree `0a15e1f94677d7c60bbbab58f402e6396ed51116`. The retained artifact was independently audited; the measured results below belong only to that exact candidate.
 
-The predecessor `0fb92e4ec4d6f1c4ec8aaaae5b4f018212e33ece` passed natural Run `33936188078`. That historical run used the preceding fresh-volume/prefix-based path and does not accept these new changes. The current PR records the new commit, tree, Workflow and artifact identities without committing generated runtime evidence.
+A subsequent pre-merge correction fixes reference selection for post-merge pushes and local/main checkouts. The corrected candidate's full natural validation remains **evidence pending**. PR #142 remains Draft; Issues #140 and #107 remain Open. A successful predecessor run is not acceptance of a later commit.
+
+## Audited configured-point results
+
+Source: [PR artifact audit](https://github.com/akaryc1b/approval-platform/pull/142#issuecomment-5549891077), natural Workflow #1719. Artifact `approval-vben-33943489013`, ID `9962827183`, ZIP SHA-256:
+
+```text
+c84ebf27092d02e973ee8d89830568e6b734f1bef79a48f575160a07bbe415ae
+```
+
+All eight envelopes (two PC/H5, two purchase-payment, Small Demo, matrix, drain and upgrade/restore) passed byte-length, Base64, file-digest, path and source/run identity checks: 99 file entries and 17,726,846 decoded bytes. The PC/H5 envelopes record a synthetic merge checkout with a tree identical to the candidate, not a direct checkout of its commit SHA.
+
+Host: Linux x64, 4 logical AMD EPYC 7763 CPUs, 16,766,410,752 bytes RAM; Node 22.23.2, Java 21.0.12.1, Maven 3.9.16 and PostgreSQL 16.15. One application instance. The configured workload is defined below.
+
+| Observed metric | Small Demo | Standard Deployment | Large Tenant |
+| --- | ---: | ---: | ---: |
+| Completed generated instances | 6 | 24 | 72 additional / 96 cumulative |
+| Approval tasks completed | 30 | 120 | 360 |
+| Configured list/detail reads | 60 | 480 | 1,440 |
+| Read P50 / P95 / P99 (ms) | 20.329 / 66.676 / 80.483 | 20.415 / 40.300 / 78.705 | 51.268 / 100.646 / 124.655 |
+| Configured read throughput (requests/s) | 239.044 | 527.473 | 434.258 |
+| Completed flow throughput (flows/s) | 3.446 | 4.887 | 6.134 |
+| Observed HTTP error rate | 0 | 0 | 0 |
+| Queue-delay P95 (ms) | 59.550 | 81.000 | 52.000 |
+| Database growth (bytes) | 1,196,032 | 3,874,816 | 6,946,816 |
+| Observed connections before / after | 11 / 11 | 11 / 11 | 11 / 11 |
+| Deadlock delta | 0 | 0 | 0 |
+
+The 30 Small Demo and 480 matrix approval commands each needed one observed transport attempt; no retryable command response or terminal command failure was recorded in this run. PostgreSQL's Large Tenant transaction-rollback counter nevertheless increased by 14; that database observation is retained and is not relabelled as an HTTP failure or hidden by the zero HTTP error rate. Per-operation request samples, higher-concurrency reads and point-in-time process observations remain in the artifact. These configured points do not establish a maximum stable or peak-resource envelope.
+
+### Original 96-event drain
+
+The matrix instance arrays, handoff and drain instance arrays match exactly. All 96 original events were PENDING with zero attempts before dispatcher startup, then retained HTTP 503/PENDING and finally HTTP 200/DELIVERED with unchanged identity mappings. The accepted five-field payment ledger equals the 96-entry authorization list and its SHA-256 matches the exact authorization bytes.
+
+| Recomputed poll-observed recovery metric | Value |
+| --- | ---: |
+| First observed delivery | 9,284.336 ms |
+| Complete observed drain | 9,672.929 ms |
+| Throughput | 9.925 events/s |
+| P50 / P95 / P99 | 9,672.929 / 9,672.929 / 9,672.929 ms |
+| Unique event IDs / idempotency keys / accepted results | 96 / 96 / 96 |
+| Additional accepted ledger entries | 0 |
+
+The equal percentiles reflect completion first observed in the same polling interval, not identical provider processing times. The runtime records five stability checks and 32 total observations; the audit recomputed metrics from the retained 96 first-delivery samples. Full cleanup is retained by the enclosing matrix, separate from drain's backend-only cleanup.
+
+### In-flight upgrade/restore
+
+The baseline was `ace5a07b305a0b40777f5b9bcce8e81db4d6beb5`, distinct from candidate `ded87e5`. The retained pre/post instance, task and audit summaries compare equal, and the same in-flight instance continued to COMPLETED with one exactly authorized accepted payment result.
+
+| Local rehearsal metric | Value |
+| --- | ---: |
+| Validated custom-format backup | 879,818 bytes / 572 ms |
+| Database restore | 1,950 ms |
+| Stopped application to first restored business read | 16,721 ms |
+| Lost committed records within the compared business summary | 0 |
+| Accepted payment results after continuation | 1 |
+
+This was a quiesced, single-node local rehearsal. Equality of the retained summary is not an exhaustive comparison of every database table, attachment byte or production recovery scenario. Backup/worktree removal, backend stop, disposable-volume deletion and port cleanup are retained.
 
 ## Governed profiles
 
@@ -106,6 +163,15 @@ LOCAL_QUIESCED_POSTGRESQL_16_REHEARSAL_NOT_PRODUCTION_RPO_RTO
 ```
 
 Quiesced committed-record loss and local application-stop-to-first-business-read time do not establish crash consistency, zero-downtime upgrade, rollback safety or production RPO/RTO.
+
+### Reference selection after merge
+
+PR runs use the immutable PR base and head SHAs; the existing tree-equivalence guard still handles synthetic merge checkouts. Main `push` runs use that event's `before` and `after`, not moving `origin/main` and not the candidate itself. New/deleted/forced branches, wrong refs, invalid or identical SHAs, stale checkouts and missing CI event payloads fail closed.
+
+Local and manually dispatched feature runs retain a distinct main merge base. When the merge base equals the candidate (for example, an up-to-date main checkout), a bounded depth-two fetch of the pinned candidate resolves its first parent. Failure to resolve a distinct parent does not fall back to same-version success. A normal main refresh does not truncate an existing full Git graph to depth one.
+
+The regression suite includes real temporary Git repositories and a depth-one clone of a two-parent merge, plus event, identity and malformed-input tests. The top-level ordering test now requires an actually present matrix invocation before the upgrade invocation; a missing call returning `indexOf() === -1` cannot make it pass.
+
 
 ## Explicit limitations
 

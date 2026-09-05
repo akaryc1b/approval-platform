@@ -16,9 +16,12 @@ Tracking issue: [#107 — Prove the product is usable, scalable, and recoverable
 | WeChat DevTools / physical device | `NOT_VERIFIED` | 构建成功和 H5 surrogate 不等于真实微信运行时 |
 | Public online evaluation sandbox | `PLANNED_NOT_AVAILABLE` | 建设方案已记录；当前没有公共 URL |
 | Capacity profile matrix | `THREE_LOCAL_REFERENCE_PROFILES_PRIOR_HEAD_PASSED_REVALIDATION_PENDING` | Small、Standard 和 Large 的配置点已在上一精确 Head 成功；本次代码变更后必须由新 Head 重新验证，仍不是生产容量 |
-| Original-volume Outbox drain | `IMPLEMENTED_EXACT_HEAD_EVIDENCE_PENDING` | 直接接续 Standard/Large 原始 96 条积压；精确事件白名单、503/PENDING/恢复/DELIVERED 和逐事件副作用核对已接入，等待新 Head 证据 |
-| Upgrade, backup/restore and local RPO/RTO | `IMPLEMENTED_EXACT_HEAD_REVALIDATION_PENDING` | 在途审批、精确 base 到 candidate 的 PostgreSQL 备份恢复与继续审批已经实现；本次白名单变更后须重新验证，不能视为生产 RPO/RTO |
+| Original-volume Outbox drain | `PRIOR_HEAD_AUDITED_REVALIDATION_PENDING` | `ded87e5` 的原始 96 条积压与精确白名单已通过运行及制品核验，观测排空 9,672.929 ms；后续基线修复提交仍须重新验证 |
+| Upgrade, backup/restore and local RPO/RTO | `PRIOR_HEAD_AUDITED_REVALIDATION_PENDING` | `ded87e5` 的不同版本在途恢复、业务摘要一致和继续付款已核验；停机后至首个业务读取 16,721 ms，仅为本地静默单节点证据；主线推送基线修复待新 Head 验证 |
 | Release and production deployment | `NOT_CREATED` | 默认分支不是 Release，Production Support 未声明 |
+
+
+已审计的运行：`ded87e5` / [Run 33943489013](https://github.com/akaryc1b/approval-platform/actions/runs/33943489013)。其 8 个证据包、99 个文件条目的长度和摘要一致；原始 96 条事件、精确授权账本以及恢复前后业务摘要已交叉比较。具体配置点、测量口径和限制见 [Capacity and Recovery Operating Envelope](CAPACITY_RECOVERY_ENVELOPE.md#candidate-status)。后续修复使主线推送使用事件 `before/after`，避免把同一提交的备份恢复误称为升级；旧运行不替代新提交验收。
 
 ## 从这里开始
 

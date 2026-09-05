@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { java21Environment } from '../pc-h5-runtime/contract.mjs';
@@ -46,36 +45,7 @@ export function unwrapObject(value) {
   return value;
 }
 
-function githubEvent() {
-  const eventPath = process.env.GITHUB_EVENT_PATH;
-  if (!eventPath || !existsSync(eventPath)) return undefined;
-  return JSON.parse(readFileSync(eventPath, 'utf8'));
-}
-
-export function exactUpgradeRefs(runGit) {
-  const event = githubEvent();
-  const pullRequest = event?.pull_request;
-  if (pullRequest) {
-    return {
-      source: 'GITHUB_PULL_REQUEST_EVENT',
-      baseSha: requiredText(pullRequest.base?.sha, 'pull request base SHA'),
-      candidateSha: requiredText(
-        pullRequest.head?.sha,
-        'pull request candidate SHA',
-      ),
-    };
-  }
-
-  runGit(['fetch', '--no-tags', '--depth=1', 'origin', 'main']);
-  return {
-    source: 'LOCAL_ORIGIN_MAIN_MERGE_BASE',
-    baseSha: requiredText(
-      runGit(['merge-base', 'HEAD', 'origin/main']),
-      'local merge-base SHA',
-    ),
-    candidateSha: requiredText(runGit(['rev-parse', 'HEAD']), 'local Head SHA'),
-  };
-}
+export { exactUpgradeRefs } from './upgrade-restore-refs.mjs';
 
 export function rehearsalPrefixes(contract) {
   return {

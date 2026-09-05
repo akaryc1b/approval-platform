@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import './product-readiness-capacity-recovery-upgrade-refs.test.mjs';
+
 import {
   createRecorder,
   readConsistency,
@@ -24,7 +26,11 @@ const http = text(
 const processes = text(
   'scripts/product-readiness/pc-h5-runtime/processes.mjs',
 );
-const sources = `${contract}\n${runtime}\n${http}`;
+const refs = text(
+  'scripts/product-readiness/capacity-recovery/upgrade-restore-refs.mjs',
+);
+const matrix = text('scripts/product-readiness/capacity-recovery/profile-matrix.mjs');
+const sources = `${contract}\n${refs}\n${runtime}\n${http}`;
 
 test('upgrade restore module loads and publishes one bounded local plan', async () => {
   const module = await import(
@@ -49,11 +55,11 @@ test('launcher executes upgrade restore after configured-volume drain', () => {
     /executeUpgradeRestoreRehearsal,[\s\S]*?upgradeRestorePlan/u,
   );
   assert.match(launcher, /await executeUpgradeRestoreRehearsal\(contract\)/u);
-  assert.equal(
-    launcher.indexOf('await executeBacklogDrain(contract)')
-      < launcher.indexOf('await executeUpgradeRestoreRehearsal(contract)'),
-    true,
-  );
+  const matrixIndex = launcher.indexOf('await executeProfileMatrix(contract)');
+  const upgradeIndex = launcher.indexOf('await executeUpgradeRestoreRehearsal(contract)');
+  assert.ok(matrixIndex >= 0 && upgradeIndex > matrixIndex);
+  assert.match(matrix, /await executeBacklogDrain\(contract,\s*\{/u);
+  assert.doesNotMatch(launcher, /await executeBacklogDrain/u);
   assert.match(launcher, /value\.upgradeRestore = upgradeRestore/u);
 });
 
