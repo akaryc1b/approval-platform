@@ -15,7 +15,10 @@ import java.time.Clock;
 import java.util.Base64;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class OnlineEvaluationIdentityConfigurationTest {
     private final ObjectMapper mapper = new ObjectMapper();
