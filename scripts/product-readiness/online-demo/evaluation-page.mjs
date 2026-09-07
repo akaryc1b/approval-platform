@@ -1,7 +1,25 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
-const style = `:root{font-family:system-ui,sans-serif;color:#172126;background:#f4f6f5}*{box-sizing:border-box}body{margin:0}main{max-width:720px;margin:8vh auto;padding:32px}h1{font-size:36px;letter-spacing:-1px;margin:12px 0}p{line-height:1.7}.eyebrow{font-size:13px;color:#376255}section{background:white;padding:28px;border:1px solid #dce3df;border-radius:16px;margin-top:28px}label{display:block;margin:16px 0 8px}input,select,button{font:inherit;border-radius:8px;padding:12px;max-width:100%}input,select{width:100%;border:1px solid #9daba3}button{border:0;background:#174f3d;color:white;cursor:pointer;margin-top:16px}button:disabled{opacity:.55;cursor:wait}:focus-visible{outline:3px solid #3969b7;outline-offset:3px}.notice{font-size:14px;color:#52605a}#message{min-height:24px}[hidden]{display:none!important}@media(max-width:600px){main{margin:24px auto;padding:20px}h1{font-size:30px}}`;
-const script = `const login=document.querySelector('#login'),panel=document.querySelector('#session'),message=document.querySelector('#message'),actor=document.querySelector('#actor');let csrf='';const tell=text=>{message.textContent=text};async function call(path,body){const response=await fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:body===undefined?{}:{'Content-Type':'application/json','X-Evaluation-CSRF':csrf},body:body===undefined?undefined:JSON.stringify(body)});const result=response.status===204?null:await response.json();if(!response.ok)throw new Error(result.error);return result}function show(value){csrf=value.csrfToken;login.hidden=true;panel.hidden=false;actor.replaceChildren();for(const item of value.actors){const option=document.createElement('option');option.value=item.id;option.textContent=item.displayName;option.selected=item.id===value.actorId;actor.append(option)}document.querySelector('#expiry').textContent='会话剩余约 '+Math.ceil(value.expiresInSeconds/60)+' 分钟，到期后不能继续访问。'}function fail(error){const labels={INVITATION_REJECTED:'邀请无效、已使用或已过期。',NO_EVALUATION_SLOT:'当前没有可用试用位置，请稍后再试。',INVITATION_RATE_LIMIT:'尝试过于频繁，请稍后再试。',REQUEST_LIMIT:'请求过于频繁，请稍后再试。',RESET_FAILED:'访问凭据已撤销，重置未完成；该位置已暂停分配。',SESSION_REQUIRED:'会话已过期，请使用新的邀请。',CSRF_REJECTED:'会话已变化，请刷新页面。'};tell(labels[error.message]||'暂时无法完成操作，请稍后再试。');if(error.message==='SESSION_REQUIRED'){csrf='';panel.hidden=true;login.hidden=false}}login.addEventListener('submit',async event=>{event.preventDefault();const input=document.querySelector('#invitation'),value=input.value.trim(),button=login.querySelector('button');input.value='';button.disabled=true;try{show(await call('/evaluation/invitations/redeem',{invitation:value}));tell('邀请已使用。当前仅开放会话入口，业务访问尚未连接。')}catch(error){fail(error)}finally{button.disabled=false}});actor.addEventListener('change',async()=>{actor.disabled=true;try{show(await call('/evaluation/session/actor',{actorId:actor.value}));tell('体验角色已切换。')}catch(error){fail(error)}finally{actor.disabled=false}});document.querySelector('#end').addEventListener('click',async event=>{event.target.disabled=true;try{await call('/evaluation/session/end',{});tell('会话已结束。')}catch(error){fail(error)}finally{csrf='';panel.hidden=true;login.hidden=false;event.target.disabled=false}});call('/evaluation/session').then(show).catch(error=>{if(error.message!=='SESSION_REQUIRED')fail(error)});`;
-const cspHash = source => `'sha256-${createHash('sha256').update(source).digest('base64')}'`;
-export const evaluationCsp = `default-src 'none'; script-src ${cspHash(script)}; style-src ${cspHash(style)}; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`;
-export const evaluationPage = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>邀请试用 · Approval Platform</title><style>${style}</style></head><body><main><p class="eyebrow">APPROVAL PLATFORM · 邀请制评估</p><h1>从一条采购申请开始</h1><p>这是非生产试用环境。数据仅供体验，请勿输入真实人员、客户或付款信息。</p><section><form id="login"><label for="invitation">一次性邀请</label><input id="invitation" name="invitation" type="password" required minlength="43" maxlength="43" autocomplete="off" spellcheck="false"><button type="submit">进入试用会话</button></form><div id="session" hidden><h2>你的临时会话</h2><p id="expiry"></p><label for="actor">体验角色</label><select id="actor"></select><p class="notice">邀请与角色选择已开放验证。采购审批业务入口尚未连接，目前不会执行审批或付款。</p><button id="end" type="button">结束会话并重置</button></div><p id="message" role="status" aria-live="polite"></p></section><p class="notice">仅限受邀评估 · 非正式 SaaS · 无真实支付</p></main><script>${script}</script></body></html>`;
+// Fixed, source-controlled resources only. No request value becomes a path or HTML.
+export const evaluationPage = readFileSync(new URL('./page/index.html', import.meta.url), 'utf8');
+const script = readFileSync(new URL('./page/entry.mjs', import.meta.url), 'utf8');
+const style = readFileSync(new URL('./page/entry.css', import.meta.url), 'utf8');
+const integrity = source => 'sha256-' + createHash('sha256').update(source).digest('base64');
+for (const source of [script, style]) {
+  if (!evaluationPage.includes('integrity="' + integrity(source) + '"')) {
+    throw new Error('evaluation page asset integrity mismatch');
+  }
+}
+
+export const evaluationCsp = "default-src 'none'; script-src '" + integrity(script)
+  + "'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; connect-src 'self';"
+  + " base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+
+const scriptResource = Object.freeze({ type: 'text/javascript; charset=utf-8', body: script });
+const styleResource = Object.freeze({ type: 'text/css; charset=utf-8', body: style });
+export function evaluationAsset(path) {
+  if (path === '/evaluation/assets/entry.mjs') return scriptResource;
+  if (path === '/evaluation/assets/entry.css') return styleResource;
+  return null;
+}

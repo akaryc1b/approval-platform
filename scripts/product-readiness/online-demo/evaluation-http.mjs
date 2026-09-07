@@ -1,7 +1,7 @@
 import { createServer } from 'node:https';
 import { performance } from 'node:perf_hooks';
 import { EvaluationError, startEvaluationExpiryWorker, validEvaluationToken } from './evaluation-sessions.mjs';
-import { evaluationCsp, evaluationPage } from './evaluation-page.mjs';
+import { evaluationAsset, evaluationCsp, evaluationPage } from './evaluation-page.mjs';
 
 export const evaluationCookie = '__Host-approval-evaluation';
 const deny = (code, status) => { throw new EvaluationError(code, status); };
@@ -83,6 +83,10 @@ export function createEvaluationRequestHandler({ controller, origin }) {
           || Number(singleHeader(request, 'content-length') || 0) !== 0)) deny('BODY_REJECTED', 400);
       if (request.method === 'GET' && path === '/evaluation') {
         response.setHeader('Content-Type', 'text/html; charset=utf-8'); response.end(evaluationPage); return;
+      }
+      const asset = request.method === 'GET' ? evaluationAsset(path) : null;
+      if (asset) {
+        response.setHeader('Content-Type', asset.type); response.end(asset.body); return;
       }
       const credential = cookie(request);
       if (request.method === 'GET' && path === '/evaluation/session') {

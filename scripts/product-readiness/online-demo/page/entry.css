@@ -1,0 +1,27 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #172126;
+  background: #f4f6f5;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 720px; margin: 8vh auto; padding: 32px; }
+h1 { font-size: 36px; letter-spacing: -1px; margin: 12px 0; }
+p { line-height: 1.7; }
+.eyebrow { font-size: 13px; color: #376255; }
+section { background: white; padding: 28px; border: 1px solid #dce3df; border-radius: 16px; margin-top: 28px; }
+label { display: block; margin: 16px 0 8px; }
+input, select, button { font: inherit; border-radius: 8px; padding: 12px; max-width: 100%; }
+input, select { width: 100%; border: 1px solid #9daba3; }
+button { border: 0; background: #174f3d; color: white; cursor: pointer; margin-top: 16px; min-height: 44px; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+:focus-visible { outline: 3px solid #3969b7; outline-offset: 3px; }
+.notice { font-size: 14px; color: #52605a; }
+#expiry { font-variant-numeric: tabular-nums; }
+#message { min-height: 24px; overflow-wrap: anywhere; }
+[hidden] { display: none !important; }
+@media (max-width: 600px) {
+  main { margin: 24px auto; padding: 20px; }
+  h1 { font-size: 30px; }
+}

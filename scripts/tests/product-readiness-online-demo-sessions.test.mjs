@@ -13,7 +13,7 @@ import { createEvaluationSessions, evaluationActors, startEvaluationExpiryWorker
   from '../product-readiness/online-demo/evaluation-sessions.mjs';
 import { createEvaluationHttpsServer, createEvaluationRequestHandler }
   from '../product-readiness/online-demo/evaluation-http.mjs';
-import { evaluationPage, evaluationCsp } from '../product-readiness/online-demo/evaluation-page.mjs';
+import { evaluationAsset, evaluationPage, evaluationCsp } from '../product-readiness/online-demo/evaluation-page.mjs';
 
 const scenario = JSON.parse(readFileSync(new URL('../../config/demo/purchase-payment-golden-path.json', import.meta.url)));
 const randomToken = () => randomBytes(32).toString('base64url');
@@ -288,6 +288,7 @@ test('actual HTTPS rejects replay, CSRF/origin/header abuse, oversized bodies an
   assert.equal(first.status, 201);
   assert.equal((await f.call('/evaluation/invitations/redeem', { body: { invitation: invite } })).status, 401);
   const nextInvite = f.controller.issueInvitation().invitation;
+  assert.equal((await f.call('/evaluation/invitations/redeem', { body: { invitation: invite } })).status, 401);
   assert.equal((await f.call('/evaluation/invitations/redeem', { body: { invitation: nextInvite }, headers: { Cookie: first.cookie } })).status, 409);
   for (const Origin of ['https://other.example.invalid', 'null', '']) {
     const value = await f.call('/evaluation/invitations/redeem', { body: { invitation: nextInvite }, headers: { Origin } });
@@ -326,15 +327,42 @@ test('plain HTTP cannot spoof TLS using forwarded headers', async t => {
   });
   assert.equal(result, 403);
 });
-test('landing CSP hashes the actual fixed script/style and never stores invitations in browser storage or URLs', () => {
-  for (const tag of ['script', 'style']) {
-    const start = evaluationPage.indexOf(`<${tag}>`) + tag.length + 2;
-    const source = evaluationPage.slice(start, evaluationPage.indexOf(`</${tag}>`, start));
-    assert.ok(evaluationCsp.includes(createHash('sha256').update(source).digest('base64')));
+test('landing CSP pins the external script and both resource integrity values without browser storage', () => {
+  const script = evaluationAsset('/evaluation/assets/entry.mjs').body;
+  const style = evaluationAsset('/evaluation/assets/entry.css').body;
+  for (const source of [script, style]) {
+    const hash = createHash('sha256').update(source).digest('base64');
+    assert.ok(evaluationPage.includes('integrity="sha256-' + hash + '"'));
   }
-  assert.doesNotMatch(evaluationPage, /localStorage|sessionStorage|innerHTML|document\.cookie|location\.search/u);
+  assert.ok(evaluationCsp.includes(createHash('sha256').update(script).digest('base64')));
+  assert.match(evaluationCsp, /style-src 'self'; style-src-attr 'none'/u);
+  assert.doesNotMatch(evaluationPage + script, /localStorage|sessionStorage|innerHTML|document\.cookie|location\.search/u);
+  assert.doesNotMatch(evaluationPage, /<style>|<script>/u);
   assert.doesNotMatch(evaluationCsp, /unsafe-inline|unsafe-eval/u);
   assert.match(evaluationPage, /aria-live="polite"/u);
+});
+
+test('actual HTTPS serves only the two immutable page assets and keeps identity and route denials', async t => {
+  const f = await tlsFixture(t);
+  for (const path of ['/evaluation/assets/entry.mjs', '/evaluation/assets/entry.css']) {
+    const result = await f.call(path);
+    assert.equal(result.status, 200);
+    assert.equal(result.text, evaluationAsset(path).body);
+    assert.equal(result.headers['content-type'], evaluationAsset(path).type);
+    assert.equal(result.headers['cache-control'], 'no-store');
+    assert.equal(result.headers['x-content-type-options'], 'nosniff');
+    assert.equal(result.headers['content-security-policy'], evaluationCsp);
+    assert.equal(result.headers['set-cookie'], undefined);
+    assert.equal((await f.call(path, { method: 'POST', body: {} })).status, 404);
+    assert.equal((await f.call(path, { headers: { Origin: 'https://other.example.invalid' } })).status, 403);
+    assert.equal((await f.call(path, { headers: { 'X-Tenant-Id': 'untrusted' } })).status, 403);
+  }
+  for (const path of ['/evaluation/assets/', '/evaluation/assets/entry.mjs?invitation=untrusted',
+    '/evaluation/assets/../evaluation-sessions.mjs', '/evaluation/assets/%2e%2e/evaluation-http.mjs',
+    '/evaluation/assets/entry.mjs.map', '/evaluation/assets/.env', '/evaluation/assets/not-found.css']) {
+    assert.equal((await f.call(path)).status, 404, path);
+    assert.equal(evaluationAsset(path), null);
+  }
 });
 
 test('a throwing clock disables admission instead of silently resuming', t => {
@@ -382,3 +410,5 @@ test('closing the HTTPS server stops admission and invalidates outstanding sessi
   assert.equal(f.controller.snapshot().disabled, true);
   assert.throws(() => f.controller.status(a.cookie.split('=')[1]), /DISABLED/u);
 });
+
+import './product-readiness-online-demo-page.test.mjs';
