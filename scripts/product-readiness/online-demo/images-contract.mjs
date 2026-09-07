@@ -95,7 +95,7 @@ export function plan(source, options) {
       target: component,
     })),
     dependencyPolicy: {
-      root: 'FROZEN_LOCKFILE', pc: 'FROZEN_LOCKFILE',
+      root: 'NOT_REQUIRED_FOR_CLIENT_IMAGE_BUILDS', pc: 'FROZEN_LOCKFILE',
       h5: 'EXISTING_NON_FROZEN_INSTALL_RESOLVED_LOCK_RETAINED_IN_IMAGE',
     },
     nonClaims,

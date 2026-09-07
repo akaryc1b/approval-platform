@@ -6,8 +6,10 @@ COPY . .
 RUN node -e 'const [m,n]=process.versions.node.split(".").map(Number); if(!((m===22&&n>=18)||m===24)) process.exit(1)' \
     && git --version \
     && corepack enable \
-    && corepack prepare "$(node -p 'require("./package.json").packageManager')" --activate \
-    && pnpm install --frozen-lockfile
+    && corepack prepare "$(node -p 'require("./package.json").packageManager')" --activate
+# Bootstrap and packaging helpers use Node built-ins only. Dependencies belong
+# to each generated client workspace; the source archive has no root lockfile.
+# Do not add an unbounded root install or weaken the PC frozen-lock install.
 # No development identity, role token, tenant or secret is baked into either client.
 ENV VITE_APPROVAL_LOCAL_DEMO=false \
     VITE_APPROVAL_CONNECTOR=standalone \

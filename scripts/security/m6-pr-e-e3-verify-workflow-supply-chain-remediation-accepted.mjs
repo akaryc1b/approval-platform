@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { projectReviewedWorkflow, reviewedWorkflowDeltas } from './workflow-evolution.mjs';
 
 const SHA40 = /^[0-9a-f]{40}$/;
 const SHA64 = /^[0-9a-f]{64}$/;
@@ -221,25 +222,31 @@ export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
   }
 
   const inspections = [];
+  const evolutions = [];
   for (const path of currentPaths) {
     const current = snapshot.workflows[path];
     if (!current || typeof current.content !== 'string' || !SHA40.test(current.blobSha || '')) throw new Error(`R2B exact workflow snapshot required ${path}`);
     if (gitBlobSha(current.content) !== current.blobSha) throw new Error(`R2B workflow content/blob mismatch ${path}`);
-    if (current.blobSha !== plan.workflowInventory.targetBlobs[path]) throw new Error(`R2B target workflow blob mismatch ${path}`);
+    const projection = projectReviewedWorkflow(path, current.content, plan.workflowInventory.targetBlobs[path]);
+    if (projection.priorBlobSha !== plan.workflowInventory.targetBlobs[path]) throw new Error(`R2B target workflow blob mismatch ${path}`);
+    if (projection.evolution) evolutions.push(projection.evolution);
+    // Inspect every CURRENT step, including the appended image job. No scanner
+    // findings or security controls are replaced by the historical projection.
     if (current.blobSha === plan.workflowInventory.sourceBlobs[path]) throw new Error(`R2B workflow remained at vulnerable source blob ${path}`);
     inspections.push(inspectWorkflow(path, current.content, plan.actionPins));
   }
 
+  const delta = reviewedWorkflowDeltas(evolutions, currentPaths.map(path => ({ path, blobSha: snapshot.workflows[path].blobSha })));
   const actionUses = inspections.flatMap((item) => item.uses);
   const checkout = inspections.flatMap((item) => item.checkout);
-  if (actionUses.length !== 43) throw new Error(`R2B reviewed action use count mismatch ${actionUses.length}`);
-  if (checkout.length !== 14) throw new Error(`R2B checkout credential boundary count mismatch ${checkout.length}`);
+  if (actionUses.length !== 43 + delta.actions) throw new Error(`R2B reviewed action use count mismatch ${actionUses.length}`);
+  if (checkout.length !== 14 + delta.checkouts) throw new Error(`R2B checkout credential boundary count mismatch ${checkout.length}`);
   const automatic = inspections.filter((item) => item.automatic).map((item) => item.path);
   if (canonical(automatic) !== canonical([plan.workflowInventory.automaticWorkflowPath])) throw new Error(`R2B automatic workflow inventory mismatch ${automatic.join(',')}`);
 
   const validation = snapshot.workflows['.github/workflows/approval-platform-validation.yml'].content;
   const currentPhysicalJobCount = physicalJobCount(validation);
-  if (currentPhysicalJobCount !== plan.invariants.physicalJobCount || currentPhysicalJobCount !== 9) {
+  if (currentPhysicalJobCount !== plan.invariants.physicalJobCount + delta.jobs || currentPhysicalJobCount !== 9 + delta.jobs) {
     throw new Error(`R2B physical Job count drift ${currentPhysicalJobCount}`);
   }
   const affectedStep = inspections
@@ -253,10 +260,10 @@ export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
   if (/\b(eval|source)\b/.test(runBlock) || /\$\([^)]*SELECTED_TESTS/.test(runBlock)) throw new Error('R2B shell data boundary reinterprets selected tests');
 
   const permanentArtifactClasses = new Set();
-  for (const match of validation.matchAll(/^\s*name:\s*approval-(hygiene|maven|vben|mobile)-\$\{\{\s*github\.run_id\s*\}\}\s*$/gm)) {
+  for (const match of validation.matchAll(/^\s*name:\s*approval-(hygiene|maven|vben|mobile|online-images)-\$\{\{\s*github\.run_id\s*\}\}\s*$/gm)) {
     permanentArtifactClasses.add(match[1][0].toUpperCase() + match[1].slice(1));
   }
-  if (canonical([...permanentArtifactClasses].sort()) !== canonical([...plan.invariants.permanentArtifactClasses].sort())) {
+  if (canonical([...permanentArtifactClasses].sort()) !== canonical([...plan.invariants.permanentArtifactClasses, ...delta.artifactClasses].sort())) {
     throw new Error(`R2B permanent Artifact class drift ${[...permanentArtifactClasses].join(',')}`);
   }
 
@@ -303,6 +310,7 @@ export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
     priorR2ACanonicalSha256: plan.priorR2ACanonicalSha256,
     dependabotBlobShaRetained: snapshot.dependabotBlobSha,
     workflowBlobs: stable(Object.fromEntries(currentPaths.map((path) => [path, snapshot.workflows[path].blobSha]))),
+    ...(evolutions.length ? { reviewedWorkflowEvolutions: evolutions } : {}),
     actionUseCount: actionUses.length,
     checkoutCredentialBoundaryCount: checkout.length,
     templateInjectionBoundaryCount: 1,
