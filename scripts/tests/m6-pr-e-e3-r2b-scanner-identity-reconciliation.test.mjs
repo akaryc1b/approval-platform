@@ -101,7 +101,11 @@ test('R2B preserves accepted boundary coverage while retaining unreviewed OSV da
   assert.equal(existsSync(acceptedVerifierPath), true);
   assert.equal(existsSync(acceptedTestPath), true);
   const acceptedTest = readFileSync(acceptedTestPath, 'utf8');
-  assert.equal(gitBlobSha(acceptedTest), '2c6218eda079c0a73ba7cc9c02757e709f7fd0b5');
+  // The historical assertions remain; the reviewed adapter adds live evolution
+  // coverage and projects only the exact original workflow for those fixtures.
+  assert.equal(gitBlobSha(acceptedTest), '2612f2ab8b6aac552c5924c860f5c1c9fff9ca2e');
+  assert.ok(acceptedTest.includes('projectReviewedWorkflow'));
+  assert.ok(acceptedTest.includes("import './workflow-evolution.test.mjs';"));
   assert.ok(acceptedTest.includes("from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';"));
   assert.equal(acceptedTest.includes("from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs';"), false);
   const acceptedVerifier = readFileSync(acceptedVerifierPath, 'utf8');
