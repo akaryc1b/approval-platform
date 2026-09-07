@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
+import { createEvaluationReadSigner, verifyEvaluationReadIdentity } from './evaluation-read-identity.mjs';
+import { evaluationActors } from './evaluation-sessions.mjs';
 
 export const evaluationSlotIds = Object.freeze(['slot-a', 'slot-b']);
 const roles = Object.freeze(['postgres', 'redis', 'backend', 'probe']);
@@ -81,16 +83,20 @@ function requirePrivate(value, role, scope, expectedImage) {
 
 /**
  * Two private, independently disposable backend/data stacks. No browser routing,
- * business principal, seed or payment side effect is enabled here. The operator
+ * seeded writes or payment side effect is enabled here. Signed pending-task
+ * reads are an explicit opt-in; they do not authorize a browser. The operator
  * must supply a durable bounded recorder; acknowledgement follows its write.
  * Namespace is generated internally, preventing a new process adopting stale
  * stacks. A crashed operator needs explicit resource recovery, not auto-adoption.
  */
 export function createEvaluationDockerSlots({ source, backendImage, infrastructure, archiveSha256,
-  record, run = runEvaluationDocker, resetBudgetMs = 55_000 } = {}) {
+  record, run = runEvaluationDocker, resetBudgetMs = 55_000, readOnlyIdentity = false, scenario } = {}) {
   validateInputs(source, backendImage, infrastructure, archiveSha256);
   assert(typeof record === 'function' && typeof run === 'function', 'RECORDER_AND_RUNNER_REQUIRED');
   assert(Number.isSafeInteger(resetBudgetMs) && resetBudgetMs >= 100 && resetBudgetMs <= 55_000, 'INVALID_RESET_BUDGET');
+  assert(typeof readOnlyIdentity === 'boolean', 'INVALID_READ_IDENTITY_MODE');
+  if (readOnlyIdentity) evaluationActors(scenario);
+  const identityScenario = readOnlyIdentity ? copy(scenario) : null;
   const input = copy({ source, backendImage, infrastructure, archiveSha256 });
   const namespace = randomBytes(16).toString('hex');
   const stop = new AbortController();
@@ -176,6 +182,7 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
   async function replace(slot, resetNonce, externalSignal) {
     const signal = AbortSignal.any([stop.signal, externalSignal]);
     const deadline = performance.now() + resetBudgetMs;
+    let readSigner;
     const check = () => assert(!closed && !signal.aborted && performance.now() < deadline, 'RESET_ABORTED_OR_OVERDUE');
     async function command(args, mutation = false) {
       check();
@@ -207,6 +214,10 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
       const network = one(await command(['network', 'inspect', slot.network.id]));
       assert(network.Internal === true && network.Id === slot.network.id && network.Name === slot.names.network, 'INTERNAL_NETWORK_REQUIRED');
       requireLabels(network.Labels, labels(namespace, slot.slotId, slot.generation, 'network'));
+      readSigner = readOnlyIdentity ? createEvaluationReadSigner(identityScenario, slot.generation) : null;
+      const identityEnvironment = readSigner ? ['--env', 'SPRING_PROFILES_ACTIVE=online-demo',
+        '--env', `APPROVAL_EVALUATION_GENERATION=${slot.generation}`,
+        '--env', `APPROVAL_EVALUATION_PUBLIC_KEY=${readSigner.publicKeyBase64}`] : [];
       const password = randomBytes(32).toString('hex');
       const cachePassword = randomBytes(32).toString('hex');
       const hard = ['--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
@@ -229,7 +240,7 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
       ['redis-server', '--save', '', '--appendonly', 'no', '--requirepass', cachePassword]);
       await wait(async () => (await command(['exec', pg, 'pg_isready', '-h', '127.0.0.1', '-U', 'approval', '-d', 'approval'])).includes('accepting connections'));
       await wait(async () => await command(['exec', redis, 'redis-cli', 'ping']) === 'PONG');
-      const backend = await create('backend', input.backendImage.localImageId, [...hard,
+      const backend = await create('backend', input.backendImage.localImageId, [...hard, ...identityEnvironment,
         '--memory', '1536m', '--cpus', '2', '--env', 'SERVER_ADDRESS=127.0.0.1',
         '--env', 'JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=65.0 -XX:ActiveProcessorCount=2',
         '--env', `APPROVAL_DB_URL=jdbc:postgresql://${slot.names.containers.postgres}:5432/approval`,
@@ -251,13 +262,17 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
         requirePrivate(value, role, slot, role === 'backend' ? input.backendImage.localImageId : input.infrastructure[role].localImageId);
       }
       check(); slot.checks = ['BACKEND_UP', 'JAR_CHECKSUM', 'EXACT_PRIVATE_CONTAINERS', 'NO_HOST_OR_PERSISTENT_MOUNTS'];
+      if (readSigner) {
+        slot.phase = 'SIGNED_READ_IDENTITY'; save();
+        slot.checks.push(...await verifyEvaluationReadIdentity(readSigner, probe, command));
+      }
       slot.state = 'READY'; slot.phase = 'ACKNOWLEDGED'; save(); check();
       return { slotId: slot.slotId, resetNonce, clean: true };
     } catch {
       slot.state = 'QUARANTINED';
       try { save(); } catch { /* A recording failure never produces an acknowledgement. */ }
       throw new Error('EVALUATION_SLOT_RESET_FAILED');
-    }
+    } finally { readSigner?.disable(); }
   }
   function resetSlot({ slotId, resetNonce, signal } = {}) {
     const slot = slots.get(slotId);

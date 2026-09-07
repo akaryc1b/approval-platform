@@ -22,7 +22,10 @@ try {
     // Reserve the remaining job time for bounded cleanup rather than extending CI.
     const maximumMs = Math.min(360_000, Math.floor(42 * 60_000 - (performance.now() - started)));
     const slots = await executeEvaluationSlotRehearsal({ smoke: result.receipt, directory: result.directory,
-      scenario: JSON.parse(readFileSync(resolve(root, 'config/demo/purchase-payment-golden-path.json'), 'utf8')), maximumMs });
+      scenario: JSON.parse(readFileSync(resolve(root, 'config/demo/purchase-payment-golden-path.json'), 'utf8')), maximumMs, readOnlyIdentity: true });
+    if (slots.privateReadIdentity?.status !== 'SIGNED_PENDING_READ_PREFLIGHT_PASSED') {
+      throw new Error('SIGNED_READ_IDENTITY_PREFLIGHT_REQUIRED');
+    }
     console.log(slots.status);
     console.log(`ONLINE_DEMO_SLOT_EVIDENCE=${result.directory}/evaluation-slot-rehearsal.json`);
   }

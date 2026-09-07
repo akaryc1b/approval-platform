@@ -1,0 +1,41 @@
+# Only a private signed pending-task read is enabled. This is not hosted approval access.
+server:
+  address: 127.0.0.1
+  servlet:
+    context-path: ""
+
+flowable:
+  async-executor-activate: false
+
+approval:
+  security:
+    identity:
+      mode: principal
+    management-permissions:
+      enforced: true
+      trusted-header-name: X-Approval-Trusted-Permissions
+  evaluation:
+    public-key: ${APPROVAL_EVALUATION_PUBLIC_KEY}
+    generation: ${APPROVAL_EVALUATION_GENERATION}
+  connector:
+    generic:
+      enabled: false
+      dispatch:
+        enabled: false
+    invocation:
+      enabled: false
+    secret-material:
+      enabled: false
+  migration:
+    execution:
+      enabled: false
+    worker:
+      enabled: false
+    orchestration:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

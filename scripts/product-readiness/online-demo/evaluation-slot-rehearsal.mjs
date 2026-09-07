@@ -20,13 +20,14 @@ socket.once('error', () => finish('BLOCKED'));
 socket.once('timeout', () => finish('BLOCKED'));`;
 
 /** Real CI integration: reuse already-built images; never rebuild or publish. */
-export async function executeEvaluationSlotRehearsal({ smoke, directory, scenario, maximumMs = 360_000 }, {
+export async function executeEvaluationSlotRehearsal({ smoke, directory, scenario, maximumMs = 360_000, readOnlyIdentity = false }, {
   run = runEvaluationDocker,
 } = {}) {
   requireCondition(smoke?.status === 'LOCAL_IMAGE_STARTUP_SMOKE_PASSED' && smoke.cleanup?.status === 'PASSED'
     && smoke.build?.status === 'LOCAL_IMAGES_BUILT_NOT_RUNTIME_ACCEPTED'
     && JSON.stringify(smoke.source) === JSON.stringify(smoke.build.source), 'PASSED_EXACT_IMAGE_SMOKE_REQUIRED');
   requireCondition(Number.isSafeInteger(maximumMs) && maximumMs >= 1000 && maximumMs <= 360_000, 'INVALID_REHEARSAL_BUDGET');
+  requireCondition(typeof readOnlyIdentity === 'boolean', 'INVALID_READ_IDENTITY_MODE');
   const started = performance.now();
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), maximumMs);
@@ -35,7 +36,7 @@ export async function executeEvaluationSlotRehearsal({ smoke, directory, scenari
   const receipt = { schemaVersion: 1, kind: 'EVALUATION_PRIVATE_SLOT_REHEARSAL', status: 'RUNNING',
     source: smoke.source, checks: [], phase: 'INITIALIZE_SLOTS', cleanup: null,
     scope: 'TWO_REAL_BACKEND_DATABASE_CACHE_STACKS_WITH_SYNTHETIC_RESET_MARKERS',
-    nonClaims: ['BUSINESS_API_IDENTITY_NOT_CONNECTED', 'APPROVAL_ATTACHMENT_OUTBOX_RESET_NOT_VERIFIED',
+    nonClaims: ['BROWSER_BUSINESS_IDENTITY_NOT_CONNECTED', 'APPROVAL_ATTACHMENT_OUTBOX_RESET_NOT_VERIFIED',
       'SIGNED_PAYMENT_SANDBOX_NOT_STARTED', 'BROWSER_BUSINESS_E2E_NOT_EXECUTED',
       'HOST_GATEWAY_EGRESS_NOT_BLOCKED_BY_INTERNAL_NETWORK', 'PUBLIC_URL_NOT_PUBLISHED'] };
   const save = () => writeJson(directory, 'evaluation-slot-rehearsal.json', receipt);
@@ -87,7 +88,7 @@ export async function executeEvaluationSlotRehearsal({ smoke, directory, scenari
   try {
     adapter = createEvaluationDockerSlots({ source: smoke.source, backendImage: smoke.build.images[0],
       infrastructure: smoke.infrastructure, archiveSha256: smoke.build.archiveSha256,
-      record: value => writeJson(directory, 'evaluation-slot-resources.json', value), run });
+      record: value => writeJson(directory, 'evaluation-slot-resources.json', value), run, readOnlyIdentity, scenario });
     controller = createEvaluationSessions({ scenario, slotIds: evaluationSlotIds, resetTimeoutMs: 60_000,
       sessionTtlMs: 1000, clock: () => time,
       resetSlot: request => adapter.resetSlot({ ...request, signal: AbortSignal.any([request.signal, stop.signal]) }) });
@@ -119,7 +120,17 @@ export async function executeEvaluationSlotRehearsal({ smoke, directory, scenari
     requireCondition(JSON.stringify(slot('slot-a')) === JSON.stringify(replacementState), 'EXPIRY_TOUCHED_OTHER_SLOT');
     requireCondition(controller.status(replacement.token).businessAccess === 'NOT_CONNECTED', 'REPLACEMENT_SESSION_LOST');
     receipt.checks.push({ check: 'CONTROLLED_CLOCK_EXPIRY_REAL_RESET', resetSlots: 1, otherSlotPreserved: true });
-    receipt.afterReset = adapter.snapshot(); checkTime(); receipt.checksPassed = true;
+    receipt.afterReset = adapter.snapshot();
+    if (readOnlyIdentity) {
+      const required = ['UNSIGNED_READ_REJECTED', 'CANONICAL_ACTORS_READ_PENDING',
+        'READ_TICKET_REPLAY_REJECTED', 'CLIENT_IDENTITY_REJECTED', 'MANAGEMENT_PATH_REJECTED'];
+      for (const state of [receipt.beforeReset, receipt.afterReset]) for (const current of state.slots) {
+        requireCondition(required.every(check => current.checks.includes(check)), 'SIGNED_READ_EVIDENCE_REQUIRED');
+      }
+      receipt.privateReadIdentity = { status: 'SIGNED_PENDING_READ_PREFLIGHT_PASSED',
+        verifiedGenerations: 4, canonicalActorsPerGeneration: 5, browserSessionBound: false };
+    }
+    checkTime(); receipt.checksPassed = true;
   } catch {
     failure = true; receipt.failure = 'EVALUATION_SLOT_REHEARSAL_FAILED';
   } finally {

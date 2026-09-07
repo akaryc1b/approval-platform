@@ -2,3 +2,4 @@
 import './product-readiness-online-demo-runtime-cases.mjs';
 import './product-readiness-online-demo-sessions.test.mjs';
 import './product-readiness-online-demo-slots.test.mjs';
+import './product-readiness-online-demo-read-identity.test.mjs';
