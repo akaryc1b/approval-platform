@@ -1,4 +1,4 @@
-/** Browser-only control UI. It never dispatches approval or payment requests. */
+/** Session controls and one explicitly enabled pending-task read. No approval/payment writes. */
 export function mountEvaluationPage({ document, fetch, now, setInterval, clearInterval } = globalThis) {
   now ??= () => globalThis.performance.now();
   const login = document.querySelector('#login');
@@ -11,6 +11,9 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
   const refresh = document.querySelector('#refresh');
   const expiry = document.querySelector('#expiry');
   const surface = document.querySelector('#controls');
+  const pending = document.querySelector('#pending');
+  const taskList = document.querySelector('#pending-tasks');
+  const businessNotice = document.querySelector('#business-notice');
   let session = null;
   let deadline = 0;
   let nextCheck = Infinity;
@@ -36,15 +39,23 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     refresh.hidden = !uncertain;
     refresh.disabled = busy;
     if (session) actor.value = session.actorId;
+    if (pending) {
+      pending.hidden = session?.businessAccess !== 'SIGNED_PENDING_READ';
+      pending.disabled = busy || uncertain || !session;
+    }
+    if (businessNotice && session) businessNotice.textContent = session.businessAccess === 'SIGNED_PENDING_READ'
+      ? '当前会话已绑定独立环境，可读取所选角色的待办。审批写入与付款尚未开放。'
+      : '采购审批业务入口尚未连接，目前不会执行审批或付款。';
   }
   function clear(text, unknown = false) {
     revision += 1;
     session = null; deadline = 0; nextCheck = Infinity; uncertain = unknown;
     invitation.value = ''; actor.replaceChildren(); expiry.textContent = '';
+    taskList?.replaceChildren();
     tell(text); controls();
   }
   function show(value, started) {
-    if (!value || value.businessAccess !== 'NOT_CONNECTED'
+    if (!value || !['NOT_CONNECTED', 'SIGNED_PENDING_READ'].includes(value.businessAccess)
         || value.scope !== 'DISPOSABLE_EVALUATION_CONTROL_PLANE'
         || !/^[A-Za-z0-9_-]{43}$/u.test(value.csrfToken || '')
         || !Number.isInteger(value.expiresInSeconds) || value.expiresInSeconds < 1
@@ -60,6 +71,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     const candidate = started + value.expiresInSeconds * 1000;
     deadline = deadline ? Math.min(deadline, candidate) : candidate;
     if (deadline <= now()) { clear('会话已到期，请使用新的邀请。'); return false; }
+    if (session?.actorId !== value.actorId || session?.csrfToken !== value.csrfToken) taskList?.replaceChildren();
     session = value; uncertain = false;
     actor.replaceChildren();
     for (const item of value.actors) {
@@ -78,7 +90,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     expiry.textContent = '会话剩余 ' + Math.floor(seconds / 60) + ' 分 '
       + String(seconds % 60).padStart(2, '0') + ' 秒，到期后不能继续访问。';
   }
-  async function execute(path, body, success, { checking = false, ending = false } = {}) {
+  async function execute(path, body, success, { checking = false, ending = false, reading = false } = {}) {
     if (busy || disposed) return;
     const version = ++revision;
     const started = now();
@@ -89,7 +101,8 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
       const response = await fetch(path, {
         method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin',
         cache: 'no-store', redirect: 'error', signal: cancellation.signal,
-        headers: body === undefined ? {} : { 'Content-Type': 'application/json',
+        headers: body === undefined ? (reading ? { 'X-Evaluation-CSRF': session?.csrfToken || '' } : {})
+          : { 'Content-Type': 'application/json',
           'X-Evaluation-CSRF': session?.csrfToken || '' },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
@@ -97,7 +110,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
       if (disposed || version !== revision) return;
       if (!response.ok) {
         const code = typeof result?.error === 'string' ? result.error : 'UNKNOWN';
-        if (code === 'SESSION_REQUIRED' || (ending && code === 'RESET_FAILED')) {
+        if (code === 'SESSION_REQUIRED' || code === 'SESSION_READ_REVOKED' || (ending && code === 'RESET_FAILED')) {
           clear(code === 'RESET_FAILED'
             ? '访问凭据已撤销，重置未完成；该位置已暂停分配。'
             : checking && !session ? '请输入一次性邀请以开始。' : '会话已过期，请使用新的邀请。');
@@ -106,6 +119,24 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
         } else {
           clear('无法确认当前会话，请重新检查；不会自动重复提交操作。', true);
         }
+        return;
+      }
+      if (reading) {
+        if (!session || deadline <= now()) { clear('会话已到期，请使用新的邀请。'); return; }
+        if (!result || !Array.isArray(result.items) || result.items.length > 20
+            || !Number.isSafeInteger(result.total) || result.total < result.items.length
+            || result.limit !== 20 || result.offset !== 0
+            || result.items.some(item => !item || typeof item.taskName !== 'string' || item.taskName.length > 512
+              || typeof item.businessKey !== 'string' || item.businessKey.length > 512)) {
+          throw new Error('PENDING_RESPONSE_INVALID');
+        }
+        taskList?.replaceChildren();
+        for (const item of result.items) {
+          const row = document.createElement('li');
+          row.textContent = item.taskName + ' · ' + item.businessKey;
+          taskList?.append(row);
+        }
+        tell(result.total === 0 ? '当前角色没有待办。' : '当前角色共 ' + result.total + ' 条待办，仅提供只读查看。');
         return;
       }
       if (ending) { clear('会话已结束。'); return; }
@@ -127,12 +158,16 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     if (busy || uncertain || session) return;
     const value = invitation.value.trim(); invitation.value = '';
     void execute('/evaluation/invitations/redeem', { invitation: value },
-      '邀请已使用。当前仅开放会话入口，业务访问尚未连接。');
+      '邀请已使用。请在本会话中选择体验角色。');
   };
   const onActor = () => {
     if (busy || !session) return;
     const selected = actor.value;
     void execute('/evaluation/session/actor', { actorId: selected }, '体验角色已切换。');
+  };
+  const onPending = () => {
+    if (busy || uncertain || session?.businessAccess !== 'SIGNED_PENDING_READ') return;
+    void execute('/api/approval/tasks/pending', undefined, '', { reading: true });
   };
   const onEnd = () => {
     if (busy || !session) return;
@@ -147,6 +182,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
   actor.addEventListener('change', onActor);
   end.addEventListener('click', onEnd);
   refresh.addEventListener('click', verify);
+  pending?.addEventListener('click', onPending);
   document.addEventListener('visibilitychange', onVisible);
   const interval = setInterval(() => {
     countdown();
@@ -161,6 +197,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     actor.removeEventListener('change', onActor);
     end.removeEventListener('click', onEnd);
     refresh.removeEventListener('click', verify);
+    pending?.removeEventListener('click', onPending);
     document.removeEventListener('visibilitychange', onVisible);
   };
 }

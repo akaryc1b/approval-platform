@@ -18,7 +18,8 @@ import { evaluationAsset, evaluationPage, evaluationCsp } from '../product-readi
 const scenario = JSON.parse(readFileSync(new URL('../../config/demo/purchase-payment-golden-path.json', import.meta.url)));
 const randomToken = () => randomBytes(32).toString('base64url');
 const delay = ms => new Promise(done => setTimeout(done, ms));
-const ack = ({ slotId, resetNonce }) => ({ slotId, resetNonce, clean: true });
+const ack = ({ slotId, resetNonce }) => ({ slotId, resetNonce,
+  generation: createHash('sha256').update(resetNonce).digest('hex').slice(0, 32), clean: true });
 function fixture(t, options = {}) {
   const root = mkdtempSync(resolve(tmpdir(), 'evaluation-session-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -81,6 +82,31 @@ test('two independent sessions fill the bounded pool without consuming a waiting
   await f.controller.end(a.token, a.session.csrfToken);
   assert.equal(f.controller.redeem(waiting).session.actorId, 'demo-employee');
   assert.equal(f.controller.status(b.token).actorId, 'demo-employee');
+});
+test('trusted business bindings are session, actor, generation and slot fenced', async t => {
+  const f = fixture(t); await f.ready(); const a = f.enter(); const b = f.enter();
+  const bindingA = f.controller.businessBinding(a.token);
+  const bindingB = f.controller.businessBinding(b.token);
+  assert.deepEqual(Object.keys(bindingA).sort(), ['actorId', 'expiresAt', 'generation',
+    'sessionRevision', 'slotId', 'tenantId']);
+  assert.equal(bindingA.slotId, 'slot-a'); assert.equal(bindingB.slotId, 'slot-b');
+  assert.notEqual(bindingA.generation, bindingB.generation);
+  assert.equal(bindingA.tenantId, scenario.tenant.id);
+  assert.equal(bindingA.actorId, 'demo-employee');
+  assert.equal(Object.isFrozen(bindingA), true);
+
+  const changed = f.controller.changeActor(a.token, a.session.csrfToken, 'demo-manager');
+  assert.throws(() => f.controller.businessBinding(a.token), /SESSION_REQUIRED/u);
+  const changedBinding = f.controller.businessBinding(changed.token);
+  assert.equal(changedBinding.slotId, bindingA.slotId);
+  assert.equal(changedBinding.generation, bindingA.generation);
+  assert.equal(changedBinding.actorId, 'demo-manager');
+
+  await f.controller.reset('slot-a');
+  assert.throws(() => f.controller.businessBinding(changed.token), /SESSION_REQUIRED/u);
+  assert.deepEqual(f.controller.businessBinding(b.token), bindingB);
+  const replacement = f.enter();
+  assert.notEqual(f.controller.businessBinding(replacement.token).generation, bindingA.generation);
 });
 test('one evaluator cannot change or end another session using its own CSRF proof', async t => {
   const f = fixture(t); await f.ready(); const a = f.enter(); const b = f.enter();

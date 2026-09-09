@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
+import { evaluationBusinessRoute, normalizeEvaluationBusinessRequest } from './evaluation-business-request.mjs';
 
 export class EvaluationError extends Error {
   constructor(code, status = 400) { super(code); this.code = code; this.status = status; }
@@ -53,7 +54,8 @@ export function evaluationActors(scenario) {
  */
 export function createEvaluationSessions({ scenario, slotIds, resetSlot,
   sessionTtlMs = 30 * 60_000, invitationTtlMs = 5 * 60_000,
-  resetTimeoutMs = 30_000, clock = () => performance.now() } = {}) {
+  resetTimeoutMs = 30_000, clock = () => performance.now(),
+  readPending: transportRead, readTimeoutMs = 5000, dispatchBusiness: transportBusiness } = {}) {
   const identity = evaluationActors(scenario);
   if (!Array.isArray(slotIds) || slotIds.length < 1 || slotIds.length > 2
       || slotIds.some(id => !identifier(id)) || new Set(slotIds).size !== slotIds.length
@@ -61,8 +63,11 @@ export function createEvaluationSessions({ scenario, slotIds, resetSlot,
   bounded(sessionTtlMs, 1000, 30 * 60_000);
   bounded(invitationTtlMs, 1000, 15 * 60_000);
   bounded(resetTimeoutMs, 10, 60_000);
+  bounded(readTimeoutMs, 10, 5000);
+  if (transportRead !== undefined && typeof transportRead !== 'function') reject('INVALID_CONFIGURATION');
+  if (transportBusiness !== undefined && typeof transportBusiness !== 'function') reject('INVALID_CONFIGURATION');
   const slots = new Map(slotIds.map(id => [id, { id, state: 'QUARANTINED',
-    generation: null, session: null, inFlight: null, needsReset: false, revision: 0, abort: null }]));
+    generation: null, session: null, inFlight: null, needsReset: false, revision: 0, abort: null, reads: new Set(), writes: new Set(), writeUncertain: false }]));
   const invitations = new Map();
   const sessions = new Map();
   let disabled = false;
@@ -72,6 +77,7 @@ export function createEvaluationSessions({ scenario, slotIds, resetSlot,
   const metrics = { admitted: 0, expired: 0, resets: 0, resetFailures: 0 };
 
   function invalidate(slot, automatic = false) {
+    slot.session?.access.abort();
     if (slot.session) sessions.delete(slot.session.key);
     slot.session = null;
     slot.state = 'QUARANTINED';
@@ -115,13 +121,29 @@ export function createEvaluationSessions({ scenario, slotIds, resetSlot,
     return { actorId: slot.session.actorId,
       actors: identity.actors.map(actor => ({ ...actor })), csrfToken: slot.session.csrf,
       expiresInSeconds: Math.ceil((slot.session.deadline - time) / 1000),
-      businessAccess: 'NOT_CONNECTED', scope: 'DISPOSABLE_EVALUATION_CONTROL_PLANE' };
+      businessAccess: transportBusiness ? 'PURCHASE_PAYMENT_WORKFLOW' : transportRead ? 'SIGNED_PENDING_READ' : 'NOT_CONNECTED', scope: 'DISPOSABLE_EVALUATION_CONTROL_PLANE' };
+  }
+  /**
+   * Trusted gateway lookup.  The browser never receives the slot generation or
+   * any backend address; callers must present the opaque cookie on every
+   * business request.  Reset, expiry, logout and actor rotation all remove the
+   * old token from `sessions`, so an already captured browser request cannot be
+   * rebound to a replacement stack or actor.
+   */
+  function businessBinding(value) {
+    const { slot } = sessionFor(value);
+    if (!identifier(slot.id) || !/^[0-9a-f]{32}$/u.test(slot.generation || '') || /^0+$/u.test(slot.generation)) reject('SLOT_BINDING_INVALID', 503);
+    return Object.freeze({ slotId: slot.id, generation: slot.generation,
+      actorId: slot.session.actorId, tenantId: identity.tenantId,
+      sessionRevision: slot.revision, expiresAt: slot.session.deadline });
   }
   function rotate(slot, time, actorId, deadline = time + sessionTtlMs) {
+    slot.revision += 1;
     const value = token();
     const csrf = token();
+    slot.session?.access.abort();
     if (slot.session) sessions.delete(slot.session.key);
-    slot.session = { key: hash(value), csrf, actorId, deadline };
+    slot.session = { key: hash(value), csrf, actorId, deadline, access: new AbortController() };
     slot.state = 'ACTIVE'; sessions.set(slot.session.key, slot);
     return { token: value, session: view(slot, time) };
   }
@@ -151,7 +173,125 @@ export function createEvaluationSessions({ scenario, slotIds, resetSlot,
   function changeActor(value, csrf, actorId) {
     const { slot, time } = sessionFor(value); csrfFor(slot, csrf);
     if (!identity.actors.some(actor => actor.id === actorId)) reject('ACTOR_REJECTED', 403);
+    if (slot.writeUncertain) reject('BUSINESS_RESET_REQUIRED', 409);
+    if (slot.writes.size) reject('WRITE_IN_PROGRESS', 409);
     return rotate(slot, time, actorId, slot.session.deadline);
+  }
+  /** Private routing is derived from the session, never from browser tenant/slot fields.
+   * This operation is read-only. Cancellation does not claim rollback of future writes.
+   */
+  async function readPending(value, csrf, externalSignal) {
+    if (!transportRead) reject('BUSINESS_NOT_CONNECTED', 503);
+    if (externalSignal !== undefined && !(externalSignal instanceof AbortSignal)) reject('INVALID_READ_SIGNAL');
+    const { slot, time } = sessionFor(value); csrfFor(slot, csrf);
+    if (slot.reads.size >= 2) reject('SESSION_READ_LIMIT', 429);
+    const session = slot.session;
+    const generation = slot.generation;
+    const timeout = new AbortController();
+    const combined = AbortSignal.any([session.access.signal, timeout.signal,
+      ...(externalSignal ? [externalSignal] : [])]);
+    const assertCurrent = () => {
+      const current = sessionFor(value);
+      if (combined.aborted || current.slot !== slot || slot.session !== session
+          || slot.generation !== generation) reject('SESSION_READ_REVOKED', 401);
+    };
+    assertCurrent();
+    const timer = setTimeout(() => timeout.abort(), Math.min(readTimeoutMs, Math.max(1, session.deadline - time)));
+    // Bind to the adapter-confirmed generation, never the controller reset nonce. A new stack must
+    // not receive a request delayed behind an old session or a role rotation.
+    const operation = Promise.resolve().then(() => {
+      assertCurrent();
+      return transportRead(Object.freeze({ slotId: slot.id, generation,
+        actorId: session.actorId, signal: combined }));
+    });
+    const chargedReads = slot.reads;
+    chargedReads.add(operation);
+    // Retain the concurrency charge until transport settles, even after abort.
+    const settled = () => chargedReads.delete(operation);
+    operation.then(settled, settled);
+    let abortListener;
+    try {
+      const result = await Promise.race([operation, new Promise((unused, fail) => {
+        abortListener = () => fail(new EvaluationError('SESSION_READ_REVOKED', 401));
+        combined.addEventListener('abort', abortListener, { once: true });
+        if (combined.aborted) abortListener();
+      })]);
+      assertCurrent();
+      return result;
+    } catch (error) {
+      // Check state before reporting a backend failure; never return a late body.
+      if (combined.aborted) {
+        if (timeout.signal.aborted) reject('SESSION_READ_TIMEOUT', 504);
+        reject('SESSION_READ_REVOKED', 401);
+      }
+      assertCurrent();
+      reject('SESSION_READ_UNAVAILABLE', 503);
+    } finally {
+      clearTimeout(timer);
+      if (abortListener) combined.removeEventListener('abort', abortListener);
+    }
+  }
+  /** Commands are not replayed, and abort never claims that a write was rolled back. */
+  async function dispatchBusiness(value, csrf, request, externalSignal) {
+    if (!transportBusiness) reject('BUSINESS_NOT_CONNECTED', 503);
+    const { slot, time } = sessionFor(value); csrfFor(slot, csrf);
+    let route;
+    try { route = evaluationBusinessRoute(request?.method, request?.target); }
+    catch { reject('BUSINESS_ROUTE_REJECTED', 404); }
+    if (!request || !Buffer.isBuffer(request.body) || request.body.length > 1_048_576
+        || externalSignal !== undefined && !(externalSignal instanceof AbortSignal)) reject('INVALID_BUSINESS_REQUEST');
+    if (slot.writeUncertain) reject('BUSINESS_RESET_REQUIRED', 503);
+    const input = { ...request, body: Buffer.from(request.body) };
+    const active = route.write ? slot.writes : slot.reads;
+    if (active.size >= (route.write ? 1 : 2)) reject(route.write ? 'WRITE_IN_PROGRESS' : 'SESSION_READ_LIMIT', 409);
+    const session = slot.session; const generation = slot.generation;
+    const timeout = new AbortController();
+    const signal = AbortSignal.any([session.access.signal, timeout.signal,
+      ...(externalSignal ? [externalSignal] : [])]);
+    const current = () => {
+      const context = sessionFor(value);
+      if (signal.aborted || context.slot !== slot || slot.session !== session
+          || slot.generation !== generation) reject('BUSINESS_REQUEST_REVOKED', 401);
+    };
+    current();
+    const timer = setTimeout(() => timeout.abort(), Math.min(10_000, Math.max(1, session.deadline - time)));
+    let dispatched = false;
+    const markUncertain = () => {
+      if (route.write && dispatched && slot.generation === generation) slot.writeUncertain = true;
+    };
+    const operation = Promise.resolve().then(async () => {
+      current();
+      const normalized = await normalizeEvaluationBusinessRequest(input, scenario, session.actorId);
+      current(); dispatched = true;
+      return transportBusiness(Object.freeze({ slotId: slot.id, generation,
+        actorId: session.actorId, request: normalized, signal }));
+    });
+    // A cancelled HTTP response does not release an unresolved write's ownership.
+    active.add(operation);
+    const settled = () => active.delete(operation);
+    operation.then(settled, () => { markUncertain(); settled(); });
+    let listener;
+    try {
+      const result = await Promise.race([operation, new Promise((unused, fail) => {
+        listener = () => fail(new EvaluationError('BUSINESS_RESULT_UNCERTAIN', 503));
+        signal.addEventListener('abort', listener, { once: true });
+        if (signal.aborted) listener();
+      })]);
+      current();
+      if (!result || !Number.isInteger(result.status) || result.status < 200 || result.status > 599
+          || !Buffer.isBuffer(result.body) || result.body.length > 2_097_152
+          || !result.headers || Object.getPrototypeOf(result.headers) !== Object.prototype) reject('BUSINESS_RESPONSE_REJECTED', 502);
+      if (route.write && result.status >= 500) {
+        markUncertain(); reject('BUSINESS_RESULT_UNCERTAIN', 503);
+      }
+      return result;
+    } catch {
+      markUncertain();
+      if (signal.aborted) reject(route.write ? 'BUSINESS_RESULT_UNCERTAIN' : 'BUSINESS_REQUEST_REVOKED', route.write ? 503 : 401);
+      current(); reject(dispatched ? 'BUSINESS_REQUEST_FAILED' : 'BUSINESS_REQUEST_REJECTED', dispatched ? 503 : 400);
+    } finally {
+      clearTimeout(timer); if (listener) signal.removeEventListener('abort', listener);
+    }
   }
   async function reset(id) {
     now();
@@ -182,10 +322,15 @@ export function createEvaluationSessions({ scenario, slotIds, resetSlot,
       if (performance.now() - started >= resetTimeoutMs) { signal.abort(); reject('RESET_TIMEOUT', 503); }
       if (disabled || slot.revision !== revision || slot.state !== 'RESETTING') reject('RESET_FENCED', 503);
       if (!acknowledgement || Object.getPrototypeOf(acknowledgement) !== Object.prototype
-          || Object.keys(acknowledgement).sort().join(',') !== 'clean,resetNonce,slotId'
+          || Object.keys(acknowledgement).sort().join(',') !== 'clean,generation,resetNonce,slotId'
           || acknowledgement.slotId !== id || acknowledgement.resetNonce !== resetNonce
-          || acknowledgement.clean !== true) reject('RESET_UNCONFIRMED', 503);
-      slot.generation = resetNonce; slot.state = 'READY'; metrics.resets += 1;
+          || acknowledgement.clean !== true
+          || typeof acknowledgement.generation !== 'string'
+          || !/^[0-9a-f]{32}$/u.test(acknowledgement.generation)
+          || /^0+$/u.test(acknowledgement.generation)
+          || acknowledgement.generation === slot.generation) reject('RESET_UNCONFIRMED', 503);
+      slot.generation = acknowledgement.generation; slot.state = 'READY'; slot.writeUncertain = false;
+      slot.reads = new Set(); slot.writes = new Set(); metrics.resets += 1;
       return { slotId: id, status: 'READY_AFTER_ADAPTER_ACKNOWLEDGEMENT' };
     } catch {
       invalidate(slot); metrics.resetFailures += 1;
@@ -208,9 +353,10 @@ export function createEvaluationSessions({ scenario, slotIds, resetSlot,
       slots: [...slots.values()].map(slot => ({ slotId: slot.id, state: slot.state,
         resetInFlight: Boolean(slot.inFlight), needsReset: slot.needsReset })) };
   }
-  // Deliberately no backend URL, headers, principal or business dispatch method.
+  // No backend URL, signer, tenant selector or general-purpose write dispatch is exposed.
   return Object.freeze({ issueInvitation, revokeInvitation, redeem, status, changeActor,
-    end, reset, sweep, snapshot, disable });
+    businessBinding, end, reset, sweep, snapshot, disable, readPending, dispatchBusiness,
+    businessAccess: transportBusiness ? 'PURCHASE_PAYMENT_WORKFLOW' : transportRead ? 'SIGNED_PENDING_READ' : 'NOT_CONNECTED' });
 }
 
 export function startEvaluationExpiryWorker(controller, intervalMs = 1000) {

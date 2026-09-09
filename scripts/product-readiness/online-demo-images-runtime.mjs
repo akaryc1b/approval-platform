@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { executeImageRuntime } from './online-demo/images-runtime.mjs';
 import { selectImageRuntimeScope } from './online-demo/runtime-scope.mjs';
+import { executeEvaluationBusinessRehearsal } from './online-demo/evaluation-business-rehearsal.mjs';
 import { executeEvaluationSlotRehearsal } from './online-demo/evaluation-slot-rehearsal.mjs';
 
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -27,6 +28,11 @@ try {
       throw new Error('SIGNED_READ_IDENTITY_PREFLIGHT_REQUIRED');
     }
     console.log(slots.status);
+    const business = await executeEvaluationBusinessRehearsal({ smoke: result.receipt, directory: result.directory,
+      scenario: JSON.parse(readFileSync(resolve(root, 'config/demo/purchase-payment-golden-path.json'), 'utf8')),
+      maximumMs: Math.min(360_000, Math.floor(42 * 60_000 - (performance.now() - started))) });
+    if (business.status !== 'TWO_SESSION_REAL_BUSINESS_API_RESET_PASSED') throw new Error('BUSINESS_API_REHEARSAL_REQUIRED');
+    console.log(business.status);
     console.log(`ONLINE_DEMO_SLOT_EVIDENCE=${result.directory}/evaluation-slot-rehearsal.json`);
   }
 } catch (error) {

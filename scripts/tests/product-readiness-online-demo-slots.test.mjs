@@ -126,8 +126,16 @@ test('two slots receive different resources and reset removes only the selected 
   const before = f.adapter.snapshot();
   assert.equal(before.slots.length, 2); assert.equal(f.containers.size, 8); assert.equal(f.networks.size, 2);
   const [a, b] = before.slots; assert.notEqual(a.generation, b.generation); assert.notEqual(a.network.id, b.network.id);
+  const targetA = f.adapter.businessTarget({ slotId: a.slotId, generation: a.generation });
+  const targetB = f.adapter.businessTarget({ slotId: b.slotId, generation: b.generation });
+  assert.notEqual(targetA.backendContainerId, targetB.backendContainerId);
+  assert.notEqual(targetA.transportContainerId, targetB.transportContainerId);
+  assert.equal(Object.isFrozen(targetA), true);
+  assert.throws(() => f.adapter.businessTarget({ slotId: 'slot-b', generation: a.generation }), /STALE_OR_UNKNOWN/u);
   const receipt = await f.reset(); assert.equal(receipt.clean, true);
   const after = f.adapter.snapshot(); assert.notEqual(after.slots[0].generation, a.generation);
+  assert.throws(() => f.adapter.businessTarget({ slotId: a.slotId, generation: a.generation }), /STALE_OR_UNKNOWN/u);
+  assert.deepEqual(f.adapter.businessTarget({ slotId: b.slotId, generation: b.generation }), targetB);
   assert.deepEqual(after.slots[1], b);
   for (const value of Object.values(a.containers)) assert.equal(f.containers.has(value.id), false);
   assert.equal(f.networks.has(a.network.id), false);

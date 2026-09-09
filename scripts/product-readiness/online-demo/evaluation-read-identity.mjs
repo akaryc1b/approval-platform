@@ -61,12 +61,29 @@ console.log(JSON.stringify({ status: response.status, taskCount }));
 `;
 
 /** Read-only authentication checks against the existing, freshly initialized task API. */
-export async function verifyEvaluationReadIdentity(signer, probeId, command) {
+export async function verifyEvaluationReadIdentity(signer, probeId, command, observe = () => {}) {
+  requireValue(typeof observe === 'function');
+  let probeNumber = 0;
   const checks = [];
   const request = async (ticket = '', path = evaluationReadPath, extra = '') => {
-    const result = JSON.parse(await command(['exec', probeId, 'node', '--input-type=module', '-e',
-      evaluationReadProbeProgram, ticket, path, extra]));
-    requireValue(result && Object.keys(result).sort().join(',') === 'status,taskCount');
+    const number = ++probeNumber;
+    const stage = !ticket ? 'UNSIGNED' : extra ? 'CLIENT_IDENTITY'
+      : path !== evaluationReadPath ? 'MANAGEMENT_PATH' : number % 2 === 0 ? 'SIGNED_ACTOR' : 'REPLAY';
+    // Record only bounded fixed labels and numeric observations; a failing probe
+    // must not erase the last useful location as happened in Run 34117801071.
+    observe({ number, stage, outcome: 'STARTED', status: null, taskCount: null });
+    let result;
+    try {
+      result = JSON.parse(await command(['exec', probeId, 'node', '--input-type=module', '-e',
+        evaluationReadProbeProgram, ticket, path, extra]));
+      requireValue(result && Object.keys(result).sort().join(',') === 'status,taskCount'
+        && Number.isInteger(result.status) && result.status >= 100 && result.status <= 599
+        && (result.taskCount === null || Number.isSafeInteger(result.taskCount) && result.taskCount >= 0));
+    } catch {
+      observe({ number, stage, outcome: 'PROBE_FAILED', status: null, taskCount: null });
+      throw new Error('EVALUATION_READ_IDENTITY_REJECTED');
+    }
+    observe({ number, stage, outcome: 'OBSERVED', status: result.status, taskCount: result.taskCount });
     return result;
   };
   requireValue((await request()).status === 401);

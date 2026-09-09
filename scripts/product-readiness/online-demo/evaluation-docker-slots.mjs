@@ -2,7 +2,10 @@ import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { createEvaluationReadSigner, verifyEvaluationReadIdentity } from './evaluation-read-identity.mjs';
+import { evaluationPendingPageProgram, validateEvaluationPendingPage } from './evaluation-pending-read.mjs';
 import { evaluationActors } from './evaluation-sessions.mjs';
+import { createEvaluationBusinessSigner, normalizeEvaluationBusinessRequest } from './evaluation-business-request.mjs';
+import { sendEvaluationBusinessRequest } from './evaluation-business-transport.mjs';
 
 export const evaluationSlotIds = Object.freeze(['slot-a', 'slot-b']);
 const roles = Object.freeze(['postgres', 'redis', 'backend', 'probe']);
@@ -15,14 +18,17 @@ const pause = ms => new Promise(done => setTimeout(done, ms));
 const one = text => { const values = JSON.parse(text); assert(Array.isArray(values) && values.length === 1, 'AMBIGUOUS_DOCKER_RESULT'); return values[0]; };
 
 /** Local Linux engine only. Neither command output nor credentials enter errors. */
-export function runEvaluationDocker(args, { signal, timeoutMs = 5000 } = {}) {
+export function runEvaluationDocker(args, { signal, timeoutMs = 5000, input } = {}) {
   assert(Array.isArray(args) && args.every(value => typeof value === 'string' && !value.includes('\0')), 'INVALID_DOCKER_ARGUMENTS');
   assert(Number.isSafeInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 60_000, 'INVALID_DOCKER_TIMEOUT');
+  assert(input === undefined || Buffer.isBuffer(input) && input.length <= 1_500_000, 'INVALID_DOCKER_INPUT');
   return new Promise((resolve, reject) => {
-    execFile('docker', ['--host', 'unix:///var/run/docker.sock', ...args], {
-      encoding: 'utf8', timeout: timeoutMs, signal, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
+    const child = execFile('docker', ['--host', 'unix:///var/run/docker.sock', ...args], {
+      encoding: 'utf8', timeout: timeoutMs, signal, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
       env: { PATH: process.env.PATH || '/usr/bin:/bin', LANG: 'C.UTF-8' }, shell: false,
     }, (error, stdout) => error ? reject(new Error('EVALUATION_DOCKER_COMMAND_FAILED')) : resolve(stdout.trim()));
+    child.stdin.on('error', () => { /* Exit/abort is reported by the child callback. */ });
+    child.stdin.end(input);
   });
 }
 
@@ -50,7 +56,7 @@ function labels(namespace, slotId, generation, role) {
 function requireLabels(actual, expected) {
   for (const [key, value] of Object.entries(expected)) assert(actual?.[key] === value, 'FOREIGN_RESOURCE_OWNERSHIP');
 }
-function requirePrivate(value, role, scope, expectedImage) {
+function requirePrivate(value, role, scope, expectedImage, workflow = false) {
   assert(value.Name === `/${scope.names.containers[role]}` && hex(value.Id) && value.Image === expectedImage
     && value.State?.Running === true, 'CONTAINER_IDENTITY_OR_READINESS_MISMATCH');
   requireLabels(value.Config?.Labels, labels(scope.namespace, scope.slotId, scope.generation, role));
@@ -77,26 +83,28 @@ function requirePrivate(value, role, scope, expectedImage) {
   }
   if (role === 'backend') assert(value.Config.Env?.includes('SERVER_ADDRESS=127.0.0.1')
     && value.Config.Env.includes('APPROVAL_IDENTITY_MODE=principal')
-    && value.Config.Env.includes('APPROVAL_GENERIC_DISPATCH_ENABLED=false')
-    && value.Config.Env.includes('APPROVAL_GENERIC_CONNECTOR_ENABLED=false'), 'BACKEND_EXPOSURE_MISMATCH');
+    && value.Config.Env.includes(`APPROVAL_GENERIC_DISPATCH_ENABLED=${workflow}`)
+    && value.Config.Env.includes(`APPROVAL_GENERIC_CONNECTOR_ENABLED=${workflow}`), 'BACKEND_EXPOSURE_MISMATCH');
 }
 
 /**
- * Two private, independently disposable backend/data stacks. No browser routing,
- * seeded writes or payment side effect is enabled here. Signed pending-task
- * reads are an explicit opt-in; they do not authorize a browser. The operator
+ * Two private, independently disposable backend/data stacks. Read authentication
+ * and the seeded payment workflow are separate explicit opt-ins; neither
+ * authorizes a browser without the session controller and gateway. The operator
  * must supply a durable bounded recorder; acknowledgement follows its write.
  * Namespace is generated internally, preventing a new process adopting stale
  * stacks. A crashed operator needs explicit resource recovery, not auto-adoption.
  */
 export function createEvaluationDockerSlots({ source, backendImage, infrastructure, archiveSha256,
-  record, run = runEvaluationDocker, resetBudgetMs = 55_000, readOnlyIdentity = false, scenario } = {}) {
+  record, run = runEvaluationDocker, resetBudgetMs = 55_000, readOnlyIdentity = false, scenario, sessionReads = false, workflow = false } = {}) {
   validateInputs(source, backendImage, infrastructure, archiveSha256);
   assert(typeof record === 'function' && typeof run === 'function', 'RECORDER_AND_RUNNER_REQUIRED');
   assert(Number.isSafeInteger(resetBudgetMs) && resetBudgetMs >= 100 && resetBudgetMs <= 55_000, 'INVALID_RESET_BUDGET');
   assert(typeof readOnlyIdentity === 'boolean', 'INVALID_READ_IDENTITY_MODE');
-  if (readOnlyIdentity) evaluationActors(scenario);
-  const identityScenario = readOnlyIdentity ? copy(scenario) : null;
+  assert(typeof sessionReads === 'boolean' && (!sessionReads || readOnlyIdentity), 'INVALID_SESSION_READ_MODE');
+  assert(typeof workflow === 'boolean' && !(workflow && readOnlyIdentity), 'INVALID_WORKFLOW_MODE');
+  if (readOnlyIdentity || workflow) evaluationActors(scenario);
+  const identityScenario = readOnlyIdentity || workflow ? copy(scenario) : null;
   const input = copy({ source, backendImage, infrastructure, archiveSha256 });
   const namespace = randomBytes(16).toString('hex');
   const stop = new AbortController();
@@ -104,6 +112,11 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
   let disposeWork;
   let engineId;
   let prepared;
+  const readers = new Map(); // Private signer/generation bindings never enter snapshots.
+  function revokeRead(id) {
+    const reader = readers.get(id);
+    readers.delete(id); reader?.abort.abort(); reader?.signer.disable();
+  }
   const slots = new Map(evaluationSlotIds.map(slotId => [slotId, { namespace, slotId, generation: null,
     names: names(namespace, slotId), network: null, containers: {}, state: 'QUARANTINED',
     inFlight: null, phase: 'CREATED', uncertainMutation: false, checks: [], cleanup: null }]));
@@ -183,6 +196,7 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
     const signal = AbortSignal.any([stop.signal, externalSignal]);
     const deadline = performance.now() + resetBudgetMs;
     let readSigner;
+    let keepSigner = false;
     const check = () => assert(!closed && !signal.aborted && performance.now() < deadline, 'RESET_ABORTED_OR_OVERDUE');
     async function command(args, mutation = false) {
       check();
@@ -204,7 +218,7 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
       assert(engine.ID === engineId && engine.OSType === 'linux', 'DOCKER_ENGINE_CHANGED');
       slot.state = 'RESETTING'; slot.phase = 'OLD_STACK_REMOVAL'; save();
       assert((await cleanup(slot)).status === 'PASSED', 'OLD_STACK_CLEANUP_FAILED'); check();
-      slot.generation = randomBytes(16).toString('hex'); slot.checks = []; slot.phase = 'PRIVATE_NETWORK_CREATION';
+      slot.generation = randomBytes(16).toString('hex'); slot.checks = []; slot.identityChecks = []; slot.phase = 'PRIVATE_NETWORK_CREATION';
       const flags = role => Object.entries(labels(namespace, slot.slotId, slot.generation, role))
         .flatMap(([key, value]) => ['--label', `${key}=${value}`]);
       assert(!await command(['network', 'ls', '-q', '--no-trunc', '--filter', `name=^${slot.names.network}$`]), 'NETWORK_NAME_ALREADY_EXISTS');
@@ -214,10 +228,14 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
       const network = one(await command(['network', 'inspect', slot.network.id]));
       assert(network.Internal === true && network.Id === slot.network.id && network.Name === slot.names.network, 'INTERNAL_NETWORK_REQUIRED');
       requireLabels(network.Labels, labels(namespace, slot.slotId, slot.generation, 'network'));
-      readSigner = readOnlyIdentity ? createEvaluationReadSigner(identityScenario, slot.generation) : null;
+      readSigner = workflow ? createEvaluationBusinessSigner(identityScenario, slot.generation)
+        : readOnlyIdentity ? createEvaluationReadSigner(identityScenario, slot.generation) : null;
       const identityEnvironment = readSigner ? ['--env', 'SPRING_PROFILES_ACTIVE=online-demo',
         '--env', `APPROVAL_EVALUATION_GENERATION=${slot.generation}`,
         '--env', `APPROVAL_EVALUATION_PUBLIC_KEY=${readSigner.publicKeyBase64}`] : [];
+      if (workflow) identityEnvironment.push('--env', 'APPROVAL_EVALUATION_WORKFLOW_ENABLED=true',
+        '--env', `APPROVAL_GENERIC_KEY_ID=evaluation-${slot.generation}`,
+        '--env', `APPROVAL_GENERIC_SECRET=${randomBytes(32).toString('hex')}`);
       const password = randomBytes(32).toString('hex');
       const cachePassword = randomBytes(32).toString('hex');
       const hard = ['--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
@@ -247,7 +265,7 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
         '--env', 'APPROVAL_DB_USERNAME=approval', '--env', `APPROVAL_DB_PASSWORD=${password}`,
         '--env', `SPRING_DATA_REDIS_HOST=${slot.names.containers.redis}`, '--env', `SPRING_DATA_REDIS_PASSWORD=${cachePassword}`,
         '--env', 'FLOWABLE_DATABASE_SCHEMA_UPDATE=true', '--env', 'APPROVAL_IDENTITY_MODE=principal',
-        '--env', 'APPROVAL_GENERIC_CONNECTOR_ENABLED=false', '--env', 'APPROVAL_GENERIC_DISPATCH_ENABLED=false',
+        '--env', `APPROVAL_GENERIC_CONNECTOR_ENABLED=${workflow}`, '--env', `APPROVAL_GENERIC_DISPATCH_ENABLED=${workflow}`,
         '--env', 'MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health']);
       const probe = await create('probe', input.infrastructure.probe.localImageId, [...hard,
         '--memory', '128m', '--cpus', '0.5', '--user', '1000:1000', '--entrypoint', 'node'],
@@ -259,20 +277,39 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
       slot.phase = 'RUNTIME_BOUNDARIES'; save();
       for (const role of roles) {
         const value = one(await command(['container', 'inspect', slot.containers[role].id]));
-        requirePrivate(value, role, slot, role === 'backend' ? input.backendImage.localImageId : input.infrastructure[role].localImageId);
+        requirePrivate(value, role, slot, role === 'backend' ? input.backendImage.localImageId : input.infrastructure[role].localImageId, workflow);
       }
       check(); slot.checks = ['BACKEND_UP', 'JAR_CHECKSUM', 'EXACT_PRIVATE_CONTAINERS', 'NO_HOST_OR_PERSISTENT_MOUNTS'];
-      if (readSigner) {
+      if (readSigner && !workflow) {
         slot.phase = 'SIGNED_READ_IDENTITY'; save();
-        slot.checks.push(...await verifyEvaluationReadIdentity(readSigner, probe, command));
+        slot.checks.push(...await verifyEvaluationReadIdentity(readSigner, probe, command, observation => {
+          slot.identityChecks.push(observation); save();
+        }));
+      }
+      if (workflow) {
+        slot.phase = 'SEEDED_BUSINESS_PREFLIGHT'; save();
+        const request = await normalizeEvaluationBusinessRequest({ method: 'GET', target: '/api/approval/tasks/pending',
+          contentType: '', idempotencyKey: '', body: Buffer.alloc(0) }, identityScenario, 'demo-manager');
+        const reply = await sendEvaluationBusinessRequest(readSigner, 'demo-manager', request, probe,
+          (args, body) => docker(args, { signal, timeoutMs: 6000, input: body }));
+        check(); assert(reply.status === 200, 'SEEDED_PENDING_READ_FAILED');
+        const page = JSON.parse(reply.body.toString('utf8'));
+        assert(Array.isArray(page.items) && page.items.some(task => task.businessKey === identityScenario.request.businessKey),
+          'CANONICAL_SEED_TASK_MISSING');
+        slot.checks.push('CANONICAL_SEED_PENDING_TASK', 'SIGNED_BUSINESS_READ');
       }
       slot.state = 'READY'; slot.phase = 'ACKNOWLEDGED'; save(); check();
-      return { slotId: slot.slotId, resetNonce, clean: true };
+      if (sessionReads || workflow) {
+        readers.set(slot.slotId, { generation: slot.generation, signer: readSigner,
+          probe, abort: new AbortController(), inFlight: 0, writeInFlight: false, starts: new Map(), uploads: new Map(), mode: workflow ? 'workflow' : 'read' });
+        keepSigner = true;
+      }
+      return { slotId: slot.slotId, resetNonce, generation: slot.generation, clean: true };
     } catch {
       slot.state = 'QUARANTINED';
       try { save(); } catch { /* A recording failure never produces an acknowledgement. */ }
       throw new Error('EVALUATION_SLOT_RESET_FAILED');
-    } finally { readSigner?.disable(); }
+    } finally { if (!keepSigner) readSigner?.disable(); }
   }
   function resetSlot({ slotId, resetNonce, signal } = {}) {
     const slot = slots.get(slotId);
@@ -280,14 +317,97 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
     assert(typeof resetNonce === 'string' && /^[A-Za-z0-9_-]{43}$/u.test(resetNonce)
       && Buffer.from(resetNonce, 'base64url').toString('base64url') === resetNonce
       && signal instanceof AbortSignal && !signal.aborted, 'INVALID_RESET_REQUEST');
+    revokeRead(slotId); // Revoke before the first asynchronous cleanup/preflight step.
     const operation = replace(slot, resetNonce, signal);
     slot.inFlight = operation;
     operation.then(() => { slot.inFlight = null; }, () => { slot.inFlight = null; });
     return operation;
   }
+  /** Trusted controller call only. There is no URL, body, method or key override. */
+  async function readPending(request) {
+    const { slotId, generation, actorId, signal } = request || {};
+    const slot = slots.get(slotId); const reader = readers.get(slotId);
+    assert(request && Object.getPrototypeOf(request) === Object.prototype
+      && Object.keys(request).sort().join(',') === 'actorId,generation,signal,slotId'
+      && signal instanceof AbortSignal, 'INVALID_SLOT_READ');
+    const combined = reader ? AbortSignal.any([signal, reader.abort.signal, stop.signal]) : signal;
+    const check = () => assert(sessionReads && !closed && slot && reader && readers.get(slotId) === reader
+      && slot.state === 'READY' && !slot.inFlight && !slot.uncertainMutation
+      && reader.generation === generation && generation === slot.generation
+      && reader.probe === slot.containers.probe?.id && !combined.aborted, 'SLOT_READ_REVOKED');
+    check(); businessTarget({ slotId, generation });
+    assert(reader.inFlight < 2, 'SLOT_READ_LIMIT'); reader.inFlight += 1;
+    try {
+      const engine = JSON.parse(await docker(['info', '--format', '{{json .}}'], { signal: combined, timeoutMs: 1500 }));
+      check(); assert(engine.ID === engineId && engine.OSType === 'linux', 'SLOT_READ_ENGINE_CHANGED');
+      const inspected = one(await docker(['container', 'inspect', reader.probe], { signal: combined, timeoutMs: 1500 }));
+      check(); requirePrivate(inspected, 'probe', slot, input.infrastructure.probe.localImageId);
+      const proof = reader.signer.issue(actorId);
+      check();
+      const raw = await docker(['exec', reader.probe, 'node', '--input-type=module', '-e',
+        evaluationPendingPageProgram, proof], { signal: combined, timeoutMs: 2000 });
+      check();
+      assert(typeof raw === 'string' && Buffer.byteLength(raw) <= 65_536, 'SLOT_READ_RESPONSE_LIMIT');
+      const result = JSON.parse(raw);
+      assert(result && Object.keys(result).sort().join(',') === 'code,page,status'
+        && result.status === 200 && result.code === 'PENDING_PAGE', 'SLOT_READ_RESPONSE_REJECTED');
+      return validateEvaluationPendingPage(result.page);
+    } catch {
+      throw new Error('EVALUATION_SLOT_READ_FAILED');
+    } finally { reader.inFlight -= 1; }
+  }
+  async function dispatchBusiness({ slotId, generation, actorId, request, signal } = {}) {
+    const slot = slots.get(slotId); const reader = readers.get(slotId);
+    assert(workflow && signal instanceof AbortSignal && slot && reader && reader.mode === 'workflow', 'BUSINESS_NOT_CONNECTED');
+    const combined = AbortSignal.any([signal, reader.abort.signal, stop.signal]);
+    const check = () => assert(!closed && readers.get(slotId) === reader && slot.state === 'READY'
+      && !slot.inFlight && !slot.uncertainMutation && reader.generation === generation
+      && reader.generation === slot.generation && reader.probe === slot.containers.probe?.id
+      && !combined.aborted, 'BUSINESS_GENERATION_REVOKED');
+    check();
+    const normalized = await normalizeEvaluationBusinessRequest({ method: request.method, target: request.target,
+      contentType: request.contentType, idempotencyKey: request.idempotencyKey, body: request.body }, identityScenario, actorId);
+    check(); businessTarget({ slotId, generation });
+    assert(reader.inFlight < 3 && (!normalized.route.write || !reader.writeInFlight), 'BUSINESS_CONCURRENCY_LIMIT');
+    const budget = ['start', 'form-start'].includes(normalized.route.name) ? reader.starts
+      : normalized.route.name === 'upload' ? reader.uploads : null;
+    if (budget) {
+      const key = normalized.idempotencyKey;
+      const fingerprint = `${normalized.target}:${normalized.bodySha256}`;
+      const prior = budget.get(key);
+      if (prior && prior !== fingerprint) return { status: 409, headers: {}, body: Buffer.from('{"error":"IDEMPOTENCY_CONFLICT"}') };
+      if (!prior && budget.size >= (budget === reader.starts ? 4 : 16)) {
+        return { status: 429, headers: {}, body: Buffer.from('{"error":"EVALUATION_WORKLOAD_LIMIT"}') };
+      }
+      budget.set(key, fingerprint); // Failed attempts also consume their bounded reservation.
+    }
+    reader.inFlight += 1; if (normalized.route.write) reader.writeInFlight = true;
+    try {
+      const engine = JSON.parse(await docker(['info', '--format', '{{json .}}'], { signal: combined, timeoutMs: 1500 }));
+      check(); assert(engine.ID === engineId && engine.OSType === 'linux', 'BUSINESS_ENGINE_CHANGED');
+      const value = one(await docker(['container', 'inspect', reader.probe], { signal: combined, timeoutMs: 1500 }));
+      check(); requirePrivate(value, 'probe', slot, input.infrastructure.probe.localImageId, workflow);
+      const result = await sendEvaluationBusinessRequest(reader.signer, actorId, normalized, reader.probe,
+        async (args, body) => { check(); const result = await docker(args, { signal: combined, timeoutMs: 6500, input: body }); check(); return result; });
+      check(); return result;
+    } catch { throw new Error('EVALUATION_BUSINESS_RESULT_UNCERTAIN'); }
+    finally { reader.inFlight -= 1; if (normalized.route.write) reader.writeInFlight = false; }
+  }
+  function businessTarget({ slotId, generation } = {}) {
+    const slot = slots.get(slotId);
+    assert(!closed && slot?.state === 'READY' && !slot.inFlight && !slot.uncertainMutation
+      && typeof generation === 'string' && /^[0-9a-f]{32}$/u.test(generation)
+      && !/^0+$/u.test(generation) && generation === slot.generation,
+    'STALE_OR_UNKNOWN_BUSINESS_BINDING');
+    assert(hex(slot.containers.backend?.id) && hex(slot.containers.probe?.id),
+      'BUSINESS_TARGET_UNAVAILABLE');
+    return Object.freeze({ slotId, generation, backendContainerId: slot.containers.backend.id,
+      transportContainerId: slot.containers.probe.id, origin: 'http://127.0.0.1:8080' });
+  }
   function dispose() {
     if (disposeWork) return disposeWork;
     closed = true; stop.abort();
+    for (const id of evaluationSlotIds) revokeRead(id);
     disposeWork = (async () => {
       await Promise.allSettled([...slots.values()].map(slot => slot.inFlight));
       const results = [];
@@ -302,5 +422,5 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
     return disposeWork;
   }
   save();
-  return Object.freeze({ resetSlot, snapshot, dispose });
+  return Object.freeze({ resetSlot, businessTarget, snapshot, dispose, readPending, dispatchBusiness });
 }

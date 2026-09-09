@@ -1,5 +1,6 @@
 import { createServer } from 'node:https';
 import { performance } from 'node:perf_hooks';
+import { evaluationBusinessRoute, maximumBusinessBody } from './evaluation-business-request.mjs';
 import { EvaluationError, startEvaluationExpiryWorker, validEvaluationToken } from './evaluation-sessions.mjs';
 import { evaluationAsset, evaluationCsp, evaluationPage } from './evaluation-page.mjs';
 
@@ -42,6 +43,23 @@ function readJson(request) {
     request.on('data', data); request.once('end', end); request.once('aborted', aborted); request.once('error', aborted);
   });
 }
+function readBusinessBody(request) {
+  const length = singleHeader(request, 'content-length');
+  if (request.headers['content-encoding'] || request.headers['transfer-encoding']
+      || length === undefined || !/^(?:0|[1-9][0-9]*)$/u.test(length)
+      || Number(length) > maximumBusinessBody) deny('BUSINESS_BODY_REJECTED', 413);
+  return new Promise((resolve, reject) => {
+    let size = 0; const parts = [];
+    const clear = () => { clearTimeout(timer); request.off('data', data); request.off('end', end);
+      request.off('error', failed); request.off('aborted', failed); };
+    const failed = () => { clear(); request.pause(); reject(new EvaluationError('BUSINESS_BODY_REJECTED', 400)); };
+    const data = part => { size += part.length; if (size > maximumBusinessBody || size > Number(length)) failed(); else parts.push(part); };
+    const end = () => { clear(); if (size !== Number(length)) { reject(new EvaluationError('BUSINESS_BODY_REJECTED', 400)); return; }
+      resolve(Buffer.concat(parts)); };
+    const timer = setTimeout(failed, 5000);
+    request.on('data', data); request.once('end', end); request.once('error', failed); request.once('aborted', failed);
+  });
+}
 function exactBody(value, fields) {
   if (!value || Object.getPrototypeOf(value) !== Object.prototype
       || Object.keys(value).sort().join(',') !== [...fields].sort().join(',')) deny('INVALID_BODY', 400);
@@ -70,9 +88,11 @@ export function createEvaluationRequestHandler({ controller, origin }) {
       if (singleHeader(request, 'host') !== configured.host) deny('HOST_REJECTED', 403);
       const time = performance.now();
       if (time - windowStart >= 60_000) { requests = 0; windowStart = time; }
-      if (++requests > 120 || active >= 8) deny('REQUEST_LIMIT', 429);
+      if (++requests > (controller.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW' ? 240 : 120) || active >= 8) deny('REQUEST_LIMIT', 429);
       active += 1; admitted = true;
-      for (const name of ['authorization', 'x-tenant-id', 'x-operator-id', 'x-approval-trusted-permissions']) {
+      for (const name of ['authorization', 'x-tenant-id', 'x-operator-id', 'x-approval-trusted-permissions',
+        'x-evaluation-slot', 'x-slot-id', 'x-actor-id', 'x-evaluation-generation',
+        'x-evaluation-reset-nonce', 'x-evaluation-read-ticket', 'x-evaluation-business-ticket']) {
         if (request.headers[name] !== undefined) deny('CLIENT_IDENTITY_REJECTED', 403);
       }
       const suppliedOrigin = singleHeader(request, 'origin');
@@ -89,6 +109,45 @@ export function createEvaluationRequestHandler({ controller, origin }) {
         response.setHeader('Content-Type', asset.type); response.end(asset.body); return;
       }
       const credential = cookie(request);
+      if (controller.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW' && typeof path === 'string' && path.startsWith('/api/approval/')) {
+        let route;
+        try { route = evaluationBusinessRoute(request.method, path); } catch { deny('NOT_FOUND', 404); }
+        controller.status(credential); // Reject unauthenticated bodies before buffering them.
+        if (route.write && suppliedOrigin !== origin) deny('ORIGIN_REJECTED', 403);
+        const csrf = singleHeader(request, 'x-evaluation-csrf');
+        const cancellation = new AbortController();
+        const abandoned = () => { if (!response.writableEnded) cancellation.abort(); };
+        request.once('aborted', abandoned); response.once('close', abandoned);
+        try {
+          const body = route.write ? await readBusinessBody(request) : Buffer.alloc(0);
+          const result = await controller.dispatchBusiness(credential, csrf, {
+            method: request.method, target: path, contentType: route.write ? singleHeader(request, 'content-type') || '' : '',
+            idempotencyKey: route.write ? singleHeader(request, 'idempotency-key') || '' : '', body,
+          }, cancellation.signal);
+          if (response.destroyed) return;
+          for (const [name, value] of Object.entries(result.headers)) {
+            if (['content-type', 'content-disposition', 'x-content-sha256', 'x-request-id'].includes(name)
+                && typeof value === 'string' && value.length <= 512 && !/[\r\n]/u.test(value)) response.setHeader(name, value);
+          }
+          response.statusCode = result.status; response.end(result.body);
+        } finally { request.off('aborted', abandoned); response.off('close', abandoned); }
+        return;
+      }
+      if (request.method === 'GET' && path === '/api/approval/tasks/pending'
+          && controller.businessAccess === 'SIGNED_PENDING_READ') {
+        if (request.headers['content-encoding']) deny('BODY_REJECTED', 400);
+        const csrf = singleHeader(request, 'x-evaluation-csrf');
+        const cancellation = new AbortController();
+        const abandoned = () => { if (!response.writableEnded) cancellation.abort(); };
+        request.once('aborted', abandoned); response.once('close', abandoned);
+        try {
+          const result = await controller.readPending(credential, csrf, cancellation.signal);
+          if (!response.destroyed) response.end(JSON.stringify(result));
+        } finally {
+          request.off('aborted', abandoned); response.off('close', abandoned);
+        }
+        return;
+      }
       if (request.method === 'GET' && path === '/evaluation/session') {
         response.end(JSON.stringify(controller.status(credential))); return;
       }
@@ -119,6 +178,7 @@ export function createEvaluationRequestHandler({ controller, origin }) {
       await reset;
       response.writeHead(204); response.end();
     } catch (error) {
+      if (response.destroyed) return;
       const known = error instanceof EvaluationError;
       response.statusCode = known ? error.status : 500;
       if (response.statusCode === 429) response.setHeader('Retry-After', '60');

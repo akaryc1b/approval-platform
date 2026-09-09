@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.security.OnlineEvaluationReadIdentityFilter;
 import io.github.akaryc1b.approval.security.OnlineEvaluationReadTicket;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -22,8 +24,10 @@ import java.util.Set;
 /** Private read-only evaluation profile, disjoint from local/test/production identity modes. */
 @Configuration(proxyBeanMethods = false)
 @Profile("online-demo")
+@ConditionalOnProperty(name = "approval.evaluation.workflow-enabled", havingValue = "false", matchIfMissing = true)
 public class OnlineEvaluationIdentityConfiguration {
     @Bean
+    @DependsOn("onlineEvaluationDatabaseMigration")
     FilterRegistrationBean<OnlineEvaluationReadIdentityFilter> onlineEvaluationReadIdentity(
         Environment environment, ObjectMapper mapper, Clock approvalClock
     ) throws IOException {
@@ -45,7 +49,7 @@ public class OnlineEvaluationIdentityConfiguration {
         return registration;
     }
 
-    static void requireConfiguration(Environment environment) {
+    public static void requireConfiguration(Environment environment) {
         require(Set.of(environment.getActiveProfiles()).equals(Set.of("online-demo")));
         require("127.0.0.1".equals(environment.getProperty("server.address")));
         require("principal".equals(environment.getProperty("approval.security.identity.mode")));

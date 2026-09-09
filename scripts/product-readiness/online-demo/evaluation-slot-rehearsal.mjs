@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { createEvaluationDockerSlots, evaluationSlotIds, runEvaluationDocker } from './evaluation-docker-slots.mjs';
 import { createEvaluationSessions } from './evaluation-sessions.mjs';
+import { openEvaluationHttpsReadCheck } from './evaluation-https-read-check.mjs';
 
 const requireCondition = (value, message) => { if (!value) throw new Error(message); };
 const resourceId = value => typeof value === 'string' && /^[0-9a-f]{64}$/u.test(value);
@@ -32,7 +33,8 @@ export async function executeEvaluationSlotRehearsal({ smoke, directory, scenari
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), maximumMs);
   let time = 1000; // Expiry clock is controlled; Docker operations use real elapsed time.
-  let adapter; let controller; let failure;
+  let adapter; let controller; let failure; let https;
+  const expectedAccess = readOnlyIdentity ? 'SIGNED_PENDING_READ' : 'NOT_CONNECTED';
   const receipt = { schemaVersion: 1, kind: 'EVALUATION_PRIVATE_SLOT_REHEARSAL', status: 'RUNNING',
     source: smoke.source, checks: [], phase: 'INITIALIZE_SLOTS', cleanup: null,
     scope: 'TWO_REAL_BACKEND_DATABASE_CACHE_STACKS_WITH_SYNTHETIC_RESET_MARKERS',
@@ -40,6 +42,13 @@ export async function executeEvaluationSlotRehearsal({ smoke, directory, scenari
       'SIGNED_PAYMENT_SANDBOX_NOT_STARTED', 'BROWSER_BUSINESS_E2E_NOT_EXECUTED',
       'HOST_GATEWAY_EGRESS_NOT_BLOCKED_BY_INTERNAL_NETWORK', 'PUBLIC_URL_NOT_PUBLISHED'] };
   const save = () => writeJson(directory, 'evaluation-slot-rehearsal.json', receipt);
+  async function checkRead(session, expectedStatus, stage, csrf = session.session.csrfToken) {
+    if (!https) return;
+    checkTime();
+    const result = await https.read(session.token, csrf, expectedStatus);
+    checkTime();
+    receipt.checks.push({ check: 'HTTPS_SESSION_BOUND_PENDING_READ', stage, ...result }); save();
+  }
   const checkTime = () => requireCondition(!stop.signal.aborted && performance.now() - started < maximumMs, 'REHEARSAL_DEADLINE');
   async function command(args) {
     checkTime();
@@ -88,14 +97,26 @@ export async function executeEvaluationSlotRehearsal({ smoke, directory, scenari
   try {
     adapter = createEvaluationDockerSlots({ source: smoke.source, backendImage: smoke.build.images[0],
       infrastructure: smoke.infrastructure, archiveSha256: smoke.build.archiveSha256,
-      record: value => writeJson(directory, 'evaluation-slot-resources.json', value), run, readOnlyIdentity, scenario });
+      record: value => writeJson(directory, 'evaluation-slot-resources.json', value), run, readOnlyIdentity, sessionReads: readOnlyIdentity, scenario });
     controller = createEvaluationSessions({ scenario, slotIds: evaluationSlotIds, resetTimeoutMs: 60_000,
       sessionTtlMs: 1000, clock: () => time,
+      readPending: readOnlyIdentity ? request => adapter.readPending(request) : undefined,
       resetSlot: request => adapter.resetSlot({ ...request, signal: AbortSignal.any([request.signal, stop.signal]) }) });
     for (const id of evaluationSlotIds) { checkTime(); await controller.reset(id); await cleanMarkers(id); }
+    if (readOnlyIdentity) https = await openEvaluationHttpsReadCheck(controller, stop.signal);
     const enter = () => controller.redeem(controller.issueInvitation().invitation);
     const a = enter(); const b = enter();
-    requireCondition(a.token !== b.token && a.session.businessAccess === 'NOT_CONNECTED', 'CONTROL_SESSION_BOUNDARY');
+    requireCondition(a.token !== b.token && a.session.businessAccess === expectedAccess, 'CONTROL_SESSION_BOUNDARY');
+    await checkRead(a, 200, 'INITIAL_A'); await checkRead(b, 200, 'INITIAL_B');
+    await checkRead(a, 403, 'CROSS_CONTEXT_CSRF', b.session.csrfToken);
+    const bindingA = controller.businessBinding(a.token); const bindingB = controller.businessBinding(b.token);
+    const targetA = adapter.businessTarget(bindingA); const targetB = adapter.businessTarget(bindingB);
+    requireCondition(targetA.slotId !== targetB.slotId
+      && targetA.backendContainerId !== targetB.backendContainerId
+      && targetA.transportContainerId !== targetB.transportContainerId,
+    'SESSION_PRIVATE_APPLICATION_BINDING_FAILED');
+    receipt.checks.push({ check: 'SESSION_PRIVATE_APPLICATION_BINDING',
+      isolatedSlots: true, generationFenced: true, browserExposedContainerIdentity: false });
     const markerA = randomBytes(16).toString('hex'); const markerB = randomBytes(16).toString('hex');
     receipt.phase = 'WRITE_AND_VERIFY_MARKERS'; save();
     await mark('slot-a', markerA); await mark('slot-b', markerB);
@@ -106,20 +127,34 @@ export async function executeEvaluationSlotRehearsal({ smoke, directory, scenari
     const ended = controller.end(a.token, a.session.csrfToken);
     let revoked = false; try { controller.status(a.token); } catch (error) { revoked = error.code === 'SESSION_REQUIRED'; }
     await ended; requireCondition(revoked, 'OLD_CREDENTIAL_STILL_VALID');
+    let staleTarget = false;
+    try { adapter.businessTarget(bindingA); } catch { staleTarget = true; }
+    requireCondition(staleTarget, 'OLD_GENERATION_TARGET_STILL_VALID');
     await cleanMarkers('slot-a'); await verifyMarker('slot-b', markerB);
     requireCondition(JSON.stringify(slot('slot-b')) === JSON.stringify(receipt.beforeReset.slots[1]), 'OTHER_SLOT_RESOURCES_CHANGED');
-    requireCondition(controller.status(b.token).businessAccess === 'NOT_CONNECTED', 'OTHER_CONTROL_SESSION_CHANGED');
+    requireCondition(controller.status(b.token).businessAccess === expectedAccess, 'OTHER_CONTROL_SESSION_CHANGED');
+    requireCondition(JSON.stringify(adapter.businessTarget(controller.businessBinding(b.token))) === JSON.stringify(targetB),
+      'OTHER_SESSION_APPLICATION_BINDING_CHANGED');
     receipt.checks.push({ check: 'SESSION_END_REAL_RESET', oldCredentialRevoked: true,
       databaseMarkerRemoved: true, cacheMarkerRemoved: true, tmpfsMarkerRemoved: true, otherSlotPreserved: true });
+    await checkRead(a, 401, 'REVOKED_A'); await checkRead(b, 200, 'PRESERVED_B');
     time = 1500; const replacement = enter(); await mark('slot-a', markerA);
+    await checkRead(replacement, 200, 'REPLACEMENT_A');
     const replacementState = slot('slot-a');
     receipt.phase = 'EXPIRY_RESET'; save();
     time = 2000; const swept = await controller.sweep();
     requireCondition(swept.attempted === 1 && swept.failed === 0, 'EXPIRY_RESET_FAILED');
     await cleanMarkers('slot-b'); await verifyMarker('slot-a', markerA);
     requireCondition(JSON.stringify(slot('slot-a')) === JSON.stringify(replacementState), 'EXPIRY_TOUCHED_OTHER_SLOT');
-    requireCondition(controller.status(replacement.token).businessAccess === 'NOT_CONNECTED', 'REPLACEMENT_SESSION_LOST');
+    requireCondition(controller.status(replacement.token).businessAccess === expectedAccess, 'REPLACEMENT_SESSION_LOST');
     receipt.checks.push({ check: 'CONTROLLED_CLOCK_EXPIRY_REAL_RESET', resetSlots: 1, otherSlotPreserved: true });
+    await checkRead(b, 401, 'EXPIRED_B'); await checkRead(replacement, 200, 'PRESERVED_REPLACEMENT_A');
+    if (https) {
+      requireCondition(receipt.checks.filter(value => value.check === 'HTTPS_SESSION_BOUND_PENDING_READ').length === 8,
+        'HTTPS_SESSION_READ_EVIDENCE_REQUIRED');
+      receipt.sessionReadBinding = { status: 'HTTPS_SESSION_READ_BINDING_PASSED',
+        independentCookieContexts: 2, checks: 8, realBrowserExecuted: false, seededApprovalExecuted: false };
+    }
     receipt.afterReset = adapter.snapshot();
     if (readOnlyIdentity) {
       const required = ['UNSIGNED_READ_REJECTED', 'CANONICAL_ACTORS_READ_PENDING',
@@ -135,6 +170,7 @@ export async function executeEvaluationSlotRehearsal({ smoke, directory, scenari
     failure = true; receipt.failure = 'EVALUATION_SLOT_REHEARSAL_FAILED';
   } finally {
     clearTimeout(timer); controller?.disable();
+    try { await https?.close(); } catch { failure = true; receipt.httpsCleanup = 'FAILED'; }
     receipt.cleanup = adapter ? await adapter.dispose() : { status: 'NOT_CREATED' };
     receipt.controller = controller?.snapshot() || null;
     receipt.elapsedMs = Math.round(performance.now() - started);

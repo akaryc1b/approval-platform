@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>邀请试用 · Approval Platform</title>
   <link rel="stylesheet" href="/evaluation/assets/entry.css" integrity="sha256-Fow7hz0ENh1vASOXhvynOi4mYRmG3ah35eXYrD+VTjc=" crossorigin="anonymous">
-  <script type="module" src="/evaluation/assets/entry.mjs" integrity="sha256-NcPc2sKG2Ve8Tmrvha4ElXpcj7hrY89bR1QSuBsgW38=" crossorigin="anonymous"></script>
+  <script type="module" src="/evaluation/assets/entry.mjs" integrity="sha256-DbWzvJ+Tfka0UwmLKa4wpB0bHuoWjB+olgb+N4pMcSM=" crossorigin="anonymous"></script>
 </head>
 <body>
   <main>
@@ -24,7 +24,9 @@
         <p id="expiry"></p>
         <label for="actor">体验角色</label>
         <select id="actor" disabled></select>
-        <p class="notice">邀请与角色选择已开放验证。采购审批业务入口尚未连接，目前不会执行审批或付款。</p>
+        <p id="business-notice" class="notice">邀请与角色选择已开放验证。采购审批业务入口尚未连接，目前不会执行审批或付款。</p>
+        <button id="pending" type="button" hidden disabled>查看当前角色待办</button>
+        <ul id="pending-tasks" aria-label="当前角色待办"></ul>
         <button id="end" type="button" disabled>结束会话并重置</button>
       </div>
       <p id="message" role="status" aria-live="polite">正在核对会话状态…</p>

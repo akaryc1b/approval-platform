@@ -3,3 +3,6 @@ import './product-readiness-online-demo-runtime-cases.mjs';
 import './product-readiness-online-demo-sessions.test.mjs';
 import './product-readiness-online-demo-slots.test.mjs';
 import './product-readiness-online-demo-read-identity.test.mjs';
+import './product-readiness-online-demo-session-dispatch.test.mjs';
+import './product-readiness-online-demo-business.test.mjs';
+import './product-readiness-online-demo-business-reset.test.mjs';
