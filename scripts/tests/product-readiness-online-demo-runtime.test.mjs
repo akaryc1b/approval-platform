@@ -7,3 +7,4 @@ import './product-readiness-online-demo-session-dispatch.test.mjs';
 import './product-readiness-online-demo-business.test.mjs';
 import './product-readiness-online-demo-business-reset.test.mjs';
 import './product-readiness-online-demo-client-transport.test.mjs';
+import './product-readiness-online-demo-dom-compat.test.mjs';

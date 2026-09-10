@@ -112,13 +112,13 @@ end-to-end runtime is expected but has not yet been measured for this candidate.
 
 ## Verification and remaining acceptance
 
-The current selected-source validation ran **105 tests: 35 signed-read/JDK tests
-and 70 client/file/landing/build-reuse tests, all passing without skips**. Actual
+The current selected-source validation ran **106 tests: 35 signed-read/JDK tests
+and 71 client/file/landing/build-reuse tests, all passing without skips**. Actual
 TLS requests exercise the existing controller and gateway and native multipart
 bytes. Application dispatch, Docker, database and payment state are substituted.
 Picker/landing checks use a controlled DOM, not a launched browser. Isolated
 strict TypeScript checks use actual changed modules with surrounding API type
-declarations; they are not full Vben/UniApp or Vue-SFC compilation.
+declarations and no `DOM.Iterable`; they are not full Vben/UniApp or Vue-SFC compilation.
 
 The earlier 78 API tests and 204 integration tests are historical local records,
 not new-candidate full-runtime results. Complete Maven/security checks, image
@@ -129,3 +129,9 @@ reset/expiry of one evaluator while the other remains usable. Retain redacted
 screenshots, traces and actual business evidence. Do not merge, deploy or close
 #144 based on local unit-test counts. Outbound/abuse controls, operator/crash
 recovery and hosted-environment inputs also remain outstanding.
+
+Run 34428524151 passed the image contract stage but exposed TS2488 in UniApp's
+full type check: its DOM library does not declare Headers/FormData iteration.
+Both client copies now use the native `forEach` methods instead of iterable loops.
+A regression test removes those iterator methods and exercises real multipart
+cloning/header validation. No application tsconfig or dependency was relaxed.

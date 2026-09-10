@@ -202,7 +202,7 @@ export function createEvaluationBrowserSession(options: Options) {
     const method = init.method ?? 'GET';
     if (!['GET', 'POST'].includes(method)) return deny('EVALUATION_METHOD_REJECTED');
     const headers = new Headers(init.headers);
-    for (const [key] of headers) if (!allowedHeaders.has(key)) return deny('EVALUATION_HEADER_REJECTED');
+    headers.forEach((unused, key) => { if (!allowedHeaders.has(key)) deny('EVALUATION_HEADER_REJECTED'); });
     const write = method === 'POST';
     let body = init.body;
     if (!write && body != null) return deny('EVALUATION_BODY_REJECTED');
@@ -210,7 +210,7 @@ export function createEvaluationBrowserSession(options: Options) {
       if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(headers.get('Idempotency-Key') || '')) return deny('EVALUATION_IDEMPOTENCY_REQUIRED');
       if (typeof FormData !== 'undefined' && body instanceof FormData) {
         const clone = new FormData();
-        for (const [name, value] of body) clone.append(name, value);
+        body.forEach((value, name) => { clone.append(name, value); });
         body = clone;
         headers.delete('Content-Type'); // Browser chooses the multipart boundary and length.
       } else {
