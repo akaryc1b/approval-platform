@@ -123,7 +123,7 @@ export function createEvaluationBrowserSession(options: Options) {
     const timer = setTimeout(abort, timeoutMs);
     let failed: (() => void) | undefined;
     try {
-      const result = await Promise.race([operation(cancellation.signal), new Promise<never>((unused, reject) => {
+      const result = await Promise.race([operation(cancellation.signal), new Promise<never>((_unused, reject) => {
         failed = () => reject(new EvaluationClientError('EVALUATION_REQUEST_CANCELLED', 499));
         cancellation.signal.addEventListener('abort', failed, { once: true });
         if (cancellation.signal.aborted) failed();
@@ -196,13 +196,13 @@ export function createEvaluationBrowserSession(options: Options) {
   function prepare(path: string, init: RequestInit) {
     // Paths are relative to the existing API contract, never a caller-selected host.
     if (typeof path !== 'string' || path.length > 1024 || !path.startsWith('/approval/') || /[#\\\x00-\x20]/u.test(path)
-      || path.split('?')[0].includes('%') || path.includes('//') || path.includes('/.')) {
+      || path.slice(0, path.indexOf('?') < 0 ? undefined : path.indexOf('?')).includes('%') || path.includes('//') || path.includes('/.')) {
       return deny('EVALUATION_PATH_REJECTED');
     }
     const method = init.method ?? 'GET';
     if (!['GET', 'POST'].includes(method)) return deny('EVALUATION_METHOD_REJECTED');
     const headers = new Headers(init.headers);
-    headers.forEach((unused, key) => { if (!allowedHeaders.has(key)) deny('EVALUATION_HEADER_REJECTED'); });
+    headers.forEach((_unused, key) => { if (!allowedHeaders.has(key)) deny('EVALUATION_HEADER_REJECTED'); });
     const write = method === 'POST';
     let body = init.body;
     if (!write && body != null) return deny('EVALUATION_BODY_REJECTED');

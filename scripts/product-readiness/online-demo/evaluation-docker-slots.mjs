@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
+import { observeEvaluationStartupFailure } from './evaluation-startup-diagnostics.mjs';
 import { createEvaluationReadSigner, verifyEvaluationReadIdentity } from './evaluation-read-identity.mjs';
 import { evaluationPendingPageProgram, validateEvaluationPendingPage } from './evaluation-pending-read.mjs';
 import { evaluationActors } from './evaluation-sessions.mjs';
@@ -26,7 +27,8 @@ export function runEvaluationDocker(args, { signal, timeoutMs = 5000, input } = 
     const child = execFile('docker', ['--host', 'unix:///var/run/docker.sock', ...args], {
       encoding: 'utf8', timeout: timeoutMs, signal, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
       env: { PATH: process.env.PATH || '/usr/bin:/bin', LANG: 'C.UTF-8' }, shell: false,
-    }, (error, stdout) => error ? reject(new Error('EVALUATION_DOCKER_COMMAND_FAILED')) : resolve(stdout.trim()));
+    }, (error, stdout, stderr) => error ? reject(new Error('EVALUATION_DOCKER_COMMAND_FAILED'))
+      : resolve(args[0] === 'logs' ? `${stdout}\n${stderr}` : stdout.trim()));
     child.stdin.on('error', () => { /* Exit/abort is reported by the child callback. */ });
     child.stdin.end(input);
   });
@@ -218,7 +220,7 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
       assert(engine.ID === engineId && engine.OSType === 'linux', 'DOCKER_ENGINE_CHANGED');
       slot.state = 'RESETTING'; slot.phase = 'OLD_STACK_REMOVAL'; save();
       assert((await cleanup(slot)).status === 'PASSED', 'OLD_STACK_CLEANUP_FAILED'); check();
-      slot.generation = randomBytes(16).toString('hex'); slot.checks = []; slot.identityChecks = []; slot.phase = 'PRIVATE_NETWORK_CREATION';
+      slot.generation = randomBytes(16).toString('hex'); slot.checks = []; slot.identityChecks = []; slot.startupFailure = null; slot.phase = 'PRIVATE_NETWORK_CREATION';
       const flags = role => Object.entries(labels(namespace, slot.slotId, slot.generation, role))
         .flatMap(([key, value]) => ['--label', `${key}=${value}`]);
       assert(!await command(['network', 'ls', '-q', '--no-trunc', '--filter', `name=^${slot.names.network}$`]), 'NETWORK_NAME_ALREADY_EXISTS');
@@ -307,6 +309,9 @@ export function createEvaluationDockerSlots({ source, backendImage, infrastructu
       return { slotId: slot.slotId, resetNonce, generation: slot.generation, clean: true };
     } catch {
       slot.state = 'QUARANTINED';
+      if (slot.phase === 'BACKEND_READINESS' || slot.phase === 'SEEDED_BUSINESS_PREFLIGHT') {
+        slot.startupFailure = await observeEvaluationStartupFailure({ slot, run: docker });
+      }
       try { save(); } catch { /* A recording failure never produces an acknowledgement. */ }
       throw new Error('EVALUATION_SLOT_RESET_FAILED');
     } finally { if (!keepSigner) readSigner?.disable(); }

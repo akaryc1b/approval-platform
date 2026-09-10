@@ -191,11 +191,15 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
     await call(b, 'GET', '/evaluation/session', undefined, '', [401]);
     await json(replacement, 'GET', '/evaluation/session');
     receipt.checksPassed = true;
-  } catch {
+  } catch (error) {
     failed = true; receipt.failure = 'EVALUATION_BUSINESS_API_REHEARSAL_FAILED';
+    // Initialization may create and clean a stack before returning a runtime.
+    // Preserve that known cleanup result instead of reporting it was never created.
+    if (!runtime) receipt.cleanup = { status: ['PASSED', 'FAILED', 'NOT_CREATED'].includes(error?.cleanupStatus)
+      ? error.cleanupStatus : 'UNKNOWN' };
   } finally {
     clearTimeout(timer); agent?.destroy();
-    try { receipt.cleanup = runtime ? await runtime.dispose() : { status: 'NOT_CREATED' }; }
+    try { receipt.cleanup = runtime ? await runtime.dispose() : receipt.cleanup || { status: 'NOT_CREATED' }; }
     catch { receipt.cleanup = { status: 'FAILED' }; }
     if (tlsDirectory) { try { rmSync(tlsDirectory, { recursive: true, force: true }); } catch { receipt.cleanup.status = 'FAILED'; } }
     receipt.elapsedMs = Math.round(performance.now() - started);
