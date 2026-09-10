@@ -47,7 +47,7 @@ test('collector inspects exact ownership before bounded read-only logs', async (
   assert.deepEqual(value.signals, ['OUT_OF_MEMORY']);
   assert.deepEqual(calls, [
     { args: ['container', 'inspect', slot.containers.backend.id], options: { timeoutMs: 1500 } },
-    { args: ['logs', '--tail', '160', slot.containers.backend.id], options: { timeoutMs: 1500 } },
+    { args: ['logs', '--tail', '320', slot.containers.backend.id], options: { timeoutMs: 1500 } },
   ]);
   assert.doesNotMatch(JSON.stringify(value), /secret|Env|Labels|password/u);
 });
@@ -87,7 +87,7 @@ test('actual child runner collects both log streams without exposing stderr for 
   process.env.PATH = `${directory}:${prior}`;
   try {
     assert.equal(await runEvaluationDocker(['info']), 'stdout');
-    assert.equal(await runEvaluationDocker(['logs', '--tail', '160', 'c'.repeat(64)]), 'stdout\nstderr');
+    assert.equal(await runEvaluationDocker(['logs', '--tail', '320', 'c'.repeat(64)]), 'stdout\nstderr');
   } finally { process.env.PATH = prior; }
 });
 
@@ -107,3 +107,22 @@ for (const status of ['PASSED', 'FAILED', 'NOT_CREATED', undefined, 'secret-unkn
     assert.doesNotMatch(JSON.stringify(receipt), /private-startup|secret-unknown/u);
   });
 }
+
+
+test('unclassified exit diagnostics distinguish empty output, native failures and bounded source locations', () => {
+  assert.deepEqual(classifyEvaluationStartupLog(' \n'), { logs: 'EMPTY', signals: [], beans: [] });
+  const native = classifyEvaluationStartupLog('Error occurred during initialization of VM\nNative memory allocation (mmap) failed SECRET-PATH');
+  assert.deepEqual(native.signals, ['JVM_INITIALIZATION_FAILED', 'NATIVE_RESOURCE_FAILURE']);
+  assert.doesNotMatch(JSON.stringify(native), /SECRET-PATH|mmap/u);
+  const log = 'Application run failed\njava.lang.IllegalStateException: private-payment-body\n'
+    + '\tat io.github.akaryc1b.approval.demo.PurchasePaymentDemoSeeder.apply(PurchasePaymentDemoSeeder.java:123)\n'
+    + '\tat io.github.akaryc1b.approval.demo.PurchasePaymentDemoSeeder.apply(PurchasePaymentDemoSeeder.java:123)\n'
+    + '\tat io.github.akaryc1b.approval.demo.ForeignClass.method(SecretUserData.java:42)\n';
+  const result = classifyEvaluationStartupLog(log);
+  assert.deepEqual(result.sourceFrames, [{ file: 'PurchasePaymentDemoSeeder.java', line: 123 }]);
+  assert.deepEqual(result.signals, ['APPLICATION_START_FAILED', 'RUNTIME_VALIDATION_FAILURE']);
+  assert.doesNotMatch(JSON.stringify(result), /private-payment-body|ForeignClass|SecretUserData/u);
+  const frames = Array.from({ length: 20 }, (_, i) =>
+    `\tat io.github.akaryc1b.approval.demo.PurchasePaymentDemoSeeder.apply(PurchasePaymentDemoSeeder.java:${i + 1})`).join('\n');
+  assert.equal(classifyEvaluationStartupLog(frames).sourceFrames.length, 8);
+});
