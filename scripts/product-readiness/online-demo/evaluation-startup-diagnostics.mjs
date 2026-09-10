@@ -16,6 +16,8 @@ const signals = Object.freeze([
   ['BOOT_ARCHIVE_FAILURE', /Invalid or corrupt jarfile|Unable to access jarfile|UnsupportedClassVersionError|NoClassDefFoundError/u],
   ['FILESYSTEM_FAILURE', /NoSuchFileException|AccessDeniedException|Read-only file system|No space left on device|Permission denied/u],
   ['RUNTIME_VALIDATION_FAILURE', /(?:java\.lang\.)?(?:IllegalStateException|IllegalArgumentException|ExceptionInInitializerError):/u],
+  ['SEED_DEFINITION_PROJECTION_MISMATCH', /demo definition projection conflicts with governed Release Package deployment/u],
+  ['SEED_PREFLIGHT_REJECTED', /demo release preflight failed:/u],
   ['SEED_APPLIED', /PURCHASE_PAYMENT_DEMO_SEED_APPLIED/u],
 ]);
 const beanNames = Object.freeze(['onlineEvaluationBusinessIdentity', 'onlineEvaluationDatabaseMigration',
@@ -40,7 +42,7 @@ export function classifyEvaluationStartupLog(text) {
   // Only allowlisted source filenames and numeric line numbers; never exception messages.
   const sourceFrames = [];
   for (const line of text.split('\n')) {
-    const match = /^\s+at io\.github\.akaryc1b\.approval\.[A-Za-z0-9_.$]+\(([A-Za-z0-9_$]+)\.java:([0-9]{1,5})\)\s*$/u.exec(line);
+    const match = /^\s+at io\.github\.akaryc1b\.approval\.[A-Za-z0-9_.$]+\(([A-Za-z0-9_$]+)\.java:([0-9]{1,5})\)(?:[ \t]+~?\[[^\r\n\]]{1,240}\])?[ \t]*$/u.exec(line);
     if (match && sourceFiles.has(match[1]) && Number(match[2]) > 0) {
       const frame = { file: match[1] + '.java', line: Number(match[2]) };
       if (!sourceFrames.some(item => item.file === frame.file && item.line === frame.line)) sourceFrames.push(frame);
@@ -77,7 +79,11 @@ export async function observeEvaluationStartupFailure({ slot, run }) {
         ? state.ExitCode : null };
     // No inspect Env, state Error, application messages or log text enters a receipt.
     const text = await run(['logs', '--tail', '320', target.id], { timeoutMs: 1500 });
-    Object.assign(result, classifyEvaluationStartupLog(text));
+    const classified = classifyEvaluationStartupLog(text);
+    result.logs = classified.logs;
+    result.signals = classified.signals;
+    result.beans = classified.beans;
+    if (classified.sourceFrames) result.sourceFrames = classified.sourceFrames;
   } catch { result.logs = result.inspection === 'OWNED' ? 'UNAVAILABLE' : 'NOT_READ'; }
   return result;
 }
