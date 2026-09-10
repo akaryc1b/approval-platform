@@ -12,6 +12,7 @@ import {
   usage,
 } from './purchase-payment-e2e/contract.mjs';
 import { execute } from './purchase-payment-e2e/runtime.mjs';
+import { withExactBackendBuildReuse } from './purchase-payment-e2e/build-reuse.mjs';
 
 function ensureCanonicalPcUrl() {
   if (!process.env.APPROVAL_DEMO_PC_URL?.trim()) {
@@ -33,10 +34,13 @@ async function main() {
   ensureCanonicalPcUrl();
   if (options.command === 'ci') {
     if (!shouldRunInCi()) return;
-    await execute(true);
-    rmSync(pcH5OutputDirectory, { force: true, recursive: true });
-    console.log('PURCHASE_PAYMENT_E2E_SECOND_CLEAN_RUN_STARTING');
-    await execute(false);
+    // Preserve both clean-data executions. Only same-SHA compiled output may be reused.
+    await withExactBackendBuildReuse(async () => {
+      await execute(true);
+      rmSync(pcH5OutputDirectory, { force: true, recursive: true });
+      console.log('PURCHASE_PAYMENT_E2E_SECOND_CLEAN_RUN_STARTING');
+      await execute(false);
+    });
     return;
   }
   rmSync(pcH5OutputDirectory, { force: true, recursive: true });

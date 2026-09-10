@@ -183,14 +183,25 @@ test('unexpected preflight output is not accepted as successful identity integra
       'a'.repeat(64), async () => JSON.stringify(result)));
   }
 });
-test('existing runtime command selects the real signed-read rehearsal and the adapter retires its signer', () => {
+test('existing runtime command selects the real signed-read rehearsal and signer ownership follows the session generation', () => {
   const read = path => readFileSync(resolve(root, path), 'utf8');
   const launch = read('scripts/product-readiness/online-demo-images-runtime.mjs');
   assert.match(launch, /readOnlyIdentity: true/u);
   const adapter = read('scripts/product-readiness/online-demo/evaluation-docker-slots.mjs');
   assert.match(adapter, /SPRING_PROFILES_ACTIVE=online-demo/u);
-  assert.match(adapter, /verifyEvaluationReadIdentity\(readSigner, probe, command\)/u);
-  assert.match(adapter, /finally \{ readSigner\?\.disable\(\); \}/u);
+  assert.match(adapter, /verifyEvaluationReadIdentity\(readSigner, probe, command, observation => \{/u);
+  assert.match(adapter, /slot\.identityChecks\.push\(observation\); save\(\)/u);
+  assert.match(adapter, /let keepSigner = false/u);
+  assert.match(adapter, /if \(sessionReads \|\| workflow\) \{[\s\S]*?readers\.set\(slot\.slotId,[\s\S]*?generation: slot\.generation,[\s\S]*?signer: readSigner[\s\S]*?keepSigner = true/u);
+  assert.match(adapter, /finally \{ if \(!keepSigner\) readSigner\?\.disable\(\); \}/u);
+  const revoke = adapter.slice(adapter.indexOf('function revokeRead('), adapter.indexOf('const slots = new Map('));
+  assert.match(revoke, /reader\?\.abort\.abort\(\)/u);
+  assert.match(revoke, /reader\?\.signer\.disable\(\)/u);
+  assert.match(revoke, /readers\.delete\(id\)/u);
+  const reset = adapter.slice(adapter.indexOf('function resetSlot('), adapter.indexOf('function businessTarget('));
+  assert.ok(reset.indexOf('revokeRead(slotId)') >= 0);
+  assert.ok(reset.indexOf('revokeRead(slotId)') < reset.indexOf('replace(slot, resetNonce, signal)'));
+  assert.match(adapter, /function dispose\(\)[\s\S]*?for \(const id of evaluationSlotIds\) revokeRead\(id\)/u);
   assert.doesNotMatch(adapter, /privateKey|LOCAL_HEADERS/u);
   const filter = read('apps/server/src/main/java/io/github/akaryc1b/approval/security/OnlineEvaluationReadIdentityFilter.java');
   assert.match(filter, /ApprovalPrincipal\.active\(tenantId, identity\.actorId\(\), Set\.of\(\)/u);

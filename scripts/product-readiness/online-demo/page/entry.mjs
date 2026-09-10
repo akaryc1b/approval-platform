@@ -1,4 +1,4 @@
-/** Session controls and one explicitly enabled pending-task read. No approval/payment writes. */
+/** Session controls for disconnected, read and workflow modes. No approval/payment writes here. */
 export function mountEvaluationPage({ document, fetch, now, setInterval, clearInterval } = globalThis) {
   now ??= () => globalThis.performance.now();
   const login = document.querySelector('#login');
@@ -45,7 +45,9 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     }
     if (businessNotice && session) businessNotice.textContent = session.businessAccess === 'SIGNED_PENDING_READ'
       ? '当前会话已绑定独立环境，可读取所选角色的待办。审批写入与付款尚未开放。'
-      : '采购审批业务入口尚未连接，目前不会执行审批或付款。';
+      : session.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW'
+        ? '采购审批接口已连接。PC/H5 页面入口尚未提供，此处仅管理会话，不执行审批或付款。'
+        : '采购审批业务入口尚未连接，目前不会执行审批或付款。';
   }
   function clear(text, unknown = false) {
     revision += 1;
@@ -55,7 +57,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     tell(text); controls();
   }
   function show(value, started) {
-    if (!value || !['NOT_CONNECTED', 'SIGNED_PENDING_READ'].includes(value.businessAccess)
+    if (!value || !['NOT_CONNECTED', 'SIGNED_PENDING_READ', 'PURCHASE_PAYMENT_WORKFLOW'].includes(value.businessAccess)
         || value.scope !== 'DISPOSABLE_EVALUATION_CONTROL_PLANE'
         || !/^[A-Za-z0-9_-]{43}$/u.test(value.csrfToken || '')
         || !Number.isInteger(value.expiresInSeconds) || value.expiresInSeconds < 1

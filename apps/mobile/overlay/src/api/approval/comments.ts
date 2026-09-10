@@ -1,3 +1,5 @@
+import { approvalEvaluationEnabled, EvaluationClientError } from '@/platform/approval/evaluation-session'
+import { uploadEvaluationAttachment, downloadEvaluationAttachment } from '@/platform/approval/evaluation-attachments'
 import {
   mobileApprovalError,
   mobileApprovalHeaders,
@@ -161,7 +163,14 @@ export function findApprovalCommentRevisions(instanceId: string, commentId: stri
   )
 }
 
-export function uploadApprovalAttachment(filePath: string) {
+export function uploadApprovalAttachment(filePath: string | File): Promise<ApprovalAttachment> {
+  if (approvalEvaluationEnabled()) {
+    if (typeof File === 'undefined' || !(filePath instanceof File)) {
+      return Promise.reject(new EvaluationClientError('EVALUATION_NATIVE_FILE_REQUIRED', 400))
+    }
+    return uploadEvaluationAttachment<ApprovalAttachment>(filePath, mobileApprovalMutationHeaders('mobile-attachment'))
+  }
+  if (typeof filePath !== 'string') return Promise.reject(new Error('当前平台需要临时文件路径'))
   const header = mobileApprovalHeaders(mobileApprovalMutationHeaders('mobile-attachment'))
   const requestId = header['X-Request-Id']
   return new Promise<ApprovalAttachment>((resolve, reject) => {
@@ -207,6 +216,13 @@ export function uploadApprovalAttachment(filePath: string) {
 }
 
 export function downloadApprovalAttachment(attachment: ApprovalAttachment) {
+  if (approvalEvaluationEnabled()) return downloadEvaluationAttachment(attachment.attachmentId).then(blob => {
+    const url = URL.createObjectURL(blob)
+    const release = () => { URL.revokeObjectURL(url); clearTimeout(timer); window.removeEventListener('pagehide', release) }
+    const timer = setTimeout(release, 60_000)
+    window.addEventListener('pagehide', release, { once: true })
+    return url
+  })
   const requestId = mobileApprovalOperationId('mobile-attachment-download-request')
   const header = mobileApprovalHeaders({
     'X-Request-Id': requestId,
