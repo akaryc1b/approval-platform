@@ -75,6 +75,7 @@ export async function createEvaluationBrowserActions({ origin, cert, privateDire
       catch (error) { if (!['BROWSER_PAGE_EVALUATION_FAILED', 'BROWSER_PROTOCOL_REJECTED'].includes(error.message)) throw error; }
       await pause(100);
     }
+    evidence.failure = { stage, code };
     throw new Error(code);
   }
   async function evaluate(session, expression) {
@@ -186,7 +187,12 @@ export async function createEvaluationBrowserActions({ origin, cert, privateDire
         }
         if (message.method === 'Network.loadingFailed') {
           const item = session.requests.get(params.requestId); session.requests.delete(params.requestId);
-          if (item) record({ context: label, method: item.method, path: item.path, status: 'NETWORK_FAILED' });
+          if (item) record({ context: label, method: item.method, path: item.path, status: 'NETWORK_FAILED',
+            canceled: params.canceled === true,
+            reason: ['net::ERR_ABORTED', 'net::ERR_FAILED', 'net::ERR_CONNECTION_RESET',
+              'net::ERR_CONNECTION_CLOSED', 'net::ERR_CONTENT_LENGTH_MISMATCH', 'net::ERR_INCOMPLETE_CHUNKED_ENCODING',
+              'net::ERR_BLOCKED_BY_CLIENT', 'net::ERR_BLOCKED_BY_ADMINISTRATOR', 'net::ERR_TIMED_OUT'].includes(params.errorText)
+              ? params.errorText : 'OTHER_NETWORK_ERROR' });
         }
       });
       await cdp.send('Page.enable', {}, sessionId); await cdp.send('Runtime.enable', {}, sessionId); await cdp.send('Network.enable', {}, sessionId);
@@ -276,7 +282,7 @@ export async function createEvaluationBrowserActions({ origin, cert, privateDire
       await screenshot(session, session.label + '-reset'); completed(session, stage);
     },
     async failure() {
-      evidence.failure = { stage };
+      evidence.failure ??= { stage };
       for (const session of sessions) { try { await screenshot(session, session.label + '-failure'); } catch { /* The protocol may already be closed. */ } }
       save();
     },

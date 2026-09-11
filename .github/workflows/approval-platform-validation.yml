@@ -499,5 +499,6 @@ jobs:
             online-image-runtime.log
             .runtime/online-demo-images/*/image-build.json
             .runtime/online-demo-image-runtime/*/*.json
+            .runtime/online-demo-image-runtime/*/evaluation-browser-*.png
           include-hidden-files: true
           if-no-files-found: error
