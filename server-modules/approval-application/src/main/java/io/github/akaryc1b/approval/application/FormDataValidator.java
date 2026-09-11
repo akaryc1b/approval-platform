@@ -20,6 +20,28 @@ import java.util.UUID;
 /** Validates and canonicalizes submitted values against a published schema. */
 public final class FormDataValidator {
 
+    /**
+     * Normalizes only defaults that were actually resolved while opening an unfilled form.
+     * The original schema, required-field metadata and submission validation are unchanged.
+     * Present defaults still use every normal type, cardinality and value constraint.
+     */
+    NormalizedFormData validateDefaults(
+        FormDefinition definition,
+        Map<String, Object> input,
+        Map<String, Boolean> requiredFields
+    ) {
+        Objects.requireNonNull(definition, "definition must not be null");
+        Map<String, Object> source = input == null ? Map.of() : input;
+        FormDefinition supplied = new FormDefinition(
+            definition.schemaVersion(),
+            definition.formKey(),
+            definition.version(),
+            definition.name(),
+            definition.fields().stream().filter(field -> source.containsKey(field.key())).toList()
+        );
+        return validate(supplied, source, requiredFields);
+    }
+
     public NormalizedFormData validate(FormDefinition definition, Map<String, Object> input) {
         return validate(definition, input, Map.of());
     }
