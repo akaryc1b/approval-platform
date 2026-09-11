@@ -20,7 +20,7 @@ export async function fetchEvaluationBusinessResponse(input, port = 8080) {
     redirect: 'error', signal: AbortSignal.timeout(5000),
   });
   let length = 0; const parts = [];
-  for await (const part of response.body) {
+  for await (const part of response.body ?? []) {
     length += part.length; if (length > 2_097_152) throw new Error('BUSINESS_RESPONSE_LIMIT'); parts.push(part);
   }
   const outgoing = {};

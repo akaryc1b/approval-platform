@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>邀请试用 · Approval Platform</title>
-  <link rel="stylesheet" href="/evaluation/assets/entry.css" integrity="sha256-Fow7hz0ENh1vASOXhvynOi4mYRmG3ah35eXYrD+VTjc=" crossorigin="anonymous">
-  <script type="module" src="/evaluation/assets/entry.mjs" integrity="sha256-ZO7fBHkeemWK4ojh9cualk1hsE0ZOC2JlRfhirEJXNc=" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="/evaluation/assets/entry.css" integrity="sha256-lUllTKG+CmL8+P+Iuk4chNIR9hLB0DbmN1aC4uRvPXE=" crossorigin="anonymous">
+  <script type="module" src="/evaluation/assets/entry.mjs" integrity="sha256-TP38sIPLTdaaqz+0zXLGnoCORVBMnFhKS8OmEyPF8yc=" crossorigin="anonymous"></script>
 </head>
 <body>
   <main>
@@ -25,6 +25,8 @@
         <label for="actor">体验角色</label>
         <select id="actor" disabled></select>
         <p id="business-notice" class="notice">邀请与角色选择已开放验证。采购审批业务入口尚未连接，目前不会执行审批或付款。</p>
+        <button id="applications" type="button" hidden disabled>打开审批页面</button>
+        <nav id="application-links" aria-label="审批页面" hidden></nav>
         <button id="pending" type="button" hidden disabled>查看当前角色待办</button>
         <ul id="pending-tasks" aria-label="当前角色待办"></ul>
         <button id="end" type="button" disabled>结束会话并重置</button>

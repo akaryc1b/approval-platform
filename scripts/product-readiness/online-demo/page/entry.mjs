@@ -14,6 +14,13 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
   const pending = document.querySelector('#pending');
   const taskList = document.querySelector('#pending-tasks');
   const businessNotice = document.querySelector('#business-notice');
+  const applications = document.querySelector('#applications');
+  const applicationLinks = document.querySelector('#application-links');
+  const paths = Object.freeze({
+    pc: '/evaluation/pc/#/approval/workbench', h5: '/evaluation/h5/#/pages/task/list',
+    purchase: '/evaluation/h5/#/pages/initiate/form?formKey=purchase-payment&version=1',
+  });
+  let applicationsReady = false;
   let session = null;
   let deadline = 0;
   let nextCheck = Infinity;
@@ -39,6 +46,11 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     refresh.hidden = !uncertain;
     refresh.disabled = busy;
     if (session) actor.value = session.actorId;
+    if (applications) {
+      applications.hidden = session?.businessAccess !== 'PURCHASE_PAYMENT_WORKFLOW';
+      applications.disabled = busy || uncertain || !session;
+    }
+    if (applicationLinks) applicationLinks.hidden = !applicationsReady || busy || uncertain || !session;
     if (pending) {
       pending.hidden = session?.businessAccess !== 'SIGNED_PENDING_READ';
       pending.disabled = busy || uncertain || !session;
@@ -46,7 +58,8 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     if (businessNotice && session) businessNotice.textContent = session.businessAccess === 'SIGNED_PENDING_READ'
       ? '当前会话已绑定独立环境，可读取所选角色的待办。审批写入与付款尚未开放。'
       : session.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW'
-        ? '采购审批接口已连接。PC/H5 页面入口尚未提供，此处仅管理会话，不执行审批或付款。'
+        ? applicationsReady ? '请选择 PC 或 H5 页面完成采购审批；返回这里切换角色或结束试用。'
+          : '采购审批接口已连接。页面入口尚未提供，点击下方按钮核对已部署的 PC/H5 页面。'
         : '采购审批业务入口尚未连接，目前不会执行审批或付款。';
   }
   function clear(text, unknown = false) {
@@ -54,6 +67,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     session = null; deadline = 0; nextCheck = Infinity; uncertain = unknown;
     invitation.value = ''; actor.replaceChildren(); expiry.textContent = '';
     taskList?.replaceChildren();
+    applicationsReady = false; applicationLinks?.replaceChildren();
     tell(text); controls();
   }
   function show(value, started) {
@@ -73,7 +87,9 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     const candidate = started + value.expiresInSeconds * 1000;
     deadline = deadline ? Math.min(deadline, candidate) : candidate;
     if (deadline <= now()) { clear('会话已到期，请使用新的邀请。'); return false; }
-    if (session?.actorId !== value.actorId || session?.csrfToken !== value.csrfToken) taskList?.replaceChildren();
+    if (session?.actorId !== value.actorId || session?.csrfToken !== value.csrfToken) {
+      taskList?.replaceChildren(); applicationsReady = false; applicationLinks?.replaceChildren();
+    }
     session = value; uncertain = false;
     actor.replaceChildren();
     for (const item of value.actors) {
@@ -92,7 +108,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     expiry.textContent = '会话剩余 ' + Math.floor(seconds / 60) + ' 分 '
       + String(seconds % 60).padStart(2, '0') + ' 秒，到期后不能继续访问。';
   }
-  async function execute(path, body, success, { checking = false, ending = false, reading = false } = {}) {
+  async function execute(path, body, success, { checking = false, ending = false, reading = false, opening = false } = {}) {
     if (busy || disposed) return;
     const version = ++revision;
     const started = now();
@@ -116,12 +132,26 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
           clear(code === 'RESET_FAILED'
             ? '访问凭据已撤销，重置未完成；该位置已暂停分配。'
             : checking && !session ? '请输入一次性邀请以开始。' : '会话已过期，请使用新的邀请。');
+        } else if (opening && response.status === 404) {
+          applicationsReady = false; tell('此环境尚未部署 PC/H5 页面。');
         } else if (!checking && labels.has(code)) {
           tell(labels.get(code)); // Rejected writes are never retried automatically.
         } else {
           clear('无法确认当前会话，请重新检查；不会自动重复提交操作。', true);
         }
         return;
+      }
+      if (opening) {
+        if (!session || session.businessAccess !== 'PURCHASE_PAYMENT_WORKFLOW' || deadline <= now()
+            || !result || Object.keys(result).sort().join(',') !== 'h5,pc,purchase'
+            || Object.keys(paths).some(key => result[key] !== paths[key])) throw new Error('APPLICATION_ENTRIES_INVALID');
+        applicationLinks?.replaceChildren();
+        for (const [key, label] of [['pc', 'PC 审批工作台'], ['h5', 'H5 审批中心'], ['purchase', '发起采购（H5）']]) {
+          if (key === 'purchase' && session.actorId !== 'demo-employee') continue;
+          const link = document.createElement('a'); link.href = paths[key]; link.textContent = label;
+          applicationLinks?.append(link);
+        }
+        applicationsReady = true; tell('请选择下方页面开始操作。'); return;
       }
       if (reading) {
         if (!session || deadline <= now()) { clear('会话已到期，请使用新的邀请。'); return; }
@@ -171,6 +201,10 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     if (busy || uncertain || session?.businessAccess !== 'SIGNED_PENDING_READ') return;
     void execute('/api/approval/tasks/pending', undefined, '', { reading: true });
   };
+  const onApplications = () => {
+    if (busy || uncertain || session?.businessAccess !== 'PURCHASE_PAYMENT_WORKFLOW') return;
+    void execute('/evaluation/applications', undefined, '', { opening: true });
+  };
   const onEnd = () => {
     if (busy || !session) return;
     tell('正在结束会话并等待重置确认…');
@@ -183,6 +217,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
   login.addEventListener('submit', onSubmit);
   actor.addEventListener('change', onActor);
   end.addEventListener('click', onEnd);
+  applications?.addEventListener('click', onApplications);
   refresh.addEventListener('click', verify);
   pending?.addEventListener('click', onPending);
   document.addEventListener('visibilitychange', onVisible);
@@ -198,6 +233,7 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
     login.removeEventListener('submit', onSubmit);
     actor.removeEventListener('change', onActor);
     end.removeEventListener('click', onEnd);
+    applications?.removeEventListener('click', onApplications);
     refresh.removeEventListener('click', verify);
     pending?.removeEventListener('click', onPending);
     document.removeEventListener('visibilitychange', onVisible);

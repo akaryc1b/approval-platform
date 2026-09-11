@@ -1,4 +1,5 @@
 import { createServer } from 'node:https';
+import { isEvaluationApplicationAssets } from './evaluation-applications.mjs';
 import { performance } from 'node:perf_hooks';
 import { evaluationBusinessRoute, maximumBusinessBody } from './evaluation-business-request.mjs';
 import { EvaluationError, startEvaluationExpiryWorker, validEvaluationToken } from './evaluation-sessions.mjs';
@@ -66,12 +67,14 @@ function exactBody(value, fields) {
 }
 
 /** TLS terminates here. Forwarded headers are never authentication or TLS proof. */
-export function createEvaluationRequestHandler({ controller, origin }) {
+export function createEvaluationRequestHandler({ controller, origin, applications }) {
   const configured = new URL(origin);
   if (configured.protocol !== 'https:' || configured.origin !== origin
       || configured.username || configured.password) throw new Error('exact HTTPS origin required');
   if (!controller || typeof controller.redeem !== 'function') throw new Error('session controller required');
-  let active = 0; let windowStart = performance.now(); let requests = 0;
+  if (applications !== undefined && (!isEvaluationApplicationAssets(applications)
+      || controller.businessAccess !== 'PURCHASE_PAYMENT_WORKFLOW')) throw new Error('workflow application registry required');
+  let active = 0; let windowStart = performance.now(); let requests = 0; let assetRequests = 0; let assetBytes = 0;
   return async (request, response) => {
     response.setHeader('Connection', 'close');
     response.setHeader('Cache-Control', 'no-store');
@@ -87,8 +90,11 @@ export function createEvaluationRequestHandler({ controller, origin }) {
       response.setHeader('Strict-Transport-Security', 'max-age=31536000');
       if (singleHeader(request, 'host') !== configured.host) deny('HOST_REJECTED', 403);
       const time = performance.now();
-      if (time - windowStart >= 60_000) { requests = 0; windowStart = time; }
-      if (++requests > (controller.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW' ? 240 : 120) || active >= 8) deny('REQUEST_LIMIT', 429);
+      if (time - windowStart >= 60_000) { requests = 0; assetRequests = 0; assetBytes = 0; windowStart = time; }
+      const staticRequest = request.method === 'GET' && applications?.has(request.url);
+      const overLimit = staticRequest ? ++assetRequests > 1000
+        : ++requests > (controller.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW' ? 240 : 120);
+      if (overLimit || active >= 8) deny('REQUEST_LIMIT', 429);
       active += 1; admitted = true;
       for (const name of ['authorization', 'x-tenant-id', 'x-operator-id', 'x-approval-trusted-permissions',
         'x-evaluation-slot', 'x-slot-id', 'x-actor-id', 'x-evaluation-generation',
@@ -109,6 +115,27 @@ export function createEvaluationRequestHandler({ controller, origin }) {
         response.setHeader('Content-Type', asset.type); response.end(asset.body); return;
       }
       const credential = cookie(request);
+      if (applications && request.method === 'GET') {
+        if (applications.has(path) || path === '/evaluation/applications') {
+          try { controller.status(credential); }
+          catch (error) {
+            if (error instanceof EvaluationError && error.status === 401
+                && request.headers['sec-fetch-dest'] === 'document') {
+              response.writeHead(303, { Location: '/evaluation' }); response.end(); return;
+            }
+            throw error;
+          }
+          const application = applications.get(path);
+          if (application) {
+            assetBytes += application.body.length;
+            if (assetBytes > 512 * 1024 * 1024) deny('REQUEST_LIMIT', 429);
+            response.setHeader('Content-Security-Policy', application.csp);
+            response.setHeader('Content-Type', application.type);
+            response.end(application.body);
+          } else response.end(JSON.stringify(applications.entries));
+          return;
+        }
+      }
       if (controller.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW' && typeof path === 'string' && path.startsWith('/api/approval/')) {
         let route;
         try { route = evaluationBusinessRoute(request.method, path); } catch { deny('NOT_FOUND', 404); }
@@ -188,10 +215,10 @@ export function createEvaluationRequestHandler({ controller, origin }) {
 }
 
 /** Caller owns listen/close and the trusted adapter; this never opens a public port. */
-export function createEvaluationHttpsServer({ key, cert, controller, origin }) {
+export function createEvaluationHttpsServer({ key, cert, controller, origin, applications }) {
   if (!key || !cert) throw new Error('TLS key and certificate are required');
   const server = createServer({ key, cert, minVersion: 'TLSv1.2', handshakeTimeout: 5000, maxHeaderSize: 8192 },
-    createEvaluationRequestHandler({ controller, origin }));
+    createEvaluationRequestHandler({ controller, origin, applications }));
   server.maxConnections = 16;
   server.maxHeadersCount = 24;
   server.headersTimeout = 5000;

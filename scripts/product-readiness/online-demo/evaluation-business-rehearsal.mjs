@@ -26,21 +26,25 @@ async function reservePort() {
  * No platform tables are written directly: upload, start and decisions all use the real APIs.
  * The only SQL is read-only evidence. Reset is owned whole-stack replacement.
  */
-export async function executeEvaluationBusinessRehearsal({ smoke, directory, scenario, maximumMs = 360_000 }, {
-  run, createRuntime = createEvaluationReadRuntime,
+export async function executeEvaluationBusinessRehearsal({ smoke, directory, scenario, maximumMs = 360_000, applicationRoots, browser = false }, {
+  run, createRuntime = createEvaluationReadRuntime, createBrowser,
 } = {}) {
   required(smoke?.status === 'LOCAL_IMAGE_STARTUP_SMOKE_PASSED' && smoke.cleanup?.status === 'PASSED'
     && smoke.build?.status === 'LOCAL_IMAGES_BUILT_NOT_RUNTIME_ACCEPTED'
     && JSON.stringify(smoke.source) === JSON.stringify(smoke.build.source), 'EXACT_SOURCE_SMOKE_REQUIRED');
   required(Number.isInteger(maximumMs) && maximumMs >= 1000 && maximumMs <= 360000, 'BUSINESS_REHEARSAL_BUDGET');
+  required(typeof browser === 'boolean' && (!browser || applicationRoots), 'BROWSER_APPLICATION_ROOTS_REQUIRED');
+  const receiptName = browser ? 'evaluation-browser-rehearsal.json' : 'evaluation-business-rehearsal.json';
+  const resourceName = browser ? 'evaluation-browser-resources.json' : 'evaluation-business-resources.json';
+  let interactions;
   const started = performance.now(); const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), maximumMs);
   let runtime; let agent; let tlsDirectory; let failed = false; let time = 1000;
-  const receipt = { schemaVersion: 1, kind: 'EVALUATION_BUSINESS_API_REHEARSAL', source: smoke.source,
+  const receipt = { schemaVersion: 1, kind: browser ? 'EVALUATION_BROWSER_BUSINESS_REHEARSAL' : 'EVALUATION_BUSINESS_API_REHEARSAL', source: smoke.source,
     status: 'RUNNING', phase: 'INITIALIZE', checks: [], cleanup: null,
-    nonClaims: ['PC_H5_BROWSER_E2E_NOT_EXECUTED', 'PUBLIC_URL_NOT_PUBLISHED',
+    nonClaims: [...(browser ? [] : ['PC_H5_BROWSER_E2E_NOT_EXECUTED']), 'PUBLIC_URL_NOT_PUBLISHED',
       'REAL_PAYMENT_NOT_USED', 'HOST_GATEWAY_EGRESS_NOT_VERIFIED', 'WALL_CLOCK_EXPIRY_NOT_MEASURED'] };
-  const save = () => writeFileSync(resolve(directory, 'evaluation-business-rehearsal.json'),
+  const save = () => writeFileSync(resolve(directory, receiptName),
     `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
   const checkTime = () => required(!stop.signal.aborted && performance.now() - started < maximumMs, 'BUSINESS_REHEARSAL_DEADLINE');
   let origin;
@@ -74,6 +78,7 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
     return result.body.length ? JSON.parse(result.body.toString('utf8')) : null;
   }
   async function enter() {
+    if (interactions) return interactions.enter(runtime.controller.issueInvitation().invitation);
     const session = { cookie: '', view: null };
     session.view = await json(session, 'POST', '/evaluation/invitations/redeem',
       { invitation: runtime.controller.issueInvitation().invitation }, [201]);
@@ -81,7 +86,8 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
     return session;
   }
   async function actor(session, id) {
-    session.view = await json(session, 'POST', '/evaluation/session/actor', { actorId: id });
+    if (interactions) await interactions.actor(session, id);
+    else session.view = await json(session, 'POST', '/evaluation/session/actor', { actorId: id });
     required(session.view.actorId === id, 'ACTOR_SWITCH_FAILED');
   }
   async function uploadAndStart(session, label) {
@@ -89,15 +95,20 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
     const boundary = `Evaluation${randomBytes(16).toString('hex')}`;
     const body = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="evaluation-${label}.txt"\r\nContent-Type: text/plain\r\n\r\n`),
       content, Buffer.from(`\r\n--${boundary}--\r\n`)]);
-    const result = await call(session, 'POST', '/api/approval/attachments', body, `multipart/form-data; boundary=${boundary}`);
-    const attachment = JSON.parse(result.body.toString('utf8'));
-    required(uuid.test(attachment.attachmentId || '') && attachment.sha256 === sha(content), 'REAL_ATTACHMENT_UPLOAD_FAILED');
     const token = randomBytes(8).toString('hex'); const businessKey = `EVAL-${label}-${token}`;
-    const started = await json(session, 'POST', '/api/approval/forms/purchase-payment/versions/1/submissions', {
-      businessKey, values: { amount: Number(scenario.request.amount), supplier: scenario.request.supplier,
-        purchaseOrderReference: `PO-EVAL-${label}-${token}`, attachments: [attachment.attachmentId] },
-      startParameters: scenario.assigneeRules,
-    });
+    let attachment; let started;
+    if (interactions) {
+      ({ attachment, started } = await interactions.uploadAndStart(session, label, content, businessKey, `PO-EVAL-${label}-${token}`));
+    } else {
+      const result = await call(session, 'POST', '/api/approval/attachments', body, `multipart/form-data; boundary=${boundary}`);
+      attachment = JSON.parse(result.body.toString('utf8'));
+      started = await json(session, 'POST', '/api/approval/forms/purchase-payment/versions/1/submissions', {
+        businessKey, values: { amount: Number(scenario.request.amount), supplier: scenario.request.supplier,
+          purchaseOrderReference: `PO-EVAL-${label}-${token}`, attachments: [attachment.attachmentId] },
+        startParameters: scenario.assigneeRules,
+      });
+    }
+    required(uuid.test(attachment.attachmentId || '') && attachment.sha256 === sha(content), 'REAL_ATTACHMENT_UPLOAD_FAILED');
     required(uuid.test(started.instanceId || ''), 'REAL_INSTANCE_START_FAILED');
     const downloaded = await call(session, 'GET', `/api/approval/attachments/${attachment.attachmentId}/content`);
     required(downloaded.body.equals(content), 'ATTACHMENT_CONTENT_MISMATCH');
@@ -110,7 +121,8 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
       const page = await json(session, 'GET', '/api/approval/tasks/pending?limit=20&offset=0');
       const tasks = page.items.filter(task => task.instanceId === instance.instanceId && task.taskDefinitionKey === step.taskDefinitionKey);
       required(tasks.length === 1 && uuid.test(tasks[0].taskId), 'EXACT_CURRENT_TASK_REQUIRED');
-      const result = await json(session, 'POST', `/api/approval/tasks/${tasks[0].taskId}/approve`, { comment: 'Evaluation approved' });
+      const result = interactions ? await interactions.approve(session, instance, step, tasks[0].taskId)
+        : await json(session, 'POST', `/api/approval/tasks/${tasks[0].taskId}/approve`, { comment: 'Evaluation approved' });
       required(result.instanceId === instance.instanceId, 'APPROVAL_INSTANCE_CHANGED');
     }
     const result = await json(session, 'GET', `/api/approval/instances/${instance.instanceId}`);
@@ -118,7 +130,7 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
     required(result.instance?.status === 'COMPLETED', 'INSTANCE_NOT_COMPLETED');
     const timeline = await json(session, 'GET', `/api/approval/instances/${instance.instanceId}/timeline`);
     required(timeline.instanceId === instance.instanceId && Array.isArray(timeline.items) && timeline.items.length > 0, 'AUDIT_TIMELINE_REQUIRED');
-    receipt.checks.push({ check: 'REAL_API_APPROVAL_COMPLETED', instanceId: instance.instanceId,
+    receipt.checks.push({ check: browser ? 'EXISTING_PC_H5_PAGE_APPROVAL_COMPLETED' : 'REAL_API_APPROVAL_COMPLETED', instanceId: instance.instanceId,
       decisions: scenario.expectedWorkflow.reduce((sum, step) => sum + step.actorIds.length, 0), auditEvents: timeline.items.length });
   }
   async function pending(slotId, instanceId) {
@@ -142,17 +154,22 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
     const port = await reservePort(); origin = `https://localhost:${port}`;
     runtime = await createRuntime({ source: smoke.source, backendImage: smoke.build.images.find(image => image.component === 'backend'),
       infrastructure: smoke.infrastructure, archiveSha256: smoke.build.archiveSha256, scenario,
-      record: value => writeFileSync(resolve(directory, 'evaluation-business-resources.json'), `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 }),
+      record: value => writeFileSync(resolve(directory, resourceName), `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 }),
       key, cert, origin, signal: stop.signal, maximumLifetimeMs: maximumMs, sessionTtlMs: 600000,
-      clock: () => time, run, workflow: true });
+      clock: () => time, run, workflow: true, applicationRoots });
     await new Promise((done, fail) => { runtime.server.once('error', fail); runtime.server.listen(port, '127.0.0.1', done); });
     agent = new Agent({ ca: cert, rejectUnauthorized: true, keepAlive: false });
+    if (browser) {
+      const factory = createBrowser || (await import('./evaluation-browser.mjs')).createEvaluationBrowserActions;
+      interactions = await factory({ origin, cert, privateDirectory: tlsDirectory, directory, scenario, signal: stop.signal });
+    }
     const a = await enter(); const b = await enter();
     required(a.cookie !== b.cookie, 'INDEPENDENT_COOKIES_REQUIRED');
     receipt.phase = 'UPLOAD_START_CROSS_ACCESS'; save();
     const instanceA = await uploadAndStart(a, 'A'); const instanceB = await uploadAndStart(b, 'B');
     receipt.created = { a: instanceA, b: instanceB };
     for (const [session, other] of [[a, instanceB], [b, instanceA]]) {
+      if (interactions) await interactions.probeCross(session, other);
       await call(session, 'GET', `/api/approval/instances/${other.instanceId}`, undefined, '', [404]);
       await call(session, 'GET', `/api/approval/attachments/${other.attachmentId}/content`, undefined, '', [404]);
     }
@@ -161,6 +178,7 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
     const bTask = bTasks.items.find(task => task.instanceId === instanceB.instanceId);
     required(bTask && uuid.test(bTask.taskId), 'OTHER_REAL_TASK_REQUIRED');
     await actor(a, 'demo-manager');
+    if (interactions) await interactions.probeCross(a, instanceB, bTask.taskId);
     await json(a, 'POST', `/api/approval/tasks/${bTask.taskId}/approve`, { comment: null }, [400, 403, 404, 409]);
     receipt.checks.push({ check: 'CROSS_SESSION_BUSINESS_IDS_REJECTED', instances: 2, attachments: 2, taskWrite: 1 });
     receipt.phase = 'COMPLETE_A_PAYMENT'; save(); await complete(a, instanceA); await pending('slot-a', instanceA.instanceId);
@@ -169,7 +187,8 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
     const beforeBResources = runtime.snapshot().resources.slots.find(slot => slot.slotId === 'slot-b');
     const oldA = { cookie: a.cookie, view: a.view };
     receipt.phase = 'RESET_A_PRESERVE_B'; save();
-    await call(a, 'POST', '/evaluation/session/end', Buffer.from('{}'), 'application/json', [204]);
+    if (interactions) await interactions.end(a);
+    else await call(a, 'POST', '/evaluation/session/end', Buffer.from('{}'), 'application/json', [204]);
     await call(oldA, 'GET', '/evaluation/session', undefined, '', [401]);
     const afterA = await runtime.payment.snapshot('slot-a', stop.signal); const afterB = await runtime.payment.snapshot('slot-b', stop.signal);
     required(evaluationStableBusinessDigest(beforeB) === evaluationStableBusinessDigest(afterB)
@@ -189,22 +208,28 @@ export async function executeEvaluationBusinessRehearsal({ smoke, directory, sce
     required(evaluationStableBusinessDigest(replacementA) === evaluationStableBusinessDigest(await runtime.payment.snapshot('slot-a', stop.signal)),
       'EXPIRY_CHANGED_REPLACEMENT');
     await call(b, 'GET', '/evaluation/session', undefined, '', [401]);
+    if (interactions) await interactions.verifyExpired(b);
     await json(replacement, 'GET', '/evaluation/session');
     receipt.checksPassed = true;
   } catch (error) {
-    failed = true; receipt.failure = 'EVALUATION_BUSINESS_API_REHEARSAL_FAILED';
+    failed = true; receipt.failure = browser ? 'EVALUATION_BROWSER_REHEARSAL_FAILED' : 'EVALUATION_BUSINESS_API_REHEARSAL_FAILED';
+    try { await interactions?.failure(); } catch { /* Sanitized failure capture must not prevent cleanup. */ }
     // Initialization may create and clean a stack before returning a runtime.
     // Preserve that known cleanup result instead of reporting it was never created.
     if (!runtime) receipt.cleanup = { status: ['PASSED', 'FAILED', 'NOT_CREATED'].includes(error?.cleanupStatus)
       ? error.cleanupStatus : 'UNKNOWN' };
   } finally {
     clearTimeout(timer); agent?.destroy();
+    if (interactions) {
+      try { receipt.browserCleanup = await interactions.dispose(); } catch { receipt.browserCleanup = { status: 'FAILED' }; }
+      if (receipt.browserCleanup.status !== 'PASSED') failed = true;
+    }
     try { receipt.cleanup = runtime ? await runtime.dispose() : receipt.cleanup || { status: 'NOT_CREATED' }; }
     catch { receipt.cleanup = { status: 'FAILED' }; }
     if (tlsDirectory) { try { rmSync(tlsDirectory, { recursive: true, force: true }); } catch { receipt.cleanup.status = 'FAILED'; } }
     receipt.elapsedMs = Math.round(performance.now() - started);
     receipt.status = !failed && receipt.checksPassed && receipt.cleanup.status === 'PASSED'
-      ? 'TWO_SESSION_REAL_BUSINESS_API_RESET_PASSED' : 'FAILED'; save();
+      ? (browser ? 'TWO_BROWSER_PC_H5_BUSINESS_RESET_PASSED' : 'TWO_SESSION_REAL_BUSINESS_API_RESET_PASSED') : 'FAILED'; save();
   }
   if (receipt.status === 'FAILED') throw new Error('EVALUATION_BUSINESS_API_REHEARSAL_FAILED');
   return receipt;

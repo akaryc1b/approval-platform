@@ -1,3 +1,4 @@
+import { createEvaluationApplicationAssets } from './evaluation-applications.mjs';
 import { createEvaluationDockerSlots, evaluationSlotIds } from './evaluation-docker-slots.mjs';
 import { createEvaluationSessions } from './evaluation-sessions.mjs';
 import { createEvaluationPaymentEvidence } from './evaluation-payment-evidence.mjs';
@@ -9,12 +10,15 @@ import { createEvaluationHttpsServer } from './evaluation-http.mjs';
  */
 export async function createEvaluationReadRuntime({ source, backendImage, infrastructure, archiveSha256,
   scenario, record, key, cert, origin, signal, sessionTtlMs = 30 * 60_000,
-  invitationTtlMs = 5 * 60_000, resetBudgetMs = 55_000, maximumLifetimeMs = 40 * 60_000, clock, run, workflow = false } = {}) {
+  invitationTtlMs = 5 * 60_000, resetBudgetMs = 55_000, maximumLifetimeMs = 40 * 60_000, clock, run, workflow = false, applicationRoots } = {}) {
   if (typeof workflow !== 'boolean' || !key || !cert || !(signal === undefined || signal instanceof AbortSignal)
       || !Number.isSafeInteger(maximumLifetimeMs) || maximumLifetimeMs < 100
       || maximumLifetimeMs > 40 * 60_000) {
     throw new Error('EVALUATION_RUNTIME_CONFIGURATION_REQUIRED');
   }
+  if (applicationRoots !== undefined && !workflow) throw new Error('WORKFLOW_APPLICATIONS_REQUIRED');
+  const applications = applicationRoots === undefined ? undefined
+    : createEvaluationApplicationAssets({ source, roots: applicationRoots });
   let adapter; let controller; let server; let disposing; let lifetime;
   const lifetimeStop = new AbortController();
   const operationSignal = signal ? AbortSignal.any([signal, lifetimeStop.signal]) : lifetimeStop.signal;
@@ -44,7 +48,7 @@ export async function createEvaluationReadRuntime({ source, backendImage, infras
         signal: AbortSignal.any([request.signal, operationSignal]) }),
       readPending: workflow ? undefined : request => adapter.readPending(request),
       dispatchBusiness: workflow ? request => adapter.dispatchBusiness(request) : undefined });
-    server = createEvaluationHttpsServer({ key, cert, controller, origin });
+    server = createEvaluationHttpsServer({ key, cert, controller, origin, applications });
     operationSignal.addEventListener('abort', onAbort, { once: true });
     for (const id of evaluationSlotIds) await controller.reset(id);
     if (operationSignal.aborted || controller.snapshot().disabled) throw new Error('EVALUATION_RUNTIME_ABORTED');

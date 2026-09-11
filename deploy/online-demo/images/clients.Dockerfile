@@ -11,7 +11,8 @@ RUN node -e 'const [m,n]=process.versions.node.split(".").map(Number); if(!((m==
 # to each generated client workspace; the source archive has no root lockfile.
 # Do not add an unbounded root install or weaken the PC frozen-lock install.
 # No development identity, role token, tenant or secret is baked into either client.
-ENV VITE_APPROVAL_LOCAL_DEMO=false \
+ENV VITE_APPROVAL_ONLINE_EVALUATION=true \
+    VITE_APPROVAL_LOCAL_DEMO=false \
     VITE_APPROVAL_CONNECTOR=standalone \
     VITE_APPROVAL_API_URL=/api \
     VITE_APPROVAL_H5_API_URL=/api \
@@ -19,6 +20,7 @@ ENV VITE_APPROVAL_LOCAL_DEMO=false \
     VITE_NITRO_MOCK=false
 
 FROM client-tools AS pc-build
+ENV VITE_BASE=/evaluation/pc/
 ARG SOURCE_COMMIT
 ARG SOURCE_TREE
 ARG SOURCE_DATE_EPOCH
@@ -30,6 +32,7 @@ RUN node scripts/upstream/bootstrap-vben.mjs \
       .upstream/vben/apps/web-ele/dist .upstream/vben/pnpm-lock.yaml /out/pc
 
 FROM client-tools AS h5-build
+ENV VITE_APP_PUBLIC_BASE=/evaluation/h5/
 ARG SOURCE_COMMIT
 ARG SOURCE_TREE
 ARG SOURCE_DATE_EPOCH

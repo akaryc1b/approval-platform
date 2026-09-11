@@ -187,6 +187,11 @@ export function createEvaluationBrowserSession(options: Options) {
     }).catch(() => invalidate('EVALUATION_SESSION_REQUIRED'));
     return preparing;
   }
+  async function verify() {
+    await initialize();
+    try { await bounded(signal => verifySession(epoch, signal)); }
+    catch { return invalidate('EVALUATION_SESSION_REQUIRED'); }
+  }
   function view(): EvaluationSessionView {
     if (!session && !terminal) return deny('EVALUATION_SESSION_NOT_READY', 503);
     const value = current(epoch);
@@ -263,7 +268,7 @@ export function createEvaluationBrowserSession(options: Options) {
     try { return await operation; }
     finally { queued -= 1; if (prepared.write) writeQueued = false; }
   }
-  return Object.freeze({ initialize, view, fetch: request,
+  return Object.freeze({ initialize, verify, view, fetch: request,
     dispose() {
       if (terminal) return;
       try { invalidate('EVALUATION_SESSION_CLOSED'); } catch { /* Revocation is already applied. */ }

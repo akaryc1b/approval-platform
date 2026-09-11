@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { executeImageRuntime } from './online-demo/images-runtime.mjs';
 import { selectImageRuntimeScope } from './online-demo/runtime-scope.mjs';
+import { exportEvaluationApplications } from './online-demo/evaluation-application-export.mjs';
 import { executeEvaluationBusinessRehearsal } from './online-demo/evaluation-business-rehearsal.mjs';
 import { executeEvaluationSlotRehearsal } from './online-demo/evaluation-slot-rehearsal.mjs';
 
@@ -33,6 +34,15 @@ try {
       maximumMs: Math.min(360_000, Math.floor(42 * 60_000 - (performance.now() - started))) });
     if (business.status !== 'TWO_SESSION_REAL_BUSINESS_API_RESET_PASSED') throw new Error('BUSINESS_API_REHEARSAL_REQUIRED');
     console.log(business.status);
+    const applications = await exportEvaluationApplications({ smoke: result.receipt });
+    try {
+      const browser = await executeEvaluationBusinessRehearsal({ smoke: result.receipt, directory: result.directory,
+        scenario: JSON.parse(readFileSync(resolve(root, 'config/demo/purchase-payment-golden-path.json'), 'utf8')),
+        applicationRoots: applications.roots, browser: true,
+        maximumMs: Math.min(360_000, Math.floor(42 * 60_000 - (performance.now() - started))) });
+      if (browser.status !== 'TWO_BROWSER_PC_H5_BUSINESS_RESET_PASSED') throw new Error('BROWSER_REHEARSAL_REQUIRED');
+      console.log(browser.status);
+    } finally { applications.dispose(); }
     console.log(`ONLINE_DEMO_SLOT_EVIDENCE=${result.directory}/evaluation-slot-rehearsal.json`);
   }
 } catch (error) {

@@ -25,3 +25,5 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   main { margin: 24px auto; padding: 20px; }
   h1 { font-size: 30px; }
 }
+#application-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+#application-links a { padding: 12px; min-height: 44px; color: inherit; text-underline-offset: 3px; }

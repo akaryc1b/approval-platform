@@ -50,11 +50,16 @@ export function collectStaticArtifacts(directory) {
   if (!files.some(file => file.path === 'index.html')) throw new Error('static build is missing index.html');
   return { files, totalBytes, inventorySha256: digest(JSON.stringify(files)) };
 }
-export function stageStaticArtifacts(component, source, lockPath, output, identity) {
+export function stageStaticArtifacts(component, source, lockPath, output, identity, evaluation) {
   if (!['pc', 'h5'].includes(component)) throw new Error('static component must be pc or h5');
   requireSha(identity.commitSha, 'commitSha');
   requireSha(identity.treeSha, 'treeSha');
   if (!Number.isSafeInteger(identity.epoch) || identity.epoch <= 0) throw new Error('invalid source epoch');
+  if (evaluation !== undefined && (evaluation.enabled !== true
+      || evaluation.basePath !== `/evaluation/${component}/`
+      || Object.keys(evaluation).sort().join(',') !== 'basePath,enabled')) {
+    throw new Error('exact evaluation build activation required');
+  }
   const inventory = collectStaticArtifacts(source);
   const lock = regularFile(lockPath, 16 * 1024 * 1024);
   const target = resolve(output);
@@ -71,6 +76,7 @@ export function stageStaticArtifacts(component, source, lockPath, output, identi
   const metadata = {
     schemaVersion: 1, kind: 'ONLINE_DEMO_STATIC_ARTIFACT_INVENTORY', component, ...identity,
     ...inventory, lockSha256: digest(lock),
+    ...(evaluation ? { evaluation: { enabled: true, basePath: evaluation.basePath } } : {}),
     dependencyResolution: component === 'pc' ? 'FROZEN_LOCKFILE' : 'NON_FROZEN_RESOLVED_LOCK',
     scope: 'PACKAGING_ONLY_NOT_BROWSER_OR_BUSINESS_ACCEPTANCE',
   };
@@ -81,10 +87,14 @@ export function stageStaticArtifacts(component, source, lockPath, output, identi
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     if (process.argv.length !== 6) throw new Error('expected component, dist, lockfile, fresh output');
-    stageStaticArtifacts(...process.argv.slice(2), {
+    const evaluation = process.env.VITE_APPROVAL_ONLINE_EVALUATION === 'true'
+      ? { enabled: true, basePath: process.argv[2] === 'pc' ? process.env.VITE_BASE : process.env.VITE_APP_PUBLIC_BASE }
+      : undefined;
+    const [component, source, lock, output] = process.argv.slice(2);
+    stageStaticArtifacts(component, source, lock, output, {
       commitSha: process.env.SOURCE_COMMIT, treeSha: process.env.SOURCE_TREE,
       epoch: Number(process.env.SOURCE_DATE_EPOCH),
-    });
+    }, evaluation);
   } catch (error) {
     console.error(`ONLINE_DEMO_STATIC_PACKAGING_FAILED: ${error.message}`);
     process.exitCode = 1;
