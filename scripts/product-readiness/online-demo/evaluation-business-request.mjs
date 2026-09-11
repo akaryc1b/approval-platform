@@ -41,7 +41,7 @@ export function evaluationBusinessRoute(method, target) {
     return Object.freeze({ name: 'tasks', write: false });
   }
   requireValue(query === undefined);
-  if (method === 'GET' && new RegExp(`^/api/approval/(?:instances/${uuid}(?:/timeline|/form-snapshot)?|tasks/pending/${uuid}|tasks/${uuid}/(?:form-runtime|delegation)|attachments/${uuid}(?:/content)?)$`, 'u').test(path)) {
+  if (method === 'GET' && new RegExp(`^/api/approval/(?:instances/${uuid}(?:/timeline|/form-snapshot)?|tasks/pending/${uuid}|tasks/${uuid}/(?:form-runtime|delegation|sla)|attachments/${uuid}(?:/content)?)$`, 'u').test(path)) {
     return Object.freeze({ name: path.includes('/attachments/') ? 'attachment-read' : 'read', write: false });
   }
   if (method === 'GET' && /^\/api\/approval\/(?:forms\/purchase-payment\/versions\/1(?:\/runtime)?|ui-schemas\/forms\/purchase-payment\/versions\/1\/latest)$/u.test(path)) {

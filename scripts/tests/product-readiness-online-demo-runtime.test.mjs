@@ -14,3 +14,4 @@ import './product-readiness-online-demo-purchase-form.test.mjs';
 import './product-readiness-online-demo-packaged-stack.test.mjs';
 import './product-readiness-online-demo-applications.test.mjs';
 import './product-readiness-online-demo-entry.test.mjs';
+import './product-readiness-online-demo-task-read-routes.test.mjs';

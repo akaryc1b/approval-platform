@@ -84,7 +84,7 @@ public final class OnlineEvaluationBusinessTicket {
         }
         require(query == null);
         if (method.equals("GET") && path.matches("/api/approval/(?:instances/" + UUID + "(?:/timeline|/form-snapshot)?|tasks/pending/"
-            + UUID + "|tasks/" + UUID + "/(?:form-runtime|delegation)|attachments/" + UUID + "(?:/content)?)")) return Route.READ;
+            + UUID + "|tasks/" + UUID + "/(?:form-runtime|delegation|sla)|attachments/" + UUID + "(?:/content)?)")) return Route.READ;
         if (method.equals("GET") && path.matches("/api/approval/(?:forms/purchase-payment/versions/1(?:/runtime)?"
             + "|ui-schemas/forms/purchase-payment/versions/1/latest)")) return Route.READ;
         if (method.equals("POST") && path.matches("/api/approval/tasks/" + UUID + "/approve")) return Route.APPROVE;
