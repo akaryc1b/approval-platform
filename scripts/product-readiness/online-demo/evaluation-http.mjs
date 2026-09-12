@@ -74,6 +74,7 @@ export function createEvaluationRequestHandler({ controller, origin, application
   if (!controller || typeof controller.redeem !== 'function') throw new Error('session controller required');
   if (applications !== undefined && (!isEvaluationApplicationAssets(applications)
       || controller.businessAccess !== 'PURCHASE_PAYMENT_WORKFLOW')) throw new Error('workflow application registry required');
+  const sessionReads = new Map();
   let active = 0; let windowStart = performance.now(); let requests = 0; let assetRequests = 0; let assetBytes = 0;
   return async (request, response) => {
     response.setHeader('Connection', 'close');
@@ -90,10 +91,31 @@ export function createEvaluationRequestHandler({ controller, origin, application
       response.setHeader('Strict-Transport-Security', 'max-age=31536000');
       if (singleHeader(request, 'host') !== configured.host) deny('HOST_REJECTED', 403);
       const time = performance.now();
-      if (time - windowStart >= 60_000) { requests = 0; assetRequests = 0; assetBytes = 0; windowStart = time; }
+      if (time - windowStart >= 60_000) {
+        requests = 0; assetRequests = 0; assetBytes = 0; sessionReads.clear(); windowStart = time;
+      }
       const staticRequest = request.method === 'GET' && applications?.has(request.url);
-      const overLimit = staticRequest ? ++assetRequests > 1000
-        : ++requests > (controller.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW' ? 240 : 120);
+      // Pre/post identity checks read only this controller's memory, not a business backend.
+      // Reserve a bounded allowance per trusted slot; token/actor/generation rotation cannot refill it.
+      let statusSlot = null;
+      if (controller.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW' && request.method === 'GET'
+          && request.url === '/evaluation/session' && typeof controller.businessBinding === 'function') {
+        try {
+          const binding = controller.businessBinding(cookie(request));
+          if (typeof binding?.slotId === 'string' && /^[a-z][a-z0-9-]{0,63}$/u.test(binding.slotId)) statusSlot = binding.slotId;
+        } catch { /* Invalid credentials keep the general budget and the original authentication checks below. */ }
+      }
+      let overLimit;
+      if (statusSlot !== null) {
+        // The existing controller has at most two configured slots. Never retain a browser-supplied key.
+        if (!sessionReads.has(statusSlot) && sessionReads.size >= 2) deny('REQUEST_LIMIT', 429);
+        const used = sessionReads.get(statusSlot) || 0;
+        sessionReads.set(statusSlot, Math.min(used + 1, 241));
+        overLimit = used >= 240;
+      } else {
+        overLimit = staticRequest ? ++assetRequests > 1000
+          : ++requests > (controller.businessAccess === 'PURCHASE_PAYMENT_WORKFLOW' ? 240 : 120);
+      }
       if (overLimit || active >= 8) deny('REQUEST_LIMIT', 429);
       active += 1; admitted = true;
       for (const name of ['authorization', 'x-tenant-id', 'x-operator-id', 'x-approval-trusted-permissions',
