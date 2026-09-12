@@ -308,6 +308,11 @@ async function retrieve(item: ProcessedTaskItem) {
   }
 }
 
+onLoad((query) => {
+  const tab = query?.tab
+  activeMode.value = tab === 'processed' || tab === 'started' ? tab : 'pending'
+})
+
 onShow(refreshAll)
 </script>
 
