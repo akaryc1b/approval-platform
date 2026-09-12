@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
+import { ensureCjkFontRuntime } from './quick-start/cjk-fonts.mjs';
 import { executeImageRuntime } from './online-demo/images-runtime.mjs';
 import { selectImageRuntimeScope } from './online-demo/runtime-scope.mjs';
 import { exportEvaluationApplications } from './online-demo/evaluation-application-export.mjs';
@@ -17,6 +18,7 @@ try {
   console.log(`ONLINE_DEMO_IMAGE_RUNTIME_SCOPE=${JSON.stringify(scope)}`);
   if (scope.selected) {
     const started = performance.now();
+    ensureCjkFontRuntime();
     const result = await executeImageRuntime(root);
     console.log(result.receipt.status);
     console.log(`ONLINE_DEMO_IMAGE_RUNTIME_EVIDENCE=${result.directory}`);

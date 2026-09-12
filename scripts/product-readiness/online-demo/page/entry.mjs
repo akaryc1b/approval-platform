@@ -124,7 +124,13 @@ export function mountEvaluationPage({ document, fetch, now, setInterval, clearIn
           'X-Evaluation-CSRF': session?.csrfToken || '' },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
-      const result = response.status === 204 ? null : await response.json();
+      let result;
+      if (response.status === 204) {
+        // Complete the native response lifecycle before publishing the reset acknowledgement.
+        const empty = await response.arrayBuffer();
+        if (empty.byteLength !== 0) throw new Error('RESET_RESPONSE_INVALID');
+        result = null;
+      } else result = await response.json();
       if (disposed || version !== revision) return;
       if (!response.ok) {
         const code = typeof result?.error === 'string' ? result.error : 'UNKNOWN';

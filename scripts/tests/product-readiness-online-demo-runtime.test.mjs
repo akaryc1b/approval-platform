@@ -26,3 +26,5 @@ import './product-readiness-online-demo-pc-artifacts.test.mjs';
 import './product-readiness-online-demo-workbench-actions.test.mjs';
 import './product-readiness-online-demo-mobile-actions.test.mjs';
 import './product-readiness-online-demo-session-budget.test.mjs';
+import './product-readiness-online-demo-font-runtime.test.mjs';
+import './product-readiness-online-demo-reset-response.test.mjs';
