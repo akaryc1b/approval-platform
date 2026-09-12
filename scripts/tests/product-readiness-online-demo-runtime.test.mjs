@@ -19,3 +19,4 @@ import './product-readiness-online-demo-evidence-retention.test.mjs';
 import './product-readiness-online-demo-browser-response.test.mjs';
 import './product-readiness-online-demo-wot-components.test.mjs';
 import './product-readiness-online-demo-workflow-retention.test.mjs';
+import './product-readiness-online-demo-reader-lifecycle.test.mjs';

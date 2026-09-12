@@ -11,7 +11,7 @@ const root = resolve(import.meta.dirname, '../..');
 const workflowPath = '.github/workflows/approval-platform-validation.yml';
 const currentSource = readFileSync(resolve(root, workflowPath), 'utf8');
 const priorSha = '041705d7b2bf148658576b9d5b6d01e64e2d4e9d';
-const currentSha = '35f61934083abd086de4833f627568270b91528b';
+const currentSha = '4dc0b527a38dde0bf8057222ab4d82e4fc635c5e';
 const projected = projectReviewedWorkflow(workflowPath, currentSource);
 const pins = {
   'actions/checkout': '11d5960a326750d5838078e36cf38b85af677262',

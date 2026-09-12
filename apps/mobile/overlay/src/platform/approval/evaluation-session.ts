@@ -92,20 +92,21 @@ export function createEvaluationBrowserSession(options: Options) {
     signal.addEventListener('abort', cancel, { once: true });
     const chunks: Uint8Array[] = [];
     let size = 0;
+    let complete = false;
     try {
       while (true) {
         if (signal.aborted) return deny('EVALUATION_REQUEST_CANCELLED', 499);
         const part = await reader.read();
         if (signal.aborted) return deny('EVALUATION_REQUEST_CANCELLED', 499);
-        if (part.done) break;
+        if (part.done) { complete = true; break; }
         size += part.value.byteLength;
         if (size > maximum) return deny('EVALUATION_RESPONSE_LIMIT', 502);
         chunks.push(part.value);
       }
     } finally {
       signal.removeEventListener('abort', cancel);
-      // Cancel an over-limit or interrupted response; release its reader in all cases.
-      await reader.cancel().catch(() => undefined);
+      // Preserve a completed response; cancel only interrupted or rejected bodies.
+      if (!complete) await reader.cancel().catch(() => undefined);
       reader.releaseLock();
     }
     const result = new Uint8Array(size);
