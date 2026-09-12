@@ -23,3 +23,4 @@ import './product-readiness-online-demo-reader-lifecycle.test.mjs';
 import './product-readiness-online-demo-task-entry.test.mjs';
 import './product-readiness-online-demo-native-body.test.mjs';
 import './product-readiness-online-demo-pc-artifacts.test.mjs';
+import './product-readiness-online-demo-workbench-actions.test.mjs';
