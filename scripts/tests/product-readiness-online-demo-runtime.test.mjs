@@ -21,3 +21,4 @@ import './product-readiness-online-demo-wot-components.test.mjs';
 import './product-readiness-online-demo-workflow-retention.test.mjs';
 import './product-readiness-online-demo-reader-lifecycle.test.mjs';
 import './product-readiness-online-demo-task-entry.test.mjs';
+import './product-readiness-online-demo-native-body.test.mjs';

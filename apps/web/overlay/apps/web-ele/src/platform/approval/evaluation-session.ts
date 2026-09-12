@@ -87,6 +87,23 @@ export function createEvaluationBrowserSession(options: Options) {
   }
   async function bytes(response: Response, maximum: number, signal: AbortSignal) {
     if (!response.body) return new Uint8Array(0);
+    // Fixed-length, unencoded network bodies are bounded by HTTP framing itself.
+    // Use the native body loader rather than exposing the raw fetch stream: Blink's
+    // stream Close path also cancels its consumer. Never infer completion from JSON.
+    const length = response.headers.get('Content-Length');
+    const encoding = response.headers.get('Content-Encoding');
+    if (response.type === 'basic' && length !== null
+      && !response.headers.has('Transfer-Encoding') && (!encoding || encoding === 'identity')) {
+      if (!/^(?:0|[1-9][0-9]{0,9})$/u.test(length) || Number(length) > maximum) {
+        await response.body.cancel().catch(() => undefined);
+        return deny('EVALUATION_RESPONSE_LIMIT', 502);
+      }
+      const result = new Uint8Array(await response.arrayBuffer());
+      if (signal.aborted) return deny('EVALUATION_REQUEST_CANCELLED', 499);
+      if (result.byteLength !== Number(length)) return deny('EVALUATION_RESPONSE_INVALID', 502);
+      return result;
+    }
+    // Unframed, encoded and synthetic responses still need incremental byte limits.
     const chunks: Uint8Array[] = [];
     let size = 0;
     // Let the native pipe own the reader through source closure. Do not manually
