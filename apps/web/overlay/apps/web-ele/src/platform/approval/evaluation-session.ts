@@ -86,29 +86,26 @@ export function createEvaluationBrowserSession(options: Options) {
     return session;
   }
   async function bytes(response: Response, maximum: number, signal: AbortSignal) {
-    const reader = response.body?.getReader();
-    if (!reader) return new Uint8Array(0);
-    const cancel = () => { void reader.cancel().catch(() => undefined); };
-    signal.addEventListener('abort', cancel, { once: true });
+    if (!response.body) return new Uint8Array(0);
     const chunks: Uint8Array[] = [];
     let size = 0;
-    let complete = false;
+    // Let the native pipe own the reader through source closure. Do not manually
+    // cancel/release a fetch reader while its network completion is being observed.
     try {
-      while (true) {
-        if (signal.aborted) return deny('EVALUATION_REQUEST_CANCELLED', 499);
-        const part = await reader.read();
-        if (signal.aborted) return deny('EVALUATION_REQUEST_CANCELLED', 499);
-        if (part.done) { complete = true; break; }
-        size += part.value.byteLength;
-        if (size > maximum) return deny('EVALUATION_RESPONSE_LIMIT', 502);
-        chunks.push(part.value);
-      }
-    } finally {
-      signal.removeEventListener('abort', cancel);
-      // Preserve a completed response; cancel only interrupted or rejected bodies.
-      if (!complete) await reader.cancel().catch(() => undefined);
-      reader.releaseLock();
+      await response.body.pipeTo(new WritableStream<Uint8Array>({
+        write(chunk) {
+          if (signal.aborted) return deny('EVALUATION_REQUEST_CANCELLED', 499);
+          if (!(chunk instanceof Uint8Array)) return deny('EVALUATION_RESPONSE_INVALID', 502);
+          size += chunk.byteLength;
+          if (size > maximum) return deny('EVALUATION_RESPONSE_LIMIT', 502);
+          chunks.push(chunk);
+        },
+      }), { signal });
+    } catch (error) {
+      if (signal.aborted) return deny('EVALUATION_REQUEST_CANCELLED', 499);
+      throw error;
     }
+    if (signal.aborted) return deny('EVALUATION_REQUEST_CANCELLED', 499);
     const result = new Uint8Array(size);
     let position = 0;
     for (const chunk of chunks) { result.set(chunk, position); position += chunk.byteLength; }
