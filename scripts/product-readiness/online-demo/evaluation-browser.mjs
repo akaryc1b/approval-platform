@@ -5,6 +5,8 @@ import { resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { evaluationApplicationPaths } from './evaluation-applications.mjs';
 import { evaluationCookie } from './evaluation-http.mjs';
+import { finishEvaluationBrowserResponse, failEvaluationBrowserResponse,
+  evaluationBrowserResponseReady, evaluationBrowserFailureCode } from './evaluation-browser-response.mjs';
 
 const pause = ms => new Promise(done => setTimeout(done, ms));
 const required = (value, code) => { if (!value) throw new Error(code); };
@@ -72,10 +74,14 @@ export async function createEvaluationBrowserActions({ origin, cert, privateDire
     while (performance.now() - start < timeoutMs) {
       required(!signal?.aborted && !spawnFailed && child.exitCode === null && child.signalCode === null, 'BROWSER_STOPPED');
       try { if (await predicate()) return; }
-      catch (error) { if (!['BROWSER_PAGE_EVALUATION_FAILED', 'BROWSER_PROTOCOL_REJECTED'].includes(error.message)) throw error; }
+      catch (error) {
+        if (!['BROWSER_PAGE_EVALUATION_FAILED', 'BROWSER_PROTOCOL_REJECTED'].includes(error.message)) {
+          evidence.failure = { stage, code: evaluationBrowserFailureCode(error.message) }; throw error;
+        }
+      }
       await pause(100);
     }
-    evidence.failure = { stage, code };
+    evidence.failure = { stage, code: evaluationBrowserFailureCode(code) };
     throw new Error(code);
   }
   async function evaluate(session, expression) {
@@ -106,7 +112,11 @@ export async function createEvaluationBrowserActions({ origin, cert, privateDire
   }
   async function response(session, from, method, path, status) {
     let found;
-    await wait(() => { found = session.responses.slice(from).find(item => item.method === method && item.path === path && item.ready); return Boolean(found); },
+    await wait(() => {
+      found = session.responses.slice(from).find(item => item.method === method && item.path === path && item.ready);
+      if (found && found.status !== status) evidence.failureResponse = { method, path, status: found.status, expected: status };
+      return evaluationBrowserResponseReady(found, status);
+    },
       'BROWSER_RESPONSE_MISSING', path.endsWith('/end') ? 65000 : 25000);
     if (found.status !== status) evidence.failureResponse = { method, path, status: found.status, expected: status };
     required(found.status === status, 'BROWSER_BUSINESS_RESPONSE_REJECTED'); return found.data;
@@ -177,22 +187,29 @@ export async function createEvaluationBrowserActions({ origin, cert, privateDire
           session.responses.push(item); session.requests.set(params.requestId, item);
         }
         if (message.method === 'Network.loadingFinished') {
-          const item = session.requests.get(params.requestId); session.requests.delete(params.requestId);
-          if (!item || !Object.hasOwn(item, 'ready')) return;
+          const item = session.requests.get(params.requestId);
+          if (!item || !Object.hasOwn(item, 'ready')) { session.requests.delete(params.requestId); return; }
+          if (item.bodyPending || item.ready) return;
+          item.bodyPending = true;
+          // A completed 204 has no representation; Chromium need not retain a response body.
+          if (item.status === 204) {
+            finishEvaluationBrowserResponse(item, { body: '', base64Encoded: false });
+            session.requests.delete(params.requestId); return;
+          }
           void cdp.send('Network.getResponseBody', { requestId: params.requestId }, sessionId).then(value => {
-            const bytes = Buffer.from(value.body, value.base64Encoded ? 'base64' : 'utf8');
-            if (bytes.length && bytes.length <= 2 * 1024 * 1024) { try { item.data = JSON.parse(bytes.toString('utf8')); } catch { /* Binary attachment, not a JSON record. */ } }
-            item.ready = true;
-          }, () => { item.ready = true; });
+            finishEvaluationBrowserResponse(item, value);
+          }, () => { finishEvaluationBrowserResponse(item, null); }).finally(() => {
+            if (session.requests.get(params.requestId) === item) session.requests.delete(params.requestId);
+          });
         }
         if (message.method === 'Network.loadingFailed') {
           const item = session.requests.get(params.requestId); session.requests.delete(params.requestId);
-          if (item) record({ context: label, method: item.method, path: item.path, status: 'NETWORK_FAILED',
-            canceled: params.canceled === true,
-            reason: ['net::ERR_ABORTED', 'net::ERR_FAILED', 'net::ERR_CONNECTION_RESET',
-              'net::ERR_CONNECTION_CLOSED', 'net::ERR_CONTENT_LENGTH_MISMATCH', 'net::ERR_INCOMPLETE_CHUNKED_ENCODING',
-              'net::ERR_BLOCKED_BY_CLIENT', 'net::ERR_BLOCKED_BY_ADMINISTRATOR', 'net::ERR_TIMED_OUT'].includes(params.errorText)
-              ? params.errorText : 'OTHER_NETWORK_ERROR' });
+          if (item) {
+            // Requests can fail before headers. Include them so the current wait fails promptly.
+            if (!Object.hasOwn(item, 'ready')) { item.status = 0; session.responses.push(item); }
+            record({ context: label, method: item.method, path: item.path,
+              ...failEvaluationBrowserResponse(item, params) });
+          }
         }
       });
       await cdp.send('Page.enable', {}, sessionId); await cdp.send('Runtime.enable', {}, sessionId); await cdp.send('Network.enable', {}, sessionId);
@@ -223,10 +240,15 @@ export async function createEvaluationBrowserActions({ origin, cert, privateDire
       await response(session, from, 'POST', '/evaluation/session/actor', 200); await refresh(session);
     },
     async uploadAndStart(session, label, content, businessKey, purchaseOrderReference) {
-      stage = 'H5_UPLOAD_AND_INITIATE'; await navigate(session, evaluationApplicationPaths.purchase);
-      await fill(session, "document.querySelector('.business-card input')", businessKey);
+      stage = 'H5_UPLOAD_AND_INITIATE'; const fromForm = session.responses.length;
+      await navigate(session, evaluationApplicationPaths.purchase);
       let form;
-      await wait(() => { form = [...session.responses].reverse().find(item => item.path === '/api/approval/forms/purchase-payment/versions/1/runtime' && item.ready && item.status === 200); return Boolean(form); }, 'FORM_RUNTIME_RESPONSE_REQUIRED');
+      await wait(() => {
+        form = session.responses.slice(fromForm).find(item => item.method === 'GET'
+          && item.path === '/api/approval/forms/purchase-payment/versions/1/runtime' && item.ready);
+        return evaluationBrowserResponseReady(form, 200);
+      }, 'FORM_RUNTIME_RESPONSE_REQUIRED');
+      await fill(session, "document.querySelector('.business-card input')", businessKey);
       const field = key => {
         const label = form.data.definition.fields.find(item => item.key === key)?.label;
         required(typeof label === 'string' && label.length <= 200, 'FORM_FIELD_LABEL_REQUIRED');
@@ -282,7 +304,8 @@ export async function createEvaluationBrowserActions({ origin, cert, privateDire
       await screenshot(session, session.label + '-reset'); completed(session, stage);
     },
     async failure() {
-      evidence.failure ??= { stage };
+      // Keep the typed wait/response failure; screenshot capture is supplementary only.
+      evidence.failure = { stage, code: evaluationBrowserFailureCode(evidence.failure?.code) };
       for (const session of sessions) { try { await screenshot(session, session.label + '-failure'); } catch { /* The protocol may already be closed. */ } }
       save();
     },
