@@ -3,6 +3,8 @@ import type { FormRuntimeView } from '@/api/approval/form-types'
 
 import { findStartFormRuntime, submitForm } from '@/api/approval/forms'
 import ApprovalFormRenderer from '@/components/approval/ApprovalFormRenderer.vue'
+import { approvalEvaluationEnabled, getEvaluationBrowserSession } from '@/platform/approval/evaluation-session'
+import { evaluationPurchaseDefaults, evaluationPurchaseForm, prepareEvaluationPurchase } from '@/platform/approval/evaluation-purchase'
 import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
 
 defineOptions({ name: 'ApprovalDynamicForm' })
@@ -11,7 +13,9 @@ definePage({
   style: { navigationBarTitleText: '填写审批表单' },
 })
 
-const runtime = getApprovalRuntimeConfig()
+const evaluation = approvalEvaluationEnabled()
+// Do not read an evaluation identity before the server session has initialized.
+const runtime = evaluation ? null : getApprovalRuntimeConfig()
 const formKey = ref('')
 const version = ref(0)
 const loading = ref(false)
@@ -20,14 +24,16 @@ const errorText = ref('')
 const formRuntime = ref<FormRuntimeView>()
 const formValues = ref<Record<string, unknown>>({})
 const businessKey = ref(`FORM-${Date.now().toString(36).toUpperCase()}`)
-const connectorKey = ref(runtime.connector)
+const connectorKey = ref(evaluation ? 'demo-directory' : runtime?.connector || '')
+const operatorId = ref(runtime?.operatorId || '')
 const financeReviewerRoleCode = ref('FINANCE_REVIEWER')
 const financeApproverPositionCode = ref('FINANCE_APPROVER')
-const maximumFinanceApprovers = ref('20')
+const maximumFinanceApprovers = ref(evaluation ? '2' : '20')
 const showRouting = ref(false)
 const renderer = ref<{ validate: () => string }>()
 
 async function loadForm() {
+  formRuntime.value = undefined
   if (!formKey.value || version.value < 1) {
     errorText.value = '缺少表单版本信息'
     return
@@ -35,8 +41,19 @@ async function loadForm() {
   loading.value = true
   errorText.value = ''
   try {
+    if (evaluation) {
+      if (formKey.value !== evaluationPurchaseForm.formKey || version.value !== evaluationPurchaseForm.version) {
+        throw new Error('试用仅提供采购付款表单。')
+      }
+      const session = getEvaluationBrowserSession()
+      await session.initialize()
+      operatorId.value = session.view().actorId
+      if (operatorId.value !== evaluationPurchaseForm.initiatorId) {
+        throw new Error('请在试用入口切换为申请人后再发起采购。')
+      }
+    }
     formRuntime.value = await findStartFormRuntime(formKey.value, version.value)
-    formValues.value = { ...formRuntime.value.values }
+    formValues.value = { ...formRuntime.value.values, ...(evaluation ? evaluationPurchaseDefaults() : {}) }
   }
   catch (error) {
     errorText.value = error instanceof Error ? error.message : '表单加载失败'
@@ -62,36 +79,40 @@ function validationMessage() {
 
 async function submitDynamicForm() {
   const schema = formRuntime.value?.definition
-  if (!schema || submitting.value) return
-  const message = validationMessage()
-  if (message) {
-    uni.showToast({ title: message, icon: 'none' })
-    return
-  }
-  const confirmed = await new Promise<boolean>((resolve) => {
-    uni.showModal({
-      title: '确认发起审批',
-      content: `业务编号：${businessKey.value.trim()}\n表单版本：v${schema.version}`,
-      confirmText: '发起审批',
-      success: result => resolve(result.confirm),
-      fail: () => resolve(false),
-    })
-  })
-  if (!confirmed) return
-
+  if (!schema || submitting.value || loading.value) return
+  // The confirmation dialog is part of the single-flight operation, including cancellation.
   submitting.value = true
   try {
+    const message = validationMessage()
+    if (message) {
+      uni.showToast({ title: message, icon: 'none' })
+      return
+    }
+    const prepared = evaluation
+      ? prepareEvaluationPurchase(businessKey.value, formValues.value, getEvaluationBrowserSession().view().actorId)
+      : null
+    const confirmed = await new Promise<boolean>((resolve) => {
+      uni.showModal({
+        title: '确认发起审批',
+        content: `业务编号：${businessKey.value.trim()}\n表单版本：v${schema.version}`,
+        confirmText: '发起审批',
+        success: result => resolve(result.confirm),
+        fail: () => resolve(false),
+      })
+    })
+    if (!confirmed) return
+
     const result = await submitForm(
       schema.formKey,
       schema.version,
-      businessKey.value.trim(),
-      formValues.value,
-      {
+      prepared?.businessKey || businessKey.value.trim(),
+      prepared?.values || formValues.value,
+      prepared?.startParameters || {
         connectorKey: connectorKey.value.trim(),
         initiatorUserId: {
           source: connectorKey.value.trim(),
           objectType: 'USER',
-          value: runtime.operatorId,
+          value: operatorId.value,
         },
         financeReviewerRoleCode: financeReviewerRoleCode.value.trim(),
         financeApproverPositionCode: financeApproverPositionCode.value.trim(),
@@ -154,6 +175,9 @@ onLoad((query) => {
       <view class="business-card">
         <text class="section-title">发起信息</text>
         <wd-input v-model="businessKey" label="业务编号" placeholder="必须唯一" clearable />
+        <text v-if="evaluation" class="form-meta">
+          试用金额 12,500.00；使用演示供应商。请填写采购单号，上传 1 至 4 个附件，每个不超过 1020 KiB。
+        </text>
       </view>
 
       <ApprovalFormRenderer
@@ -165,7 +189,7 @@ onLoad((query) => {
         :ui-schema="formRuntime.uiSchema"
       />
 
-      <view class="routing-card">
+      <view v-if="!evaluation" class="routing-card">
         <view class="routing-title" @click="showRouting = !showRouting">
           <view>
             <text class="section-title">审批人解析参数</text>
@@ -178,7 +202,7 @@ onLoad((query) => {
           <wd-input v-model="financeReviewerRoleCode" label="财务审核角色" />
           <wd-input v-model="financeApproverPositionCode" label="财务会签岗位" />
           <wd-input v-model="maximumFinanceApprovers" label="会签人数上限" type="number" />
-          <text class="form-meta">发起人：{{ runtime.operatorId }}</text>
+          <text class="form-meta">发起人：{{ operatorId }}</text>
         </view>
       </view>
     </template>

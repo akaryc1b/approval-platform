@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "recordedOn": "2026-09-05",
+  "source": {
+    "repository": "https://github.com/docker-library/repo-info",
+    "commit": "ce174d3ead7092e28c5c3c9d9cd2c6610fbd3281",
+    "paths": {
+      "maven": "repos/maven/remote/3.9-eclipse-temurin-21.md",
+      "java": "repos/eclipse-temurin/remote/21-jre.md",
+      "node": "repos/node/remote/22-bookworm.md",
+      "nginx": "repos/nginx/remote/stable.md"
+    }
+  },
+  "images": {
+    "maven": "maven:3.9-eclipse-temurin-21@sha256:8f6ac126f7810bb5549c4cd122d2bf0e9cda5bdeb0838aa928f09e779fd8bef8",
+    "java": "eclipse-temurin:21-jre@sha256:7a65df4b22d2de92d4e04056e884f3b9122d70b21e2847fd66084278bd0ce037",
+    "node": "node:22-bookworm@sha256:8a34c4ab3ea2c5cd194f07e317b2a8f09461d3c8b05c4e34c8ccd56d56024c4d",
+    "nginx": "nginx:stable@sha256:d5792f71a9496b833bc08ea834a758c46e2b6a6306c10f4be926f38a656cdc1c"
+  },
+  "verification": "OFFICIAL_REPO_INFO_INDEX_DIGESTS_NOT_IMAGE_BUILD_OR_SECURITY_ACCEPTANCE"
+}

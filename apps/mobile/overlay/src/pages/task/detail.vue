@@ -19,10 +19,15 @@ import { findTaskFormRuntime, resubmitFormTask } from '@/api/approval/forms'
 import { findParticipantTaskSla } from '@/api/approval/sla'
 import ApprovalAssistancePanel from '@/components/approval/ApprovalAssistancePanel.vue'
 import ApprovalFormRenderer from '@/components/approval/ApprovalFormRenderer.vue'
+import { approvalEvaluationEnabled } from '@/platform/approval/evaluation-session'
 
 defineOptions({ name: 'ApprovalTaskDetail' })
 
 definePage({ style: { navigationBarTitleText: '审批详情' } })
+
+const evaluation = approvalEvaluationEnabled()
+// All footer controls must shrink within a phone viewport, including the final approval button.
+const actionButtonStyle = 'width: 100%; min-width: 0; height: 44px; line-height: 44px; padding: 0 8px;'
 
 const taskId = ref('')
 const opinion = ref('')
@@ -278,7 +283,7 @@ onLoad((query) => {
         </view>
       </view>
 
-      <ApprovalAssistancePanel v-if="!revisionTask" :task-id="details.taskId" />
+      <ApprovalAssistancePanel v-if="!evaluation && !revisionTask" :task-id="details.taskId" />
 
       <view class="sla-card">
         <view class="card-title-row">
@@ -364,9 +369,9 @@ onLoad((query) => {
     </template>
 
     <view class="action-bar">
-      <wd-button plain @click="goBack">返回</wd-button>
+      <wd-button block :custom-style="actionButtonStyle" plain @click="goBack">返回</wd-button>
       <view class="action-group">
-        <wd-button
+        <wd-button block :custom-style="actionButtonStyle"
           v-if="revisionTask"
           type="primary"
           :disabled="!details || loading"
@@ -374,21 +379,21 @@ onLoad((query) => {
           @click="submitResubmission"
         >重新提交</wd-button>
         <template v-else>
-          <wd-button
+          <wd-button block :custom-style="actionButtonStyle"
             v-if="transferCandidates.length"
             plain
             :disabled="!details || loading"
             :loading="submitting"
             @click="submitTransfer"
           >转办</wd-button>
-          <wd-button
+          <wd-button block :custom-style="actionButtonStyle"
             type="error"
             plain
             :disabled="!details || loading"
             :loading="submitting"
             @click="submitRejection"
           >驳回</wd-button>
-          <wd-button
+          <wd-button block :custom-style="actionButtonStyle"
             type="primary"
             :disabled="!details || loading"
             :loading="submitting"
@@ -529,6 +534,9 @@ onLoad((query) => {
 }
 
 .action-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  box-sizing: border-box;
   position: fixed;
   z-index: 20;
   right: 0;
@@ -540,6 +548,10 @@ onLoad((query) => {
 }
 
 .action-group {
-  justify-content: flex-end;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 12rpx;
 }
 </style>

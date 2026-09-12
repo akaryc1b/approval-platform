@@ -57,6 +57,100 @@ function requireExactPlan(plan) {
   return payload;
 }
 
+
+/**
+ * The image-job inventory extension moved the unchanged BOM-reading function
+ * from line 73 to 83. This admits that exact source revision only; matching a
+ * regexp expression alone never transfers a historical applicability review.
+ * The original transition plan and its canonical digest remain unchanged.
+ */
+export function resolveReviewedSemgrepTransition(transitionPlan, currentSources) {
+  requireExactPlan(transitionPlan);
+  const prior = transitionPlan.transitions[0];
+  const source = currentSources?.[prior.sourcePath];
+  if (!source || typeof source.content !== 'string'
+      || gitBlobSha(source.content) !== source.blobSha) {
+    throw new Error('current Semgrep source blob drift');
+  }
+  if (source.blobSha === prior.currentSourceBlobSha) {
+    return { transition: structuredClone(prior), sourceEvolution: null };
+  }
+  if (source.blobSha !== 'e91064aac9a4d62115ec5a2bce864289a5d394e0') {
+    throw new Error('current Semgrep source blob drift');
+  }
+  const currentLocation = { startLine: 83, startColumn: 394, endLine: 83, endColumn: 437 };
+  const line = source.content.split(/\r?\n/)[currentLocation.startLine - 1];
+  if (sha256(line) !== prior.currentSourceLineSha256
+      || line.slice(currentLocation.startColumn - 1, currentLocation.endColumn - 1)
+        !== prior.sourceExpression) {
+    throw new Error('reviewed Semgrep source function or expression drift');
+  }
+  const currentFindingId = semgrepFindingId({ ...prior, ...currentLocation });
+  const payload = stable({
+    schemaVersion: 'APPROVAL_REVIEWED_SEMGREP_SOURCE_RELOCATION_V1',
+    priorTransitionPlanCanonicalSha256: transitionPlan.contentSha256,
+    sourcePath: prior.sourcePath,
+    ruleId: prior.ruleId,
+    priorFindingId: prior.currentFindingId,
+    currentFindingId,
+    priorSourceBlobSha: prior.currentSourceBlobSha,
+    currentSourceBlobSha: source.blobSha,
+    priorLocation: prior.currentLocation,
+    currentLocation,
+    sourceLineSha256: prior.currentSourceLineSha256,
+    sourceExpressionSha256: prior.sourceExpressionSha256,
+    semanticReviewRetained: true,
+    dispositionChanged: false,
+  });
+  return {
+    transition: { ...structuredClone(prior), currentFindingId,
+      currentSourceBlobSha: source.blobSha, currentLocation },
+    sourceEvolution: { ...payload, contentSha256: sha256(canonical(payload)) },
+  };
+}
+
+/**
+ * Compare an actual current finding set with its historical identity contract.
+ * Only the proven relocated identity is mapped for that comparison. The input
+ * scanner, current IDs and returned current-set digest are never rewritten.
+ */
+export function reconcileReviewedSemgrepIdentities(
+  scanner, expected, review, transitionPlan, currentSources,
+) {
+  if (!scanner || scanner.scanCompleted !== true || scanner.rawReportRetained !== false
+      || !Array.isArray(scanner.findings) || scanner.findings.length !== scanner.findingCount) {
+    throw new Error('complete current Semgrep identity evidence required');
+  }
+  const ids = Array.from(scanner.findings, finding => {
+    if (finding?.sourceClass !== 'E4_SEMGREP' || !SHA64.test(finding.findingId || '')) {
+      throw new Error('current Semgrep finding identity drift');
+    }
+    return finding.findingId;
+  });
+  if (new Set(ids).size !== ids.length) throw new Error('duplicate current Semgrep identity');
+  const setDigest = values => sha256(`${[...values].sort().join('\n')}\n`);
+  const matches = values => values.length === expected?.findingCount
+    && setDigest(values) === expected.findingSetSha256;
+  if (matches(ids)) return { historicalIds: [...ids], sourceEvolution: null };
+  if (scanner.sourceSnippetRetained !== false) throw new Error('Semgrep source snippet retention prohibited');
+  const resolved = resolveReviewedSemgrepTransition(transitionPlan, currentSources);
+  if (!resolved.sourceEvolution) throw new Error('current Semgrep identity-set drift');
+  const transition = resolved.transition;
+  const decisions = scanner.findings.map(finding => ({
+    sourceClass: finding.sourceClass, findingId: finding.findingId,
+    severityBand: 'UNKNOWN', disposition: 'UNRESOLVED',
+    sourceIdentity: { ...finding, path: finding.path === transition.scannerPath
+      ? transition.sourcePath : finding.path },
+  }));
+  requireTransition(transition, { decisions }, review, currentSources);
+  const historicalIds = ids.map(id => id === transition.currentFindingId
+    ? resolved.sourceEvolution.priorFindingId : id);
+  if (new Set(historicalIds).size !== historicalIds.length || !matches(historicalIds)) {
+    throw new Error('current Semgrep identity-set drift');
+  }
+  return { historicalIds, sourceEvolution: resolved.sourceEvolution };
+}
+
 function requireTransition(transition, intake, review, currentSources) {
   if (transition.sourceClass !== 'E4_SEMGREP') throw new Error('identity transition must be Semgrep-only');
   if (!SHA64.test(transition.historicalFindingId || '') || !SHA64.test(transition.currentFindingId || '')) {
@@ -120,6 +214,7 @@ function requireTransition(transition, intake, review, currentSources) {
   const historicalKey = `${transition.sourceClass}:${transition.historicalFindingId}`;
   const currentKey = `${transition.sourceClass}:${transition.currentFindingId}`;
   const intakeById = new Map((intake.decisions || []).map((item) => [`${item.sourceClass}:${item.findingId}`, item]));
+  if (intakeById.size !== intake.decisions.length) throw new Error('duplicate current intake identity');
   if (intakeById.has(historicalKey)) throw new Error('historical Semgrep identity unexpectedly remains current');
   const current = intakeById.get(currentKey);
   if (!current) throw new Error('current Semgrep identity absent from intake');
@@ -172,11 +267,12 @@ export function applyReviewedFindingsWithIdentityTransitions(
     throw new Error('identity transition I2 review basis mismatch');
   }
 
+  const resolved = resolveReviewedSemgrepTransition(transitionPlan, currentSources);
   const seenHistorical = new Set();
   const seenCurrent = new Set();
   const transitionRecords = [];
   const replacements = new Map();
-  for (const transition of transitionPlan.transitions) {
+  for (const transition of [resolved.transition]) {
     if (seenHistorical.has(transition.historicalFindingId) || seenCurrent.has(transition.currentFindingId)) {
       throw new Error('duplicate Semgrep identity transition');
     }
@@ -241,6 +337,7 @@ export function applyReviewedFindingsWithIdentityTransitions(
     currentReviewedFindingCount: base.reviewedFindingCount,
     relocatedReviewedFindingCount: transitionRecords.length,
     identityTransitions: transitionRecords,
+    ...(resolved.sourceEvolution ? { reviewedSourceRelocations: [resolved.sourceEvolution] } : {}),
     decisions,
   });
   return stable({ ...payload, contentSha256: sha256(canonical(payload)) });

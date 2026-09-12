@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>邀请试用 · Approval Platform</title>
+  <link rel="stylesheet" href="/evaluation/assets/entry.css" integrity="sha256-lUllTKG+CmL8+P+Iuk4chNIR9hLB0DbmN1aC4uRvPXE=" crossorigin="anonymous">
+  <script type="module" src="/evaluation/assets/entry.mjs" integrity="sha256-d6Wulpf+9jSr7A1yqVurT4flDSeexpT7uwJ3AdQ1Owo=" crossorigin="anonymous"></script>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">APPROVAL PLATFORM · 邀请制评估</p>
+    <h1>从一条采购申请开始</h1>
+    <p>这是非生产试用环境。数据仅供体验，请勿输入真实人员、客户或付款信息。</p>
+    <section id="controls" aria-busy="true" aria-label="试用会话">
+      <form id="login">
+        <label for="invitation">一次性邀请</label>
+        <input id="invitation" name="invitation" type="password" required minlength="43" maxlength="43" autocomplete="off" spellcheck="false" disabled>
+        <button type="submit" disabled>进入试用会话</button>
+      </form>
+      <div id="session" hidden>
+        <h2>你的临时会话</h2>
+        <p id="expiry"></p>
+        <label for="actor">体验角色</label>
+        <select id="actor" disabled></select>
+        <p id="business-notice" class="notice">邀请与角色选择已开放验证。采购审批业务入口尚未连接，目前不会执行审批或付款。</p>
+        <button id="applications" type="button" hidden disabled>打开审批页面</button>
+        <nav id="application-links" aria-label="审批页面" hidden></nav>
+        <button id="pending" type="button" hidden disabled>查看当前角色待办</button>
+        <ul id="pending-tasks" aria-label="当前角色待办"></ul>
+        <button id="end" type="button" disabled>结束会话并重置</button>
+      </div>
+      <p id="message" role="status" aria-live="polite">正在核对会话状态…</p>
+      <button id="refresh" type="button" hidden>重新检查会话</button>
+      <noscript><p>请启用 JavaScript 后使用邀请会话。此页面不会提交审批或付款。</p></noscript>
+    </section>
+    <p class="notice">仅限受邀评估 · 非正式 SaaS · 无真实支付</p>
+  </main>
+</body>
+</html>

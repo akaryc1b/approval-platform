@@ -1,3 +1,4 @@
+import { approvalEvaluationEnabled, getEvaluationBrowserSession } from './evaluation-session'
 import {
   approvalLocalDemoEnabled,
   requireApprovalLocalDemoTenant,
@@ -66,6 +67,12 @@ function configuredApiBaseUrl() {
  * during Vite development. Production remains principal-authenticated.
  */
 export function getApprovalRuntimeConfig(): ApprovalRuntimeConfig {
+  if (approvalEvaluationEnabled()) {
+    // Canonical scenario metadata is for rendering, never a browser authority header.
+    const session = getEvaluationBrowserSession().view()
+    return { apiBaseUrl: '/api', connector: 'standalone', connectorKey: 'demo-directory', localDemo: false,
+      operatorId: session.actorId, tenantId: 'demo-purchase-payment' }
+  }
   const localDemo = approvalLocalDemoEnabled()
   const apiBaseUrl = normalizeBaseUrl(
     requiredValue(configuredApiBaseUrl(), 'VITE_APPROVAL_API_URL'),

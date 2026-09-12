@@ -1,0 +1,66 @@
+# Read-only by default. The trusted slot operator may opt in to the bounded workflow.
+server:
+  address: 127.0.0.1
+  servlet:
+    context-path: ""
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 1020KB
+      max-request-size: 1MB
+
+flowable:
+  async-executor-activate: false
+
+approval:
+  security:
+    identity:
+      mode: principal
+    management-permissions:
+      enforced: true
+      trusted-header-name: X-Approval-Trusted-Permissions
+  evaluation:
+    workflow-enabled: ${APPROVAL_EVALUATION_WORKFLOW_ENABLED:false}
+    public-key: ${APPROVAL_EVALUATION_PUBLIC_KEY}
+    generation: ${APPROVAL_EVALUATION_GENERATION}
+  connector:
+    generic:
+      enabled: ${APPROVAL_EVALUATION_WORKFLOW_ENABLED:false}
+      connector-key: demo-directory
+      host-base-uri: http://127.0.0.1:8080
+      callback-uri: http://127.0.0.1:8080/payment-sandbox/v1/events
+      key-id: ${APPROVAL_GENERIC_KEY_ID:}
+      secret: ${APPROVAL_GENERIC_SECRET:}
+      dispatch:
+        enabled: ${APPROVAL_EVALUATION_WORKFLOW_ENABLED:false}
+        fixed-delay: 500ms
+        initial-delay: 1s
+        maximum-delay: 2s
+        maximum-attempts: 100
+        jitter-ratio: 0.0
+    invocation:
+      enabled: false
+    secret-material:
+      enabled: false
+  demo:
+    purchase-payment:
+      enabled: ${APPROVAL_EVALUATION_WORKFLOW_ENABLED:false}
+      sandbox:
+        enabled: ${APPROVAL_EVALUATION_WORKFLOW_ENABLED:false}
+        control-file: /tmp/evaluation-payment-control
+        status-file: /tmp/evaluation-payment-status.json
+        event-allowlist-file: /tmp/evaluation-payment-events
+  migration:
+    execution:
+      enabled: false
+    worker:
+      enabled: false
+    orchestration:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

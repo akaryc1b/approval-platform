@@ -502,7 +502,10 @@ public final class PurchasePaymentDemoSeeder {
     }
 
     private static Instant micros(Instant value) {
+        // pgjdbc rounds OffsetDateTime bindings to microseconds, including second carry.
+        // Use that exact representation on both sides, not a time tolerance or truncation.
         return Objects.requireNonNull(value, "publishedAt must not be null")
+            .plusNanos(500)
             .truncatedTo(ChronoUnit.MICROS);
     }
 

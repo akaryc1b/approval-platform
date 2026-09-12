@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { configureUnibestWot } from './unibest-wot.mjs';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, '../..');
@@ -134,6 +135,7 @@ if (erudaBoundaryMatches !== 1) {
   );
 }
 viteConfig = viteConfig.replace(upstreamErudaBoundary, governedErudaBoundary);
+viteConfig = configureUnibestWot(viteConfig);
 await writeFile(viteConfigPath, viteConfig, 'utf8');
 
 const packagePath = resolve(upstreamDirectory, 'package.json');
