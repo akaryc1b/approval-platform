@@ -24,7 +24,19 @@ ENV VITE_BASE=/evaluation/pc/
 ARG SOURCE_COMMIT
 ARG SOURCE_TREE
 ARG SOURCE_DATE_EPOCH
+# The pinned Vben loader reads .env files, not process.env, for base and app config.
+# Keep this public, literal profile local to the disposable PC build. Turbo already
+# hashes **/.env.*local; upstream defaults and normal builds are not rewritten.
 RUN node scripts/upstream/bootstrap-vben.mjs \
+    && printf '%s\n' \
+      'VITE_BASE=/evaluation/pc/' \
+      'VITE_APPROVAL_ONLINE_EVALUATION=true' \
+      'VITE_APPROVAL_LOCAL_DEMO=false' \
+      'VITE_APPROVAL_CONNECTOR=standalone' \
+      'VITE_APPROVAL_API_URL=/api' \
+      'VITE_GLOB_API_URL=/api' \
+      'VITE_NITRO_MOCK=false' \
+      > .upstream/vben/apps/web-ele/.env.production.local \
     && pnpm --dir .upstream/vben install --frozen-lockfile \
     && pnpm --dir .upstream/vben build:ele \
     && mkdir /out \

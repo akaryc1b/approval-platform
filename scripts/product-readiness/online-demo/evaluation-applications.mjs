@@ -73,11 +73,24 @@ export function createEvaluationApplicationAssets({ source, roots } = {}) {
       staged.push({ path: item.path, body: bytes, type: types.get(extname(item.path)) });
     }
     requireValue(bytesRead === manifest.totalBytes && seen.has('index.html'));
-    const csp = applicationCsp(staged.find(item => item.path === 'index.html').body.toString('utf8'));
+    const html = staged.find(item => item.path === 'index.html').body.toString('utf8');
+    const csp = applicationCsp(html);
     for (const item of staged) {
       const resource = { body: item.body, type: item.type, csp, document: item.path === 'index.html' };
       resources.set(prefix + item.path, resource);
       if (resource.document) resources.set(prefix, resource);
+    }
+    if (component === 'pc') {
+      // Vben emits one versioned config script. Register only the exact URL from
+      // verified HTML, never strip arbitrary request queries or expose root aliases.
+      const aliases = [...html.matchAll(/<script\b[^>]*\ssrc\s*=\s*(["'])([^"'<>]+)\1[^>]*>/giu)]
+        .map(match => match[2]).filter(path => path.startsWith(prefix + '_app.config.js?'));
+      requireValue(aliases.length <= 1);
+      for (const path of aliases) {
+        const resource = resources.get(prefix + '_app.config.js');
+        requireValue(resource && /^\/evaluation\/pc\/_app\.config\.js\?v=[A-Za-z0-9][A-Za-z0-9._-]{0,100}$/u.test(path));
+        resources.set(path, resource);
+      }
     }
   }
   const registry = Object.freeze({ entries: evaluationApplicationPaths,
