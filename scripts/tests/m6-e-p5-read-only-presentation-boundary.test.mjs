@@ -311,7 +311,7 @@ test('GET stays zero-egress while explicit POST remains separate', () => {
   );
   assert.match(
     webDetail,
-    /<ApprovalAssistancePanel v-if="!revisionTask" :task-id="selectedTask\.taskId"\/>/,
+    /<ApprovalAssistancePanel v-if="!evaluation && !revisionTask" :task-id="selectedTask\.taskId"\/>/,
   );
 
   const mobileDetail = text(mobileDetailPath);
@@ -321,6 +321,6 @@ test('GET stays zero-egress while explicit POST remains separate', () => {
   );
   assert.match(
     mobileDetail,
-    /<ApprovalAssistancePanel v-if="!revisionTask" :task-id="details\.taskId" \/>/,
+    /<ApprovalAssistancePanel v-if="!evaluation && !revisionTask" :task-id="details\.taskId" \/>/,
   );
 });

@@ -5,6 +5,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import './workflow-evolution.test.mjs';
+import { projectReviewedWorkflow } from '../security/workflow-evolution.mjs';
 import { verifyWorkflowSupplyChainRemediation } from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';
 import { applyWorkflowSupplyChainReviews } from '../security/m6-pr-e-e3-apply-workflow-supply-chain-reviews.mjs';
 
@@ -14,6 +16,11 @@ const i4ReviewPath = path.join(root, 'docs/m6/m6-pr-e-e3-i4-reviewed-findings.js
 const contractPath = path.join(root, 'docs/m6/M6_PR_E_E3_R2B_WORKFLOW_SUPPLY_CHAIN_REMEDIATION.md');
 const workflowRoot = path.join(root, '.github/workflows');
 const load = (file) => readFileSync(file, 'utf8');
+// Keep historical 43-use/9-job regression fixtures byte-exact. Live 46-use/10-job
+// coverage reads the unprojected workflow in workflow-evolution.test.mjs.
+const historicalWorkflowSource = file => projectReviewedWorkflow(
+  path.relative(root, file).split(path.sep).join('/'), load(file),
+).priorSource;
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const gitBlobSha = (value) => createHash('sha1').update(`blob ${Buffer.byteLength(value)}\0`).update(value).digest('hex');
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -43,7 +50,7 @@ const expectedTargetBlobs = {
 function workflowSnapshot(commitSha = '7'.repeat(40), e4CanonicalSha256 = 'a'.repeat(64)) {
   const workflows = {};
   for (const name of readdirSync(workflowRoot).filter((file) => /\.ya?ml$/.test(file)).sort()) {
-    const content = load(path.join(workflowRoot, name));
+    const content = historicalWorkflowSource(path.join(workflowRoot, name));
     workflows[`.github/workflows/${name}`] = { content, blobSha: gitBlobSha(content) };
   }
   return {
@@ -180,7 +187,7 @@ test('R2B plan binds exact source and target workflow blobs plus all 58 historic
   assert.deepEqual(plan.workflowInventory.targetBlobs, expectedTargetBlobs);
   assert.deepEqual(Object.keys(plan.workflowInventory.sourceBlobs).sort(), Object.keys(plan.workflowInventory.targetBlobs).sort());
   for (const [workflowPath, expected] of Object.entries(plan.workflowInventory.targetBlobs)) {
-    const content = load(path.join(root, workflowPath));
+    const content = historicalWorkflowSource(path.join(root, workflowPath));
     assert.equal(gitBlobSha(content), expected, workflowPath);
     assert.notEqual(expected, plan.workflowInventory.sourceBlobs[workflowPath], workflowPath);
   }

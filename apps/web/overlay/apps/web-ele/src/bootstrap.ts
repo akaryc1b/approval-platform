@@ -17,9 +17,17 @@ import { $t, setupI18n } from '#/locales';
 import { initComponentAdapter } from './adapter/component';
 import { initSetupVbenForm } from './adapter/form';
 import App from './app.vue';
-import { router } from './router';
+import { approvalEvaluationEnabled, getEvaluationBrowserSession } from './platform/approval/evaluation-session';
 
 async function bootstrap(namespace: string) {
+  const evaluation = approvalEvaluationEnabled();
+  if (evaluation) {
+    try { await getEvaluationBrowserSession().initialize(); }
+    catch { window.location.replace('/evaluation'); return; }
+  }
+  const { router } = evaluation
+    ? await import('./platform/approval/evaluation-router')
+    : await import('./router');
   // 初始化组件适配器
   await initComponentAdapter();
 

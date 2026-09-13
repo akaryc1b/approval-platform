@@ -10,6 +10,8 @@ import type {
   UiSection,
 } from '@/api/approval/form-types'
 import { uploadApprovalAttachment } from '@/api/approval/comments'
+import { approvalEvaluationEnabled } from '@/platform/approval/evaluation-session'
+import { chooseEvaluationAttachmentFiles } from '@/platform/approval/evaluation-attachments'
 
 interface SectionEntry { depth: number, section: UiSection }
 
@@ -144,10 +146,29 @@ function removeAttachment(item: FormField, section: UiSection, attachmentId: str
     .filter(file => file.attachmentId !== attachmentId) }
   setValue(item, section, attachmentIds(item).filter(id => id !== attachmentId))
 }
-function chooseFiles(item: FormField, section: UiSection) {
+async function chooseFiles(item: FormField, section: UiSection) {
   if (disabled(item, section) || uploading.value) return
   const remaining = (item.constraints.multiple ? 20 : 1) - attachmentIds(item).length
   if (remaining <= 0) return uni.showToast({ title: '已达到附件数量上限', icon: 'none' })
+  if (approvalEvaluationEnabled()) {
+    const available = Math.min(remaining, 4 - attachmentIds(item).length)
+    if (available <= 0) return uni.showToast({ title: '试用申请最多四个附件', icon: 'none' })
+    uploading.value = true
+    try {
+      const selected = await chooseEvaluationAttachmentFiles(available)
+      for (const file of selected) {
+        if (disabled(item, section)) break
+        const uploaded = await uploadApprovalAttachment(file)
+        if (disabled(item, section)) break
+        uploadedByField.value = { ...uploadedByField.value,
+          [item.key]: [...(uploadedByField.value[item.key] || []), uploaded] }
+        setValue(item, section, [...attachmentIds(item), uploaded.attachmentId])
+      }
+    } catch (error) {
+      uni.showToast({ title: error instanceof Error ? error.message : '附件上传失败', icon: 'none' })
+    } finally { uploading.value = false }
+    return
+  }
   uni.chooseMessageFile({
     count: remaining, type: 'file',
     success: async result => {

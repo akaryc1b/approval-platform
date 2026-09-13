@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import{createHash}from'node:crypto';import{existsSync,mkdtempSync,readFileSync,readdirSync,rmSync}from'node:fs';import os from'node:os';import path from'node:path';import{spawnSync}from'node:child_process';import{fileURLToPath}from'node:url';
+import { projectReviewedWorkflow, reviewedWorkflowDeltas } from './workflow-evolution.mjs';
 const PLUGIN='org.apache.maven.plugins:maven-dependency-plugin:3.11.0',EXPECTED_REACTOR_PROJECTS = 26,SHA=/^[0-9a-f]{40}$/;const PNPM_PACKAGE_METADATA={typescript:{version:'5.9.3',license:'Apache-2.0',source:'https://github.com/microsoft/TypeScript',sourceRef:'v5.9.3',sourceManifestBlobSha:'f7f35370bc8ad447e488e01cd10acbc606549cd8'}};
 const J=f=>JSON.parse(readFileSync(f,'utf8')),H=x=>createHash('sha256').update(x).digest('hex'),S=v=>Array.isArray(v)?v.map(S):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,S(v[k])])):v,C=v=>JSON.stringify(S(v)),B=b=>createHash('sha1').update(`blob ${b.length}\0`).update(b).digest('hex');
 function head(r){let p=process.env.GITHUB_EVENT_PATH;if(p&&existsSync(p)){let s=J(p)?.pull_request?.head?.sha;if(SHA.test(s||''))return s}let s=process.env.M6_PR_E_E2_HEAD_SHA;if(SHA.test(s||''))return s;let g=spawnSync('git',['rev-parse','HEAD'],{cwd:r,encoding:'utf8'});if(!g.status&&SHA.test(g.stdout.trim()))return g.stdout.trim();throw Error('E2 exact head unavailable')}
@@ -23,9 +24,12 @@ export function resolveGitHubActionsEvidence(r){
     for(const item of b.workflowFiles)if(sourceBlobs[item.path]!==item.blobSha)throw Error(`R2B source workflow blob mismatch ${item.path}`);
     targetBlobs=target;
   }
-  const states=[],currentWorkflows=[],acceptedWorkflows=[];
+  const states=[],currentWorkflows=[],acceptedWorkflows=[],evolutions=[];
   for(const item of b.workflowFiles){
-    const raw=readFileSync(path.join(r,item.path)),blobSha=B(raw),state=blobSha===item.blobSha?'SOURCE':targetBlobs&&blobSha===targetBlobs[item.path]?'TARGET':null;
+    const raw=readFileSync(path.join(r,item.path)),blobSha=B(raw);
+    const projection=projectReviewedWorkflow(item.path,raw.toString('utf8'),targetBlobs?.[item.path]??null);
+    const state=blobSha===item.blobSha?'SOURCE':targetBlobs&&projection.priorBlobSha===targetBlobs[item.path]?'TARGET':null;
+    if(projection.evolution)evolutions.push(projection.evolution);
     if(!state)throw Error(`workflow blob drift ${item.path}`);
     states.push(state);
     const currentActions=[],acceptedActions=[];
@@ -48,13 +52,18 @@ export function resolveGitHubActionsEvidence(r){
       acceptedActions.push({declared:priorDeclared,resolvedCommit:ref,mutableRef:true});
     }
     currentWorkflows.push({path:item.path,blobSha,automatic:item.automatic,actions:currentActions});
-    acceptedWorkflows.push({path:item.path,blobSha:item.blobSha,automatic:item.automatic,actions:acceptedActions});
+    // The historical graph excludes only the proven byte-exact appended job.
+    // Current workflow blobs and all current action occurrences remain above.
+    acceptedWorkflows.push({path:item.path,blobSha:item.blobSha,automatic:item.automatic,
+      actions:acceptedActions.slice(0,workflowUses(projection.priorSource).length)});
   }
   const uniqueStates=[...new Set(states)];if(uniqueStates.length!==1)throw Error(`mixed workflow remediation state ${uniqueStates.join(',')}`);
   if(uniqueStates[0]==='SOURCE')return baselineActionEvidence(b,currentWorkflows);
   const accepted=acceptedGraphEvidence(b,acceptedWorkflows),current={workflowCount:currentWorkflows.length,automaticWorkflowCount:currentWorkflows.filter(x=>x.automatic).length,workflows:currentWorkflows,maintenancePullRequests:b.maintenancePullRequests,interpretation:{...b.interpretation,mutableMajorRefsRemainReleaseInputs:false,reviewedImmutableRefsBoundToR2BPlan:true},workflowSecurityState:'R2B_REVIEWED_IMMUTABLE_TARGET',r2bPlanCanonicalSha256:H(C(plan)),acceptedDependencyGraph:accepted};
+  const delta=reviewedWorkflowDeltas(evolutions,currentWorkflows);
+  if(evolutions.length)current.reviewedWorkflowEvolutions=evolutions;
   const external=currentWorkflows.flatMap(x=>x.actions).filter(x=>x.declared.startsWith('actions/'));
-  if(external.length!==43||external.some(x=>x.mutableRef||!SHA.test(x.resolvedCommit||'')||x.versionComment!=='v4'))throw Error('R2B external Action inventory mismatch');
+  if(external.length!==43+delta.actions||external.some(x=>x.mutableRef||!SHA.test(x.resolvedCommit||'')||x.versionComment!=='v4'))throw Error('R2B external Action inventory mismatch');
   return S(current);
 }
 function actions(r){return resolveGitHubActionsEvidence(r)}
@@ -63,8 +72,9 @@ export function acceptedE2GraphProjection(e2){
   if(!accepted)return S({maven:e2.maven,pnpm:e2.pnpm,githubActions:e2.githubActions,limitations:e2.limitations});
   if(e2.githubActions.workflowSecurityState!=='R2B_REVIEWED_IMMUTABLE_TARGET'||accepted.schemaVersion!=='M6_PR_E_E2_ACCEPTED_GITHUB_ACTIONS_GRAPH_V1')throw Error('E2 accepted Action graph state mismatch');
   if(!/^[0-9a-f]{64}$/.test(e2.githubActions.r2bPlanCanonicalSha256||'')||e2.githubActions.workflowCount!==9||e2.githubActions.automaticWorkflowCount!==1)throw Error('E2 R2B target identity mismatch');
+  const delta=reviewedWorkflowDeltas(e2.githubActions.reviewedWorkflowEvolutions,e2.githubActions.workflows);
   const currentExternal=e2.githubActions.workflows.flatMap(x=>x.actions).filter(x=>x.declared.startsWith('actions/'));
-  if(currentExternal.length!==43||currentExternal.some(x=>x.mutableRef!==false||!SHA.test(x.resolvedCommit||'')||x.versionComment!=='v4'))throw Error('E2 R2B current Action state mismatch');
+  if(currentExternal.length!==43+delta.actions||currentExternal.some(x=>x.mutableRef!==false||!SHA.test(x.resolvedCommit||'')||x.versionComment!=='v4'))throw Error('E2 R2B current Action state mismatch');
   const {contentSha256,...payload}=accepted;if(!/^[0-9a-f]{64}$/.test(contentSha256||'')||H(C(payload))!==contentSha256)throw Error('E2 accepted Action graph canonical mismatch');
   if(accepted.githubActions?.workflowCount!==9||accepted.githubActions?.automaticWorkflowCount!==1)throw Error('E2 accepted Action graph inventory mismatch');
   return S({maven:e2.maven,pnpm:e2.pnpm,githubActions:accepted.githubActions,limitations:accepted.limitations});

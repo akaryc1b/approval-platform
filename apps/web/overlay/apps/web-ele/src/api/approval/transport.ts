@@ -1,3 +1,4 @@
+import { approvalEvaluationEnabled, EvaluationClientError, getEvaluationBrowserSession } from '#/platform/approval/evaluation-session';
 import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
 export interface ApprovalApiErrorPayload {
@@ -96,6 +97,19 @@ function prepareHeaders(init: RequestInit) {
 }
 
 export async function approvalFetch(path: string, init: RequestInit = {}) {
+  if (approvalEvaluationEnabled()) {
+    try {
+      const response = await getEvaluationBrowserSession().fetch(path, init);
+      if (!response.ok) throw new ApprovalApiError(response.status, await errorPayload(response),
+        response.headers.get('X-Request-Id') || undefined);
+      return response;
+    } catch (error) {
+      if (error instanceof EvaluationClientError) throw new ApprovalApiError(error.status, {
+        code: error.code, message: error.message, retryable: false,
+      });
+      throw error;
+    }
+  }
   const { headers, requestId } = prepareHeaders(init);
   let response: Response;
   try {

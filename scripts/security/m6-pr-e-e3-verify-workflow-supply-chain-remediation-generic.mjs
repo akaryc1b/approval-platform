@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { reconcileReviewedSemgrepIdentities } from './m6-pr-e-e3-apply-reviewed-findings-with-identity-transitions.mjs';
 
 import { verifyWorkflowSupplyChainRemediation as verifyAcceptedR2B } from './m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';
 
@@ -230,10 +231,26 @@ export function reconcileScannerFindingIdentities(e4) {
   const zizmorIds = scannerIds('zizmor', e4.scanners?.zizmor, accepted.zizmorCurrent.sourceClass);
 
   requireIdentitySet('current Gitleaks', gitleaksIds, expectedCurrent.gitleaks);
-  requireIdentitySet('current Semgrep', semgrepIds, expectedCurrent.semgrep);
+  let historicalSemgrepIds = semgrepIds;
+  let semgrepSourceEvolution = null;
+  if (!identitySetMatches(semgrepIds, expectedCurrent.semgrep)) {
+    const transitionPlan = JSON.parse(readFileSync(new URL(
+      '../../docs/m6/m6-pr-e-e3-r2b-semgrep-finding-identity-transition.json', import.meta.url,
+    ), 'utf8'));
+    const review = JSON.parse(readFileSync(new URL(
+      '../../docs/m6/m6-pr-e-e3-i2-reviewed-findings.json', import.meta.url,
+    ), 'utf8'));
+    const content = readFileSync(new URL('./m6-pr-e-e2-generate-sbom.mjs', import.meta.url), 'utf8');
+    const blobSha = createHash('sha1').update(`blob ${Buffer.byteLength(content)}\0`).update(content).digest('hex');
+    const relocated = reconcileReviewedSemgrepIdentities(e4.scanners.semgrep, expectedCurrent.semgrep,
+      review, transitionPlan, { [transitionPlan.transitions[0].sourcePath]: { content, blobSha } });
+    historicalSemgrepIds = relocated.historicalIds;
+    semgrepSourceEvolution = relocated.sourceEvolution;
+  }
+  requireIdentitySet('current Semgrep', historicalSemgrepIds, expectedCurrent.semgrep);
   requireIdentitySet('current zizmor', zizmorIds, expectedCurrent.zizmor);
   requireIdentitySet('accepted Gitleaks', gitleaksIds, accepted.gitleaks);
-  requireIdentitySet('accepted current Semgrep transition', semgrepIds, accepted.semgrepCurrentAfterAcceptedIdentityTransition);
+  requireIdentitySet('accepted current Semgrep transition', historicalSemgrepIds, accepted.semgrepCurrentAfterAcceptedIdentityTransition);
   requireIdentitySet('accepted current zizmor', zizmorIds, accepted.zizmorCurrent);
 
   const currentScannerCounts = stable({
@@ -253,6 +270,7 @@ export function reconcileScannerFindingIdentities(e4) {
     databaseSnapshotIdentity: identityContract.databaseDriftObservation.databaseSnapshotIdentity,
     databaseSnapshotIdentityAvailability: identityContract.databaseDriftObservation.databaseSnapshotIdentityAvailability,
     ...osvReconciliation,
+    ...(semgrepSourceEvolution ? { reviewedSemgrepSourceRelocations: [semgrepSourceEvolution] } : {}),
     currentFindingSetSha256: {
       gitleaks: findingSetSha256(gitleaksIds),
       osv: osvReconciliation.currentOsvFindingSetSha256,
@@ -272,7 +290,11 @@ export function reconcileScannerFindingIdentities(e4) {
 export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
   const scannerIdentityReconciliation = reconcileScannerFindingIdentities(e4);
   if (scannerIdentityReconciliation.osvIdentityMode === 'ACCEPTED_HISTORICAL_OSV_IDENTITY_SET') {
-    return verifyAcceptedR2B(e4, plan, snapshot);
+    const evidence = verifyAcceptedR2B(e4, plan, snapshot);
+    if (!scannerIdentityReconciliation.reviewedSemgrepSourceRelocations) return evidence;
+    const { contentSha256: ignored, ...priorPayload } = evidence;
+    const payload = stable({ ...priorPayload, scannerIdentityReconciliation });
+    return stable({ ...payload, contentSha256: sha256(canonical(payload)) });
   }
 
   const reconciledPlan = structuredClone(plan);

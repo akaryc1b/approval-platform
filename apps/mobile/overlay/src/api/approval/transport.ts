@@ -1,3 +1,4 @@
+import { approvalEvaluationEnabled, EvaluationClientError, getEvaluationBrowserSession } from '@/platform/approval/evaluation-session'
 import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
 
 export interface MobileApprovalApiErrorPayload {
@@ -98,6 +99,7 @@ export function mobileApprovalRequest<T>(
   path: string,
   options: MobileApprovalRequestOptions = {},
 ) {
+  if (approvalEvaluationEnabled()) return evaluationRequest<T>(path, options)
   const runtime = getApprovalRuntimeConfig()
   const suppliedHeaders = options.header || {}
   const requestId = suppliedHeaders['X-Request-Id']
@@ -139,4 +141,24 @@ export function mobileApprovalRequest<T>(
       })),
     })
   })
+}
+
+async function evaluationRequest<T>(path: string, options: MobileApprovalRequestOptions): Promise<T> {
+  try {
+    const response = await getEvaluationBrowserSession().fetch(path, {
+      method: options.method || 'GET',
+      headers: options.header,
+      body: options.data === undefined ? undefined : JSON.stringify(options.data),
+    })
+    if (options.allowNotFound && response.status === 404) return undefined as T
+    const payload = response.status === 204 ? undefined : await response.json()
+    if (!response.ok) throw mobileApprovalError(payload, response.status,
+      { 'x-request-id': response.headers.get('X-Request-Id') })
+    return payload as T
+  } catch (error) {
+    if (error instanceof EvaluationClientError) throw new MobileApprovalApiError(error.status, {
+      code: error.code, message: error.message, retryable: false,
+    })
+    throw error
+  }
 }

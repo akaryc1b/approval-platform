@@ -109,7 +109,7 @@ public final class ApprovalFormRuntimeService {
             UiSchemaDefinition.START_CONTEXT
         );
         Map<String, Object> values = defaultValues.resolve(form.definition(), operatorId);
-        NormalizedFormData normalized = validator.validate(
+        NormalizedFormData normalized = validator.validateDefaults(
             form.definition(),
             values,
             permissions.requiredFields()

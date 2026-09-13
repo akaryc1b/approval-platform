@@ -17,7 +17,8 @@ const canonical = (value) => JSON.stringify(stable(value));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
 // These markers document the exact generic PR #110 boundary delegated to the
-// byte-identical generic module below. Permanent tests intentionally assert
+// generic module below; its later Semgrep relocation does not alter the OSV
+// policy. Permanent tests intentionally assert
 // that this wrapper cannot hide or weaken those fail-closed semantics.
 const GENERIC_BOUNDARY_MARKERS = [
   'verifyAcceptedR2B',

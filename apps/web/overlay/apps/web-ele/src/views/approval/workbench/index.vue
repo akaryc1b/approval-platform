@@ -55,10 +55,12 @@ import { findTaskDelegation } from '#/api/approval/delegations';
 import { findTaskFormRuntime, resubmitFormTask } from '#/api/approval/forms';
 import ApprovalAssistancePanel from '#/components/approval/ApprovalAssistancePanel.vue';
 import ApprovalFormRenderer from '#/components/approval/ApprovalFormRenderer.vue';
+import { approvalEvaluationEnabled } from '#/platform/approval/evaluation-session';
 
 type WorkbenchTab = 'pending' | 'processed' | 'started';
 type TagType = 'danger' | 'info' | 'primary' | 'success' | 'warning';
 
+const evaluation = approvalEvaluationEnabled();
 const pageSize = 10;
 const activeTab = ref<WorkbenchTab>('pending');
 const currentPage = ref(1);
@@ -84,6 +86,9 @@ const formValues = ref<Record<string, unknown>>({});
 const approvalComment = ref('');
 const transferTargetId = ref('');
 const submitting = ref(false);
+// The footer is rendered before the asynchronous task detail and form have loaded.
+const drawerActionUnavailable = computed(() => !drawerOpen.value || detailLoading.value
+  || Boolean(detailError.value) || !selectedTask.value || submitting.value);
 
 const pageOffset = computed(() => (currentPage.value - 1) * pageSize);
 const revisionTask = computed(() => selectedTask.value?.taskDefinitionKey === 'initiatorRevision');
@@ -234,9 +239,12 @@ async function finishDrawerAction(message: string) {
 
 async function submitApproval() {
   const task = selectedTask.value;
-  if (!task || !await confirmAction('审批确认', '确认同意该审批吗？', '确认同意', 'warning')) return;
+  if (!task || drawerActionUnavailable.value) return;
   submitting.value = true;
   try {
+    if (!await confirmAction('审批确认', '确认同意该审批吗？', '确认同意', 'warning')) return;
+    if (!drawerOpen.value || detailLoading.value || detailError.value
+      || selectedTask.value?.taskId !== task.taskId) return;
     await approveTask(task.taskId, approvalComment.value);
     await finishDrawerAction('审批已同意');
   } catch (error) { ElMessage.error(errorMessage(error)); } finally { submitting.value = false; }
@@ -245,7 +253,7 @@ async function submitApproval() {
 async function submitRejection() {
   const task = selectedTask.value;
   const comment = approvalComment.value.trim();
-  if (!task) return;
+  if (!task || drawerActionUnavailable.value) return;
   if (!comment) { ElMessage.warning('驳回时必须填写原因'); return; }
   if (!await confirmAction('驳回确认', '驳回后将生成发起人修改任务，确认继续吗？', '确认驳回', 'error')) return;
   submitting.value = true;
@@ -264,7 +272,7 @@ function editableFormValues() {
 
 async function submitResubmission() {
   const task = selectedTask.value;
-  if (!task) return;
+  if (!task || drawerActionUnavailable.value) return;
   if (!await confirmAction('重新提交确认', '确认保存允许修改的字段并重新进入审批吗？', '重新提交', 'warning')) return;
   submitting.value = true;
   try {
@@ -280,7 +288,7 @@ async function submitResubmission() {
 async function submitTransfer() {
   const task = selectedTask.value;
   const comment = approvalComment.value.trim();
-  if (!task) return;
+  if (!task || drawerActionUnavailable.value) return;
   if (!transferTargetId.value) { ElMessage.warning('请选择转办人员'); return; }
   if (!comment) { ElMessage.warning('转办时必须填写原因'); return; }
   const candidate = task.transferCandidates?.find(item => item.userId === transferTargetId.value);
@@ -374,7 +382,7 @@ onMounted(refreshWorkbench);
             <ElDescriptionsItem label="代理规则">{{ taskDelegation.delegationRuleId }}</ElDescriptionsItem>
           </template>
         </ElDescriptions>
-        <ApprovalAssistancePanel v-if="!revisionTask" :task-id="selectedTask.taskId"/>
+        <ApprovalAssistancePanel v-if="!evaluation && !revisionTask" :task-id="selectedTask.taskId"/>
         <section v-if="formRuntime" class="detail-section">
           <div class="section-header"><h3>申请表单</h3><ElTag effect="plain">{{ formRuntime.defaultedUiSchema ? '安全默认' : `UI v${formRuntime.uiSchema.version}` }}</ElTag></div>
           <ApprovalFormRenderer v-model="formValues" :field-permissions="formRuntime.fieldPermissions" :required-fields="formRuntime.requiredFields" :readonly="!revisionTask" :schema="formRuntime.definition" :ui-schema="formRuntime.uiSchema"/>
@@ -400,7 +408,7 @@ onMounted(refreshWorkbench);
         <section v-if="!revisionTask && selectedTask.transferCandidates?.length" class="detail-section"><h3>转办人员</h3><ElSelect v-model="transferTargetId" class="full-width" placeholder="从审批人快照中选择"><ElOption v-for="candidate in selectedTask.transferCandidates" :key="candidate.userId" :label="candidate.displayName" :value="candidate.userId"/></ElSelect></section>
         <section class="detail-section"><h3>{{ revisionTask ? '修改说明' : '审批意见' }}</h3><ElInput v-model="approvalComment" :maxlength="2000" :rows="4" show-word-limit type="textarea"/></section>
       </div>
-      <template #footer><div class="drawer-footer"><ElButton @click="drawerOpen = false">取消</ElButton><div class="action-group"><ElButton v-if="revisionTask" :loading="submitting" type="primary" @click="submitResubmission">重新提交</ElButton><template v-else><ElButton v-if="selectedTask?.transferCandidates?.length" :loading="submitting" @click="submitTransfer">转办</ElButton><ElButton :loading="submitting" type="danger" plain @click="submitRejection">驳回</ElButton><ElButton :loading="submitting" type="primary" @click="submitApproval">同意</ElButton></template></div></div></template>
+      <template #footer><div class="drawer-footer"><ElButton @click="drawerOpen = false">取消</ElButton><div class="action-group"><ElButton v-if="revisionTask" :disabled="drawerActionUnavailable" :loading="submitting" type="primary" @click="submitResubmission">重新提交</ElButton><template v-else><ElButton v-if="selectedTask?.transferCandidates?.length" :disabled="drawerActionUnavailable" :loading="submitting" @click="submitTransfer">转办</ElButton><ElButton :disabled="drawerActionUnavailable" :loading="submitting" type="danger" plain @click="submitRejection">驳回</ElButton><ElButton :disabled="drawerActionUnavailable" :loading="submitting" type="primary" @click="submitApproval">同意</ElButton></template></div></div></template>
     </ElDrawer>
   </Page>
 </template>
