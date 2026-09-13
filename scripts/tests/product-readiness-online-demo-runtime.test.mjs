@@ -28,3 +28,5 @@ import './product-readiness-online-demo-mobile-actions.test.mjs';
 import './product-readiness-online-demo-session-budget.test.mjs';
 import './product-readiness-online-demo-font-runtime.test.mjs';
 import './product-readiness-online-demo-reset-response.test.mjs';
+import './product-readiness-online-demo-browser-repeat.test.mjs';
+import './product-readiness-online-demo-screenshot-sequence.test.mjs';

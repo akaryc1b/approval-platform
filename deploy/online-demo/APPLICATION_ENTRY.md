@@ -58,8 +58,8 @@ resources. This is not a public hosting/deployment command.
 ## Verification and provenance
 
 The existing image-runtime CI entry builds once, retains its original signed-read
-and real API/reset rehearsals, then uses the same built images for the browser
-rehearsal. Missing Chromium, mismatched static artifacts, page failures, business
+and real API/reset rehearsals, then runs the complete browser rehearsal twice
+with the same built images and fresh private stacks each time. Missing Chromium, mismatched static artifacts, page failures, business
 failures or cleanup failures fail this stage; there is no passing fallback.
 
 `evaluation-browser.mjs` drives system Chromium through CDP, not Playwright. It
@@ -79,3 +79,40 @@ Unit tests and earlier API-only receipts cannot establish it.
 
 The current change is not evidence of a public URL, production payments, outbound
 abuse controls, wall-clock expiry timing, crash recovery or hosted operation.
+
+## Two clean runs and retained evidence
+
+`online-demo-images-runtime.mjs ci` (or explicit local `run`) requires both
+sequential browser runs to pass. There is no retry-on-failure loop: a failed run,
+failed cleanup, source mismatch, exhausted shared deadline or reused business
+identity prevents aggregate success. The second run starts only after the first
+has returned a passing browser and stack cleanup receipt. Image build and static
+export happen once; the existing 42-minute overall budget is not extended.
+
+The first run keeps the original `evaluation-browser-rehearsal.json` location.
+The second uses a new sibling directory ending in `-browser-repeat-2`, so both
+are covered by the unchanged artifact-upload patterns. The first directory's
+`evaluation-browser-repeat.json` reports `TWO_CLEAN_BROWSER_RUNS_PASSED` only when
+both full runs succeeded, or `FAILED` with the attempted run number otherwise.
+Each run retains its own detailed receipts and sanitized network/action trace.
+A prior summary or browser-receipt directory is never silently overwritten.
+
+Screenshots have monotonic numeric prefixes and exclusive file creation. The
+initial and replacement `A-invited` captures therefore remain separate files.
+The per-image size limit is retained and capture count is bounded at 64 per run.
+These files are functional evidence, not a complete visual/accessibility audit.
+
+## First complete functional baseline
+
+[Validation #1751](https://github.com/akaryc1b/approval-platform/actions/runs/34693376046)
+on `c3739f106b8974a9849ffe8599feee104e95597a` finished successfully, including all
+10 jobs. Its one complete two-browser run reported
+`TWO_BROWSER_PC_H5_BUSINESS_RESET_PASSED` in 118,018 ms. This historical result
+predates the two-clean-run requirement; it is not evidence that the later
+repeatability check has passed.
+
+Artifact `approval-online-images-34693376046` (ID `10298206634`) is 1,041,142 bytes,
+SHA-256 `58347b65844261a7e77e30ff4584ac68a3db3a349b67460f2d3d5d80acbe1621`.
+It records two H5 uploads/submissions, ten visible PC/H5 approval decisions,
+exact signed-sandbox recovery, selected reset, continued operation of the other
+session, controlled expiry, and cleanup. It is loopback-only, not a hosted URL.

@@ -30,6 +30,14 @@ async function run({ selected = true, command = 'ci', fontFailure = false, brows
       assert.ok(options.maximumMs <= 360000);
       return { status: options.browser ? 'TWO_BROWSER_PC_H5_BUSINESS_RESET_PASSED' : 'TWO_SESSION_REAL_BUSINESS_API_RESET_PASSED' };
     },
+    executeEvaluationBrowserRepeat: async (options, { rehearse }) => {
+      assert.equal(rehearse, context.executeEvaluationBusinessRehearsal);
+      assert.equal(options.deadline, 42 * 60_000);
+      for (let ordinal = 1; ordinal <= 2; ordinal++) {
+        await rehearse({ ...options, browser: true, maximumMs: 360000 });
+      }
+      return { status: 'TWO_CLEAN_BROWSER_RUNS_PASSED' };
+    },
     exportEvaluationApplications: async () => { calls.push('export'); return { roots: {}, dispose() { calls.push('dispose'); } }; },
   };
   const body = source.replace(/^#![^\n]*\n/u, '').replace(/^import .*;\n/gmu, '')
@@ -40,7 +48,7 @@ async function run({ selected = true, command = 'ci', fontFailure = false, brows
 
 test('selected execution prepares existing system CJK fonts before images or browser resources', async () => {
   const r = await run();
-  assert.deepEqual(r.calls, ['font', 'images', 'slots', 'api', 'export', 'browser', 'dispose']);
+  assert.deepEqual(r.calls, ['font', 'images', 'slots', 'api', 'export', 'browser', 'browser', 'dispose']);
   assert.equal(r.process.exitCode, 0);
   assert.match(source, /import \{ ensureCjkFontRuntime \} from '\.\/quick-start\/cjk-fonts\.mjs'/u);
 });
@@ -53,7 +61,7 @@ test('font preparation failure cannot become a successful or partially started r
 });
 test('explicit local runs use the same font preparation, without a CI-only browser bypass', async () => {
   const r = await run({ selected: false, command: 'run' });
-  assert.deepEqual(r.calls, ['font', 'images', 'slots', 'api', 'export', 'browser', 'dispose']);
+  assert.deepEqual(r.calls, ['font', 'images', 'slots', 'api', 'export', 'browser', 'browser', 'dispose']);
 });
 test('a later browser failure still closes the exported applications and remains failed', async () => {
   const r = await run({ browserFailure: true });

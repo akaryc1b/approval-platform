@@ -134,7 +134,9 @@ export async function createEvaluationBrowserActions({ origin, cert, privateDire
     await evaluate(session, "(()=>{const e=document.querySelector('#invitation');if(e)e.value='';})()");
     const image = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false }, session.id);
     const bytes = Buffer.from(image.data, 'base64'); required(bytes.length <= 8 * 1024 * 1024, 'BROWSER_SCREENSHOT_LIMIT');
-    const file = 'evaluation-browser-' + name + '.png'; writeFileSync(resolve(directory, file), bytes, { mode: 0o600 });
+    required(evidence.screenshots.length < 64, 'BROWSER_SCREENSHOT_LIMIT');
+    const file = 'evaluation-browser-' + String(evidence.screenshots.length + 1).padStart(3, '0') + '-' + name + '.png';
+    writeFileSync(resolve(directory, file), bytes, { mode: 0o600, flag: 'wx' });
     evidence.screenshots.push(file); save();
   }
   function dispose() {
