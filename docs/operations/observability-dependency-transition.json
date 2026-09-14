@@ -1,0 +1,228 @@
+{
+  "schemaVersion": "APPROVAL_OBSERVABILITY_DEPENDENCY_DELTA_V1",
+  "repository": "akaryc1b/approval-platform",
+  "base": {
+    "commitSha": "ace5a07b305a0b40777f5b9bcce8e81db4d6beb5",
+    "runId": 33702077663,
+    "artifactId": 9873970931,
+    "artifactSha256": "990d9e44fb679c9be67e7d887f3e8b2e6613cf56c5cd7b6e9ff1cd4ca5d9b5f4",
+    "e2ContentSha256": "4c457b196540aac1cb5bd1ba55741494c0df4bc03c454c5b81d1182dcfa48ccd",
+    "graphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94"
+  },
+  "observed": {
+    "commitSha": "22c3b41359d8813daac9e798b1d84f09059ae19e",
+    "runId": 34802810322,
+    "artifactId": 10331049903,
+    "artifactSha256": "af211b6ec1af5be43225aaf51ecaafc1005a5552bf2d34b783f5d347cd608665",
+    "e2ContentSha256": "6e5c05f30f079f6c1f2e44abe2f429e0136f36aec6b359bfdd5636fb8d3e5352",
+    "graphDigest": "27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37"
+  },
+  "directDependencies": [
+    "org.springframework.boot:spring-boot-starter-opentelemetry:4.0.2",
+    "io.micrometer:micrometer-registry-prometheus:1.16.2"
+  ],
+  "addedComponents": [
+    "pkg:maven/com.google.protobuf/protobuf-java@4.32.0?type=jar",
+    "pkg:maven/com.squareup.okhttp3/okhttp-jvm@5.2.1?type=jar",
+    "pkg:maven/com.squareup.okio/okio-jvm@3.16.1?type=jar",
+    "pkg:maven/io.micrometer/context-propagation@1.2.0?type=jar",
+    "pkg:maven/io.micrometer/micrometer-registry-otlp@1.16.2?type=jar",
+    "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+    "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+    "pkg:maven/io.micrometer/micrometer-tracing@1.6.2?type=jar",
+    "pkg:maven/io.opentelemetry.proto/opentelemetry-proto@1.8.0-alpha?type=jar",
+    "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.37.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-api@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-common@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-context@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-exporter-common@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp-common@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-exporter-sender-okhttp@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-extension-trace-propagators@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-sdk-logs@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-sdk-metrics@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.55.0?type=jar",
+    "pkg:maven/io.opentelemetry/opentelemetry-sdk@1.55.0?type=jar",
+    "pkg:maven/io.prometheus/prometheus-metrics-config@1.4.3?type=jar",
+    "pkg:maven/io.prometheus/prometheus-metrics-core@1.4.3?type=jar",
+    "pkg:maven/io.prometheus/prometheus-metrics-exposition-formats@1.4.3?type=jar",
+    "pkg:maven/io.prometheus/prometheus-metrics-exposition-textformats@1.4.3?type=jar",
+    "pkg:maven/io.prometheus/prometheus-metrics-model@1.4.3?type=jar",
+    "pkg:maven/io.prometheus/prometheus-metrics-tracer-common@1.4.3?type=jar",
+    "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.2.21?type=jar",
+    "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.2?type=jar",
+    "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing@4.0.2?type=jar",
+    "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.2?type=jar",
+    "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar"
+  ],
+  "addedEdges": [
+    {
+      "from": "pkg:maven/com.squareup.okhttp3/okhttp-jvm@5.2.1?type=jar",
+      "to": "pkg:maven/com.squareup.okio/okio-jvm@3.16.1?type=jar"
+    },
+    {
+      "from": "pkg:maven/com.squareup.okhttp3/okhttp-jvm@5.2.1?type=jar",
+      "to": "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.2.21?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+      "to": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+      "to": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-registry-otlp@1.16.2?type=jar",
+      "to": "pkg:maven/io.opentelemetry.proto/opentelemetry-proto@1.8.0-alpha?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+      "to": "pkg:maven/io.micrometer/micrometer-core@1.16.2?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+      "to": "pkg:maven/io.prometheus/prometheus-metrics-core@1.4.3?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+      "to": "pkg:maven/io.prometheus/prometheus-metrics-exposition-formats@1.4.3?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+      "to": "pkg:maven/io.prometheus/prometheus-metrics-tracer-common@1.4.3?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+      "to": "pkg:maven/org.jspecify/jspecify@1.0.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+      "to": "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.37.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-extension-trace-propagators@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+      "to": "pkg:maven/org.slf4j/slf4j-api@2.0.17?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.micrometer/micrometer-tracing@1.6.2?type=jar",
+      "to": "pkg:maven/io.micrometer/context-propagation@1.2.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry.proto/opentelemetry-proto@1.8.0-alpha?type=jar",
+      "to": "pkg:maven/com.google.protobuf/protobuf-java@4.32.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry/opentelemetry-api@1.55.0?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-context@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry/opentelemetry-context@1.55.0?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-common@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp-common@1.55.0?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-exporter-common@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.55.0?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp-common@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.55.0?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-exporter-sender-okhttp@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.55.0?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.55.0?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk-logs@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.55.0?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk-metrics@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.opentelemetry/opentelemetry-exporter-sender-okhttp@1.55.0?type=jar",
+      "to": "pkg:maven/com.squareup.okhttp3/okhttp-jvm@5.2.1?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.prometheus/prometheus-metrics-core@1.4.3?type=jar",
+      "to": "pkg:maven/io.prometheus/prometheus-metrics-config@1.4.3?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.prometheus/prometheus-metrics-core@1.4.3?type=jar",
+      "to": "pkg:maven/io.prometheus/prometheus-metrics-model@1.4.3?type=jar"
+    },
+    {
+      "from": "pkg:maven/io.prometheus/prometheus-metrics-exposition-formats@1.4.3?type=jar",
+      "to": "pkg:maven/io.prometheus/prometheus-metrics-exposition-textformats@1.4.3?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/io.micrometer/micrometer-tracing@1.6.2?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.0.2?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing@4.0.2?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-api@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/io.micrometer/micrometer-registry-otlp@1.16.2?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.55.0?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.2?type=jar"
+    },
+    {
+      "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+      "to": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.2?type=jar"
+    }
+  ],
+  "scopeChanges": [
+    {
+      "bomRef": "pkg:maven/org.jetbrains/annotations@17.0.0?type=jar",
+      "from": "test",
+      "to": "runtime"
+    }
+  ],
+  "findingDisposition": "UNRESOLVED_UNTIL_EXPLICIT_FINDING_REVIEW",
+  "releaseBlocked": true
+}
