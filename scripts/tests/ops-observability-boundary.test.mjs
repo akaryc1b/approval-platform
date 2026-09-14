@@ -149,3 +149,5 @@ test('operations documentation separates operator and business notifications', a
   assert.match(alertmanager, /send_resolved: true/);
   assert.match(alertmanager, /group_wait: 30s/);
 });
+
+import './ops-prometheus-rule-runtime.test.mjs';

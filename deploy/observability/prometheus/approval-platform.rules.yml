@@ -63,6 +63,18 @@ groups:
           description: P95 request latency on {{ $labels.instance }} has exceeded two seconds for ten minutes with a minimum traffic floor.
           runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalplatformhighhttpp95latency
 
+      - alert: ApprovalPlatformScrapeMissing
+        expr: absent(up{job="approval-platform"})
+        for: 2m
+        labels:
+          severity: critical
+          owner: approval-platform
+          component: runtime
+        annotations:
+          summary: Approval Platform scrape targets are missing
+          description: No approval-platform scrape target has been present for more than two minutes. Check service discovery and Prometheus configuration.
+          runbook_url: https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/prometheus-rule-validation.md#approvalplatformscrapemissing
+
   - name: approval-platform-workflow-sla
     rules:
       - alert: ApprovalWorkflowOverdueDetected
