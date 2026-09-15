@@ -64,3 +64,43 @@ deterministic delta and lineage rejection tests. The existing permanent E4 test
 imports this suite and runs the real current-graph scanner in CI. Local replay of
 the two retained SBOMs proves graph reconstruction, not a new Maven resolution,
 a new vulnerability scan, or the absence of current vulnerabilities.
+
+## OTel 1.62.0 follow-on graph
+
+The [upgrade manifest](observability-otel-upgrade.json) retains independently
+checked Hygiene artifacts from run `34805063807` (the first observability graph)
+and run `34816893697` (Head `a4f627c4232d76da7bd00c3a3443cf691b3f2c7a`). The latter
+run failed the BOM-order assertion and graph admission, but its actual E2 payload
+was retained and its canonical digest was verified. It is not a passing scanner
+or acceptance baseline.
+
+This second delta changes **16 component versions and 17 edge coordinates** and
+adds the explicit OTel BOM. Fourteen `io.opentelemetry` components move from
+1.55.0 to 1.62.0; `okhttp-jvm` moves from 5.2.1 to 5.3.2, and `okio-jvm` from
+3.16.1 to 3.16.4. All 237 component identities excluding version and all 345
+logical edges are retained. Component scopes/licenses, build plugins, reactor,
+pnpm, accepted Actions and limitations are unchanged. No arbitrary version
+range or group-prefix admission is introduced.
+
+For this exact graph the verifier reconstructs the prior observability graph,
+then applies the unchanged foundation reversal back to the accepted baseline.
+Only cloned evidence is reversed: OSV still receives all **current** components.
+V2 graph lineage binds both manifest hashes, all three graph generations, the
+current commit and current E2 content digest. Original V1 lineage and historical
+pgjdbc evidence remain valid; finding IDs, upstream IDs and aliases must still
+be absent from an actually completed scan before that separate proof can pass.
+
+The BOM assertion now matches the generator's observed order: Flowable, OTel,
+Spring Boot, Testcontainers. Counts, exact coordinates, versions and scopes stay
+strict, and canonical output is still printed before later assertions.
+
+Run `node --test scripts/tests/ops-observability-otel-graph.test.mjs` for the
+53 deterministic rejection, lineage and assertion-callback checks. The existing
+E2 test imports this suite. These tests use synthetic graphs and scanner replies;
+separate offline replay of the retained real E2 documents verifies the actual
+reconstruction, not a fresh resolution or scan. The complete E4 scanner and
+subsequent triage chain must run on the new commit before reporting a CI result.
+
+The upstream baggage advisory `GHSA-rcgg-9c38-7xpx` names 1.62.0 as patched.
+Version alignment and graph admission do not automatically clear either finding,
+other scanner findings, Issue #146, or the release block.
