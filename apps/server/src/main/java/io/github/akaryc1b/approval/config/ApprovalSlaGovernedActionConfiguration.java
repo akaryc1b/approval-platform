@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalSlaActionDispatcher.
 import io.github.akaryc1b.approval.application.port.ApprovalSlaActionStateRecorder;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaActionStateRecorder.ActionStateException;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore.ActionType;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaTimeoutEventRecorder;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaActionStateRecorder;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.time.Clock;
+import java.util.Optional;
 
 @Configuration(proxyBeanMethods = false)
 public class ApprovalSlaGovernedActionConfiguration {
@@ -31,13 +33,18 @@ public class ApprovalSlaGovernedActionConfiguration {
     ApprovalSlaActionDispatcher governedApprovalSlaActionDispatcher(
         @Qualifier("approvalSlaActionDispatcher") ApprovalSlaActionDispatcher fallback,
         ApprovalSlaActionStateRecorder actionState,
-        Clock approvalClock
+        Clock approvalClock,
+        Optional<ApprovalSlaTimeoutEventRecorder> timeoutEvents
     ) {
         return intent -> {
             if (intent.actionType() != ActionType.OVERDUE) {
                 return fallback.dispatch(intent);
             }
             try {
+                if (timeoutEvents.isPresent()) {
+                    timeoutEvents.get().record(intent);
+                    return DispatchResult.succeeded();
+                }
                 actionState.recordOverdue(
                     intent.tenantId(),
                     intent.slaInstanceId(),
