@@ -16,6 +16,7 @@ import io.github.akaryc1b.approval.demo.PurchasePaymentDemoSeeder;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.observability.ObservedApprovalProjectionStore;
 import io.github.akaryc1b.approval.observability.ObservedIdempotencyGuard;
+import io.github.akaryc1b.approval.observability.OutboxBacklogMetrics;
 import io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -70,6 +71,7 @@ import static org.junit.jupiter.api.Assertions.fail;
     properties = {
         "approval.demo.purchase-payment.enabled=true",
         "approval.connector.generic.enabled=false",
+        "approval.observability.outbox.enabled=true",
         "flowable.async-executor-activate=false",
         "management.server.address=127.0.0.1",
         "management.server.port=0",
@@ -108,6 +110,8 @@ class ApprovalBusinessMetricsPostgresTest {
     PlatformTransactionManager transactionManager;
     @Autowired
     MeterRegistry registry;
+    @Autowired
+    OutboxBacklogMetrics backlog;
     @Autowired
     @Qualifier("approvalIdentityContextFilter")
     FilterRegistrationBean<ApprovalIdentityContextFilter> identityFilter;
@@ -180,6 +184,20 @@ class ApprovalBusinessMetricsPostgresTest {
         assertEquals(rollbacks + 2, timed("rolled_back"));
         assertEquals(completions + 1, count("approval.process.completed"));
 
+        long observationDeadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        do {
+            backlog.refresh();
+            if (registry.get("approval.outbox.sample.up").gauge().value() == 1.0d
+                && registry.get("approval.outbox.pending").gauge().value() == 1.0d) {
+                break;
+            }
+            Thread.sleep(20);
+        } while (System.nanoTime() < observationDeadline);
+        assertEquals(1.0d, registry.get("approval.outbox.sample.up").gauge().value());
+        assertEquals(1.0d, registry.get("approval.outbox.pending").gauge().value());
+        assertEquals(0.0d, registry.get("approval.outbox.in.flight").gauge().value());
+        assertEquals(0.0d, registry.get("approval.outbox.dead").gauge().value());
+
         try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
             HttpRequest request = HttpRequest.newBuilder(
                 URI.create("http://127.0.0.1:" + managementPort + "/actuator/prometheus")
@@ -190,6 +208,8 @@ class ApprovalBusinessMetricsPostgresTest {
             assertTrue(response.body().contains("approval_process_completed_total"));
             assertTrue(response.body().contains("approval_task_completed_total"));
             assertTrue(response.body().contains("approval_command_duration_seconds_count"));
+            assertTrue(response.body().contains("approval_outbox_pending"));
+            assertTrue(response.body().contains("approval_outbox_sample_up"));
         }
         registry.getMeters().stream().filter(meter -> meter.getId().getName().startsWith("approval.process.")
             || meter.getId().getName().equals("approval.task.completed")
