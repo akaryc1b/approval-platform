@@ -106,6 +106,14 @@ management:
         http.server.requests: true
       slo:
         http.server.requests: 100ms,250ms,500ms,1s,2s,5s
+  # OTLP metrics and traces are independent exporters. Prometheus stays enabled.
+  otlp:
+    metrics:
+      export:
+        enabled: ${APPROVAL_OTLP_METRICS_ENABLED:false}
+        url: ${APPROVAL_OTLP_METRICS_ENDPOINT:http://127.0.0.1:4318/v1/metrics}
+        connect-timeout: 2s
+        read-timeout: 5s
   tracing:
     sampling:
       probability: ${APPROVAL_TRACING_SAMPLING_PROBABILITY:0.1}
