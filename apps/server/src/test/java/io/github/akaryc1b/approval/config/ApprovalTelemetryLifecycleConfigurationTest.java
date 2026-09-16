@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.micrometer.metrics.autoconfigure.CompositeMeterRegistryAutoConfiguration;
 import org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration;
 import org.springframework.boot.micrometer.metrics.autoconfigure.export.otlp.OtlpMetricsExportAutoConfiguration;
 import org.springframework.boot.micrometer.metrics.autoconfigure.export.prometheus.PrometheusMetricsExportAutoConfiguration;
@@ -115,6 +116,7 @@ class ApprovalTelemetryLifecycleConfigurationTest {
             new ApplicationContextRunner()
                 .withInitializer(new ConfigDataApplicationContextInitializer())
                 .withConfiguration(AutoConfigurations.of(MetricsAutoConfiguration.class,
+                    CompositeMeterRegistryAutoConfiguration.class,
                     PrometheusMetricsExportAutoConfiguration.class, OtlpMetricsExportAutoConfiguration.class))
                 .withPropertyValues("spring.config.location=classpath:/application.yml",
                     "management.metrics.use-global-registry=false",
