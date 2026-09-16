@@ -82,7 +82,7 @@ export function verifyOutboxAlerting({ directory, repositoryRoot, prometheus, pr
     ruleTestGroups: fixture.tests.length,
     ruleAssertions: fixture.tests.reduce((count, group) => count + group.alert_rule_test.length, 0),
     alertmanagerVersion: alertmanagerPin.version, alertmanagerArchiveSha256: alertmanagerPin.sha256, receipt };
-  console.log(JSON.stringify(result));
+  // The caller may inject a unit runner; only the native entrypoint publishes acceptance.
   return result;
 }
 

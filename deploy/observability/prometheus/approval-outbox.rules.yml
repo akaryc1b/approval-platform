@@ -5,7 +5,7 @@
       "rules": [
         {
           "alert": "ApprovalOutboxBacklogHigh",
-          "expr": "((approval_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} + on (job, instance) approval_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"}) > 100)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "expr": "((approval_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} + approval_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"}) > 100)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
           "for": "5m",
           "labels": {
             "severity": "warning",

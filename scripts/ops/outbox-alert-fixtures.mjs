@@ -73,5 +73,19 @@ export function buildOutboxRuleFixtures(ruleFile, document) {
     sample_up: '0x15', pending: '101x15', dead: '1x15', in_flight: '1x15',
     expired_leases: '1x15', oldest_unfinished_age_seconds: '301x15' }),
   [[h[4], 2, a], ...h.slice(0, 4).map(name => [name, 10, []])]);
+  // The two gauges share the same common/target labels. Arithmetic must retain them.
+  scenario('additional deployment labels survive backlog arithmetic and recovery', series({
+    pending: '99x5 0x9', in_flight: '2x5 0x9' }, 'node-a', { cluster: 'cluster-a' }),
+  [[h[0], 4, []], [h[0], 5, a], [h[0], 6, []]]);
+  for (const check of tests.at(-1).alert_rule_test) {
+    for (const expected of check.exp_alerts) expected.exp_labels.cluster = 'cluster-a';
+  }
+  scenario('partial populations from different targets cannot fabricate backlog', [
+    ...series({ pending: '101x15', in_flight: null }),
+    ...series({ pending: null, in_flight: '101x15' }, 'node-b')],
+  [[h[0], 10, []], [h[4], 2, ['node-a', 'node-b']]]);
+  scenario('only the busy replica fires with its original routing labels', [
+    ...series({ pending: '1x15' }), ...series({ pending: '99x15', in_flight: '2x15' }, 'node-b')],
+  [[h[0], 5, ['node-b']], [h[4], 10, []]]);
   return { rule_files: [ruleFile], evaluation_interval: '1m', tests };
 }

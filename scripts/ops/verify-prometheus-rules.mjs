@@ -86,6 +86,7 @@ export function provisionAndVerifyPrometheusRules() {
       prometheus: resolve(directory, promtoolPin.member.replace('/promtool', '/prometheus')),
       runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout),
       verifyArchive: verifyArchiveDigest });
+    console.log(JSON.stringify(outbox)); // Native execution only; fixture runners return data silently.
     return { ...result, outbox };
   } finally {
     rmSync(directory, { recursive: true, force: true });

@@ -27,7 +27,7 @@ test('five operational conditions retain bounded deployment-only labels and runb
     assert.ok(rule.annotations.runbook_url.endsWith('#' + rule.alert.toLowerCase()));
   }
   assert.deepEqual(rules.map(rule => rule.for ?? null), ['5m', '2m', '2m', null, '2m']);
-  assert.match(rules[0].expr, /approval_outbox_pending.*\+ on \(job, instance\) approval_outbox_in_flight/u);
+  assert.match(rules[0].expr, /approval_outbox_pending\{[^}]+\} \+ approval_outbox_in_flight/u);
   assert.doesNotMatch(rules[0].expr, /approval_outbox_(due|expired_leases)/u);
 });
 for (const name of outboxAlertNames) {
@@ -43,8 +43,8 @@ for (const name of outboxAlertNames) {
   });
 }
 test('fixtures cover unavailable, NaN, absence, staleness, replicas, backoff and recovery', () => {
-  assert.equal(fixture.tests.length, 18);
-  assert.equal(new Set(fixture.tests.map(group => group.name)).size, 18);
+  assert.equal(fixture.tests.length, 21);
+  assert.equal(new Set(fixture.tests.map(group => group.name)).size, 21);
   for (const word of ['NaN', 'stale', 'disabled', 'another target', 'not summed', 'future retry', 'recovery', 'subsets']) {
     assert.ok(fixture.tests.some(group => group.name.includes(word)), word);
   }
@@ -105,7 +105,7 @@ function runnerFixture(t, options = {}) {
 }
 test('provisioning fixture uses real-rule tests before downloads and requires a current delivery receipt', t => {
   const f = runnerFixture(t); const result = verifyOutboxAlerting(f.options);
-  assert.equal(result.status, 'OPS_OUTBOX_ALERTS_VERIFIED'); assert.equal(result.ruleTestGroups, 18);
+  assert.equal(result.status, 'OPS_OUTBOX_ALERTS_VERIFIED'); assert.equal(result.ruleTestGroups, 21);
   assert.equal(result.receipt.databaseBusinessChainVerified, false);
   assert.equal(result.receipt.humanNotificationVerified, false);
   assert.deepEqual(f.calls[0].args, ['check', 'rules', ruleFile]);
@@ -129,3 +129,28 @@ for (const receipt of [{ status: 'FAILED' }, { ruleSha256: '0'.repeat(64) }, { c
     const f = runnerFixture(t, { receipt }); assert.throws(() => verifyOutboxAlerting(f.options));
   });
 }
+
+// These assert fixture inventory and driver behavior; native PromQL runs in permanent CI.
+test('native label regressions retain deployment labels and isolate incomplete targets', () => {
+  const labeled = fixture.tests.find(group => group.name.startsWith('additional deployment labels'));
+  assert.ok(labeled);
+  assert.deepEqual(labeled.alert_rule_test.map(check => check.eval_time), ['4m', '5m', '6m']);
+  const expected = labeled.alert_rule_test[1].exp_alerts[0].exp_labels;
+  assert.deepEqual(expected, { job: 'approval-platform', instance: 'node-a', outbox_monitor: 'enabled',
+    application: 'approval-platform', environment: 'test', severity: 'warning', owner: 'approval-platform',
+    component: 'outbox', cluster: 'cluster-a' });
+  assert.ok(labeled.input_series.every(input => input.series.includes('cluster="cluster-a"')));
+  const partial = fixture.tests.find(group => group.name.startsWith('partial populations'));
+  assert.deepEqual(partial.alert_rule_test[0].exp_alerts, []);
+  assert.deepEqual(partial.alert_rule_test[1].exp_alerts.map(alert => alert.exp_labels.instance), ['node-a', 'node-b']);
+  assert.equal(partial.input_series.filter(input => input.series.startsWith('approval_outbox_pending{')).length, 1);
+  assert.equal(partial.input_series.filter(input => input.series.startsWith('approval_outbox_in_flight{')).length, 1);
+  assert.equal(fixture.tests.reduce((total, group) => total + group.alert_rule_test.length, 0), 59);
+});
+test('a mocked runner cannot publish a native acceptance record to the CI log', t => {
+  const f = runnerFixture(t); const messages = [];
+  t.mock.method(console, 'log', (...args) => messages.push(args));
+  const result = verifyOutboxAlerting(f.options);
+  assert.equal(result.status, 'OPS_OUTBOX_ALERTS_VERIFIED');
+  assert.deepEqual(messages, [], 'only the real provisioning entrypoint publishes native results');
+});

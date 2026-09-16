@@ -29,8 +29,13 @@ counts or Alertmanager administration endpoints to application tenants.
 
 These are starting thresholds, not a measured production capacity or payment SLA.
 Due rows and expired leases are subsets; adding them again exaggerates the backlog.
-Rules match on job and instance, without summing repeated snapshots from replicas
-sharing one database. A healthy replica cannot hide another target's missing sample.
+Health joins match on job and instance, without summing repeated snapshots from
+replicas sharing one database. Backlog addition matches the complete shared label
+set of PENDING and IN_FLIGHT, retaining application, environment and other deployment
+labels used for notification grouping. Do not narrow that arithmetic to `on(job,
+instance)`: one-to-one arithmetic would discard its other routing labels. Missing
+series from another target cannot supply the missing half of a queue observation.
+A healthy replica cannot hide another target's missing sample.
 An unreachable target is handled by the original availability rules, not a second
 Outbox sampling alarm. Missing, stale, NaN or incomplete samples mean unknown health.
 A resolved queue alert during sampling loss is not evidence of queue recovery; check
@@ -102,6 +107,10 @@ time; the real notification path uses the immediate DEAD rule. The earlier real
 PostgreSQL backlog tests are separate evidence, not silently relabeled this scenario.
 The normal CI entry executes the checks without adding another workflow or rerunning
 a failed scenario until it passes. Inspect the current run, not only test existence.
+The native entrypoint emits `OPS_OUTBOX_ALERTS_VERIFIED` only after rule evaluation
+and the real delivery rehearsal succeed. Injected unit runners return their fixture
+results without printing native acceptance records. A unit-test status object is
+not notification evidence.
 
 Upstream references: [alert rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/),
 [Alertmanager configuration](https://prometheus.io/docs/alerting/latest/configuration/),
