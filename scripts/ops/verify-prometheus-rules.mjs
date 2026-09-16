@@ -5,6 +5,7 @@ import { chmodSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync }
 import { tmpdir } from 'node:os';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyOutboxAlerting } from './verify-outbox-alerts.mjs';
 
 // Upstream archive identity, not a mutable image tag or a checksum downloaded beside it.
 // Source: https://prometheus.io/download/ (3.13.3 linux-amd64, 2026-09-07).
@@ -73,13 +74,19 @@ export function provisionAndVerifyPrometheusRules() {
       '--max-filesize', String(maximumArchiveBytes), promtoolPin.url, '-o', archive], directory, 120000);
     verifyArchiveDigest(archive, promtoolPin.sha256);
     command(spawnSync, 'tar', ['--extract', '--gzip', '--file', archive, '--directory', directory,
-      '--no-same-owner', '--no-same-permissions', promtoolPin.member], directory, 15000);
+      '--no-same-owner', '--no-same-permissions', promtoolPin.member,
+      promtoolPin.member.replace('/promtool', '/prometheus')], directory, 15000);
     const executable = resolve(directory, promtoolPin.member);
     checked(lstatSync(executable).isFile() && !lstatSync(executable).isSymbolicLink()
       && realpathSync(executable) === executable, 'PROMTOOL_EXECUTABLE_REJECTED');
     chmodSync(executable, 0o700);
     console.log(`OPS_PROMTOOL_ARCHIVE_SHA256=${promtoolPin.sha256}`);
-    return runPromtoolChecks(executable);
+    const result = runPromtoolChecks(executable);
+    const outbox = verifyOutboxAlerting({ directory, repositoryRoot: root, promtool: executable,
+      prometheus: resolve(directory, promtoolPin.member.replace('/promtool', '/prometheus')),
+      runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout),
+      verifyArchive: verifyArchiveDigest });
+    return { ...result, outbox };
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

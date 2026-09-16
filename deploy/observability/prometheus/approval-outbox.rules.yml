@@ -1,0 +1,83 @@
+{
+  "groups": [
+    {
+      "name": "approval-platform-outbox",
+      "rules": [
+        {
+          "alert": "ApprovalOutboxBacklogHigh",
+          "expr": "((approval_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} + on (job, instance) approval_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"}) > 100)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "for": "5m",
+          "labels": {
+            "severity": "warning",
+            "owner": "approval-platform",
+            "component": "outbox"
+          },
+          "annotations": {
+            "summary": "Outbox unfinished backlog exceeds 100 messages",
+            "description": "The unfinished queue on {{ $labels.instance }} has exceeded 100 messages for five minutes. Due and expired-lease counts are subsets, not extra messages.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/outbox-alerting.md#approvaloutboxbackloghigh"
+          }
+        },
+        {
+          "alert": "ApprovalOutboxOldestUnfinished",
+          "expr": "(approval_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 300)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "for": "2m",
+          "labels": {
+            "severity": "warning",
+            "owner": "approval-platform",
+            "component": "outbox"
+          },
+          "annotations": {
+            "summary": "An unfinished Outbox message is older than five minutes",
+            "description": "The oldest unfinished message on {{ $labels.instance }} has remained older than 300 seconds for two minutes. This includes planned backoff; inspect before intervening.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/outbox-alerting.md#approvaloutboxoldestunfinished"
+          }
+        },
+        {
+          "alert": "ApprovalOutboxExpiredLeases",
+          "expr": "(approval_outbox_expired_leases{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 0)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "for": "2m",
+          "labels": {
+            "severity": "warning",
+            "owner": "approval-platform",
+            "component": "outbox"
+          },
+          "annotations": {
+            "summary": "Outbox delivery leases remain expired",
+            "description": "Expired delivery leases on {{ $labels.instance }} have persisted for two minutes. Check worker recovery without changing lease ownership or replaying payments manually.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/outbox-alerting.md#approvaloutboxexpiredleases"
+          }
+        },
+        {
+          "alert": "ApprovalOutboxDeadLetters",
+          "expr": "(approval_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 0)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "labels": {
+            "severity": "critical",
+            "owner": "approval-platform",
+            "component": "outbox"
+          },
+          "annotations": {
+            "summary": "Outbox contains terminal delivery failures",
+            "description": "One or more DEAD messages exist on {{ $labels.instance }}. Inspect the existing delivery evidence; do not reset or replay the queue automatically.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/outbox-alerting.md#approvaloutboxdeadletters"
+          }
+        },
+        {
+          "alert": "ApprovalOutboxMonitoringUnavailable",
+          "expr": "(up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nunless on (job, instance) (\n(approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (approval_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_due{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_expired_leases{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\n)",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "owner": "approval-platform",
+            "component": "outbox"
+          },
+          "annotations": {
+            "summary": "Expected Outbox monitoring is unavailable",
+            "description": "The reachable target {{ $labels.instance }} has no complete fresh Outbox sample. Queue health is unknown, not empty. Check the opt-in setting and observation pool.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/outbox-alerting.md#approvaloutboxmonitoringunavailable"
+          }
+        }
+      ]
+    }
+  ]
+}

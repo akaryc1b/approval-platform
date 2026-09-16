@@ -151,3 +151,4 @@ test('operations documentation separates operator and business notifications', a
 });
 
 import './ops-prometheus-rule-runtime.test.mjs';
+import './ops-outbox-alerting.test.mjs';
