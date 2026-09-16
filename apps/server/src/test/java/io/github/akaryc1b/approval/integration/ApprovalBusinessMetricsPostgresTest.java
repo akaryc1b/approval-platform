@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.integration;
 
 import io.github.akaryc1b.approval.ApprovalPlatformApplication;
 import io.github.akaryc1b.approval.application.PurchasePaymentTaskActionService;
+import io.github.akaryc1b.approval.application.RuntimeBindingEnforcingProjectionStore;
 import io.github.akaryc1b.approval.application.PurchasePaymentTaskActionService.TaskActionCommand;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
@@ -19,6 +20,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.test.annotation.DirtiesContext;
@@ -81,6 +83,9 @@ class ApprovalBusinessMetricsPostgresTest {
     @Autowired
     ApprovalProjectionStore projections;
     @Autowired
+    @Qualifier("approvalProjectionStore")
+    ApprovalProjectionStore rawProjections;
+    @Autowired
     PurchasePaymentTaskActionService actions;
     @Autowired
     IdempotencyGuard guard;
@@ -93,7 +98,8 @@ class ApprovalBusinessMetricsPostgresTest {
 
     @Test
     void realWorkflowRollbackReplayAndPrometheusCountsAgree() throws Exception {
-        assertInstanceOf(ObservedApprovalProjectionStore.class, projections);
+        assertInstanceOf(RuntimeBindingEnforcingProjectionStore.class, projections);
+        assertInstanceOf(ObservedApprovalProjectionStore.class, rawProjections);
         assertInstanceOf(ObservedIdempotencyGuard.class, guard);
         var seeded = state.requireEvidence();
         String tenant = seeded.tenantId();
