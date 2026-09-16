@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.observability;
 
 import io.github.akaryc1b.approval.integration.outbox.OutboxBacklogReader.Snapshot;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -23,10 +24,17 @@ class OutboxBacklogMetricsTest {
     private static final Snapshot BUSY = new Snapshot(NOW, 3, 2, 2, 1, 4, 120.0d);
     private static final Snapshot EMPTY = new Snapshot(NOW, 0, 0, 0, 0, 0, 0.0d);
 
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+    @AfterEach
+    void closeRegistry() {
+        registry.close();
+    }
+
     @Test
     void unknownIsNotZeroAndScrapesNeverReadTheDatabase() {
         AtomicInteger reads = new AtomicInteger();
-        try (var registry = new SimpleMeterRegistry(); var metrics = new OutboxBacklogMetrics(
+        try (var metrics = new OutboxBacklogMetrics(
             () -> { reads.incrementAndGet(); return EMPTY; }, registry, Duration.ofSeconds(5), () -> { })) {
             assertEquals(0.0d, value(registry, "sample.up"));
             assertTrue(Double.isNaN(value(registry, "pending")));
@@ -44,7 +52,7 @@ class OutboxBacklogMetricsTest {
 
     @Test
     void exportsExactIndependentAggregatesWithoutIdentityLabels() {
-        try (var registry = new SimpleMeterRegistry(); var metrics = new OutboxBacklogMetrics(
+        try (var metrics = new OutboxBacklogMetrics(
             () -> BUSY, registry, Duration.ofSeconds(5), () -> { })) {
             metrics.refresh();
             assertEquals(3.0d, value(registry, "pending"));
@@ -60,7 +68,7 @@ class OutboxBacklogMetricsTest {
     @Test
     void failureInvalidatesInsteadOfZeroingAndRecoveryReplacesTheSnapshot() {
         AtomicReference<Snapshot> next = new AtomicReference<>(BUSY);
-        try (var registry = new SimpleMeterRegistry(); var metrics = new OutboxBacklogMetrics(
+        try (var metrics = new OutboxBacklogMetrics(
             () -> { if (next.get() == null) throw new IllegalStateException("sensitive fixture text");
                 return next.get(); }, registry, Duration.ofSeconds(5), () -> { })) {
             metrics.refresh();
@@ -82,7 +90,7 @@ class OutboxBacklogMetricsTest {
     @Test
     void freshnessUsesMonotonicTimeFromReadStartAndExpiresAtTheBoundary() {
         AtomicLong time = new AtomicLong(0);
-        try (var registry = new SimpleMeterRegistry(); var metrics = new OutboxBacklogMetrics(
+        try (var metrics = new OutboxBacklogMetrics(
             () -> BUSY, registry, Duration.ofSeconds(5), () -> { }, time::get)) {
             metrics.refresh();
             time.set(Duration.ofSeconds(9).toNanos());
@@ -97,7 +105,7 @@ class OutboxBacklogMetricsTest {
     @Test
     void anOverlongReadCannotManufactureFreshData() {
         AtomicLong time = new AtomicLong(0);
-        try (var registry = new SimpleMeterRegistry(); var metrics = new OutboxBacklogMetrics(
+        try (var metrics = new OutboxBacklogMetrics(
             () -> { time.set(Duration.ofSeconds(11).toNanos()); return BUSY; },
             registry, Duration.ofSeconds(5), () -> { }, time::get)) {
             metrics.refresh();
@@ -112,7 +120,7 @@ class OutboxBacklogMetricsTest {
         CountDownLatch release = new CountDownLatch(1);
         AtomicInteger reads = new AtomicInteger();
         AtomicInteger closes = new AtomicInteger();
-        try (var registry = new SimpleMeterRegistry(); var executor = Executors.newSingleThreadExecutor();
+        try (var executor = Executors.newSingleThreadExecutor();
             var metrics = new OutboxBacklogMetrics(() -> {
                 reads.incrementAndGet(); entered.countDown(); await(release); return BUSY;
             }, registry, Duration.ofSeconds(5), () -> { closes.incrementAndGet(); release.countDown(); })) {
@@ -137,7 +145,7 @@ class OutboxBacklogMetricsTest {
     void actualBackgroundWorkerStartsOnceAndIsClosed() throws Exception {
         CountDownLatch observed = new CountDownLatch(1);
         AtomicInteger reads = new AtomicInteger();
-        try (var registry = new SimpleMeterRegistry(); var metrics = new OutboxBacklogMetrics(
+        try (var metrics = new OutboxBacklogMetrics(
             () -> { reads.incrementAndGet(); observed.countDown(); return EMPTY; },
             registry, Duration.ofSeconds(5), () -> { })) {
             metrics.start();
@@ -152,11 +160,9 @@ class OutboxBacklogMetricsTest {
 
     @Test
     void rejectsInvalidIntervalsAndInconsistentAggregates() {
-        try (var registry = new SimpleMeterRegistry()) {
-            for (Duration interval : new Duration[] { Duration.ZERO, Duration.ofSeconds(4), Duration.ofMinutes(6) }) {
-                assertThrows(IllegalArgumentException.class, () -> new OutboxBacklogMetrics(
-                    () -> EMPTY, registry, interval, () -> { }));
-            }
+        for (Duration interval : new Duration[] { Duration.ZERO, Duration.ofSeconds(4), Duration.ofMinutes(6) }) {
+            assertThrows(IllegalArgumentException.class, () -> new OutboxBacklogMetrics(
+                () -> EMPTY, registry, interval, () -> { }));
         }
         assertThrows(IllegalArgumentException.class, () -> new Snapshot(NOW, -1, 0, 0, 0, 0, 0));
         assertThrows(IllegalArgumentException.class, () -> new Snapshot(NOW, 1, 2, 0, 0, 0, 0));
