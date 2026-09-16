@@ -9,20 +9,27 @@ import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.Inst
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.ProjectionConflictException;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalRequestEvidenceProvider;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.demo.PurchasePaymentDemoSeedState;
 import io.github.akaryc1b.approval.demo.PurchasePaymentDemoSeeder;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.observability.ObservedApprovalProjectionStore;
 import io.github.akaryc1b.approval.observability.ObservedIdempotencyGuard;
+import io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalManagementPort;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -33,17 +40,25 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter.OPERATOR_ID_HEADER;
+import static io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter.REQUEST_ID_HEADER;
+import static io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter.TENANT_ID_HEADER;
+import static io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter.TRACE_ID_HEADER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /** Real PostgreSQL, Flowable, application services, transaction rollback and internal scrape. */
 @Testcontainers
@@ -93,6 +108,11 @@ class ApprovalBusinessMetricsPostgresTest {
     PlatformTransactionManager transactionManager;
     @Autowired
     MeterRegistry registry;
+    @Autowired
+    @Qualifier("approvalIdentityContextFilter")
+    FilterRegistrationBean<ApprovalIdentityContextFilter> identityFilter;
+    @Autowired
+    ApprovalRequestEvidenceProvider requestEvidence;
     @LocalManagementPort
     int managementPort;
 
@@ -115,8 +135,16 @@ class ApprovalBusinessMetricsPostgresTest {
 
         TaskProjection first = pending(tenant, instanceId);
         TaskActionCommand firstCommand = command(tenant, first);
+        // Missing identity must still be rejected before any business callback executes.
+        var unidentified = new MockHttpServletRequest("POST", "/api/approval/tasks/" + first.taskId() + "/approve");
+        var denied = new MockHttpServletResponse();
+        identityFilter.getFilter().doFilter(unidentified, denied,
+            (request, response) -> fail("unidentified request must not reach the business service"));
+        assertEquals(401, denied.getStatus());
+        assertThrows(IllegalStateException.class, requestEvidence::current);
+
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            actions.approve(firstCommand);
+            approveWithRequestEvidence(firstCommand);
             assertEquals(tasks, count("approval.task.completed"), "uncommitted writes must be invisible");
             status.setRollbackOnly();
         });
@@ -126,13 +154,13 @@ class ApprovalBusinessMetricsPostgresTest {
         assertEquals(rollbacks + 1, timed("rolled_back"));
 
         // Reuse the rolled-back idempotency key: its database transaction did not commit.
-        actions.approve(firstCommand);
+        approveWithRequestEvidence(firstCommand);
         int decisions = 1;
         TaskActionCommand last = firstCommand;
         while (projections.findInstance(tenant, instanceId).orElseThrow().status() != InstanceStatus.COMPLETED) {
             assertTrue(decisions < 8, "deterministic workflow must finish within eight decisions");
             last = command(tenant, pending(tenant, instanceId));
-            actions.approve(last);
+            approveWithRequestEvidence(last);
             decisions++;
         }
         assertEquals(5, decisions);
@@ -140,7 +168,7 @@ class ApprovalBusinessMetricsPostgresTest {
         assertEquals(completions + 1, count("approval.process.completed"));
         assertEquals(commands + 5, timed("committed"));
 
-        actions.approve(last);
+        approveWithRequestEvidence(last);
         assertEquals(tasks + 5, count("approval.task.completed"), "cached response is not another transition");
         assertEquals(commands + 5, timed("committed"), "cached response must not execute the timer callback");
         TaskActionCommand stale = new TaskActionCommand(
@@ -148,7 +176,7 @@ class ApprovalBusinessMetricsPostgresTest {
                 UUID.randomUUID().toString(), null),
             first.taskId(), "metrics integration"
         );
-        assertThrows(ProjectionConflictException.class, () -> actions.approve(stale));
+        assertThrows(ProjectionConflictException.class, () -> approveWithRequestEvidence(stale));
         assertEquals(rollbacks + 2, timed("rolled_back"));
         assertEquals(completions + 1, count("approval.process.completed"));
 
@@ -174,6 +202,44 @@ class ApprovalBusinessMetricsPostgresTest {
                     }
                 }
             });
+    }
+
+    /**
+     * Run the configured identity filter on a servlet fixture, on the same thread as the
+     * transaction under test. No production evidence provider or application service is replaced.
+     * Approval operations here are service integration, not browser or HTTP approval acceptance.
+     */
+    private void approveWithRequestEvidence(TaskActionCommand command) {
+        assertThrows(IllegalStateException.class, requestEvidence::current);
+        RequestContext context = command.context();
+        var request = new MockHttpServletRequest("POST", "/api/approval/tasks/" + command.taskId() + "/approve");
+        request.addHeader(TENANT_ID_HEADER, context.tenantId());
+        request.addHeader(OPERATOR_ID_HEADER, context.operatorId());
+        request.addHeader(REQUEST_ID_HEADER, context.requestId());
+        if (context.traceId() != null) {
+            request.addHeader(TRACE_ID_HEADER, context.traceId());
+        }
+        var response = new MockHttpServletResponse();
+        var invoked = new AtomicBoolean();
+        try {
+            identityFilter.getFilter().doFilter(request, response, (trusted, output) -> {
+                var evidence = requestEvidence.current();
+                assertEquals(context.operatorId(), evidence.actorId());
+                assertEquals(context.requestId(), evidence.requestId());
+                assertEquals(context.traceId() == null ? context.requestId() : context.traceId(), evidence.traceId());
+                invoked.set(true);
+                actions.approve(command);
+            });
+            assertTrue(invoked.get(), "configured identity filter must invoke the business callback");
+            assertEquals(200, response.getStatus());
+        } catch (IOException | ServletException failure) {
+            throw new AssertionError("identity filter fixture failed", failure);
+        } finally {
+            assertNull(MDC.get("operatorId"));
+            assertNull(MDC.get("requestId"));
+            assertNull(MDC.get("traceId"));
+            assertThrows(IllegalStateException.class, requestEvidence::current);
+        }
     }
 
     private TaskProjection pending(String tenant, UUID instanceId) {
