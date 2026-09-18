@@ -104,6 +104,20 @@ async function freeAddress() {
   return address;
 }
 
+/** Complete controlled sample for the existing global-DEAD routing rehearsal, not business data. */
+export function renderOutboxRehearsalMetrics(dead) {
+  assert.ok(Number.isSafeInteger(dead) && dead >= 0, 'OUTBOX_FIXTURE_DEAD_INVALID');
+  const global = { pending: 0, due: 0, in_flight: 0, expired_leases: 0,
+    dead, oldest_unfinished_age_seconds: 0, sample_up: 1 };
+  const notification = { pending: 0, due: 0, in_flight: 0, expired_leases: 0,
+    dead: 0, oldest_unfinished_age_seconds: 0 };
+  // The shared completeness rule requires both populations even when no notification exists.
+  // Keep notification DEAD zero: this rehearsal deliberately delivers only the global alert.
+  return [['approval_outbox_', global], ['approval_notification_outbox_', notification]]
+    .flatMap(([prefix, values]) => Object.entries(values).map(([key, value]) =>
+      `# TYPE ${prefix}${key} gauge\n${prefix}${key}{application="approval-platform"} ${value}\n`)).join('');
+}
+
 /** Real Prometheus -> real Alertmanager -> bounded loopback receiver, controlled metric source. */
 export async function runOutboxDeliveryRehearsal({ prometheus, alertmanager, ruleFile, receiverFile, parent }) {
   for (const file of [prometheus, alertmanager, ruleFile, receiverFile]) onlyFile(file);
@@ -155,11 +169,8 @@ export async function runOutboxDeliveryRehearsal({ prometheus, alertmanager, rul
         response.writeHead(404).end(); return;
       }
       sourceReads++;
-      const values = { pending: 0, due: 0, in_flight: 0, expired_leases: 0,
-        dead: sourceDead, oldest_unfinished_age_seconds: 0, sample_up: 1 };
       response.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4' });
-      response.end(Object.entries(values).map(([key, value]) =>
-        `# TYPE approval_outbox_${key} gauge\napproval_outbox_${key}{application="approval-platform"} ${value}\n`).join(''));
+      response.end(renderOutboxRehearsalMetrics(sourceDead));
     });
     servers.push(source); const sourceAddress = await listen(source);
     const receiver = createServer(async (request, response) => {

@@ -58,7 +58,7 @@ export function rehearsalPrefixes(contract) {
 export function candidateEnvironment(runDirectory, contract) {
   const callback = `${backendOrigin}/payment-sandbox/v1/events`;
   return {
-    ...java21Environment(),
+    ...baseEnvironment(),
     APPROVAL_DEMO_PAYMENT_SANDBOX_ENABLED: 'true',
     APPROVAL_DEMO_PAYMENT_SANDBOX_ENDPOINT: callback,
     APPROVAL_DEMO_PAYMENT_SANDBOX_CONTROL_FILE:
@@ -88,7 +88,10 @@ export function candidateEnvironment(runDirectory, contract) {
 }
 
 export function baseEnvironment() {
-  return java21Environment();
+  // The baseline installs the same Maven coordinates into the shared local repository.
+  // A source-tree marker cannot prove those jars still belong to the candidate.
+  // Reinstall on both sides of this version switch; keep earlier capacity-stage reuse.
+  return { ...java21Environment(), APPROVAL_DEMO_CAPACITY_REUSE_BUILD: 'false' };
 }
 
 export function upgradeRestorePlan() {

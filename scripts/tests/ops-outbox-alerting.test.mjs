@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { buildOutboxRuleFixtures, outboxAlertNames } from '../ops/outbox-alert-fixtures.mjs';
-import { alertmanagerPin, fixtureReceiverConfiguration, verifyOutboxAlerting } from '../ops/verify-outbox-alerts.mjs';
+import { alertmanagerPin, fixtureReceiverConfiguration, renderOutboxRehearsalMetrics, verifyOutboxAlerting } from '../ops/verify-outbox-alerts.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const ruleFile = resolve(root, 'deploy/observability/prometheus/approval-outbox.rules.yml');
@@ -45,7 +45,7 @@ for (const name of outboxAlertNames) {
 }
 test('fixtures cover unavailable, NaN, absence, staleness, replicas, backoff and recovery', () => {
   assert.equal(fixture.tests.length, 25);
-  assert.equal(new Set(fixture.tests.map(group => group.name)).size, 21);
+  assert.equal(new Set(fixture.tests.map(group => group.name)).size, 25);
   for (const word of ['NaN', 'stale', 'disabled', 'another target', 'not summed', 'future retry', 'recovery', 'subsets', 'notification']) {
     assert.ok(fixture.tests.some(group => group.name.includes(word)), word);
   }
@@ -146,7 +146,7 @@ test('native label regressions retain deployment labels and isolate incomplete t
   assert.deepEqual(partial.alert_rule_test[1].exp_alerts.map(alert => alert.exp_labels.instance), ['node-a', 'node-b']);
   assert.equal(partial.input_series.filter(input => input.series.startsWith('approval_outbox_pending{')).length, 1);
   assert.equal(partial.input_series.filter(input => input.series.startsWith('approval_outbox_in_flight{')).length, 1);
-  assert.equal(fixture.tests.reduce((total, group) => total + group.alert_rule_test.length, 0), 69);
+  assert.equal(fixture.tests.reduce((total, group) => total + group.alert_rule_test.length, 0), 81);
 });
 test('a mocked runner cannot publish a native acceptance record to the CI log', t => {
   const f = runnerFixture(t); const messages = [];
@@ -154,4 +154,58 @@ test('a mocked runner cannot publish a native acceptance record to the CI log', 
   const result = verifyOutboxAlerting(f.options);
   assert.equal(result.status, 'OPS_OUTBOX_ALERTS_VERIFIED');
   assert.deepEqual(messages, [], 'only the real provisioning entrypoint publishes native results');
+});
+
+// These read the exact text emitted by the live HTTP source; they do not interpret PromQL.
+const notificationMetrics = ['pending', 'due', 'in_flight', 'expired_leases', 'dead',
+  'oldest_unfinished_age_seconds'].map(name => 'approval_notification_outbox_' + name);
+function parseRehearsalMetrics(dead) {
+  const output = renderOutboxRehearsalMetrics(dead);
+  const rows = output.trim().split('\n');
+  assert.equal(rows.length, 26);
+  const values = new Map();
+  for (let index = 0; index < rows.length; index += 2) {
+    const match = /^(approval_[a-z_]+)\{application="approval-platform"\} (\d+)$/u.exec(rows[index + 1]);
+    assert.ok(match, rows[index + 1]);
+    assert.equal(rows[index], `# TYPE ${match[1]} gauge`);
+    assert.equal(values.has(match[1]), false, 'one sample per series');
+    values.set(match[1], Number(match[2]));
+  }
+  return values;
+}
+test('live fixture provides every series required by the unchanged completeness rule', () => {
+  const values = parseRehearsalMetrics(0);
+  const rule = rules.find(rule => rule.alert === 'ApprovalOutboxMonitoringUnavailable');
+  const required = [...new Set([...rule.expr.matchAll(/\b(approval_[a-z_]+)\{/gu)].map(match => match[1]))];
+  assert.equal(required.length, 13);
+  assert.deepEqual([...values.keys()].sort(), required.sort());
+  for (const name of notificationMetrics) assert.equal(values.get(name), 0, name);
+  assert.equal(values.get('approval_outbox_sample_up'), 1);
+  for (const [name, value] of values) {
+    if (name !== 'approval_outbox_sample_up') assert.equal(value, 0, name);
+  }
+});
+test('global DEAD trigger and recovery never fabricate a second notification alert', () => {
+  const before = parseRehearsalMetrics(0);
+  const firing = parseRehearsalMetrics(1);
+  const recovered = parseRehearsalMetrics(0);
+  assert.equal(firing.get('approval_outbox_dead'), 1);
+  for (const [name, value] of before) {
+    if (name !== 'approval_outbox_dead') assert.equal(firing.get(name), value, name);
+  }
+  assert.deepEqual(recovered, before);
+  const source = readFileSync(resolve(root, 'scripts/ops/verify-outbox-alerts.mjs'), 'utf8');
+  assert.match(source, /response\.end\(renderOutboxRehearsalMetrics\(sourceDead\)\)/u);
+  assert.match(source, /assert\.deepEqual\(await currentAlerts\(\), \[\]\)/u);
+});
+for (const value of [-1, 0.5, NaN, Infinity, '1', null, Number.MAX_SAFE_INTEGER + 1]) {
+  test(`live metric fixture rejects invalid DEAD input ${String(value)}`, () => {
+    assert.throws(() => renderOutboxRehearsalMetrics(value), /OUTBOX_FIXTURE_DEAD_INVALID/u);
+  });
+}
+
+test('native assertion inventory retains all eight alert populations', () => {
+  const assertions = fixture.tests.flatMap(group => group.alert_rule_test);
+  assert.deepEqual(outboxAlertNames.map(name =>
+    assertions.filter(check => check.alertname === name).length), [16, 8, 8, 9, 19, 7, 7, 7]);
 });
