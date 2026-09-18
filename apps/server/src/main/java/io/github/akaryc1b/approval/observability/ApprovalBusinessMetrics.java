@@ -13,6 +13,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Objects;
@@ -69,6 +70,37 @@ public final class ApprovalBusinessMetrics {
             long nanos = waiting.toNanos(); // Overflow is dropped by the existing telemetry guard.
             Timer.builder("approval.task.waiting.duration")
                 .description("Task projection creation to committed normal claim timestamp; wall-clock, not SLA")
+                .publishPercentileHistogram()
+                .minimumExpectedValue(Duration.ofSeconds(1))
+                .maximumExpectedValue(Duration.ofDays(90))
+                .register(registry)
+                .record(nanos, TimeUnit.NANOSECONDS);
+        });
+    }
+
+    /** Minimal timestamps returned by the successful terminal write, not a cached start event. */
+    public void processTerminated(InstanceStatus outcome, Instant createdAt, Instant terminalAt) {
+        if (outcome == InstanceStatus.RUNNING) return;
+        committed(() -> {
+            String label = switch (outcome) {
+                case COMPLETED -> "completed";
+                case REJECTED -> "rejected";
+                case WITHDRAWN -> "withdrawn";
+                default -> null;
+            };
+            if (label == null) {
+                drop();
+                return;
+            }
+            Duration elapsed = Duration.between(createdAt, terminalAt);
+            if (elapsed.isNegative()) {
+                drop();
+                return;
+            }
+            long nanos = elapsed.toNanos();
+            Timer.builder("approval.process.duration")
+                .description("Persisted process creation to terminal command timestamp; wall-clock, not SLA")
+                .tags("outcome", label)
                 .publishPercentileHistogram()
                 .minimumExpectedValue(Duration.ofSeconds(1))
                 .maximumExpectedValue(Duration.ofDays(90))

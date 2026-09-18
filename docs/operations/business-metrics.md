@@ -19,12 +19,13 @@ operator, instance/task ID, business key, request ID, exception text or payload.
 | `approval.process.completed` | A newly created terminal instance, or task synchronization to `COMPLETED`, after commit |
 | `approval.process.rejected` | The same boundaries with terminal `REJECTED`; a task sent back for revision is not a terminal process rejection |
 | `approval.process.withdrawn` | Successful `withdrawRunningInstance`, after commit |
+| `approval.process.duration` | Persisted instance creation-to-terminal timestamp for a successful terminal insert/update, after commit |
 | `approval.task.completed` | Successful `completeTaskAndSynchronize`, after commit, including a completed rejection/revision task |
 | `approval.task.waiting.duration` | Persisted creation-to-normal-claim wall-clock duration, after the claim transaction commits |
 | `approval.command.duration` | An actually executed start/approve/reject/resubmit callback through the existing idempotency guard, until transaction completion |
 | `approval.telemetry.dropped` | Observations omitted due to absent transaction synchronization, bounded savepoint tracking or a telemetry failure |
 
-The instrumentation adds **only** `operation` (`start`, `approve`, `reject`, `resubmit`) and
+The command timer adds **only** `operation` (`start`, `approve`, `reject`, `resubmit`) and
 `outcome` (`committed`, `rolled_back`, `unknown`, `failed`) timer labels. The existing
 `application` common tag is preserved. Other operations
 pass through unchanged and do not create dynamic label values. `failed` describes
@@ -68,6 +69,53 @@ inconsistent claim results and registry failures drop the observation through
 `approval_telemetry_dropped_total` without changing the returned claim or transaction.
 Historical tasks contribute only when a new normal claim commits; there is no
 backfill. Process restarts reset the timer, not the persisted task creation time.
+
+## Process duration
+
+`approval.process.duration` measures the complete instance's wall-clock age at its
+persisted terminal command timestamp: `updated_at - created_at`. It is emitted for
+`COMPLETED`, `REJECTED` and `WITHDRAWN`, labeled respectively `outcome="completed"`,
+`"rejected"`, and `"withdrawn"`. These three fixed labels are the only new dimensions;
+existing deployment/common tags remain. A rejected process is not an execution failure.
+A task sent back for revision while its instance remains RUNNING has no terminal sample.
+
+The PostgreSQL store adds `RETURNING created_at, updated_at` to the existing instance
+insert and guarded status/withdrawal updates. It retains every existing mutation
+predicate, version check and affected-row check. The optional `ApprovalProcessTimingObserver`
+receives only the two stored timestamps and the fixed terminal outcome, after the store's
+writes succeed. It adds no lookup, SQL statement, ID cache, scheduler or engine listener.
+The original two-argument constructor stays compatible and uses a no-op observer.
+The executable server wires the commit/savepoint-aware business-metrics recorder.
+
+Only the winning mutation can register an observation. Failed claims, wrong tenant or
+initiator, duplicate terminal attempts and cached idempotent responses add no sample.
+RUNNING updates, task replacement and control-only operations do not terminate a process.
+An initially terminal insert is measured too; a genuine zero is valid. Null/negative or
+overflow timing is dropped, not clamped. Optional timestamp-extraction and observer
+exceptions cannot change affected-row authority; SQL mutation failures still propagate.
+Publication obeys the same commit, rollback, savepoint, missing-transaction and registry
+failure rules as the other business observations.
+
+Time includes human waiting, pauses, transfers, non-working days and prior failed attempts,
+but ends at the server's persisted command timestamp, not after the final commit or external
+callback. It is not a business-calendar SLA, human handling time, current active population,
+or payment delivery latency. Old running instances can be measured after restart without
+remembering their starts in memory. Completed history is not backfilled. Timers reset on
+restart and remain best-effort observations, not durable exactly-once accounting.
+
+The private endpoint exports `approval_process_duration_seconds_count`, `_sum` and
+histogram `_bucket` series. The histogram's 1-second to 90-day expected range is not an SLA
+threshold or a cap on valid samples. For completed instances, use a window with enough
+terminations and restrict to the intended deployment before aggregating replicas:
+
+```promql
+histogram_quantile(0.95,
+  sum by (le, application) (rate(approval_process_duration_seconds_bucket{outcome="completed"}[1h])))
+```
+
+Long-running unfinished instances are absent from this completion distribution; use
+separate active/overdue instrumentation, not this timer, to detect them. No new P95/SLA
+alert or production threshold is implicitly enabled by adding this metric.
 
 ## Replay, rollback and failure isolation
 
@@ -151,8 +199,19 @@ completion). The HTTP response must contain waiting histogram/count/sum series.
 It neither writes business tables directly nor substitutes browser
 acceptance, live Prometheus/Alertmanager delivery or production operation.
 
-All three tests are ordinary Maven tests in the executable server and are selected by
-the existing permanent validation. Source or test existence is not evidence that
+`ApprovalProcessDurationMetricsTest` covers the three outcomes, commit/rollback/savepoints,
+invalid and overflowing durations, genuine zero and long samples, bounded labels, registry
+failure and repeated/unknown completion. `JdbcApprovalProcessTimingIntegrationTest` uses
+real PostgreSQL and the projection APIs for terminal insert/completion/rejection/withdrawal,
+rollback, a reconstructed store, tenant/initiator rejection, concurrent terminal attempts,
+observer failure isolation and constructor compatibility. It requires Docker.
+
+The existing real Spring Boot/Flowable test additionally requires one process-duration
+sample after five committed task approvals, none for intermediate work/replay/conflict,
+stored instance total-time reconciliation, and actual HTTP histogram/count/sum export.
+
+These ordinary Maven tests run in the server and persistence modules through the existing
+permanent validation. Source or test existence is not evidence that
 the current commit has passed; inspect its actual Maven test reports.
 
 ## Notification delivery observations
@@ -166,7 +225,7 @@ existing PostgreSQL Outbox sampler publishes a reserved-route subset under
 
 ## Remaining #146 scope
 
-Full process duration and calendar-aware task/SLA latency, active/overdue gauges, authoritative execution-failure
+Calendar-aware task/SLA latency, active/overdue gauges, authoritative execution-failure
 events, recovery/resolution notifications, asynchronous Outbox/Connector trace linking,
 production idempotent human delivery and live collector/database outage/recovery drills
 are still open. No process failure/timeout count is synthesized from an HTTP error or

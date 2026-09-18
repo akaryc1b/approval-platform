@@ -136,6 +136,8 @@ class ApprovalBusinessMetricsPostgresTest {
         long rollbacks = timed("rolled_back");
         long waitingSamples = waitingCount();
         double waitingTotalSeconds = waitingTotalSeconds();
+        long processSamples = processCount();
+        double processTotalSeconds = processTotalSeconds();
         assertTrue(starts >= 1.0d, "the actual seeded start must be observed");
         seeder.apply();
         assertEquals(starts, count("approval.process.started"), "seed replay is not a new process");
@@ -148,12 +150,14 @@ class ApprovalBusinessMetricsPostgresTest {
         identityFilter.getFilter().doFilter(unidentified, denied,
             (request, response) -> fail("unidentified request must not reach the business service"));
         assertEquals(401, denied.getStatus());
+        assertEquals(processSamples, processCount(), "missing identity cannot terminate a process");
         assertEquals(waitingSamples, waitingCount(), "unidentified requests do not create wait samples");
         assertThrows(IllegalStateException.class, requestEvidence::current);
 
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             approveWithRequestEvidence(firstCommand);
             assertEquals(tasks, count("approval.task.completed"), "uncommitted writes must be invisible");
+            assertEquals(processSamples, processCount());
             assertEquals(waitingSamples, waitingCount(), "uncommitted claims must not publish waiting time");
             status.setRollbackOnly();
         });
@@ -161,6 +165,7 @@ class ApprovalBusinessMetricsPostgresTest {
         assertEquals(tasks, count("approval.task.completed"));
         assertEquals(completions, count("approval.process.completed"));
         assertEquals(rollbacks + 1, timed("rolled_back"));
+        assertEquals(processSamples, processCount(), "rollback is not a terminal process");
         assertEquals(waitingSamples, waitingCount(), "rolled-back claim does not add a wait sample");
 
         // Reuse the rolled-back idempotency key: its database transaction did not commit.
@@ -169,11 +174,17 @@ class ApprovalBusinessMetricsPostgresTest {
         TaskActionCommand last = firstCommand;
         while (projections.findInstance(tenant, instanceId).orElseThrow().status() != InstanceStatus.COMPLETED) {
             assertTrue(decisions < 8, "deterministic workflow must finish within eight decisions");
+            assertEquals(processSamples, processCount(), "intermediate tasks are not completed processes");
             last = command(tenant, pending(tenant, instanceId));
             approveWithRequestEvidence(last);
             decisions++;
         }
         assertEquals(5, decisions);
+        assertEquals(processSamples + 1, processCount());
+        var finishedInstance = projections.findInstance(tenant, instanceId).orElseThrow();
+        double persistedProcessSeconds = Duration.between(finishedInstance.createdAt(),
+            finishedInstance.updatedAt()).toNanos() / 1_000_000_000.0d;
+        assertEquals(persistedProcessSeconds, processTotalSeconds() - processTotalSeconds, 0.000001d);
         assertEquals(tasks + 5, count("approval.task.completed"));
         assertEquals(completions + 1, count("approval.process.completed"));
         assertEquals(commands + 5, timed("committed"));
@@ -191,6 +202,7 @@ class ApprovalBusinessMetricsPostgresTest {
         assertEquals(tasks + 5, count("approval.task.completed"), "cached response is not another transition");
         assertEquals(commands + 5, timed("committed"), "cached response must not execute the timer callback");
         assertEquals(waitingSamples + 5, waitingCount(), "cached replay must not add waiting time");
+        assertEquals(processSamples + 1, processCount(), "cached replay must not add process duration");
         TaskActionCommand stale = new TaskActionCommand(
             new RequestContext(tenant, first.assigneeId(), UUID.randomUUID().toString(),
                 UUID.randomUUID().toString(), null),
@@ -199,6 +211,7 @@ class ApprovalBusinessMetricsPostgresTest {
         assertThrows(ProjectionConflictException.class, () -> approveWithRequestEvidence(stale));
         assertEquals(rollbacks + 2, timed("rolled_back"));
         assertEquals(waitingSamples + 5, waitingCount(), "stale task conflicts must not add waiting time");
+        assertEquals(processSamples + 1, processCount(), "conflicts must not add process duration");
         assertEquals(completions + 1, count("approval.process.completed"));
 
         long observationDeadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
@@ -223,6 +236,9 @@ class ApprovalBusinessMetricsPostgresTest {
             assertEquals(200, response.statusCode());
             assertTrue(response.body().contains("approval_process_started_total"));
             assertTrue(response.body().contains("approval_process_completed_total"));
+            assertTrue(response.body().contains("approval_process_duration_seconds_count"));
+            assertTrue(response.body().contains("approval_process_duration_seconds_sum"));
+            assertTrue(response.body().contains("approval_process_duration_seconds_bucket"));
             assertTrue(response.body().contains("approval_task_completed_total"));
             assertTrue(response.body().contains("approval_command_duration_seconds_count"));
             assertTrue(response.body().contains("approval_task_waiting_duration_seconds_count"));
@@ -306,6 +322,16 @@ class ApprovalBusinessMetricsPostgresTest {
 
     private double waitingTotalSeconds() {
         Timer timer = registry.find("approval.task.waiting.duration").timer();
+        return timer == null ? 0.0d : timer.totalTime(TimeUnit.SECONDS);
+    }
+
+    private long processCount() {
+        Timer timer = registry.find("approval.process.duration").tags("outcome", "completed").timer();
+        return timer == null ? 0 : timer.count();
+    }
+
+    private double processTotalSeconds() {
+        Timer timer = registry.find("approval.process.duration").tags("outcome", "completed").timer();
         return timer == null ? 0.0d : timer.totalTime(TimeUnit.SECONDS);
     }
 

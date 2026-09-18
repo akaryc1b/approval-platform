@@ -101,7 +101,8 @@ public class ApprovalPlatformConfiguration {
         ApprovalBusinessMetrics approvalBusinessMetrics
     ) {
         return new ObservedApprovalProjectionStore(
-            new JdbcApprovalProjectionStore(dataSource, approvalPersistenceObjectMapper),
+            new JdbcApprovalProjectionStore(dataSource, approvalPersistenceObjectMapper,
+                approvalBusinessMetrics::processTerminated),
             approvalBusinessMetrics
         );
     }
