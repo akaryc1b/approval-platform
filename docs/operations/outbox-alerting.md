@@ -26,6 +26,9 @@ counts or Alertmanager administration endpoints to application tenants.
 | ApprovalOutboxExpiredLeases | expired leases > 0 | 2 minutes |
 | ApprovalOutboxDeadLetters | DEAD > 0 | immediate |
 | ApprovalOutboxMonitoringUnavailable | expected reachable target lacks a complete fresh sample | 2 minutes |
+| ApprovalNotificationOutboxBacklogHigh | reserved SLA notification PENDING + IN_FLIGHT > 100 | 5 minutes |
+| ApprovalNotificationOutboxOldestUnfinished | oldest unfinished reserved SLA notification > 300 seconds | 2 minutes |
+| ApprovalNotificationOutboxDeadLetters | reserved SLA notification DEAD > 0 | immediate |
 
 These are starting thresholds, not a measured production capacity or payment SLA.
 Due rows and expired leases are subsets; adding them again exaggerates the backlog.
@@ -70,9 +73,31 @@ separate actions.
 ## ApprovalOutboxMonitoringUnavailable
 
 Check the expected target's opt-in configuration, private observation connection,
-query timeout and last sample age. A missing gauge or invalid sample is not zero.
-Keep the target label enabled when diagnosing an unexpected outage; removing it
-would remove the monitoring expectation, not repair the monitor.
+query timeout and last sample age. The completeness check includes both global and
+reserved SLA-notification subset gauges because they come from one database snapshot.
+A missing gauge or invalid sample is not zero. Keep the target label enabled when
+diagnosing an unexpected outage; removing it would remove the monitoring expectation,
+not repair the monitor.
+
+## ApprovalNotificationOutboxBacklogHigh
+
+This is the reserved SLA-timeout subset of the same durable Outbox, not a second queue.
+Check organization-notification availability, dispatcher throughput and retry scheduling.
+Do not treat process-local attempt counters as authoritative backlog size or replay
+messages just to reduce the gauge.
+
+## ApprovalNotificationOutboxOldestUnfinished
+
+Treat this as a notification drain-stall signal only while the shared Outbox sample is
+healthy. Planned retry backoff can age a message. Confirm the provider/downstream cause,
+lease state and next available time before governed recovery.
+
+## ApprovalNotificationOutboxDeadLetters
+
+A reserved SLA notification exhausted delivery or was permanently rejected. Preserve
+the original idempotency key and DEAD evidence, correct the cause first, then use only
+the existing authorized recovery path. This does not mean the approval transaction
+failed, nor does it prove a human saw or missed a message.
 
 ## Notification route and executable checks
 
@@ -84,8 +109,9 @@ credentials in deployment secrets. Webhook delivery can repeat. A production
 receiver needs durable deduplication and incident state, not just an in-memory set.
 
 `node scripts/ops/verify-prometheus-rules.mjs` runs the existing pinned promtool
-checks, then all five new rules against deterministic native-engine fixtures for
-thresholds, holds, recovery, missing/NaN/stale samples, disabled targets and replicas.
+checks, then all eight rules against deterministic native-engine fixtures for
+thresholds, holds, recovery, missing/NaN/stale samples, disabled targets, replicas,
+and the reserved notification backlog/dead-letter subset.
 It reuses the same digest-checked Prometheus 3.13.3 archive, then provisions
 Alertmanager 0.34.0 from an independently pinned upstream SHA-256. Downloaded tools
 receive only PATH and locale variables, not GitHub/cloud/application credentials.

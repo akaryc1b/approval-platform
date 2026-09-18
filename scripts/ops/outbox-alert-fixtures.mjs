@@ -3,8 +3,15 @@ import assert from 'node:assert/strict';
 
 export const outboxAlertNames = Object.freeze(['ApprovalOutboxBacklogHigh',
   'ApprovalOutboxOldestUnfinished', 'ApprovalOutboxExpiredLeases',
-  'ApprovalOutboxDeadLetters', 'ApprovalOutboxMonitoringUnavailable']);
+  'ApprovalOutboxDeadLetters', 'ApprovalOutboxMonitoringUnavailable',
+  'ApprovalNotificationOutboxBacklogHigh', 'ApprovalNotificationOutboxOldestUnfinished',
+  'ApprovalNotificationOutboxDeadLetters']);
 const gauges = ['pending', 'due', 'in_flight', 'expired_leases', 'dead', 'oldest_unfinished_age_seconds'];
+const notificationGauges = gauges.map(name => 'notification_' + name);
+const allGauges = [...gauges, ...notificationGauges];
+const metricName = name => name.startsWith('notification_')
+  ? 'approval_notification_outbox_' + name.slice('notification_'.length)
+  : 'approval_outbox_' + name;
 
 export function buildOutboxRuleFixtures(ruleFile, document) {
   const rules = document.groups.flatMap(group => group.rules);
@@ -12,10 +19,10 @@ export function buildOutboxRuleFixtures(ruleFile, document) {
   const labels = instance => ({ job: 'approval-platform', instance, outbox_monitor: 'enabled',
     application: 'approval-platform', environment: 'test' });
   function series(overrides = {}, instance = 'node-a', extra = {}) {
-    const values = { up: '1x15', sample_up: '1x15', ...Object.fromEntries(gauges.map(name => [name, '0x15'])), ...overrides };
+    const values = { up: '1x15', sample_up: '1x15', ...Object.fromEntries(allGauges.map(name => [name, '0x15'])), ...overrides };
     const tags = { ...labels(instance), ...extra };
     return Object.entries(values).filter(([, value]) => value !== null).map(([name, values]) => ({
-      series: `${name === 'up' ? 'up' : 'approval_outbox_' + name}{${Object.entries(name === 'up' ? Object.fromEntries(Object.entries(tags).filter(([key]) => key !== 'application')) : tags)
+      series: `${name === 'up' ? 'up' : metricName(name)}{${Object.entries(name === 'up' ? Object.fromEntries(Object.entries(tags).filter(([key]) => key !== 'application')) : tags)
         .filter(([, value]) => value !== null).map(([key, value]) => `${key}="${value}"`).join(',')}}`, values,
     }));
   }
@@ -53,8 +60,10 @@ export function buildOutboxRuleFixtures(ruleFile, document) {
     pending: 'NaN NaN NaN 0x10', dead: 'NaN NaN NaN 0x10' }),
   [[h[4], 1, []], [h[4], 2, a], [h[4], 3, []], [h[3], 2, []], [h[0], 2, []]]);
   scenario('entire monitor missing on an expected reachable target', series({ sample_up: null,
-    ...Object.fromEntries(gauges.map(name => [name, null])) }), [[h[4], 1, []], [h[4], 2, a]]);
+    ...Object.fromEntries(allGauges.map(name => [name, null])) }), [[h[4], 1, []], [h[4], 2, a]]);
   scenario('one missing gauge must not be hidden by sample up', series({ dead: null }), [[h[4], 2, a]]);
+  scenario('one missing notification gauge also makes the shared sample incomplete',
+    series({ notification_dead: null }), [[h[4], 2, a]]);
   scenario('NaN sample health is unavailable', series({ sample_up: 'NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN' }), [[h[4], 2, a]]);
   scenario('NaN gauge with sample up is unavailable', series({ pending: 'NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN' }), [[h[4], 2, a]]);
   scenario('stale markers remove formerly healthy series', series({ sample_up: '1 stale _ _ _ _ _ _' }),
@@ -87,5 +96,14 @@ export function buildOutboxRuleFixtures(ruleFile, document) {
   scenario('only the busy replica fires with its original routing labels', [
     ...series({ pending: '1x15' }), ...series({ pending: '99x15', in_flight: '2x15' }, 'node-b')],
   [[h[0], 5, ['node-b']], [h[4], 10, []]]);
+  scenario('notification backlog hold boundary and recovery', series({
+    notification_pending: '99x5 0x9', notification_in_flight: '2x5 0x9' }),
+  [[h[5], 4, []], [h[5], 5, a], [h[5], 6, []]]);
+  scenario('old reserved notification detects drain stall and recovery', series({
+    notification_pending: '1x2 0x10', notification_oldest_unfinished_age_seconds: '301x2 0x10' }),
+  [[h[6], 1, []], [h[6], 2, a], [h[6], 3, []]]);
+  scenario('notification dead letter fires immediately and resolves', series({
+    notification_dead: '1x2 0x10' }),
+  [[h[7], 0, a], [h[7], 2, a], [h[7], 3, []]]);
   return { rule_files: [ruleFile], evaluation_interval: '1m', tests };
 }

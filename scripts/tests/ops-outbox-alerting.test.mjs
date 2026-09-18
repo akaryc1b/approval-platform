@@ -17,16 +17,17 @@ const fixture = buildOutboxRuleFixtures(ruleFile, document);
 const receiver = readFileSync(resolve(root, 'deploy/observability/alertmanager/alertmanager.yml'), 'utf8');
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
-test('five operational conditions retain bounded deployment-only labels and runbooks', () => {
+test('eight operational conditions retain bounded deployment-only labels and runbooks', () => {
   assert.deepEqual(rules.map(rule => rule.alert), outboxAlertNames);
   for (const rule of rules) {
-    assert.equal(rule.labels.component, 'outbox'); assert.equal(rule.labels.owner, 'approval-platform');
+    assert.ok(['outbox', 'notification-outbox'].includes(rule.labels.component));
+    assert.equal(rule.labels.owner, 'approval-platform');
     assert.match(rule.expr, /job="approval-platform",outbox_monitor="enabled"/u);
     assert.match(rule.expr, /on \(job, instance\)/u);
     assert.doesNotMatch(rule.expr, /sum\s*\(|tenant_id|task_id|trace_id|payload/u);
     assert.ok(rule.annotations.runbook_url.endsWith('#' + rule.alert.toLowerCase()));
   }
-  assert.deepEqual(rules.map(rule => rule.for ?? null), ['5m', '2m', '2m', null, '2m']);
+  assert.deepEqual(rules.map(rule => rule.for ?? null), ['5m', '2m', '2m', null, '2m', '5m', '2m', null]);
   assert.match(rules[0].expr, /approval_outbox_pending\{[^}]+\} \+ approval_outbox_in_flight/u);
   assert.doesNotMatch(rules[0].expr, /approval_outbox_(due|expired_leases)/u);
 });
@@ -43,9 +44,9 @@ for (const name of outboxAlertNames) {
   });
 }
 test('fixtures cover unavailable, NaN, absence, staleness, replicas, backoff and recovery', () => {
-  assert.equal(fixture.tests.length, 21);
+  assert.equal(fixture.tests.length, 25);
   assert.equal(new Set(fixture.tests.map(group => group.name)).size, 21);
-  for (const word of ['NaN', 'stale', 'disabled', 'another target', 'not summed', 'future retry', 'recovery', 'subsets']) {
+  for (const word of ['NaN', 'stale', 'disabled', 'another target', 'not summed', 'future retry', 'recovery', 'subsets', 'notification']) {
     assert.ok(fixture.tests.some(group => group.name.includes(word)), word);
   }
   assert.equal(fixture.evaluation_interval, '1m');
@@ -105,7 +106,7 @@ function runnerFixture(t, options = {}) {
 }
 test('provisioning fixture uses real-rule tests before downloads and requires a current delivery receipt', t => {
   const f = runnerFixture(t); const result = verifyOutboxAlerting(f.options);
-  assert.equal(result.status, 'OPS_OUTBOX_ALERTS_VERIFIED'); assert.equal(result.ruleTestGroups, 21);
+  assert.equal(result.status, 'OPS_OUTBOX_ALERTS_VERIFIED'); assert.equal(result.ruleTestGroups, 25);
   assert.equal(result.receipt.databaseBusinessChainVerified, false);
   assert.equal(result.receipt.humanNotificationVerified, false);
   assert.deepEqual(f.calls[0].args, ['check', 'rules', ruleFile]);
@@ -145,7 +146,7 @@ test('native label regressions retain deployment labels and isolate incomplete t
   assert.deepEqual(partial.alert_rule_test[1].exp_alerts.map(alert => alert.exp_labels.instance), ['node-a', 'node-b']);
   assert.equal(partial.input_series.filter(input => input.series.startsWith('approval_outbox_pending{')).length, 1);
   assert.equal(partial.input_series.filter(input => input.series.startsWith('approval_outbox_in_flight{')).length, 1);
-  assert.equal(fixture.tests.reduce((total, group) => total + group.alert_rule_test.length, 0), 59);
+  assert.equal(fixture.tests.reduce((total, group) => total + group.alert_rule_test.length, 0), 69);
 });
 test('a mocked runner cannot publish a native acceptance record to the CI log', t => {
   const f = runnerFixture(t); const messages = [];
