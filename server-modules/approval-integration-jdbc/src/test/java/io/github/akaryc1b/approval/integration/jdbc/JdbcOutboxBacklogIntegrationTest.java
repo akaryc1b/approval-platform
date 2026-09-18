@@ -5,6 +5,7 @@ import io.github.akaryc1b.approval.connector.model.ConnectorContext;
 import io.github.akaryc1b.approval.connector.port.BusinessCallbackConnector.BusinessEvent;
 import io.github.akaryc1b.approval.integration.outbox.OutboxBacklogReader.Snapshot;
 import io.github.akaryc1b.approval.integration.outbox.OutboxMessage;
+import io.github.akaryc1b.approval.integration.outbox.SlaTimeoutNotificationConnector;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +59,7 @@ class JdbcOutboxBacklogIntegrationTest {
         outbox.append(message);
         Snapshot snapshot = reader.read();
         assertCounts(snapshot, 1, 0, 0, 0, 0);
+        assertNotificationCounts(snapshot, 0, 0, 0, 0, 0);
         assertEquals(Duration.between(message.createdAt(), snapshot.observedAt()).toNanos() / 1_000_000_000.0d,
             snapshot.oldestUnfinishedAgeSeconds(), 0.01d);
         assertTrue(outbox.claimDue(now, 10, "observer-is-not-a-worker", Duration.ofSeconds(30)).isEmpty());
@@ -95,6 +97,35 @@ class JdbcOutboxBacklogIntegrationTest {
     }
 
     @Test
+    void notificationSubsetUsesOnlyTheReservedRouteAndTracksItsDeadLetterState() {
+        Instant now = Instant.now();
+        outbox.append(message("generic", "tenant-a", now.minusSeconds(180), now.plusSeconds(3600)));
+        outbox.append(message(SlaTimeoutNotificationConnector.ROUTE, "tenant-a",
+            now.minusSeconds(90), now.plusSeconds(3600)));
+        var dueNotification = message(SlaTimeoutNotificationConnector.ROUTE, "tenant-b",
+            now.minusSeconds(60), now.minusSeconds(30));
+        outbox.append(dueNotification);
+
+        Snapshot pending = reader.read();
+        assertCounts(pending, 3, 1, 0, 0, 0);
+        assertNotificationCounts(pending, 2, 1, 0, 0, 0);
+        assertTrue(pending.notificationOldestUnfinishedAgeSeconds() >= 50.0d);
+        assertTrue(pending.notificationOldestUnfinishedAgeSeconds()
+            <= pending.oldestUnfinishedAgeSeconds());
+
+        assertEquals(1, outbox.claimDue(now, 1, "notification-worker", Duration.ofHours(1)).size());
+        Snapshot claimed = reader.read();
+        assertNotificationCounts(claimed, 1, 0, 1, 0, 0);
+        assertTrue(outbox.markDead(dueNotification.id(), "notification-worker", 1,
+            "bounded fixture failure", now));
+
+        Snapshot dead = reader.read();
+        assertCounts(dead, 2, 0, 0, 0, 1);
+        assertNotificationCounts(dead, 1, 0, 0, 0, 1);
+        assertTrue(!dead.toString().contains("tenant-"));
+    }
+
+    @Test
     void aggregatesTenantsWithoutReturningIdentitiesAndExcludesDeliveredHistory() {
         Instant now = Instant.now();
         var delivered = message("tenant-a", now.minusSeconds(600), now.minusSeconds(600));
@@ -105,14 +136,19 @@ class JdbcOutboxBacklogIntegrationTest {
         outbox.append(message("tenant-b", now.minusSeconds(60), now.plusSeconds(3600)));
         Snapshot snapshot = reader.read();
         assertCounts(snapshot, 2, 0, 0, 0, 0);
+        assertNotificationCounts(snapshot, 0, 0, 0, 0, 0);
         assertTrue(snapshot.oldestUnfinishedAgeSeconds() < 300);
         assertEquals(3, new JdbcTemplate(dataSource).queryForObject("select count(*) from ap_outbox", Integer.class));
         assertTrue(!snapshot.toString().contains("tenant-"));
     }
 
     private static OutboxMessage message(String tenant, Instant created, Instant available) {
+        return message("generic", tenant, created, available);
+    }
+
+    private static OutboxMessage message(String connectorKey, String tenant, Instant created, Instant available) {
         String key = UUID.randomUUID().toString();
-        var context = new ConnectorContext("generic", tenant, key, key, created);
+        var context = new ConnectorContext(connectorKey, tenant, key, key, created);
         var event = new BusinessEvent(UUID.randomUUID(), "PROCESS_APPROVED.v1", "PROCESS", key,
             created, key, Map.of("test", true));
         return new OutboxMessage(UUID.randomUUID(), context, event, available, created);
@@ -124,5 +160,20 @@ class JdbcOutboxBacklogIntegrationTest {
         assertEquals(inFlight, snapshot.inFlight());
         assertEquals(expired, snapshot.expiredLeases());
         assertEquals(dead, snapshot.dead());
+    }
+
+    private static void assertNotificationCounts(
+        Snapshot snapshot,
+        long pending,
+        long due,
+        long inFlight,
+        long expired,
+        long dead
+    ) {
+        assertEquals(pending, snapshot.notificationPending());
+        assertEquals(due, snapshot.notificationDue());
+        assertEquals(inFlight, snapshot.notificationInFlight());
+        assertEquals(expired, snapshot.notificationExpiredLeases());
+        assertEquals(dead, snapshot.notificationDead());
     }
 }

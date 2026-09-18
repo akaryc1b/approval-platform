@@ -8,6 +8,9 @@ import io.github.akaryc1b.approval.connector.port.OrganizationConnector;
 import io.github.akaryc1b.approval.integration.outbox.BusinessCallbackResolver;
 import io.github.akaryc1b.approval.integration.outbox.OutboxRepository;
 import io.github.akaryc1b.approval.integration.outbox.SlaTimeoutNotificationConnector;
+import io.github.akaryc1b.approval.observability.ObservedSlaTimeoutNotificationConnector;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -44,7 +47,8 @@ class ApprovalSlaTimeoutNotificationConfigurationTest {
             assertNull(context.getStartupFailure());
             assertNotNull(context.getBean(ApprovalSlaTimeoutEventRecorder.class));
             var routes = context.getBean(BusinessCallbackResolver.class);
-            assertInstanceOf(SlaTimeoutNotificationConnector.class, routes.resolve(SlaTimeoutNotificationConnector.ROUTE));
+            assertInstanceOf(ObservedSlaTimeoutNotificationConnector.class,
+                routes.resolve(SlaTimeoutNotificationConnector.ROUTE));
             assertSame(payment, routes.resolve("generic-rest"));
             assertThrows(IllegalArgumentException.class, () -> routes.resolve("unknown"));
             assertEquals(1, context.getBeansOfType(DataSource.class).size());
@@ -71,6 +75,9 @@ class ApprovalSlaTimeoutNotificationConfigurationTest {
                 var rejected = routes.resolve(SlaTimeoutNotificationConnector.ROUTE).deliver(null, null);
                 assertEquals(BusinessCallbackConnector.DeliveryStatus.PERMANENT_FAILURE, rejected.status());
                 assertEquals("SLA_NOTIFICATION_DISABLED", rejected.errorMessage());
+                assertEquals(1.0d, context.getBean(MeterRegistry.class)
+                    .get("approval.notification.failures")
+                    .tags("kind", "sla_timeout", "category", "permanent").counter().count());
                 assertSame(payment, routes.resolve("generic-rest"));
                 verifyNoInteractions(payment, organization);
             });
@@ -90,6 +97,7 @@ class ApprovalSlaTimeoutNotificationConfigurationTest {
             .withBean(OutboxRepository.class, () -> mock(OutboxRepository.class))
             .withBean(GenericConnectorProperties.class, () -> properties)
             .withBean(Clock.class, Clock::systemUTC)
+            .withBean(MeterRegistry.class, SimpleMeterRegistry::new)
             .withBean(OrganizationConnector.class, () -> organization)
             .withBean("businessCallbackResolver", BusinessCallbackResolver.class, () -> key -> {
                 if (!"generic-rest".equals(key)) throw new IllegalArgumentException("original route rejected");

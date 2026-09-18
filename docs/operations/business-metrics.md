@@ -104,10 +104,19 @@ Both tests are ordinary Maven tests in the executable server and are selected by
 the existing permanent validation. Source or test existence is not evidence that
 the current commit has passed; inspect its actual Maven test reports.
 
+## Notification delivery observations
+
+The SLA-timeout notification route now adds process-local counters for reserved-route
+dispatch attempts, delivered receipts and bounded failure categories. Durable
+notification backlog/dead-letter state is not inferred from these counters: the
+existing PostgreSQL Outbox sampler publishes a reserved-route subset under
+`approval_notification_outbox_*`. See `sla-timeout-notifications.md` and
+`outbox-backlog-metrics.md` for exact semantics and failure/staleness boundaries.
+
 ## Remaining #146 scope
 
-Process/task durations, active/overdue gauges, durable timeout/failure events,
-Outbox/notification backlog instruments, asynchronous trace linking, idempotent
-notification delivery and live collector outage/recovery drills are still open.
-No process failure/timeout count is synthesized from an HTTP error or task
-rejection. No production readiness, supported capacity or issue closure is claimed.
+Full process/task durations, active/overdue gauges, authoritative execution-failure
+events, recovery/resolution notifications, asynchronous Outbox/Connector trace linking,
+production idempotent human delivery and live collector/database outage/recovery drills
+are still open. No process failure/timeout count is synthesized from an HTTP error or
+task rejection. No production readiness, supported capacity or issue closure is claimed.

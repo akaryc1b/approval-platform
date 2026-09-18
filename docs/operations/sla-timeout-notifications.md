@@ -57,7 +57,7 @@ establish a new W3C span propagation or trace-export acceptance result.
 ## Asynchronous delivery and duplicate handling
 
 The original Outbox dispatcher owns claims, retry/backoff, lease recovery and
-terminal failure. The new adapter sends a fixed title/body and bounded metadata
+terminal failure. The adapter sends a fixed title/body and bounded metadata
 through `OrganizationConnector.sendNotification`, using a deterministic SHA-256
 key scoped to tenant, SLA instance and action sequence. It never invokes the
 business/payment callback. Invalid events are rejected before calling the
@@ -75,15 +75,39 @@ one durable event per recorded action, not universal exactly-once human delivery
 Already-created events retain their detection-time recipient snapshot; opening
 any referenced approval still requires ordinary current authorization.
 
+## Operational metrics
+
+The reserved route is wrapped with best-effort process-local Micrometer counters:
+
+- `approval_notification_attempts_total{kind="sla_timeout"}`
+- `approval_notification_delivered_total{kind="sla_timeout"}`
+- `approval_notification_failures_total{kind="sla_timeout",category="retryable|permanent|exception|invalid_receipt"}`
+
+These count dispatcher calls and observed adapter outcomes. They are not durable
+exactly-once accounting and reset with the process. The disabled-feature rejection
+is a permanent reserved-route failure and is visible as such. Metric registration
+or export failure is swallowed and cannot change the connector receipt, exception,
+Outbox retry decision or business result.
+
+Durable backlog/dead-letter evidence remains the existing PostgreSQL Outbox. When
+`approval.observability.outbox.enabled=true`, the same private sampler exposes
+`approval_notification_outbox_pending`, `due`, `in_flight`,
+`expired_leases`, `dead`, and `oldest_unfinished_age_seconds` as deployment-wide
+subsets filtered by the reserved route. No tenant, recipient, event or task identity
+is exported as a metric label. These gauges share `approval_outbox_sample_up`;
+an unavailable/stale database sample is NaN, never a healthy-looking zero.
+
 ## Verification boundaries
 
 Normal Maven tests cover the fixed event/route contract, default-off wiring,
-reserved-route rejection after disabling, existing non-overdue actions, and
-PostgreSQL source rollback/concurrency/lease/state handling. The database test
-also runs the existing SLA and Outbox workers, simulates a lost acknowledgement,
-reconstructs the delivery adapter, and checks one receiver record using a unique
-key in a **test-only PostgreSQL recipient table**. No production table or Flyway
-version is added for that recipient fixture.
+reserved-route rejection after disabling, fixed low-cardinality delivery counters,
+existing non-overdue actions, and PostgreSQL source rollback/concurrency/lease/state
+handling. The database test also runs the existing SLA and Outbox workers, simulates
+a lost acknowledgement, reconstructs the delivery adapter, and checks one receiver
+record using a unique key in a **test-only PostgreSQL recipient table**. The Outbox
+aggregate integration test separately proves that only the reserved connector route
+contributes to notification pending/in-flight/dead metrics. No production table or
+Flyway version is added for that recipient fixture.
 
 The fixture has seeded authoritative SLA/policy rows and a controlled organization
 connector. It is not a new Flowable timer/browser/real-contact end-to-end test,

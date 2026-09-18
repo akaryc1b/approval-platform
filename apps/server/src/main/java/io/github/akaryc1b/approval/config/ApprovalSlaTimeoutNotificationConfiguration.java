@@ -10,7 +10,9 @@ import io.github.akaryc1b.approval.connector.port.OrganizationConnector;
 import io.github.akaryc1b.approval.integration.outbox.BusinessCallbackResolver;
 import io.github.akaryc1b.approval.integration.outbox.OutboxRepository;
 import io.github.akaryc1b.approval.integration.outbox.SlaTimeoutNotificationConnector;
+import io.github.akaryc1b.approval.observability.ObservedSlaTimeoutNotificationConnector;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalSlaTimeoutEventRecorder;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -43,6 +45,7 @@ public class ApprovalSlaTimeoutNotificationConfiguration {
     BusinessCallbackResolver slaTimeoutBusinessCallbackResolver(
         @Qualifier("businessCallbackResolver") BusinessCallbackResolver original,
         OrganizationConnector organization, GenericConnectorProperties properties, Clock approvalClock,
+        MeterRegistry registry,
         @Value("${approval.sla.operational-notifications.enabled:false}") boolean enabled) {
         SlaTimeoutNotificationConnector.routeKey(properties.getConnectorKey());
         if (enabled) requireDelivery(properties);
@@ -51,12 +54,14 @@ public class ApprovalSlaTimeoutNotificationConfiguration {
             ? new SlaTimeoutNotificationConnector(organization, properties.getConnectorKey(), approvalClock)
             : (context, event) -> new CallbackReceipt(DeliveryStatus.PERMANENT_FAILURE, null, 0,
                 approvalClock.instant(), "SLA_NOTIFICATION_DISABLED");
-        return key -> SlaTimeoutNotificationConnector.ROUTE.equals(key) ? notification : original.resolve(key);
+        BusinessCallbackConnector observed = new ObservedSlaTimeoutNotificationConnector(notification, registry);
+        return key -> SlaTimeoutNotificationConnector.ROUTE.equals(key) ? observed : original.resolve(key);
     }
 
     private static void requireDelivery(GenericConnectorProperties properties) {
         if (!properties.isEnabled() || !properties.getDispatch().isEnabled()) {
-            throw new IllegalStateException("SLA operational notifications require the existing generic connector and Outbox dispatcher");
+            throw new IllegalStateException(
+                "SLA operational notifications require the existing generic connector and Outbox dispatcher");
         }
         SlaTimeoutNotificationConnector.routeKey(properties.getConnectorKey());
     }

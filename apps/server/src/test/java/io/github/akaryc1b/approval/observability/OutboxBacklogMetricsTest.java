@@ -21,8 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OutboxBacklogMetricsTest {
 
     private static final Instant NOW = Instant.parse("2026-09-16T00:00:00Z");
-    private static final Snapshot BUSY = new Snapshot(NOW, 3, 2, 2, 1, 4, 120.0d);
-    private static final Snapshot EMPTY = new Snapshot(NOW, 0, 0, 0, 0, 0, 0.0d);
+    private static final Snapshot BUSY = new Snapshot(
+        NOW, 3, 2, 2, 1, 4, 120.0d,
+        2, 1, 1, 1, 2, 90.0d
+    );
+    private static final Snapshot EMPTY = new Snapshot(
+        NOW, 0, 0, 0, 0, 0, 0.0d,
+        0, 0, 0, 0, 0, 0.0d
+    );
 
     private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
 
@@ -38,6 +44,7 @@ class OutboxBacklogMetricsTest {
             () -> { reads.incrementAndGet(); return EMPTY; }, registry, Duration.ofSeconds(5), () -> { })) {
             assertEquals(0.0d, value(registry, "sample.up"));
             assertTrue(Double.isNaN(value(registry, "pending")));
+            assertTrue(Double.isNaN(notificationValue(registry, "pending")));
             assertTrue(Double.isNaN(value(registry, "sample.timestamp")));
             for (int index = 0; index < 20; index++) {
                 value(registry, "pending");
@@ -46,6 +53,7 @@ class OutboxBacklogMetricsTest {
             metrics.refresh();
             assertEquals(1, reads.get());
             assertEquals(0.0d, value(registry, "pending"));
+            assertEquals(0.0d, notificationValue(registry, "pending"));
             assertEquals(1.0d, value(registry, "sample.up"));
         }
     }
@@ -61,6 +69,12 @@ class OutboxBacklogMetricsTest {
             assertEquals(1.0d, value(registry, "expired.leases"));
             assertEquals(4.0d, value(registry, "dead"));
             assertEquals(120.0d, value(registry, "oldest.unfinished.age"));
+            assertEquals(2.0d, notificationValue(registry, "pending"));
+            assertEquals(1.0d, notificationValue(registry, "due"));
+            assertEquals(1.0d, notificationValue(registry, "in.flight"));
+            assertEquals(1.0d, notificationValue(registry, "expired.leases"));
+            assertEquals(2.0d, notificationValue(registry, "dead"));
+            assertEquals(90.0d, notificationValue(registry, "oldest.unfinished.age"));
             registry.getMeters().forEach(meter -> assertTrue(meter.getId().getTags().isEmpty()));
         }
     }
@@ -77,12 +91,14 @@ class OutboxBacklogMetricsTest {
             metrics.refresh();
             assertEquals(0.0d, value(registry, "sample.up"));
             assertTrue(Double.isNaN(value(registry, "pending")));
+            assertTrue(Double.isNaN(notificationValue(registry, "pending")));
             assertEquals(timestamp, value(registry, "sample.timestamp"));
             assertEquals(1.0d, registry.get("approval.outbox.sample.errors").functionCounter().count());
             next.set(EMPTY);
             metrics.refresh();
             assertEquals(1.0d, value(registry, "sample.up"));
             assertEquals(0.0d, value(registry, "pending"));
+            assertEquals(0.0d, notificationValue(registry, "dead"));
             assertEquals(1.0d, registry.get("approval.outbox.sample.errors").functionCounter().count());
         }
     }
@@ -99,6 +115,7 @@ class OutboxBacklogMetricsTest {
             assertEquals(10.0d, value(registry, "sample.age"));
             assertEquals(0.0d, value(registry, "sample.up"));
             assertTrue(Double.isNaN(value(registry, "dead")));
+            assertTrue(Double.isNaN(notificationValue(registry, "dead")));
         }
     }
 
@@ -169,10 +186,20 @@ class OutboxBacklogMetricsTest {
         assertThrows(IllegalArgumentException.class, () -> new Snapshot(NOW, 0, 0, 1, 2, 0, 0));
         assertThrows(IllegalArgumentException.class, () -> new Snapshot(NOW, 1, 1, 0, 0, 0, Double.NaN));
         assertThrows(IllegalArgumentException.class, () -> new Snapshot(NOW, 0, 0, 0, 0, 1, 1));
+        assertThrows(IllegalArgumentException.class, () -> new Snapshot(
+            NOW, 1, 1, 0, 0, 0, 10.0d,
+            2, 0, 0, 0, 0, 5.0d));
+        assertThrows(IllegalArgumentException.class, () -> new Snapshot(
+            NOW, 1, 1, 0, 0, 0, 10.0d,
+            0, 0, 0, 0, 0, 1.0d));
     }
 
     private static double value(SimpleMeterRegistry registry, String suffix) {
         return registry.get("approval.outbox." + suffix).gauge().value();
+    }
+
+    private static double notificationValue(SimpleMeterRegistry registry, String suffix) {
+        return registry.get("approval.notification.outbox." + suffix).gauge().value();
     }
 
     private static void await(CountDownLatch latch) {

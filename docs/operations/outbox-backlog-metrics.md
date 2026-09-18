@@ -2,7 +2,8 @@
 
 This #146 / PR #147 slice measures the existing PostgreSQL `ap_outbox` queue.
 It does not change append, claim, retry, delivery, lease, payment or approval behavior.
-It is not notification delivery, a durable incident stream, MySQL support or production acceptance.
+The reserved SLA-timeout route is also reported as a bounded subset of that same queue.
+It is not human notification delivery, a durable incident stream, MySQL support or production acceptance.
 
 ## Enable the existing private monitoring surface
 
@@ -39,10 +40,22 @@ One PostgreSQL statement uses database statement time and one statement snapshot
 | `approval_outbox_expired_leases` | IN_FLIGHT rows whose locked_until has expired; subset of in-flight |
 | `approval_outbox_dead` | DEAD rows; terminal failures, not retryable backlog |
 | `approval_outbox_oldest_unfinished_age_seconds` | Age at snapshot time of oldest PENDING/IN_FLIGHT created_at; zero for an empty unfinished queue |
+| `approval_notification_outbox_pending` | PENDING rows whose connector key is the reserved `approval-sla-timeout` route |
+| `approval_notification_outbox_due` | Due subset of the reserved notification PENDING rows |
+| `approval_notification_outbox_in_flight` | IN_FLIGHT rows on the reserved notification route |
+| `approval_notification_outbox_expired_leases` | Expired-lease subset of reserved notification in-flight rows |
+| `approval_notification_outbox_dead` | Durable DEAD rows on the reserved notification route |
+| `approval_notification_outbox_oldest_unfinished_age_seconds` | Oldest unfinished age for the reserved notification route |
 | `approval_outbox_sample_up` | 1 only for a successful, non-stale observation on a running monitor |
 | `approval_outbox_sample_age_seconds` | Monotonic age since the last successful read began; includes query delay |
 | `approval_outbox_sample_timestamp_seconds` | Database timestamp of the last successful observation |
 | `approval_outbox_sample_errors_total` | Local failed polls; not failed business deliveries |
+
+The notification series are database-backed subsets of the global Outbox series. They
+do not add a queue, table, scheduler or event copy. The reserved connector key is a
+server-owned constant, not a Prometheus label and not caller input. Notification due
+and expired-lease values are subsets, and notification DEAD rows remain included in
+the corresponding global DEAD count.
 
 No payload, tenant, connector, worker, event, task, exception or user value is exported
 as a label. Only deployment-wide aggregates are read; these are not a tenant-facing
@@ -50,36 +63,39 @@ management API. Delivered history is excluded. Counts do not depend on process-l
 lifecycle counters, and due/expired subsets must not be added to their parent totals.
 
 Before the first observation, after a failed read, after close or after two intervals
-without fresh data, queue gauges are **NaN**, not zero; sample_up is zero. Last-success
-time/age remain available after failure. The oldest age is sampled, not an advancing
-clock, and is not a process SLA or end-to-end delivery latency. A stalled poll therefore
-cannot leave a healthy-looking backlog reading. Do not sum duplicate snapshots across
-application replicas sharing a database; group by deployment/database and use max.
+without fresh data, all queue and notification gauges are **NaN**, not zero;
+`approval_outbox_sample_up` is zero. Last-success time/age remain available after
+failure. The oldest age is sampled, not an advancing clock, and is not a process SLA
+or end-to-end delivery latency. A stalled poll therefore cannot leave a healthy-looking
+backlog reading. Do not sum duplicate snapshots across application replicas sharing a
+database; group by deployment/database and use max.
 
-Example condition (only meaningful alongside monitoring availability):
+Example conditions (only meaningful alongside monitoring availability):
 
 ```promql
 (approval_outbox_pending > 100) and (approval_outbox_sample_up == 1)
+approval_notification_outbox_dead > 0 and approval_outbox_sample_up == 1
 approval_outbox_sample_up == 0
 ```
 
 Choose thresholds and an absence alert for explicitly enabled deployments; rule syntax
-alone does not prove Alertmanager notification delivery. There is no unbounded result
-set or event-ID cache. The database may still scan the unfinished/dead population;
+alone does not prove Alertmanager or human notification delivery. There is no unbounded
+result set or event-ID cache. The database may still scan the unfinished/dead population;
 statement timeout failure is unavailable evidence, never a successful truncated count.
 
 ## Verification boundaries
 
 `JdbcOutboxBacklogIntegrationTest` requires real PostgreSQL and the existing repository:
-empty/future-backoff, claim/reschedule/dead, expired-lease recovery/delivery, and mixed
-tenants with delivered history. It performs no direct status mutation.
+empty/future-backoff, claim/reschedule/dead, expired-lease recovery/delivery, mixed
+tenants with delivered history, and reserved-route notification subset/dead-letter
+aggregation. It performs no direct status mutation.
 `OutboxBacklogMetricsTest` uses real Micrometer with controlled reads and time, plus an
 actual owned executor; configuration tests verify opt-in and no second DataSource bean.
 Local Java compilation of the reader/contract and JDBC protocol fixtures are not a
 substitute for those current-commit Maven/PostgreSQL tests, live collector ingestion,
 production load/stop behavior or the signed payment-sandbox end-to-end rehearsal.
 
-The existing real Spring Boot/Flowable metrics test also opts in to the new monitor,
-checks the completion Outbox row through its private reader pool, and requires the
-backlog series on the actual HTTP Prometheus response. It retains all existing
-approval, rollback, idempotency and identity assertions.
+The existing real Spring Boot/Flowable metrics test also opts in to the monitor, checks
+the completion Outbox row through its private reader pool, and requires the backlog
+series on the actual HTTP Prometheus response. It retains all existing approval,
+rollback, idempotency and identity assertions.

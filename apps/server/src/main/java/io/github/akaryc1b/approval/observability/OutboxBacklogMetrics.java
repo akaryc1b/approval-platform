@@ -51,10 +51,24 @@ public final class OutboxBacklogMetrics implements ApplicationListener<Applicati
         Gauge.builder("approval.outbox.pending", this, value -> value.value(Snapshot::pending)).register(registry);
         Gauge.builder("approval.outbox.due", this, value -> value.value(Snapshot::due)).register(registry);
         Gauge.builder("approval.outbox.in.flight", this, value -> value.value(Snapshot::inFlight)).register(registry);
-        Gauge.builder("approval.outbox.expired.leases", this, value -> value.value(Snapshot::expiredLeases)).register(registry);
+        Gauge.builder("approval.outbox.expired.leases", this, value -> value.value(Snapshot::expiredLeases))
+            .register(registry);
         Gauge.builder("approval.outbox.dead", this, value -> value.value(Snapshot::dead)).register(registry);
         Gauge.builder("approval.outbox.oldest.unfinished.age", this,
             value -> value.value(Snapshot::oldestUnfinishedAgeSeconds)).baseUnit("seconds").register(registry);
+        Gauge.builder("approval.notification.outbox.pending", this,
+            value -> value.value(Snapshot::notificationPending)).register(registry);
+        Gauge.builder("approval.notification.outbox.due", this,
+            value -> value.value(Snapshot::notificationDue)).register(registry);
+        Gauge.builder("approval.notification.outbox.in.flight", this,
+            value -> value.value(Snapshot::notificationInFlight)).register(registry);
+        Gauge.builder("approval.notification.outbox.expired.leases", this,
+            value -> value.value(Snapshot::notificationExpiredLeases)).register(registry);
+        Gauge.builder("approval.notification.outbox.dead", this,
+            value -> value.value(Snapshot::notificationDead)).register(registry);
+        Gauge.builder("approval.notification.outbox.oldest.unfinished.age", this,
+            value -> value.value(Snapshot::notificationOldestUnfinishedAgeSeconds))
+            .baseUnit("seconds").register(registry);
         Gauge.builder("approval.outbox.sample.up", this, value -> value.fresh() ? 1.0d : 0.0d).register(registry);
         Gauge.builder("approval.outbox.sample.age", this, OutboxBacklogMetrics::ageSeconds)
             .baseUnit("seconds").register(registry);
