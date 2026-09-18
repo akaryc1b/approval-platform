@@ -24,6 +24,27 @@ const relevantPaths = [
   /^scripts\/upstream\/bootstrap-unibest\.mjs$/u,
 ];
 
+const capacityCorePaths = [
+  /^config\/demo\/capacity-recovery\.json$/u,
+  /^scripts\/product-readiness\/capacity-recovery\.mjs$/u,
+  /^scripts\/product-readiness\/capacity-recovery\//u,
+  /^scripts\/tests\/product-readiness-capacity-recovery-[^/]+\.test\.mjs$/u,
+  /^docs\/product-readiness\/CAPACITY_RECOVERY_ENVELOPE\.md$/u,
+];
+
+const capacityOnlyAllowedPaths = [
+  ...capacityCorePaths,
+  /^package\.json$/u,
+  /^scripts\/tests\/m3-repository-hygiene\.test\.mjs$/u,
+  /^scripts\/product-readiness\/demo-backend\.mjs$/u,
+  /^scripts\/product-readiness\/pc-h5-runtime\/ci-scope\.mjs$/u,
+  // The capacity rehearsal exercises both default and detached-worktree cwd.
+  /^scripts\/product-readiness\/pc-h5-runtime\/processes\.mjs$/u,
+  /^docs\/product-readiness\/README\.md$/u,
+  /^apps\/server\/src\/main\/java\/io\/github\/akaryc1b\/approval\/demo\/PurchasePaymentDemo(?:PaymentSandbox(?:Configuration)?|EventAllowlist)\.java$/u,
+  /^apps\/server\/src\/main\/resources\/application-local\.yml$/u,
+];
+
 function gitExecutable() {
   return process.platform === 'win32' ? 'git.exe' : 'git';
 }
@@ -74,6 +95,13 @@ function relevantChangeSet(files) {
     relevantPaths.some(pattern => pattern.test(path)));
 }
 
+function capacityOnlyChangeSet(files) {
+  return files.some(path =>
+    capacityCorePaths.some(pattern => pattern.test(path)))
+    && files.every(path =>
+      capacityOnlyAllowedPaths.some(pattern => pattern.test(path)));
+}
+
 export function shouldRunInCi() {
   if (process.env.GITHUB_ACTIONS !== 'true') {
     console.log('PC_H5_RUNTIME_SMOKE_SKIPPED_NON_CI');
@@ -98,6 +126,10 @@ export function shouldRunInCi() {
   if (!files) {
     console.log('PC_H5_RUNTIME_SCOPE_UNAVAILABLE_RUNNING_FAIL_CLOSED');
     return true;
+  }
+  if (capacityOnlyChangeSet(files)) {
+    console.log('PC_H5_RUNTIME_SCOPE=SKIPPED_CAPACITY_ONLY');
+    return false;
   }
 
   const selected = relevantChangeSet(files);

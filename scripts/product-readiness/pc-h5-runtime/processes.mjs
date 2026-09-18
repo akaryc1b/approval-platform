@@ -62,10 +62,11 @@ export function runNodeChecked(
   args,
   environment = process.env,
   timeoutMs = undefined,
+  workingDirectory = repositoryRoot,
 ) {
   console.log(`\n==> ${label}`);
   const result = spawnSync(process.execPath, args, {
-    cwd: repositoryRoot,
+    cwd: workingDirectory,
     env: environment,
     shell: false,
     stdio: 'inherit',
@@ -74,12 +75,18 @@ export function runNodeChecked(
   requireSuccessfulProcess(label, result);
 }
 
-export function startManagedNode(label, args, logFile, environment) {
+export function startManagedNode(
+  label,
+  args,
+  logFile,
+  environment,
+  workingDirectory = repositoryRoot,
+) {
   console.log(`\n==> ${label}`);
   const stream = createWriteStream(logFile, { flags: 'w', mode: 0o600 });
   const state = { buffer: '', spawnError: undefined };
   const child = spawn(process.execPath, args, {
-    cwd: repositoryRoot,
+    cwd: workingDirectory,
     detached: process.platform !== 'win32',
     env: environment,
     shell: false,
