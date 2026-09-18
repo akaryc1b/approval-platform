@@ -48,6 +48,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter.OPERATOR_ID_HEADER;
@@ -133,6 +134,8 @@ class ApprovalBusinessMetricsPostgresTest {
         double tasks = count("approval.task.completed");
         long commands = timed("committed");
         long rollbacks = timed("rolled_back");
+        long waitingSamples = waitingCount();
+        double waitingTotalSeconds = waitingTotalSeconds();
         assertTrue(starts >= 1.0d, "the actual seeded start must be observed");
         seeder.apply();
         assertEquals(starts, count("approval.process.started"), "seed replay is not a new process");
@@ -145,17 +148,20 @@ class ApprovalBusinessMetricsPostgresTest {
         identityFilter.getFilter().doFilter(unidentified, denied,
             (request, response) -> fail("unidentified request must not reach the business service"));
         assertEquals(401, denied.getStatus());
+        assertEquals(waitingSamples, waitingCount(), "unidentified requests do not create wait samples");
         assertThrows(IllegalStateException.class, requestEvidence::current);
 
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             approveWithRequestEvidence(firstCommand);
             assertEquals(tasks, count("approval.task.completed"), "uncommitted writes must be invisible");
+            assertEquals(waitingSamples, waitingCount(), "uncommitted claims must not publish waiting time");
             status.setRollbackOnly();
         });
         assertEquals(first.taskId(), pending(tenant, instanceId).taskId());
         assertEquals(tasks, count("approval.task.completed"));
         assertEquals(completions, count("approval.process.completed"));
         assertEquals(rollbacks + 1, timed("rolled_back"));
+        assertEquals(waitingSamples, waitingCount(), "rolled-back claim does not add a wait sample");
 
         // Reuse the rolled-back idempotency key: its database transaction did not commit.
         approveWithRequestEvidence(firstCommand);
@@ -171,10 +177,20 @@ class ApprovalBusinessMetricsPostgresTest {
         assertEquals(tasks + 5, count("approval.task.completed"));
         assertEquals(completions + 1, count("approval.process.completed"));
         assertEquals(commands + 5, timed("committed"));
+        assertEquals(waitingSamples + 5, waitingCount());
+        // This service uses one command timestamp for both claim and completion.
+        // Reconcile timing with persisted task history, not elapsed test-run duration.
+        var completedTasks = projections.findTasks(tenant, instanceId).stream()
+            .filter(task -> task.status() == TaskStatus.COMPLETED).toList();
+        assertEquals(5, completedTasks.size());
+        double persistedWaitSeconds = completedTasks.stream().mapToDouble(task ->
+            Duration.between(task.createdAt(), task.completedAt()).toNanos() / 1_000_000_000.0d).sum();
+        assertEquals(persistedWaitSeconds, waitingTotalSeconds() - waitingTotalSeconds, 0.000001d);
 
         approveWithRequestEvidence(last);
         assertEquals(tasks + 5, count("approval.task.completed"), "cached response is not another transition");
         assertEquals(commands + 5, timed("committed"), "cached response must not execute the timer callback");
+        assertEquals(waitingSamples + 5, waitingCount(), "cached replay must not add waiting time");
         TaskActionCommand stale = new TaskActionCommand(
             new RequestContext(tenant, first.assigneeId(), UUID.randomUUID().toString(),
                 UUID.randomUUID().toString(), null),
@@ -182,6 +198,7 @@ class ApprovalBusinessMetricsPostgresTest {
         );
         assertThrows(ProjectionConflictException.class, () -> approveWithRequestEvidence(stale));
         assertEquals(rollbacks + 2, timed("rolled_back"));
+        assertEquals(waitingSamples + 5, waitingCount(), "stale task conflicts must not add waiting time");
         assertEquals(completions + 1, count("approval.process.completed"));
 
         long observationDeadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
@@ -208,11 +225,15 @@ class ApprovalBusinessMetricsPostgresTest {
             assertTrue(response.body().contains("approval_process_completed_total"));
             assertTrue(response.body().contains("approval_task_completed_total"));
             assertTrue(response.body().contains("approval_command_duration_seconds_count"));
+            assertTrue(response.body().contains("approval_task_waiting_duration_seconds_count"));
+            assertTrue(response.body().contains("approval_task_waiting_duration_seconds_sum"));
+            assertTrue(response.body().contains("approval_task_waiting_duration_seconds_bucket"));
             assertTrue(response.body().contains("approval_outbox_pending"));
             assertTrue(response.body().contains("approval_outbox_sample_up"));
         }
         registry.getMeters().stream().filter(meter -> meter.getId().getName().startsWith("approval.process.")
             || meter.getId().getName().equals("approval.task.completed")
+            || meter.getId().getName().equals("approval.task.waiting.duration")
             || meter.getId().getName().equals("approval.command.duration")).forEach(meter -> {
                 for (var tag : meter.getId().getTags()) {
                     if (tag.getKey().equals("application")) {
@@ -276,6 +297,16 @@ class ApprovalBusinessMetricsPostgresTest {
     private double count(String name) {
         Counter counter = registry.find(name).counter();
         return counter == null ? 0.0d : counter.count();
+    }
+
+    private long waitingCount() {
+        Timer timer = registry.find("approval.task.waiting.duration").timer();
+        return timer == null ? 0 : timer.count();
+    }
+
+    private double waitingTotalSeconds() {
+        Timer timer = registry.find("approval.task.waiting.duration").timer();
+        return timer == null ? 0.0d : timer.totalTime(TimeUnit.SECONDS);
     }
 
     private long timed(String outcome) {

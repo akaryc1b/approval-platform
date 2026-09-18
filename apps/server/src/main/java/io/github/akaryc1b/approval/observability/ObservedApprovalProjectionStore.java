@@ -88,7 +88,9 @@ public final class ObservedApprovalProjectionStore implements ApprovalProjection
 
     @Override
     public TaskProjection claimPendingTask(String tenantId, UUID taskId, String operatorId, Instant claimedAt) {
-        return delegate.claimPendingTask(tenantId, taskId, operatorId, claimedAt);
+        TaskProjection claimed = delegate.claimPendingTask(tenantId, taskId, operatorId, claimedAt);
+        metrics.taskClaimed(claimed);
+        return claimed;
     }
 
     @Override

@@ -1,6 +1,8 @@
 package io.github.akaryc1b.approval.observability;
 
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -49,6 +51,29 @@ public final class ApprovalBusinessMetrics {
         committed(() -> {
             registry.counter("approval.task.completed").increment();
             terminal(status);
+        });
+    }
+
+    /** Persisted task creation to normal claim timestamp, published only on transaction commit. */
+    void taskClaimed(TaskProjection task) {
+        committed(() -> {
+            if (task == null || task.status() != TaskStatus.COMPLETING || task.completedAt() != null) {
+                drop();
+                return;
+            }
+            Duration waiting = Duration.between(task.createdAt(), task.updatedAt());
+            if (waiting.isNegative()) {
+                drop(); // Clock regression or invalid evidence is not a zero-duration task.
+                return;
+            }
+            long nanos = waiting.toNanos(); // Overflow is dropped by the existing telemetry guard.
+            Timer.builder("approval.task.waiting.duration")
+                .description("Task projection creation to committed normal claim timestamp; wall-clock, not SLA")
+                .publishPercentileHistogram()
+                .minimumExpectedValue(Duration.ofSeconds(1))
+                .maximumExpectedValue(Duration.ofDays(90))
+                .register(registry)
+                .record(nanos, TimeUnit.NANOSECONDS);
         });
     }
 
