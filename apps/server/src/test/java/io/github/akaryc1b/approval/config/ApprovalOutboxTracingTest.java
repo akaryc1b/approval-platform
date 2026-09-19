@@ -1,7 +1,6 @@
 package io.github.akaryc1b.approval.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.net.httpserver.HttpServer;
 import io.github.akaryc1b.approval.connector.generic.GenericRestBusinessCallbackConnector;
 import io.github.akaryc1b.approval.connector.model.ConnectorContext;
 import io.github.akaryc1b.approval.connector.port.BusinessCallbackConnector;
@@ -30,7 +29,11 @@ import org.slf4j.MDC;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
-import java.net.InetSocketAddress;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
@@ -39,14 +42,15 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -250,17 +254,12 @@ class ApprovalOutboxTracingTest {
 
     @Test
     void signedHttpCallbackUsesTheCallbackSpanWithoutChangingBusinessEnvelope() throws Exception {
-        AtomicReference<String> body = new AtomicReference<>();
-        AtomicReference<com.sun.net.httpserver.Headers> headers = new AtomicReference<>();
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/callback", exchange -> {
-            body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            headers.set(exchange.getRequestHeaders());
-            exchange.sendResponseHeaders(204, -1); exchange.close();
-        });
-        server.start();
-        try (Fixture f = new Fixture(true); HttpClient client = HttpClient.newHttpClient()) {
-            URI uri = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/callback");
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
+            Fixture f = new Fixture(true); HttpClient client = HttpClient.newHttpClient();
+            var receiver = Executors.newSingleThreadExecutor()) {
+            server.setSoTimeout(5000);
+            var received = receiver.submit(() -> receiveCallback(server));
+            URI uri = URI.create("http://127.0.0.1:" + server.getLocalPort() + "/callback");
             GenericConnectorProperties properties = properties(uri);
             var factory = new StaticListableBeanFactory(Map.of("tracing", f.tracing));
             var configuration = new GenericConnectorConfiguration(factory.getBeanProvider(OutboxTracing.class));
@@ -269,22 +268,23 @@ class ApprovalOutboxTracingTest {
                 CLOCK, () -> "test-nonce");
             OutboxDispatcher dispatcher = configuration.outboxDispatcher(f.repository, key -> callback, properties, CLOCK);
             assertEquals(1, dispatcher.dispatchBatch(10, "worker").delivered());
+            CapturedRequest request = received.get(5, TimeUnit.SECONDS);
             SpanData child = f.only("approval.connector.callback");
             assertEquals("00-" + child.getTraceId() + "-" + child.getSpanId() + "-01",
-                headers.get().getFirst("traceparent"));
-            assertNull(headers.get().getFirst("baggage")); assertNull(headers.get().getFirst("b3"));
-            assertEquals("business-correlation", headers.get().getFirst("X-Trace-Id"));
-            assertEquals(f.message.event().idempotencyKey(), headers.get().getFirst("Idempotency-Key"));
-            assertEquals(f.message.context().requestId(), headers.get().getFirst("X-Request-Id"));
+                request.headers().get("traceparent"));
+            assertNull(request.headers().get("baggage")); assertNull(request.headers().get("b3"));
+            assertEquals("business-correlation", request.headers().get("x-trace-id"));
+            assertEquals(f.message.event().idempotencyKey(), request.headers().get("idempotency-key"));
+            assertEquals(f.message.context().requestId(), request.headers().get("x-request-id"));
             assertEquals(new HmacSha256WebhookSigner().sign(SECRET.getBytes(StandardCharsets.UTF_8),
-                NOW.getEpochSecond(), "test-nonce", body.get()), headers.get().getFirst("X-Approval-Signature"));
-            var json = new ObjectMapper().readTree(body.get());
+                NOW.getEpochSecond(), "test-nonce", request.body()), request.headers().get("x-approval-signature"));
+            var json = new ObjectMapper().readTree(request.body());
             assertEquals(f.message.event().eventId().toString(), json.get("eventId").asText());
             assertEquals(PRIVATE, json.get("payload").get("private").asText());
             assertEquals(7, json.size());
             f.assertPrivateDataAbsent();
             verify(f.repository, times(1)).markDelivered(any(), any(), any(), anyInt(), any());
-        } finally { server.stop(0); }
+        }
     }
 
     @Test
@@ -303,6 +303,42 @@ class ApprovalOutboxTracingTest {
             assertEquals("old", configuration.genericWebhookEndpointResolver(properties)
                 .resolve(f.message.context()).headers().get("TraceParent"));
         }
+    }
+
+    /** One bounded HTTP/1.1 loopback request; no internal JDK API or additional test dependency. */
+    private static CapturedRequest receiveCallback(ServerSocket server) throws IOException {
+        try (var socket = server.accept()) {
+            socket.setSoTimeout(5000);
+            BufferedInputStream input = new BufferedInputStream(socket.getInputStream());
+            ByteArrayOutputStream head = new ByteArrayOutputStream();
+            int end = 0;
+            while (end != 0x0d0a0d0a) {
+                int next = input.read();
+                if (next == -1 || head.size() >= 16384) throw new IOException("Invalid test HTTP header");
+                head.write(next); end = (end << 8) | next;
+            }
+            String[] lines = head.toString(StandardCharsets.US_ASCII).split("\r\n");
+            assertEquals("POST /callback HTTP/1.1", lines[0]);
+            Map<String, String> headers = new LinkedHashMap<>();
+            for (int i = 1; i < lines.length; i++) {
+                int separator = lines[i].indexOf(':');
+                assertTrue(separator > 0);
+                String name = lines[i].substring(0, separator).toLowerCase(Locale.ROOT);
+                assertNull(headers.put(name, lines[i].substring(separator + 1).trim()), "duplicate HTTP header");
+            }
+            assertFalse(headers.containsKey("transfer-encoding"));
+            int length = Integer.parseInt(headers.get("content-length"));
+            assertTrue(length >= 0 && length <= 65536);
+            byte[] body = input.readNBytes(length);
+            assertEquals(length, body.length);
+            socket.getOutputStream().write(("HTTP/1.1 204 No Content\r\n"
+                + "Content-Length: 0\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+            socket.getOutputStream().flush();
+            return new CapturedRequest(new String(body, StandardCharsets.UTF_8), Map.copyOf(headers));
+        }
+    }
+
+    private record CapturedRequest(String body, Map<String, String> headers) {
     }
 
     private static GenericConnectorProperties properties(URI callback) {
