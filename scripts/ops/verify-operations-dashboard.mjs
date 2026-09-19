@@ -62,10 +62,11 @@ export function dashboardQueryFixtures(ruleFile, dashboardQueryFile, queries) {
     'approval_notification_outbox_in_flight', 'approval_notification_outbox_dead',
     'approval_notification_outbox_oldest_unfinished_age_seconds'];
   const defaults = Object.fromEntries(names.map((name, i) => [name, [1, 4, 3, 1, 8, 6, 2, 1, 12, 3, 1, 500, 5, 1, 1, 300][i]]));
+  // Six explicit samples preserve x5 timing, including non-finite values that cannot use expansion.
   function series(overrides = {}, instance = 'node-a') {
     return Object.entries({ up: 1, ...defaults, ...overrides }).filter(([, value]) => value !== null)
       .map(([name, value]) => ({ series: name + `{job="approval-platform",instance="${instance}",environment="test",workflow_monitor="enabled",outbox_monitor="enabled"`
-        + (name === 'up' ? '}' : ',application="approval-platform"}'), values: `${value}x5` }));
+        + (name === 'up' ? '}' : ',application="approval-platform"}'), values: Array(6).fill(String(value)).join(' ') }));
   }
   const cases = [];
   const quantityIds = [...Array.from({ length: 6 }, (_, i) => i + 7), ...Array.from({ length: 8 }, (_, i) => i + 18)];

@@ -92,9 +92,9 @@ test('missing invalid and stale samples have independent regression cases', () =
     assert.deepEqual(missing.promql_expr_test[0].exp_samples, []);
     assert.equal(missing.alert_rule_test[2].exp_alerts.length, 1);
     const stale = scenario(`stale ${name} invalidates the whole snapshot`);
-    assert.deepEqual(stale.promql_expr_test.map(check => check.exp_samples.length), [1, 0, 0]);
-    assert.deepEqual(stale.alert_rule_test.filter(check => check.alertname === workflowPopulationAlerts[2])
-      .map(check => check.exp_alerts.length), [0, 0, 1]);
+    assert.deepEqual(stale.promql_expr_test.map(value => value.exp_samples.length), [1, 0, 0]);
+    assert.deepEqual(stale.alert_rule_test.filter(value => value.alertname === workflowPopulationAlerts[2])
+      .map(value => value.exp_alerts.length), [0, 0, 1]);
   }
   for (const name of workflowPopulationGauges) {
     for (const invalid of ['NaN', '+Inf', '-1']) {
@@ -190,7 +190,7 @@ test('new production file and default-off expectation are wired to existing prov
   assert.ok(provisioning.indexOf('const result = runPromtoolChecks(executable)')
     < provisioning.indexOf('const workflowPopulation = verifyWorkflowPopulationAlerts('));
   assert.match(provisioning, /runCommand: \(file, args, cwd, timeout\) => command\(spawnSync, file, args, cwd, timeout\)/u);
-  assert.match(provisioning, /return \{ \.\.\.result, outbox, workflowPopulation \}/u);
+  assert.match(provisioning, /return \{ \.\.\.result, outbox, workflowPopulation, operationsDashboard, workflowDelivery \}/u);
   const suite = text('scripts/tests/ops-prometheus-rule-runtime.test.mjs');
   assert.ok(suite.includes("import './ops-workflow-population-alerting.test.mjs';"));
   assert.ok(suite.includes("assert.equal(result.workflowPopulation.status, 'OPS_WORKFLOW_POPULATION_RULES_VERIFIED')"));

@@ -205,3 +205,20 @@ test('dashboard native driver checks syntax before behavior and returns bounded 
   assert.equal(result.grafanaBrowserVerified, false);
   assert.equal(result.dashboardSha256, hash(readFileSync(resolve(root, operationsDashboardPath))));
 });
+
+test('native dashboard fixtures use explicit non-finite samples and retain absent expectations', () => {
+  const fixtures = dashboardQueryFixtures(ruleFile, 'generated-queries.yml', operationsDashboardQueries(dashboard));
+  const invalid = fixtures.tests.find(value => value.name === 'invalid outbox dead observations are not zeros');
+  for (const [name, expected] of [
+    ['approval_outbox_dead', 'NaN'], ['approval_notification_outbox_dead', '+Inf'],
+  ]) {
+    const input = invalid.input_series.find(value => value.series.startsWith(name + '{')
+      && value.series.includes('instance="node-a"'));
+    assert.deepEqual(input.values.split(' '), Array(6).fill(expected));
+    assert.doesNotMatch(input.values, /(?:NaN|[+-]?Inf)x/u);
+  }
+  assert.ok(invalid.promql_expr_test.every(value => value.exp_samples.length === 0));
+  for (const input of fixtures.tests.flatMap(value => value.input_series)) {
+    assert.equal(input.values.split(' ').length, 6, 'six timestamps from 0m through 5m');
+  }
+});
