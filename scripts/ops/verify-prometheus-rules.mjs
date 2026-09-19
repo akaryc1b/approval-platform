@@ -5,8 +5,10 @@ import { chmodSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync }
 import { tmpdir } from 'node:os';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { verifyOutboxAlerting } from './verify-outbox-alerts.mjs';
+import { alertmanagerPin, verifyOutboxAlerting } from './verify-outbox-alerts.mjs';
 import { verifyWorkflowPopulationAlerts } from './verify-workflow-population-alerts.mjs';
+import { verifyWorkflowPopulationDelivery } from './verify-workflow-population-delivery.mjs';
+import { verifyOperationsDashboard } from './verify-operations-dashboard.mjs';
 
 // Upstream archive identity, not a mutable image tag or a checksum downloaded beside it.
 // Source: https://prometheus.io/download/ (3.13.3 linux-amd64, 2026-09-07).
@@ -87,12 +89,21 @@ export function provisionAndVerifyPrometheusRules() {
       promtool: executable,
       runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
     console.log(JSON.stringify(workflowPopulation)); // Native execution only, not the unit runner.
+    const operationsDashboard = verifyOperationsDashboard({ directory, repositoryRoot: root,
+      promtool: executable,
+      runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
+    console.log(JSON.stringify(operationsDashboard));
     const outbox = verifyOutboxAlerting({ directory, repositoryRoot: root, promtool: executable,
       prometheus: resolve(directory, promtoolPin.member.replace('/promtool', '/prometheus')),
       runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout),
       verifyArchive: verifyArchiveDigest });
     console.log(JSON.stringify(outbox)); // Native execution only; fixture runners return data silently.
-    return { ...result, outbox, workflowPopulation };
+    const workflowDelivery = verifyWorkflowPopulationDelivery({ directory, repositoryRoot: root,
+      prometheus: resolve(directory, promtoolPin.member.replace('/promtool', '/prometheus')),
+      alertmanager: resolve(directory, alertmanagerPin.directory, 'alertmanager'),
+      runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
+    console.log(JSON.stringify(workflowDelivery)); // Actual native servers, not unit fixtures.
+    return { ...result, outbox, workflowPopulation, operationsDashboard, workflowDelivery };
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
