@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalProcessTimingObserver;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -28,8 +29,16 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
+    private final ApprovalProcessTimingObserver processTimingObserver;
 
     public JdbcApprovalProjectionStore(DataSource dataSource, ObjectMapper objectMapper) {
+        this(dataSource, objectMapper, ApprovalProcessTimingObserver.NONE);
+    }
+
+    public JdbcApprovalProjectionStore(DataSource dataSource, ObjectMapper objectMapper,
+        ApprovalProcessTimingObserver processTimingObserver) {
+        this.processTimingObserver = Objects.requireNonNull(processTimingObserver,
+            "processTimingObserver must not be null");
         this.jdbc = new NamedParameterJdbcTemplate(
             Objects.requireNonNull(dataSource, "dataSource must not be null")
         );
@@ -118,7 +127,7 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
 
     @Override
     public void createInstance(InstanceProjection instance, List<TaskProjection> tasks) {
-        int inserted = jdbc.update(
+        List<ProcessTimes> inserted = jdbc.query(
             """
             insert into ap_approval_instance (
                 instance_id, tenant_id, business_key, engine_instance_id,
@@ -143,15 +152,18 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
                 cast(:attachmentIdsJson as jsonb), cast(:assigneeSnapshotJson as jsonb),
                 :requestHash, :status, :version, :createdAt, :updatedAt
             )
+            returning created_at, updated_at
             """,
-            instanceParameters(instance)
+            instanceParameters(instance),
+            processTimesMapper()
         );
-        if (inserted != 1) {
+        if (inserted.size() != 1) {
             throw new IllegalStateException("instance projection was not inserted");
         }
         for (TaskProjection task : tasks) {
             insertTask(task);
         }
+        observeTerminal(instance.status(), inserted.getFirst());
     }
 
     @Override
@@ -364,7 +376,7 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
         String initiatorId,
         Instant withdrawnAt
     ) {
-        int updated = jdbc.update(
+        List<ProcessTimes> updated = jdbc.query(
             """
             update ap_approval_instance
             set status = 'WITHDRAWN',
@@ -374,14 +386,16 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
               and instance_id = :instanceId
               and initiator_id = :initiatorId
               and status = 'RUNNING'
+            returning created_at, updated_at
             """,
             new MapSqlParameterSource()
                 .addValue("tenantId", tenantId)
                 .addValue("instanceId", instanceId)
                 .addValue("initiatorId", initiatorId)
-                .addValue("withdrawnAt", offset(withdrawnAt))
+                .addValue("withdrawnAt", offset(withdrawnAt)),
+            processTimesMapper()
         );
-        if (updated != 1) {
+        if (updated.size() != 1) {
             throw new ProjectionConflictException(
                 "instance is missing, no longer running, or was not started by the operator"
             );
@@ -401,6 +415,7 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
                 .addValue("instanceId", instanceId)
                 .addValue("withdrawnAt", offset(withdrawnAt))
         );
+        observeTerminal(InstanceStatus.WITHDRAWN, updated.getFirst());
     }
 
     private void synchronizeActiveTasks(
@@ -447,7 +462,7 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
         InstanceStatus status,
         Instant updatedAt
     ) {
-        int instanceUpdated = jdbc.update(
+        List<ProcessTimes> instanceUpdated = jdbc.query(
             """
             update ap_approval_instance
             set status = :status,
@@ -456,16 +471,47 @@ public final class JdbcApprovalProjectionStore implements ApprovalProjectionStor
             where tenant_id = :tenantId
               and instance_id = :instanceId
               and status = 'RUNNING'
+            returning created_at, updated_at
             """,
             new MapSqlParameterSource()
                 .addValue("tenantId", tenantId)
                 .addValue("instanceId", instanceId)
                 .addValue("status", status.name())
-                .addValue("updatedAt", offset(updatedAt))
+                .addValue("updatedAt", offset(updatedAt)),
+            processTimesMapper()
         );
-        if (instanceUpdated != 1) {
+        if (instanceUpdated.size() != 1) {
             throw new ProjectionConflictException("running instance projection changed or is missing");
         }
+        observeTerminal(status, instanceUpdated.getFirst());
+    }
+
+    private void observeTerminal(InstanceStatus outcome, ProcessTimes times) {
+        if (outcome != InstanceStatus.COMPLETED && outcome != InstanceStatus.REJECTED
+            && outcome != InstanceStatus.WITHDRAWN) {
+            return;
+        }
+        try {
+            processTimingObserver.terminal(outcome, times.createdAt(), times.terminalAt());
+        } catch (RuntimeException unavailable) {
+            // Optional in-process telemetry must not alter persistence, authorization or retry behavior.
+        }
+    }
+
+    private static RowMapper<ProcessTimes> processTimesMapper() {
+        return (resultSet, rowNumber) -> {
+            try {
+                return new ProcessTimes(nullableInstant(resultSet, "created_at"),
+                    nullableInstant(resultSet, "updated_at"));
+            } catch (SQLException | RuntimeException unavailable) {
+                // Keep affected-row authority even if optional timing extraction fails.
+                // The observer receives missing evidence and must not invent a zero duration.
+                return new ProcessTimes(null, null);
+            }
+        };
+    }
+
+    private record ProcessTimes(Instant createdAt, Instant terminalAt) {
     }
 
     private static TaskProjection requireSingleClaim(

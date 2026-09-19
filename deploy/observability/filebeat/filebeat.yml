@@ -1,0 +1,31 @@
+filebeat.inputs:
+  - type: filestream
+    id: approval-platform-ecs-json
+    enabled: true
+    paths:
+      - /var/log/approval-platform/*.json
+    parsers:
+      - ndjson:
+          target: ""
+          overwrite_keys: true
+          add_error_key: true
+    fields_under_root: true
+    fields:
+      log_source: approval-platform
+
+processors:
+  - drop_fields:
+      ignore_missing: true
+      fields:
+        - authorization
+        - http.request.body.content
+        - http.response.body.content
+        - approval.form_values
+        - approval.comments
+        - approval.attachments
+        - connector.request_payload
+        - connector.response_payload
+
+output.logstash:
+  hosts:
+    - logstash:5044

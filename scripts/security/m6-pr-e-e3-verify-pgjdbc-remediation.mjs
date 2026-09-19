@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { requirePreservedGraph } from './observability-dependency-graph.mjs';
 
 const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
 const canonical=v=>JSON.stringify(stable(v));
@@ -8,7 +9,7 @@ const sha256=v=>createHash('sha256').update(v).digest('hex');
 export function verifyPgjdbcRemediation(e4,plan){
   if(!e4||!plan)throw new Error('E4 evidence and remediation plan required');
   if(e4.repository!==plan.repository)throw new Error('remediation repository mismatch');
-  if(e4.e2GraphDigest!==plan.targetE2GraphDigest)throw new Error(`remediation E2 graph mismatch ${e4.e2GraphDigest}`);
+  const graphTransition=requirePreservedGraph(e4,plan.targetE2GraphDigest);
   if(e4.scanners?.osv?.scanCompleted!==true)throw new Error('OSV scanner must complete for remediation');
   const findings=e4.scanners.osv.findings||[];
   const currentIds=new Set(findings.map(f=>`${f.sourceClass}:${f.findingId}`));
@@ -30,7 +31,8 @@ export function verifyPgjdbcRemediation(e4,plan){
     }));
   }
   const payload=stable({
-    schemaVersion:'M6_PR_E_E3_R1_PGJDBC_REMEDIATION_EVIDENCE_V1',
+    schemaVersion:graphTransition?'M6_PR_E_E3_R1_PGJDBC_REMEDIATION_EVIDENCE_V2':'M6_PR_E_E3_R1_PGJDBC_REMEDIATION_EVIDENCE_V1',
+    ...(graphTransition?{subsequentGraphTransition:graphTransition}:{}),
     repository:e4.repository,
     commitSha:e4.commitSha,
     sourceE4CanonicalSha256:e4.contentSha256,

@@ -1,0 +1,24 @@
+spring:
+  config:
+    activate:
+      on-profile: observability
+
+management:
+  server:
+    port: ${APPROVAL_MANAGEMENT_PORT:8081}
+    address: ${APPROVAL_MANAGEMENT_ADDRESS:127.0.0.1}
+  tracing:
+    export:
+      otlp:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: ${APPROVAL_STRUCTURED_LOG_FORMAT:ecs}
+    ecs:
+      service:
+        name: ${spring.application.name}
+        version: ${APPROVAL_SERVICE_VERSION:development}
+        environment: ${APPROVAL_ENVIRONMENT:local}
+        node-name: ${HOSTNAME:local}
