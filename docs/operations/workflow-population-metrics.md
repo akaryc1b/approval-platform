@@ -77,10 +77,12 @@ and on (job, instance) (approval_workflow_sample_up == 1)
 and on (job, instance) (up{job="approval-platform"} == 1)
 ```
 
-Configure an independent expected-target label and absence alert before paging on this
-monitor. A disappeared metric or resolved condition during sampling loss is unknown,
-not recovery. This slice does not alter existing alert rules or claim native alert
-routing for these new series. Row counts are snapshots, not durable event accounting.
+The separate `approval-workflow-population.rules.yml` provides process/task overdue
+alerts and a complete-sample availability alert, enabled only for targets labeled
+`workflow_monitor: enabled`. See `workflow-population-alerting.md` for configuration,
+recording-rule dependencies and native regression coverage. Existing platform/Outbox
+rules remain unchanged. A disappeared metric or resolved condition during sampling
+loss is unknown, not business recovery. Row counts are snapshots, not durable accounting.
 The database can still scan a large active population; timeout is unavailable evidence,
 never a successful truncated count. Production load, DNS behavior and shutdown under
 network failure require deployment-specific validation.

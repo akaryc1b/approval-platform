@@ -1,3 +1,4 @@
+import './ops-workflow-population-alerting.test.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, truncateSync, writeFileSync } from 'node:fs';
@@ -124,5 +125,7 @@ test('actual pinned promtool parses and evaluates all original and regression fi
   timeout: 360000,
   skip: process.env.GITHUB_ACTIONS !== 'true' ? 'real promtool provisioning executes in GitHub CI; local launcher tests use fixtures' : false,
 }, () => {
-  assert.equal(provisionAndVerifyPrometheusRules().status, 'OPS_PROMETHEUS_RULES_VERIFIED');
+  const result = provisionAndVerifyPrometheusRules();
+  assert.equal(result.status, 'OPS_PROMETHEUS_RULES_VERIFIED');
+  assert.equal(result.workflowPopulation.status, 'OPS_WORKFLOW_POPULATION_RULES_VERIFIED');
 });

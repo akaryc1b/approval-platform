@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyOutboxAlerting } from './verify-outbox-alerts.mjs';
+import { verifyWorkflowPopulationAlerts } from './verify-workflow-population-alerts.mjs';
 
 // Upstream archive identity, not a mutable image tag or a checksum downloaded beside it.
 // Source: https://prometheus.io/download/ (3.13.3 linux-amd64, 2026-09-07).
@@ -82,12 +83,16 @@ export function provisionAndVerifyPrometheusRules() {
     chmodSync(executable, 0o700);
     console.log(`OPS_PROMTOOL_ARCHIVE_SHA256=${promtoolPin.sha256}`);
     const result = runPromtoolChecks(executable);
+    const workflowPopulation = verifyWorkflowPopulationAlerts({ directory, repositoryRoot: root,
+      promtool: executable,
+      runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
+    console.log(JSON.stringify(workflowPopulation)); // Native execution only, not the unit runner.
     const outbox = verifyOutboxAlerting({ directory, repositoryRoot: root, promtool: executable,
       prometheus: resolve(directory, promtoolPin.member.replace('/promtool', '/prometheus')),
       runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout),
       verifyArchive: verifyArchiveDigest });
     console.log(JSON.stringify(outbox)); // Native execution only; fixture runners return data silently.
-    return { ...result, outbox };
+    return { ...result, outbox, workflowPopulation };
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

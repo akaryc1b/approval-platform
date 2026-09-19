@@ -6,6 +6,7 @@ global:
 rule_files:
   - /etc/prometheus/rules/approval-platform.rules.yml
   - /etc/prometheus/rules/approval-outbox.rules.yml
+  - /etc/prometheus/rules/approval-workflow-population.rules.yml
 
 alerting:
   alertmanagers:
@@ -25,3 +26,5 @@ scrape_configs:
           environment: production
           # Add only when this target is expected to enable the Outbox monitor:
           # outbox_monitor: enabled
+          # Independently opt in when workflow population sampling is expected:
+          # workflow_monitor: enabled
