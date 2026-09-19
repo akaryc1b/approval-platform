@@ -135,6 +135,9 @@ class JdbcApprovalWorkflowPopulationIntegrationTest {
             counts(reader.read(), 0,0,0,0,0,0);
         }
         assertEquals(6L, jdbc.queryForObject("select count(*) from ap_sla_instance where status='ACTIVE'", Long.class));
+        assertEquals(2L, jdbc.queryForObject("select count(*) from ap_sla_policy_version where status='ACTIVE'", Long.class));
+        assertEquals(List.of(3L, 3L), jdbc.queryForList(
+            "select count(*) from ap_sla_instance group by policy_id order by policy_id", Long.class));
     }
 
     @Test
@@ -199,21 +202,34 @@ class JdbcApprovalWorkflowPopulationIntegrationTest {
             .addValue("due", offset(overdueAt.minusSeconds(3600))).addValue("overdue", offset(overdueAt));
         var named = new NamedParameterJdbcTemplate(dataSource);
         transaction.executeWithoutResult(status -> {
-            named.update("""
-                insert into ap_sla_policy (policy_id,tenant_id,policy_key,display_name,status,active_version,
-                    created_by,created_at,updated_at,version)
-                values (:policy,:tenant,:key,'Population','DRAFT',null,'designer',:started,:started,1)
-                """, parameters);
-            named.update("""
-                insert into ap_sla_policy_version (policy_id,tenant_id,policy_version,definition_key,release_version,
-                    task_definition_key,target_type,duration_mode,duration_millis,calendar_id,calendar_version,
-                    calendar_content_hash,time_zone,first_reminder_offset_millis,repeat_reminder_interval_millis,
-                    maximum_reminder_count,overdue_offset_millis,escalation_strategy,escalation_target,automatic_action_policy,
-                    pause_rules_json,content_hash,status,immutable,published_by,published_at,created_at,updated_at)
-                values (:policy,:tenant,1,'population',1,:node,:scope,'NATURAL_TIME',7200000,null,null,null,'UTC',
-                    null,null,0,3600000,null,null,'NONE','{}'::jsonb,repeat('c',64),'ACTIVE',true,'publisher',:started,:started,:started)
-                """, parameters);
-            named.update("update ap_sla_policy set status='ACTIVE',active_version=1,version=2 where policy_id=:policy and tenant_id=:tenant", parameters);
+            // Several instances share one effective policy for each tenant/definition/target scope.
+            // Preserve uk_sla_policy_active_target instead of inventing another active policy.
+            var existing = named.query("""
+                select policy_id from ap_sla_policy_version
+                where tenant_id=:tenant and definition_key='population' and release_version=1
+                  and task_definition_key is not distinct from cast(:node as varchar)
+                  and target_type=:scope and status='ACTIVE'
+                """, parameters, (rows, index) -> rows.getObject("policy_id", UUID.class));
+            assertTrue(existing.size() <= 1, "fixture must respect the unique effective SLA target");
+            if (existing.isEmpty()) {
+                named.update("""
+                    insert into ap_sla_policy (policy_id,tenant_id,policy_key,display_name,status,active_version,
+                        created_by,created_at,updated_at,version)
+                    values (:policy,:tenant,:key,'Population','DRAFT',null,'designer',:started,:started,1)
+                    """, parameters);
+                named.update("""
+                    insert into ap_sla_policy_version (policy_id,tenant_id,policy_version,definition_key,release_version,
+                        task_definition_key,target_type,duration_mode,duration_millis,calendar_id,calendar_version,
+                        calendar_content_hash,time_zone,first_reminder_offset_millis,repeat_reminder_interval_millis,
+                        maximum_reminder_count,overdue_offset_millis,escalation_strategy,escalation_target,automatic_action_policy,
+                        pause_rules_json,content_hash,status,immutable,published_by,published_at,created_at,updated_at)
+                    values (:policy,:tenant,1,'population',1,:node,:scope,'NATURAL_TIME',7200000,null,null,null,'UTC',
+                        null,null,0,3600000,null,null,'NONE','{}'::jsonb,repeat('c',64),'ACTIVE',true,'publisher',:started,:started,:started)
+                    """, parameters);
+                named.update("update ap_sla_policy set status='ACTIVE',active_version=1,version=2 where policy_id=:policy and tenant_id=:tenant", parameters);
+            } else {
+                parameters.addValue("policy", existing.getFirst());
+            }
             named.update("""
                 insert into ap_sla_instance (sla_instance_id,tenant_id,approval_instance_id,task_id,collaboration_participant_id,
                     definition_key,task_definition_key,target_type,policy_id,policy_version,calendar_id,calendar_version,time_zone,

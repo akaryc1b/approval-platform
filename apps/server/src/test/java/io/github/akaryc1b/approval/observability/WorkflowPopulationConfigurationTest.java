@@ -63,7 +63,8 @@ class WorkflowPopulationConfigurationTest {
     void metersUseCachedValuesKeepCommonTagsAndInvalidateTogether() {
         AtomicInteger reads = new AtomicInteger();
         var next = new AtomicReference<>(new Snapshot(Instant.now(), 5, 3, 2, 9, 4, 1));
-        try (var registry = new SimpleMeterRegistry()) {
+        var registry = new SimpleMeterRegistry();
+        try {
             registry.config().commonTags("application", "approval-platform");
             var monitor = new WorkflowPopulationMonitor(() -> { reads.incrementAndGet(); return next.get(); },
                 Duration.ofSeconds(5), () -> { });
@@ -85,6 +86,8 @@ class WorkflowPopulationConfigurationTest {
                 assertEquals(1, registry.get("approval.workflow.sample.errors").functionCounter().count());
             }
             assertEquals(0, monitor.up());
+        } finally {
+            registry.close();
         }
     }
 
