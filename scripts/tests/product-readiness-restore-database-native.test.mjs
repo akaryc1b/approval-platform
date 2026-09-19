@@ -60,9 +60,21 @@ while [ ! -f /tmp/approval-init-continue ]; do sleep 0.1; done
 
     invoke(['exec', '-T', 'postgres', 'touch', '/tmp/approval-init-continue']);
     await wait(['exec', '-T', 'postgres', 'pg_isready', '-h', '127.0.0.1', '-p', '5432', '-t', '2']);
-    // A final TCP server still cannot prove that approval exists.
+    // A final TCP server still cannot prove that approval exists. The deadline
+    // may expire in a later TCP probe, so assert actual SQL failure, not lastStage.
+    let missingDatabaseProbes = 0;
     await assert.rejects(waitForRestoreDatabase({ deadline: Date.now() + 1500,
-      composeArguments, cwd: directory }), /RESTORE_DATABASE_NOT_READY stage=database/u);
+      composeArguments, cwd: directory,
+      run(file, args, options) {
+        const result = spawnSync(file, args, options);
+        if (args.includes('psql') && !result.error && !result.signal && result.status === 2
+            && String(result.stderr).includes('database "approval" does not exist')) {
+          missingDatabaseProbes++;
+        }
+        return result;
+      },
+    }), /RESTORE_DATABASE_NOT_READY/u);
+    assert.ok(missingDatabaseProbes > 0, 'the real target-database query must reject the absent database');
     invoke(['exec', '-T', 'postgres', 'createdb', '-U', 'approval', 'approval']);
     ready = await waitForRestoreDatabase({ deadline: Date.now() + 10000, composeArguments, cwd: directory });
     assert.equal(ready.targetDatabaseQueryPassed, true);

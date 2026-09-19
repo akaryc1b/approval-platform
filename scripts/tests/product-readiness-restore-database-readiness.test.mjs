@@ -92,6 +92,14 @@ test('missing database exhausts the original deadline without stderr leakage', a
   assert.deepEqual(f.calls.map(c => c.settings.timeout), [600, 600, 100, 100]);
 });
 
+test('missing target remains rejected when deadline ends in a subsequent TCP probe', async () => {
+  const f = fixture([ok, unavailable, advance => { advance(100); return { error: { code: 'ETIMEDOUT' } }; }], 600);
+  await assert.rejects(waitForRestoreDatabase(f.options), /NOT_READY stage=tcp attempts=2/u);
+  assert.deepEqual(f.calls.map(c => c.args.includes('psql')), [false, true, false]);
+  assert.deepEqual(f.sleeps, [500]);
+  assert.deepEqual(f.calls.map(c => c.settings.timeout), [600, 600, 100]);
+});
+
 test('slow probe cannot start SQL or authorize restore after deadline', async () => {
   const tcp = fixture([advance => { advance(100); return ok; }], 100);
   await assert.rejects(waitForRestoreDatabase(tcp.options), /NOT_READY/u);
