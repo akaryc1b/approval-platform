@@ -32,6 +32,7 @@ import {
 } from '../purchase-payment-e2e/evidence.mjs';
 import { publishExactEventAllowlist, verifyExactAcceptedPayments } from './sandbox-event-allowlist.mjs';
 import { seededAttachmentIds } from './backlog-drain-evidence.mjs';
+import { waitForRestoreDatabase } from './restore-database-readiness.mjs';
 import {
   composeFile,
   composeProject,
@@ -270,43 +271,6 @@ function createBackup(dumpPath, deadline) {
   };
 }
 
-async function waitForPostgres(deadline) {
-  while (Date.now() < deadline) {
-    const result = spawnSync(
-      composeArguments(
-        'exec',
-        '-T',
-        'postgres',
-        'pg_isready',
-        '-U',
-        'approval',
-        '-d',
-        'approval',
-      )[0],
-      composeArguments(
-        'exec',
-        '-T',
-        'postgres',
-        'pg_isready',
-        '-U',
-        'approval',
-        '-d',
-        'approval',
-      ).slice(1),
-      {
-        cwd: repositoryRoot,
-        encoding: 'utf8',
-        env: process.env,
-        shell: false,
-        timeout: Math.min(10_000, remainingMilliseconds(deadline, 'PostgreSQL readiness')),
-      },
-    );
-    if (!result.error && result.status === 0) return;
-    await new Promise(resolvePromise => setTimeout(resolvePromise, 500));
-  }
-  throw new Error('fresh PostgreSQL 16 did not become ready');
-}
-
 async function recreateInfrastructure(dumpPath, deadline) {
   run(composeArguments('down', '--volumes', '--remove-orphans'), {
     label: 'destroy pre-restore disposable PostgreSQL volume',
@@ -316,7 +280,7 @@ async function recreateInfrastructure(dumpPath, deadline) {
     label: 'create fresh PostgreSQL 16 and Redis infrastructure',
     timeoutMs: remainingMilliseconds(deadline, 'create fresh infrastructure'),
   });
-  await waitForPostgres(deadline);
+  const readiness = await waitForRestoreDatabase({ deadline, composeArguments, cwd: repositoryRoot });
   const restoreStartedAt = new Date();
   const dump = readFileSync(dumpPath);
   run(composeArguments(
@@ -342,6 +306,7 @@ async function recreateInfrastructure(dumpPath, deadline) {
     startedAt: restoreStartedAt.toISOString(),
     completedAt: restoreCompletedAt.toISOString(),
     elapsedMs: restoreCompletedAt.getTime() - restoreStartedAt.getTime(),
+    readiness,
   };
 }
 

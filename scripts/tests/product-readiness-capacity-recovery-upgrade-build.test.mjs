@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
+import './product-readiness-restore-database-readiness.test.mjs';
 
 const source = readFileSync(new URL(
   '../product-readiness/capacity-recovery/upgrade-restore-contract.mjs', import.meta.url), 'utf8');
