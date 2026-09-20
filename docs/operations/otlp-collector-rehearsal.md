@@ -18,9 +18,12 @@ mvn -pl apps/server -am \
 The ordinary server Maven tests discover these tests without a new workflow or
 manual dispatch. Docker is required; the native test is not marked skip-if-Docker-
 missing. The existing test-only dependencies and resolved OTel family are reused.
-The native image is version-pinned to `otel/opentelemetry-collector:0.161.0`, not
+The native image is version-pinned to `otel/opentelemetry-collector:0.160.0`, not
 `latest`; that tag is not represented as a cryptographic image digest or production
-supply-chain approval.
+supply-chain approval. The initial 0.161.0 Docker Hub pin returned manifest
+unknown in CI; this explicit 0.160.0 core distribution retains the same required
+OTLP, batch, memory-limiter and file components. There is no mutable-tag fallback
+or skip-on-pull-failure.
 
 The receiver configuration is
 `apps/server/src/test/resources/observability/collector-rehearsal.yaml`.
@@ -88,10 +91,10 @@ test observation sink, not a production trace store.
 ## Versioned upstream references
 
 Collector distribution/components:
-https://github.com/open-telemetry/opentelemetry-collector-releases/blob/v0.161.0/distributions/otelcol/manifest.yaml
+https://github.com/open-telemetry/opentelemetry-collector-releases/blob/v0.160.0/distributions/otelcol/manifest.yaml
 
 Collector JSON file format and rotation:
-https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.161.0/exporter/fileexporter/README.md
+https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.160.0/exporter/fileexporter/README.md
 
 Java exporter limits and retries:
 https://github.com/open-telemetry/opentelemetry-java/blob/v1.62.0/exporters/otlp/all/src/main/java/io/opentelemetry/exporter/otlp/http/trace/OtlpHttpSpanExporterBuilder.java

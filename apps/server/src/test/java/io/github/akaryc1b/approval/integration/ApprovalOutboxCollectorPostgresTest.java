@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Ports;
@@ -50,6 +51,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -87,7 +89,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         "spring.datasource.hikari.validation-timeout=500", "spring.datasource.hikari.data-source-properties.socketTimeout=5"
     })
 class ApprovalOutboxCollectorPostgresTest {
-    private static final String IMAGE = "otel/opentelemetry-collector:0.161.0";
+    private static final String IMAGE = "otel/opentelemetry-collector:0.160.0";
     private static final String SCOPE = "approval-outbox-collector-rehearsal";
     private static final String SECRET = "local-collector-fixture-only-signing-key";
     private static final String PRIVATE = "private-form-and-baggage-canary";
@@ -141,15 +143,18 @@ class ApprovalOutboxCollectorPostgresTest {
         // This finite rehearsal configuration is explicit; it is not a change to Boot's defaults.
         var processor = BatchSpanProcessor.builder(exporter).setMaxQueueSize(16).setMaxExportBatchSize(8)
             .setScheduleDelay(Duration.ofMillis(100)).setExporterTimeout(Duration.ofSeconds(3)).build();
+        Map<String, Object> receipt;
         try (var provider = SdkTracerProvider.builder().setSampler(Sampler.alwaysOn())
                 .setResource(Resource.create(Attributes.of(AttributeKey.stringKey("service.name"), SCOPE)))
                 .addSpanProcessor(processor).build();
-             var probe = new SignedCallbackProbe(request -> verifyRequest(request, expected))) {
+             var probe = new SignedCallbackProbe(request -> verifyRequest(request, expected));
+             HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
             var tracer = new OtelTracer(provider.get(SCOPE), new OtelCurrentTraceContext(), event -> { });
             var tracing = new OutboxTracing(() -> tracer);
-            var callback = new GenericRestBusinessCallbackConnector(context -> new GenericWebhookEndpoint(
+            var callback = new GenericRestBusinessCallbackConnector(http, context -> new GenericWebhookEndpoint(
                 probe.uri(), "fixture-key", SECRET.getBytes(StandardCharsets.UTF_8), Duration.ofSeconds(2),
-                tracing.headers(Map.of("baggage", PRIVATE, "b3", "untrusted-static-propagation"))));
+                tracing.headers(Map.of("baggage", PRIVATE, "b3", "untrusted-static-propagation"))),
+                new HmacSha256WebhookSigner(), CLOCK, () -> UUID.randomUUID().toString());
 
             append(rolledBack, true);
             assertEquals(0L, rowCount(rolledBack));
@@ -219,12 +224,13 @@ class ApprovalOutboxCollectorPostgresTest {
             CompletableResultCode stopped = provider.shutdown().join(5, TimeUnit.SECONDS);
             assertTrue(stopped.isSuccess(), "owned telemetry provider stopped within the rehearsal bound");
             assertEquals(3, probe.acceptedCount());
-            System.out.println(JSON.writeValueAsString(Map.of(
+            receipt = Map.of(
                 "status", "OUTBOX_NATIVE_COLLECTOR_REHEARSAL_PASSED", "collectorImage", IMAGE,
                 "committedEvents", 3, "callbackAttempts", 4, "uniqueReceiverRecords", 3,
                 "actualOtlpFailuresObserved", exporter.failures.get(), "freshTraceAfterRecovery", true,
-                "rollbackPreserved", true, "sourceIsTestFixture", true, "humanNotificationVerified", false)));
+                "rollbackPreserved", true, "sourceIsTestFixture", true, "humanNotificationVerified", false);
         }
+        System.out.println(JSON.writeValueAsString(receipt));
     }
 
     private OutboxDispatcher.DispatchReport dispatch(OutboxRepository store, OutboxTracing tracing,
@@ -268,7 +274,8 @@ class ApprovalOutboxCollectorPostgresTest {
         assertEquals(JSON.valueToTree(message.event().payload()), JSON.readTree((String) row.get("payload")));
     }
     private static OutboxMessage message(String phase) {
-        Instant now = CLOCK.instant();
+        // Fixture timestamps use the PostgreSQL column's microsecond precision before persistence.
+        Instant now = CLOCK.instant().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         return OutboxMessage.create(new ConnectorContext("generic-rest", "private-fixture-tenant",
             "private-request-" + phase, "private-business-trace", now), new BusinessEvent(UUID.randomUUID(),
             "OBSERVABILITY_FIXTURE.v1", "FIXTURE", "private-aggregate-" + phase, now,
@@ -311,7 +318,10 @@ class ApprovalOutboxCollectorPostgresTest {
         var found = new ArrayList<JsonNode>();
         await("collector file contains the exact event's spans", () -> {
             found.clear();
-            for (JsonNode span : spans(collectorFile())) {
+            String contents;
+            try { contents = collectorFile(); }
+            catch (NotFoundException firstBatchNotYetWritten) { return false; }
+            for (JsonNode span : spans(contents)) {
                 if (message.event().eventId().toString().equals(attribute(span, "approval.outbox.event_id"))) found.add(span);
             }
             return found.size() >= 2;
