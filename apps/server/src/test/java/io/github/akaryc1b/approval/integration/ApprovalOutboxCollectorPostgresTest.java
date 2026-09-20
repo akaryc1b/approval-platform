@@ -122,7 +122,9 @@ class ApprovalOutboxCollectorPostgresTest {
             if (line.contains("permission denied") || line.contains("no space left")
                 || line.contains("read-only file system")) NATIVE_WRITE_FAILURE.set(true);
         })
-        .withTmpFs(Map.of("/evidence", "rw,noexec,nosuid,size=4m,mode=0777"))
+        // Docker archive/cp cannot reliably read tmpfs mounts. Use this disposable
+        // container's writable layer, never a host bind or external telemetry service.
+        .withCopyToContainer(Transferable.of(new byte[0], 0666), "/evidence/traces.jsonl")
         .withCopyToContainer(Transferable.of(configuration(), 0444), "/etc/approval-collector.yaml")
         .withCommand("--config=/etc/approval-collector.yaml")
         .withCreateContainerCmdModifier(command -> command.getHostConfig().withPortBindings(
@@ -143,6 +145,8 @@ class ApprovalOutboxCollectorPostgresTest {
     @Test
     void nativeCollectorPauseCannotBlockDurableDeliveryAndFreshTracesResume() throws Exception {
         assertTrue(InetAddress.getByName(COLLECTOR.getHost()).isLoopbackAddress(), "local Docker rehearsal only");
+        // The very same archive API must see the empty sink before any OTLP export.
+        assertEquals("", collectorFile(), "native evidence file starts empty and is archive-readable");
         OutboxMessage healthy = message("before");
         OutboxMessage outage = message("outage");
         OutboxMessage recovered = message("after");

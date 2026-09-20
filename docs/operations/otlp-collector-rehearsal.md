@@ -33,8 +33,21 @@ or shortened migration set is used.
 The receiver configuration is
 `apps/server/src/test/resources/observability/collector-rehearsal.yaml`.
 Only OTLP HTTP is enabled. Its dynamic host port is bound to loopback. Telemetry
-is written to a 4 MiB ephemeral tmpfs with bounded file rotation, not an external
-service. The receiver verifies each callback's signature, exact event and original
+is written to an initially empty file in the disposable container's writable
+layer, not a host bind mount or external service. This lets the Docker archive
+API used by Testcontainers read the same file that the Collector writes. Docker
+explicitly documents tmpfs as a corner case unsupported by its copy interface;
+a missing archive view must not be mistaken for missing exported spans.
+
+The fixture copies only an empty, mode-0666 sink so the image's existing non-root
+user can write it; it does not change the container user or host permissions.
+Before any business append, the test requires that the archive API reads that
+file as empty. File rotation still limits each segment to 1 MiB with one backup,
+and each evidence read is capped at 4 MiB. The former hard 4 MiB tmpfs filesystem
+quota is not claimed for the writable layer. Only the fixed fixture events feed
+this sink, and Testcontainers removes it with its container.
+
+The receiver verifies each callback's signature, exact event and original
 business identifiers before recording any simulated effect.
 
 ## What the scenario proves
@@ -69,6 +82,12 @@ The receipt `OUTBOX_NATIVE_COLLECTOR_REHEARSAL_PASSED` is printed only after all
 assertions, provider shutdown and receiver checks. Inspect the actual current
 Maven run; source existence or the receipt's name alone is not acceptance.
 
+On a span-file timeout, diagnostics report only fixed counts and booleans:
+SDK submissions, real exporter results, file visibility/bytes/newlines, expected
+schema/scope/event presence, and native memory/write-failure categories. Native
+log text, raw file contents, credentials and business identifiers are not printed.
+A successful SDK flush alone is never treated as proof of Collector ingestion.
+
 ## Bounds, cleanup and interpretation
 
 The rehearsal owns a BatchSpanProcessor with a 16-span queue, eight-span batch,
@@ -100,6 +119,9 @@ https://github.com/open-telemetry/opentelemetry-collector-releases/blob/v0.160.0
 
 Collector JSON file format and rotation:
 https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.160.0/exporter/fileexporter/README.md
+
+Docker copy limitations (tmpfs and other special mounts):
+https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases
 
 Java exporter limits and retries:
 https://github.com/open-telemetry/opentelemetry-java/blob/v1.62.0/exporters/otlp/all/src/main/java/io/opentelemetry/exporter/otlp/http/trace/OtlpHttpSpanExporterBuilder.java
