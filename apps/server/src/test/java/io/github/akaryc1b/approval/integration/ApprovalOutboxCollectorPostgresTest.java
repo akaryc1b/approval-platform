@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -78,6 +79,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Native Collector + PostgreSQL + signed HTTP. Sources and receiver records are test fixtures. */
 @Testcontainers
 @ActiveProfiles("local")
+@Import(CollectorRehearsalSchemaConfiguration.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(classes = ApprovalPlatformApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {

@@ -25,6 +25,11 @@ unknown in CI; this explicit 0.160.0 core distribution retains the same required
 OTLP, batch, memory-limiter and file components. There is no mutable-tag fallback
 or skip-on-pull-failure.
 
+The test imports its own schema initializer: Flowable creates its engine schema,
+then the complete existing repository Flyway migrations run before scheduled
+work starts. Demo business seeding stays disabled; no replacement Outbox table
+or shortened migration set is used.
+
 The receiver configuration is
 `apps/server/src/test/resources/observability/collector-rehearsal.yaml`.
 Only OTLP HTTP is enabled. Its dynamic host port is bound to loopback. Telemetry
