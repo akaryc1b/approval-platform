@@ -7,6 +7,7 @@ rule_files:
   - /etc/prometheus/rules/approval-platform.rules.yml
   - /etc/prometheus/rules/approval-outbox.rules.yml
   - /etc/prometheus/rules/approval-workflow-population.rules.yml
+  - /etc/prometheus/rules/approval-engine-jobs.rules.yml
 
 alerting:
   alertmanagers:
@@ -28,3 +29,5 @@ scrape_configs:
           # outbox_monitor: enabled
           # Independently opt in when workflow population sampling is expected:
           # workflow_monitor: enabled
+          # Independently opt in when engine job sampling is expected:
+          # engine_job_monitor: enabled

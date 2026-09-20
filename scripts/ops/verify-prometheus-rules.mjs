@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { alertmanagerPin, verifyOutboxAlerting } from './verify-outbox-alerts.mjs';
 import { verifyWorkflowPopulationAlerts } from './verify-workflow-population-alerts.mjs';
 import { verifyWorkflowPopulationDelivery } from './verify-workflow-population-delivery.mjs';
+import { verifyEngineJobAlerts } from './verify-engine-job-alerts.mjs';
 import { verifyOperationsDashboard } from './verify-operations-dashboard.mjs';
 
 // Upstream archive identity, not a mutable image tag or a checksum downloaded beside it.
@@ -85,6 +86,9 @@ export function provisionAndVerifyPrometheusRules() {
     chmodSync(executable, 0o700);
     console.log(`OPS_PROMTOOL_ARCHIVE_SHA256=${promtoolPin.sha256}`);
     const result = runPromtoolChecks(executable);
+    result.engineJobs = verifyEngineJobAlerts({ directory, repositoryRoot: root, promtool: executable,
+      runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
+    console.log(JSON.stringify(result.engineJobs)); // Native parser/engine, never a mocked receipt.
     const workflowPopulation = verifyWorkflowPopulationAlerts({ directory, repositoryRoot: root,
       promtool: executable,
       runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });

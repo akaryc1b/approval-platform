@@ -1,0 +1,43 @@
+{
+  "groups": [
+    {
+      "name": "approval-platform-engine-jobs",
+      "rules": [
+        {
+          "record": "approval:engine_job_sample_healthy",
+          "expr": "(approval_engine_jobs_sample_up{job=\"approval-platform\",engine_job_monitor=\"enabled\"} == 1)\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"executable\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"executable\"} < +Inf))\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"timer\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"timer\"} < +Inf))\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"suspended\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"suspended\"} < +Inf))\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} < +Inf))\nand on (job, instance) (up{job=\"approval-platform\",engine_job_monitor=\"enabled\"} == 1)"
+        },
+        {
+          "alert": "ApprovalEngineJobDeadLetters",
+          "expr": "(approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} > 0)\nand ignoring (queue) approval:engine_job_sample_healthy",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "owner": "approval-platform",
+            "component": "engine-jobs"
+          },
+          "annotations": {
+            "summary": "Flowable has dead-letter jobs",
+            "description": "Dead-letter jobs remain on {{ $labels.instance }}. Inspect authorized engine diagnostics; this is not a terminal approval-process failure. Do not automatically replay or delete jobs.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/engine-job-monitoring.md#approvalenginejobdeadletters"
+          }
+        },
+        {
+          "alert": "ApprovalEngineJobMonitoringUnavailable",
+          "expr": "(up{job=\"approval-platform\",engine_job_monitor=\"enabled\"} == 1)\nunless on (job, instance) approval:engine_job_sample_healthy",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "owner": "approval-platform",
+            "component": "engine-jobs"
+          },
+          "annotations": {
+            "summary": "Flowable job observations are unavailable",
+            "description": "The reachable target {{ $labels.instance }} has no complete healthy engine-job sample. Check opt-in configuration, engine database connectivity and timeouts; unknown is not zero.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/engine-job-monitoring.md#approvalenginejobmonitoringunavailable"
+          }
+        }
+      ]
+    }
+  ]
+}
