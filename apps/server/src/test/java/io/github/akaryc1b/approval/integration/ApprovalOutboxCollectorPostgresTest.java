@@ -97,6 +97,9 @@ class ApprovalOutboxCollectorPostgresTest {
     private static final String PRIVATE = "private-form-and-baggage-canary";
     private static final Clock CLOCK = Clock.systemUTC();
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final AtomicInteger NATIVE_ERRORS = new AtomicInteger();
+    private static final AtomicBoolean NATIVE_MEMORY_REFUSAL = new AtomicBoolean();
+    private static final AtomicBoolean NATIVE_WRITE_FAILURE = new AtomicBoolean();
     private static final RetryPolicy RETRY = new RetryPolicy() {
         public int maxAttempts() { return 3; }
         public Duration nextDelay(int attempt) { return Duration.ofMillis(100); }
@@ -109,6 +112,16 @@ class ApprovalOutboxCollectorPostgresTest {
     @Container
     static final GenericContainer<?> COLLECTOR = new GenericContainer<>(IMAGE)
         .withExposedPorts(4318)
+        .withLogConsumer(frame -> {
+            // Classify only fixed conditions; never print native log text or event contents.
+            String line = frame.getUtf8String().toLowerCase(java.util.Locale.ROOT);
+            if (line.contains("error")) NATIVE_ERRORS.incrementAndGet();
+            if (line.contains("memory") && (line.contains("refus") || line.contains("limit exceeded"))) {
+                NATIVE_MEMORY_REFUSAL.set(true);
+            }
+            if (line.contains("permission denied") || line.contains("no space left")
+                || line.contains("read-only file system")) NATIVE_WRITE_FAILURE.set(true);
+        })
         .withTmpFs(Map.of("/evidence", "rw,noexec,nosuid,size=4m,mode=0777"))
         .withCopyToContainer(Transferable.of(configuration(), 0444), "/etc/approval-collector.yaml")
         .withCommand("--config=/etc/approval-collector.yaml")
@@ -165,7 +178,7 @@ class ApprovalOutboxCollectorPostgresTest {
             assertEquals(1, dispatch(repository, tracing, callback).delivered());
             assertRow(healthy, "DELIVERED", 0);
             flush(provider);
-            List<JsonNode> first = awaitPair(healthy);
+            List<JsonNode> first = awaitPair(healthy, exporter);
             verifyPair(first, healthy, probe);
             int failuresBefore = exporter.failures.get();
 
@@ -201,7 +214,7 @@ class ApprovalOutboxCollectorPostgresTest {
             assertEquals(1, dispatch(repository, tracing, callback).delivered());
             assertRow(recovered, "DELIVERED", 0);
             flush(provider);
-            List<JsonNode> last = awaitPair(recovered);
+            List<JsonNode> last = awaitPair(recovered, exporter);
             verifyPair(last, recovered, probe);
             assertNotEquals(first.get(0).path("traceId").asText(), last.get(0).path("traceId").asText());
             assertEquals(3, probe.acceptedCount());
@@ -316,18 +329,37 @@ class ApprovalOutboxCollectorPostgresTest {
     private static void flush(SdkTracerProvider provider) {
         assertTrue(provider.forceFlush().join(5, TimeUnit.SECONDS).isSuccess(), "bounded test-only flush");
     }
-    private static List<JsonNode> awaitPair(OutboxMessage message) throws Exception {
+    private static List<JsonNode> awaitPair(OutboxMessage message, ObservedExporter exporter) throws Exception {
         var found = new ArrayList<JsonNode>();
-        await("collector file contains the exact event's spans", () -> {
-            found.clear();
-            String contents;
-            try { contents = collectorFile(); }
-            catch (NotFoundException firstBatchNotYetWritten) { return false; }
-            for (JsonNode span : spans(contents)) {
-                if (message.event().eventId().toString().equals(attribute(span, "approval.outbox.event_id"))) found.add(span);
-            }
-            return found.size() >= 2;
-        });
+        String[] observed = {""};
+        boolean[] present = {false};
+        try {
+            await("collector file contains the exact event's spans", () -> {
+                found.clear();
+                try { observed[0] = collectorFile(); present[0] = true; }
+                catch (NotFoundException firstBatchNotYetWritten) { return false; }
+                for (JsonNode span : spans(observed[0])) {
+                    if (message.event().eventId().toString().equals(attribute(span, "approval.outbox.event_id"))) {
+                        found.add(span);
+                    }
+                }
+                return found.size() >= 2;
+            });
+        } catch (AssertionError timeout) {
+            // A successful SDK flush alone is not proof of native ingestion or file visibility.
+            String facts = "COLLECTOR_EVIDENCE_TIMEOUT filePresent=" + present[0]
+                + " bytes=" + observed[0].getBytes(StandardCharsets.UTF_8).length
+                + " lineBreaks=" + observed[0].chars().filter(value -> value == '\n').count()
+                + " resourceEnvelope=" + observed[0].contains("\"resourceSpans\"")
+                + " scopeEnvelope=" + observed[0].contains("\"scopeSpans\"")
+                + " expectedScope=" + observed[0].contains(SCOPE)
+                + " expectedEvent=" + observed[0].contains(message.event().eventId().toString())
+                + " matchedSpans=" + found.size() + " submittedSpans=" + exporter.submitted.get()
+                + " successfulExports=" + exporter.successes.get() + " failedExports=" + exporter.failures.get()
+                + " nativeErrors=" + NATIVE_ERRORS.get() + " nativeMemoryRefusal=" + NATIVE_MEMORY_REFUSAL.get()
+                + " nativeWriteFailure=" + NATIVE_WRITE_FAILURE.get();
+            throw new AssertionError(facts, timeout);
+        }
         assertEquals(2, found.size(), "one consumer and one client span for a successful attempt");
         return List.copyOf(found);
     }
@@ -399,12 +431,18 @@ class ApprovalOutboxCollectorPostgresTest {
     private static final class ObservedExporter implements SpanExporter {
         private final SpanExporter delegate;
         final AtomicInteger failures = new AtomicInteger();
+        final AtomicInteger successes = new AtomicInteger();
+        final AtomicInteger submitted = new AtomicInteger();
         final AtomicBoolean businessThreadExport = new AtomicBoolean();
         ObservedExporter(SpanExporter delegate) { this.delegate = delegate; }
         public CompletableResultCode export(Collection<SpanData> batch) {
             if (Thread.currentThread().getName().equals("outbox-business-rehearsal")) businessThreadExport.set(true);
+            submitted.addAndGet(batch.size());
             CompletableResultCode result = delegate.export(batch);
-            result.whenComplete(() -> { if (!result.isSuccess()) failures.incrementAndGet(); });
+            result.whenComplete(() -> {
+                if (result.isSuccess()) successes.incrementAndGet();
+                else failures.incrementAndGet();
+            });
             return result;
         }
         public CompletableResultCode flush() { return delegate.flush(); }
