@@ -11,7 +11,7 @@
   "editable": true,
   "graphTooltip": 1,
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-6h",
@@ -27,7 +27,18 @@
   "annotations": {
     "list": []
   },
-  "links": [],
+  "links": [
+    {
+      "type": "link",
+      "title": "引擎任务",
+      "url": "/d/approval-engine-jobs",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false,
+      "icon": "external link",
+      "tooltip": "引擎任务"
+    }
+  ],
   "templating": {
     "list": [
       {

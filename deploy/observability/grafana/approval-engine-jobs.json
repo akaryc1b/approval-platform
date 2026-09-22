@@ -1,0 +1,100 @@
+{
+  "id": null,
+  "uid": "approval-engine-jobs",
+  "title": "审批平台 · 引擎任务",
+  "description": "Flowable 引擎任务数量和死信告警。数量为顺序查询，不相加作为原子总数；监控不可用不是业务恢复。",
+  "tags": [
+    "approval-platform",
+    "operations",
+    "engine-jobs"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "type": "link",
+      "title": "运行监控",
+      "url": "/d/approval-operations",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false,
+      "icon": "external link",
+      "tooltip": "运行监控"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "数据源",
+        "type": "datasource",
+        "query": "prometheus",
+        "refresh": 1,
+        "options": [],
+        "current": {}
+      },
+      {
+        "name": "environment",
+        "label": "环境",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "query": "label_values(up{job=\"approval-platform\"}, environment)",
+        "options": [],
+        "current": {}
+      },
+      {
+        "name": "instance",
+        "label": "实例",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "query": "label_values(up{job=\"approval-platform\",environment=~\"${environment:regex}\"}, instance)",
+        "options": [],
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {"id":1,"type":"row","title":"采集状态","collapsed":false,"panels":[],"gridPos":{"x":0,"y":0,"w":24,"h":1}},
+    {"id":2,"type":"stat","title":"服务状态","description":"仅显示选中且明确启用引擎任务监控的目标；没有匹配目标时为未知。","datasource":{"type":"prometheus","uid":"$datasource"},"gridPos":{"x":0,"y":1,"w":12,"h":4},"fieldConfig":{"defaults":{"unit":"short","noValue":"未知","decimals":0,"mappings":[{"type":"value","options":{"0":{"text":"不可用","color":"red"},"1":{"text":"正常","color":"green"}}}]},"overrides":[]},"targets":[{"refId":"A","expr":"up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"}","legendFormat":"{{queue}}","instant":true,"range":false,"format":"time_series"}],"options":{"reduceOptions":{"calcs":["last"],"fields":"","values":false},"colorMode":"value","graphMode":"none","textMode":"auto"}},
+    {"id":3,"type":"stat","title":"完整采样","description":"使用实际引擎任务规则中的完整采样记录；缺失或无效的数据不补零。","datasource":{"type":"prometheus","uid":"$datasource"},"gridPos":{"x":12,"y":1,"w":12,"h":4},"fieldConfig":{"defaults":{"unit":"short","noValue":"未知","decimals":0,"mappings":[{"type":"value","options":{"0":{"text":"不可用","color":"red"},"1":{"text":"正常","color":"green"}}}]},"overrides":[]},"targets":[{"refId":"A","expr":"(approval:engine_job_sample_healthy{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1) and on (job, instance, environment) (up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1)","legendFormat":"{{queue}}","instant":true,"range":false,"format":"time_series"}],"options":{"reduceOptions":{"calcs":["last"],"fields":"","values":false},"colorMode":"value","graphMode":"none","textMode":"auto"}},
+    {"id":4,"type":"row","title":"任务数量","collapsed":false,"panels":[],"gridPos":{"x":0,"y":5,"w":24,"h":1}},
+    {"id":5,"type":"stat","title":"可执行任务","description":"包含等待执行及已被锁定的任务，不等于立即可执行的精确积压。","datasource":{"type":"prometheus","uid":"$datasource"},"gridPos":{"x":0,"y":6,"w":6,"h":4},"fieldConfig":{"defaults":{"unit":"short","noValue":"未知","decimals":0},"overrides":[]},"targets":[{"refId":"A","expr":"(approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"executable\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"executable\"} < +Inf) and ignoring (queue) ((approval:engine_job_sample_healthy{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1) and on (job, instance, environment) (up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1))","legendFormat":"{{queue}}","instant":true,"range":false,"format":"time_series"}],"options":{"reduceOptions":{"calcs":["last"],"fields":"","values":false},"colorMode":"none","graphMode":"none","textMode":"auto"}},
+    {"id":6,"type":"stat","title":"定时任务","description":"包含未来定时任务及重试计划；计划中的定时任务不自动视为故障。","datasource":{"type":"prometheus","uid":"$datasource"},"gridPos":{"x":6,"y":6,"w":6,"h":4},"fieldConfig":{"defaults":{"unit":"short","noValue":"未知","decimals":0},"overrides":[]},"targets":[{"refId":"A","expr":"(approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"timer\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"timer\"} < +Inf) and ignoring (queue) ((approval:engine_job_sample_healthy{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1) and on (job, instance, environment) (up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1))","legendFormat":"{{queue}}","instant":true,"range":false,"format":"time_series"}],"options":{"reduceOptions":{"calcs":["last"],"fields":"","values":false},"colorMode":"none","graphMode":"none","textMode":"auto"}},
+    {"id":7,"type":"stat","title":"暂停任务","description":"暂停属于状态信息；不自动视为失败，也不触发恢复操作。","datasource":{"type":"prometheus","uid":"$datasource"},"gridPos":{"x":12,"y":6,"w":6,"h":4},"fieldConfig":{"defaults":{"unit":"short","noValue":"未知","decimals":0},"overrides":[]},"targets":[{"refId":"A","expr":"(approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"suspended\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"suspended\"} < +Inf) and ignoring (queue) ((approval:engine_job_sample_healthy{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1) and on (job, instance, environment) (up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1))","legendFormat":"{{queue}}","instant":true,"range":false,"format":"time_series"}],"options":{"reduceOptions":{"calcs":["last"],"fields":"","values":false},"colorMode":"none","graphMode":"none","textMode":"auto"}},
+    {"id":8,"type":"stat","title":"死信任务","description":"死信任务不等于整个审批流程终态失败；看板不提供自动重试或删除。","datasource":{"type":"prometheus","uid":"$datasource"},"gridPos":{"x":18,"y":6,"w":6,"h":4},"fieldConfig":{"defaults":{"unit":"short","noValue":"未知","decimals":0},"overrides":[]},"targets":[{"refId":"A","expr":"(approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} < +Inf) and ignoring (queue) ((approval:engine_job_sample_healthy{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1) and on (job, instance, environment) (up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1))","legendFormat":"{{queue}}","instant":true,"range":false,"format":"time_series"}],"options":{"reduceOptions":{"calcs":["last"],"fields":"","values":false},"colorMode":"none","graphMode":"none","textMode":"auto"}},
+    {"id":9,"type":"row","title":"任务趋势","collapsed":false,"panels":[],"gridPos":{"x":0,"y":10,"w":24,"h":1}},
+    {"id":10,"type":"timeseries","title":"任务数量趋势","description":"四类队列分别展示，不跨实例相加。监控中断保留断点；历史数据不是当前健康证据。","datasource":{"type":"prometheus","uid":"$datasource"},"gridPos":{"x":0,"y":11,"w":24,"h":8},"fieldConfig":{"defaults":{"unit":"short","noValue":"未知","decimals":0,"custom":{"drawStyle":"line","lineInterpolation":"linear","lineWidth":1,"fillOpacity":8,"showPoints":"never","spanNulls":false,"stacking":{"mode":"none","group":"A"}}},"overrides":[]},"targets":[{"refId":"A","expr":"(approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"executable\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"executable\"} < +Inf) and ignoring (queue) ((approval:engine_job_sample_healthy{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1) and on (job, instance, environment) (up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1))","legendFormat":"可执行任务","instant":false,"range":true,"format":"time_series"},{"refId":"B","expr":"(approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"timer\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"timer\"} < +Inf) and ignoring (queue) ((approval:engine_job_sample_healthy{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1) and on (job, instance, environment) (up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1))","legendFormat":"定时任务","instant":false,"range":true,"format":"time_series"},{"refId":"C","expr":"(approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"suspended\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"suspended\"} < +Inf) and ignoring (queue) ((approval:engine_job_sample_healthy{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1) and on (job, instance, environment) (up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1))","legendFormat":"暂停任务","instant":false,"range":true,"format":"time_series"},{"refId":"D","expr":"(approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} < +Inf) and ignoring (queue) ((approval:engine_job_sample_healthy{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1) and on (job, instance, environment) (up{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\"} == 1))","legendFormat":"死信任务","instant":false,"range":true,"format":"time_series"}],"options":{"legend":{"displayMode":"list","placement":"bottom","calcs":[]},"tooltip":{"mode":"multi","sort":"none"}}},
+    {"id":11,"type":"row","title":"当前告警","collapsed":false,"panels":[],"gridPos":{"x":0,"y":19,"w":24,"h":1}},
+    {"id":12,"type":"table","title":"引擎任务告警","description":"告警消失可能由监控丢失造成；重新取得完整采样后再判断恢复。","datasource":{"type":"prometheus","uid":"$datasource"},"gridPos":{"x":0,"y":20,"w":24,"h":7},"fieldConfig":{"defaults":{"unit":"short","noValue":"未知","decimals":0},"overrides":[]},"targets":[{"refId":"A","expr":"ALERTS{job=\"approval-platform\",environment=~\"${environment:regex}\",instance=~\"${instance:regex}\",engine_job_monitor=\"enabled\",alertstate=\"firing\",alertname=~\"ApprovalEngineJobDeadLetters|ApprovalEngineJobMonitoringUnavailable\"}","legendFormat":"{{queue}}","instant":true,"range":false,"format":"table"}],"options":{"showHeader":true,"cellHeight":"sm"}}
+  ]
+}

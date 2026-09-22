@@ -10,6 +10,7 @@ import { verifyWorkflowPopulationAlerts } from './verify-workflow-population-ale
 import { verifyWorkflowPopulationDelivery } from './verify-workflow-population-delivery.mjs';
 import { verifyEngineJobAlerts } from './verify-engine-job-alerts.mjs';
 import { verifyOperationsDashboard } from './verify-operations-dashboard.mjs';
+import { verifyEngineJobDashboard } from './verify-engine-job-dashboard.mjs';
 
 // Upstream archive identity, not a mutable image tag or a checksum downloaded beside it.
 // Source: https://prometheus.io/download/ (3.13.3 linux-amd64, 2026-09-07).
@@ -97,6 +98,9 @@ export function provisionAndVerifyPrometheusRules() {
       promtool: executable,
       runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
     console.log(JSON.stringify(operationsDashboard));
+    result.engineJobDashboard = verifyEngineJobDashboard({ directory, repositoryRoot: root, promtool: executable,
+      runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
+    console.log(JSON.stringify(result.engineJobDashboard)); // Native query execution, not browser acceptance.
     const outbox = verifyOutboxAlerting({ directory, repositoryRoot: root, promtool: executable,
       prometheus: resolve(directory, promtoolPin.member.replace('/promtool', '/prometheus')),
       runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout),
