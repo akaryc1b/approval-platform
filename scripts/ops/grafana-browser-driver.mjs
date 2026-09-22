@@ -156,8 +156,24 @@ export function panelReadExpression(title) {
     const content = panel.querySelector('[data-testid="data-testid panel content"]');
     if (!content) return null;
     const rect = content.getBoundingClientRect();
-    return {text:content.innerText.trim(), visible:rect.width>0 && rect.height>0,
-      canvas:!!content.querySelector('canvas'), error:!!panel.querySelector('[data-testid="data-testid Panel status error"]')};
+    const text = content.innerText.trim();
+    // A missing health sample must not inherit Grafana's default healthy-green color.
+    // Read the rendered text node; a CSS class or DOM string alone is not color evidence.
+    const statusPanel = ['服务状态','完整采样','流程采样','Outbox 采样'].includes(${JSON.stringify(title)});
+    const unknownColors = [];
+    if (statusPanel && text.split(/\\s+/u).includes('未知')) {
+      const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+      for (let node; (node = walker.nextNode());) {
+        if (node.textContent.trim() !== '未知') continue;
+        const element = node.parentElement, bounds = element.getBoundingClientRect();
+        if (bounds.width > 0 && bounds.height > 0) unknownColors.push(getComputedStyle(element).color);
+      }
+    }
+    const unknownColorInvalid = statusPanel && text.split(/\\s+/u).includes('未知')
+      && (unknownColors.length === 0 || unknownColors.some(color => color !== 'rgb(107, 114, 128)'));
+    return {text, visible:rect.width>0 && rect.height>0, unknownColors,
+      canvas:!!content.querySelector('canvas'),
+      error:!!panel.querySelector('[data-testid="data-testid Panel status error"]') || unknownColorInvalid};
   })()`;
 }
 

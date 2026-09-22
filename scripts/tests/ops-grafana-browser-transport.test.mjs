@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { BrowserPipe } from '../ops/grafana-browser-driver.mjs';
+import { BrowserPipe, panelReadExpression } from '../ops/grafana-browser-driver.mjs';
 import { prepareGrafanaFonts } from '../ops/grafana-browser-fonts.mjs';
 
 function fixture(t) {
@@ -124,6 +124,24 @@ test('invalid method labels and excessive pending commands are rejected before a
   assert.equal(f.writes.length, 128); f.browser.fail('GRAFANA_BROWSER_FIXTURE_STOP'); await checked;
 });
 
+test('both dashboards map absent status to neutral grey while retaining red/green real values', () => {
+  const root = resolve(import.meta.dirname, '../..');
+  let statuses = 0;
+  for (const name of ['approval-operations.json', 'approval-engine-jobs.json']) {
+    const dashboard = JSON.parse(readFileSync(resolve(root, 'deploy/observability/grafana', name)));
+    for (const panel of dashboard.panels.filter(p => p.fieldConfig?.defaults.mappings)) {
+      const field = panel.fieldConfig.defaults; statuses++;
+      assert.equal(field.noValue, '未知');
+      assert.deepEqual(field.color, { mode: 'fixed', fixedColor: '#6B7280' });
+      assert.deepEqual(field.mappings, [
+        { type: 'value', options: { 0: { text: '不可用', color: 'red' }, 1: { text: '正常', color: 'green' } } },
+        { type: 'special', options: { match: 'null', result: { text: '未知', color: '#6B7280' } } },
+      ]);
+    }
+  }
+  assert.equal(statuses, 5);
+});
+
 test('real isolated Chromium completes the same handshake and reports rendered CJK fonts', { timeout: 80000 }, async () => {
   // This component can run before the native provisioner: own its font prerequisite.
   // 60s font preparation + 20s component budget; individual browser commands remain 10s.
@@ -138,6 +156,20 @@ test('real isolated Chromium completes the same handshake and reports rendered C
     await browser.evaluate('document.fonts.ready.then(()=>true)');
     const fonts = await browser.platformFonts('#cjk');
     assert.ok(fonts.some(font => /^(Noto Sans CJK|Noto Sans SC|Source Han Sans|WenQuanYi)/u.test(font.familyName) && font.glyphCount >= 5), 'actual platform glyph use is required');
+    await browser.evaluate(`document.body.insertAdjacentHTML('beforeend',
+      '<section data-testid="data-testid Panel header 完整采样"><div data-testid="data-testid panel content"><span id="status-value" style="color:#6B7280">未知</span></div></section>')`);
+    const reading = await browser.evaluate(panelReadExpression('完整采样'));
+    assert.deepEqual(reading.unknownColors, ['rgb(107, 114, 128)']);
+    assert.equal(reading.error, false); assert.equal(reading.visible, true);
+    for (const wrong of ['green', 'red', 'transparent']) {
+      await browser.evaluate(`document.querySelector('#status-value').style.color=${JSON.stringify(wrong)}`);
+      assert.equal((await browser.evaluate(panelReadExpression('完整采样'))).error, true,
+        'unknown status must not be healthy-green, failed-red or invisible');
+    }
+    await browser.evaluate(`document.querySelector('#status-value').textContent='正常';document.querySelector('#status-value').style.color='green'`);
+    assert.equal((await browser.evaluate(panelReadExpression('完整采样'))).error, false);
+    await browser.evaluate(`document.querySelector('#status-value').textContent='不可用';document.querySelector('#status-value').style.color='red'`);
+    assert.equal((await browser.evaluate(panelReadExpression('完整采样'))).error, false);
     assert.ok(browser.responses >= 10); assert.equal(browser.closed, false);
   } finally {
     await browser.stop(); rmSync(home, { recursive: true, force: true });
