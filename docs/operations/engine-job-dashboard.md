@@ -69,8 +69,9 @@ native verification receipt, and a native failure propagates.
 Rule-engine verification is not Grafana browser rendering, datasource
 permissions, actual production scrape freshness, human notification delivery
 or production acceptance. The verifier reports those unperformed boundaries
-explicitly. Browser import, navigation and rendering still require a real
-Grafana deployment. Dashboard links use Grafana's current-variable and time
+explicitly. The separate `grafana-browser-rehearsal.md` describes a disposable real
+Grafana/Chromium file-import and rendering check; require its successful native
+receipt rather than inferring browser behavior from these query tests. Dashboard links use Grafana's current-variable and time
 range options; query guards use Prometheus set-operator label matching.
 
 Official references:

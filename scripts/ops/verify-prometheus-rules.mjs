@@ -11,6 +11,7 @@ import { verifyWorkflowPopulationDelivery } from './verify-workflow-population-d
 import { verifyEngineJobAlerts } from './verify-engine-job-alerts.mjs';
 import { verifyOperationsDashboard } from './verify-operations-dashboard.mjs';
 import { verifyEngineJobDashboard } from './verify-engine-job-dashboard.mjs';
+import { verifyGrafanaBrowser } from './verify-grafana-browser.mjs';
 
 // Upstream archive identity, not a mutable image tag or a checksum downloaded beside it.
 // Source: https://prometheus.io/download/ (3.13.3 linux-amd64, 2026-09-07).
@@ -111,6 +112,10 @@ export function provisionAndVerifyPrometheusRules() {
       alertmanager: resolve(directory, alertmanagerPin.directory, 'alertmanager'),
       runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
     console.log(JSON.stringify(workflowDelivery)); // Actual native servers, not unit fixtures.
+    result.grafanaBrowser = verifyGrafanaBrowser({ directory, repositoryRoot: root,
+      prometheus: resolve(directory, promtoolPin.member.replace('/promtool', '/prometheus')),
+      runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
+    console.log(JSON.stringify(result.grafanaBrowser)); // Actual browser receipt, including bounded screenshots.
     return { ...result, outbox, workflowPopulation, operationsDashboard, workflowDelivery };
   } finally {
     rmSync(directory, { recursive: true, force: true });
