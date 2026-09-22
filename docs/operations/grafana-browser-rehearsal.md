@@ -75,3 +75,14 @@ Official references:
 - https://grafana.com/docs/grafana/latest/administration/provisioning/
 - https://grafana.com/docs/grafana/latest/administration/data-source-management/
 - https://github.com/grafana/grafana/blob/v13.2.2/packages/grafana-e2e-selectors/src/selectors/components.ts
+
+## Versioned panel selectors
+
+Grafana 13.2.2 PanelChrome uses a `data-testid` built from
+`Panels.Panel.title(title)` on the section and an `aria-labelledby` reference
+to its heading. The older `containerByTitle` aria-label is not present there.
+The browser driver scopes content and error checks to one exact title test ID;
+missing or duplicate matches cannot pass. Its real Chromium component fixture
+covers this actual structure, a legacy-label decoy, hidden content and error state.
+The earlier native run that timed out on the first panel remains failed evidence;
+changing the selector does not remove a panel or shorten an assertion.

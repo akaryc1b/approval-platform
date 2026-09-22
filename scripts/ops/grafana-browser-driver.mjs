@@ -99,11 +99,13 @@ export async function stopProcess(child) {
   assert.ok(exited(), 'GRAFANA_BROWSER_CHILD_CLEANUP_FAILED');
 }
 
-// Official v13.2.2 e2e selector: Panels.Panel.containerByTitle -> '<title> panel'.
+// v13.2.2 PanelChrome renders Panels.Panel.title(title) as data-testid.
+// Its accessible name is aria-labelledby, not the legacy containerByTitle aria-label.
 export function panelReadExpression(title) {
   return `(() => {
-    const panel = document.querySelector('[aria-label=' + JSON.stringify(${JSON.stringify(title + ' panel')}) + ']');
-    if (!panel) return null;
+    const panels = document.querySelectorAll('[data-testid=' + JSON.stringify(${JSON.stringify('data-testid Panel header ' + title)}) + ']');
+    if (panels.length !== 1) return null;
+    const panel = panels[0];
     panel.scrollIntoView({block:'center'});
     const content = panel.querySelector('[data-testid="data-testid panel content"]');
     if (!content) return null;

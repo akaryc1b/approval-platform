@@ -97,10 +97,21 @@ test('real Chromium pipe reads visible fixture DOM, clicks a fragment, and close
   try {
     assert.match(await browser.start(), /Chrome\//u);
     // This is an isolated about:blank component fixture, not Grafana or HTTP acceptance.
-    await browser.evaluate(`document.body.innerHTML = '<section aria-label="可执行任务 panel"><div data-testid="data-testid panel content">3</div></section><a href="#next">next</a>'`);
+    // Mirrors v13.2.2 PanelChrome: section data-testid plus aria-labelledby title.
+    await browser.evaluate(`document.body.innerHTML = '<section data-testid="data-testid Panel header 可执行任务" aria-labelledby="panel-title"><h2 id="panel-title">可执行任务</h2><div data-testid="data-testid panel content">3</div></section><a href="#next">next</a>'`);
     const panel = await browser.evaluate(panelReadExpression('可执行任务'));
     assert.equal(panel.text, '3'); assert.equal(panel.visible, true); assert.equal(panel.error, false);
     assert.equal(await browser.evaluate(panelReadExpression('不存在')), null);
+    // A legacy-looking decoy cannot supply values for the actual PanelChrome.
+    await browser.evaluate(`document.body.insertAdjacentHTML('beforeend','<section aria-label="可执行任务 panel"><div data-testid="data-testid panel content">99</div></section>')`);
+    assert.equal((await browser.evaluate(panelReadExpression('可执行任务'))).text, '3');
+    await browser.evaluate(`document.querySelector('section[data-testid]').insertAdjacentHTML('beforeend','<button data-testid="data-testid Panel status error">Error</button>')`);
+    assert.equal((await browser.evaluate(panelReadExpression('可执行任务'))).error, true);
+    await browser.evaluate(`document.querySelector('button').remove(); document.querySelector('section[data-testid]').style.display='none'`);
+    assert.equal((await browser.evaluate(panelReadExpression('可执行任务'))).visible, false);
+    await browser.evaluate(`document.querySelector('section[data-testid]').style.display=''; document.body.append(document.querySelector('section[data-testid]').cloneNode(true))`);
+    assert.equal(await browser.evaluate(panelReadExpression('可执行任务')), null, 'duplicate titles cannot silently select the first panel');
+    await browser.evaluate(`document.querySelectorAll('section[data-testid]')[1].remove()`);
     await browser.evaluate("document.querySelector('a').click()");
     assert.ok((await browser.evaluate('location.href')).endsWith('#next'));
     const image = await browser.call('Page.captureScreenshot', { format: 'jpeg', quality: 50 });
