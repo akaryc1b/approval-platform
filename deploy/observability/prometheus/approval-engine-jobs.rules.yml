@@ -5,7 +5,7 @@
       "rules": [
         {
           "record": "approval:engine_job_sample_healthy",
-          "expr": "(approval_engine_jobs_sample_up{job=\"approval-platform\",engine_job_monitor=\"enabled\"} == 1)\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"executable\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"executable\"} < +Inf))\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"timer\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"timer\"} < +Inf))\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"suspended\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"suspended\"} < +Inf))\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} < +Inf))\nand on (job, instance) (up{job=\"approval-platform\",engine_job_monitor=\"enabled\"} == 1)"
+          "expr": "(approval_engine_jobs_sample_up{job=\"approval-platform\",engine_job_monitor=\"enabled\"} == 1)\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"executable\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"executable\"} < +Inf))\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"timer\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"timer\"} < +Inf))\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"suspended\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"suspended\"} < +Inf))\nand ignoring (queue) ((approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} >= 0) and (approval_engine_jobs{job=\"approval-platform\",engine_job_monitor=\"enabled\",queue=\"dead_letter\"} < +Inf))\nand on (job, instance, environment) (up{job=\"approval-platform\",engine_job_monitor=\"enabled\"} == 1)"
         },
         {
           "alert": "ApprovalEngineJobDeadLetters",
@@ -24,7 +24,7 @@
         },
         {
           "alert": "ApprovalEngineJobMonitoringUnavailable",
-          "expr": "(up{job=\"approval-platform\",engine_job_monitor=\"enabled\"} == 1)\nunless on (job, instance) approval:engine_job_sample_healthy",
+          "expr": "(up{job=\"approval-platform\",engine_job_monitor=\"enabled\"} == 1)\nunless on (job, instance, environment) approval:engine_job_sample_healthy",
           "for": "2m",
           "labels": {
             "severity": "critical",

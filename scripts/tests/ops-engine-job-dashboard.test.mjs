@@ -171,3 +171,17 @@ test('existing provisioner and aggregate execute the new check without another w
   assert.ok(text('scripts/tests/m4-sla-calendar-boundary.test.mjs').includes("import './ops-engine-job-dashboard.test.mjs';"));
   assert.ok(text('docs/operations/engine-job-dashboard.md').includes('not business recovery'));
 });
+
+// The unchanged native fixtures include a healthy target with the same address
+// in another environment. It must neither authorize this target nor silence it.
+test('engine health and unavailable rules match the full environment target identity', () => {
+  const [health, dead, unavailable] = rules.groups[0].rules;
+  assert.ok(health.expr.includes('and on (job, instance, environment) (up{'));
+  assert.ok(unavailable.expr.includes('unless on (job, instance, environment) ' + engineHealthRecord));
+  assert.deepEqual([dead.for, unavailable.for], ['2m', '2m']);
+  for (const c of fixtures[0].tests) {
+    const otherUp = c.input_series.find(s => s.series.startsWith('up{')
+      && s.series.includes('instance="node-a"') && s.series.includes('environment="another-environment"'));
+    assert.ok(otherUp); assert.equal(otherUp.values, '1 1 1 1 1 1 1');
+  }
+});

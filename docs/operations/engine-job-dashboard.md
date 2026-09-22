@@ -22,6 +22,13 @@ state, not a tenant-facing API or permission isolation mechanism. Grafana and
 Prometheus access must remain protected by the operator's authentication and
 network policy.
 
+The engine health/reachability join and monitoring-unavailable exclusion both
+match `(job, instance, environment)`. A healthy target at the same address in
+another environment must not supply reachability or suppress this target's
+fault. Keep environment labels consistent on the target, sample and rules.
+The native dashboard fixtures retain this same-address cross-environment
+case; their failing expectations were not removed to pass the correction.
+
 ## Read the panels
 
 Eight data panels use eleven queries: target reachability, complete sample,
