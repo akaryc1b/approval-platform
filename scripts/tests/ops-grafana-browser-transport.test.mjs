@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
 import { BrowserPipe } from '../ops/grafana-browser-driver.mjs';
+import { prepareGrafanaFonts } from '../ops/grafana-browser-fonts.mjs';
 
 function fixture(t) {
   const child = new EventEmitter(); child.stderr = new EventEmitter();
@@ -123,7 +124,10 @@ test('invalid method labels and excessive pending commands are rejected before a
   assert.equal(f.writes.length, 128); f.browser.fail('GRAFANA_BROWSER_FIXTURE_STOP'); await checked;
 });
 
-test('real isolated Chromium completes the same handshake and reports rendered CJK fonts', { timeout: 20000 }, async () => {
+test('real isolated Chromium completes the same handshake and reports rendered CJK fonts', { timeout: 80000 }, async () => {
+  // This component can run before the native provisioner: own its font prerequisite.
+  // 60s font preparation + 20s component budget; individual browser commands remain 10s.
+  await prepareGrafanaFonts(process.env.GITHUB_ACTIONS === 'true' ? 'ci' : 'local');
   const home = mkdtempSync(resolve(tmpdir(), 'grafana-transport-native-'));
   const browser = new BrowserPipe(resolve(home, 'chrome'), {
     PATH: process.env.PATH, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', HOME: home, TMPDIR: home,
