@@ -20,45 +20,84 @@ export function chromiumArguments(profile) {
 }
 
 export class BrowserPipe {
-  constructor(profile, environment) {
-    this.child = spawn(chromiumExecutable(), chromiumArguments(profile), {
-      env: environment, detached: true, stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'],
+  constructor(profile, environment, { launch = spawn } = {}) {
+    this.child = launch(chromiumExecutable(), chromiumArguments(profile), {
+      env: environment, detached: true, stdio: ['ignore', 'ignore', 'pipe', 'pipe', 'pipe'],
     });
     this.next = 0; this.pending = new Map(); this.buffer = ''; this.exceptions = 0;
-    this.closed = false;
+    this.closed = false; this.failure = null;
+    this.started = false; this.stderrBytes = 0; this.protocolBytes = 0; this.responses = 0;
+    this.nativeCategories = new Set(); this.nativeTail = '';
+    this.child.once('spawn', () => { this.started = true; });
+    // Drain stderr, but retain/export only bounded counters and fixed categories. Never raw logs.
+    this.child.stderr.on('data', part => {
+      if (this.closed) return;
+      this.stderrBytes = Math.min(1024 * 1024, this.stderrBytes + part.length);
+      const text = this.nativeTail + part.toString('utf8');
+      for (const [category, pattern] of [
+        ['dbus', /dbus|D-Bus/i], ['fontconfig', /fontconfig|font cache/i],
+        ['devtools', /devtools|remote.debugging/i], ['crashpad', /crashpad/i],
+        ['resource', /out of memory|cannot allocate|resource temporarily unavailable|pthread_create|too many open files/i],
+        ['permission', /permission denied|operation not permitted/i],
+        ['policy', /disallowed|disabled by.*policy|policy.*disabled/i],
+        ['library', /error while loading shared libraries|symbol lookup error/i],
+        ['sandbox', /sandbox/i],
+      ]) if (pattern.test(text)) this.nativeCategories.add(category);
+      this.nativeTail = text.slice(-128);
+    });
+    this.child.stderr.on('error', () => this.fail('GRAFANA_BROWSER_STDERR_CLOSED'));
     this.child.stdio[4].setEncoding('utf8');
     this.child.stdio[4].on('data', part => {
+      if (this.closed) return;
+      this.protocolBytes = Math.min(64 * 1024 * 1024, this.protocolBytes + Buffer.byteLength(part));
       this.buffer += part;
       if (this.buffer.length > 8 * 1024 * 1024) return this.fail('GRAFANA_BROWSER_PROTOCOL_LIMIT');
       for (let offset; (offset = this.buffer.indexOf('\0')) >= 0;) {
         const text = this.buffer.slice(0, offset); this.buffer = this.buffer.slice(offset + 1);
         if (!text) continue;
         let value;
-        try { value = JSON.parse(text); } catch { this.fail('GRAFANA_BROWSER_PROTOCOL_INVALID'); continue; }
+        try { value = JSON.parse(text); } catch { return this.fail('GRAFANA_BROWSER_PROTOCOL_INVALID'); }
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+          return this.fail('GRAFANA_BROWSER_PROTOCOL_INVALID');
+        }
         if (value.method === 'Runtime.exceptionThrown') this.exceptions++;
         if (value.id && this.pending.has(value.id)) {
+          this.responses++;
           const task = this.pending.get(value.id); this.pending.delete(value.id); clearTimeout(task.timer);
           if (value.error) task.reject(new Error('GRAFANA_BROWSER_COMMAND:' + task.method));
           else task.resolve(value.result);
         }
       }
     });
+    this.child.stdio[4].on('end', () => this.fail('GRAFANA_BROWSER_PIPE_ENDED'));
+    this.child.stdio[4].on('error', () => this.fail('GRAFANA_BROWSER_PIPE_CLOSED'));
     this.child.on('error', () => this.fail('GRAFANA_BROWSER_START_FAILED'));
     this.child.on('exit', () => this.fail('GRAFANA_BROWSER_EXITED'));
     this.child.stdio[3].on('error', () => this.fail('GRAFANA_BROWSER_PIPE_CLOSED'));
   }
+  diagnosticSummary() {
+    return `spawn=${Number(this.started)},stderr=${this.stderrBytes},protocol=${this.protocolBytes},responses=${this.responses}`
+      + ',categories=' + ([...this.nativeCategories].sort().join('+') || 'none');
+  }
   fail(code) {
+    if (this.closed) return;
     this.closed = true;
-    for (const task of this.pending.values()) { clearTimeout(task.timer); task.reject(new Error(code)); }
+    this.failure = new Error(code + ':' + this.diagnosticSummary());
+    this.buffer = ''; this.nativeTail = '';
+    for (const task of this.pending.values()) { clearTimeout(task.timer); task.reject(this.failure); }
     this.pending.clear();
   }
   call(method, params = {}, sessionId = this.session) {
     if (this.closed) return Promise.reject(new Error('GRAFANA_BROWSER_CLOSED'));
+    if (!/^[A-Za-z]+\.[A-Za-z]+$/u.test(method)) return Promise.reject(new Error('GRAFANA_BROWSER_METHOD_REJECTED'));
+    if (this.pending.size >= 128) return Promise.reject(new Error('GRAFANA_BROWSER_PENDING_LIMIT'));
     const id = ++this.next;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error('GRAFANA_BROWSER_TIMEOUT:' + method)); }, 10000);
+      const timer = setTimeout(() => this.fail('GRAFANA_BROWSER_TIMEOUT:' + method), 10000);
       this.pending.set(id, { resolve, reject, timer, method });
-      this.child.stdio[3].write(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }) + '\0');
+      try {
+        this.child.stdio[3].write(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }) + '\0');
+      } catch { this.fail('GRAFANA_BROWSER_WRITE_FAILED'); }
     });
   }
   async start() {
