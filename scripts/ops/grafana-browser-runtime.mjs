@@ -167,6 +167,26 @@ export async function runGrafanaBrowser({ directory, repositoryRoot, grafanaHome
         assertNavigation(url, destination, selected); return true; }, 'navigation-' + destination);
     }
     phase = 'forward-navigation'; await clickDashboard('approval-engine-jobs');
+    await seePanel('可执行任务');
+    phase = 'cjk-rendering';
+    const cjkSelector = '[data-testid="data-testid Panel header 可执行任务"] h2';
+    await browser.evaluate('document.fonts.ready.then(()=>true)');
+    const fonts = await browser.platformFonts(cjkSelector);
+    const cjk = fonts.find(font => /^(Noto Sans CJK|Noto Sans SC|Source Han Sans|PingFang SC|Hiragino Sans GB|Microsoft YaHei|WenQuanYi Micro Hei)/u.test(font.familyName) && font.glyphCount >= 5);
+    assert.ok(cjk, 'GRAFANA_BROWSER_CJK_PLATFORM_FONT_REQUIRED');
+    const distinctCjkGlyphs = await browser.evaluate(`(() => {
+      const element = document.querySelector(${JSON.stringify(cjkSelector)});
+      const canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64;
+      const ctx=canvas.getContext('2d'); ctx.font='32px '+getComputedStyle(element).fontFamily;
+      const hashes=['审','批','流','程'].map(glyph => {
+        ctx.clearRect(0,0,64,64); ctx.fillText(glyph,8,42);
+        const pixels=ctx.getImageData(0,0,64,64).data; let hash=2166136261, ink=0;
+        for(let i=0;i<pixels.length;i++) { hash=Math.imul(hash^pixels[i],16777619); if(i%4===3) ink+=pixels[i]; }
+        if(!ink) throw new Error('empty glyph'); return hash>>>0;
+      });
+      return new Set(hashes).size;
+    })()`);
+    assert.equal(distinctCjkGlyphs, 4, 'GRAFANA_BROWSER_CJK_DISTINCT_GLYPHS_REQUIRED');
     const readings = [];
     for (const current of states) {
       state = current; phase = 'state-' + current;
@@ -201,6 +221,7 @@ export async function runGrafanaBrowser({ directory, repositoryRoot, grafanaHome
     assert.equal(browser.exceptions, 0, 'GRAFANA_BROWSER_UNCAUGHT_PAGE_ERRORS');
     assert.ok(screenshots.reduce((n, s) => n + s.base64.length, 0) < 850000, 'GRAFANA_BROWSER_RECEIPT_LIMIT');
     result = { status: 'OPS_GRAFANA_BROWSER_VERIFIED', grafanaVersion: health.version, browserVersion,
+      cjkFont: cjk.familyName, cjkGlyphCount: cjk.glyphCount, distinctCjkGlyphs,
       inputs: sourceIdentities(repositoryRoot), provisionedDashboards: 2, originalQueries: 25, engineQueries: 11,
       overviewPanelsRendered: 25, enginePanelsRendered: 8, navigationBothWays: true, viewerWriteDenied: true,
       anonymousReadDenied: true, readings, screenshots, metricSource: 'CONTROLLED_HTTP_FIXTURE',

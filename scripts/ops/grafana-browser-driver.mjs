@@ -66,6 +66,7 @@ export class BrowserPipe {
     const target = await this.call('Target.createTarget', { url: 'about:blank' });
     this.session = (await this.call('Target.attachToTarget', { targetId: target.targetId, flatten: true })).sessionId;
     await this.call('Page.enable'); await this.call('Runtime.enable');
+    await this.call('DOM.enable'); await this.call('CSS.enable');
     await this.call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 2000, deviceScaleFactor: 1, mobile: false });
     return version.product;
   }
@@ -73,6 +74,12 @@ export class BrowserPipe {
     const result = await this.call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
     assert.ok(!result.exceptionDetails, 'GRAFANA_BROWSER_EVALUATION_FAILED');
     return result.result.value;
+  }
+  async platformFonts(selector) {
+    const { root } = await this.call('DOM.getDocument');
+    const { nodeId } = await this.call('DOM.querySelector', { nodeId: root.nodeId, selector });
+    assert.ok(nodeId > 0, 'GRAFANA_BROWSER_FONT_NODE_REQUIRED');
+    return (await this.call('CSS.getPlatformFontsForNode', { nodeId })).fonts;
   }
   async navigate(url) {
     const parsed = new URL(url);

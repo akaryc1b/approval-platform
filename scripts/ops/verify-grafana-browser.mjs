@@ -20,6 +20,9 @@ export function validateGrafanaReceipt(receipt, expectedInputs) {
   assert.equal(receipt.status, 'OPS_GRAFANA_BROWSER_VERIFIED');
   assert.equal(receipt.grafanaVersion, grafanaPin.version); assert.match(receipt.browserVersion, /^(HeadlessChrome|Chrome)\/[0-9.]+$/u);
   assert.deepEqual(receipt.inputs, expectedInputs);
+  assert.match(receipt.cjkFont, /^(Noto Sans CJK|Noto Sans SC|Source Han Sans|PingFang SC|Hiragino Sans GB|Microsoft YaHei|WenQuanYi Micro Hei)/u);
+  assert.ok(Number.isSafeInteger(receipt.cjkGlyphCount) && receipt.cjkGlyphCount >= 5);
+  assert.equal(receipt.distinctCjkGlyphs, 4);
   for (const key of ['realGrafana', 'realPrometheus', 'realChromium', 'navigationBothWays',
     'viewerWriteDenied', 'anonymousReadDenied', 'cleanupPassed']) assert.equal(receipt[key], true, key);
   for (const key of ['businessDatabaseVerified', 'humanNotificationVerified', 'productionDeploymentVerified']) assert.equal(receipt[key], false, key);
@@ -56,11 +59,18 @@ export function verifyGrafanaBrowser({ directory, repositoryRoot, prometheus, ru
     '--strip-components=1', '--no-same-owner', '--no-same-permissions'], directory, 20000);
   const binary = resolve(home, 'bin/grafana');
   assert.ok(lstatSync(binary).isFile() && !lstatSync(binary).isSymbolicLink(), 'GRAFANA_BROWSER_BINARY_REQUIRED');
+  // This separate owned child bounds the unchanged Quick Start installer and strips credentials.
+  const fontOutput = runCommand(process.execPath, [resolve(repositoryRoot, 'scripts/ops/grafana-browser-fonts.mjs'),
+    process.env.GITHUB_ACTIONS === 'true' ? 'ci' : 'local'], directory, 70000);
+  const fontLines = fontOutput.split(/\r?\n/u).filter(line => line.startsWith('OPS_GRAFANA_FONT_RESULT='));
+  assert.equal(fontLines.length, 1, 'GRAFANA_BROWSER_FONT_RECEIPT_REQUIRED');
+  const fontPreparation = JSON.parse(fontLines[0].slice('OPS_GRAFANA_FONT_RESULT='.length));
+  assert.equal(fontPreparation.status, 'OPS_GRAFANA_CJK_READY');
   const output = runCommand(process.execPath, [resolve(repositoryRoot, 'scripts/ops/grafana-browser-runtime.mjs'),
     directory, repositoryRoot, home, prometheus], directory, 120000);
   const lines = output.split(/\r?\n/u).filter(line => line.startsWith('OPS_GRAFANA_BROWSER_RESULT='));
   assert.equal(lines.length, 1, 'GRAFANA_BROWSER_ONE_RECEIPT_REQUIRED');
   const receipt = JSON.parse(lines[0].slice('OPS_GRAFANA_BROWSER_RESULT='.length));
   validateGrafanaReceipt(receipt, inputs);
-  return { ...receipt, grafanaArchiveSha256: grafanaPin.sha256 };
+  return { ...receipt, fontPreparation, grafanaArchiveSha256: grafanaPin.sha256 };
 }

@@ -11,7 +11,9 @@ OSS archive is downloaded from the official versioned URL, bounded to 512 MiB an
 verified against the pinned SHA-256 before extraction. Grafana data, provisioning,
 SQLite database and browser profile live only in one owned temporary directory.
 No npm package, browser download, permanent workflow or production configuration
-is added. The prior native-suite ceiling is unchanged.
+is added. The existing Quick Start CJK helper prepares distribution fonts in CI
+through a credential-free, owned child with a 60-second preparation bound; its
+existing local path only verifies installed fonts and does not install packages. The prior native-suite ceiling is unchanged.
 
 The two repository JSON dashboards are copied unchanged and imported through
 Grafana's **file provisioning**. This is not an import-editor UI test. Their
@@ -86,3 +88,21 @@ missing or duplicate matches cannot pass. Its real Chromium component fixture
 covers this actual structure, a legacy-label decoy, hidden content and error state.
 The earlier native run that timed out on the first panel remains failed evidence;
 changing the selector does not remove a panel or shorten an assertion.
+
+## Chinese rendering
+
+A prior native run passed DOM/data checks but its retained screenshots showed
+missing Chinese glyphs. That run is not accepted as readable Chinese rendering.
+Before native browser startup, reuse `quick-start/cjk-fonts.mjs` to prepare the
+existing distribution-provided CJK font. No font binary enters the repository
+or a conversation deliverable. The main browser deadline and alert holds stay
+unchanged, and font preparation failure is fatal.
+
+The live browser must report an actual CJK platform font with at least five
+rendered glyphs for the Chinese panel heading through DevTools
+`CSS.getPlatformFontsForNode`. A canvas using that heading's actual font stack
+must also produce four distinct non-empty Chinese glyph rasters. Receipts retain
+font family, glyph count and distinct-raster count. Merely finding Chinese text
+in the DOM or an installed font is insufficient. Viewer access and all three
+queue states still have to pass, and native screenshots remain independently
+inspectable.

@@ -4,6 +4,8 @@ import { createServer } from 'node:http';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { prepareGrafanaFonts } from '../ops/grafana-browser-fonts.mjs';
 import test from 'node:test';
 import { BrowserPipe, chromiumArguments, panelReadExpression, assertNavigation } from '../ops/grafana-browser-driver.mjs';
 import { renderEngineMetrics, runGrafanaBrowser, sourceIdentities } from '../ops/grafana-browser-runtime.mjs';
@@ -55,6 +57,7 @@ function receipt() {
   // Protocol-only JPEG boundary bytes, deliberately not native screenshot/rendering evidence.
   const image = Buffer.alloc(6000); image.writeUInt16BE(0xffd8, 0); image.writeUInt16BE(0xffd9, image.length - 2);
   return { status: 'OPS_GRAFANA_BROWSER_VERIFIED', grafanaVersion: grafanaPin.version, browserVersion: 'Chrome/100.0',
+    cjkFont: 'Noto Sans CJK SC', cjkGlyphCount: 5, distinctCjkGlyphs: 4,
     inputs: sourceIdentities(root), provisionedDashboards: 2, originalQueries: 25, engineQueries: 11,
     overviewPanelsRendered: 25, enginePanelsRendered: 8, navigationBothWays: true, viewerWriteDenied: true,
     anonymousReadDenied: true, cleanupPassed: true, realGrafana: true, realPrometheus: true, realChromium: true,
@@ -70,6 +73,7 @@ test('receipt rejects missing rendering, forged hashes, wrong values or inflated
   const mutations = [r => { r.cleanupPassed = false; }, r => { r.navigationBothWays = false; },
     r => { r.viewerWriteDenied = false; }, r => { r.businessDatabaseVerified = true; },
     r => { r.humanNotificationVerified = true; }, r => { r.realGrafana = false; },
+    r => { r.cjkFont = 'Last Resort'; }, r => { r.cjkGlyphCount = 0; }, r => { r.distinctCjkGlyphs = 1; },
     r => { r.screenshots[0].sha256 = '0'.repeat(64); }, r => { r.screenshots.pop(); },
     r => { r.inputs[0].sha256 = '0'.repeat(64); }, r => { r.readings[1].values = Array(4).fill('0'); }];
   for (const mutate of mutations) { const r = receipt(); mutate(r); assert.throws(() => validateGrafanaReceipt(r, sourceIdentities(root))); }
@@ -101,6 +105,7 @@ test('real Chromium pipe reads visible fixture DOM, clicks a fragment, and close
     await browser.evaluate(`document.body.innerHTML = '<section data-testid="data-testid Panel header 可执行任务" aria-labelledby="panel-title"><h2 id="panel-title">可执行任务</h2><div data-testid="data-testid panel content">3</div></section><a href="#next">next</a>'`);
     const panel = await browser.evaluate(panelReadExpression('可执行任务'));
     assert.equal(panel.text, '3'); assert.equal(panel.visible, true); assert.equal(panel.error, false);
+    assert.ok((await browser.platformFonts('h2')).some(font => font.glyphCount > 0));
     assert.equal(await browser.evaluate(panelReadExpression('不存在')), null);
     // A legacy-looking decoy cannot supply values for the actual PanelChrome.
     await browser.evaluate(`document.body.insertAdjacentHTML('beforeend','<section aria-label="可执行任务 panel"><div data-testid="data-testid panel content">99</div></section>')`);
@@ -127,4 +132,27 @@ test('permanent provisioning reuses Prometheus and retains the prior native test
   assert.ok(source.includes('console.log(JSON.stringify(result.grafanaBrowser))'));
   const aggregate = readFileSync(resolve(root, 'scripts/tests/m4-sla-calendar-boundary.test.mjs'), 'utf8');
   assert.ok(aggregate.includes("import './ops-grafana-browser.test.mjs';"));
+});
+
+for (const mode of ['ci', 'local']) {
+  test('font preparation reuses an isolated helper child in ' + mode + ' mode', async t => {
+    const directory = context(t), file = resolve(directory, 'controlled-font-helper.mjs');
+    writeFileSync(file, `export function ensureCjkFontRuntime() {
+      if(process.env.GITHUB_ACTIONS!==${JSON.stringify(mode==='ci'?'true':'false')}) throw new Error('mode');
+      if(Object.keys(process.env).some(k=>/TOKEN|SECRET|PASSWORD/.test(k))) throw new Error('unexpected credential');
+      console.log('CJK_FONT_RUNTIME_READY=Noto Sans CJK SC');
+    }`);
+    assert.deepEqual(await prepareGrafanaFonts(mode, {moduleUrl:pathToFileURL(file).href}),
+      {status:'OPS_GRAFANA_CJK_READY',family:'Noto Sans CJK SC'});
+  });
+}
+test('font helper failure and timeout reject without leaving a child or signal handler', {timeout:10000}, async t => {
+  const directory = context(t), file = resolve(directory, 'controlled-font-failure.mjs');
+  const before=[process.listenerCount('SIGTERM'),process.listenerCount('SIGINT')];
+  writeFileSync(file, "export function ensureCjkFontRuntime(){throw new Error('controlled failure')}");
+  await assert.rejects(prepareGrafanaFonts('local',{moduleUrl:pathToFileURL(file).href}),/GRAFANA_FONT_PREPARATION_FAILED/u);
+  writeFileSync(file, "export function ensureCjkFontRuntime(){setInterval(()=>{},1000)}");
+  await assert.rejects(prepareGrafanaFonts('local',{moduleUrl:pathToFileURL(file).href,timeoutMs:300}),/GRAFANA_FONT_PREPARATION_TIMEOUT/u);
+  await assert.rejects(prepareGrafanaFonts('unknown'),/GRAFANA_FONT_MODE/u);
+  assert.deepEqual([process.listenerCount('SIGTERM'),process.listenerCount('SIGINT')],before);
 });
