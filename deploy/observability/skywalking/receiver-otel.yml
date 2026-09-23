@@ -1,0 +1,6 @@
+# Merge this fragment into the SkyWalking OAP application configuration.
+# Keep OAP on a private network and configure TLS/authentication at the collector boundary.
+receiver-otel:
+  selector: ${SW_OTEL_RECEIVER:default}
+  default:
+    enabledHandlers: ${SW_OTEL_RECEIVER_ENABLED_HANDLERS:otlp-traces}

@@ -1,0 +1,58 @@
+{
+  "groups": [
+    {
+      "name": "approval-platform-workflow-population",
+      "rules": [
+        {
+          "record": "approval:workflow_population_sample_healthy",
+          "expr": "(approval_workflow_sample_up{job=\"approval-platform\",workflow_monitor=\"enabled\"} == 1)\nand (approval_process_active{job=\"approval-platform\",workflow_monitor=\"enabled\"} >= 0)\nand (approval_process_active{job=\"approval-platform\",workflow_monitor=\"enabled\"} < +Inf)\nand (approval_process_sla_covered{job=\"approval-platform\",workflow_monitor=\"enabled\"} >= 0)\nand (approval_process_sla_covered{job=\"approval-platform\",workflow_monitor=\"enabled\"} < +Inf)\nand (approval_process_overdue{job=\"approval-platform\",workflow_monitor=\"enabled\"} >= 0)\nand (approval_process_overdue{job=\"approval-platform\",workflow_monitor=\"enabled\"} < +Inf)\nand (approval_task_active{job=\"approval-platform\",workflow_monitor=\"enabled\"} >= 0)\nand (approval_task_active{job=\"approval-platform\",workflow_monitor=\"enabled\"} < +Inf)\nand (approval_task_sla_covered{job=\"approval-platform\",workflow_monitor=\"enabled\"} >= 0)\nand (approval_task_sla_covered{job=\"approval-platform\",workflow_monitor=\"enabled\"} < +Inf)\nand (approval_task_overdue{job=\"approval-platform\",workflow_monitor=\"enabled\"} >= 0)\nand (approval_task_overdue{job=\"approval-platform\",workflow_monitor=\"enabled\"} < +Inf)\nand (approval_process_sla_covered{job=\"approval-platform\",workflow_monitor=\"enabled\"} <= approval_process_active{job=\"approval-platform\",workflow_monitor=\"enabled\"})\nand (approval_process_overdue{job=\"approval-platform\",workflow_monitor=\"enabled\"} <= approval_process_sla_covered{job=\"approval-platform\",workflow_monitor=\"enabled\"})\nand (approval_task_sla_covered{job=\"approval-platform\",workflow_monitor=\"enabled\"} <= approval_task_active{job=\"approval-platform\",workflow_monitor=\"enabled\"})\nand (approval_task_overdue{job=\"approval-platform\",workflow_monitor=\"enabled\"} <= approval_task_sla_covered{job=\"approval-platform\",workflow_monitor=\"enabled\"})\nand on (job, instance, environment) (up{job=\"approval-platform\",workflow_monitor=\"enabled\"} == 1)"
+        },
+        {
+          "alert": "ApprovalProcessPopulationOverdue",
+          "expr": "(approval_process_overdue{job=\"approval-platform\",workflow_monitor=\"enabled\"} > 0)\nand approval:workflow_population_sample_healthy{job=\"approval-platform\",workflow_monitor=\"enabled\"}",
+          "for": "2m",
+          "labels": {
+            "severity": "warning",
+            "owner": "approval-platform",
+            "component": "workflow-population"
+          },
+          "annotations": {
+            "summary": "Current process SLA population remains overdue",
+            "description": "The complete healthy sample on {{ $labels.instance }} contains overdue process targets for two minutes. Inspect governed SLA deadlines; task and process scopes are distinct.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/workflow-population-alerting.md#approvalprocesspopulationoverdue"
+          }
+        },
+        {
+          "alert": "ApprovalTaskPopulationOverdue",
+          "expr": "(approval_task_overdue{job=\"approval-platform\",workflow_monitor=\"enabled\"} > 0)\nand approval:workflow_population_sample_healthy{job=\"approval-platform\",workflow_monitor=\"enabled\"}",
+          "for": "2m",
+          "labels": {
+            "severity": "warning",
+            "owner": "approval-platform",
+            "component": "workflow-population"
+          },
+          "annotations": {
+            "summary": "Current task SLA population remains overdue",
+            "description": "The complete healthy sample on {{ $labels.instance }} contains overdue task targets for two minutes. Inspect governed SLA deadlines; task and process scopes are distinct.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/workflow-population-alerting.md#approvaltaskpopulationoverdue"
+          }
+        },
+        {
+          "alert": "ApprovalWorkflowPopulationMonitoringUnavailable",
+          "expr": "(up{job=\"approval-platform\",workflow_monitor=\"enabled\"} == 1)\nunless on (job, instance, environment) approval:workflow_population_sample_healthy{job=\"approval-platform\",workflow_monitor=\"enabled\"}",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "owner": "approval-platform",
+            "component": "workflow-population"
+          },
+          "annotations": {
+            "summary": "Expected workflow population monitoring is unavailable",
+            "description": "The reachable target {{ $labels.instance }} lacks a complete, fresh, finite and consistent workflow sample. Population and SLA health are unknown, not recovered.",
+            "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/workflow-population-alerting.md#approvalworkflowpopulationmonitoringunavailable"
+          }
+        }
+      ]
+    }
+  ]
+}

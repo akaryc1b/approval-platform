@@ -89,9 +89,17 @@ test('E2 full generator executes only in GitHub Actions and emits retained canon
   const match = run.stdout.match(/M6_PR_E_E2_SBOM_BEGIN\n([^\n]+)\nM6_PR_E_E2_SBOM_END/);
   assert.ok(match, 'canonical E2 payload must be one retained line');
   const evidence = JSON.parse(match[1]);
+  // Preserve the actual generated graph even when a subsequent acceptance assertion fails.
+  console.log('M6_PR_E_E2_CANONICAL_SHA256=' + evidence.contentSha256);
+  console.log(match[0]);
   assert.match(evidence.commitSha, /^[0-9a-f]{40}$/);
   assert.equal(evidence.maven.reactorProjectCount, 26);
-  assert.equal(evidence.maven.importedBoms.length, 3);
+  assert.deepEqual(evidence.maven.importedBoms, [
+    { group: 'org.flowable', name: 'flowable-bom', scope: 'import', version: '8.0.0' },
+    { group: 'io.opentelemetry', name: 'opentelemetry-bom', scope: 'import', version: '1.62.0' },
+    { group: 'org.springframework.boot', name: 'spring-boot-dependencies', scope: 'import', version: '4.0.2' },
+    { group: 'org.testcontainers', name: 'testcontainers-bom', scope: 'import', version: '2.0.5' },
+  ]);
   assert.equal(evidence.pnpm.workspaceProjectCount, 6);
   assert.equal(evidence.pnpm.external.length, 1);
   assert.equal(evidence.pnpm.external[0].name, 'typescript');
@@ -105,6 +113,6 @@ test('E2 full generator executes only in GitHub Actions and emits retained canon
   assert.ok(evidence.maven.resolvedPluginCoordinates.length > 0);
   const externalMaven = evidence.maven.components.filter((component) => component.group !== 'io.github.akaryc1b.approval');
   assert.ok(externalMaven.some((component) => component.licenses.some((license) => license !== 'EVIDENCE_UNAVAILABLE')), 'resolved Maven POM license metadata must not be globally omitted');
-  console.log('M6_PR_E_E2_CANONICAL_SHA256=' + evidence.contentSha256);
-  console.log(match[0]);
 });
+
+import './ops-observability-otel-graph.test.mjs';

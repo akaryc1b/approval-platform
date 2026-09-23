@@ -7,6 +7,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { acceptedE2GraphProjection, generateEvidence as generateE2Evidence } from './m6-pr-e-e2-generate-sbom.mjs';
 
+import { verifyObservabilityGraph } from './observability-dependency-graph.mjs';
+
 const SHA40=/^[0-9a-f]{40}$/;
 const H=x=>createHash('sha256').update(x).digest('hex');
 const S=v=>Array.isArray(v)?v.map(S):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,S(v[k])])):v;
@@ -67,7 +69,7 @@ function copySecurityRules(repo,dest){
 export function scan(root=rootFromHere){
   const baseline=J(path.join(root,'docs/m6/m6-pr-e-e4-scanner-baseline.json')),head=exactHead(),tmp=mkdtempSync(path.join(os.tmpdir(),'m6-pr-e-e4-'));
   try{
-    const e2=generateE2Evidence(root,{fullMaven:true});if(e2.commitSha!==head)throw new Error(`E2 head mismatch ${e2.commitSha} != ${head}`);const graphDigest=e2GraphDigest(e2);if(graphDigest!==baseline.inheritedE2GraphDigest)throw new Error(`E2 graph drift ${graphDigest}`);
+    const e2=generateE2Evidence(root,{fullMaven:true});if(e2.commitSha!==head)throw new Error(`E2 head mismatch ${e2.commitSha} != ${head}`);const graphDigest=e2GraphDigest(e2);const graphTransition=verifyObservabilityGraph(e2,acceptedE2GraphProjection(e2),baseline.inheritedE2GraphDigest);
     const env=safeEnv(),bin=path.join(tmp,'bin');mkdirSync(bin,{recursive:true});
 
     const goTar=path.join(tmp,'go.tgz'),goRoot=path.join(tmp,'go-root');mkdirSync(goRoot);run('curl',['--fail','--location','--silent','--show-error',baseline.scanners.osv.installation.goLinuxAmd64Url,'-o',goTar],{env});verifySha(goTar,baseline.scanners.osv.installation.goLinuxAmd64Sha256);run('tar',['-xzf',goTar,'-C',goRoot],{env});const go=path.join(goRoot,'go/bin/go'),goEnv={...env,GOTOOLCHAIN:'local',GOPATH:path.join(tmp,'gopath'),GOBIN:bin,GOPROXY:'https://proxy.golang.org,direct',GOSUMDB:'sum.golang.org'};run(go,['version'],{env:goEnv});run(go,['install',baseline.scanners.osv.installation.module],{env:goEnv,timeout:1200000});const osv=path.join(bin,'osv-scanner'),osvVersion=run(osv,['--version'],{env}).stdout.trim()||run(osv,['version'],{env}).stdout.trim();if(!osvVersion.includes(baseline.scanners.osv.version))throw new Error(`OSV version mismatch ${osvVersion}`);const osvBinarySha256=H(readFileSync(osv));const oi=osvInputFromE2(e2),osvInput=path.join(tmp,'osv-scanner.json'),osvRaw=path.join(tmp,'osv.json');writeFileSync(osvInput,JSON.stringify(oi.scannerInput));let rr=run(osv,['scan','--format','json','--lockfile',`osv-scanner:${osvInput}`],{cwd:root,env,allow:[1]});writeFileSync(osvRaw,rr.stdout);const osvJson=J(osvRaw),osvFindings=normalizeOsv(osvJson,oi.lookup);
@@ -86,7 +88,7 @@ export function scan(root=rootFromHere){
       zizmor:{scanCompleted:true,version:baseline.scanners.zizmor.version,sourceCommit:baseline.scanners.zizmor.sourceCommit,wheelSha256:baseline.scanners.zizmor.installation.sha256,offline:true,collection:baseline.scanners.zizmor.collection,findingCount:zzFindings.length,findings:zzFindings,rawReportRetained:false},
       semgrep:{scanCompleted:true,version:baseline.scanners.semgrep.version,sourceCommit:baseline.scanners.semgrep.sourceCommit,imageId,imageRepoDigest,rulesCommit:rulesHead,ruleFileCount:rulesMeta.ruleFileCount,ruleContentSha256:rulesMeta.ruleContentSha256,metrics:'OFF',findingCount:sgFindings.length,findings:sgFindings,rawReportRetained:false,sourceSnippetRetained:false}
     };
-    const totalFindingCount=Object.values(scanners).reduce((n,x)=>n+x.findingCount,0);const p={schemaVersion:'M6_PR_E_E4_SCANNER_EVIDENCE_V1',repository:baseline.repository,commitSha:head,e2GraphDigest:graphDigest,e2CurrentContentSha256:e2.contentSha256,scannerBaselineSourceHead:baseline.sourceHead,scanners,totalFindingCount,scannerFindingTriageRequired:totalFindingCount>0,allScannersCompleted:true,rawScannerReportsRetained:false,candidateSecretMaterialRetained:false,authoritativeGitHubInventoryStillUnavailable:true,workstreamReleaseBlocked:true,reasonCodes:[...(totalFindingCount>0?['E4_SCANNER_FINDINGS_REQUIRE_E3_TRIAGE']:[]),'AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE'].sort()};return S({...p,contentSha256:H(C(p))});
+    const totalFindingCount=Object.values(scanners).reduce((n,x)=>n+x.findingCount,0);const p={schemaVersion:'M6_PR_E_E4_SCANNER_EVIDENCE_V1',repository:baseline.repository,commitSha:head,e2GraphDigest:graphDigest,e2CurrentContentSha256:e2.contentSha256,...(graphTransition?{e2GraphTransition:graphTransition}:{}),scannerBaselineSourceHead:baseline.sourceHead,scanners,totalFindingCount,scannerFindingTriageRequired:totalFindingCount>0,allScannersCompleted:true,rawScannerReportsRetained:false,candidateSecretMaterialRetained:false,authoritativeGitHubInventoryStillUnavailable:true,workstreamReleaseBlocked:true,reasonCodes:[...(totalFindingCount>0?['E4_SCANNER_FINDINGS_REQUIRE_E3_TRIAGE']:[]),'AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE'].sort()};return S({...p,contentSha256:H(C(p))});
   } finally { rmSync(tmp,{recursive:true,force:true}); }
 }
 

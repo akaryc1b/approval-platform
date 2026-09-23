@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+# Do not load promtool fixture YAML as production alert rules.
+rule_files:
+  - /etc/prometheus/rules/approval-platform.rules.yml
+  - /etc/prometheus/rules/approval-outbox.rules.yml
+  - /etc/prometheus/rules/approval-workflow-population.rules.yml
+  - /etc/prometheus/rules/approval-engine-jobs.rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: approval-platform
+    metrics_path: /actuator/prometheus
+    scheme: http
+    static_configs:
+      - targets:
+          - approval-platform:8081
+        labels:
+          service: approval-platform
+          environment: production
+          # Add only when this target is expected to enable the Outbox monitor:
+          # outbox_monitor: enabled
+          # Independently opt in when workflow population sampling is expected:
+          # workflow_monitor: enabled
+          # Independently opt in when engine job sampling is expected:
+          # engine_job_monitor: enabled

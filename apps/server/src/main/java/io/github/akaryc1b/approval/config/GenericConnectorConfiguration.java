@@ -19,6 +19,9 @@ import io.github.akaryc1b.approval.integration.outbox.OutboxDispatcher;
 import io.github.akaryc1b.approval.integration.outbox.OutboxRepository;
 import io.github.akaryc1b.approval.integration.retry.ExponentialBackoffRetryPolicy;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalBusinessEventOutbox;
+import io.github.akaryc1b.approval.observability.OutboxTracing;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -36,6 +39,17 @@ import java.util.UUID;
 @EnableScheduling
 @EnableConfigurationProperties(GenericConnectorProperties.class)
 public class GenericConnectorConfiguration {
+
+    private final OutboxTracing tracing;
+
+    public GenericConnectorConfiguration() {
+        this.tracing = OutboxTracing.disabled();
+    }
+
+    @Autowired
+    public GenericConnectorConfiguration(ObjectProvider<OutboxTracing> tracing) {
+        this.tracing = tracing.getIfAvailable(OutboxTracing::disabled);
+    }
 
     @Bean
     ApplicationRunner validateGenericConnectorProperties(GenericConnectorProperties properties) {
@@ -73,7 +87,7 @@ public class GenericConnectorConfiguration {
                     properties.getKeyId(),
                     secret,
                     properties.getTimeout(),
-                    properties.getHeaders()
+                    tracing.headers(properties.getHeaders())
                 );
             } finally {
                 Arrays.fill(secret, (byte) 0);
@@ -142,7 +156,7 @@ public class GenericConnectorConfiguration {
                     properties.getKeyId(),
                     secret,
                     properties.getTimeout(),
-                    properties.getHeaders()
+                    tracing.headers(properties.getHeaders())
                 );
             } finally {
                 Arrays.fill(secret, (byte) 0);
@@ -193,7 +207,7 @@ public class GenericConnectorConfiguration {
         GenericConnectorProperties.Dispatch dispatch = properties.getDispatch();
         return new OutboxDispatcher(
             repository,
-            callbackResolver,
+            tracing.observe(callbackResolver),
             new ExponentialBackoffRetryPolicy(
                 dispatch.getInitialDelay(),
                 dispatch.getMaximumDelay(),
@@ -201,7 +215,8 @@ public class GenericConnectorConfiguration {
                 dispatch.getJitterRatio()
             ),
             approvalClock,
-            dispatch.getLeaseDuration()
+            dispatch.getLeaseDuration(),
+            tracing
         );
     }
 
