@@ -6,3 +6,4 @@ import './ops-engine-job-alerting.test.mjs';
 import './ops-engine-job-dashboard.test.mjs';
 import './ops-grafana-browser.test.mjs';
 import './ops-grafana-browser-transport.test.mjs';
+import './ops-monitoring-isolation.test.mjs';

@@ -16,19 +16,19 @@ groups:
       - alert: ApprovalPlatformHighHttp5xxRatio
         expr: |
           (
-            sum by (job, instance) (
+            sum by (job, instance, environment) (
               rate(http_server_requests_seconds_count{job="approval-platform",status=~"5.."}[5m])
             )
             /
             clamp_min(
-              sum by (job, instance) (
+              sum by (job, instance, environment) (
                 rate(http_server_requests_seconds_count{job="approval-platform"}[5m])
               ),
               0.001
             )
           ) > 0.05
-          and on (job, instance)
-          sum by (job, instance) (
+          and on (job, instance, environment)
+          sum by (job, instance, environment) (
             rate(http_server_requests_seconds_count{job="approval-platform"}[5m])
           ) > 0.1
         for: 10m
@@ -45,12 +45,12 @@ groups:
         expr: |
           histogram_quantile(
             0.95,
-            sum by (le, job, instance) (
+            sum by (le, job, instance, environment) (
               rate(http_server_requests_seconds_bucket{job="approval-platform"}[5m])
             )
           ) > 2
-          and on (job, instance)
-          sum by (job, instance) (
+          and on (job, instance, environment)
+          sum by (job, instance, environment) (
             rate(http_server_requests_seconds_count{job="approval-platform"}[5m])
           ) > 0.1
         for: 10m
@@ -79,7 +79,7 @@ groups:
     rules:
       - alert: ApprovalWorkflowOverdueDetected
         expr: |
-          sum by (application) (
+          sum by (application, environment) (
             increase(approval_sla_execution_worker_total{action="overdue"}[10m])
           ) > 0
         labels:
@@ -93,7 +93,7 @@ groups:
 
       - alert: ApprovalWorkflowSlaActionDead
         expr: |
-          sum by (application, action) (
+          sum by (application, action, environment) (
             increase(approval_sla_execution_worker_total{result="dead"}[10m])
           ) > 0
         labels:
@@ -107,7 +107,7 @@ groups:
 
       - alert: ApprovalWorkflowSlaActionRetryStorm
         expr: |
-          sum by (application, action) (
+          sum by (application, action, environment) (
             increase(approval_sla_execution_worker_total{result="retry_scheduled"}[15m])
           ) >= 3
         for: 5m
@@ -125,19 +125,19 @@ groups:
       - alert: ApprovalConnectorFailureRatio
         expr: |
           (
-            sum by (application, provider, operation) (
+            sum by (application, provider, operation, environment) (
               rate(approval_connector_invocation_event_total{outcome=~"failure|refused|malformed_response"}[5m])
             )
             /
             clamp_min(
-              sum by (application, provider, operation) (
+              sum by (application, provider, operation, environment) (
                 rate(approval_connector_invocation_event_total[5m])
               ),
               0.001
             )
           ) > 0.10
-          and on (application, provider, operation)
-          sum by (application, provider, operation) (
+          and on (application, provider, operation, environment)
+          sum by (application, provider, operation, environment) (
             rate(approval_connector_invocation_event_total[5m])
           ) > 0.05
         for: 10m
@@ -152,7 +152,7 @@ groups:
 
       - alert: ApprovalConnectorTimeoutDetected
         expr: |
-          sum by (application, provider, operation) (
+          sum by (application, provider, operation, environment) (
             increase(approval_connector_invocation_event_total{failure="transport_timeout"}[10m])
           ) > 0
         labels:

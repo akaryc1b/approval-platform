@@ -12,6 +12,7 @@ import { verifyEngineJobAlerts } from './verify-engine-job-alerts.mjs';
 import { verifyOperationsDashboard } from './verify-operations-dashboard.mjs';
 import { verifyEngineJobDashboard } from './verify-engine-job-dashboard.mjs';
 import { verifyGrafanaBrowser } from './verify-grafana-browser.mjs';
+import { verifyMonitoringIsolation } from './verify-monitoring-isolation.mjs';
 
 // Upstream archive identity, not a mutable image tag or a checksum downloaded beside it.
 // Source: https://prometheus.io/download/ (3.13.3 linux-amd64, 2026-09-07).
@@ -88,6 +89,9 @@ export function provisionAndVerifyPrometheusRules() {
     chmodSync(executable, 0o700);
     console.log(`OPS_PROMTOOL_ARCHIVE_SHA256=${promtoolPin.sha256}`);
     const result = runPromtoolChecks(executable);
+    result.monitoringIsolation = verifyMonitoringIsolation({ directory, repositoryRoot: root, promtool: executable,
+      runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
+    console.log(JSON.stringify(result.monitoringIsolation)); // Native query results, not fixture-runner output.
     result.engineJobs = verifyEngineJobAlerts({ directory, repositoryRoot: root, promtool: executable,
       runCommand: (file, args, cwd, timeout) => command(spawnSync, file, args, cwd, timeout) });
     console.log(JSON.stringify(result.engineJobs)); // Native parser/engine, never a mocked receipt.

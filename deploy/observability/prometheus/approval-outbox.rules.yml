@@ -5,7 +5,7 @@
       "rules": [
         {
           "alert": "ApprovalOutboxBacklogHigh",
-          "expr": "((approval_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} + approval_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"}) > 100)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "expr": "((approval_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} + approval_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"}) > 100)\nand (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance, environment) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
           "for": "5m",
           "labels": {
             "severity": "warning",
@@ -20,7 +20,7 @@
         },
         {
           "alert": "ApprovalOutboxOldestUnfinished",
-          "expr": "(approval_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 300)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "expr": "(approval_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 300)\nand (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance, environment) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
           "for": "2m",
           "labels": {
             "severity": "warning",
@@ -35,7 +35,7 @@
         },
         {
           "alert": "ApprovalOutboxExpiredLeases",
-          "expr": "(approval_outbox_expired_leases{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 0)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "expr": "(approval_outbox_expired_leases{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 0)\nand (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance, environment) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
           "for": "2m",
           "labels": {
             "severity": "warning",
@@ -50,7 +50,7 @@
         },
         {
           "alert": "ApprovalOutboxDeadLetters",
-          "expr": "(approval_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 0)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "expr": "(approval_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 0)\nand (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance, environment) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
           "labels": {
             "severity": "critical",
             "owner": "approval-platform",
@@ -64,7 +64,7 @@
         },
         {
           "alert": "ApprovalOutboxMonitoringUnavailable",
-          "expr": "(up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nunless on (job, instance) (\n(approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (approval_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_due{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_expired_leases{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_notification_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_notification_outbox_due{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_notification_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_notification_outbox_expired_leases{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_notification_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand on (job, instance) (approval_notification_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\n)",
+          "expr": "(up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nunless on (job, instance, environment) (\n(approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand (approval_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_outbox_due{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_outbox_expired_leases{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_notification_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_notification_outbox_due{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_notification_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_notification_outbox_expired_leases{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_notification_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\nand (approval_notification_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} >= 0)\n)",
           "for": "2m",
           "labels": {
             "severity": "critical",
@@ -79,7 +79,7 @@
         },
         {
           "alert": "ApprovalNotificationOutboxBacklogHigh",
-          "expr": "((approval_notification_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} + approval_notification_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"}) > 100)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "expr": "((approval_notification_outbox_pending{job=\"approval-platform\",outbox_monitor=\"enabled\"} + approval_notification_outbox_in_flight{job=\"approval-platform\",outbox_monitor=\"enabled\"}) > 100)\nand (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance, environment) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
           "for": "5m",
           "labels": {
             "severity": "warning",
@@ -94,7 +94,7 @@
         },
         {
           "alert": "ApprovalNotificationOutboxOldestUnfinished",
-          "expr": "(approval_notification_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 300)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "expr": "(approval_notification_outbox_oldest_unfinished_age_seconds{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 300)\nand (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance, environment) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
           "for": "2m",
           "labels": {
             "severity": "warning",
@@ -109,7 +109,7 @@
         },
         {
           "alert": "ApprovalNotificationOutboxDeadLetters",
-          "expr": "(approval_notification_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 0)\nand on (job, instance) (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
+          "expr": "(approval_notification_outbox_dead{job=\"approval-platform\",outbox_monitor=\"enabled\"} > 0)\nand (approval_outbox_sample_up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)\nand on (job, instance, environment) (up{job=\"approval-platform\",outbox_monitor=\"enabled\"} == 1)",
           "labels": {
             "severity": "critical",
             "owner": "approval-platform",

@@ -37,7 +37,7 @@ test('one health recording rule precedes three independently scoped alerts', () 
   }
   assert.match(rules[1].expr, /^\(approval_process_overdue\{[^}]+\} > 0\)\nand approval:workflow_population_sample_healthy/u);
   assert.match(rules[2].expr, /^\(approval_task_overdue\{[^}]+\} > 0\)\nand approval:workflow_population_sample_healthy/u);
-  assert.match(rules[3].expr, /unless on \(job, instance\) approval:workflow_population_sample_healthy/u);
+  assert.match(rules[3].expr, /unless on \(job, instance, environment\) approval:workflow_population_sample_healthy/u);
 });
 test('health requires all six finite nonnegative gauges and both subset invariants', () => {
   const expression = rules[0].expr;
@@ -50,8 +50,8 @@ test('health requires all six finite nonnegative gauges and both subset invarian
     assert.ok(expression.includes(`approval_${scope}_overdue{job="approval-platform",workflow_monitor="enabled"} <= approval_${scope}_sla_covered{`));
   }
   assert.match(expression, /^\(approval_workflow_sample_up\{[^}]+\} == 1\)/u);
-  assert.match(expression, /and on \(job, instance\) \(up\{[^}]+\} == 1\)$/u);
-  assert.equal((expression.match(/on \(job, instance\)/gu) || []).length, 1,
+  assert.match(expression, /and on \(job, instance, environment\) \(up\{[^}]+\} == 1\)$/u);
+  assert.equal((expression.match(/on \(job, instance, environment\)/gu) || []).length, 1,
     'all snapshot gauges must retain full common-label matching; only up lacks the application tag');
 });
 test('every native checkpoint includes all alerts and an exact health-record expectation', () => {

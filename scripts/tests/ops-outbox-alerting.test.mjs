@@ -23,7 +23,7 @@ test('eight operational conditions retain bounded deployment-only labels and run
     assert.ok(['outbox', 'notification-outbox'].includes(rule.labels.component));
     assert.equal(rule.labels.owner, 'approval-platform');
     assert.match(rule.expr, /job="approval-platform",outbox_monitor="enabled"/u);
-    assert.match(rule.expr, /on \(job, instance\)/u);
+    assert.match(rule.expr, /on \(job, instance, environment\)/u);
     assert.doesNotMatch(rule.expr, /sum\s*\(|tenant_id|task_id|trace_id|payload/u);
     assert.ok(rule.annotations.runbook_url.endsWith('#' + rule.alert.toLowerCase()));
   }
