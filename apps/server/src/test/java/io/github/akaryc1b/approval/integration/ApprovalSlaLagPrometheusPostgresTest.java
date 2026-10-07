@@ -1,4 +1,4 @@
-package io.github.akaryc1b.approval.config;
+package io.github.akaryc1b.approval.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.ApprovalPlatformApplication;
@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -69,6 +70,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Actual application management HTTP export after real SLA/Outbox writes, not a fabricated scrape response. */
 @Testcontainers
 @ActiveProfiles("local")
+@Import(CollectorRehearsalSchemaConfiguration.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(classes = ApprovalPlatformApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
