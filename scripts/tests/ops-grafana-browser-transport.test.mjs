@@ -108,6 +108,27 @@ test('serialization and synchronous write failures close the session and clear a
   assert.equal(f.browser.pending.size, 0); assert.equal(f.browser.closed, true);
 });
 
+for (const [parts, categories] of [
+  [['sock', 'et() failed: Operation not permitted (1)'], 'permission+socket'],
+  [['Failed to bind() on UNIX domain socket: File name too ', 'long (36)'], 'path-length+socket'],
+  [['db', 'us: Failed to connect to the bus'], 'dbus'],
+]) {
+  test('startup diagnostics classify fixed native categories without exporting private paths: ' + categories, async t => {
+    const f = fixture(t);
+    f.child.stderr.emit('data', Buffer.from('SECRET /private/profile/password=abc ' + parts[0]));
+    f.child.stderr.emit('data', Buffer.from(parts[1]));
+    const pending = f.browser.call('Browser.getVersion');
+    const checked = assert.rejects(pending, error => {
+      assert.ok(error.message.endsWith('categories=' + categories));
+      assert.doesNotMatch(error.message, /SECRET|private|password|abc|profile/u);
+      assert.match(error.message, /protocol=0,responses=0/u); return true;
+    });
+    f.output.emit('end'); await checked;
+    assert.equal(f.browser.nativeTail, ''); assert.equal(f.browser.pending.size, 0);
+    assert.equal(f.browser.closed, true);
+  });
+}
+
 test('failed protocol command does not expose the native response error', async t => {
   const f = fixture(t); const pending = f.browser.call('Page.enable');
   const checked = assert.rejects(pending, error => error.message === 'GRAFANA_BROWSER_COMMAND:Page.enable');

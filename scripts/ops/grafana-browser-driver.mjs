@@ -39,6 +39,8 @@ export class BrowserPipe {
         ['devtools', /devtools|remote.debugging/i], ['crashpad', /crashpad/i],
         ['resource', /out of memory|cannot allocate|resource temporarily unavailable|pthread_create|too many open files/i],
         ['permission', /permission denied|operation not permitted/i],
+        ['socket', /socket\(\) failed|failed to (?:create|bind).*socket/i],
+        ['path-length', /file ?name too long|path too long|ENAMETOOLONG/i],
         ['policy', /disallowed|disabled by.*policy|policy.*disabled/i],
         ['library', /error while loading shared libraries|symbol lookup error/i],
         ['sandbox', /sandbox/i],

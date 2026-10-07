@@ -128,6 +128,7 @@ export async function runGrafanaBrowser({ directory, repositoryRoot, grafanaHome
     assert.equal(user.status, 200); assert.ok(Number.isSafeInteger(user.body.id));
     assert.equal((await json(baseUrl + '/api/org/users/' + user.body.id, { method: 'PATCH', headers: adminHeaders,
       body: JSON.stringify({ role: 'Viewer' }) })).status, 200);
+    phase = 'browser-start';
     browser = new BrowserPipe(resolve(workspace, 'chrome'), env); const browserVersion = await browser.start();
     phase = 'browser-login'; await browser.navigate(baseUrl + '/login');
     await wait(() => browser.evaluate(`!!document.querySelector('input[name="user"]') && !!document.querySelector('input[name="password"]')`), phase);

@@ -133,6 +133,13 @@ test('permanent provisioning reuses Prometheus and retains the prior native test
   const aggregate = readFileSync(resolve(root, 'scripts/tests/m4-sla-calendar-boundary.test.mjs'), 'utf8');
   assert.ok(aggregate.includes("import './ops-grafana-browser.test.mjs';"));
 });
+test('browser startup failures are attributed to startup rather than the last dashboard import', () => {
+  const source = readFileSync(resolve(root, 'scripts/ops/grafana-browser-runtime.mjs'), 'utf8');
+  // Source-boundary coverage only; native browser acceptance remains required separately.
+  assert.equal(source.split("phase = 'browser-start';").length, 2);
+  assert.match(source, /phase = 'browser-start';\s+browser = new BrowserPipe\(resolve\(workspace, 'chrome'\), env\); const browserVersion = await browser\.start\(\);\s+phase = 'browser-login';/u);
+  assert.match(source, /'GRAFANA_BROWSER_FAILED:' \+ phase/u);
+});
 
 for (const mode of ['ci', 'local']) {
   test('font preparation reuses an isolated helper child in ' + mode + ' mode', async t => {
