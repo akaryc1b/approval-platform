@@ -18,8 +18,15 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import static io.github.akaryc1b.approval.observability.SlaLagFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static io.github.akaryc1b.approval.observability.SlaLagFixtures.DEADLINE;
+import static io.github.akaryc1b.approval.observability.SlaLagFixtures.FINISH;
+import static io.github.akaryc1b.approval.observability.SlaLagFixtures.TENANT;
+import static io.github.akaryc1b.approval.observability.SlaLagFixtures.id;
+import static io.github.akaryc1b.approval.observability.SlaLagFixtures.intent;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SlaCompletionLagMetricsTest {
     private static final String TIMER = "approval.sla.overdue.completion.lag";
