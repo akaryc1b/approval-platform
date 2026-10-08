@@ -104,3 +104,70 @@ failure isolated to the observation transaction. Seed SQL is test-only. It does 
 send human notifications or establish full browser/database causality, production
 capacity, shutdown guarantees or completion of Issue #146. Source/test presence is
 not a pass; inspect the current commit's actual CI results.
+
+## Separate lifecycle timing foundation
+
+`ApprovalSlaLifecycleTimingCalculator` is a pure application-layer building block,
+not wired to a worker, endpoint, timer, alert, Spring bean or historical backfill.
+It does not change the completion-lag series above. It accepts the existing
+`SlaInstance`, its exact immutable `SlaPolicyVersion`, and, for working-time policies,
+the exact immutable `CalendarVersion`. The intended future caller must read trusted
+committed persistence records in a coherent observation boundary; a Java record or
+TERMINAL status alone cannot prove a database commit. The calculator does no I/O and
+cannot establish provenance, transaction isolation, rollback or exactly-once export.
+
+For a terminal SLA row within a bounded 366-day interval it can return:
+
+- gross natural elapsed: `terminalAt - startedAt`, including all pauses;
+- gross working elapsed: calendar-working intersections between those timestamps,
+  also including working intervals during pauses;
+- policy duration: available only for NATURAL_TIME with `naturalTimePauses=false`.
+  Pause-enabled NATURAL_TIME and every WORKING_TIME policy explicitly return
+  `MISSING_PAUSE_HISTORY` for this separate value. Even zero gross duration keeps
+  this conservative availability rule. Natural-time policies have no working value.
+
+These gross values are not pause-adjusted SLA consumption or deadline-breach evidence.
+They must not be used to claim the full calendar-aware process/task SLA feature or
+to provision a process/task SLA alert. Existing due/overdue deadlines remain
+authoritative. Terminal outcomes include cancellation, rejection and withdrawal,
+not only success. A task terminated by process completion can retain an
+`INSTANCE_COMPLETED` terminal reason; a future exporter must preserve these existing
+outcome semantics rather than equating every TERMINAL row with successful task work.
+
+The calculator validates tenant, policy ID/version, definition/task applicability,
+existing process-to-task/participant policy inheritance, calendar ID/version and
+time zone. Inactive or archived immutable versions remain valid; a newer active
+version is never substituted. Missing, mismatched or unpublished snapshots and
+invalid, reversed or overlong intervals return fixed unavailable reasons with no
+partial timing. Calendar calculation errors also return unavailable, never a zero
+or clipped result. Repeating the same input is deterministic computation, not a new
+execution or durable idempotency guarantee. No identities or exception text appear
+in the result, and no new metric labels are introduced.
+
+### Persistence and integration gate
+
+The current schema stores cumulative wall-clock pause milliseconds, not immutable
+pause windows. Resume clears each `paused_at`; terminalization clears an open pause
+without adding that last window to the accumulator. Therefore zero cumulative pause
+time does not prove that the lifecycle was unpaused, and nonzero wall-clock pause
+time cannot be subtracted from calendar-working elapsed. This calculator accepts no
+caller-provided pause history, completeness flag or synthetic unpaused assertion.
+
+Before pause-adjusted timing can be added, a separately governed persistence change
+must retain authoritative, ordered pause/resume/terminal boundaries atomically with
+SLA transitions, define completeness for legacy rows and terminal-during-pause cases,
+and prove concurrency, rollback, retry and replay behavior against PostgreSQL. That
+change requires resolving #146's foundation-stage no-Flyway boundary. Separately,
+the current projection decorator passes a business completion/withdrawal timestamp
+to its delegate, while `ApprovalSlaService` captures a later clock value for the SLA
+terminal row. Integration must choose and document the authoritative end timestamp
+and prove the same transaction's commit before emitting any observation. A pure unit
+test cannot substitute for these database and commit-boundary tests.
+
+The shared dependency-free Java checks and normal JUnit wrapper cover natural and
+working elapsed, pause-history unavailability, weekends, overrides, overnight
+intervals, DST, exact version/tenant drift, policy inheritance, bounded rejection,
+immutable retired snapshots and repeated calculation without input mutation.
+They do not claim a database rollback/replay rehearsal or live lifecycle metrics.
+This intentionally unused internal API can be removed without a schema/configuration
+rollback; its value is the tested fail-closed contract for that later integration.
