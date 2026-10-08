@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { requireCompleteCurrentE4 } from './scanner-evidence-provenance.mjs';
 import { canonicalSemgrepPath, DESIGNER_PROTOTYPE_TARGET } from './semgrep-scan-coverage.mjs';
 
 const PLAN_SHA256 = '53143fa727b6eafaae41319e6a2a4d159d14ee2557cd46cb650b895bbb7ee3ac';
@@ -44,32 +45,8 @@ function requireHistoricalReview(plan, review) {
 }
 
 function requireCurrentScan(e4, plan) {
-  requireCanonical(e4, 'current E4');
-  requireValue(e4.schemaVersion === 'M6_PR_E_E4_SCANNER_EVIDENCE_V1'
-    && e4.repository === plan.repository && /^[0-9a-f]{40}$/.test(e4.commitSha || ''),
-  'prototype remediation E4 identity mismatch');
-  requireValue(e4.allScannersCompleted === true && e4.rawScannerReportsRetained === false
-    && e4.candidateSecretMaterialRetained === false && e4.authoritativeGitHubInventoryStillUnavailable === true
-    && e4.workstreamReleaseBlocked === true, 'prototype remediation requires complete redacted blocked E4');
-  const classes = { osv: 'E4_OSV_SCANNER', gitleaks: 'E4_GITLEAKS', zizmor: 'E4_ZIZMOR', semgrep: 'E4_SEMGREP' };
-  const seen = new Set();
-  for (const [name, sourceClass] of Object.entries(classes)) {
-    const scanner = e4.scanners?.[name];
-    requireValue(scanner?.scanCompleted === true && scanner.rawReportRetained === false
-      && Array.isArray(scanner.findings) && scanner.findings.length === scanner.findingCount,
-    `prototype remediation requires complete current ${name} evidence`);
-    for (const finding of scanner.findings) {
-      requireValue(finding.sourceClass === sourceClass && /^[0-9a-f]{64}$/.test(finding.findingId || '')
-        && !seen.has(key(finding)), 'prototype remediation current scanner identity drift');
-      seen.add(key(finding));
-    }
-  }
-  requireValue(seen.size === e4.totalFindingCount, 'prototype remediation E4 total mismatch');
-  const checkout = e4.checkout;
-  requireValue(checkout && checkout.expectedHeadSha === e4.commitSha && checkout.exactTreeMatches === true
-    && checkout.trackedWorktreeClean === true && /^[0-9a-f]{40}$/.test(checkout.checkedOutSha || '')
-    && /^[0-9a-f]{40}$/.test(checkout.expectedHeadTreeSha || '')
-    && checkout.checkedOutTreeSha === checkout.expectedHeadTreeSha, 'prototype remediation exact scanned checkout required');
+  try { requireCompleteCurrentE4(e4, plan.repository); }
+  catch (error) { throw new Error(`prototype remediation ${error.message}`); }
   const scanner = e4.scanners.semgrep;
   const coverage = scanner.coverage;
   requireCanonical(coverage, 'Semgrep coverage');

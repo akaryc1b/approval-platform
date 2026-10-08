@@ -3,6 +3,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { fileURLToPath } from 'node:url';
+import { spawnSync as historicalGit } from 'node:child_process';
+import { readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview }
+  from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 import test from 'node:test';
@@ -114,7 +117,7 @@ function syntheticRawReport(findings = retainedSemgrep) {
       start: { line: f.startLine, col: f.startColumn }, end: { line: f.endLine, col: f.endColumn },
       extra: { severity: f.upstreamSeverity, metadata: { cwe: f.cwe, owasp: f.owasp, category: f.category } } })) };
 }
-function syntheticE4(includePrototype = false) {
+export function syntheticE4(includePrototype = false) {
   const removed = new Set(r1Plan.remediatedFindings.map(f => f.findingId));
   const osv = runtimeReview.reviewedFindings.filter(f => !removed.has(f.findingId)).map(f => ({
     sourceClass: 'E4_OSV_SCANNER', findingId: f.findingId, upstreamFindingId: f.upstreamFindingId,
@@ -129,7 +132,7 @@ function syntheticE4(includePrototype = false) {
   if (includePrototype) semgrep.push(structuredClone(plan.historicalFinding));
   const scanner = findings => ({ scanCompleted: true, rawReportRetained: false, findingCount: findings.length, findings });
   return seal({ schemaVersion: 'M6_PR_E_E4_SCANNER_EVIDENCE_V1', repository: plan.repository,
-    commitSha: 'a'.repeat(40), e2GraphDigest: r1Plan.targetE2GraphDigest,
+    commitSha: 'a'.repeat(40), e2GraphDigest: r1Plan.targetE2GraphDigest, e2CurrentContentSha256: 'b'.repeat(64),
     checkout: { checkedOutSha: 'c'.repeat(40), checkedOutTreeSha: 'd'.repeat(40), expectedHeadSha: 'a'.repeat(40),
       expectedHeadTreeSha: 'd'.repeat(40), exactTreeMatches: true, trackedWorktreeClean: true },
     allScannersCompleted: true, rawScannerReportsRetained: false, candidateSecretMaterialRetained: false,
@@ -142,13 +145,13 @@ function syntheticE4(includePrototype = false) {
         coverage: normalizeSemgrepReport(syntheticRawReport(semgrep), plan.semgrepExecutionIdentity.version).coverage },
     }, totalFindingCount: 170 + semgrep.length });
 }
-function snapshot(e4) {
+export function snapshot(e4) {
   return { repository: e4.repository, commitSha: e4.commitSha, currentE4CanonicalSha256: e4.contentSha256,
     scannerExecutionCount: 1, suppressionPathsPresent: [], currentSources: Object.fromEntries(
       Object.entries(plan.reviewedArtifacts).map(([path, identity]) => [path, { commitSha: e4.commitSha,
         headBlobSha: identity.blobSha, blobSha: identity.blobSha, content: read(path) }])) };
 }
-function i2Inputs(e4, withRemediation = true) {
+export function i2Inputs(e4, withRemediation = true) {
   const sourcePath = transition.transitions[0].sourcePath, content = read(sourcePath);
   return { currentSources: { [sourcePath]: { blobSha: blob(content), content } },
     ...(withRemediation ? { currentE4: e4, prototypeRemediationSnapshot: snapshot(e4) } : {}) };
@@ -242,7 +245,7 @@ for (const path of Object.keys(plan.reviewedArtifacts)) {
 for (const [name, alter] of [
   ['foreign repository', s => { s.repository = 'other/repository'; }],
   ['wrong Head', s => { s.commitSha = 'b'.repeat(40); }],
-  ['wrong E4 binding', s => { s.currentE4CanonicalSha256 = 'c'.repeat(64); }],
+  ['wrong E4 binding', current => { current.currentE4CanonicalSha256 = 'c'.repeat(64); }],
   ['no scanner execution', s => { s.scannerExecutionCount = 0; }],
   ['duplicate scanner execution', s => { s.scannerExecutionCount = 2; }],
   ['suppression file', s => { s.suppressionPathsPresent = ['.semgrepignore']; }],
@@ -302,6 +305,13 @@ test('I3 and I4 fail closed on historical receipt and count tampering', () => {
 // its full wiring and emitted receipts, and is not a live full-scanner result.
 function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype = false, staleHead = false } = {}) {
   let e4 = syntheticE4(includePrototype);
+  const gitleaksPlan = readGitleaksTestExpressionReviewPlan();
+  e4.scanners.gitleaks = { ...e4.scanners.gitleaks, ...gitleaksPlan.scannerIdentity,
+    findingCount: 28, findings: [...e4.scanners.gitleaks.findings, gitleaksPlan.historicalFinding] };
+  e4.totalFindingCount++;
+  const sourceRef = `${gitleaksPlan.historicalSource.commitSha}:${gitleaksPlan.historicalSource.path}`;
+  const sourceResult = historicalGit('git', ['show', sourceRef], { encoding: 'utf8', cwd: fileURLToPath(new URL('../../', import.meta.url)) });
+  assert.equal(sourceResult.status, 0, sourceResult.stderr);
   if (staleHead) { e4.commitSha = 'f'.repeat(40); e4.checkout.expectedHeadSha = e4.commitSha; }
   e4.e2GraphDigest = OBSERVABILITY_OTEL_GRAPH;
   e4.e2CurrentContentSha256 = 'b'.repeat(64);
@@ -325,6 +335,7 @@ function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype = fals
   }).map(([key, suffix]) => [key, `docs/m6/m6-pr-e-e3-${suffix}.json`]));
   runInNewContext(source.slice(source.indexOf("test('E4 full scanner emits")), {
     assert, createHash, Buffer, readdirSync, existsSync, readDesignerPrototypeRemediationPlan,
+    readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview,
     expectedScannerHead: () => 'a'.repeat(40),
     OBSERVABILITY_OTEL_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     buildScannerFindingIntake, applyReviewedFindingsWithIdentityTransitions,
@@ -342,8 +353,9 @@ function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype = fals
         return { status: 0, stdout: fixtureOutput, stderr: '' };
       }
       assert.equal(command, 'git');
-      if (args[0] === 'show') return { status: 0, stdout: '2026-10-08T00:00:00Z', stderr: '' };
+      if (args[0] === 'show') return { status: 0, stdout: args[1] === '-s' ? '2026-10-08T00:00:00Z' : sourceResult.stdout, stderr: '' };
       if (args[0] === 'rev-parse') {
+        if (args[1] === sourceRef) return { status: 0, stdout: gitleaksPlan.historicalSource.blobSha, stderr: '' };
         const [head, path] = args[1].split(':'); assert.equal(head, e4.commitSha);
         return { status: 0, stdout: wrongHeadBlob ? '0'.repeat(40) : blob(read(path)), stderr: '' };
       }
@@ -363,7 +375,7 @@ test('actual CI callback consumes one full scan, binds three exact-head blobs, a
   assert.equal(r.error, undefined);
   assert.equal(r.logs[0], r.fixtureOutput);
   assert.equal(r.commands.filter(([command]) => command === process.execPath).length, 1);
-  assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 3);
+  assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 4);
   for (const stage of ['E3_I2_TRIAGE', 'E3_DESIGNER_PROTOTYPE_REMEDIATION', 'E3_I3_TRIAGE', 'E3_I4_TRIAGE']) {
     const output = r.logs.find(text => text.startsWith(`M6_PR_E_${stage}_BEGIN\n`));
     assert.ok(output, stage);

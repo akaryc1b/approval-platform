@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { requireGitleaksTestExpressionTriage } from './m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 
 const SHA40=/^[0-9a-f]{40}$/;
@@ -63,6 +64,8 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
     if(workflowRemediation.workflowSupplyChainRemediationValidated!==true)throw new Error('R2B workflow remediation validation required');
   }
 
+  const gitleaksReview=triage.gitleaksTestExpressionReview
+    ? requireGitleaksTestExpressionTriage(e4,triage):null;
   const prototypeRemediation=triage.designerPrototypeRemediation
     ? requireDesignerPrototypeTriage(e4,triage):null;
   const inheritedRemediatedFindings=prototypeRemediation
@@ -111,8 +114,9 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
   const cumulativeReviewedFindingCount=(triage.cumulativeReviewedFindingCount||0)+delta.size+remediatedHistoricalFindings.length;
   const historicallyRemediatedFindingCount=(prototypeRemediation?inheritedRemediatedFindings.length:(triage.remediatedHistoricalFindingCount||0))+remediatedHistoricalFindings.length;
   const payload=stable({
-    schemaVersion:prototypeRemediation?'M6_PR_E_E3_I4_TRIAGE_V4':workflowRemediation?'M6_PR_E_E3_I4_TRIAGE_V3':remediation?'M6_PR_E_E3_I4_TRIAGE_V2':'M6_PR_E_E3_I4_TRIAGE_V1',repository:triage.repository,commitSha:triage.commitSha,sourceI3CanonicalSha256:triage.contentSha256,sourceE4CanonicalSha256:e4.contentSha256,sourceRemediationCanonicalSha256:remediation?.contentSha256??null,...(workflowRemediation?{sourceWorkflowRemediationCanonicalSha256:workflowRemediation.contentSha256}:{}),
+    schemaVersion:gitleaksReview?'M6_PR_E_E3_I4_TRIAGE_V5':prototypeRemediation?'M6_PR_E_E3_I4_TRIAGE_V4':workflowRemediation?'M6_PR_E_E3_I4_TRIAGE_V3':remediation?'M6_PR_E_E3_I4_TRIAGE_V2':'M6_PR_E_E3_I4_TRIAGE_V1',repository:triage.repository,commitSha:triage.commitSha,sourceI3CanonicalSha256:triage.contentSha256,sourceE4CanonicalSha256:e4.contentSha256,sourceRemediationCanonicalSha256:remediation?.contentSha256??null,...(workflowRemediation?{sourceWorkflowRemediationCanonicalSha256:workflowRemediation.contentSha256}:{}),
     reviewBasisHead:review.reviewBasisHead,reviewBasisE4CanonicalSha256:review.reviewBasisE4CanonicalSha256,reviewBasisI3CanonicalSha256:review.reviewBasisI3CanonicalSha256,historicalReviewedFindingCount:planned.length,reviewedFindingCount:delta.size,remediatedHistoricalFindingCount:remediatedHistoricalFindings.length,remediatedHistoricalFindings,cumulativeReviewedFindingCount,historicallyRemediatedFindingCount,decisions,
+    ...(gitleaksReview?{gitleaksTestExpressionReview:gitleaksReview,appendOnlyReviewedFindingCount:1}:{}),
     ...(prototypeRemediation?{designerPrototypeRemediation:prototypeRemediation,historicallyRemediatedFindings:[...inheritedRemediatedFindings,...remediatedHistoricalFindings]}:{}),
     summary:{dispositionCounts,applicableCount:dispositionCounts.APPLICABLE||0,notApplicableCount:dispositionCounts.NOT_APPLICABLE||0,unresolvedCount:dispositionCounts.UNRESOLVED||0,releaseBlocked:true,reasonCodes:['AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE','E3_SCANNER_FINDINGS_UNRESOLVED',...(dispositionCounts.APPLICABLE?['E3_APPLICABLE_FINDINGS_REQUIRE_REMEDIATION']:[])]}
   });

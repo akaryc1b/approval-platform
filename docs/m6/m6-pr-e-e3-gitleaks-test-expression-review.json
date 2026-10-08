@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW_PLAN_V1",
+  "repository": "akaryc1b/approval-platform",
+  "reviewBasisHead": "a3271c7f60f6afe259f521bc27fe64caf87338a5",
+  "reviewBasisE4CanonicalSha256": "61409f8a66f2201c91cc054c7b6ebd84ee6043267675d56d02b14f46a1abcbd8",
+  "reviewBasisRunNumber": 1806,
+  "historicalFinding": {
+    "commit": "a3271c7f60f6afe259f521bc27fe64caf87338a5",
+    "description": "Identified a Vault Service Token, potentially compromising infrastructure security and access to sensitive credentials.",
+    "endLine": 245,
+    "findingId": "d1585860c64fd87f3762e58910483b1bd6a495678f1353ae491c15b2bfa04bfb",
+    "fingerprint": "a3271c7f60f6afe259f521bc27fe64caf87338a5:scripts/tests/m6-pr-e-e3-designer-prototype-remediation.test.mjs:vault-service-token:245",
+    "path": "scripts/tests/m6-pr-e-e3-designer-prototype-remediation.test.mjs",
+    "ruleId": "vault-service-token",
+    "sourceClass": "E4_GITLEAKS",
+    "startLine": 245
+  },
+  "historicalSource": {
+    "commitSha": "a3271c7f60f6afe259f521bc27fe64caf87338a5",
+    "path": "scripts/tests/m6-pr-e-e3-designer-prototype-remediation.test.mjs",
+    "blobSha": "c7ecb29d12a545adfccf2f1fe7b0520ea3ebdbe2",
+    "sha256": "a6c73b19927d7c864e4b985731971098e6dd997098b416016415bc6d1696ce46",
+    "line": 245,
+    "lineSha256": "0ac24fc1f75ac12047017b7ebd77d4154737ec9d03dffc30fe5c9fd0753924c8"
+  },
+  "reviewedExpression": {
+    "kind": "ARROW_CALLBACK_MEMBER_ASSIGNMENT_OF_REPEATED_FIXED_CHARACTER",
+    "testCaseLabel": "wrong E4 binding",
+    "receiverIdentifier": "s",
+    "propertyIdentifier": "currentE4CanonicalSha256",
+    "assignedCharacter": "c",
+    "repeatCount": 64
+  },
+  "scannerIdentity": {
+    "assetSha256": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+    "candidateSecretMaterialRetained": false,
+    "mode": "FULL_GIT_HISTORY",
+    "rawReportRetained": false,
+    "redactionPercent": 100,
+    "scanCompleted": true,
+    "sourceCommit": "83d9cd684c87d95d656c1458ef04895a7f1cbd8e",
+    "version": "8.30.1"
+  },
+  "historicalFindingSet": {
+    "findingCount": 27,
+    "findingSetSha256": "ed4ab9c3b1ec1e1906a4067dbd3a6e9c078361ff1c5bd436ecbac26006f1d069"
+  },
+  "currentReviewedFindingSet": {
+    "findingCount": 28,
+    "findingSetSha256": "85a81e60461f84e5fd0f70af88dd47e98775fc416fdc606a3e7b1435903702d4"
+  },
+  "decision": {
+    "disposition": "NOT_APPLICABLE",
+    "severityBand": "UNKNOWN",
+    "evidenceCode": "FIXED_JAVASCRIPT_TEST_MEMBER_ASSIGNMENT_IS_NOT_A_CREDENTIAL",
+    "exploitPreconditionsSatisfied": false,
+    "exception": null,
+    "findingRetained": true,
+    "releaseBlocked": true
+  },
+  "ruleSource": "https://raw.githubusercontent.com/gitleaks/gitleaks/v8.30.1/config/gitleaks.toml",
+  "invariants": {
+    "scannerSuppressionAdded": false,
+    "severityDowngradeAdded": false,
+    "historyRewritten": false,
+    "rawCandidateMaterialRetained": false,
+    "unrelatedAdditionsAllowed": false,
+    "readyAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "releaseAuthorized": false
+  },
+  "contentSha256": "20158102576d7ba5931d0605bdd1aab548ec94db571b31a2bc5a20032f673c5d"
+}

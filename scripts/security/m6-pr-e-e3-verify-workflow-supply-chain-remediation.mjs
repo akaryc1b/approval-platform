@@ -55,8 +55,8 @@ function applyR3cReview(genericReconciliation, r3cReview) {
 
 export { classifyCurrentOsvIdentitySet };
 
-export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapshot = null) {
-  const genericReconciliation = reconcileGenericScannerFindingIdentities(e4, prototypeRemediationSnapshot);
+export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapshot = null, gitleaksReviewSnapshot = null) {
+  const genericReconciliation = reconcileGenericScannerFindingIdentities(e4, prototypeRemediationSnapshot, gitleaksReviewSnapshot);
   return applyR3cReview(
     genericReconciliation,
     reviewCurrentOsvIdentitySetR3c(e4?.scanners?.osv),

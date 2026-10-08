@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { requireGitleaksTestExpressionTriage } from './m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 
 const ALLOWED = new Set(['APPLICABLE','NOT_APPLICABLE','UNREACHABLE','MITIGATED','ACCEPTED_WITH_EXPIRY','UNRESOLVED','EVIDENCE_UNAVAILABLE']);
@@ -38,6 +39,8 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null)
   if(e4.e2GraphDigest!==review.reviewBasisE2GraphDigest&&!graphTransition)throw new Error('E2 graph drift blocks E3-I3 review');
   if(!/^[0-9a-f]{40}$/.test(review.reviewBasisHead||''))throw new Error('review basis Head required');
 
+  const gitleaksReview=triage.gitleaksTestExpressionReview
+    ? requireGitleaksTestExpressionTriage(e4,triage):null;
   const prototypeRemediation=triage.designerPrototypeRemediation
     ? requireDesignerPrototypeTriage(e4,triage):null;
   const inheritedRemediatedFindings=prototypeRemediation?.remediatedFindings||[];
@@ -103,7 +106,7 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null)
   const dispositionCounts={};for(const f of decisions)dispositionCounts[f.disposition]=(dispositionCounts[f.disposition]||0)+1;
   const cumulativeReviewedFindingCount=decisions.filter(f=>f.reviewEvidence).length+remediatedHistoricalFindings.length+inheritedRemediatedFindings.length;
   const payload=stable({
-    schemaVersion:prototypeRemediation?'M6_PR_E_E3_I3_TRIAGE_V3':remediation?'M6_PR_E_E3_I3_TRIAGE_V2':'M6_PR_E_E3_I3_TRIAGE_V1',
+    schemaVersion:gitleaksReview?'M6_PR_E_E3_I3_TRIAGE_V4':prototypeRemediation?'M6_PR_E_E3_I3_TRIAGE_V3':remediation?'M6_PR_E_E3_I3_TRIAGE_V2':'M6_PR_E_E3_I3_TRIAGE_V1',
     repository:triage.repository,
     commitSha:triage.commitSha,
     sourceI2CanonicalSha256:triage.contentSha256,
@@ -117,6 +120,7 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null)
     remediatedHistoricalFindingCount:remediatedHistoricalFindings.length,
     remediatedHistoricalFindings,
     cumulativeReviewedFindingCount,
+    ...(gitleaksReview?{gitleaksTestExpressionReview:gitleaksReview,appendOnlyReviewedFindingCount:1}:{}),
     ...(prototypeRemediation?{
       designerPrototypeRemediation:prototypeRemediation,
       historicallyRemediatedFindings:[...inheritedRemediatedFindings,...remediatedHistoricalFindings],

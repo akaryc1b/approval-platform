@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { verifyGitleaksTestExpressionReview } from './m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { verifyDesignerPrototypeRemediation } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 
 import { verifyWorkflowSupplyChainRemediation as verifyAcceptedR2B } from './m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';
@@ -219,7 +220,7 @@ export function classifyCurrentOsvIdentitySet(scanner, identityContract = contra
   });
 }
 
-export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapshot = null) {
+export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapshot = null, gitleaksReviewSnapshot = null) {
   const identityContract = requireContract();
   if (!e4 || e4.repository !== identityContract.repository) throw new Error('R2B current E4 identity evidence required');
 
@@ -236,10 +237,13 @@ export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapsh
   // Only the one source/test-bound, rule/path-absent remediation may be historical.
   const historicalSemgrepIds = prototypeRemediation
     ? [...semgrepIds, prototypeRemediation.remediatedFindings[0].findingId].sort() : semgrepIds;
-  requireIdentitySet('current Gitleaks', gitleaksIds, expectedCurrent.gitleaks);
+  const gitleaksReview = gitleaksReviewSnapshot ? verifyGitleaksTestExpressionReview(e4, gitleaksReviewSnapshot) : null;
+  const historicalGitleaksIds = gitleaksReview
+    ? gitleaksIds.filter(id => id !== gitleaksReview.historicalFinding.findingId) : gitleaksIds;
+  requireIdentitySet('current Gitleaks', historicalGitleaksIds, expectedCurrent.gitleaks);
   requireIdentitySet('current Semgrep', historicalSemgrepIds, expectedCurrent.semgrep);
   requireIdentitySet('current zizmor', zizmorIds, expectedCurrent.zizmor);
-  requireIdentitySet('accepted Gitleaks', gitleaksIds, accepted.gitleaks);
+  requireIdentitySet('accepted Gitleaks', historicalGitleaksIds, accepted.gitleaks);
   requireIdentitySet('accepted current Semgrep transition', historicalSemgrepIds, accepted.semgrepCurrentAfterAcceptedIdentityTransition);
   requireIdentitySet('accepted current zizmor', zizmorIds, accepted.zizmorCurrent);
 
@@ -260,6 +264,7 @@ export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapsh
     databaseSnapshotIdentity: identityContract.databaseDriftObservation.databaseSnapshotIdentity,
     databaseSnapshotIdentityAvailability: identityContract.databaseDriftObservation.databaseSnapshotIdentityAvailability,
     ...osvReconciliation,
+    ...(gitleaksReview ? { gitleaksTestExpressionReview: gitleaksReview, retainedHistoricalGitleaksFindingCount: historicalGitleaksIds.length, reviewedAddedGitleaksFindingCount: 1 } : {}),
     ...(prototypeRemediation ? { designerPrototypeRemediation: prototypeRemediation,
       historicalSemgrepFindingCount: historicalSemgrepIds.length,
       remediatedHistoricalSemgrepFindingCount: 1 } : {}),
@@ -280,9 +285,9 @@ export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapsh
 }
 
 export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
-  const scannerIdentityReconciliation = reconcileScannerFindingIdentities(e4, snapshot?.prototypeRemediationSnapshot);
+  const scannerIdentityReconciliation = reconcileScannerFindingIdentities(e4, snapshot?.prototypeRemediationSnapshot, snapshot?.gitleaksReviewSnapshot);
   if (scannerIdentityReconciliation.osvIdentityMode === 'ACCEPTED_HISTORICAL_OSV_IDENTITY_SET'
-    && !scannerIdentityReconciliation.designerPrototypeRemediation) {
+    && !scannerIdentityReconciliation.designerPrototypeRemediation && !scannerIdentityReconciliation.gitleaksTestExpressionReview) {
     return verifyAcceptedR2B(e4, plan, snapshot);
   }
 
