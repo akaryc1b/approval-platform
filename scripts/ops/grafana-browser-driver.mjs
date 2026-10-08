@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
+import { BrowserStartupDiagnostics } from './grafana-browser-diagnostics.mjs';
 
 /** Isolated Chromium over anonymous pipes; no debugger port, package download or shared profile. */
 export function chromiumExecutable() {
@@ -20,7 +21,8 @@ export function chromiumArguments(profile) {
 }
 
 export class BrowserPipe {
-  constructor(profile, environment, { launch = spawn } = {}) {
+  constructor(profile, environment, { launch = spawn, diagnostics = {} } = {}) {
+    this.startupDiagnostics = new BrowserStartupDiagnostics(diagnostics);
     this.child = launch(chromiumExecutable(), chromiumArguments(profile), {
       env: environment, detached: true, stdio: ['ignore', 'ignore', 'pipe', 'pipe', 'pipe'],
     });
@@ -28,9 +30,10 @@ export class BrowserPipe {
     this.closed = false; this.failure = null;
     this.started = false; this.stderrBytes = 0; this.protocolBytes = 0; this.responses = 0;
     this.nativeCategories = new Set(); this.nativeTail = '';
-    this.child.once('spawn', () => { this.started = true; });
+    this.child.once('spawn', () => { this.started = true; this.startupDiagnostics.mark('spawned'); });
     // Drain stderr, but retain/export only bounded counters and fixed categories. Never raw logs.
     this.child.stderr.on('data', part => {
+      this.startupDiagnostics.mark('firstStderr');
       if (this.closed) return;
       this.stderrBytes = Math.min(1024 * 1024, this.stderrBytes + part.length);
       const text = this.nativeTail + part.toString('utf8');
@@ -50,6 +53,7 @@ export class BrowserPipe {
     this.child.stderr.on('error', () => this.fail('GRAFANA_BROWSER_STDERR_CLOSED'));
     this.child.stdio[4].setEncoding('utf8');
     this.child.stdio[4].on('data', part => {
+      this.startupDiagnostics.mark('firstProtocol');
       if (this.closed) return;
       this.protocolBytes = Math.min(64 * 1024 * 1024, this.protocolBytes + Buffer.byteLength(part));
       this.buffer += part;
@@ -74,8 +78,10 @@ export class BrowserPipe {
     this.child.stdio[4].on('end', () => this.fail('GRAFANA_BROWSER_PIPE_ENDED'));
     this.child.stdio[4].on('error', () => this.fail('GRAFANA_BROWSER_PIPE_CLOSED'));
     this.child.on('error', () => this.fail('GRAFANA_BROWSER_START_FAILED'));
-    this.child.on('exit', () => this.fail('GRAFANA_BROWSER_EXITED'));
+    this.child.on('exit', (code, signal) => { this.startupDiagnostics.exited(code, signal); this.fail('GRAFANA_BROWSER_EXITED'); });
     this.child.stdio[3].on('error', () => this.fail('GRAFANA_BROWSER_PIPE_CLOSED'));
+    // Attach every native listener before taking bounded read-only launch diagnostics.
+    this.startupDiagnostics.launched(this.child.pid);
   }
   diagnosticSummary() {
     return `spawn=${Number(this.started)},stderr=${this.stderrBytes},protocol=${this.protocolBytes},responses=${this.responses}`
@@ -84,6 +90,7 @@ export class BrowserPipe {
   fail(code) {
     if (this.closed) return;
     this.closed = true;
+    this.startupDiagnostics.failure(code);
     this.failure = new Error(code + ':' + this.diagnosticSummary());
     this.buffer = ''; this.nativeTail = '';
     for (const task of this.pending.values()) { clearTimeout(task.timer); task.reject(this.failure); }
@@ -95,15 +102,22 @@ export class BrowserPipe {
     if (this.pending.size >= 128) return Promise.reject(new Error('GRAFANA_BROWSER_PENDING_LIMIT'));
     const id = ++this.next;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => this.fail('GRAFANA_BROWSER_TIMEOUT:' + method), 10000);
+      const startedAt = this.startupDiagnostics.readClock();
+      const timer = setTimeout(() => {
+        this.startupDiagnostics.timeout(startedAt, 10000);
+        this.fail('GRAFANA_BROWSER_TIMEOUT:' + method);
+      }, 10000);
       this.pending.set(id, { resolve, reject, timer, method });
       try {
-        this.child.stdio[3].write(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }) + '\0');
+        this.startupDiagnostics.mark('firstWriteQueued');
+        this.child.stdio[3].write(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }) + '\0',
+          error => this.startupDiagnostics.writeCallback(Boolean(error)));
       } catch { this.fail('GRAFANA_BROWSER_WRITE_FAILED'); }
     });
   }
   async start() {
     const version = await this.call('Browser.getVersion');
+    this.startupDiagnostics.version(version?.product);
     const target = await this.call('Target.createTarget', { url: 'about:blank' });
     this.session = (await this.call('Target.attachToTarget', { targetId: target.targetId, flatten: true })).sessionId;
     await this.call('Page.enable'); await this.call('Runtime.enable');
@@ -131,14 +145,23 @@ export class BrowserPipe {
   }
   async stop() {
     this.fail('GRAFANA_BROWSER_STOPPED');
-    await stopProcess(this.child);
+    let failed = true;
+    try {
+      await stopProcess(this.child, { observe: event => this.startupDiagnostics.cleanup(event) });
+      failed = false;
+    } finally { this.startupDiagnostics.finish(this.child, failed); }
   }
 }
 
-export async function stopProcess(child) {
+export async function stopProcess(child, { observe } = {}) {
   if (!child?.pid) return;
   const exited = () => child.exitCode !== null || child.signalCode !== null;
-  const kill = signal => { try { process.kill(-child.pid, signal); } catch (e) { if (e.code !== 'ESRCH') throw e; } };
+  const report = event => { try { observe?.(event); } catch {} };
+  const kill = signal => {
+    report({ signal, result: 'attempted' });
+    try { process.kill(-child.pid, signal); report({ signal, result: 'sent' }); }
+    catch (e) { report({ signal, result: e.code === 'ESRCH' ? 'missing' : 'error' }); if (e.code !== 'ESRCH') throw e; }
+  };
   // Kill the owned process group even when the leader has already exited.
   kill('SIGTERM');
   if (!exited()) await Promise.race([new Promise(resolve => child.once('exit', resolve)), new Promise(resolve => setTimeout(resolve, 1500))]);
