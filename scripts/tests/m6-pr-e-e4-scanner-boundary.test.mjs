@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import './ops-observability-graph-transition.test.mjs';
 import './ops-observability-scanner-binding.test.mjs';
 import { OBSERVABILITY_OTEL_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';
@@ -32,7 +33,7 @@ test('E3-I2 explicit Semgrep identity transition retains the historical review w
     sourceIdentity:{ruleId:transition.ruleId,path:transition.sourcePath,startLine:transition.currentLocation.startLine,startColumn:transition.currentLocation.startColumn,endLine:transition.currentLocation.endLine,endColumn:transition.currentLocation.endColumn,cwe:[],owasp:[],category:'security'}
   }:{findingId:item.findingId,sourceClass:item.sourceClass,severityBand:item.severityBand,disposition:'UNRESOLVED',sourceIdentity:{}});
   const intake={repository:review.repository,commitSha:'3'.repeat(40),contentSha256:'a'.repeat(64),decisions};
-  const currentSources={[sourcePath]:{blobSha:transition.currentSourceBlobSha,content:sourceContent}};
+  const currentSources={[sourcePath]:{blobSha:createHash('sha1').update(`blob ${Buffer.byteLength(sourceContent)}\0`).update(sourceContent).digest('hex'),content:sourceContent}};
   assert.throws(()=>applyReviewedFindings(intake,review),/reviewed finding absent from intake/);
   const result=applyReviewedFindingsWithIdentityTransitions(intake,review,transitionPlan,{currentSources}),by=new Map(result.decisions.map(item=>[item.findingId,item]));
   assert.equal(result.schemaVersion,'M6_PR_E_E3_I2_TRIAGE_V2');

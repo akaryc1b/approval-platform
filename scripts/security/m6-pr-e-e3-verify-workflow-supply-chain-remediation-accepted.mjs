@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { verifyMavenWorkflowTransition } from './maven-workflow-transition.mjs';
 
 const SHA40 = /^[0-9a-f]{40}$/;
 const SHA64 = /^[0-9a-f]{64}$/;
@@ -220,12 +221,16 @@ export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
     throw new Error('R2B governed workflow inventory mismatch');
   }
 
+  const needsToolchainTransition = currentPaths.some(path => snapshot.workflows[path].blobSha !== plan.workflowInventory.targetBlobs[path]);
+  const { targetBlobs, toolchainTransition } = needsToolchainTransition
+    ? verifyMavenWorkflowTransition(snapshot.workflows, plan.workflowInventory.targetBlobs)
+    : { targetBlobs: plan.workflowInventory.targetBlobs, toolchainTransition: null };
   const inspections = [];
   for (const path of currentPaths) {
     const current = snapshot.workflows[path];
     if (!current || typeof current.content !== 'string' || !SHA40.test(current.blobSha || '')) throw new Error(`R2B exact workflow snapshot required ${path}`);
     if (gitBlobSha(current.content) !== current.blobSha) throw new Error(`R2B workflow content/blob mismatch ${path}`);
-    if (current.blobSha !== plan.workflowInventory.targetBlobs[path]) throw new Error(`R2B target workflow blob mismatch ${path}`);
+    if (current.blobSha !== targetBlobs[path]) throw new Error(`R2B target workflow blob mismatch ${path}`);
     if (current.blobSha === plan.workflowInventory.sourceBlobs[path]) throw new Error(`R2B workflow remained at vulnerable source blob ${path}`);
     inspections.push(inspectWorkflow(path, current.content, plan.actionPins));
   }
@@ -303,6 +308,7 @@ export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
     priorR2ACanonicalSha256: plan.priorR2ACanonicalSha256,
     dependabotBlobShaRetained: snapshot.dependabotBlobSha,
     workflowBlobs: stable(Object.fromEntries(currentPaths.map((path) => [path, snapshot.workflows[path].blobSha]))),
+    ...(toolchainTransition ? { workflowToolchainTransition: toolchainTransition } : {}),
     actionUseCount: actionUses.length,
     checkoutCredentialBoundaryCount: checkout.length,
     templateInjectionBoundaryCount: 1,

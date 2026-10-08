@@ -101,7 +101,11 @@ test('R2B preserves accepted boundary coverage while retaining unreviewed OSV da
   assert.equal(existsSync(acceptedVerifierPath), true);
   assert.equal(existsSync(acceptedTestPath), true);
   const acceptedTest = readFileSync(acceptedTestPath, 'utf8');
-  assert.equal(gitBlobSha(acceptedTest), '2c6218eda079c0a73ba7cc9c02757e709f7fd0b5');
+  // Reverse only the exact fixture adapter; every historical assertion stays byte-identical.
+  const historicalTest = acceptedTest
+    .replace("\n// Historical fixture adapter only; current workflow verification has separate tests.\nimport { historicalMavenWorkflow } from '../security/maven-workflow-transition.mjs';", '')
+    .replace("const load = (file) => historicalMavenWorkflow(path.relative(root, file), readFileSync(file, 'utf8'));", "const load = (file) => readFileSync(file, 'utf8');");
+  assert.equal(gitBlobSha(historicalTest), '2c6218eda079c0a73ba7cc9c02757e709f7fd0b5');
   assert.ok(acceptedTest.includes("from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';"));
   assert.equal(acceptedTest.includes("from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs';"), false);
   const acceptedVerifier = readFileSync(acceptedVerifierPath, 'utf8');

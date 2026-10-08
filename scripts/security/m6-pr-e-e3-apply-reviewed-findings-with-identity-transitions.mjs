@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { verifyMavenSourceContinuation } from './maven-workflow-transition.mjs';
 
 import { applyReviewedFindings } from './m6-pr-e-e3-apply-reviewed-findings.mjs';
 
@@ -140,7 +141,8 @@ function requireTransition(transition, intake, review, currentSources) {
     throw new Error(`current source evidence required ${transition.sourcePath}`);
   }
   const computedBlob = gitBlobSha(source.content);
-  if (computedBlob !== source.blobSha || computedBlob !== transition.currentSourceBlobSha) {
+  const sourceContinuation = verifyMavenSourceContinuation(transition.sourcePath, source, transition.currentSourceBlobSha);
+  if (computedBlob !== source.blobSha) {
     throw new Error('current Semgrep source blob drift');
   }
   const line = source.content.split(/\r?\n/)[newLocation.startLine - 1];
@@ -153,7 +155,7 @@ function requireTransition(transition, intake, review, currentSources) {
   );
   if (expression !== transition.sourceExpression) throw new Error('current Semgrep source expression drift');
 
-  return { reviewed, current };
+  return { reviewed, current, sourceContinuation };
 }
 
 export function applyReviewedFindingsWithIdentityTransitions(
@@ -182,8 +184,10 @@ export function applyReviewedFindingsWithIdentityTransitions(
     }
     seenHistorical.add(transition.historicalFindingId);
     seenCurrent.add(transition.currentFindingId);
-    const { reviewed } = requireTransition(transition, intake, review, currentSources);
-    replacements.set(`${transition.sourceClass}:${transition.historicalFindingId}`, transition);
+    const { reviewed, sourceContinuation } = requireTransition(transition, intake, review, currentSources);
+    const currentTransition = sourceContinuation
+      ? { ...transition, currentSourceBlobSha: sourceContinuation.toBlob, sourceContinuation } : transition;
+    replacements.set(`${transition.sourceClass}:${transition.historicalFindingId}`, currentTransition);
     transitionRecords.push(stable({
       sourceClass: transition.sourceClass,
       ruleId: transition.ruleId,
@@ -191,7 +195,8 @@ export function applyReviewedFindingsWithIdentityTransitions(
       historicalFindingId: transition.historicalFindingId,
       currentFindingId: transition.currentFindingId,
       historicalSourceBlobSha: transition.historicalSourceBlobSha,
-      currentSourceBlobSha: transition.currentSourceBlobSha,
+      currentSourceBlobSha: currentTransition.currentSourceBlobSha,
+      ...(sourceContinuation ? { sourceContinuation } : {}),
       historicalLocation: transition.historicalLocation,
       currentLocation: transition.currentLocation,
       historicalDisposition: reviewed.disposition,
