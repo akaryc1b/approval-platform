@@ -41,11 +41,11 @@ function pressure(text) {
   return Object.keys(result).length ? result : null;
 }
 
-function counters(text, names) {
+function counters(text, patterns) {
   if (text === null) return null;
   const result = {};
-  for (const name of names) {
-    const matches = [...text.matchAll(new RegExp('^' + name + ' (\\d+)$', 'gmu'))];
+  for (const [name, pattern] of Object.entries(patterns)) {
+    const matches = [...text.matchAll(pattern)];
     if (matches.length === 1) result[name] = integer(matches[0][1]);
   }
   return Object.keys(result).length ? result : null;
@@ -61,14 +61,14 @@ export function browserResourceSnapshot(pid, { read = readBoundedDiagnosticFile 
   const fields = stat && /^\d+ \(/u.test(stat) && stat.includes(') ')
     ? stat.slice(stat.lastIndexOf(') ') + 2).trim().split(/\s+/u) : [];
   const state = status?.match(/^State:\s+([A-Za-z])(?:\s|$)/mu)?.[1];
-  const numericStatus = (name, unit = '') => {
-    const match = status?.match(new RegExp('^' + name + ':\\s+(\\d+)' + unit + '$', 'mu'));
+  const numericStatus = pattern => {
+    const match = status?.match(pattern);
     return match ? integer(match[1]) : null;
   };
   const schedule = scheduler?.trim().match(/^(\d+) (\d+) (\d+)$/u);
   const validStat = fields.length >= 22 && states.has(fields[0]);
-  const owned = { state: states.has(state) ? state : null, rssKiB: numericStatus('VmRSS', ' kB'),
-    threads: numericStatus('Threads'), userCpuTicks: validStat ? integer(fields[11]) : null,
+  const owned = { state: states.has(state) ? state : null, rssKiB: numericStatus(/^VmRSS:\s+(\d+) kB$/mu),
+    threads: numericStatus(/^Threads:\s+(\d+)$/mu), userCpuTicks: validStat ? integer(fields[11]) : null,
     systemCpuTicks: validStat ? integer(fields[12]) : null,
     schedulerCpuNs: schedule ? integer(schedule[1]) : null,
     schedulerWaitNs: schedule ? integer(schedule[2]) : null,
@@ -91,9 +91,13 @@ export function browserResourceSnapshot(pid, { read = readBoundedDiagnosticFile 
     cgroup = {
       pressure: Object.fromEntries(['cpu', 'memory', 'io'].map(name =>
         [name, pressure(safe(read, root + '/' + name + '.pressure', 2048))])),
-      cpu: counters(safe(read, root + '/cpu.stat', 2048),
-        ['usage_usec', 'nr_throttled', 'throttled_usec']),
-      memoryEvents: counters(safe(read, root + '/memory.events', 1024), ['high', 'oom', 'oom_kill']),
+      cpu: counters(safe(read, root + '/cpu.stat', 2048), {
+        usage_usec: /^usage_usec (\d+)$/gmu, nr_throttled: /^nr_throttled (\d+)$/gmu,
+        throttled_usec: /^throttled_usec (\d+)$/gmu,
+      }),
+      memoryEvents: counters(safe(read, root + '/memory.events', 1024), {
+        high: /^high (\d+)$/gmu, oom: /^oom (\d+)$/gmu, oom_kill: /^oom_kill (\d+)$/gmu,
+      }),
       memoryCurrentBytes: scalar('memory.current'), memoryMaxBytes: scalar('memory.max'),
       pidsCurrent: scalar('pids.current'), pidsMax: scalar('pids.max'),
     };

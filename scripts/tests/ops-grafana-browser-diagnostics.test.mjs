@@ -56,6 +56,116 @@ test('resource diagnostics export only numeric allowlists and state, never proce
   assert.doesNotMatch(JSON.stringify(value), /SECRET|private|browser\.scope|\/proc|\/sys|password/u);
 });
 
+test('fixed diagnostic fields use literal regexes without runtime pattern construction', () => {
+  const source = readFileSync(resolve(root, 'scripts/ops/grafana-browser-diagnostics.mjs'), 'utf8');
+  assert.doesNotMatch(source, /\bRegExp\b/u);
+});
+
+const counterGroups = [
+  ['cpu', '/sys/fs/cgroup/owned-private.slice/browser.scope/cpu.stat', ['usage_usec', 'nr_throttled', 'throttled_usec'], 2048],
+  ['memoryEvents', '/sys/fs/cgroup/owned-private.slice/browser.scope/memory.events', ['high', 'oom', 'oom_kill'], 1024],
+];
+
+test('each counter group keeps its exact allowlist and ignores unknown, cross-group and private keys', () => {
+  for (const [group, file, names] of counterGroups) {
+    const lines = names.map((name, index) => name + ' ' + (index + 1));
+    const otherNames = counterGroups.find(([other]) => other !== group)[2];
+    const unknown = ['__proto__ 9', 'constructor 9', 'toString 9', 'private ' + secret,
+      'private ' + secret, ...otherNames.map(name => name + ' 9'),
+      ...names.flatMap(name => [name + '_extra 9', 'prefix_' + name + ' 9', name.toUpperCase() + ' 9'])];
+    const value = browserResourceSnapshot(123, { read: reader({ [file]: [...unknown, ...lines].join('\n') }) });
+    assert.deepEqual(value.cgroup[group], Object.fromEntries(names.map((name, index) => [name, index + 1])));
+    assert.doesNotMatch(JSON.stringify(value), /SECRET|private|__proto__|constructor|toString/u);
+    assert.equal(browserResourceSnapshot(123, { read: reader({ [file]: unknown.join('\n') }) }).cgroup[group], null);
+  }
+});
+
+test('duplicate numeric counter fields are omitted even when equal or unsafe, without dropping other fields', () => {
+  for (const [group, file, names] of counterGroups) {
+    for (const name of names) {
+      for (const duplicate of ['1', '2', '9007199254740992']) {
+        const lines = [...names.map(key => key + ' 1'), name + ' ' + duplicate];
+        const value = browserResourceSnapshot(123, { read: reader({ [file]: lines.join('\n') }) });
+        assert.deepEqual(value.cgroup[group], Object.fromEntries(names.filter(key => key !== name).map(key => [key, 1])));
+        const onlyDuplicates = name + ' 1\n' + name + ' ' + duplicate;
+        assert.equal(browserResourceSnapshot(123, { read: reader({ [file]: onlyDuplicates }) }).cgroup[group], null);
+      }
+      const malformedDuplicate = name + ' 1\n' + name + ' -1\n' + name + ' ' + secret;
+      assert.deepEqual(browserResourceSnapshot(123, { read: reader({ [file]: malformedDuplicate }) }).cgroup[group], { [name]: 1 });
+    }
+  }
+});
+
+test('status duplicates preserve the first syntactically matching field and exact kB unit', () => {
+  for (const [status, rssKiB, threads] of [
+    ['VmRSS: 1 kB\nVmRSS: 2 kB\nThreads: 3\nThreads: 4\n', 1, 3],
+    ['VmRSS: -1 kB\nVmRSS: 2 kB\nThreads: 3 kB\nThreads: 4\n', 2, 4],
+    ['VmRSS: 9007199254740992 kB\nVmRSS: 2 kB\nThreads: 10000000000000000\nThreads: 4\n', null, null],
+    ['VmRSS:\t 7 kB\nThreads:\t 8\n', 7, 8],
+    ['VmRSS:\n7 kB\nThreads:\n8\n', 7, 8],
+    ['VmRSS: 7 KB\nVmRSS: 7 B\nVmRSS: 7\nThreads: 8 kB\n', null, null],
+    ['VmRSS:7 kB\nVmRSS: 7\tkB\nVmRSS: 7  kB\nThreads:8\nThreads: 8 \n', null, null],
+    ['Name: ' + secret + '\nPid: 123\nVmRSS_extra: 7 kB\nprefix_VmRSS: 7 kB\nvmrss: 7 kB\nThreads_extra: 8\nthreads: 8\n', null, null],
+  ]) {
+    const value = browserResourceSnapshot(123, { read: reader({ '/proc/123/status': status }) });
+    assert.equal(value.owned.rssKiB, rssKiB); assert.equal(value.owned.threads, threads);
+    assert.doesNotMatch(JSON.stringify(value), /SECRET|private|Pid|VmRSS_extra|Threads_extra/u);
+  }
+});
+
+test('status and counter numeric fields retain safe-integer and sixteen-digit boundaries', () => {
+  for (const [text, expected, numericSyntax] of [
+    ['0', 0, true], ['0007', 7, true], ['0000000000000001', 1, true],
+    ['9007199254740991', Number.MAX_SAFE_INTEGER, true], ['9007199254740992', null, true],
+    ['00000000000000001', null, true], ['10000000000000000', null, true],
+    ['', null, false], ['-1', null, false], ['+1', null, false], ['1.0', null, false],
+    ['1e3', null, false], ['NaN', null, false], ['Infinity', null, false],
+    ['\u0661', null, false], ['1 ' + secret, null, false],
+  ]) {
+    const overrides = { '/proc/123/status': 'VmRSS: ' + text + ' kB\nThreads: ' + text + '\n' };
+    for (const [, file, names] of counterGroups) overrides[file] = names.map(name => name + ' ' + text).join('\n');
+    const value = browserResourceSnapshot(123, { read: reader(overrides) });
+    assert.equal(value.owned.rssKiB, expected, text); assert.equal(value.owned.threads, expected, text);
+    for (const [group, , names] of counterGroups) {
+      assert.deepEqual(value.cgroup[group], numericSyntax ? Object.fromEntries(names.map(name => [name, expected])) : null, text);
+    }
+    assert.doesNotMatch(JSON.stringify(value), /SECRET|private|NaN|Infinity/u);
+  }
+});
+
+test('fixed counter patterns retain exact spacing and multiline boundaries', () => {
+  for (const separator of ['\n', '\r\n', '\r', '\u2028', '\u2029']) {
+    for (const [group, file, names] of counterGroups) {
+      const lines = names.map(name => name + ' 7').join(separator);
+      const value = browserResourceSnapshot(123, { read: reader({ [file]: lines }) });
+      assert.deepEqual(value.cgroup[group], Object.fromEntries(names.map(name => [name, 7])));
+    }
+  }
+  for (const [group, file, names] of counterGroups) {
+    for (const malformed of names.flatMap(name => [name + '\t7', name + '  7', name + ' 7 ', ' ' + name + ' 7', name + ' 7 kB'])) {
+      assert.equal(browserResourceSnapshot(123, { read: reader({ [file]: malformed }) }).cgroup[group], null);
+    }
+  }
+});
+
+test('status and counter parsing retain exact byte bounds and reject non-string reads', () => {
+  for (const [group, file, names, limit] of counterGroups) {
+    const prefix = names[0] + ' 7\n';
+    const bounded = prefix + 'x'.repeat(limit - Buffer.byteLength(prefix));
+    assert.deepEqual(browserResourceSnapshot(123, { read: reader({ [file]: bounded }) }).cgroup[group], { [names[0]]: 7 });
+    for (const text of [bounded + 'x', prefix + '\u00e9'.repeat(Math.ceil((limit - prefix.length) / 2) + 1), 7, {}, Buffer.from(prefix)]) {
+      assert.equal(browserResourceSnapshot(123, { read: reader({ [file]: text }) }).cgroup[group], null);
+    }
+  }
+  const prefix = 'VmRSS: 7 kB\nThreads: 8\n', bounded = prefix + 'x'.repeat(8192 - prefix.length);
+  const valid = browserResourceSnapshot(123, { read: reader({ '/proc/123/status': bounded }) });
+  assert.equal(valid.owned.rssKiB, 7); assert.equal(valid.owned.threads, 8);
+  for (const text of [bounded + 'x', prefix + '\u00e9'.repeat(4096), 7, {}, Buffer.from(prefix)]) {
+    const value = browserResourceSnapshot(123, { read: reader({ '/proc/123/status': text }) });
+    assert.equal(value.owned.rssKiB, null); assert.equal(value.owned.threads, null);
+  }
+});
+
 test('missing and malformed proc data are unavailable without raw errors or invented zero measurements', () => {
   const absent = browserResourceSnapshot(123, { read() { throw new Error(secret); } });
   assert.ok(Object.values(absent.owned).every(value => value === null));

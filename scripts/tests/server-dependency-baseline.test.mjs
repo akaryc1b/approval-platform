@@ -12,7 +12,14 @@ const checker = path.join(root, 'scripts/ci/verify-server-dependency-baseline.py
 const source = readFileSync(path.join(root, 'pom.xml'), 'utf8');
 const host = readFileSync(path.join(root, 'integrations/host-sdk/pom.xml'), 'utf8');
 const run = directory => spawnSync('python3', [checker, `--root=${directory}`], { encoding: 'utf8' });
-const pluginDependency = name => new RegExp(`                        <dependency>\\s*<groupId>tools\\.jackson\\.core<\\/groupId>\\s*<artifactId>${name}<\\/artifactId>[\\s\\S]*?<\\/dependency>\\n`);
+const pluginDependency = name => {
+  const patterns = {
+    'jackson-core': /                        <dependency>\s*<groupId>tools\.jackson\.core<\/groupId>\s*<artifactId>jackson-core<\/artifactId>[\s\S]*?<\/dependency>\n/,
+    'jackson-databind': /                        <dependency>\s*<groupId>tools\.jackson\.core<\/groupId>\s*<artifactId>jackson-databind<\/artifactId>[\s\S]*?<\/dependency>\n/
+  };
+  assert.ok(Object.hasOwn(patterns, name), 'plugin dependency fixture must use a fixed artifact');
+  return patterns[name];
+};
 const dependency = (group, name) => new RegExp(`            <dependency>\\s*<groupId>${group.replaceAll('.', '\\.')}<\\/groupId>\\s*<artifactId>${name}<\\/artifactId>[\\s\\S]*?<\\/dependency>\\n`);
 
 // This is a source contract, not a reconstructed Maven graph or a vulnerability disposition.
