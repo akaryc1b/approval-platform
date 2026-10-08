@@ -47,6 +47,9 @@
         <maven.surefire.version>3.5.5</maven.surefire.version>
         <maven.enforcer.version>3.5.0</maven.enforcer.version>
         <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
+        <maven.site.version>3.22.0</maven.site.version>
+        <maven.dependency.version>3.11.0</maven.dependency.version>
+        <maven.site.jsoup.version>1.23.2</maven.site.jsoup.version>
         <flatten.maven.version>1.7.3</flatten.maven.version>
         <jacoco.version>0.8.15</jacoco.version>
     </properties>
@@ -131,6 +134,24 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>${maven.site.version}</version>
+                    <!-- Site's plugin realm is independent of project BOM management. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.jsoup</groupId>
+                            <artifactId>jsoup</artifactId>
+                            <version>${maven.site.jsoup.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${maven.dependency.version}</version>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>

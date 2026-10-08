@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
+import { syntheticSitePluginOsv } from './fixtures/site-dependency-plugin-fixture.mjs';
 import { pluginOsvDiagnosticFixture } from './fixtures/build-plugin-jackson-fixture.mjs';
 import { acceptedE2GraphProjection } from '../security/m6-pr-e-e2-generate-sbom.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBuildPluginJacksonCandidate, graphHash, verifyObservabilityGraph } from '../security/observability-dependency-graph.mjs';
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBuildPluginJacksonCandidate, SITE_DEPENDENCY_PLUGIN_GRAPH, readSiteDependencyPluginCandidate, graphHash, verifyObservabilityGraph } from '../security/observability-dependency-graph.mjs';
 import { readServerDependencyRemediationPlan, verifyServerDependencyRemediation, requireServerDependencyRemediation }
   from '../security/m6-pr-e-e3-verify-server-dependency-remediation.mjs';
 import { verifyPgjdbcRemediation } from '../security/m6-pr-e-e3-verify-pgjdbc-remediation.mjs';
@@ -237,4 +238,51 @@ test('a new Jackson finding keeps its current identity and remains unresolved af
   assert.deepEqual(result.decisions, triage.decisions);
   assert.equal(result.summary.dispositionCounts.UNRESOLVED, e4.scanners.osv.findingCount);
   assert.deepEqual(e4, before); assert.equal(result.summary.releaseBlocked, true);
+});
+
+// Entire scanner/checkout envelope is a synthetic unit fixture, including OSV.
+function siteDescendantFixture() {
+  const e4 = fixture(), e2 = readSiteDependencyPluginCandidate();
+  e4.commitSha = e2.commitSha; e4.e2CurrentEvidence = e2; e4.e2CurrentContentSha256 = e2.contentSha256;
+  e4.e2GraphDigest = SITE_DEPENDENCY_PLUGIN_GRAPH;
+  e4.e2GraphTransition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, e2.commitSha);
+  e4.checkout.checkedOutSha = e2.commitSha; e4.checkout.expectedHeadSha = e2.commitSha;
+  e4.scanners.osv = syntheticSitePluginOsv(e2, e4.scanners.osv);
+  e4.totalFindingCount = Object.values(e4.scanners).reduce((n, scanner) => n + scanner.findingCount, 0);
+  return resign(e4);
+}
+test('R4 preserves both prior exact input contracts through the Site/Dependency descendant', () => {
+  const e4 = siteDescendantFixture(), original = structuredClone(e4), receipt = verifyPlugin(e4);
+  assert.equal(receipt.currentE2GraphDigest, SITE_DEPENDENCY_PLUGIN_GRAPH);
+  assert.equal(receipt.historicalTargetE2GraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(receipt.subsequentGraphTransition.priorE2GraphDigest, BUILD_PLUGIN_JACKSON_GRAPH);
+  assert.equal(receipt.subsequentGraphTransition.preservedBuildPluginJacksonLineage.priorE2GraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(receipt.remediatedFindings.length, 2); assert.equal(receipt.releaseBlocked, true);
+  assert.equal(e4.scanners.osv.coverage.inputPackageCount, 486); assert.equal(plan.expectedInputPackageCount, 535);
+  assert.deepEqual(e4, original);
+});
+for (const [name, alter] of [
+  ['pre-Site receipt', e => { e.e2GraphTransition = pluginDescendantFixture().e2GraphTransition; }],
+  ['prior input count', e => { e.scanners.osv.coverage.inputPackageCount = 533; resign(e.scanners.osv.coverage); }],
+  ['prior input bytes', e => { e.scanners.osv.coverage.inputBytesSha256 = pluginDescendantFixture().scanners.osv.coverage.inputBytesSha256; resign(e.scanners.osv.coverage); }],
+  ['missing fixed jsoup target', e => { e.scanners.osv.coverage.targets = e.scanners.osv.coverage.targets.filter(t => t.package.name !== 'org.jsoup:jsoup'); resign(e.scanners.osv.coverage); }],
+  ['missing exact E2', e => { delete e.e2CurrentEvidence; }],
+  ['incomplete scanner', e => { e.scanners.semgrep.scanCompleted = false; }],
+]) test(`R4 Site/Dependency descendant rejects ${name} even after rehashing`, () => {
+  const e4 = siteDescendantFixture(); alter(e4); resign(e4); assert.throws(() => verifyPlugin(e4));
+});
+test('Site plugin cannot conceal reappearance of a historically remediated advisory alias', () => {
+  const e4 = siteDescendantFixture();
+  injectFinding(e4, 'org.jsoup:jsoup', '1.23.2', 'GHSA-synthetic-returned-alias', ['CVE-2026-40976']);
+  assert.throws(() => verifyPlugin(e4), /advisory is still present/);
+});
+test('a synthetic new Site finding retains its identity and unresolved disposition through I3', () => {
+  const e4 = siteDescendantFixture(), receipt = verifyPlugin(e4);
+  const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
+  const triage = { repository: e4.repository, commitSha: e4.commitSha, contentSha256: 'a'.repeat(64),
+    decisions: e4.scanners.osv.findings.map(f => ({ sourceClass: f.sourceClass, findingId: f.findingId,
+      severityBand: 'UNKNOWN', disposition: 'UNRESOLVED', componentRef: f.componentRefs[0] })) };
+  const result = applyRuntimeDeploymentReviews(triage, e4, review, pg, receipt);
+  assert.deepEqual(result.decisions, triage.decisions); assert.equal(result.summary.releaseBlocked, true);
+  assert.equal(result.summary.dispositionCounts.UNRESOLVED, 1);
 });

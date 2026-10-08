@@ -2,18 +2,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
-import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
+import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 
 // Synthetic scan envelope only. The production verifier checks both pinned manifests.
 function lineageFixture() {
-  const e2 = JSON.parse(readFileSync(new URL('../../docs/operations/build-plugin-jackson-evidence/precommit-candidate-E2.json', import.meta.url)));
+  const e2 = JSON.parse(readFileSync(new URL('../../docs/operations/site-dependency-plugin-evidence/precommit-candidate-E2.json', import.meta.url)));
   e2.commitSha = 'a'.repeat(40); const { contentSha256, ...payload } = e2; e2.contentSha256 = graphHash(payload);
   const projection = { maven: e2.maven, pnpm: e2.pnpm,
     githubActions: e2.githubActions.acceptedDependencyGraph.githubActions,
     limitations: e2.githubActions.acceptedDependencyGraph.limitations };
   return { e4: { repository: e2.repository, commitSha: e2.commitSha,
-    e2CurrentContentSha256: e2.contentSha256, e2GraphDigest: BUILD_PLUGIN_JACKSON_GRAPH,
+    e2CurrentContentSha256: e2.contentSha256, e2GraphDigest: SITE_DEPENDENCY_PLUGIN_GRAPH,
     e2GraphTransition: verifyObservabilityGraph(e2, projection, BASE_GRAPH, e2.commitSha) } };
 }
 
@@ -30,7 +30,7 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   const logs = []; const downstream = new Error('DOWNSTREAM_BOUNDARY_REACHED'); let error; let calls = 0;
   const start = scannerBoundary.indexOf("test('E4 full scanner emits");
   assert.ok(start >= 0);
-  const context = { assert, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+  const context = { assert, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     process: { env: { GITHUB_ACTIONS: 'true' }, execPath: process.execPath }, S: 'scanner.mjs', root: '/fixture',
     console: { log: text => logs.push(text) },
     spawnSync: (command, args) => {
@@ -47,12 +47,13 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   return { error, downstream, calls, logs, stdout };
 }
 
-test('the full-scanner callback binds the current build-plugin Jackson graph instead of historical predecessors', () => {
+test('the full-scanner callback binds the current Site/Dependency plugin graph instead of historical predecessors', () => {
   const r = assertScannerBinding(); assert.equal(r.error, r.downstream); assert.equal(r.calls, 2);
-  assert.ok(scannerBoundary.includes("import { BUILD_PLUGIN_JACKSON_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
+  assert.ok(scannerBoundary.includes("import { SITE_DEPENDENCY_PLUGIN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
   assert.deepEqual(r.logs, [r.stdout]);
 });
 for (const [name, alter] of [
+  ['pre-Site Jackson graph', e => { e.e2GraphDigest = BUILD_PLUGIN_JACKSON_GRAPH; }],
   ['pre-plugin-remediation server graph', e => { e.e2GraphDigest = SERVER_DEPENDENCY_GRAPH; }],
   ['pre-upgrade OTel graph', e => { e.e2GraphDigest = OBSERVABILITY_OTEL_GRAPH; }],
   ['pre-upgrade graph', e => { e.e2GraphDigest = OBSERVABILITY_GRAPH; }],

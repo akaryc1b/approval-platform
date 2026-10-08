@@ -225,7 +225,7 @@ test('server graph admission cannot replace a completed scan or suppress a reapp
 test('production entrypoint rejects edited manifest, source witness or archival E2 files', t => {
   const directory = mkdtempSync(resolve(tmpdir(), 'server-dependency-pins-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const files = ['scripts/security/build-plugin-jackson-graph-transition.mjs', 'scripts/security/observability-dependency-graph.mjs', 'scripts/security/server-dependency-graph-transition.mjs',
+  const files = ['scripts/security/site-dependency-plugin-graph-transition.mjs', 'scripts/security/build-plugin-jackson-graph-transition.mjs', 'scripts/security/observability-dependency-graph.mjs', 'scripts/security/server-dependency-graph-transition.mjs',
     'docs/operations/observability-dependency-transition.json', 'docs/operations/observability-otel-upgrade.json',
     'docs/operations/server-dependency-transition.json', 'docs/operations/server-dependency-source-witness.json', archivedPath];
   const original = new Map();

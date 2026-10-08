@@ -154,3 +154,5 @@ test('source continuation accepts only the exact reviewed new E2 blob, retaining
 });
 
 import './server-dependency-baseline.test.mjs';
+
+import './site-dependency-plugin-baseline.test.mjs';

@@ -1,0 +1,65 @@
+[
+  {
+    "coordinate": "org.apache.maven.plugins:maven-site-plugin:3.22.0",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-site-plugin/3.22.0/maven-site-plugin-3.22.0.pom",
+    "officialSha1": "10dc07dc0c638ad372b8843086335a648d069ba6",
+    "sha256": "30e73f10686f55c89c26553ba8bf79419f99c74b8cfc690c597954ed974d640f",
+    "bytes": 20264
+  },
+  {
+    "coordinate": "org.apache.maven.plugins:maven-site-plugin:3.22.0",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-site-plugin/3.22.0/maven-site-plugin-3.22.0.jar",
+    "officialSha1": "77ec6391c2c86c33132ff9e2383dabe12cde48ac",
+    "sha256": "09fcdd247d329eb3d4eb24e59990ca291a8628b223c824587c57e2e8681f7c31",
+    "bytes": 125722
+  },
+  {
+    "coordinate": "org.apache.maven.plugins:maven-site-plugin:3.22.0",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-site-plugin/3.22.0/maven-site-plugin-3.22.0-sources.jar",
+    "officialSha1": "20e91bfac00a94e9bef9c822b97fbf949242c03d",
+    "sha256": "17cc1120d0810f4c2284216f907fb256b7c1f68319acfd43ab31eac6b93d9d34",
+    "bytes": 91872
+  },
+  {
+    "coordinate": "org.apache.maven.plugins:maven-dependency-plugin:3.11.0",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-dependency-plugin/3.11.0/maven-dependency-plugin-3.11.0.pom",
+    "officialSha1": "927db54645abd6518b3bd2b3acfe38f70bcd7f55",
+    "sha256": "570b5e43230f7a13f9ec8ae0b0993208a5f4c763b6593a87af4123112ce47220",
+    "bytes": 19012
+  },
+  {
+    "coordinate": "org.apache.maven.plugins:maven-dependency-plugin:3.11.0",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-dependency-plugin/3.11.0/maven-dependency-plugin-3.11.0.jar",
+    "officialSha1": "7451abfa599596cf15d2c57ce8234547476961ff",
+    "sha256": "e37a8fc9ff47435cc6bda257a4501cf79626c8115610ba33c77775ce23b4c3b7",
+    "bytes": 261822
+  },
+  {
+    "coordinate": "org.apache.maven.plugins:maven-dependency-plugin:3.11.0",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-dependency-plugin/3.11.0/maven-dependency-plugin-3.11.0-sources.jar",
+    "officialSha1": "2b82d6988046be2858fada325e4b1f30bd867103",
+    "sha256": "64f86b29fb66fa00c87b1c53b58a6651d0fca3b1d31e0e28c3c8dd606358427a",
+    "bytes": 177775
+  },
+  {
+    "coordinate": "org.jsoup:jsoup:1.23.2",
+    "url": "https://repo.maven.apache.org/maven2/org/jsoup/jsoup/1.23.2/jsoup-1.23.2.pom",
+    "officialSha1": "fba0e16dc34e2a47ce62459db45fdc85dcd86a21",
+    "sha256": "3ff28beafd484e9c345e0749d697d2aa31f29ace54b5d4da4e8375e6d8fe1802",
+    "bytes": 23761
+  },
+  {
+    "coordinate": "org.jsoup:jsoup:1.23.2",
+    "url": "https://repo.maven.apache.org/maven2/org/jsoup/jsoup/1.23.2/jsoup-1.23.2.jar",
+    "officialSha1": "514805efcc430bfb04e82f20bb998e39e3fd5c9c",
+    "sha256": "e9d8c856856680427f096d156f02a414289985c930998fcb519ce5be39b42003",
+    "bytes": 537806
+  },
+  {
+    "coordinate": "org.jsoup:jsoup:1.23.2",
+    "url": "https://repo.maven.apache.org/maven2/org/jsoup/jsoup/1.23.2/jsoup-1.23.2-sources.jar",
+    "officialSha1": "135c799deec88d95d066292acfbdf6116b50bfac",
+    "sha256": "f0ed21735857df93c3e461d1aecf89d28c3eda552f2e043d68959d341376aa17",
+    "bytes": 286038
+  }
+]

@@ -1,0 +1,1122 @@
+{
+  "acceptedE4ContentSha256": "331cc2205cda5520a3c853dc420467b202ac19365696665c07e43cb0fe9207e6",
+  "acceptedFindingCount": 63,
+  "addedFindings": [
+    {
+      "aliases": [
+        "CVE-2024-6763"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-http:jar:9.4.58.v20250814"
+      ],
+      "findingId": "16f811af186ed7c784deae29e2a0b8495045121c72f7397c7cf477bdc442b928",
+      "fixedVersions": [
+        "12.0.12"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-http",
+        "version": "9.4.58.v20250814"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-qh8g-58pp-2wxh",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N",
+          "type": "CVSS_V3"
+        },
+        {
+          "score": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N",
+          "type": "CVSS_V4"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2026-10050"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-security:jar:9.4.58.v20250814"
+      ],
+      "findingId": "4aa76bdebc8551788b20d9bac4519c231012bee5be6277fd3f3f24f64ff073ca",
+      "fixedVersions": [
+        "10.0.31",
+        "11.0.31",
+        "12.0.36",
+        "12.1.10",
+        "9.4.63"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-security",
+        "version": "9.4.58.v20250814"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-2fvj-hgj9-j2gr",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+          "type": "CVSS_V4"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2026-2332"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-http:jar:9.4.58.v20250814"
+      ],
+      "findingId": "beb6e52da833af4fa8fe16ea494ac7caa4b7c437512a401bffb3910dedcb0de0",
+      "fixedVersions": [
+        "10.0.28",
+        "11.0.29",
+        "12.0.33",
+        "12.1.7",
+        "9.4.60"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-http",
+        "version": "9.4.58.v20250814"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-355h-qmc2-wpwf",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2026-6790"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-server:jar:9.4.58.v20250814"
+      ],
+      "findingId": "ece287db3a3aebfbd3371bc02ce2d44b4070048b933bbeaa19312507e3302c3e",
+      "fixedVersions": [
+        "12.0.35",
+        "12.1.9"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-server",
+        "version": "9.4.58.v20250814"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-7p3p-8qv8-m2vh",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    }
+  ],
+  "candidateFindingCount": 33,
+  "changedRetainedFindings": [],
+  "removedFindings": [
+    {
+      "aliases": [
+        "CVE-2018-10237"
+      ],
+      "componentRefs": [
+        "maven-plugin:com.google.guava:guava:jar:16.0.1"
+      ],
+      "findingId": "006aa8e8e0a959126b850d5f6c725366e46f30d26e52b1c04eba6f258d842f6e",
+      "fixedVersions": [
+        "24.1.1-android"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "com.google.guava:guava",
+        "version": "16.0.1"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-mvr2-9pj6-7w5j",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2019-10086"
+      ],
+      "componentRefs": [
+        "maven-plugin:commons-beanutils:commons-beanutils:jar:1.7.0"
+      ],
+      "findingId": "0666a26f8788d477072c49cfa360616a39694b42a5fab42b309da3d77532c132",
+      "fixedVersions": [
+        "1.9.4"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "commons-beanutils:commons-beanutils",
+        "version": "1.7.0"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-6phf-73q6-gh87",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2023-2976"
+      ],
+      "componentRefs": [
+        "maven-plugin:com.google.guava:guava:jar:16.0.1"
+      ],
+      "findingId": "11978dddbde9b5280e6989bfbed2f638e04da4ba2e0053650fae45a0019c349c",
+      "fixedVersions": [
+        "32.0.0-android"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "com.google.guava:guava",
+        "version": "16.0.1"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-7g45-4rm6-3mm3",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2023-26049"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-server:jar:9.4.46.v20220331"
+      ],
+      "findingId": "1583ad45f3ee66829aa18f24e5fc7c7b5472862dba413f1b85c7f95710156f8c",
+      "fixedVersions": [
+        "10.0.14",
+        "11.0.14",
+        "12.0.0.beta0",
+        "9.4.51.v20230217"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-server",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-p26g-97m4-6q7c",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:H/UI:R/S:U/C:L/I:N/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2025-67030"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.codehaus.plexus:plexus-utils:jar:3.4.2"
+      ],
+      "findingId": "15f5e868eb39604a79e77be0451ee39d6f5cd5aa1597949d9dbd7bf22c1e6b2d",
+      "fixedVersions": [
+        "3.6.1",
+        "4.0.3"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.codehaus.plexus:plexus-utils",
+        "version": "3.4.2"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-6fmv-xxpf-w3cw",
+      "upstreamSeverity": []
+    },
+    {
+      "aliases": [
+        "CVE-2020-10683"
+      ],
+      "componentRefs": [
+        "maven-plugin:dom4j:dom4j:jar:1.1"
+      ],
+      "findingId": "1648f3797968d7f2d106dad17a61d5a7c3cb66cf827c0827e0d5448bb97ad6b2",
+      "fixedVersions": [
+        "2.0.3",
+        "2.1.3"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "dom4j:dom4j",
+        "version": "1.1"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-hwj3-m3p6-hj38",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2023-37460"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.codehaus.plexus:plexus-archiver:jar:4.2.7"
+      ],
+      "findingId": "20e716596249abaafbd544f31ee0e90949bfd892684a3f57381e69755ad1c15a",
+      "fixedVersions": [
+        "4.8.0"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.codehaus.plexus:plexus-archiver",
+        "version": "4.2.7"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-wh3p-fphp-9h2m",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2025-48734"
+      ],
+      "componentRefs": [
+        "maven-plugin:commons-beanutils:commons-beanutils:jar:1.7.0"
+      ],
+      "findingId": "2a0762447820fabb9614592c66dc6e15749af3a0c61a685be2af386350cb2725",
+      "fixedVersions": [
+        "1.11.0",
+        "2.0.0-M2"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "commons-beanutils:commons-beanutils",
+        "version": "1.7.0"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-wxr5-93ph-8wr9",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2025-48924"
+      ],
+      "componentRefs": [
+        "maven-plugin:commons-lang:commons-lang:jar:2.4"
+      ],
+      "findingId": "2be18564b2b9040fc793a8572f57979772d19840389e6778a9cdd300fe7b85c7",
+      "fixedVersions": [
+        "3.18.0"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "commons-lang:commons-lang",
+        "version": "2.4"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-j288-q9x7-2f5v",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2021-35516"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.commons:commons-compress:jar:1.20"
+      ],
+      "findingId": "313423bc033967b9d86719e736febc0b74e0f5cae5f240e8d9163baa00aa2930",
+      "fixedVersions": [
+        "1.21"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.commons:commons-compress",
+        "version": "1.20"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-crv7-7245-f45f",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2026-2332"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-http:jar:9.4.46.v20220331"
+      ],
+      "findingId": "3bfcd40c67ace8f6b4de1ba07bd95ccbee875267a156df36e2922ada0a999301",
+      "fixedVersions": [
+        "10.0.28",
+        "11.0.29",
+        "12.0.33",
+        "12.1.7",
+        "9.4.60"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-http",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-355h-qmc2-wpwf",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2025-48924"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.commons:commons-lang3:jar:3.8.1"
+      ],
+      "findingId": "4e2acb5df4537f0aa02efbd52da9f008a2b937ba9c06952f0d0bd308fac0a841",
+      "fixedVersions": [
+        "3.18.0"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.commons:commons-lang3",
+        "version": "3.8.1"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-j288-q9x7-2f5v",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2026-10050"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-security:jar:9.4.46.v20220331"
+      ],
+      "findingId": "675ece92dd52d54b079d9251d4c2ed643c4ad8c8f580260c2620e3ceb92fc5ff",
+      "fixedVersions": [
+        "10.0.31",
+        "11.0.31",
+        "12.0.36",
+        "12.1.10",
+        "9.4.63"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-security",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-2fvj-hgj9-j2gr",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+          "type": "CVSS_V4"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2018-1000632"
+      ],
+      "componentRefs": [
+        "maven-plugin:dom4j:dom4j:jar:1.1"
+      ],
+      "findingId": "69c5e3563ec1b0c17880981e8ed1e0402b827c06ccf3fe82daaa4479f9c11005",
+      "fixedVersions": [
+        "2.0.3",
+        "2.1.1"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "dom4j:dom4j",
+        "version": "1.1"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-6pcc-3rfx-4gpm",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2023-40167"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-http:jar:9.4.46.v20220331"
+      ],
+      "findingId": "793b7068f27b2161f26b2bd5ef53263f1f6b3f4c5fe4ae586aba50c86c53bf9e",
+      "fixedVersions": [
+        "10.0.16",
+        "11.0.16",
+        "12.0.1",
+        "9.4.52"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-http",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-hmr7-m48g-48f6",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2021-37714"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.jsoup:jsoup:jar:1.10.2"
+      ],
+      "findingId": "859cdac69c95524572ea4676f4452a651f5ebdcb1d0226ec0a641e72f8ce6959",
+      "fixedVersions": [
+        "1.14.2"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.jsoup:jsoup",
+        "version": "1.10.2"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-m72m-mhq2-9p6c",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2020-13936"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.velocity:velocity:jar:1.7"
+      ],
+      "findingId": "86659412c0581cc1b5b2000d28c5fc0051345f799ac7730a54cc5d06fc57a086",
+      "fixedVersions": [
+        "2.3"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.velocity:velocity",
+        "version": "1.7"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-59j4-wjwp-mw9m",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "BIT-maven-2021-26291",
+        "CVE-2021-26291"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.maven:maven-core:jar:3.2.5"
+      ],
+      "findingId": "86a8f96d610bb54ba2f38a338f9987643efa3320313c41a151d8895e79c3397a",
+      "fixedVersions": [
+        "3.8.1"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.maven:maven-core",
+        "version": "3.2.5"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-2f88-5hg8-9x2x",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2025-11143"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-http:jar:9.4.46.v20220331"
+      ],
+      "findingId": "962f63e037d3a2cf9a244e90406d1bc935984917257850aaf015ac2923f5ac45",
+      "fixedVersions": [
+        "12.0.31",
+        "12.1.5"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-http",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-wjpw-4j6x-6rwh",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2021-36090"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.commons:commons-compress:jar:1.20"
+      ],
+      "findingId": "9b7c8a074f6028f8fdb56007728bc06c06929b4e77bfdc0e2887c8195b7d9b4d",
+      "fixedVersions": [
+        "1.21"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.commons:commons-compress",
+        "version": "1.20"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-mc84-pj99-q6hh",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2024-6763"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-http:jar:9.4.46.v20220331"
+      ],
+      "findingId": "a6e60fdee738abc7a3abcd34931dd4f0cd4628901a3d5d1656cc236f87e1f52c",
+      "fixedVersions": [
+        "12.0.12"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-http",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-qh8g-58pp-2wxh",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N",
+          "type": "CVSS_V3"
+        },
+        {
+          "score": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N",
+          "type": "CVSS_V4"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2022-2047"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-http:jar:9.4.46.v20220331"
+      ],
+      "findingId": "a6fe3debb758e300d304c41a8e03dffb9dccdaac7c8a940535cf554351eb1030",
+      "fixedVersions": [
+        "10.0.10",
+        "11.0.10",
+        "9.4.47"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-http",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-cj7v-27pg-wf7q",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2024-8184"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-server:jar:9.4.46.v20220331"
+      ],
+      "findingId": "ac5ca7f10efa04bd4cde8e5b27dab22a7fc1e44e47c8fd38b9abf37564f3f57b",
+      "fixedVersions": [
+        "10.0.24",
+        "11.0.24",
+        "12.0.9",
+        "9.4.56"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-server",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-g8m5-722r-8whq",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2026-75140"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.jsoup:jsoup:jar:1.10.2"
+      ],
+      "findingId": "b9d4efb24341048fa68611b5c9ceb8cda97068d7cfa4e5a96ae11a8b990d525b",
+      "fixedVersions": [
+        "1.23.2"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.jsoup:jsoup",
+        "version": "1.10.2"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-65r4-943x-97jj",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        },
+        {
+          "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N",
+          "type": "CVSS_V4"
+        }
+      ]
+    },
+    {
+      "aliases": [],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-xml:jar:9.4.46.v20220331"
+      ],
+      "findingId": "bb3e674315526c33ff67dcb6a6e5b03052d18470440bc558420888523b0e0ed8",
+      "fixedVersions": [
+        "10.0.16",
+        "11.0.16",
+        "12.0.0",
+        "9.4.52.v20230823"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-xml",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-58qw-p7qm-5rvh",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:L/AC:H/PR:H/UI:N/S:U/C:L/I:L/A:L",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2020-13959"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.velocity:velocity-tools:jar:2.0"
+      ],
+      "findingId": "bbb01154ee915faf077544b1c3aee306a537d75cd15ca31b9c746f9894473242",
+      "fixedVersions": [
+        "3.1"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.velocity:velocity-tools",
+        "version": "2.0"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-fh63-4r66-jc7v",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2024-13009"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-server:jar:9.4.46.v20220331"
+      ],
+      "findingId": "cc06b13e4d588baa0fbc33fa968d3057d1e525de03726cb9abffa2e5a6395209",
+      "fixedVersions": [
+        "9.4.57.v20241219"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-server",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-q4rv-gq96-w7c5",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:L/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2023-26048"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-server:jar:9.4.46.v20220331"
+      ],
+      "findingId": "d68382b9e1f5984db7a547f572e4c5e9f3b6b06dc816685c7e874bb4b719824a",
+      "fixedVersions": [
+        "10.0.14",
+        "11.0.14",
+        "9.4.51.v20230217"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-server",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-qw69-rqj8-6qw8",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2020-8908",
+        "SNYK-JAVA-COMGOOGLEGUAVA-1015415"
+      ],
+      "componentRefs": [
+        "maven-plugin:com.google.guava:guava:jar:16.0.1"
+      ],
+      "findingId": "d74b59eb58135c8f54f2db85120d9175c1417b44f9e5583bd122ce395d7e228a",
+      "fixedVersions": [
+        "32.0.0-android"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "com.google.guava:guava",
+        "version": "16.0.1"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-5mg8-w23w-74h3",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2021-35517"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.commons:commons-compress:jar:1.20"
+      ],
+      "findingId": "e09c3ade220682da83907d4917453c882950a81e9d61baff72b0f493045cd0f1",
+      "fixedVersions": [
+        "1.21"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.commons:commons-compress",
+        "version": "1.20"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-xqfj-vm6h-2x34",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2026-6790"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.eclipse.jetty:jetty-server:jar:9.4.46.v20220331"
+      ],
+      "findingId": "e63f726ae4934fad9a9223c0301cbca004bedcf201dba74cb35ab9952941c0ea",
+      "fixedVersions": [
+        "12.0.35",
+        "12.1.9"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.eclipse.jetty:jetty-server",
+        "version": "9.4.46.v20220331"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-7p3p-8qv8-m2vh",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2024-25710"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.commons:commons-compress:jar:1.20"
+      ],
+      "findingId": "e7c9a650e123abc1c450b3d0b13e723a3495f3709b00c2941b6e74c13d31a190",
+      "fixedVersions": [
+        "1.26.0"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.commons:commons-compress",
+        "version": "1.20"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-4g9r-vxhx-9pgx",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:C/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2021-35515"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.commons:commons-compress:jar:1.20"
+      ],
+      "findingId": "f92fe8e8fd90cbfc27ba09cc54e91da48ac95a55232762b85bbb2b1503f9cd9c",
+      "fixedVersions": [
+        "1.21"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.commons:commons-compress",
+        "version": "1.20"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-7hfm-57qf-j43q",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2022-36033"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.jsoup:jsoup:jar:1.10.2"
+      ],
+      "findingId": "f9f5fee239f1cf1def3477ecfe196725b65414d3637440b074e75df4a248d480",
+      "fixedVersions": [
+        "1.15.3"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.jsoup:jsoup",
+        "version": "1.10.2"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-gp7f-rwcx-9369",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    }
+  ],
+  "reviewDispositionTransferred": false,
+  "unchangedRetainedFindingCount": 29
+}

@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { acceptedE2GraphProjection, generateEvidence as generateE2Evidence }
   from './m6-pr-e-e2-generate-sbom.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, verifyBuildPluginJacksonDelta, verifyObservabilityGraph }
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, verifySiteDependencyPluginDelta, verifyBuildPluginJacksonDelta, verifyObservabilityGraph }
   from './observability-dependency-graph.mjs';
 import { verifyScannerCheckout, requireScannerCheckoutUnchanged } from './m6-pr-e-e4-scan.mjs';
 
@@ -461,8 +461,14 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
   const graphTransition = verifyObservabilityGraph(currentE2, acceptedE2GraphProjection(currentE2), BASE_GRAPH, commitSha);
   if (typeof pluginReport !== 'string') throw new Error('R3A raw current plugin report required');
   const pluginReportSha256 = sha256(pluginReport), pluginGroups = parseResolvedPluginReport(pluginReport);
-  const subsequentPluginGraph = graphTransition.currentE2GraphDigest === BUILD_PLUGIN_JACKSON_GRAPH;
-  if (subsequentPluginGraph) verifyBuildPluginJacksonDelta(acceptedE2GraphProjection(currentE2));
+  const subsequentPluginGraph = [BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH]
+    .includes(graphTransition.currentE2GraphDigest);
+  if (subsequentPluginGraph) {
+    const current = acceptedE2GraphProjection(currentE2);
+    const prior = graphTransition.currentE2GraphDigest === SITE_DEPENDENCY_PLUGIN_GRAPH
+      ? verifySiteDependencyPluginDelta(current) : current;
+    verifyBuildPluginJacksonDelta(prior);
+  }
   if ((!subsequentPluginGraph && graphTransition.currentE2GraphDigest !== transition.currentGraphDigest)
     || pluginReportSha256 !== currentE2.maven.pluginResolutionSha256) throw new Error('R3A current Maven graph/plugin evidence mismatch');
   const tomcat = transition.tomcat, httpcore = transition.httpcore;

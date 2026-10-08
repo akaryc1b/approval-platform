@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBuildPluginJacksonManifest,
-  verifyBuildPluginJacksonDelta, verifyObservabilityGraph, requirePreservedGraph }
+  verifyBuildPluginJacksonDelta, verifyObservabilityGraph, requirePreservedGraph,
+  SITE_DEPENDENCY_PLUGIN_GRAPH, readSiteDependencyPluginManifest, verifySiteDependencyPluginDelta }
   from './observability-dependency-graph.mjs';
 import { verifyOsvCoverage, osvInputFromE2 } from './osv-scan-coverage.mjs';
 import { requireCompleteCurrentE4 } from './scanner-evidence-provenance.mjs';
@@ -99,7 +100,7 @@ function requireFreshFullEvidence(e4, expectedHead) {
   requireValue(total === e4.totalFindingCount, 'server remediation scanner finding count mismatch');
   const e2 = e4.e2CurrentEvidence;
   requireValue(e2?.commitSha === expectedHead && e2.contentSha256 === e4.e2CurrentContentSha256
-    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
+    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
   const transition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, expectedHead);
   requireValue(same(transition, requirePreservedGraph(e4, BASE_GRAPH, expectedHead)), 'server remediation graph receipt mismatch');
   return verifyOsvCoverage(e4.scanners.osv.coverage, e4.scanners.osv.findings, e2,
@@ -113,14 +114,24 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
   const coverage = requireFreshFullEvidence(e4, expectedCommitSha);
   let expectedInput = { packageCount: plan.expectedInputPackageCount, inputBytesSha256: plan.expectedInputBytesSha256 };
   let subsequentGraphTransition;
-  if (e4.e2GraphDigest === BUILD_PLUGIN_JACKSON_GRAPH) {
+  if ([BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH].includes(e4.e2GraphDigest)) {
     const manifest = readBuildPluginJacksonManifest();
-    const preserved = verifyBuildPluginJacksonDelta(acceptedE2GraphProjection(e4.e2CurrentEvidence), manifest);
+    const current = acceptedE2GraphProjection(e4.e2CurrentEvidence);
+    const siteManifest = e4.e2GraphDigest === SITE_DEPENDENCY_PLUGIN_GRAPH ? readSiteDependencyPluginManifest() : null;
+    const priorPlugin = siteManifest ? verifySiteDependencyPluginDelta(current, siteManifest) : current;
+    const preserved = verifyBuildPluginJacksonDelta(priorPlugin, manifest);
     const priorInput = osvInputFromE2(preserved);
     requireValue(priorInput.packageCount === plan.expectedInputPackageCount
       && hash(JSON.stringify(priorInput.scannerInput)) === plan.expectedInputBytesSha256
       && same(manifest.osvInput.prior, expectedInput), 'server remediation prior OSV input lineage mismatch');
     expectedInput = manifest.osvInput.current;
+    if (siteManifest) {
+      const priorPluginInput = osvInputFromE2(priorPlugin);
+      requireValue(priorPluginInput.packageCount === expectedInput.packageCount
+        && hash(JSON.stringify(priorPluginInput.scannerInput)) === expectedInput.inputBytesSha256
+        && same(siteManifest.osvInput.prior, expectedInput), 'server remediation prior plugin OSV input lineage mismatch');
+      expectedInput = siteManifest.osvInput.current;
+    }
     subsequentGraphTransition = requirePreservedGraph(e4, BASE_GRAPH, expectedCommitSha);
   }
   requireValue(coverage.inputPackageCount === expectedInput.packageCount
