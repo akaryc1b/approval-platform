@@ -11,10 +11,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { readCurrentSourceTransition } from '../security/m6-pr-e-e3-r3a-review-osv-drift.mjs';
 
 const DEPENDENCY_PLUGIN =
   'org.apache.maven.plugins:maven-dependency-plugin:3.11.0';
-const TOMCAT_VERSION = '11.0.15';
+const TOMCAT_VERSION = readCurrentSourceTransition().tomcat.version;
 const TOMCAT_ARTIFACT =
   `org.apache.tomcat.embed:tomcat-embed-core:${TOMCAT_VERSION}:jar`;
 const TOMCAT_CLOUD_PREFIX =
@@ -130,7 +131,7 @@ test('R3A CI materializes the exact Tomcat JAR without parent environment leakag
   );
   assert.equal(materializedJar, exactTomcatJar(repository));
   assert.equal(path.basename(materializedJar),
-    'tomcat-embed-core-11.0.15.jar');
+    'tomcat-embed-core-11.0.26.jar');
   assert.equal(existsSync(materializedJar), true);
 
   const listing = spawnSync('jar', ['tf', materializedJar], {
