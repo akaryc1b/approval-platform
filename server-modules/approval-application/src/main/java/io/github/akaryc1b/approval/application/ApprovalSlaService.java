@@ -554,6 +554,7 @@ public final class ApprovalSlaService {
         store.createInstances(requested);
     }
 
+    /** Compatibility entry point: the projection must be the persisted post-transition state. */
     public void synchronizeTaskChange(
         InstanceProjection instance,
         UUID changedTaskId,
@@ -563,13 +564,45 @@ public final class ApprovalSlaService {
         RequestEvidence evidence
     ) {
         Objects.requireNonNull(instance, "instance must not be null");
-        Instant now = clock.instant();
+        synchronizeTaskChange(
+            instance, changedTaskId, activeTasks, instanceStatus, changedTaskCanceled,
+            instance.updatedAt(), evidence
+        );
+    }
+
+    public void synchronizeTaskChange(
+        InstanceProjection instance,
+        UUID changedTaskId,
+        List<TaskProjection> activeTasks,
+        InstanceStatus instanceStatus,
+        boolean changedTaskCanceled,
+        Instant changedAt,
+        RequestEvidence evidence
+    ) {
+        Objects.requireNonNull(instance, "instance must not be null");
+        requireTerminalTime(changedAt, instance.createdAt());
+        List<SlaInstance> currentInstances = store.findActiveByApprovalInstance(
+            instance.tenantId(), instance.instanceId()
+        );
+        Set<UUID> activeTaskIds = new LinkedHashSet<>();
+        for (TaskProjection task : activeTasks == null ? List.<TaskProjection>of() : activeTasks) {
+            if (task.status() == TaskStatus.PENDING) {
+                activeTaskIds.add(task.taskId());
+            }
+        }
+        for (SlaInstance current : currentInstances) {
+            if (instanceStatus == InstanceStatus.COMPLETED || instanceStatus == InstanceStatus.REJECTED
+                || (current.targetType() != SlaTargetType.PROCESS && current.taskId() != null
+                    && (current.taskId().equals(changedTaskId) || !activeTaskIds.contains(current.taskId())))) {
+                requireTerminalTime(changedAt, current.startedAt());
+            }
+        }
         if (instanceStatus == InstanceStatus.COMPLETED) {
             store.terminalApprovalInstance(
                 instance.tenantId(),
                 instance.instanceId(),
                 SlaTerminalReason.INSTANCE_COMPLETED,
-                now
+                changedAt
             );
             return;
         }
@@ -578,7 +611,7 @@ public final class ApprovalSlaService {
                 instance.tenantId(),
                 instance.instanceId(),
                 SlaTerminalReason.INSTANCE_REJECTED,
-                now
+                changedAt
             );
             return;
         }
@@ -586,39 +619,43 @@ public final class ApprovalSlaService {
             instance.tenantId(),
             changedTaskId,
             changedTaskCanceled ? SlaTerminalReason.TASK_CANCELED : SlaTerminalReason.TASK_COMPLETED,
-            now
+            changedAt
         );
-        Set<UUID> activeTaskIds = new LinkedHashSet<>();
-        for (TaskProjection task : activeTasks == null ? List.<TaskProjection>of() : activeTasks) {
-            if (task.status() == TaskStatus.PENDING) {
-                activeTaskIds.add(task.taskId());
-            }
-        }
-        for (SlaInstance current : store.findActiveByApprovalInstance(
-            instance.tenantId(),
-            instance.instanceId()
-        )) {
+        for (SlaInstance current : currentInstances) {
             if (current.targetType() != SlaTargetType.PROCESS
                 && current.taskId() != null
+                && !current.taskId().equals(changedTaskId)
                 && !activeTaskIds.contains(current.taskId())) {
                 store.terminalTask(
                     instance.tenantId(),
                     current.taskId(),
                     SlaTerminalReason.TASK_CANCELED,
-                    now
+                    changedAt
                 );
             }
         }
         store.createInstances(newTaskInstances(instance, activeTasks, evidence));
     }
 
+    /** Compatibility entry point: the projection must be the persisted post-withdrawal state. */
     public void terminalWithdrawnInstance(InstanceProjection instance) {
         Objects.requireNonNull(instance, "instance must not be null");
+        terminalWithdrawnInstance(instance, instance.updatedAt());
+    }
+
+    public void terminalWithdrawnInstance(InstanceProjection instance, Instant withdrawnAt) {
+        Objects.requireNonNull(instance, "instance must not be null");
+        requireTerminalTime(withdrawnAt, instance.createdAt());
+        for (SlaInstance current : store.findActiveByApprovalInstance(
+            instance.tenantId(), instance.instanceId()
+        )) {
+            requireTerminalTime(withdrawnAt, current.startedAt());
+        }
         store.terminalApprovalInstance(
             instance.tenantId(),
             instance.instanceId(),
             SlaTerminalReason.INSTANCE_WITHDRAWN,
-            clock.instant()
+            withdrawnAt
         );
     }
 
@@ -657,16 +694,53 @@ public final class ApprovalSlaService {
         Objects.requireNonNull(evidence, "evidence must not be null");
         if (collaboration.status() != io.github.akaryc1b.approval.application.port
             .ApprovalTaskCollaborationStore.CollaborationStatus.ACTIVE) {
+            requireTerminalTime(collaboration.terminalAt(), collaboration.createdAt());
+            for (CollaborationParticipant participant : collaboration.participants()) {
+                requireTerminalTime(collaboration.terminalAt(), participant.addedAt());
+            }
+            for (SlaInstance current : store.findActiveByApprovalInstance(
+                collaboration.tenantId(), collaboration.instanceId()
+            )) {
+                if (current.targetType() == SlaTargetType.COLLABORATION_PARTICIPANT
+                    && current.taskId().equals(collaboration.taskId())) {
+                    requireTerminalTime(collaboration.terminalAt(), current.startedAt());
+                }
+            }
             store.terminalCollaborationParticipantsByTask(
                 collaboration.tenantId(),
                 collaboration.taskId(),
                 SlaTerminalReason.COLLABORATION_CANCELED,
-                clock.instant()
+                collaboration.terminalAt()
             );
             return;
         }
+        // Check the complete snapshot before making any writes. Absence alone cannot
+        // establish when a participant was removed; the store retains terminal participants.
+        Map<UUID, CollaborationParticipant> participantsById = new LinkedHashMap<>();
+        for (CollaborationParticipant participant : collaboration.participants()) {
+            participantsById.put(participant.participantId(), participant);
+            if (participant.status() != ParticipantStatus.PENDING) {
+                requireTerminalTime(participantTerminalAt(participant), participant.addedAt());
+            }
+        }
+        for (SlaInstance current : store.findActiveByApprovalInstance(
+            collaboration.tenantId(), collaboration.instanceId()
+        )) {
+            if (current.targetType() == SlaTargetType.COLLABORATION_PARTICIPANT
+                && current.taskId().equals(collaboration.taskId())) {
+                CollaborationParticipant participant = participantsById.get(current.collaborationParticipantId());
+                if (participant == null) {
+                    throw conflict(
+                        "APPROVAL_SLA_INSTANCE_STATE_CONFLICT",
+                        "participant terminal evidence is missing from collaboration snapshot"
+                    );
+                }
+                if (participant.status() != ParticipantStatus.PENDING) {
+                    requireTerminalTime(participantTerminalAt(participant), current.startedAt());
+                }
+            }
+        }
         List<SlaInstance> requested = new ArrayList<>();
-        Set<UUID> pending = new LinkedHashSet<>();
         for (CollaborationParticipant participant : collaboration.participants()) {
             if (participant.status() != ParticipantStatus.PENDING) {
                 SlaTerminalReason reason = participant.status() == ParticipantStatus.REMOVED
@@ -678,11 +752,10 @@ public final class ApprovalSlaService {
                     collaboration.tenantId(),
                     participant.participantId(),
                     reason,
-                    clock.instant()
+                    participantTerminalAt(participant)
                 );
                 continue;
             }
-            pending.add(participant.participantId());
             if (store.findActiveCollaborationInstance(
                 collaboration.tenantId(),
                 participant.participantId()
@@ -696,22 +769,23 @@ public final class ApprovalSlaService {
                 evidence
             )).ifPresent(requested::add);
         }
-        for (SlaInstance current : store.findActiveByApprovalInstance(
-            collaboration.tenantId(),
-            collaboration.instanceId()
-        )) {
-            if (current.targetType() == SlaTargetType.COLLABORATION_PARTICIPANT
-                && current.taskId().equals(collaboration.taskId())
-                && !pending.contains(current.collaborationParticipantId())) {
-                store.terminalCollaborationParticipant(
-                    collaboration.tenantId(),
-                    current.collaborationParticipantId(),
-                    SlaTerminalReason.COLLABORATION_REMOVED,
-                    clock.instant()
-                );
-            }
-        }
         store.createInstances(requested);
+    }
+
+    private static Instant participantTerminalAt(CollaborationParticipant participant) {
+        return switch (participant.status()) {
+            case APPROVED, REJECTED -> participant.decidedAt();
+            case REMOVED -> participant.removedAt();
+            case CANCELED -> participant.canceledAt();
+            case PENDING -> throw new IllegalArgumentException("participant is not terminal");
+        };
+    }
+
+    private static void requireTerminalTime(Instant terminalAt, Instant startedAt) {
+        Objects.requireNonNull(terminalAt, "terminalAt must not be null");
+        if (terminalAt.isBefore(startedAt)) {
+            throw new IllegalArgumentException("terminalAt must not precede its source start");
+        }
     }
 
     private List<SlaInstance> newTaskInstances(

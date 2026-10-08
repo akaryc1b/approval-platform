@@ -157,12 +157,34 @@ Before pause-adjusted timing can be added, a separately governed persistence cha
 must retain authoritative, ordered pause/resume/terminal boundaries atomically with
 SLA transitions, define completeness for legacy rows and terminal-during-pause cases,
 and prove concurrency, rollback, retry and replay behavior against PostgreSQL. That
-change requires resolving #146's foundation-stage no-Flyway boundary. Separately,
-the current projection decorator passes a business completion/withdrawal timestamp
-to its delegate, while `ApprovalSlaService` captures a later clock value for the SLA
-terminal row. Integration must choose and document the authoritative end timestamp
-and prove the same transaction's commit before emitting any observation. A pure unit
-test cannot substitute for these database and commit-boundary tests.
+change requires resolving #146's foundation-stage no-Flyway boundary.
+
+The live projection decorator now forwards the same business `completedAt`,
+`changedAt`, or `withdrawnAt` to the existing SLA terminal write. It does not sample
+another processing clock. Existing service signatures remain compatible and require
+the persisted post-transition projection: their timestamp is that projection's
+`updatedAt`. New callers should supply the explicit event timestamp. Active
+collaboration participants use persisted `decidedAt`, `removedAt`, or `canceledAt`;
+a terminal collaboration uses its persisted `terminalAt` for the existing aggregate
+cancellation. Existing terminal reasons are unchanged, including cancellation of
+remaining participant SLAs when a collaboration becomes satisfied or rejected.
+
+Missing timestamps and timestamps preceding the source instance/participant start
+or an affected active SLA start are rejected before SLA writes, without a clock
+fallback. An active participant SLA absent from the
+collaboration snapshot cannot establish when removal occurred: synchronization fails
+before its SLA writes rather than inventing removal evidence. The JDBC collaboration
+store retains terminal participant rows, so complete snapshots provide that evidence.
+No schema or historical backfill is introduced. Already-terminal SLA rows retain
+existing active-only update fencing; replay does not revise their original timestamp.
+
+The existing transaction boundary must still commit before any future observation
+is emitted. The lifecycle calculator remains unwired. Application checks cover
+clock delay, source timestamps, validation, replay input, order and delegate failure;
+PostgreSQL regressions cover persisted SLA/intent times, duplicate fencing, and
+projection/SLA/intent withdrawal rollback. Their source presence is not a database pass: inspect exact-head CI results.
+Rolling back this code changes timestamps of future terminal transitions back to the
+previous processing-clock behavior; it does not rewrite existing rows.
 
 The shared dependency-free Java checks and normal JUnit wrapper cover natural and
 working elapsed, pause-history unavailability, weekends, overrides, overnight
