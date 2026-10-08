@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 
 const ALLOWED = new Set(['APPLICABLE','NOT_APPLICABLE','UNREACHABLE','MITIGATED','ACCEPTED_WITH_EXPIRY','UNRESOLVED','EVIDENCE_UNAVAILABLE']);
 const REACHABILITY = Object.freeze(['packaged','loaded','invoked','externallyReachable']);
@@ -36,6 +37,12 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null)
     && remediation.currentE2GraphDigest===e4.e2GraphDigest;
   if(e4.e2GraphDigest!==review.reviewBasisE2GraphDigest&&!graphTransition)throw new Error('E2 graph drift blocks E3-I3 review');
   if(!/^[0-9a-f]{40}$/.test(review.reviewBasisHead||''))throw new Error('review basis Head required');
+
+  const prototypeRemediation=triage.designerPrototypeRemediation
+    ? requireDesignerPrototypeTriage(e4,triage):null;
+  const inheritedRemediatedFindings=prototypeRemediation?.remediatedFindings||[];
+  if(prototypeRemediation && (canonical(triage.remediatedHistoricalFindings)!==canonical(inheritedRemediatedFindings)
+    ||triage.remediatedHistoricalFindingCount!==1||triage.historicallyRemediatedFindingCount!==1))throw new Error('I2 prototype remediation history drift');
 
   const current=new Map(triage.decisions.map(f=>[`${f.sourceClass}:${f.findingId}`,f]));
   const osv=osvById(e4), remediatedById=remediationById(remediation), seen=new Set(), delta=new Map(), remediatedHistoricalFindings=[];
@@ -94,9 +101,9 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null)
     });
   });
   const dispositionCounts={};for(const f of decisions)dispositionCounts[f.disposition]=(dispositionCounts[f.disposition]||0)+1;
-  const cumulativeReviewedFindingCount=decisions.filter(f=>f.reviewEvidence).length+remediatedHistoricalFindings.length;
+  const cumulativeReviewedFindingCount=decisions.filter(f=>f.reviewEvidence).length+remediatedHistoricalFindings.length+inheritedRemediatedFindings.length;
   const payload=stable({
-    schemaVersion:remediation?'M6_PR_E_E3_I3_TRIAGE_V2':'M6_PR_E_E3_I3_TRIAGE_V1',
+    schemaVersion:prototypeRemediation?'M6_PR_E_E3_I3_TRIAGE_V3':remediation?'M6_PR_E_E3_I3_TRIAGE_V2':'M6_PR_E_E3_I3_TRIAGE_V1',
     repository:triage.repository,
     commitSha:triage.commitSha,
     sourceI2CanonicalSha256:triage.contentSha256,
@@ -110,6 +117,11 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null)
     remediatedHistoricalFindingCount:remediatedHistoricalFindings.length,
     remediatedHistoricalFindings,
     cumulativeReviewedFindingCount,
+    ...(prototypeRemediation?{
+      designerPrototypeRemediation:prototypeRemediation,
+      historicallyRemediatedFindings:[...inheritedRemediatedFindings,...remediatedHistoricalFindings],
+      historicallyRemediatedFindingCount:inheritedRemediatedFindings.length+remediatedHistoricalFindings.length,
+    }:{}),
     decisions,
     summary:{
       dispositionCounts,

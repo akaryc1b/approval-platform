@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "M6_PR_E_E3_DESIGNER_PROTOTYPE_REMEDIATION_PLAN_V1",
+  "repository": "akaryc1b/approval-platform",
+  "historicalReviewCanonicalSha256": "0ac33d536ef962c503a74db347b4c26f2a1d193e96a8eecef41471bd1ad0a776",
+  "historicalReviewBasisHead": "234ed3d41b049ca9475e58e29e1204587a992693",
+  "historicalReviewBasisIntakeCanonicalSha256": "9f0f5b9ecd4604492a1b250cae3b8d21bcd658efd4d9646b46aea1250436fbec",
+  "historicalFinding": {
+    "category": "security",
+    "cwe": [
+      "CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes"
+    ],
+    "endColumn": 37,
+    "endLine": 151,
+    "findingId": "e6b83b7719d2bef5092127dd47f2a34c17d9c92ce3b9581b4381dd6b25432445",
+    "owasp": [
+      "A08:2021 - Software and Data Integrity Failures",
+      "A08:2025 - Software or Data Integrity Failures"
+    ],
+    "path": "/src/apps/web/overlay/apps/web-ele/src/views/approval/designer/designer-conflict.ts",
+    "ruleId": "rules.javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop",
+    "sourceClass": "E4_SEMGREP",
+    "startColumn": 5,
+    "startLine": 151,
+    "upstreamSeverity": "WARNING",
+    "sourcePath": "apps/web/overlay/apps/web-ele/src/views/approval/designer/designer-conflict.ts",
+    "sourceBlobSha": "fa3c224ac31df08cb3e2f130f7e4bef1fc750659",
+    "priorDisposition": "UNRESOLVED",
+    "evidenceCode": "DYNAMIC_OBJECT_KEY_WRITE_WITHOUT_RESERVED_TOKEN_REJECTION"
+  },
+  "reviewedArtifacts": {
+    "apps/web/overlay/apps/web-ele/src/views/approval/designer/designer-conflict.ts": {
+      "blobSha": "dd7c59dd73a86ec9687cd0033a2d1e311a7bbcc6",
+      "sha256": "7fa9810c70e8b946f62e019319ce718723e666307bd928af4b91a08853b12473"
+    },
+    "scripts/tests/approval-designer-conflict.test.mjs": {
+      "blobSha": "be2cf23c0292137d6bc6824039b620a83339d8f5",
+      "sha256": "ce86a2894bba68d9554bc6ee282807e0c25830a8e22cdc67af40256dc33a6d8c"
+    },
+    "package.json": {
+      "blobSha": "8b3fc37b041e0e7fa666fd94fd8c54970370151f",
+      "sha256": "18260ca9985c6e591a592d05c59e0163cdf802dd3e4b3c3399ad0586aa5fd570"
+    }
+  },
+  "semgrepExecutionIdentity": {
+    "version": "1.172.0",
+    "sourceCommit": "651f37efa397bf066e1cf627414eeabe40b07e27",
+    "rulesCommit": "40b8c63f75dc7c22c8a77482d73bfb864b146f7e",
+    "ruleFileCount": 298,
+    "ruleContentSha256": "fd44ef09ebaa7bd9cc85f81a697fc1f43fee589440a36966ca0f356080ea3985",
+    "imageId": "sha256:c939b3e8c79bad59f123ee06d88851aa08a26ba8dfad26db529c937ed90ba627",
+    "imageRepoDigest": "semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b",
+    "metrics": "OFF"
+  },
+  "invariants": {
+    "currentFullScanRequired": true,
+    "exactHeadArtifactBlobsRequired": true,
+    "ruleAndPathAbsenceRequired": true,
+    "historicalReviewUnchanged": true,
+    "currentFindingsRetained": true,
+    "releaseBlocked": true,
+    "scannerSuppressionAdded": false,
+    "severityDowngradeAdded": false,
+    "exceptionAdded": false,
+    "scannerInputReconstructed": false,
+    "readyAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "releaseAuthorized": false
+  },
+  "contentSha256": "53143fa727b6eafaae41319e6a2a4d159d14ee2557cd46cb650b895bbb7ee3ac"
+}

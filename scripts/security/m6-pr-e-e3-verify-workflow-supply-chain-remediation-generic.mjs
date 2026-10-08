@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { verifyDesignerPrototypeRemediation } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 
 import { verifyWorkflowSupplyChainRemediation as verifyAcceptedR2B } from './m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';
 
@@ -218,7 +219,7 @@ export function classifyCurrentOsvIdentitySet(scanner, identityContract = contra
   });
 }
 
-export function reconcileScannerFindingIdentities(e4) {
+export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapshot = null) {
   const identityContract = requireContract();
   if (!e4 || e4.repository !== identityContract.repository) throw new Error('R2B current E4 identity evidence required');
 
@@ -229,11 +230,17 @@ export function reconcileScannerFindingIdentities(e4) {
   const semgrepIds = scannerIds('semgrep', e4.scanners?.semgrep, accepted.semgrepCurrentAfterAcceptedIdentityTransition.sourceClass);
   const zizmorIds = scannerIds('zizmor', e4.scanners?.zizmor, accepted.zizmorCurrent.sourceClass);
 
+  const prototypeRemediation = prototypeRemediationSnapshot
+    ? verifyDesignerPrototypeRemediation(e4, prototypeRemediationSnapshot) : null;
+  // Compare the complete historical identity set without changing current scanner evidence.
+  // Only the one source/test-bound, rule/path-absent remediation may be historical.
+  const historicalSemgrepIds = prototypeRemediation
+    ? [...semgrepIds, prototypeRemediation.remediatedFindings[0].findingId].sort() : semgrepIds;
   requireIdentitySet('current Gitleaks', gitleaksIds, expectedCurrent.gitleaks);
-  requireIdentitySet('current Semgrep', semgrepIds, expectedCurrent.semgrep);
+  requireIdentitySet('current Semgrep', historicalSemgrepIds, expectedCurrent.semgrep);
   requireIdentitySet('current zizmor', zizmorIds, expectedCurrent.zizmor);
   requireIdentitySet('accepted Gitleaks', gitleaksIds, accepted.gitleaks);
-  requireIdentitySet('accepted current Semgrep transition', semgrepIds, accepted.semgrepCurrentAfterAcceptedIdentityTransition);
+  requireIdentitySet('accepted current Semgrep transition', historicalSemgrepIds, accepted.semgrepCurrentAfterAcceptedIdentityTransition);
   requireIdentitySet('accepted current zizmor', zizmorIds, accepted.zizmorCurrent);
 
   const currentScannerCounts = stable({
@@ -253,6 +260,9 @@ export function reconcileScannerFindingIdentities(e4) {
     databaseSnapshotIdentity: identityContract.databaseDriftObservation.databaseSnapshotIdentity,
     databaseSnapshotIdentityAvailability: identityContract.databaseDriftObservation.databaseSnapshotIdentityAvailability,
     ...osvReconciliation,
+    ...(prototypeRemediation ? { designerPrototypeRemediation: prototypeRemediation,
+      historicalSemgrepFindingCount: historicalSemgrepIds.length,
+      remediatedHistoricalSemgrepFindingCount: 1 } : {}),
     currentFindingSetSha256: {
       gitleaks: findingSetSha256(gitleaksIds),
       osv: osvReconciliation.currentOsvFindingSetSha256,
@@ -270,8 +280,9 @@ export function reconcileScannerFindingIdentities(e4) {
 }
 
 export function verifyWorkflowSupplyChainRemediation(e4, plan, snapshot) {
-  const scannerIdentityReconciliation = reconcileScannerFindingIdentities(e4);
-  if (scannerIdentityReconciliation.osvIdentityMode === 'ACCEPTED_HISTORICAL_OSV_IDENTITY_SET') {
+  const scannerIdentityReconciliation = reconcileScannerFindingIdentities(e4, snapshot?.prototypeRemediationSnapshot);
+  if (scannerIdentityReconciliation.osvIdentityMode === 'ACCEPTED_HISTORICAL_OSV_IDENTITY_SET'
+    && !scannerIdentityReconciliation.designerPrototypeRemediation) {
     return verifyAcceptedR2B(e4, plan, snapshot);
   }
 
