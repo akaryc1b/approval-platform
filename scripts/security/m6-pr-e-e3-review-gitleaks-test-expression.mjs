@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { requireCompleteCurrentE4 } from './scanner-evidence-provenance.mjs';
 import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
+import { requireServerDependencyRemediation } from './m6-pr-e-e3-verify-server-dependency-remediation.mjs';
 
 const PLAN_SHA256 = '20158102576d7ba5931d0605bdd1aab548ec94db571b31a2bc5a20032f673c5d';
 const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
@@ -149,8 +150,17 @@ export function requireGitleaksTestExpressionTriage(e4, triage) {
     requireValue(triage.reviewedFindingCount === reviewedCurrentCount
       && triage.currentReviewedFindingCount === reviewedCurrentCount, 'Gitleaks current review count drift');
   } else {
-    requireValue(['M6_PR_E_E3_I3_TRIAGE_V4', 'M6_PR_E_E3_I4_TRIAGE_V5'].includes(triage.schemaVersion),
+    const serverSchema = ['M6_PR_E_E3_I3_TRIAGE_V5', 'M6_PR_E_E3_I4_TRIAGE_V6'].includes(triage.schemaVersion);
+    requireValue(serverSchema || ['M6_PR_E_E3_I3_TRIAGE_V4', 'M6_PR_E_E3_I4_TRIAGE_V5'].includes(triage.schemaVersion),
       'Gitleaks reviewed triage schema mismatch');
+    if (serverSchema) {
+      const server = requireServerDependencyRemediation(e4, triage.serverDependencyRemediation,
+        { expectedCommitSha: triage.commitSha });
+      requireValue(triage.sourceServerDependencyRemediationCanonicalSha256 === server.contentSha256,
+        'Gitleaks triage server dependency remediation binding mismatch');
+    } else requireValue(triage.serverDependencyRemediation === undefined
+      && triage.sourceServerDependencyRemediationCanonicalSha256 === undefined,
+    'unexpected server dependency remediation on historical triage schema');
     const historicalKeys = (triage.historicallyRemediatedFindings || []).map(key);
     const uniqueHistoricalCount = new Set(historicalKeys).size;
     requireValue(Array.isArray(triage.historicallyRemediatedFindings)

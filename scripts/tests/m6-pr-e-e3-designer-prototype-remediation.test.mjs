@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync as historicalGit } from 'node:child_process';
 import { readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview }
   from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
-import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, requirePreservedGraph }
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 import test from 'node:test';
 import { requireOsvReport, requireGitleaksReport, requireZizmorReport } from '../security/scanner-report-structure.mjs';
@@ -20,6 +20,9 @@ import { applyReviewedFindingsWithIdentityTransitions } from '../security/m6-pr-
 import { applyRuntimeDeploymentReviews } from '../security/m6-pr-e-e3-apply-runtime-deployment-reviews.mjs';
 import { applyWorkflowSupplyChainReviews } from '../security/m6-pr-e-e3-apply-workflow-supply-chain-reviews.mjs';
 import { verifyPgjdbcRemediation } from '../security/m6-pr-e-e3-verify-pgjdbc-remediation.mjs';
+import { acceptedE2GraphProjection } from '../security/m6-pr-e-e2-generate-sbom.mjs';
+import { readServerDependencyRemediationPlan, verifyServerDependencyRemediation }
+  from '../security/m6-pr-e-e3-verify-server-dependency-remediation.mjs';
 import { verifyDependabotCooldownRemediation } from '../security/m6-pr-e-e3-verify-dependabot-cooldown-remediation.mjs';
 import { verifyWorkflowSupplyChainRemediation, reconcileScannerFindingIdentities }
   from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs';
@@ -301,28 +304,43 @@ test('I3 and I4 fail closed on historical receipt and count tampering', () => {
   assert.throws(() => applyWorkflowSupplyChainReviews(seal({ ...r.i3, historicallyRemediatedFindingCount: 4 }), r.e4, workflowReview, r.r2a, r.r2b), /I3 prototype remediation history drift/);
 });
 
-// Execute the actual CI callback with synthetic subprocess output. This covers
-// its full wiring and emitted receipts, and is not a live full-scanner result.
-function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype = false, staleHead = false } = {}) {
+// Execute the actual CI callback with synthetic subprocess output. Only the
+// archived E2 and partial OSV diagnostic data are authentic; other scanners and
+// subprocess/checkout claims are SYNTHETIC UNIT FIXTURES. Nothing is persisted
+// or presented as a current all-scanner E4 execution or admission result.
+function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype = false, staleHead = false,
+  mutateEvidence = null, staleR4Receipt = false } = {}) {
+  const preparation = json('m6-pr-e-e3-r4-osv-preparation');
+  const baseline = json('m6-pr-e-e4-scanner-baseline');
+  const expectedHead = preparation.commitSha;
   let e4 = syntheticE4(includePrototype);
+  e4.commitSha = staleHead ? 'f'.repeat(40) : expectedHead;
+  e4.e2CurrentEvidence = structuredClone(preparation.e2CurrentEvidence);
+  e4.scanners.osv = structuredClone(preparation.osv);
+  if (staleHead) {
+    e4.e2CurrentEvidence = seal({ ...e4.e2CurrentEvidence, commitSha: e4.commitSha });
+    e4.scanners.osv.coverage = seal({ ...e4.scanners.osv.coverage, commitSha: e4.commitSha,
+      e2CurrentContentSha256: e4.e2CurrentEvidence.contentSha256 });
+  }
+  e4.e2CurrentContentSha256 = e4.e2CurrentEvidence.contentSha256;
+  e4.e2GraphDigest = SERVER_DEPENDENCY_GRAPH;
+  e4.e2GraphTransition = verifyObservabilityGraph(e4.e2CurrentEvidence,
+    acceptedE2GraphProjection(e4.e2CurrentEvidence), BASE_GRAPH, e4.commitSha);
+  e4.checkout = { checkedOutSha: e4.commitSha, expectedHeadSha: e4.commitSha,
+    checkedOutTreeSha: preparation.treeSha, expectedHeadTreeSha: preparation.treeSha,
+    exactTreeMatches: true, trackedWorktreeClean: true };
+  e4.scannerBaselineSourceHead = baseline.sourceHead;
+  for (const [name, scanner] of Object.entries(baseline.scanners)) {
+    Object.assign(e4.scanners[name], { version: scanner.version, sourceCommit: scanner.sourceCommit });
+  }
   const gitleaksPlan = readGitleaksTestExpressionReviewPlan();
   e4.scanners.gitleaks = { ...e4.scanners.gitleaks, ...gitleaksPlan.scannerIdentity,
     findingCount: 28, findings: [...e4.scanners.gitleaks.findings, gitleaksPlan.historicalFinding] };
-  e4.totalFindingCount++;
+  e4.totalFindingCount = Object.values(e4.scanners).reduce((count, scanner) => count + scanner.findingCount, 0);
   const sourceRef = `${gitleaksPlan.historicalSource.commitSha}:${gitleaksPlan.historicalSource.path}`;
   const sourceResult = historicalGit('git', ['show', sourceRef], { encoding: 'utf8', cwd: fileURLToPath(new URL('../../', import.meta.url)) });
   assert.equal(sourceResult.status, 0, sourceResult.stderr);
-  if (staleHead) { e4.commitSha = 'f'.repeat(40); e4.checkout.expectedHeadSha = e4.commitSha; }
-  e4.e2GraphDigest = OBSERVABILITY_OTEL_GRAPH;
-  e4.e2CurrentContentSha256 = 'b'.repeat(64);
-  e4.e2GraphTransition = seal({ schemaVersion: 'APPROVAL_OBSERVABILITY_GRAPH_LINEAGE_V2',
-    repository: e4.repository, commitSha: e4.commitSha, sourceE2ContentSha256: e4.e2CurrentContentSha256,
-    baseE2GraphDigest: BASE_GRAPH, intermediateE2GraphDigest: OBSERVABILITY_GRAPH,
-    currentE2GraphDigest: OBSERVABILITY_OTEL_GRAPH,
-    foundationManifestSha256: '8aa64be5a9db6a6c7988226e5386592b94b91b034c10c6ccb914c2a171a26993',
-    manifestSha256: '20e7bf496628c36b5afb66d593b57424bb092d80666c41b7097849380a98dc86',
-    versionChangeCount: 16, rewrittenEdgeCount: 17, addedImportedBomCount: 1,
-    findingReviewRequired: true, releaseBlocked: true });
+  if (mutateEvidence) mutateEvidence(e4);
   e4 = seal(e4);
   const source = read('scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs');
   const logs = [], commands = [];
@@ -336,10 +354,17 @@ function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype = fals
   runInNewContext(source.slice(source.indexOf("test('E4 full scanner emits")), {
     assert, createHash, Buffer, readdirSync, existsSync, readDesignerPrototypeRemediationPlan,
     readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview,
-    expectedScannerHead: () => 'a'.repeat(40),
-    OBSERVABILITY_OTEL_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+    expectedScannerHead: () => expectedHead,
+    SERVER_DEPENDENCY_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+    readServerDependencyRemediationPlan, verifyServerDependencyRemediation,
     buildScannerFindingIntake, applyReviewedFindingsWithIdentityTransitions,
-    applyRuntimeDeploymentReviews, verifyPgjdbcRemediation, verifyDependabotCooldownRemediation,
+    // Inject a stale handoff only after the genuine R4 verifier has produced it.
+    // I3 and I4 retain their real receipt validators and refusal behavior.
+    applyRuntimeDeploymentReviews: (...args) => {
+      if (staleR4Receipt) args[4] = seal({ ...args[4], sourceE4CanonicalSha256: '0'.repeat(64) });
+      return applyRuntimeDeploymentReviews(...args);
+    },
+    verifyPgjdbcRemediation, verifyDependabotCooldownRemediation,
     verifyWorkflowSupplyChainRemediation, applyWorkflowSupplyChainReviews, ...files,
     REGEXP_OLD: transition.transitions[0].historicalFindingId, REGEXP_CURRENT: transition.transitions[0].currentFindingId,
     T: read, P: path => fileURLToPath(new URL(`../../${path}`, import.meta.url)),
@@ -376,18 +401,60 @@ test('actual CI callback consumes one full scan, binds three exact-head blobs, a
   assert.equal(r.logs[0], r.fixtureOutput);
   assert.equal(r.commands.filter(([command]) => command === process.execPath).length, 1);
   assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 4);
-  for (const stage of ['E3_I2_TRIAGE', 'E3_DESIGNER_PROTOTYPE_REMEDIATION', 'E3_I3_TRIAGE', 'E3_I4_TRIAGE']) {
+  const preparation = json('m6-pr-e-e3-r4-osv-preparation');
+  assert.deepEqual(r.e4.e2CurrentEvidence, preparation.e2CurrentEvidence);
+  assert.deepEqual(r.e4.scanners.osv, preparation.osv);
+  assert.equal(preparation.allScannersCompleted, false);
+  assert.equal(r.e4.scanners.osv.coverage.inputPackageCount, 535);
+  assert.equal(r.e4.scanners.osv.coverage.reportedPackageCount, 535);
+  assert.equal(r.e4.scanners.osv.findingCount, 70);
+  assert.equal(r.e4.totalFindingCount, 100);
+  const outputs = new Map();
+  for (const stage of ['E3_I2_TRIAGE', 'E3_DESIGNER_PROTOTYPE_REMEDIATION',
+    'E3_R4_SERVER_DEPENDENCY_REMEDIATION', 'E3_I3_TRIAGE', 'E3_I4_TRIAGE']) {
     const output = r.logs.find(text => text.startsWith(`M6_PR_E_${stage}_BEGIN\n`));
     assert.ok(output, stage);
     const evidence = JSON.parse(output.split('\n')[1]);
     assert.equal(evidence.commitSha, r.e4.commitSha);
     assert.equal(seal(evidence).contentSha256, evidence.contentSha256);
+    outputs.set(stage, evidence);
+  }
+  const r4 = outputs.get('E3_R4_SERVER_DEPENDENCY_REMEDIATION');
+  const i3 = outputs.get('E3_I3_TRIAGE'), i4 = outputs.get('E3_I4_TRIAGE');
+  assert.equal(r4.remediatedFindings.length, 2);
+  assert.equal(r4.currentOsvCoverageContentSha256, r.e4.scanners.osv.coverage.contentSha256);
+  assert.deepEqual(i3.serverDependencyRemediation, r4);
+  assert.deepEqual(i4.serverDependencyRemediation, r4);
+  assert.equal(i3.historicallyRemediatedFindingCount, 5);
+  assert.equal(i4.historicallyRemediatedFindingCount, 66);
+  assert.equal(i4.summary.notApplicableCount, 3);
+  assert.equal(i4.summary.unresolvedCount, 97);
+  assert.equal(i4.summary.releaseBlocked, true);
+  assert.deepEqual(i4.decisions.map(f => f.findingId), outputs.get('E3_I2_TRIAGE').decisions.map(f => f.findingId));
+  const pluginJackson = r.e4.scanners.osv.findings.filter(f => f.package.name.startsWith('tools.jackson.core:')
+    && f.package.version === '3.1.5');
+  assert.equal(pluginJackson.length, 7);
+  for (const finding of pluginJackson) {
+    assert.deepEqual(finding.scopes, ['build-plugin']);
+    assert.equal(i4.decisions.find(f => f.findingId === finding.findingId).disposition, 'UNRESOLVED');
   }
 });
 for (const [name, options, expected] of [
   ['stale internally consistent scan Head', { staleHead: true }, /AssertionError/],
   ['wrong Git-tree blob', { wrongHeadBlob: true }, /exact source\/test blob required/],
   ['still-present prototype rule', { includePrototype: true }, /historical prototype finding still present/],
+  ['missing current E2', { mutateEvidence: e => { delete e.e2CurrentEvidence; } }, /current E2\/source mismatch/],
+  ['incomplete 535-target coverage', { mutateEvidence: e => {
+    const coverage = e.scanners.osv.coverage;
+    coverage.targets.splice(coverage.targets.findIndex(target => !target.advisoryIds.length), 1);
+    e.scanners.osv.coverage = seal(coverage);
+  } }, /OSV/],
+  ['removed build-plugin targets', { mutateEvidence: e => {
+    const coverage = e.scanners.osv.coverage;
+    coverage.targets = coverage.targets.filter(target => !target.scopes.includes('build-plugin'));
+    e.scanners.osv.coverage = seal(coverage);
+  } }, /OSV/],
+  ['stale rehashed R4 receipt', { staleR4Receipt: true }, /server dependency remediation receipt mismatch/],
 ]) test(`actual CI callback retains the synthetic scan and rejects ${name}`, () => {
   const r = runSyntheticCiCallback(options);
   assert.match(String(r.error), expected);

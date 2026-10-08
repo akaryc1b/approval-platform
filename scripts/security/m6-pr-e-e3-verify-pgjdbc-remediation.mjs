@@ -6,10 +6,10 @@ const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fro
 const canonical=v=>JSON.stringify(stable(v));
 const sha256=v=>createHash('sha256').update(v).digest('hex');
 
-export function verifyPgjdbcRemediation(e4,plan){
+export function verifyPgjdbcRemediation(e4,plan,{expectedCommitSha}={}){
   if(!e4||!plan)throw new Error('E4 evidence and remediation plan required');
   if(e4.repository!==plan.repository)throw new Error('remediation repository mismatch');
-  const graphTransition=requirePreservedGraph(e4,plan.targetE2GraphDigest);
+  const graphTransition=requirePreservedGraph(e4,plan.targetE2GraphDigest,expectedCommitSha);
   if(e4.scanners?.osv?.scanCompleted!==true)throw new Error('OSV scanner must complete for remediation');
   const findings=e4.scanners.osv.findings||[];
   const currentIds=new Set(findings.map(f=>`${f.sourceClass}:${f.findingId}`));

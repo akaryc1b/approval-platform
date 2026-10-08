@@ -152,3 +152,5 @@ test('source continuation accepts only the exact reviewed new E2 blob, retaining
   assert.throws(() => verifyMavenSourceContinuation('unreviewed.mjs', source, change.fromBlob), /source blob drift/);
   assert.throws(() => verifyMavenSourceContinuation(relative, source, '0'.repeat(40)), /source blob drift/);
 });
+
+import './server-dependency-baseline.test.mjs';

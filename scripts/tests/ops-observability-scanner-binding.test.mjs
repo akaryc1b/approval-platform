@@ -2,20 +2,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
-import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, graphHash, requirePreservedGraph }
+import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 
 // Synthetic scan envelope only. The production verifier checks both pinned manifests.
 function lineageFixture() {
-  const payload = { schemaVersion: 'APPROVAL_OBSERVABILITY_GRAPH_LINEAGE_V2', repository: 'akaryc1b/approval-platform',
-    commitSha: 'a'.repeat(40), sourceE2ContentSha256: 'b'.repeat(64), baseE2GraphDigest: BASE_GRAPH,
-    intermediateE2GraphDigest: OBSERVABILITY_GRAPH, currentE2GraphDigest: OBSERVABILITY_OTEL_GRAPH,
-    foundationManifestSha256: '8aa64be5a9db6a6c7988226e5386592b94b91b034c10c6ccb914c2a171a26993',
-    manifestSha256: '20e7bf496628c36b5afb66d593b57424bb092d80666c41b7097849380a98dc86',
-    versionChangeCount: 16, rewrittenEdgeCount: 17, addedImportedBomCount: 1, findingReviewRequired: true, releaseBlocked: true };
-  return { e4: { repository: payload.repository, commitSha: payload.commitSha,
-    e2CurrentContentSha256: payload.sourceE2ContentSha256, e2GraphDigest: OBSERVABILITY_OTEL_GRAPH,
-    e2GraphTransition: { ...payload, contentSha256: graphHash(payload) } } };
+  const e2 = JSON.parse(readFileSync(new URL('../../docs/operations/server-dependency-evidence-921d5ec5/M6_PR_E_E2_SBOM.json', import.meta.url)));
+  e2.commitSha = 'a'.repeat(40); const { contentSha256, ...payload } = e2; e2.contentSha256 = graphHash(payload);
+  const projection = { maven: e2.maven, pnpm: e2.pnpm,
+    githubActions: e2.githubActions.acceptedDependencyGraph.githubActions,
+    limitations: e2.githubActions.acceptedDependencyGraph.limitations };
+  return { e4: { repository: e2.repository, commitSha: e2.commitSha,
+    e2CurrentContentSha256: e2.contentSha256, e2GraphDigest: SERVER_DEPENDENCY_GRAPH,
+    e2GraphTransition: verifyObservabilityGraph(e2, projection, BASE_GRAPH, e2.commitSha) } };
 }
 
 const scannerBoundary = readFileSync(new URL('./m6-pr-e-e4-scanner-boundary.test.mjs', import.meta.url), 'utf8');
@@ -31,7 +30,7 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   const logs = []; const downstream = new Error('DOWNSTREAM_BOUNDARY_REACHED'); let error; let calls = 0;
   const start = scannerBoundary.indexOf("test('E4 full scanner emits");
   assert.ok(start >= 0);
-  const context = { assert, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+  const context = { assert, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     process: { env: { GITHUB_ACTIONS: 'true' }, execPath: process.execPath }, S: 'scanner.mjs', root: '/fixture',
     console: { log: text => logs.push(text) },
     spawnSync: (command, args) => {
@@ -48,12 +47,13 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   return { error, downstream, calls, logs, stdout };
 }
 
-test('the full-scanner callback binds the current OTel graph instead of its historical predecessor', () => {
+test('the full-scanner callback binds the current server dependency graph instead of historical predecessors', () => {
   const r = assertScannerBinding(); assert.equal(r.error, r.downstream); assert.equal(r.calls, 2);
-  assert.ok(scannerBoundary.includes("import { OBSERVABILITY_OTEL_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
+  assert.ok(scannerBoundary.includes("import { SERVER_DEPENDENCY_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
   assert.deepEqual(r.logs, [r.stdout]);
 });
 for (const [name, alter] of [
+  ['pre-upgrade OTel graph', e => { e.e2GraphDigest = OBSERVABILITY_OTEL_GRAPH; }],
   ['pre-upgrade graph', e => { e.e2GraphDigest = OBSERVABILITY_GRAPH; }],
   ['foundation graph', e => { e.e2GraphDigest = BASE_GRAPH; }],
   ['unknown graph', e => { e.e2GraphDigest = '0'.repeat(64); }],

@@ -97,6 +97,8 @@ test('the real upgrade manifest cannot be edited or supplemented without failing
   mkdirSync(resolve(directory, 'docs/operations'), { recursive: true });
   const module = readFileSync(new URL('../security/observability-dependency-graph.mjs', import.meta.url), 'utf8');
   writeFileSync(resolve(directory, 'scripts/security/observability-dependency-graph.mjs'), module);
+  writeFileSync(resolve(directory, 'scripts/security/server-dependency-graph-transition.mjs'),
+    readFileSync(new URL('../security/server-dependency-graph-transition.mjs', import.meta.url)));
   writeFileSync(resolve(directory, 'run.mjs'), "import {readOtelUpgradeManifest} from './scripts/security/observability-dependency-graph.mjs'; readOtelUpgradeManifest();");
   const path = resolve(directory, 'docs/operations/observability-otel-upgrade.json');
   const raw = readFileSync(new URL('../../docs/operations/observability-otel-upgrade.json', import.meta.url), 'utf8');
@@ -168,8 +170,10 @@ const boundary = readFileSync(new URL('./m6-pr-e-e2-dependency-sbom-boundary.tes
 // Execute the actual CI-only assertion callback with controlled generator output, not Maven.
 function assertGeneratedEvidence(alter = () => {}) {
   const boms = [
-    { group: 'org.flowable', name: 'flowable-bom', scope: 'import', version: '8.0.0' }, addedBom,
-    { group: 'org.springframework.boot', name: 'spring-boot-dependencies', scope: 'import', version: '4.0.2' },
+    { group: 'org.flowable', name: 'flowable-bom', scope: 'import', version: '8.0.0' },
+    { group: 'com.fasterxml.jackson', name: 'jackson-bom', scope: 'import', version: '2.21.7' },
+    { group: 'tools.jackson', name: 'jackson-bom', scope: 'import', version: '3.1.7' }, addedBom,
+    { group: 'org.springframework.boot', name: 'spring-boot-dependencies', scope: 'import', version: '4.0.8' },
     { group: 'org.testcontainers', name: 'testcontainers-bom', scope: 'import', version: '2.0.5' },
   ];
   const evidence = { commitSha: 'a'.repeat(40), contentSha256: 'b'.repeat(64),

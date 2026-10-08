@@ -1,0 +1,2602 @@
+{
+  "addedImportedBomCount": 2,
+  "addedImportedBoms": [
+    {
+      "index": 1,
+      "value": {
+        "group": "com.fasterxml.jackson",
+        "name": "jackson-bom",
+        "scope": "import",
+        "version": "2.21.7"
+      }
+    },
+    {
+      "index": 2,
+      "value": {
+        "group": "tools.jackson",
+        "name": "jackson-bom",
+        "scope": "import",
+        "version": "3.1.7"
+      }
+    }
+  ],
+  "base": {
+    "graphDigest": "390773d2aa746a2203eec870e5dd0a8f97f81e91913bb016c9ef95b749c0e7b3",
+    "sourceHead": "a0717a017e94840141fc6841ff7bfb1226a3da6e",
+    "sourceTree": "0c12c618fdd24d13caf5e37cc74fdb684a30fa0f"
+  },
+  "componentVersionChangeCount": 90,
+  "componentVersionChanges": [
+    {
+      "fromVersion": "1.5.25",
+      "group": "ch.qos.logback",
+      "name": "logback-classic",
+      "toVersion": "1.5.38",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.5.25",
+      "group": "ch.qos.logback",
+      "name": "logback-core",
+      "toVersion": "1.5.38",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.20",
+      "group": "com.fasterxml.jackson.core",
+      "name": "jackson-annotations",
+      "toVersion": "2.21",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.20.2",
+      "group": "com.fasterxml.jackson.core",
+      "name": "jackson-core",
+      "toVersion": "2.21.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.20.2",
+      "group": "com.fasterxml.jackson.core",
+      "name": "jackson-databind",
+      "toVersion": "2.21.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.20.2",
+      "group": "com.fasterxml.jackson.datatype",
+      "name": "jackson-datatype-jsr310",
+      "toVersion": "2.21.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.7.0",
+      "group": "com.github.docker-java",
+      "name": "docker-java-api",
+      "toVersion": "3.7.1",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.7.0",
+      "group": "com.github.docker-java",
+      "name": "docker-java-transport-zerodep",
+      "toVersion": "3.7.1",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.7.0",
+      "group": "com.github.docker-java",
+      "name": "docker-java-transport",
+      "toVersion": "3.7.1",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.3.5",
+      "group": "commons-logging",
+      "name": "commons-logging",
+      "toVersion": "1.3.6",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.2.0",
+      "group": "io.micrometer",
+      "name": "context-propagation",
+      "toVersion": "1.2.1",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.16.2",
+      "group": "io.micrometer",
+      "name": "micrometer-commons",
+      "toVersion": "1.16.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.16.2",
+      "group": "io.micrometer",
+      "name": "micrometer-core",
+      "toVersion": "1.16.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.16.2",
+      "group": "io.micrometer",
+      "name": "micrometer-jakarta9",
+      "toVersion": "1.16.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.16.2",
+      "group": "io.micrometer",
+      "name": "micrometer-observation",
+      "toVersion": "1.16.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.16.2",
+      "group": "io.micrometer",
+      "name": "micrometer-registry-otlp",
+      "toVersion": "1.16.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.16.2",
+      "group": "io.micrometer",
+      "name": "micrometer-registry-prometheus",
+      "toVersion": "1.16.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.6.2",
+      "group": "io.micrometer",
+      "name": "micrometer-tracing-bridge-otel",
+      "toVersion": "1.6.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.6.2",
+      "group": "io.micrometer",
+      "name": "micrometer-tracing",
+      "toVersion": "1.6.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.4",
+      "group": "jakarta.xml.bind",
+      "name": "jakarta.xml.bind-api",
+      "toVersion": "4.0.5",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.25.3",
+      "group": "org.apache.logging.log4j",
+      "name": "log4j-api",
+      "toVersion": "2.25.5",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.25.3",
+      "group": "org.apache.logging.log4j",
+      "name": "log4j-to-slf4j",
+      "toVersion": "2.25.5",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "11.0.15",
+      "group": "org.apache.tomcat.embed",
+      "name": "tomcat-embed-core",
+      "toVersion": "11.0.26",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "11.0.15",
+      "group": "org.apache.tomcat.embed",
+      "name": "tomcat-embed-el",
+      "toVersion": "11.0.26",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "11.0.15",
+      "group": "org.apache.tomcat.embed",
+      "name": "tomcat-embed-websocket",
+      "toVersion": "11.0.26",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.27.6",
+      "group": "org.assertj",
+      "name": "assertj-core",
+      "toVersion": "3.27.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.6.1.Final",
+      "group": "org.jboss.logging",
+      "name": "jboss-logging",
+      "toVersion": "3.6.3.Final",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.0.0",
+      "group": "org.jspecify",
+      "name": "jspecify",
+      "toVersion": "1.0.1",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "6.0.2",
+      "group": "org.junit.jupiter",
+      "name": "junit-jupiter-api",
+      "toVersion": "6.0.3",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "6.0.2",
+      "group": "org.junit.jupiter",
+      "name": "junit-jupiter-engine",
+      "toVersion": "6.0.3",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "6.0.2",
+      "group": "org.junit.jupiter",
+      "name": "junit-jupiter-params",
+      "toVersion": "6.0.3",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "6.0.2",
+      "group": "org.junit.jupiter",
+      "name": "junit-jupiter",
+      "toVersion": "6.0.3",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "6.0.2",
+      "group": "org.junit.platform",
+      "name": "junit-platform-commons",
+      "toVersion": "6.0.3",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "6.0.2",
+      "group": "org.junit.platform",
+      "name": "junit-platform-engine",
+      "toVersion": "6.0.3",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.0.17",
+      "group": "org.slf4j",
+      "name": "jcl-over-slf4j",
+      "toVersion": "2.0.18",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.0.17",
+      "group": "org.slf4j",
+      "name": "jul-to-slf4j",
+      "toVersion": "2.0.18",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.0.17",
+      "group": "org.slf4j",
+      "name": "slf4j-api",
+      "toVersion": "2.0.18",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-actuator-autoconfigure",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-actuator",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-autoconfigure",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-health",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-http-converter",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-jackson",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-jdbc",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-micrometer-metrics",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-micrometer-observation",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-micrometer-tracing-opentelemetry",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-micrometer-tracing",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-opentelemetry",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-persistence",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-servlet",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-sql",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-actuator",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-jackson",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-jdbc",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-logging",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-micrometer-metrics",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-opentelemetry",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-test",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-tomcat-runtime",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-tomcat",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-validation",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter-web",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-starter",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-test-autoconfigure",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-test",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-tomcat",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-transaction",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-validation",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-web-server",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-webmvc",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-aop",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-beans",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-context",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-core",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-expression",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-jdbc",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-orm",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-test",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-tx",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-web",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-webmvc",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.0.3",
+      "group": "org.testcontainers",
+      "name": "testcontainers-database-commons",
+      "toVersion": "2.0.5",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.0.3",
+      "group": "org.testcontainers",
+      "name": "testcontainers-jdbc",
+      "toVersion": "2.0.5",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.0.3",
+      "group": "org.testcontainers",
+      "name": "testcontainers-junit-jupiter",
+      "toVersion": "2.0.5",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.0.3",
+      "group": "org.testcontainers",
+      "name": "testcontainers-postgresql",
+      "toVersion": "2.0.5",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "2.0.3",
+      "group": "org.testcontainers",
+      "name": "testcontainers",
+      "toVersion": "2.0.5",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.0.4",
+      "group": "tools.jackson.core",
+      "name": "jackson-core",
+      "toVersion": "3.1.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.0.4",
+      "group": "tools.jackson.core",
+      "name": "jackson-databind",
+      "toVersion": "3.1.7",
+      "type": "jar"
+    }
+  ],
+  "contentSha256": "5c23f2b6822852af39f7b106857fa0cb8a39365e42ade59e2f31513b0364f29f",
+  "edgeRewrites": [
+    {
+      "after": {
+        "from": "pkg:maven/ch.qos.logback/logback-classic@1.5.38?type=jar",
+        "to": "pkg:maven/ch.qos.logback/logback-core@1.5.38?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/ch.qos.logback/logback-classic@1.5.25?type=jar",
+        "to": "pkg:maven/ch.qos.logback/logback-core@1.5.25?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.21?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.20.2?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.20?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.21.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.20.2?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.20.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/com.github.docker-java/docker-java-transport-zerodep@3.7.1?type=jar",
+        "to": "pkg:maven/com.github.docker-java/docker-java-transport@3.7.1?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/com.github.docker-java/docker-java-transport-zerodep@3.7.0?type=jar",
+        "to": "pkg:maven/com.github.docker-java/docker-java-transport@3.7.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/com.github.docker-java/docker-java-transport-zerodep@3.7.1?type=jar",
+        "to": "pkg:maven/net.java.dev.jna/jna@5.18.1?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/com.github.docker-java/docker-java-transport-zerodep@3.7.0?type=jar",
+        "to": "pkg:maven/net.java.dev.jna/jna@5.18.1?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/com.jayway.jsonpath/json-path@2.10.0?type=jar",
+        "to": "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/com.jayway.jsonpath/json-path@2.10.0?type=jar",
+        "to": "pkg:maven/org.slf4j/slf4j-api@2.0.17?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-ai-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-ai-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-ai-openai@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-ai-openai@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.20.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-ai-openai@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-ai-openai@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-ai-spi@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-ai-spi@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-application@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-application@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-architecture-tests@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-architecture-tests@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-credential-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-credential-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-dingtalk-http@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-dingtalk-http@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-dingtalk-token@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-dingtalk-token@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-dingtalk@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-dingtalk@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.20.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-dingtalk@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-dingtalk@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-generic@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-generic@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.20.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-generic@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-generic@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-invocation-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-invocation-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-operations-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-operations-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-routing-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-routing-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-spi@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-connector-spi@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-definition-compiler@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-definition-compiler@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-domain@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-domain@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-engine-flowable@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-engine-flowable@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-generic-spring-host-example@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-generic-spring-host-example@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-generic-spring-host-example@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-generic-spring-host-example@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-generic-spring-host-example@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-generic-spring-host-example@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-generic-spring-host-example@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-generic-spring-host-example@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-host-sdk@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-host-sdk@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-core@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.20.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework/spring-jdbc@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-junit-jupiter@2.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-junit-jupiter@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-postgresql@2.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-integration-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-postgresql@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.20.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jsr310@2.21.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jsr310@2.20.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework/spring-jdbc@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework/spring-tx@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework/spring-tx@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-junit-jupiter@2.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-junit-jupiter@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-postgresql@2.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-persistence-jdbc@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-postgresql@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-junit-jupiter@2.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-junit-jupiter@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-postgresql@2.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.github.akaryc1b.approval/approval-server@0.1.0-SNAPSHOT?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-postgresql@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-core@1.16.7?type=jar",
+        "to": "pkg:maven/org.hdrhistogram/HdrHistogram@2.2.2?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-core@1.16.2?type=jar",
+        "to": "pkg:maven/org.hdrhistogram/HdrHistogram@2.2.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-core@1.16.7?type=jar",
+        "to": "pkg:maven/org.latencyutils/LatencyUtils@2.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-core@1.16.2?type=jar",
+        "to": "pkg:maven/org.latencyutils/LatencyUtils@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-jakarta9@1.16.7?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-core@1.16.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-jakarta9@1.16.2?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-core@1.16.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-observation@1.16.7?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-commons@1.16.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-observation@1.16.2?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-commons@1.16.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-observation@1.16.7?type=jar",
+        "to": "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-observation@1.16.2?type=jar",
+        "to": "pkg:maven/org.jspecify/jspecify@1.0.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-otlp@1.16.7?type=jar",
+        "to": "pkg:maven/io.opentelemetry.proto/opentelemetry-proto@1.8.0-alpha?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-otlp@1.16.2?type=jar",
+        "to": "pkg:maven/io.opentelemetry.proto/opentelemetry-proto@1.8.0-alpha?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.7?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-core@1.16.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-core@1.16.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.7?type=jar",
+        "to": "pkg:maven/io.prometheus/prometheus-metrics-core@1.4.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+        "to": "pkg:maven/io.prometheus/prometheus-metrics-core@1.4.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.7?type=jar",
+        "to": "pkg:maven/io.prometheus/prometheus-metrics-exposition-formats@1.4.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+        "to": "pkg:maven/io.prometheus/prometheus-metrics-exposition-formats@1.4.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.7?type=jar",
+        "to": "pkg:maven/io.prometheus/prometheus-metrics-tracer-common@1.4.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+        "to": "pkg:maven/io.prometheus/prometheus-metrics-tracer-common@1.4.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.7?type=jar",
+        "to": "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.2?type=jar",
+        "to": "pkg:maven/org.jspecify/jspecify@1.0.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.7?type=jar",
+        "to": "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.37.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+        "to": "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.37.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.7?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-extension-trace-propagators@1.62.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-extension-trace-propagators@1.62.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.7?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.62.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.62.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.7?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.62.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.62.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.7?type=jar",
+        "to": "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar",
+        "to": "pkg:maven/org.slf4j/slf4j-api@2.0.17?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing@1.6.7?type=jar",
+        "to": "pkg:maven/io.micrometer/context-propagation@1.2.1?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/io.micrometer/micrometer-tracing@1.6.2?type=jar",
+        "to": "pkg:maven/io.micrometer/context-propagation@1.2.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/jakarta.xml.bind/jakarta.xml.bind-api@4.0.5?type=jar",
+        "to": "pkg:maven/jakarta.activation/jakarta.activation-api@2.1.4?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/jakarta.xml.bind/jakarta.xml.bind-api@4.0.4?type=jar",
+        "to": "pkg:maven/jakarta.activation/jakarta.activation-api@2.1.4?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.apache.logging.log4j/log4j-to-slf4j@2.25.5?type=jar",
+        "to": "pkg:maven/org.apache.logging.log4j/log4j-api@2.25.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.apache.logging.log4j/log4j-to-slf4j@2.25.3?type=jar",
+        "to": "pkg:maven/org.apache.logging.log4j/log4j-api@2.25.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.assertj/assertj-core@3.27.7?type=jar",
+        "to": "pkg:maven/net.bytebuddy/byte-buddy@1.17.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.assertj/assertj-core@3.27.6?type=jar",
+        "to": "pkg:maven/net.bytebuddy/byte-buddy@1.17.8?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-engine-common@8.0.0?type=jar",
+        "to": "pkg:maven/tools.jackson.core/jackson-databind@3.1.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-engine-common@8.0.0?type=jar",
+        "to": "pkg:maven/tools.jackson.core/jackson-databind@3.0.4?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-engine@8.0.0?type=jar",
+        "to": "pkg:maven/org.slf4j/jcl-over-slf4j@2.0.18?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-engine@8.0.0?type=jar",
+        "to": "pkg:maven/org.slf4j/jcl-over-slf4j@2.0.17?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-engine@8.0.0?type=jar",
+        "to": "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-engine@8.0.0?type=jar",
+        "to": "pkg:maven/org.slf4j/slf4j-api@2.0.17?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-engine@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-beans@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-engine@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-beans@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-form-api@8.0.0?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.21?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-form-api@8.0.0?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.20?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-spring-boot-starter-process@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-jdbc@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-spring-boot-starter-process@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-jdbc@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-spring@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-context@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-spring@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-context@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-spring@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-spring@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-jdbc@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-spring@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-orm@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-spring@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-orm@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.flowable/flowable-spring@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-tx@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.flowable/flowable-spring@8.0.0?type=jar",
+        "to": "pkg:maven/org.springframework/spring-tx@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.hibernate.validator/hibernate-validator@9.0.1.Final?type=jar",
+        "to": "pkg:maven/org.jboss.logging/jboss-logging@3.6.3.Final?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.hibernate.validator/hibernate-validator@9.0.1.Final?type=jar",
+        "to": "pkg:maven/org.jboss.logging/jboss-logging@3.6.1.Final?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.3?type=jar",
+        "to": "pkg:maven/org.apiguardian/apiguardian-api@1.1.2?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.2?type=jar",
+        "to": "pkg:maven/org.apiguardian/apiguardian-api@1.1.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.3?type=jar",
+        "to": "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.2?type=jar",
+        "to": "pkg:maven/org.jspecify/jspecify@1.0.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.3?type=jar",
+        "to": "pkg:maven/org.junit.platform/junit-platform-commons@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.2?type=jar",
+        "to": "pkg:maven/org.junit.platform/junit-platform-commons@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.3?type=jar",
+        "to": "pkg:maven/org.opentest4j/opentest4j@1.3.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.2?type=jar",
+        "to": "pkg:maven/org.opentest4j/opentest4j@1.3.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-engine@6.0.3?type=jar",
+        "to": "pkg:maven/org.junit.platform/junit-platform-engine@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter-engine@6.0.2?type=jar",
+        "to": "pkg:maven/org.junit.platform/junit-platform-engine@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter-engine@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter-engine@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter-params@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter-params@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-actuator@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-actuator@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework/spring-web@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework/spring-web@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-jackson@4.0.8?type=jar",
+        "to": "pkg:maven/tools.jackson.core/jackson-databind@3.1.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-jackson@4.0.2?type=jar",
+        "to": "pkg:maven/tools.jackson.core/jackson-databind@3.0.4?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-sql@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-sql@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-transaction@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-transaction@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-tracing@1.6.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-tracing@1.6.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-api@1.62.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-api@1.62.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk@1.62.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-sdk@1.62.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.8?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-jakarta9@1.16.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.2?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-jakarta9@1.16.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.8?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-observation@1.16.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.2?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-observation@1.16.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-health@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-health@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-jackson@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-jackson@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-jackson@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-jackson@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-jdbc@4.0.8?type=jar",
+        "to": "pkg:maven/com.zaxxer/HikariCP@7.0.2?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-jdbc@4.0.2?type=jar",
+        "to": "pkg:maven/com.zaxxer/HikariCP@7.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-jdbc@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-jdbc@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-jdbc@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-jdbc@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-logging@4.0.8?type=jar",
+        "to": "pkg:maven/ch.qos.logback/logback-classic@1.5.38?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-logging@4.0.2?type=jar",
+        "to": "pkg:maven/ch.qos.logback/logback-classic@1.5.25?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-logging@4.0.8?type=jar",
+        "to": "pkg:maven/org.apache.logging.log4j/log4j-to-slf4j@2.25.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-logging@4.0.2?type=jar",
+        "to": "pkg:maven/org.apache.logging.log4j/log4j-to-slf4j@2.25.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-logging@4.0.8?type=jar",
+        "to": "pkg:maven/org.slf4j/jul-to-slf4j@2.0.18?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-logging@4.0.2?type=jar",
+        "to": "pkg:maven/org.slf4j/jul-to-slf4j@2.0.17?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-registry-otlp@1.16.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-registry-otlp@1.16.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.62.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.62.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/com.jayway.jsonpath/json-path@2.10.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/com.jayway.jsonpath/json-path@2.10.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/jakarta.xml.bind/jakarta.xml.bind-api@4.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/jakarta.xml.bind/jakarta.xml.bind-api@4.0.4?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/net.minidev/json-smart@2.6.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/net.minidev/json-smart@2.6.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.assertj/assertj-core@3.27.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.assertj/assertj-core@3.27.6?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.awaitility/awaitility@4.3.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.awaitility/awaitility@4.3.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.hamcrest/hamcrest@3.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.hamcrest/hamcrest@3.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.mockito/mockito-core@5.20.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.mockito/mockito-core@5.20.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.mockito/mockito-junit-jupiter@5.20.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.mockito/mockito-junit-jupiter@5.20.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.skyscreamer/jsonassert@1.5.3?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.skyscreamer/jsonassert@1.5.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-test-autoconfigure@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-test-autoconfigure@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-test@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-test@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework/spring-core@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework/spring-core@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework/spring-test@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework/spring-test@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar",
+        "to": "pkg:maven/org.xmlunit/xmlunit-core@2.10.4?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.2?type=jar",
+        "to": "pkg:maven/org.xmlunit/xmlunit-core@2.10.4?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.8?type=jar",
+        "to": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.26?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.2?type=jar",
+        "to": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.15?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.8?type=jar",
+        "to": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-websocket@11.0.26?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.2?type=jar",
+        "to": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-websocket@11.0.15?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-web-server@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-web-server@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-tomcat@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-tomcat@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-validation@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-validation@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-jackson@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-jackson@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-webmvc@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-webmvc@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.8?type=jar",
+        "to": "pkg:maven/jakarta.annotation/jakarta.annotation-api@3.0.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.2?type=jar",
+        "to": "pkg:maven/jakarta.annotation/jakarta.annotation-api@3.0.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-autoconfigure@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-autoconfigure@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-logging@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-starter-logging@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.8?type=jar",
+        "to": "pkg:maven/org.yaml/snakeyaml@2.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.2?type=jar",
+        "to": "pkg:maven/org.yaml/snakeyaml@2.5?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-transaction@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-persistence@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-transaction@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-persistence@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-validation@4.0.8?type=jar",
+        "to": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-el@11.0.26?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-validation@4.0.2?type=jar",
+        "to": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-el@11.0.15?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-validation@4.0.8?type=jar",
+        "to": "pkg:maven/org.hibernate.validator/hibernate-validator@9.0.1.Final?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-validation@4.0.2?type=jar",
+        "to": "pkg:maven/org.hibernate.validator/hibernate-validator@9.0.1.Final?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-webmvc@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-servlet@4.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-webmvc@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework.boot/spring-boot-servlet@4.0.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-webmvc@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework/spring-webmvc@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot-webmvc@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework/spring-webmvc@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot@4.0.8?type=jar",
+        "to": "pkg:maven/org.springframework/spring-context@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework.boot/spring-boot@4.0.2?type=jar",
+        "to": "pkg:maven/org.springframework/spring-context@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-beans@7.0.9?type=jar",
+        "to": "pkg:maven/org.springframework/spring-core@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-beans@7.0.3?type=jar",
+        "to": "pkg:maven/org.springframework/spring-core@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-context@7.0.9?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-observation@1.16.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-context@7.0.3?type=jar",
+        "to": "pkg:maven/io.micrometer/micrometer-observation@1.16.2?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-context@7.0.9?type=jar",
+        "to": "pkg:maven/org.springframework/spring-aop@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-context@7.0.3?type=jar",
+        "to": "pkg:maven/org.springframework/spring-aop@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-context@7.0.9?type=jar",
+        "to": "pkg:maven/org.springframework/spring-expression@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-context@7.0.3?type=jar",
+        "to": "pkg:maven/org.springframework/spring-expression@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-core@7.0.9?type=jar",
+        "to": "pkg:maven/commons-logging/commons-logging@1.3.6?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-core@7.0.3?type=jar",
+        "to": "pkg:maven/commons-logging/commons-logging@1.3.5?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-core@7.0.9?type=jar",
+        "to": "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-core@7.0.3?type=jar",
+        "to": "pkg:maven/org.jspecify/jspecify@1.0.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
+        "to": "pkg:maven/org.springframework/spring-beans@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-jdbc@7.0.3?type=jar",
+        "to": "pkg:maven/org.springframework/spring-beans@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
+        "to": "pkg:maven/org.springframework/spring-core@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-jdbc@7.0.3?type=jar",
+        "to": "pkg:maven/org.springframework/spring-core@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
+        "to": "pkg:maven/org.springframework/spring-tx@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-jdbc@7.0.3?type=jar",
+        "to": "pkg:maven/org.springframework/spring-tx@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-web@7.0.9?type=jar",
+        "to": "pkg:maven/org.springframework/spring-beans@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-web@7.0.3?type=jar",
+        "to": "pkg:maven/org.springframework/spring-beans@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-webmvc@7.0.9?type=jar",
+        "to": "pkg:maven/org.springframework/spring-aop@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-webmvc@7.0.3?type=jar",
+        "to": "pkg:maven/org.springframework/spring-aop@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.springframework/spring-webmvc@7.0.9?type=jar",
+        "to": "pkg:maven/org.springframework/spring-expression@7.0.9?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.springframework/spring-webmvc@7.0.3?type=jar",
+        "to": "pkg:maven/org.springframework/spring-expression@7.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.testcontainers/testcontainers-jdbc@2.0.5?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-database-commons@2.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.testcontainers/testcontainers-jdbc@2.0.3?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-database-commons@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.testcontainers/testcontainers-junit-jupiter@2.0.5?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers@2.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.testcontainers/testcontainers-junit-jupiter@2.0.3?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.testcontainers/testcontainers-postgresql@2.0.5?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-jdbc@2.0.5?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.testcontainers/testcontainers-postgresql@2.0.3?type=jar",
+        "to": "pkg:maven/org.testcontainers/testcontainers-jdbc@2.0.3?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.5?type=jar",
+        "to": "pkg:maven/com.github.docker-java/docker-java-api@3.7.1?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.3?type=jar",
+        "to": "pkg:maven/com.github.docker-java/docker-java-api@3.7.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.5?type=jar",
+        "to": "pkg:maven/com.github.docker-java/docker-java-transport-zerodep@3.7.1?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.3?type=jar",
+        "to": "pkg:maven/com.github.docker-java/docker-java-transport-zerodep@3.7.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.5?type=jar",
+        "to": "pkg:maven/org.apache.commons/commons-compress@1.28.0?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.3?type=jar",
+        "to": "pkg:maven/org.apache.commons/commons-compress@1.28.0?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.5?type=jar",
+        "to": "pkg:maven/org.rnorth.duct-tape/duct-tape@1.0.8?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.3?type=jar",
+        "to": "pkg:maven/org.rnorth.duct-tape/duct-tape@1.0.8?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.5?type=jar",
+        "to": "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/org.testcontainers/testcontainers@2.0.3?type=jar",
+        "to": "pkg:maven/org.slf4j/slf4j-api@2.0.17?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/tools.jackson.core/jackson-databind@3.1.7?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.21?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/tools.jackson.core/jackson-databind@3.0.4?type=jar",
+        "to": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.20?type=jar"
+      }
+    },
+    {
+      "after": {
+        "from": "pkg:maven/tools.jackson.core/jackson-databind@3.1.7?type=jar",
+        "to": "pkg:maven/tools.jackson.core/jackson-core@3.1.7?type=jar"
+      },
+      "before": {
+        "from": "pkg:maven/tools.jackson.core/jackson-databind@3.0.4?type=jar",
+        "to": "pkg:maven/tools.jackson.core/jackson-core@3.0.4?type=jar"
+      }
+    }
+  ],
+  "findingDisposition": "UNRESOLVED_UNTIL_EXPLICIT_FINDING_REVIEW",
+  "findingReviewRequired": true,
+  "importedBomVersionChangeCount": 1,
+  "importedBomVersionChanges": [
+    {
+      "currentIndex": 4,
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-dependencies",
+      "priorIndex": 2,
+      "scope": "import",
+      "toVersion": "4.0.8"
+    }
+  ],
+  "inventory": {
+    "componentCount": 237,
+    "edgeCount": 345,
+    "importedBomCount": 6,
+    "priorImportedBomCount": 4,
+    "reactorRootCount": 26,
+    "resolvedPluginCoordinateCount": 329,
+    "unknownLicenseComponentCount": 78
+  },
+  "licenseChangeCount": 0,
+  "observed": {
+    "e2ContentSha256": "4c423ae6f24cbdd6a83c07f2176e254dfbee413a1e49ca9f28c3524a050b43b7",
+    "graphDigest": "6557cef5d2ef11c36a8efb89cf7c1c607c721e32cdbabf0228441bb585b3c829",
+    "sourceHead": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+    "sourceTree": "79c138d18075b54e800829eb903cb58a0b39b040"
+  },
+  "pluginCoordinateVersionChangeCount": 13,
+  "pluginCoordinateVersionChanges": [
+    {
+      "fromVersion": "2.20",
+      "group": "com.fasterxml.jackson.core",
+      "name": "jackson-annotations",
+      "toVersion": "2.21",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.16.2",
+      "group": "io.micrometer",
+      "name": "micrometer-commons",
+      "toVersion": "1.16.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "1.16.2",
+      "group": "io.micrometer",
+      "name": "micrometer-observation",
+      "toVersion": "1.16.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-buildpack-platform",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-loader-tools",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "4.0.2",
+      "group": "org.springframework.boot",
+      "name": "spring-boot-maven-plugin",
+      "toVersion": "4.0.8",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-aop",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-beans",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-context",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-core",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "7.0.3",
+      "group": "org.springframework",
+      "name": "spring-expression",
+      "toVersion": "7.0.9",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.0.4",
+      "group": "tools.jackson.core",
+      "name": "jackson-core",
+      "toVersion": "3.1.5",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.0.4",
+      "group": "tools.jackson.core",
+      "name": "jackson-databind",
+      "toVersion": "3.1.5",
+      "type": "jar"
+    }
+  ],
+  "pluginResolutionHashChange": {
+    "from": "4accac2e7bdf0765b2fea4a4b43b437e0f4a536ffa3047183107dc77c1dd14f1",
+    "to": "e9a095fee4fdbf3293833511950288c1932fbafc492799ffd3fa7468bd02b072"
+  },
+  "releaseBlocked": true,
+  "repository": "akaryc1b/approval-platform",
+  "rewrittenEdgeCount": 180,
+  "schemaVersion": "APPROVAL_SERVER_DEPENDENCY_GRAPH_TRANSITION_V1",
+  "scopeChangeCount": 0,
+  "sourceWitness": {
+    "contentSha256": "2d7fb41f863f0746ebeb7d300a48d45cf66d565f2b1477e3d01d0420b3e8b470",
+    "path": "docs/operations/server-dependency-source-witness.json",
+    "rawSha256": "0975f7932690123120fd9dd11606b0a5d4a971d083b62d25985a0694b136e18c"
+  }
+}

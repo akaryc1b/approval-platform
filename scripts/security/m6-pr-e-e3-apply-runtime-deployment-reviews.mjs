@@ -2,6 +2,8 @@
 import { createHash } from 'node:crypto';
 import { requireGitleaksTestExpressionTriage } from './m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
+import { requireServerDependencyRemediation, requireServerDependencyHistoricalReview }
+  from './m6-pr-e-e3-verify-server-dependency-remediation.mjs';
 
 const ALLOWED = new Set(['APPLICABLE','NOT_APPLICABLE','UNREACHABLE','MITIGATED','ACCEPTED_WITH_EXPIRY','UNRESOLVED','EVIDENCE_UNAVAILABLE']);
 const REACHABILITY = Object.freeze(['packaged','loaded','invoked','externallyReachable']);
@@ -22,13 +24,17 @@ function osvById(e4){
   for(const f of e4?.scanners?.osv?.findings||[])m.set(`${f.sourceClass}:${f.findingId}`,f);
   return m;
 }
-function remediationById(remediation){
+function remediationById(...remediations){
   const m=new Map();
-  for(const f of remediation?.remediatedFindings||[])m.set(`${f.sourceClass}:${f.findingId}`,f);
+  for(const remediation of remediations)for(const f of remediation?.remediatedFindings||[]){
+    const key=`${f.sourceClass}:${f.findingId}`;
+    if(m.has(key))throw new Error(`duplicate runtime remediation identity ${key}`);
+    m.set(key,f);
+  }
   return m;
 }
 
-export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null){
+export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null,serverRemediation=null){
   if(!triage||!e4||!review)throw new Error('triage e4 and review required');
   if(triage.repository!==e4.repository||review.repository!==triage.repository)throw new Error('repository mismatch');
   if(triage.commitSha!==e4.commitSha)throw new Error('triage/E4 Head mismatch');
@@ -38,6 +44,9 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null)
     && remediation.currentE2GraphDigest===e4.e2GraphDigest;
   if(e4.e2GraphDigest!==review.reviewBasisE2GraphDigest&&!graphTransition)throw new Error('E2 graph drift blocks E3-I3 review');
   if(!/^[0-9a-f]{40}$/.test(review.reviewBasisHead||''))throw new Error('review basis Head required');
+  const serverDependencyRemediation=serverRemediation
+    ? requireServerDependencyRemediation(e4,serverRemediation,{expectedCommitSha:triage.commitSha}):null;
+  if(serverDependencyRemediation)requireServerDependencyHistoricalReview(review);
 
   const gitleaksReview=triage.gitleaksTestExpressionReview
     ? requireGitleaksTestExpressionTriage(e4,triage):null;
@@ -48,7 +57,7 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null)
     ||triage.remediatedHistoricalFindingCount!==1||triage.historicallyRemediatedFindingCount!==1))throw new Error('I2 prototype remediation history drift');
 
   const current=new Map(triage.decisions.map(f=>[`${f.sourceClass}:${f.findingId}`,f]));
-  const osv=osvById(e4), remediatedById=remediationById(remediation), seen=new Set(), delta=new Map(), remediatedHistoricalFindings=[];
+  const osv=osvById(e4), remediatedById=remediationById(remediation,serverDependencyRemediation), seen=new Set(), delta=new Map(), remediatedHistoricalFindings=[];
   for(const r of review.reviewedFindings||[]){
     const key=`${r.sourceClass}:${r.findingId}`;
     if(seen.has(key))throw new Error(`duplicate reviewed finding ${key}`);seen.add(key);
@@ -106,12 +115,13 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null)
   const dispositionCounts={};for(const f of decisions)dispositionCounts[f.disposition]=(dispositionCounts[f.disposition]||0)+1;
   const cumulativeReviewedFindingCount=decisions.filter(f=>f.reviewEvidence).length+remediatedHistoricalFindings.length+inheritedRemediatedFindings.length;
   const payload=stable({
-    schemaVersion:gitleaksReview?'M6_PR_E_E3_I3_TRIAGE_V4':prototypeRemediation?'M6_PR_E_E3_I3_TRIAGE_V3':remediation?'M6_PR_E_E3_I3_TRIAGE_V2':'M6_PR_E_E3_I3_TRIAGE_V1',
+    schemaVersion:serverDependencyRemediation?'M6_PR_E_E3_I3_TRIAGE_V5':gitleaksReview?'M6_PR_E_E3_I3_TRIAGE_V4':prototypeRemediation?'M6_PR_E_E3_I3_TRIAGE_V3':remediation?'M6_PR_E_E3_I3_TRIAGE_V2':'M6_PR_E_E3_I3_TRIAGE_V1',
     repository:triage.repository,
     commitSha:triage.commitSha,
     sourceI2CanonicalSha256:triage.contentSha256,
     sourceE4CanonicalSha256:e4.contentSha256,
     sourceRemediationCanonicalSha256:remediation?.contentSha256??null,
+    ...(serverDependencyRemediation?{serverDependencyRemediation,sourceServerDependencyRemediationCanonicalSha256:serverDependencyRemediation.contentSha256}:{}),
     reviewBasisHead:review.reviewBasisHead,
     reviewBasisE2GraphDigest:review.reviewBasisE2GraphDigest,
     currentE2GraphDigest:e4.e2GraphDigest,

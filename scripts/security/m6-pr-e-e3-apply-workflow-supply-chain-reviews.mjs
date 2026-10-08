@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { requireGitleaksTestExpressionTriage } from './m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
+import { requireServerDependencyRemediation } from './m6-pr-e-e3-verify-server-dependency-remediation.mjs';
 
 const SHA40=/^[0-9a-f]{40}$/;
 const SHA64=/^[0-9a-f]{64}$/;
@@ -53,6 +54,9 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
   if(!triage||!e4||!review)throw new Error('triage e4 and review required');
   if(triage.repository!==e4.repository||review.repository!==triage.repository)throw new Error('repository mismatch');
   if(triage.commitSha!==e4.commitSha)throw new Error('triage/E4 Head mismatch');
+  const serverDependencyRemediation=triage.serverDependencyRemediation
+    ? requireServerDependencyRemediation(e4,triage.serverDependencyRemediation,{expectedCommitSha:triage.commitSha}):null;
+  if(serverDependencyRemediation&&triage.sourceServerDependencyRemediationCanonicalSha256!==serverDependencyRemediation.contentSha256)throw new Error('I3 server dependency remediation binding mismatch');
   if(!SHA40.test(review.reviewBasisHead||''))throw new Error('review basis Head required');
   if(!SHA64.test(review.reviewBasisE4CanonicalSha256||'')||!SHA64.test(review.reviewBasisI3CanonicalSha256||''))throw new Error('review basis canonical digests required');
   if(!SHA64.test(review.findingSetSha256||''))throw new Error('review finding-set digest required');
@@ -114,7 +118,8 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
   const cumulativeReviewedFindingCount=(triage.cumulativeReviewedFindingCount||0)+delta.size+remediatedHistoricalFindings.length;
   const historicallyRemediatedFindingCount=(prototypeRemediation?inheritedRemediatedFindings.length:(triage.remediatedHistoricalFindingCount||0))+remediatedHistoricalFindings.length;
   const payload=stable({
-    schemaVersion:gitleaksReview?'M6_PR_E_E3_I4_TRIAGE_V5':prototypeRemediation?'M6_PR_E_E3_I4_TRIAGE_V4':workflowRemediation?'M6_PR_E_E3_I4_TRIAGE_V3':remediation?'M6_PR_E_E3_I4_TRIAGE_V2':'M6_PR_E_E3_I4_TRIAGE_V1',repository:triage.repository,commitSha:triage.commitSha,sourceI3CanonicalSha256:triage.contentSha256,sourceE4CanonicalSha256:e4.contentSha256,sourceRemediationCanonicalSha256:remediation?.contentSha256??null,...(workflowRemediation?{sourceWorkflowRemediationCanonicalSha256:workflowRemediation.contentSha256}:{}),
+    schemaVersion:serverDependencyRemediation?'M6_PR_E_E3_I4_TRIAGE_V6':gitleaksReview?'M6_PR_E_E3_I4_TRIAGE_V5':prototypeRemediation?'M6_PR_E_E3_I4_TRIAGE_V4':workflowRemediation?'M6_PR_E_E3_I4_TRIAGE_V3':remediation?'M6_PR_E_E3_I4_TRIAGE_V2':'M6_PR_E_E3_I4_TRIAGE_V1',repository:triage.repository,commitSha:triage.commitSha,sourceI3CanonicalSha256:triage.contentSha256,sourceE4CanonicalSha256:e4.contentSha256,sourceRemediationCanonicalSha256:remediation?.contentSha256??null,...(workflowRemediation?{sourceWorkflowRemediationCanonicalSha256:workflowRemediation.contentSha256}:{}),
+    ...(serverDependencyRemediation?{serverDependencyRemediation,sourceServerDependencyRemediationCanonicalSha256:serverDependencyRemediation.contentSha256}:{}),
     reviewBasisHead:review.reviewBasisHead,reviewBasisE4CanonicalSha256:review.reviewBasisE4CanonicalSha256,reviewBasisI3CanonicalSha256:review.reviewBasisI3CanonicalSha256,historicalReviewedFindingCount:planned.length,reviewedFindingCount:delta.size,remediatedHistoricalFindingCount:remediatedHistoricalFindings.length,remediatedHistoricalFindings,cumulativeReviewedFindingCount,historicallyRemediatedFindingCount,decisions,
     ...(gitleaksReview?{gitleaksTestExpressionReview:gitleaksReview,appendOnlyReviewedFindingCount:1}:{}),
     ...(prototypeRemediation?{designerPrototypeRemediation:prototypeRemediation,historicallyRemediatedFindings:[...inheritedRemediatedFindings,...remediatedHistoricalFindings]}:{}),

@@ -9,6 +9,7 @@ import { acceptedE2GraphProjection, generateEvidence as generateE2Evidence } fro
 
 import { verifyObservabilityGraph } from './observability-dependency-graph.mjs';
 import { normalizeSemgrepReport } from './semgrep-scan-coverage.mjs';
+import { osvInputFromE2, buildOsvCoverage } from './osv-scan-coverage.mjs';
 import { requireOsvReport, requireGitleaksReport, requireZizmorReport } from './scanner-report-structure.mjs';
 
 const SHA40=/^[0-9a-f]{40}$/;
@@ -53,20 +54,13 @@ export function requireScannerCheckoutUnchanged(root,head,before,options){
   if(C(after)!==C(before))throw new Error('scanner checkout changed during scanning');
   return after;
 }
+export function requireOsvConfigAbsent(directories){
+  for(const directory of directories)for(const file of ['osv-scanner.toml','.osv-scanner.toml'])if(existsSync(path.join(directory,file)))throw new Error(`unreviewed OSV suppression/config present: ${file}`);
+}
 function safeEnv(extra={}){const e={...process.env,...extra};for(const k of ['GH_TOKEN','GITHUB_TOKEN','ZIZMOR_GITHUB_TOKEN','SEMGREP_APP_TOKEN'])delete e[k];return e;}
 function collectFiles(dir,predicate,out=[]){if(!existsSync(dir))return out;for(const n of readdirSync(dir).sort()){const f=path.join(dir,n),s=statSync(f);if(s.isDirectory())collectFiles(f,predicate,out);else if(predicate(f))out.push(f);}return out;}
 function findingId(parts){return H(parts.join('\0'));}
 export function e2GraphDigest(e2){return H(C(acceptedE2GraphProjection(e2)));}
-function pluginPackage(coord){const p=coord.split(':');if(p.length<4)return null;return{name:`${p[0]}:${p[1]}`,version:p.at(-1),ecosystem:'Maven',sourceClass:'BUILD_PLUGIN'};}
-function osvInputFromE2(e2){
-  const map=new Map();const add=(name,version,ecosystem,componentRef,scope)=>{if(!name||!version)return;const k=`${ecosystem}\0${name}\0${version}`;if(!map.has(k))map.set(k,{package:{name,version,ecosystem},componentRefs:[],scopes:[]});const x=map.get(k);if(componentRef&&!x.componentRefs.includes(componentRef))x.componentRefs.push(componentRef);if(scope&&!x.scopes.includes(scope))x.scopes.push(scope);};
-  for(const c of e2.maven.components||[])if(c.group!=='io.github.akaryc1b.approval')add(`${c.group}:${c.name}`,c.version,'Maven',c.bomRef,c.scope||'dependency');
-  for(const b of e2.maven.importedBoms||[])add(`${b.group}:${b.name}`,b.version,'Maven',`pkg:maven/${b.group}/${b.name}@${b.version}?type=pom`,'import');
-  for(const q of e2.maven.resolvedPluginCoordinates||[]){const p=pluginPackage(q);if(p)add(p.name,p.version,p.ecosystem,`maven-plugin:${q}`,'build-plugin');}
-  for(const p of e2.pnpm.external||[])add(p.name,p.version,'npm',`pkg:npm/${encodeURIComponent(p.name)}@${p.version}`,p.scope||'unknown');
-  const packages=[...map.values()].sort((a,b)=>`${a.package.ecosystem}:${a.package.name}:${a.package.version}`.localeCompare(`${b.package.ecosystem}:${b.package.name}:${b.package.version}`));
-  return {scannerInput:{results:[{packages:packages.map(x=>({package:x.package}))}]},lookup:map,packageCount:packages.length};
-}
 function normalizeOsv(raw,lookup){
   const out=[];
   for(const result of raw.results||[])for(const entry of result.packages||[]){const p=entry.package||{};const key=`${p.ecosystem}\0${p.name}\0${p.version}`,m=lookup.get(key)||{componentRefs:[],scopes:[]};for(const v of entry.vulnerabilities||[]){const aliases=[...new Set(v.aliases||[])].sort();const severity=(v.severity||[]).map(x=>({type:String(x.type||''),score:String(x.score||'')}));const fixed=[...new Set((v.affected||[]).flatMap(a=>(a.ranges||[]).flatMap(r=>(r.events||[]).map(e=>e.fixed).filter(Boolean))))].sort();out.push({findingId:findingId(['OSV',v.id||'',p.ecosystem||'',p.name||'',p.version||'']),sourceClass:'E4_OSV_SCANNER',upstreamFindingId:String(v.id||''),aliases,package:{ecosystem:p.ecosystem,name:p.name,version:p.version},componentRefs:[...m.componentRefs].sort(),scopes:[...m.scopes].sort(),upstreamSeverity:severity,fixedVersions:fixed});}}
@@ -84,10 +78,12 @@ export function scan(root=rootFromHere){
   const baseline=J(path.join(root,'docs/m6/m6-pr-e-e4-scanner-baseline.json')),head=exactHead(),tmp=mkdtempSync(path.join(os.tmpdir(),'m6-pr-e-e4-'));
   try{
     const checkout=verifyScannerCheckout(root,head);
-    const e2=generateE2Evidence(root,{fullMaven:true});if(e2.commitSha!==head)throw new Error(`E2 head mismatch ${e2.commitSha} != ${head}`);const graphDigest=e2GraphDigest(e2);const graphTransition=verifyObservabilityGraph(e2,acceptedE2GraphProjection(e2),baseline.inheritedE2GraphDigest);
+    const e2=generateE2Evidence(root,{fullMaven:true});if(e2.commitSha!==head)throw new Error(`E2 head mismatch ${e2.commitSha} != ${head}`);const graphDigest=e2GraphDigest(e2);const graphTransition=verifyObservabilityGraph(e2,acceptedE2GraphProjection(e2),baseline.inheritedE2GraphDigest,head);
     const env=safeEnv(),bin=path.join(tmp,'bin');mkdirSync(bin,{recursive:true});
 
-    const goTar=path.join(tmp,'go.tgz'),goRoot=path.join(tmp,'go-root');mkdirSync(goRoot);run('curl',['--fail','--location','--silent','--show-error',baseline.scanners.osv.installation.goLinuxAmd64Url,'-o',goTar],{env});verifySha(goTar,baseline.scanners.osv.installation.goLinuxAmd64Sha256);run('tar',['-xzf',goTar,'-C',goRoot],{env});const go=path.join(goRoot,'go/bin/go'),goEnv={...env,GOTOOLCHAIN:'local',GOPATH:path.join(tmp,'gopath'),GOBIN:bin,GOPROXY:'https://proxy.golang.org,direct',GOSUMDB:'sum.golang.org'};run(go,['version'],{env:goEnv});run(go,['install',baseline.scanners.osv.installation.module],{env:goEnv,timeout:1200000});const osv=path.join(bin,'osv-scanner'),osvVersion=run(osv,['--version'],{env}).stdout.trim()||run(osv,['version'],{env}).stdout.trim();if(!osvVersion.includes(baseline.scanners.osv.version))throw new Error(`OSV version mismatch ${osvVersion}`);const osvBinarySha256=H(readFileSync(osv));const oi=osvInputFromE2(e2),osvInput=path.join(tmp,'osv-scanner.json'),osvRaw=path.join(tmp,'osv.json');writeFileSync(osvInput,JSON.stringify(oi.scannerInput));let rr=run(osv,['scan','--format','json','--lockfile',`osv-scanner:${osvInput}`],{cwd:root,env,allow:[1]});writeFileSync(osvRaw,rr.stdout);const osvJson=requireOsvReport(J(osvRaw)),osvFindings=normalizeOsv(osvJson,oi.lookup);
+    requireOsvConfigAbsent([root,tmp]);
+
+    const goTar=path.join(tmp,'go.tgz'),goRoot=path.join(tmp,'go-root');mkdirSync(goRoot);run('curl',['--fail','--location','--silent','--show-error',baseline.scanners.osv.installation.goLinuxAmd64Url,'-o',goTar],{env});verifySha(goTar,baseline.scanners.osv.installation.goLinuxAmd64Sha256);run('tar',['-xzf',goTar,'-C',goRoot],{env});const go=path.join(goRoot,'go/bin/go'),goEnv={...env,GOTOOLCHAIN:'local',GOPATH:path.join(tmp,'gopath'),GOBIN:bin,GOPROXY:'https://proxy.golang.org,direct',GOSUMDB:'sum.golang.org'};run(go,['version'],{env:goEnv});run(go,['install',baseline.scanners.osv.installation.module],{env:goEnv,timeout:1200000});const osv=path.join(bin,'osv-scanner'),osvVersion=run(osv,['--version'],{env}).stdout.trim()||run(osv,['version'],{env}).stdout.trim();if(!osvVersion.includes(baseline.scanners.osv.version))throw new Error(`OSV version mismatch ${osvVersion}`);const osvBinarySha256=H(readFileSync(osv));const oi=osvInputFromE2(e2),osvInput=path.join(tmp,'osv-scanner.json'),osvRaw=path.join(tmp,'osv.json');writeFileSync(osvInput,JSON.stringify(oi.scannerInput));let rr=run(osv,['scan','--all-packages','--format','json','--lockfile',`osv-scanner:${osvInput}`],{cwd:root,env,allow:[1]});writeFileSync(osvRaw,rr.stdout);const osvJson=requireOsvReport(J(osvRaw)),osvFindings=normalizeOsv(osvJson,oi.lookup),osvCoverage=buildOsvCoverage(osvJson,e2,{head,graphDigest,inputBytes:readFileSync(osvInput),inputPath:osvInput,stderr:rr.stderr,exitStatus:rr.status,findings:osvFindings});
 
     for(const f of ['.gitleaksignore','.gitleaks.toml'])if(existsSync(path.join(root,f)))throw new Error(`unreviewed Gitleaks suppression/config present: ${f}`);
     const glTar=path.join(tmp,'gitleaks.tgz');run('curl',['--fail','--location','--silent','--show-error',baseline.scanners.gitleaks.installation.url,'-o',glTar],{env});verifySha(glTar,baseline.scanners.gitleaks.installation.sha256);run('tar',['-xzf',glTar,'-C',bin],{env});const gitleaks=path.join(bin,'gitleaks'),glVersion=run(gitleaks,['version'],{env}).stdout.trim();if(!glVersion.includes(baseline.scanners.gitleaks.version))throw new Error(`Gitleaks version mismatch ${glVersion}`);const glRaw=path.join(tmp,'gitleaks.json');rr=run(gitleaks,['git','--redact=100','--no-banner','--log-opts=--all','--report-format','json','--report-path',glRaw,'.'],{cwd:root,env,allow:[1],timeout:900000});if(!existsSync(glRaw))throw new Error('Gitleaks report artifact missing');const glFindings=normalizeGitleaks(requireGitleaksReport(J(glRaw)));
@@ -99,12 +95,12 @@ export function scan(root=rootFromHere){
 
     requireScannerCheckoutUnchanged(root,head,checkout);
     const scanners={
-      osv:{scanCompleted:true,version:baseline.scanners.osv.version,sourceCommit:baseline.scanners.osv.sourceCommit,binarySha256:osvBinarySha256,inputPackageCount:oi.packageCount,findingCount:osvFindings.length,findings:osvFindings,rawReportRetained:false},
+      osv:{scanCompleted:true,version:baseline.scanners.osv.version,sourceCommit:baseline.scanners.osv.sourceCommit,binarySha256:osvBinarySha256,inputPackageCount:oi.packageCount,coverage:osvCoverage,findingCount:osvFindings.length,findings:osvFindings,rawReportRetained:false},
       gitleaks:{scanCompleted:true,version:baseline.scanners.gitleaks.version,sourceCommit:baseline.scanners.gitleaks.sourceCommit,assetSha256:baseline.scanners.gitleaks.installation.sha256,mode:'FULL_GIT_HISTORY',redactionPercent:100,findingCount:glFindings.length,findings:glFindings,rawReportRetained:false,candidateSecretMaterialRetained:false},
       zizmor:{scanCompleted:true,version:baseline.scanners.zizmor.version,sourceCommit:baseline.scanners.zizmor.sourceCommit,wheelSha256:baseline.scanners.zizmor.installation.sha256,offline:true,collection:baseline.scanners.zizmor.collection,findingCount:zzFindings.length,findings:zzFindings,rawReportRetained:false},
       semgrep:{scanCompleted:true,version:baseline.scanners.semgrep.version,sourceCommit:baseline.scanners.semgrep.sourceCommit,imageId,imageRepoDigest,rulesCommit:rulesHead,ruleFileCount:rulesMeta.ruleFileCount,ruleContentSha256:rulesMeta.ruleContentSha256,metrics:'OFF',coverage:sgReport.coverage,findingCount:sgFindings.length,findings:sgFindings,rawReportRetained:false,sourceSnippetRetained:false}
     };
-    const totalFindingCount=Object.values(scanners).reduce((n,x)=>n+x.findingCount,0);const p={schemaVersion:'M6_PR_E_E4_SCANNER_EVIDENCE_V1',repository:baseline.repository,commitSha:head,checkout,e2GraphDigest:graphDigest,e2CurrentContentSha256:e2.contentSha256,...(graphTransition?{e2GraphTransition:graphTransition}:{}),scannerBaselineSourceHead:baseline.sourceHead,scanners,totalFindingCount,scannerFindingTriageRequired:totalFindingCount>0,allScannersCompleted:true,rawScannerReportsRetained:false,candidateSecretMaterialRetained:false,authoritativeGitHubInventoryStillUnavailable:true,workstreamReleaseBlocked:true,reasonCodes:[...(totalFindingCount>0?['E4_SCANNER_FINDINGS_REQUIRE_E3_TRIAGE']:[]),'AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE'].sort()};return S({...p,contentSha256:H(C(p))});
+    const totalFindingCount=Object.values(scanners).reduce((n,x)=>n+x.findingCount,0);const p={schemaVersion:'M6_PR_E_E4_SCANNER_EVIDENCE_V1',repository:baseline.repository,commitSha:head,checkout,e2GraphDigest:graphDigest,e2CurrentContentSha256:e2.contentSha256,e2CurrentEvidence:e2,...(graphTransition?{e2GraphTransition:graphTransition}:{}),scannerBaselineSourceHead:baseline.sourceHead,scanners,totalFindingCount,scannerFindingTriageRequired:totalFindingCount>0,allScannersCompleted:true,rawScannerReportsRetained:false,candidateSecretMaterialRetained:false,authoritativeGitHubInventoryStillUnavailable:true,workstreamReleaseBlocked:true,reasonCodes:[...(totalFindingCount>0?['E4_SCANNER_FINDINGS_REQUIRE_E3_TRIAGE']:[]),'AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE'].sort()};return S({...p,contentSha256:H(C(p))});
   } finally { rmSync(tmp,{recursive:true,force:true}); }
 }
 

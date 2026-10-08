@@ -97,8 +97,10 @@ test('E2 full generator executes only in GitHub Actions and emits retained canon
   assert.equal(evidence.maven.reactorProjectCount, 26);
   assert.deepEqual(evidence.maven.importedBoms, [
     { group: 'org.flowable', name: 'flowable-bom', scope: 'import', version: '8.0.0' },
+    { group: 'com.fasterxml.jackson', name: 'jackson-bom', scope: 'import', version: '2.21.7' },
+    { group: 'tools.jackson', name: 'jackson-bom', scope: 'import', version: '3.1.7' },
     { group: 'io.opentelemetry', name: 'opentelemetry-bom', scope: 'import', version: '1.62.0' },
-    { group: 'org.springframework.boot', name: 'spring-boot-dependencies', scope: 'import', version: '4.0.2' },
+    { group: 'org.springframework.boot', name: 'spring-boot-dependencies', scope: 'import', version: '4.0.8' },
     { group: 'org.testcontainers', name: 'testcontainers-bom', scope: 'import', version: '2.0.5' },
   ]);
   assert.equal(evidence.pnpm.workspaceProjectCount, 6);

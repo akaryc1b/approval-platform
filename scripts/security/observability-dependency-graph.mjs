@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { SERVER_DEPENDENCY_GRAPH, SERVER_DEPENDENCY_MANIFEST_SHA256,
+  readServerDependencyManifest, verifyServerDependencyDelta } from './server-dependency-graph-transition.mjs';
+export { SERVER_DEPENDENCY_GRAPH, readServerDependencyManifest, verifyServerDependencyDelta,
+  readServerDependencySourceWitness } from './server-dependency-graph-transition.mjs';
 
 export const BASE_GRAPH = '2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94';
 export const OBSERVABILITY_GRAPH = '27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37';
@@ -137,10 +141,44 @@ function receipt(identity) {
   return { ...payload, contentSha256: graphHash(payload) };
 }
 
+function serverDependencyReceipt(identity) {
+  const manifest = readServerDependencyManifest();
+  const payload = {
+    schemaVersion: 'APPROVAL_SERVER_DEPENDENCY_GRAPH_LINEAGE_V1',
+    repository: REPOSITORY,
+    commitSha: identity.commitSha,
+    sourceE2ContentSha256: identity.contentSha256,
+    baseE2GraphDigest: BASE_GRAPH,
+    intermediateE2GraphDigest: OBSERVABILITY_GRAPH,
+    priorE2GraphDigest: OBSERVABILITY_OTEL_GRAPH,
+    currentE2GraphDigest: SERVER_DEPENDENCY_GRAPH,
+    foundationManifestSha256: MANIFEST_SHA256,
+    otelManifestSha256: OTEL_MANIFEST_SHA256,
+    manifestSha256: SERVER_DEPENDENCY_MANIFEST_SHA256,
+    sourceWitnessSha256: manifest.sourceWitness.rawSha256,
+    archivalSourceHead: manifest.observed.sourceHead,
+    archivalSourceTree: manifest.observed.sourceTree,
+    archivalE2ContentSha256: manifest.observed.e2ContentSha256,
+    componentVersionChangeCount: 90,
+    rewrittenEdgeCount: 180,
+    addedImportedBomCount: 2,
+    importedBomVersionChangeCount: 1,
+    pluginCoordinateVersionChangeCount: 13,
+    scopeChangeCount: 0,
+    licenseChangeCount: 0,
+    inventory: manifest.inventory,
+    findingReviewRequired: true,
+    releaseBlocked: true,
+  };
+  return { ...payload, contentSha256: graphHash(payload) };
+}
+
 /** Graph admission is not finding disposition or production authorization. */
-export function verifyObservabilityGraph(e2, projection, expectedBaseDigest) {
+export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, expectedCommitSha) {
   requireValue(e2.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(e2.commitSha || ''),
     'E2 graph identity mismatch');
+  if (expectedCommitSha !== undefined) requireValue(/^[0-9a-f]{40}$/.test(expectedCommitSha)
+    && e2.commitSha === expectedCommitSha, 'E2 current verified head mismatch');
   const { contentSha256, ...payload } = e2;
   requireValue(graphHash(payload) === contentSha256, 'E2 content digest mismatch');
   const accepted = e2.githubActions?.acceptedDependencyGraph;
@@ -150,33 +188,46 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest) {
     limitations: accepted ? accepted.limitations : e2.limitations,
   }), 'E2 graph projection mismatch');
   const digest = graphHash(projection);
+  requireValue(expectedBaseDigest === BASE_GRAPH, 'unrecognized dependency graph baseline');
+  if (digest === SERVER_DEPENDENCY_GRAPH) requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1'
+    && /^[0-9a-f]{40}$/.test(expectedCommitSha || '') && e2.commitSha === expectedCommitSha,
+  'server dependency E2 requires current verified head and schema');
   if (digest === expectedBaseDigest) return null;
   requireValue(expectedBaseDigest === BASE_GRAPH
-    && [OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH].includes(digest),
+    && [OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH].includes(digest),
     `E2 graph drift ${digest}`);
   const manifest = readObservabilityManifest();
   requireValue(manifest.repository === REPOSITORY && manifest.base.graphDigest === BASE_GRAPH
     && manifest.observed.graphDigest === OBSERVABILITY_GRAPH, 'graph transition identity drift');
-  const previous = digest === OBSERVABILITY_OTEL_GRAPH
-    ? verifyOtelUpgradeDelta(projection, readOtelUpgradeManifest()) : projection;
+  const beforeServer = digest === SERVER_DEPENDENCY_GRAPH ? verifyServerDependencyDelta(projection) : projection;
+  const previous = [OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH].includes(digest)
+    ? verifyOtelUpgradeDelta(beforeServer, readOtelUpgradeManifest()) : beforeServer;
   verifyDependencyDelta(previous, manifest);
+  if (digest === SERVER_DEPENDENCY_GRAPH) return serverDependencyReceipt(e2);
   return digest === OBSERVABILITY_OTEL_GRAPH ? otelReceipt(e2) : receipt(e2);
 }
 
 /** Bind the historical pgjdbc proof to the separately validated current E4 graph. */
-export function requirePreservedGraph(e4, historicalGraph) {
+export function requirePreservedGraph(e4, historicalGraph, expectedCommitSha) {
+  requireValue(historicalGraph === BASE_GRAPH, 'unrecognized preserved dependency graph baseline');
+  if (expectedCommitSha !== undefined) requireValue(/^[0-9a-f]{40}$/.test(expectedCommitSha)
+    && e4.commitSha === expectedCommitSha, 'remediation current verified head mismatch');
   if (e4.e2GraphDigest === historicalGraph) {
     requireValue(e4.e2GraphTransition === undefined, 'unexpected dependency graph lineage');
     return null;
   }
   requireValue(e4.repository === REPOSITORY && historicalGraph === BASE_GRAPH
-    && [OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH].includes(e4.e2GraphDigest)
+    && [OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH].includes(e4.e2GraphDigest)
     && /^[0-9a-f]{40}$/.test(e4.commitSha || '')
     && /^[0-9a-f]{64}$/.test(e4.e2CurrentContentSha256 || ''), 'remediation E2 graph mismatch');
   readObservabilityManifest();
-  const upgraded = e4.e2GraphDigest === OBSERVABILITY_OTEL_GRAPH;
+  const server = e4.e2GraphDigest === SERVER_DEPENDENCY_GRAPH;
+  if (server) requireValue(/^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+    && e4.commitSha === expectedCommitSha, 'server dependency receipt requires current verified head');
+  const upgraded = server || e4.e2GraphDigest === OBSERVABILITY_OTEL_GRAPH;
   if (upgraded) readOtelUpgradeManifest();
-  const expected = (upgraded ? otelReceipt : receipt)({ commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 });
+  const expected = (server ? serverDependencyReceipt : upgraded ? otelReceipt : receipt)(
+    { commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 });
   requireValue(canonicalGraph(e4.e2GraphTransition) === canonicalGraph(expected),
     'remediation E2 graph lineage mismatch');
   return expected;
