@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
+import { pluginOsvDiagnosticFixture } from './fixtures/build-plugin-jackson-fixture.mjs';
 import { acceptedE2GraphProjection } from '../security/m6-pr-e-e2-generate-sbom.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, graphHash, verifyObservabilityGraph } from '../security/observability-dependency-graph.mjs';
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBuildPluginJacksonCandidate, graphHash, verifyObservabilityGraph } from '../security/observability-dependency-graph.mjs';
 import { readServerDependencyRemediationPlan, verifyServerDependencyRemediation, requireServerDependencyRemediation }
   from '../security/m6-pr-e-e3-verify-server-dependency-remediation.mjs';
 import { verifyPgjdbcRemediation } from '../security/m6-pr-e-e3-verify-pgjdbc-remediation.mjs';
@@ -178,4 +179,62 @@ for (const [name, alter] of [
     decisions: e4.scanners.osv.findings.map(row => ({ sourceClass: row.sourceClass, findingId: row.findingId,
       severityBand: 'UNKNOWN', disposition: 'UNRESOLVED', componentRef: row.componentRefs[0] })) };
   assert.throws(() => applyRuntimeDeploymentReviews(triage, e4, changed, pg, server), /historical review differs from pinned record/);
+});
+
+// Every scanner/checkout claim here remains a SYNTHETIC UNIT FIXTURE.
+// It tests the new graph path without claiming a new scan, clean source or absence.
+function pluginDescendantFixture() {
+  const e4 = fixture(), e2 = readBuildPluginJacksonCandidate();
+  e4.commitSha = e2.commitSha;
+  e4.e2CurrentEvidence = e2; e4.e2CurrentContentSha256 = e2.contentSha256;
+  e4.e2GraphDigest = BUILD_PLUGIN_JACKSON_GRAPH;
+  e4.e2GraphTransition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, e2.commitSha);
+  e4.checkout.checkedOutSha = e2.commitSha; e4.checkout.expectedHeadSha = e2.commitSha;
+  e4.scanners.osv = pluginOsvDiagnosticFixture(e2, e4.scanners.osv);
+  e4.totalFindingCount = Object.values(e4.scanners).reduce((n,scanner) => n + scanner.findingCount,0);
+  return resign(e4);
+}
+const verifyPlugin = e4 => verify(e4, plan, e4.commitSha);
+test('R4 preserves its original target and input binding through the independently verified plugin-only descendant', () => {
+  const e4 = pluginDescendantFixture(), original = structuredClone(e4), receipt = verifyPlugin(e4);
+  assert.equal(receipt.schemaVersion, 'APPROVAL_SERVER_DEPENDENCY_REMEDIATION_EVIDENCE_V2');
+  assert.equal(receipt.historicalTargetE2GraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(receipt.currentE2GraphDigest, BUILD_PLUGIN_JACKSON_GRAPH);
+  assert.equal(receipt.subsequentGraphTransition.priorE2GraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(receipt.remediatedFindings.length, 2);
+  assert.deepEqual(receipt.remediatedFindings.map(f => f.findingId), plan.remediatedFindings.map(f => f.findingId));
+  assert.equal(e4.scanners.osv.coverage.inputPackageCount, 533);
+  assert.equal(plan.expectedInputPackageCount, 535);
+  assert.equal(receipt.releaseBlocked, true); assert.equal(receipt.findingReviewRequired, true);
+  assert.deepEqual(e4, original);
+});
+for (const [name, alter] of [
+  ['old graph receipt', e => { e.e2GraphTransition = fixture().e2GraphTransition; }],
+  ['old input count', e => { e.scanners.osv.coverage.inputPackageCount = 535; resign(e.scanners.osv.coverage); }],
+  ['old input bytes', e => { e.scanners.osv.coverage.inputBytesSha256 = plan.expectedInputBytesSha256; resign(e.scanners.osv.coverage); }],
+  ['missing current Jackson target', e => { e.scanners.osv.coverage.targets = e.scanners.osv.coverage.targets.filter(t => t.package.name !== 'tools.jackson.core:jackson-core'); resign(e.scanners.osv.coverage); }],
+  ['removed plugin component references', e => { const t=e.scanners.osv.coverage.targets.find(t => t.package.name === 'tools.jackson.core:jackson-core' && t.package.version === '3.1.7'); t.componentRefs=t.componentRefs.filter(ref => !ref.startsWith('maven-plugin:')); resign(e.scanners.osv.coverage); }],
+  ['reintroduced old Jackson target', e => { e.scanners.osv.coverage.targets.push(partial.osv.coverage.targets.find(t => t.package.name === 'tools.jackson.core:jackson-core' && t.package.version === '3.1.5')); resign(e.scanners.osv.coverage); }],
+  ['missing exact E2', e => { delete e.e2CurrentEvidence; }],
+  ['incomplete scanner', e => { e.scanners.semgrep.scanCompleted = false; }],
+]) test(`R4 plugin descendant rejects ${name} even after rehashing`, () => {
+  const e4 = pluginDescendantFixture(); alter(e4); resign(e4); assert.throws(() => verifyPlugin(e4));
+});
+test('plugin graph cannot conceal a historically remediated advisory reappearing at the new Jackson target', () => {
+  const e4 = pluginDescendantFixture();
+  injectFinding(e4, 'tools.jackson.core:jackson-core', '3.1.7', 'GHSA-plugin-alias', ['CVE-2026-40976']);
+  assert.throws(() => verifyPlugin(e4), /advisory is still present/);
+});
+test('a new Jackson finding keeps its current identity and remains unresolved after I3', () => {
+  const e4 = pluginDescendantFixture();
+  injectFinding(e4, 'tools.jackson.core:jackson-core', '3.1.7', 'GHSA-new-plugin-current', []);
+  const before = structuredClone(e4), receipt = verifyPlugin(e4);
+  const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
+  const triage = { repository: e4.repository, commitSha: e4.commitSha, contentSha256: 'a'.repeat(64),
+    decisions: e4.scanners.osv.findings.map(f => ({ sourceClass: f.sourceClass, findingId: f.findingId,
+      severityBand: 'UNKNOWN', disposition: 'UNRESOLVED', componentRef: f.componentRefs[0] })) };
+  const result = applyRuntimeDeploymentReviews(triage, e4, review, pg, receipt);
+  assert.deepEqual(result.decisions, triage.decisions);
+  assert.equal(result.summary.dispositionCounts.UNRESOLVED, e4.scanners.osv.findingCount);
+  assert.deepEqual(e4, before); assert.equal(result.summary.releaseBlocked, true);
 });

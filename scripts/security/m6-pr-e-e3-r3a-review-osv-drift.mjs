@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { acceptedE2GraphProjection, generateEvidence as generateE2Evidence }
   from './m6-pr-e-e2-generate-sbom.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, verifyObservabilityGraph }
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, verifyBuildPluginJacksonDelta, verifyObservabilityGraph }
   from './observability-dependency-graph.mjs';
 import { verifyScannerCheckout, requireScannerCheckoutUnchanged } from './m6-pr-e-e4-scan.mjs';
 
@@ -461,7 +461,9 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
   const graphTransition = verifyObservabilityGraph(currentE2, acceptedE2GraphProjection(currentE2), BASE_GRAPH, commitSha);
   if (typeof pluginReport !== 'string') throw new Error('R3A raw current plugin report required');
   const pluginReportSha256 = sha256(pluginReport), pluginGroups = parseResolvedPluginReport(pluginReport);
-  if (graphTransition.currentE2GraphDigest !== transition.currentGraphDigest
+  const subsequentPluginGraph = graphTransition.currentE2GraphDigest === BUILD_PLUGIN_JACKSON_GRAPH;
+  if (subsequentPluginGraph) verifyBuildPluginJacksonDelta(acceptedE2GraphProjection(currentE2));
+  if ((!subsequentPluginGraph && graphTransition.currentE2GraphDigest !== transition.currentGraphDigest)
     || pluginReportSha256 !== currentE2.maven.pluginResolutionSha256) throw new Error('R3A current Maven graph/plugin evidence mismatch');
   const tomcat = transition.tomcat, httpcore = transition.httpcore;
   for (const [target, historical] of [[tomcat, contract.findings[0]], [httpcore, contract.findings[1]]]) {
@@ -504,7 +506,8 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
   const historical = contract.findings[1];
   const payload = {
     schemaVersion: 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V2', repository: transition.repository, commitSha, checkout,
-    sourceE2ContentSha256: currentE2.contentSha256, currentE2GraphDigest: transition.currentGraphDigest,
+    sourceE2ContentSha256: currentE2.contentSha256, currentE2GraphDigest: graphTransition.currentE2GraphDigest,
+    ...(subsequentPluginGraph ? { preservedCurrentSourceGraphDigest: transition.currentGraphDigest } : {}),
     currentGraphTransition: graphTransition, currentTransitionContentSha256: transition.contentSha256,
     currentTransitionFileSha256: CURRENT_TRANSITION_SHA256,
     historicalReview: { sourceMain: contract.sourceMain, sourceRun: contract.sourceRun,

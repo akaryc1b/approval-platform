@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readBuildPluginJacksonCandidate, BUILD_PLUGIN_JACKSON_GRAPH, SERVER_DEPENDENCY_GRAPH }
+  from '../security/observability-dependency-graph.mjs';
 import { canonical, sha256, readCurrentSourceTransition, evaluateCurrentEvidence }
   from '../security/m6-pr-e-e3-r3a-review-osv-drift.mjs';
 
@@ -90,4 +92,35 @@ test('R3A collector preserves license repository isolation and current source/JA
   const currentCallback = readFileSync(new URL('./m6-pr-e-e3-r3a-osv-drift-applicability-boundary.test.mjs', import.meta.url), 'utf8');
   assert.ok(currentCallback.includes('M6_PR_E_E3_R3A_JAR_REPOSITORY: repository'));
   assert.ok(!currentCallback.includes('M6_PR_E_E2_MAVEN_REPOSITORY: repository'));
+});
+
+function pluginDescendantFixture() {
+  const input = fixture(), current = readBuildPluginJacksonCandidate();
+  const report = read('scripts/tests/fixtures/r3a-build-plugin-report.json');
+  const bytes = report.segmentOrder.map(index => report.segments[index]).join(report.delimiter);
+  assert.equal(sha256(bytes), current.maven.pluginResolutionSha256);
+  return { ...input, commitSha: current.commitSha, currentE2: current, pluginReport: bytes,
+    checkout: { ...input.checkout, expectedHeadSha: current.commitSha, checkedOutSha: current.commitSha } };
+}
+test('R3A revalidates the plugin-only descendant while preserving the original exact source contract and HTTP evidence', () => {
+  const input = pluginDescendantFixture(), before = canonical(input), result = evaluateCurrentEvidence(input);
+  assert.equal(result.currentE2GraphDigest, BUILD_PLUGIN_JACKSON_GRAPH);
+  assert.equal(result.preservedCurrentSourceGraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(result.currentTransitionContentSha256, transition.contentSha256);
+  assert.equal(result.findings[0].evidence.pluginReportSha256, input.currentE2.maven.pluginResolutionSha256);
+  assert.equal(result.currentTomcatObservation.jar.jarSha256, transition.tomcat.jarSha256);
+  assert.equal(result.findings[0].package.version, '5.3.6');
+  assert.equal(result.findings[0].disposition, 'UNRESOLVED');
+  assert.equal(result.decision.currentOsvTotalsClaimed, false);
+  assert.deepEqual(result.historicalReview.findings, contract.findings);
+  assert.equal(canonical(input), before);
+});
+for (const [name, mutate] of [
+  ['old report', x => { x.pluginReport = plugins; }],
+  ['runtime pin drift', x => { x.runtimeComponents[0].version = '11.0.27'; }],
+  ['JAR pin drift', x => { x.jarEvidence.jarSha256 = '0'.repeat(64); }],
+  ['HTTP owner drift', x => { x.pluginReport = x.pluginReport.replaceAll('4.0.8', '4.0.9'); }],
+  ['stale source contract', x => { x.transition.currentGraphDigest = BUILD_PLUGIN_JACKSON_GRAPH; }],
+]) test(`R3A plugin descendant rejects ${name}`, () => {
+  const input = pluginDescendantFixture(); mutate(input); assert.throws(() => evaluateCurrentEvidence(input));
 });

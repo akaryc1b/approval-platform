@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, verifyObservabilityGraph, requirePreservedGraph }
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBuildPluginJacksonManifest,
+  verifyBuildPluginJacksonDelta, verifyObservabilityGraph, requirePreservedGraph }
   from './observability-dependency-graph.mjs';
-import { verifyOsvCoverage } from './osv-scan-coverage.mjs';
+import { verifyOsvCoverage, osvInputFromE2 } from './osv-scan-coverage.mjs';
 import { requireCompleteCurrentE4 } from './scanner-evidence-provenance.mjs';
 
 const REPOSITORY = 'akaryc1b/approval-platform';
@@ -98,7 +99,7 @@ function requireFreshFullEvidence(e4, expectedHead) {
   requireValue(total === e4.totalFindingCount, 'server remediation scanner finding count mismatch');
   const e2 = e4.e2CurrentEvidence;
   requireValue(e2?.commitSha === expectedHead && e2.contentSha256 === e4.e2CurrentContentSha256
-    && e4.e2GraphDigest === SERVER_DEPENDENCY_GRAPH, 'server remediation current E2/source mismatch');
+    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
   const transition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, expectedHead);
   requireValue(same(transition, requirePreservedGraph(e4, BASE_GRAPH, expectedHead)), 'server remediation graph receipt mismatch');
   return verifyOsvCoverage(e4.scanners.osv.coverage, e4.scanners.osv.findings, e2,
@@ -110,8 +111,20 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
   const pinnedPlan = readServerDependencyRemediationPlan();
   requireValue(same(plan, pinnedPlan), 'server remediation supplied plan differs from pinned review');
   const coverage = requireFreshFullEvidence(e4, expectedCommitSha);
-  requireValue(coverage.inputPackageCount === plan.expectedInputPackageCount
-    && coverage.inputBytesSha256 === plan.expectedInputBytesSha256
+  let expectedInput = { packageCount: plan.expectedInputPackageCount, inputBytesSha256: plan.expectedInputBytesSha256 };
+  let subsequentGraphTransition;
+  if (e4.e2GraphDigest === BUILD_PLUGIN_JACKSON_GRAPH) {
+    const manifest = readBuildPluginJacksonManifest();
+    const preserved = verifyBuildPluginJacksonDelta(acceptedE2GraphProjection(e4.e2CurrentEvidence), manifest);
+    const priorInput = osvInputFromE2(preserved);
+    requireValue(priorInput.packageCount === plan.expectedInputPackageCount
+      && hash(JSON.stringify(priorInput.scannerInput)) === plan.expectedInputBytesSha256
+      && same(manifest.osvInput.prior, expectedInput), 'server remediation prior OSV input lineage mismatch');
+    expectedInput = manifest.osvInput.current;
+    subsequentGraphTransition = requirePreservedGraph(e4, BASE_GRAPH, expectedCommitSha);
+  }
+  requireValue(coverage.inputPackageCount === expectedInput.packageCount
+    && coverage.inputBytesSha256 === expectedInput.inputBytesSha256
     && e4.scanners.osv.inputPackageCount === coverage.inputPackageCount
     && SHA64.test(e4.scanners.osv.binarySha256 || ''), 'server remediation exact OSV input or binary provenance changed');
   const findings = e4.scanners.osv.findings;
@@ -130,7 +143,9 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
         osvCoverageContentSha256: coverage.contentSha256, queriedPackage: target.package,
         otherCurrentAdvisoryCountForTarget: target.advisoryIds.length }, reviewDispositionTransferred: false };
   });
-  return signed({ schemaVersion: 'APPROVAL_SERVER_DEPENDENCY_REMEDIATION_EVIDENCE_V1', repository: REPOSITORY,
+  return signed({ schemaVersion: subsequentGraphTransition
+      ? 'APPROVAL_SERVER_DEPENDENCY_REMEDIATION_EVIDENCE_V2' : 'APPROVAL_SERVER_DEPENDENCY_REMEDIATION_EVIDENCE_V1', repository: REPOSITORY,
+    ...(subsequentGraphTransition ? { subsequentGraphTransition, historicalTargetE2GraphDigest: plan.targetE2GraphDigest } : {}),
     commitSha: e4.commitSha, sourceE4CanonicalSha256: e4.contentSha256, sourceE2ContentSha256: e4.e2CurrentContentSha256,
     currentOsvCoverageContentSha256: coverage.contentSha256, manifestFileSha256: PLAN_HASH,
     priorE2GraphDigest: plan.priorE2GraphDigest, currentE2GraphDigest: e4.e2GraphDigest,
