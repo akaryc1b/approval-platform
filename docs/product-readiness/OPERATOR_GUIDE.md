@@ -31,6 +31,12 @@ pnpm demo:preflight
 
 The preflight checks the repository contracts and active Java, Maven, Node, pnpm, Docker and Compose versions. Resolve failures before retrying; do not bypass the check.
 
+## Demo setup build
+
+When a build is required, the backend launcher builds and installs the current Maven reactor before starting the real backend. Its setup-only `-DskipTests` and `-Dapproval.persistence.tests.skip=true` flags avoid rerunning tests during each demo startup; the JDBC module has its own Surefire skip property, which defaults to `false`. Neither flag changes the runtime command, health and seed checks, browser assertions, cleanup checks or acceptance deadlines.
+
+The required Maven core job and all four dedicated Persistence JDBC shards remain responsible for CI test verification. A successful demo setup build is not evidence that those tests passed. To roll back the setup optimization, remove the JDBC skip argument and its matching plan entry; no data or artifact migration is involved.
+
 ## Runtime observation
 
 The command prints the ready duration, URLs, tenant, business key, actors and evidence directory. Useful read-only checks are:

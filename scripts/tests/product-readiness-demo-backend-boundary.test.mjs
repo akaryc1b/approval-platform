@@ -45,7 +45,8 @@ test('one-command backend plan is exact, read-only and retains every non-claim',
   assert.equal(
     plan.steps.find(step => step.id === 'reactor-build').command,
     'mvn -B -ntp -Pproduct-readiness-demo '
-      + '-Drevision=0.1.0-SNAPSHOT -DskipTests install',
+      + '-Drevision=0.1.0-SNAPSHOT -DskipTests '
+      + '-Dapproval.persistence.tests.skip=true install',
   );
   const backendCommand = plan.steps.find(step => step.id === 'backend').command;
   assert.equal(
@@ -85,12 +86,43 @@ test('revision and the demo-only Maven profile reach both Maven invocations', ()
   assert.match(source, /`-Drevision=\$\{revision\}`/u);
   assert.match(
     source,
-    /runMavenChecked\('Build Maven reactor for local startup',[\s\S]*`-P\$\{demoMavenProfile\}`,[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-DskipTests',[\s\S]*'install'/u,
+    /runMavenChecked\('Build Maven reactor for local startup',[\s\S]*`-P\$\{demoMavenProfile\}`,[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-DskipTests',[\s\S]*'-Dapproval\.persistence\.tests\.skip=true',[\s\S]*'install'/u,
   );
   assert.match(
     source,
     /spawn\(mavenExecutable\(\), \[[\s\S]*`-P\$\{demoMavenProfile\}`,[\s\S]*`-Drevision=\$\{revision\}`,[\s\S]*'-pl',[\s\S]*':approval-server',[\s\S]*'spring-boot:run'/u,
   );
+});
+
+test('setup skips duplicate JDBC tests only while dedicated CI verification stays mandatory', () => {
+  const source = text(commandPath);
+  const buildArguments = source.match(
+    /runMavenChecked\('Build Maven reactor for local startup', \[([\s\S]*?)\]\);/u,
+  )?.[1];
+  assert.ok(buildArguments, 'startup must still build the Maven reactor');
+  assert.deepEqual(
+    [...buildArguments.matchAll(/'([^']+)'/gu)].map(match => match[1]),
+    ['-B', '-ntp', '-DskipTests', '-Dapproval.persistence.tests.skip=true', 'install'],
+  );
+  const runtimeArguments = source.match(
+    /const child = spawn\(mavenExecutable\(\), \[([\s\S]*?)\], \{/u,
+  )?.[1];
+  assert.ok(runtimeArguments, 'startup must still launch the real backend');
+  assert.doesNotMatch(runtimeArguments, /skip|test|exclude/iu);
+  assert.doesNotMatch(source, /(?:MAVEN_OPTS|JAVA_TOOL_OPTIONS|maven\.test\.skip)/u);
+
+  const jdbcPom = text(resolve(root, 'server-modules/approval-persistence-jdbc/pom.xml'));
+  assert.match(jdbcPom, /<approval\.persistence\.tests\.skip>false<\/approval\.persistence\.tests\.skip>/u);
+  assert.match(jdbcPom, /<skipTests>\$\{approval\.persistence\.tests\.skip\}<\/skipTests>/u);
+  assert.doesNotMatch(text(rootPomPath), /approval\.persistence\.tests\.skip/u);
+  const workflow = text(resolve(root, '.github/workflows/approval-platform-validation.yml'));
+  const jdbcJob = workflow.match(/\n  persistence-jdbc:\n([\s\S]*?)\n  backend:\n/u)?.[1];
+  assert.ok(jdbcJob, 'dedicated JDBC shards must remain present');
+  assert.match(jdbcJob, /-am verify/u);
+  assert.match(jdbcJob, /-Dtest="\$SELECTED_TESTS"/u);
+  assert.doesNotMatch(jdbcJob, /-D(?:skipTests|maven\.test\.skip|approval\.persistence\.tests\.skip)\b/u);
+  assert.match(workflow, /needs:\s*\n\s+- backend-core\s*\n\s+- persistence-jdbc/u);
+  assert.match(workflow, /--expected-shards 4/u);
 });
 
 test('consumer-safe POM flattening is isolated to the explicit demo profile', () => {
