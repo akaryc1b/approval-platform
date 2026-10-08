@@ -97,3 +97,44 @@ test('fresh-build correction preserves the original rehearsal deadlines and non-
   assert.ok(module.nonClaims.includes('PRODUCTION_RPO_NOT_VERIFIED'));
   assert.ok(module.nonClaims.includes('PRODUCTION_RTO_NOT_VERIFIED'));
 });
+
+for (const inheritedArgs of [undefined, '', '-B -ntp', '-Dapproval.persistence.tests.skip=false']) {
+  test(`baseline setup adds only the JDBC setup flag with inherited arguments ${String(inheritedArgs)}`, async t => {
+    const inherited = { JAVA_HOME: '/controlled/java21', KEEP_SETTING: 'retained', [reuse]: 'true' };
+    if (inheritedArgs !== undefined) inherited.MAVEN_ARGS = inheritedArgs;
+    const original = structuredClone(inherited);
+    const { root, module } = await isolatedContract(t, inherited);
+    const baseline = module.baselineSetupEnvironment();
+    assert.equal(baseline.MAVEN_ARGS,
+      [inheritedArgs, '-Dapproval.persistence.tests.skip=true'].filter(Boolean).join(' '));
+    assert.equal(baseline[reuse], 'false', 'a baseline startup still needs its own fresh build');
+    assert.equal(baseline.JAVA_HOME, inherited.JAVA_HOME);
+    assert.equal(baseline.KEEP_SETTING, inherited.KEEP_SETTING);
+    assert.equal(module.baseEnvironment().MAVEN_ARGS, inheritedArgs, 'reset does not gain a test skip');
+    assert.equal(module.candidateEnvironment(root, contract).MAVEN_ARGS, inheritedArgs,
+      'candidate startup does not inherit the baseline-only override');
+    assert.deepEqual(inherited, original);
+    const dependency = await import(pathToFileURL(resolve(root, 'pc-h5-runtime/contract.mjs')));
+    assert.deepEqual(dependency.inherited, original, 'parent verification environment remains unchanged');
+    baseline.MAVEN_ARGS = 'mutated';
+    assert.notEqual(module.baselineSetupEnvironment().MAVEN_ARGS, 'mutated');
+  });
+}
+
+test('only the exact-main backend start receives the scoped JDBC setup environment', () => {
+  const runtime = readFileSync(new URL(
+    '../product-readiness/capacity-recovery/upgrade-restore.mjs', import.meta.url), 'utf8');
+  assert.match(runtime, /baseBackend = startManagedNode\(\s*'Start exact-main baseline backend for in-flight backup',\s*\['scripts\/product-readiness\/demo-backend\.mjs', 'start'\],\s*resolve\(runDirectory, 'base-backend\.log'\),\s*baselineSetupEnvironment\(\),\s*worktree,/u);
+  assert.equal([...runtime.matchAll(/baselineSetupEnvironment\(\)/gu)].length, 1);
+  assert.match(runtime, /resetDisposableData\(\s*baseEnvironment\(\),/u);
+  assert.match(runtime, /const environment = candidateEnvironment\(runDirectory, contract\)/u);
+  assert.doesNotMatch(source, /process\.env\.[A-Z_]+\s*=|MAVEN_OPTS|JAVA_TOOL_OPTIONS|maven\.test\.skip/u);
+  const workflow = readFileSync(new URL(
+    '../../.github/workflows/approval-platform-validation.yml', import.meta.url), 'utf8');
+  assert.doesNotMatch(workflow, /MAVEN_ARGS/u);
+  const jdbcJob = workflow.match(/\n  persistence-jdbc:\n([\s\S]*?)\n  backend:\n/u)?.[1];
+  assert.ok(jdbcJob);
+  assert.match(jdbcJob, /-am verify/u);
+  assert.match(jdbcJob, /-Dtest="\$SELECTED_TESTS"/u);
+  assert.doesNotMatch(jdbcJob, /-D(?:skipTests|maven\.test\.skip|approval\.persistence\.tests\.skip)\b/u);
+});

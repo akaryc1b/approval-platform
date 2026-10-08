@@ -94,6 +94,21 @@ export function baseEnvironment() {
   return { ...java21Environment(), APPROVAL_DEMO_CAPACITY_REUSE_BUILD: 'false' };
 }
 
+export function baselineSetupEnvironment() {
+  const environment = baseEnvironment();
+  // Older exact-main launchers pass -DskipTests, but the JDBC module has its own
+  // skip property. Scope that setup-only flag to this child instead of changing
+  // baseline sources, parent verification, or the fresh version-switch builds.
+  // Maven 3.9+ prepends MAVEN_ARGS to the launcher's explicit CLI arguments.
+  return {
+    ...environment,
+    MAVEN_ARGS: [
+      environment.MAVEN_ARGS,
+      '-Dapproval.persistence.tests.skip=true',
+    ].filter(Boolean).join(' '),
+  };
+}
+
 export function upgradeRestorePlan() {
   return {
     stage:

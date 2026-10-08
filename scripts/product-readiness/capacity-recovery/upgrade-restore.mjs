@@ -51,6 +51,7 @@ import {
 import {
   backendTimeoutMs,
   baseEnvironment,
+  baselineSetupEnvironment,
   candidateEnvironment,
   claim,
   exactUpgradeRefs,
@@ -591,7 +592,7 @@ export async function executeUpgradeRestoreRehearsal(contract) {
       'Start exact-main baseline backend for in-flight backup',
       ['scripts/product-readiness/demo-backend.mjs', 'start'],
       resolve(runDirectory, 'base-backend.log'),
-      baseEnvironment(),
+      baselineSetupEnvironment(),
       worktree,
     );
     await waitForMarker(
