@@ -1,5 +1,7 @@
-import { closeSync, constants, openSync, readSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
+import { readBoundedDiagnosticFile, safeDiagnosticRead as safe } from './grafana-browser-diagnostic-files.mjs';
+import { browserNativeSnapshot } from './grafana-browser-native-snapshot.mjs';
+export { readBoundedDiagnosticFile } from './grafana-browser-diagnostic-files.mjs';
 
 const signals = new Set(['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT',
   'SIGBUS', 'SIGFPE', 'SIGKILL', 'SIGUSR1', 'SIGSEGV', 'SIGUSR2', 'SIGPIPE', 'SIGALRM', 'SIGTERM', 'SIGSYS']);
@@ -8,26 +10,6 @@ const integer = value => /^\d{1,16}$/u.test(String(value)) && Number.isSafeInteg
   ? Number(value) : null;
 const finite = value => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 const milliseconds = value => finite(value) ? Math.min(86400000, Math.round(value * 1000) / 1000) : null;
-const safe = (read, file, limit) => { try { const text = read(file, limit);
-  return typeof text === 'string' && Buffer.byteLength(text) <= limit ? text : null;
-} catch { return null; } };
-
-/** Read at most limit + 1 bytes, rejecting oversized input rather than reading then slicing. */
-export function readBoundedDiagnosticFile(file, limit) {
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 8192) return null;
-  let fd;
-  try {
-    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-    const bytes = Buffer.alloc(limit + 1); let used = 0;
-    while (used < bytes.length) {
-      const count = readSync(fd, bytes, used, bytes.length - used, null);
-      if (count === 0) break;
-      used += count;
-    }
-    return used <= limit ? bytes.subarray(0, used).toString('utf8') : null;
-  } catch { return null; } finally { if (fd !== undefined) try { closeSync(fd); } catch {} }
-}
-
 function pressure(text) {
   if (text === null) return null;
   const result = {};
@@ -108,14 +90,17 @@ export function browserResourceSnapshot(pid, { read = readBoundedDiagnosticFile 
 /** One bounded report per owned browser; diagnostics cannot change the browser's result. */
 export class BrowserStartupDiagnostics {
   constructor({ now = () => performance.now(), utilization = () => performance.eventLoopUtilization(),
-    snapshot = browserResourceSnapshot, report = text => console.error(text) } = {}) {
+    snapshot = browserResourceSnapshot, nativeSnapshot = browserNativeSnapshot, profile = null,
+    report = text => console.error(text) } = {}) {
     this.now = now; this.utilization = utilization; this.snapshot = snapshot; this.report = report;
+    this.nativeSnapshot = nativeSnapshot; this.profile = profile;
     this.origin = this.readClock(); this.baselineLoop = this.readLoop(); this.pid = null; this.emitted = false;
     this.value = { schema: 1, milestonesMs: { launch: 0, launchReturned: null, spawned: null, firstWriteQueued: null,
       firstWriteCallback: null, firstStderr: null, firstProtocol: null, handshake: null, failure: null,
       exit: null, cleanupFinished: null }, firstWriteCallbackFailed: null, browserVersion: null,
     failureKind: null, timeoutElapsedMs: null, timeoutDriftMs: null, eventLoop: null,
     resourceSampleDurationMs: { launch: null, failure: null },
+    native: null, nativeSampleMs: null, nativeMode: null, pipeMarkerValidation: 'unknown',
     resources: { launch: null, failure: null }, exit: { observed: false, code: null, signal: null },
     cleanup: { term: 'not-attempted', kill: 'not-attempted', exited: null, failed: false } };
   }
@@ -133,6 +118,19 @@ export class BrowserStartupDiagnostics {
     try { return this.snapshot(this.pid); } catch { return null; }
     finally { const after = this.readClock();
       this.value.resourceSampleDurationMs[phase] = before === null || after === null ? null : milliseconds(after - before); }
+  }
+  observeNative(mode) {
+    if (!['failure', 'probe'].includes(mode) || this.value.nativeMode === 'failure'
+      || this.value.nativeMode === 'probe' && mode === 'probe') return this.value.native;
+    this.value.nativeMode = mode; const before = this.readClock();
+    try { this.value.native = this.nativeSnapshot(this.pid, this.profile); }
+    catch { this.value.native = null; }
+    finally { const after = this.readClock();
+      this.value.nativeSampleMs = before === null || after === null ? null : milliseconds(after - before); }
+    const threads = this.value.native?.threads;
+    if (mode === 'probe' && this.value.browserVersion !== null && threads?.coverage === 'complete' && threads.statReads === threads.scanned
+      && threads.pipeNames >= 2) this.value.pipeMarkerValidation = 'verified';
+    return this.value.native;
   }
   writeCallback(failed) { if (this.value.milestonesMs.firstWriteCallback !== null) return;
     this.mark('firstWriteCallback'); this.value.firstWriteCallbackFailed = failed === true; }
@@ -159,6 +157,7 @@ export class BrowserStartupDiagnostics {
     if (loop && this.baselineLoop) this.value.eventLoop = {
       activeMs: milliseconds(loop.active - this.baselineLoop.active), idleMs: milliseconds(loop.idle - this.baselineLoop.idle) };
     this.value.resources.failure = this.sample('failure');
+    this.observeNative('failure');
   }
   exited(code, signal) { this.mark('exit'); this.value.exit = { observed: true,
     code: Number.isInteger(code) && code >= 0 && code <= 255 ? code : null,
@@ -174,7 +173,17 @@ export class BrowserStartupDiagnostics {
     if (!this.value.exit.observed && this.value.cleanup.exited) this.exited(child.exitCode, child.signalCode);
     if (this.emitted) return;
     this.emitted = true;
-    try { const text = JSON.stringify(this.value);
+    try { let value = this.value, text;
+      try { text = JSON.stringify(value); }
+      catch { value = { ...value, native: null, omitted: 'native-unserializable' }; text = JSON.stringify(value); }
+      if (Buffer.byteLength(text) > 3000) {
+        const onlyOwned = snapshot => snapshot ? { owned: snapshot.owned, host: null, cgroup: null } : null;
+        value = { ...value, resources: { launch: onlyOwned(value.resources.launch), failure: onlyOwned(value.resources.failure) },
+          omitted: 'shared-resources' }; text = JSON.stringify(value);
+      }
+      if (Buffer.byteLength(text) > 3000) {
+        value = { ...value, native: null, omitted: 'native-and-shared-resources' }; text = JSON.stringify(value);
+      }
       if (Buffer.byteLength(text) <= 3000) this.report('GRAFANA_BROWSER_DIAGNOSTICS=' + text);
     } catch {} // A reporting failure must never replace the original browser/cleanup failure.
   }

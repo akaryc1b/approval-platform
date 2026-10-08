@@ -38,7 +38,8 @@ function pipe(t, options = {}) {
   child.stdio = [null, null, child.stderr, input, output];
   const reports = []; let time = 100, loop = { active: 0, idle: 0 };
   const browser = new BrowserPipe('/owned-fixture/profile', { PATH: process.env.PATH }, {
-    diagnostics: { now: () => time, utilization: () => loop, snapshot: () => null, report: line => reports.push(line), ...options },
+    diagnostics: { now: () => time, utilization: () => loop, snapshot: () => null, nativeSnapshot: () => null,
+      report: line => reports.push(line), ...options },
     launch(file, args, settings) { assert.deepEqual(args, chromiumArguments('/owned-fixture/profile'));
       assert.deepEqual(settings.stdio, ['ignore', 'ignore', 'pipe', 'pipe', 'pipe']); return child; },
   });
@@ -230,7 +231,7 @@ test('late write callback and exit remain diagnostic-only after terminal failure
 });
 
 test('version, exit and signal allowlists cannot export arbitrary native or private strings', () => {
-  const reports = [], d = new BrowserStartupDiagnostics({ snapshot: () => null, report: value => reports.push(value) });
+  const reports = [], d = new BrowserStartupDiagnostics({ snapshot: () => null, nativeSnapshot: () => null, report: value => reports.push(value) });
   for (const product of [secret, 'Chrome/154.0.8037.57 ' + secret, 'Chrome/1.2.3', null]) d.version(product);
   assert.equal(d.value.browserVersion, null); d.version('Chrome/154.0.8037.57');
   assert.equal(d.value.browserVersion, 'Chrome/154.0.8037.57'); d.exited(secret, secret);
@@ -298,7 +299,7 @@ test('maximal valid numeric diagnostics and original failure fit the existing co
         : file.endsWith('/cpu.stat') ? ['usage_usec', 'nr_throttled', 'throttled_usec'].map(key => key + ' ' + max).join('\n')
           : file.endsWith('/memory.events') ? ['high', 'oom', 'oom_kill'].map(key => key + ' ' + max).join('\n') : max;
   let now = 0, loop = { active: 0, idle: 0 };
-  const d = new BrowserStartupDiagnostics({ now: () => now, utilization: () => loop,
+  const d = new BrowserStartupDiagnostics({ now: () => now, utilization: () => loop, nativeSnapshot: () => null,
     snapshot: pid => browserResourceSnapshot(pid, { read }), report: line => reports.push(line) });
   now = 86399999.999; loop = { active: now, idle: now };
   d.launched(123); for (const name of Object.keys(d.value.milestonesMs)) d.mark(name);
@@ -346,7 +347,7 @@ test('cleanup test doubles restore the real kill function before later native te
 
 test('resource sample overhead is measured separately, including a throwing diagnostic read', () => {
   let now = 0, calls = 0;
-  const d = new BrowserStartupDiagnostics({ now: () => now, snapshot() { calls++; now += calls === 1 ? 2 : 3;
+  const d = new BrowserStartupDiagnostics({ now: () => now, nativeSnapshot: () => null, snapshot() { calls++; now += calls === 1 ? 2 : 3;
     if (calls === 2) throw new Error(secret); return null; }, report() {} });
   d.launched(123); d.failure('GRAFANA_BROWSER_PIPE_ENDED');
   assert.deepEqual(d.value.resourceSampleDurationMs, { launch: 2, failure: 3 });

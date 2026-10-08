@@ -192,6 +192,9 @@ test('real isolated Chromium completes the same handshake and reports rendered C
     await browser.evaluate(`document.querySelector('#status-value').textContent='不可用';document.querySelector('#status-value').style.color='red'`);
     assert.equal((await browser.evaluate(panelReadExpression('完整采样'))).error, false);
     assert.ok(browser.responses >= 10); assert.equal(browser.closed, false);
+    // Observe the already-tested browser; unsupported/truncated naming remains unknown.
+    // This adds neither a warmup launch nor a new readiness condition.
+    browser.startupDiagnostics.observeNative('probe');
   } finally {
     await browser.stop(); rmSync(home, { recursive: true, force: true });
   }

@@ -53,8 +53,9 @@ The bounded fields provide:
 - Allowlisted exit code/signal, TERM/KILL outcome and observed cleanup completion
 - The successful CDP handshake's bounded numeric Chrome/HeadlessChrome version
 
-CPU and scheduler counters describe the owned leader, not the full Chromium
-process tree. Cgroup counters may include other members. Event-loop utilization
+CPU ticks in `/proc/PID/stat` aggregate that process's threads. The scheduler
+counters in `/proc/PID/schedstat` describe only the main task. Neither includes
+the full Chromium child-process tree. Cgroup counters may include other members. Event-loop utilization
 is not a measurement of maximum loop lag. The version field exists only after a
 successful handshake and does not identify an executable wrapper or native binary.
 
@@ -84,3 +85,66 @@ wrapped errors and reporter failures. Existing browser transport tests continue
 to apply. A local cloud Chromium failure with permission/socket restrictions is
 a different failure mode from the GitHub startup timeout and is not a reproduction.
 Natural CI must still pass the complete existing browser and scanner gates.
+
+## Native wait snapshot
+
+CI #1815 narrowed the next question. Its parent loop was mostly idle, the write
+callback completed promptly, and the 10-second timer drift was approximately
+1 ms. Shared I/O-pressure counters increased during the wait, but those counters
+did not identify a Chrome task or a particular file. No I/O cause or browser fix
+is claimed.
+
+The first failure now records a separate native snapshot before cleanup. It reads
+only the owned browser process, at most 64 task records and 65 directory entries.
+Each task's stat and wait-channel reads have byte caps; enumeration uses bounded
+directory iteration rather than listing an arbitrary directory before slicing.
+`nativeSampleMs` records the synchronous sampler duration. No periodic sampler,
+extra launch, warmup, flag change or timeout change is introduced.
+
+The snapshot contains only fixed categories and numbers:
+
+- Process minor/major faults, read/write byte counters, and a known executable
+  path category. `other` does not identify or authenticate an executable.
+- Thread-state and coarse wait-site histograms, a scanned/read count, and
+  complete/partial/unavailable coverage. `ioOrPageWait`, `D`, a socket wait or
+  a futex wait is a clue about the observed state, not proof of a storage,
+  network, font or lock fault. Unresolved/denied wait-channel zero is unknown.
+  Complete coverage means the bounded enumeration and reads succeeded; these
+  sequential reads are not an atomic process-wide snapshot.
+- A combined DevTools pipe-name count. Chromium 154.0.8037.97 gives its two pipe
+  threads different long names, but Linux truncates both to `DevToolsPipeHan`.
+  The detector cannot distinguish reader from writer. The existing successful
+  CJK probe observes its already-running browser; it records `verified` only
+  with complete name coverage and at least two matches, otherwise `unknown`.
+  This observation is not an added readiness gate. A later verified process
+  cannot prove naming succeeded in an earlier failed process.
+- Current task-delay-accounting availability and the sum of readable completed
+  per-task block-I/O-delay ticks. Current enablement does not prove historical
+  coverage. A still-running I/O wait may not yet appear in completed counters;
+  missing or zero values cannot exclude it. Exited or unscanned tasks are not
+  covered. Process I/O counters can include waited-for children and are not a
+  complete or exclusive measurement of the current child-process tree.
+- Profile filesystem category, available bytes and free inodes. If the profile
+  does not exist yet, its immediate parent is examined and explicitly labeled
+  `scope: parent` / `profileState: missing`. Denied or unavailable metadata is
+  marked accordingly. No filesystem path is emitted.
+
+Filesystem metadata calls are count-bounded synchronous calls, not hard
+wall-clock-bounded system calls; pathological OS/filesystem latency can delay
+diagnostic completion. The duration is retained rather than hidden. The
+3,000-byte JSON budget is preserved. If a larger snapshot exceeds that budget,
+shared resource details are explicitly omitted first, preserving native,
+lifecycle, original-failure and cleanup information. A further size fallback
+explicitly omits native details too; a non-serializable native extension also
+falls back to the original receipt with an explicit omission. A failure-only
+snapshot can miss a wait that ended before the deadline. The retained real #1815 timeout payload
+plus a fully populated native snapshot is tested against the complete existing
+4,000-character wrapped stderr tail.
+
+Field semantics and marker names are checked against primary sources:
+
+- [Chromium 154.0.8037.97 DevTools pipe implementation](https://raw.githubusercontent.com/chromium/chromium/154.0.8037.97/content/browser/devtools/devtools_pipe_handler.cc)
+- [Linux process/thread stat implementation](https://raw.githubusercontent.com/torvalds/linux/v6.17/fs/proc/array.c)
+- [Linux proc filesystem fields and I/O counters](https://docs.kernel.org/filesystems/proc.html)
+- [Linux delay-accounting limitations](https://docs.kernel.org/accounting/delay-accounting.html)
+- [Linux filesystem magic constants](https://raw.githubusercontent.com/torvalds/linux/v6.17/include/uapi/linux/magic.h)

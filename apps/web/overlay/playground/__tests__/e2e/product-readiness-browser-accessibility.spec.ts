@@ -164,6 +164,7 @@ async function collectCjkEvidence(page: Page) {
 
 async function controlEvidence(control: Locator, selector: string) {
   await expect(control).toBeVisible();
+  await expect(control).toBeEnabled();
   return control.evaluate((element, label) => {
     function channels(value: string) {
       const match = value.match(
@@ -460,6 +461,10 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
       path: evidencePath(project.id, 'h5-task-list.png'),
     });
     await h5Task.click();
+    // The action bar is visible while detail requests are still in flight.
+    // Audit the loaded task, not its intentionally disabled loading controls.
+    await expect(h5.locator('.summary-card').filter({ hasText: businessKey }))
+      .toBeVisible();
     const actionBar = h5.locator('.action-bar');
     await expect(actionBar).toBeVisible({ timeout: 20_000 });
     const h5Agree = await exactTextButton(actionBar, '同意');

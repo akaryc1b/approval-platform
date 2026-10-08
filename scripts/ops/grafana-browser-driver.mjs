@@ -22,7 +22,7 @@ export function chromiumArguments(profile) {
 
 export class BrowserPipe {
   constructor(profile, environment, { launch = spawn, diagnostics = {} } = {}) {
-    this.startupDiagnostics = new BrowserStartupDiagnostics(diagnostics);
+    this.startupDiagnostics = new BrowserStartupDiagnostics({ ...diagnostics, profile });
     this.child = launch(chromiumExecutable(), chromiumArguments(profile), {
       env: environment, detached: true, stdio: ['ignore', 'ignore', 'pipe', 'pipe', 'pipe'],
     });
