@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "APPROVAL_MAVEN_TOOLCHAIN_TRANSITION_V1",
+  "repository": "akaryc1b/approval-platform",
+  "reviewBasisHead": "d7c0e53c735e9b00190a70ca674a83124c60afbf",
+  "maven": {
+    "version": "3.9.16",
+    "url": "https://dlcdn.apache.org/maven/maven-3/3.9.16/binaries/apache-maven-3.9.16-bin.tar.gz",
+    "sha512": "831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6"
+  },
+  "acceptedRunnerImage": "ubuntu24/20260907.300",
+  "driftedRunnerImage": "ubuntu24/20261004.327",
+  "acceptedE2RunId": 34816893697,
+  "acceptedE2GraphDigest": "390773d2aa746a2203eec870e5dd0a8f97f81e91913bb016c9ef95b749c0e7b3",
+  "insertedStep": "      - name: Install verified Maven 3.9.16\n        run: node scripts/ci/setup-maven.mjs\n",
+  "workflows": {
+    ".github/workflows/ruoyi5-host-ci.yml": {
+      "fromBlob": "b9b8064f78277b47ddb230c08be210bcc099d5e8",
+      "toBlob": "730b74d1867513ef828b11d980d7dce6e74e4531",
+      "stepCount": 1
+    },
+    ".github/workflows/backend-ci.yml": {
+      "fromBlob": "14fe5e155cae9da738d5cee6217968d3459d547f",
+      "toBlob": "c17c6e1bcf283fc877c1a497c6f7aebb65a342b5",
+      "stepCount": 1
+    },
+    ".github/workflows/approval-platform-validation.yml": {
+      "fromBlob": "041705d7b2bf148658576b9d5b6d01e64e2d4e9d",
+      "toBlob": "563f504c82630304b1ad2b1e1165a21b64eb3ba3",
+      "stepCount": 4
+    },
+    ".github/workflows/ruoyi6-host-ci.yml": {
+      "fromBlob": "7d7bab6dcf0f58a86e843d69f71e5d93c422fa1c",
+      "toBlob": "3582e08d30d81c90097eff25b3aab0e285333589",
+      "stepCount": 1
+    },
+    ".github/workflows/generic-spring-host-ci.yml": {
+      "fromBlob": "a217d87f76d9c1ffa09da74e070194459e676c7d",
+      "toBlob": "62fc04351b32a7bc75a7699602e21f041df0d89c",
+      "stepCount": 1
+    }
+  },
+  "toolchainSourceBlobs": {
+    "scripts/ci/maven-toolchain.mjs": "c15012e6cb176058ba1699ed799791495245e48d",
+    "scripts/ci/setup-maven.mjs": "d85eda8b3e227b11f0ea083418808049231f3859"
+  },
+  "sourceContinuations": {
+    "scripts/security/m6-pr-e-e2-generate-sbom.mjs": {
+      "fromBlob": "f2c5861a2c952b2665c59a0f1e788111eb0db105",
+      "toBlob": "6c381206aeb68c8a9db62f459c8e0c8e58102d17",
+      "unchangedFindingId": "3d0897409d6b051f33f283afea8e0760c95336b44c58622cf938c3a43b14267f",
+      "unchangedSourceLine": 73,
+      "unchangedSourceLineSha256": "4e656b4c1b2dfa4875a10b7a739d02cb9c5608fabfd8a282993a13ac62ba89a3"
+    }
+  },
+  "invariants": {
+    "historicalPlansModified": false,
+    "dependencyGraphReconstructedForScanner": false,
+    "scannerSuppressionAdded": false,
+    "findingDispositionChanged": false,
+    "readyAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false
+  }
+}

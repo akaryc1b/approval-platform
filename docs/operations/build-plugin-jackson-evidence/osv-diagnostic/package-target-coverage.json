@@ -1,0 +1,6959 @@
+[
+  {
+    "package": {
+      "name": "aopalliance:aopalliance",
+      "version": "1.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:aopalliance:aopalliance:jar:1.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "ch.qos.logback:logback-classic",
+      "version": "1.5.38",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/ch.qos.logback/logback-classic@1.5.38?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "ch.qos.logback:logback-core",
+      "version": "1.5.38",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/ch.qos.logback/logback-core@1.5.38?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.fasterxml:classmate",
+      "version": "1.7.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.fasterxml/classmate@1.7.3?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.fasterxml.jackson:jackson-bom",
+      "version": "2.21.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.fasterxml.jackson/jackson-bom@2.21.7?type=pom"
+    ],
+    "scopes": [
+      "import"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.fasterxml.jackson.core:jackson-annotations",
+      "version": "2.21",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.21?type=jar",
+      "maven-plugin:com.fasterxml.jackson.core:jackson-annotations:jar:2.21"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.fasterxml.jackson.core:jackson-core",
+      "version": "2.21.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.21.7?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.21.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.fasterxml.jackson.datatype:jackson-datatype-jsr310",
+      "version": "2.21.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jsr310@2.21.7?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.fasterxml.uuid:java-uuid-generator",
+      "version": "5.1.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.fasterxml.uuid/java-uuid-generator@5.1.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.github.cliftonlabs:json-simple",
+      "version": "3.0.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.github.cliftonlabs:json-simple:jar:3.0.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.github.docker-java:docker-java-api",
+      "version": "3.7.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.github.docker-java/docker-java-api@3.7.1?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.github.docker-java:docker-java-transport-zerodep",
+      "version": "3.7.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.github.docker-java/docker-java-transport-zerodep@3.7.1?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.github.docker-java:docker-java-transport",
+      "version": "3.7.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.github.docker-java/docker-java-transport@3.7.1?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.github.luben:zstd-jni",
+      "version": "1.5.5-11",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.github.luben:zstd-jni:jar:1.5.5-11"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.github.luben:zstd-jni",
+      "version": "1.5.7-6",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.github.luben:zstd-jni:jar:1.5.7-6"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.code.findbugs:jsr305",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.google.code.findbugs:jsr305:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.code.findbugs:jsr305",
+      "version": "3.0.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.google.code.findbugs:jsr305:jar:3.0.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.collections:google-collections",
+      "version": "1.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.google.collections:google-collections:jar:1.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.errorprone:error_prone_annotations",
+      "version": "2.7.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.google.errorprone:error_prone_annotations:jar:2.7.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.guava:failureaccess",
+      "version": "1.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.google.guava:failureaccess:jar:1.0.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.guava:guava",
+      "version": "16.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.google.guava:guava:jar:16.0.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.guava:guava",
+      "version": "31.0.1-jre",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.google.guava:guava:jar:31.0.1-jre"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.guava:listenablefuture",
+      "version": "9999.0-empty-to-avoid-conflict-with-guava",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.google.guava:listenablefuture:jar:9999.0-empty-to-avoid-conflict-with-guava"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.j2objc:j2objc-annotations",
+      "version": "1.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.google.j2objc:j2objc-annotations:jar:1.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.google.protobuf:protobuf-java",
+      "version": "4.32.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.google.protobuf/protobuf-java@4.32.0?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.googlecode.javaewah:JavaEWAH",
+      "version": "1.1.13",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.googlecode.javaewah:JavaEWAH:jar:1.1.13"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.h2database:h2",
+      "version": "2.4.240",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.h2database/h2@2.4.240?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.jayway.jsonpath:json-path",
+      "version": "2.10.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.jayway.jsonpath/json-path@2.10.0?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.puppycrawl.tools:checkstyle",
+      "version": "9.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.puppycrawl.tools:checkstyle:jar:9.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.squareup.okhttp3:okhttp-jvm",
+      "version": "5.3.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.squareup.okhttp3/okhttp-jvm@5.3.2?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.squareup.okio:okio-jvm",
+      "version": "3.16.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.squareup.okio/okio-jvm@3.16.4?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.thoughtworks.qdox:qdox",
+      "version": "2.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.thoughtworks.qdox:qdox:jar:2.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.tngtech.archunit:archunit-junit5-api",
+      "version": "1.4.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.tngtech.archunit/archunit-junit5-api@1.4.2?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.tngtech.archunit:archunit-junit5-engine-api",
+      "version": "1.4.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.tngtech.archunit/archunit-junit5-engine-api@1.4.2?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.tngtech.archunit:archunit-junit5-engine",
+      "version": "1.4.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.tngtech.archunit/archunit-junit5-engine@1.4.2?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.tngtech.archunit:archunit-junit5",
+      "version": "1.4.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.tngtech.archunit/archunit-junit5@1.4.2?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.tngtech.archunit:archunit",
+      "version": "1.4.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.tngtech.archunit/archunit@1.4.2?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vaadin.external.google:android-json",
+      "version": "0.0.20131108.vaadin1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.vaadin.external.google/android-json@0.0.20131108.vaadin1?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-all",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-all:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-abbreviation",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-abbreviation:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-admonition",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-admonition:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-anchorlink",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-anchorlink:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-aside",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-aside:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-attributes",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-attributes:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-autolink",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-autolink:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-definition",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-definition:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-emoji",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-emoji:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-enumerated-reference",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-enumerated-reference:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-escaped-character",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-escaped-character:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-footnotes",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-footnotes:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-gfm-issues",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-gfm-issues:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-gfm-strikethrough",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-gfm-strikethrough:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-gfm-tables",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-gfm-tables:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-gfm-tasklist",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-gfm-tasklist:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-gfm-users",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-gfm-users:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-gitlab",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-gitlab:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-ins",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-ins:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-jekyll-front-matter",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-jekyll-front-matter:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-jekyll-tag",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-jekyll-tag:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-macros",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-macros:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-media-tags",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-media-tags:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-superscript",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-superscript:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-tables",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-tables:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-toc",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-toc:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-typographic",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-typographic:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-wikilink",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-wikilink:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-xwiki-macros",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-xwiki-macros:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-yaml-front-matter",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-yaml-front-matter:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-ext-youtube-embedded",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-ext-youtube-embedded:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-formatter",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-formatter:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-html-parser",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-html-parser:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-jira-converter",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-jira-converter:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-profile-pegdown",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-profile-pegdown:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-util",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-util:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark-youtrack-converter",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark-youtrack-converter:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.vladsch.flexmark:flexmark",
+      "version": "0.42.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:com.vladsch.flexmark:flexmark:jar:0.42.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "com.zaxxer:HikariCP",
+      "version": "7.0.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/com.zaxxer/HikariCP@7.0.2?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-beanutils:commons-beanutils",
+      "version": "1.7.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-beanutils:commons-beanutils:jar:1.7.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-beanutils:commons-beanutils",
+      "version": "1.9.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-beanutils:commons-beanutils:jar:1.9.4"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-chain:commons-chain",
+      "version": "1.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-chain:commons-chain:jar:1.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-codec:commons-codec",
+      "version": "1.11",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-codec:commons-codec:jar:1.11"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-codec:commons-codec",
+      "version": "1.16.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-codec:commons-codec:jar:1.16.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-codec:commons-codec",
+      "version": "1.17.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-codec:commons-codec:jar:1.17.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-codec:commons-codec",
+      "version": "1.17.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-codec:commons-codec:jar:1.17.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-codec:commons-codec",
+      "version": "1.19.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/commons-codec/commons-codec@1.19.0?type=jar",
+      "maven-plugin:commons-codec:commons-codec:jar:1.19.0"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-collections:commons-collections",
+      "version": "3.2.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-collections:commons-collections:jar:3.2.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-digester:commons-digester",
+      "version": "1.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-digester:commons-digester:jar:1.8"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-io:commons-io",
+      "version": "2.11.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-io:commons-io:jar:2.11.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-io:commons-io",
+      "version": "2.15.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-io:commons-io:jar:2.15.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-io:commons-io",
+      "version": "2.16.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-io:commons-io:jar:2.16.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-io:commons-io",
+      "version": "2.17.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-io:commons-io:jar:2.17.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-io:commons-io",
+      "version": "2.19.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-io:commons-io:jar:2.19.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-io:commons-io",
+      "version": "2.20.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/commons-io/commons-io@2.20.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-io:commons-io",
+      "version": "2.21.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/commons-io/commons-io@2.21.0?type=jar",
+      "maven-plugin:commons-io:commons-io:jar:2.21.0"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-io:commons-io",
+      "version": "2.6",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-io:commons-io:jar:2.6"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-lang:commons-lang",
+      "version": "1.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-lang:commons-lang:jar:1.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-lang:commons-lang",
+      "version": "2.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-lang:commons-lang:jar:2.4"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-logging:commons-logging",
+      "version": "1.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-logging:commons-logging:jar:1.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-logging:commons-logging",
+      "version": "1.3.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:commons-logging:commons-logging:jar:1.3.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "commons-logging:commons-logging",
+      "version": "1.3.6",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/commons-logging/commons-logging@1.3.6?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "de.tototec:de.tototec.cmdoption",
+      "version": "0.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:de.tototec:de.tototec.cmdoption:jar:0.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "dom4j:dom4j",
+      "version": "1.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:dom4j:dom4j:jar:1.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "info.picocli:picocli",
+      "version": "4.6.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:info.picocli:picocli:jar:4.6.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.airlift:aircompressor",
+      "version": "0.27",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:io.airlift:aircompressor:jar:0.27"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.micrometer:context-propagation",
+      "version": "1.2.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.micrometer/context-propagation@1.2.1?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.micrometer:micrometer-commons",
+      "version": "1.16.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.micrometer/micrometer-commons@1.16.7?type=jar",
+      "maven-plugin:io.micrometer:micrometer-commons:jar:1.16.7"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.micrometer:micrometer-core",
+      "version": "1.16.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.micrometer/micrometer-core@1.16.7?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.micrometer:micrometer-jakarta9",
+      "version": "1.16.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.micrometer/micrometer-jakarta9@1.16.7?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.micrometer:micrometer-observation",
+      "version": "1.16.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.micrometer/micrometer-observation@1.16.7?type=jar",
+      "maven-plugin:io.micrometer:micrometer-observation:jar:1.16.7"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.micrometer:micrometer-registry-otlp",
+      "version": "1.16.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.micrometer/micrometer-registry-otlp@1.16.7?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.micrometer:micrometer-registry-prometheus",
+      "version": "1.16.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.16.7?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.micrometer:micrometer-tracing-bridge-otel",
+      "version": "1.6.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.6.7?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.micrometer:micrometer-tracing",
+      "version": "1.6.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.micrometer/micrometer-tracing@1.6.7?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-api",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-api@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-bom",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-bom@1.62.0?type=pom"
+    ],
+    "scopes": [
+      "import"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-common",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-common@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-context",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-context@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-exporter-common",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-exporter-common@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-exporter-otlp-common",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp-common@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-exporter-otlp",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-exporter-sender-okhttp",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-exporter-sender-okhttp@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-extension-trace-propagators",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-extension-trace-propagators@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-sdk-common",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-sdk-logs",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-sdk-logs@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-sdk-metrics",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-sdk-metrics@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-sdk-trace",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry:opentelemetry-sdk",
+      "version": "1.62.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry/opentelemetry-sdk@1.62.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry.proto:opentelemetry-proto",
+      "version": "1.8.0-alpha",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry.proto/opentelemetry-proto@1.8.0-alpha?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.opentelemetry.semconv:opentelemetry-semconv",
+      "version": "1.37.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.37.0?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.prometheus:prometheus-metrics-config",
+      "version": "1.4.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.prometheus/prometheus-metrics-config@1.4.3?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.prometheus:prometheus-metrics-core",
+      "version": "1.4.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.prometheus/prometheus-metrics-core@1.4.3?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.prometheus:prometheus-metrics-exposition-formats",
+      "version": "1.4.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.prometheus/prometheus-metrics-exposition-formats@1.4.3?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.prometheus:prometheus-metrics-exposition-textformats",
+      "version": "1.4.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.prometheus/prometheus-metrics-exposition-textformats@1.4.3?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.prometheus:prometheus-metrics-model",
+      "version": "1.4.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.prometheus/prometheus-metrics-model@1.4.3?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "io.prometheus:prometheus-metrics-tracer-common",
+      "version": "1.4.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/io.prometheus/prometheus-metrics-tracer-common@1.4.3?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "jakarta.activation:jakarta.activation-api",
+      "version": "2.1.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/jakarta.activation/jakarta.activation-api@2.1.4?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "jakarta.annotation:jakarta.annotation-api",
+      "version": "3.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/jakarta.annotation/jakarta.annotation-api@3.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "jakarta.mail:jakarta.mail-api",
+      "version": "2.1.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/jakarta.mail/jakarta.mail-api@2.1.5?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "jakarta.validation:jakarta.validation-api",
+      "version": "3.1.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/jakarta.validation/jakarta.validation-api@3.1.1?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "jakarta.xml.bind:jakarta.xml.bind-api",
+      "version": "4.0.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/jakarta.xml.bind/jakarta.xml.bind-api@4.0.5?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "javax.activation:javax.activation-api",
+      "version": "1.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:javax.activation:javax.activation-api:jar:1.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "javax.annotation:javax.annotation-api",
+      "version": "1.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:javax.annotation:javax.annotation-api:jar:1.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "javax.enterprise:cdi-api",
+      "version": "1.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:javax.enterprise:cdi-api:jar:1.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "javax.inject:javax.inject",
+      "version": "1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:javax.inject:javax.inject:jar:1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "javax.servlet:javax.servlet-api",
+      "version": "3.1.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:javax.servlet:javax.servlet-api:jar:3.1.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "javax.xml.bind:jaxb-api",
+      "version": "2.3.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:javax.xml.bind:jaxb-api:jar:2.3.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "joda-time:joda-time",
+      "version": "2.14.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/joda-time/joda-time@2.14.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "junit:junit",
+      "version": "4.13.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:junit:junit:jar:4.13.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "net.bytebuddy:byte-buddy-agent",
+      "version": "1.17.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/net.bytebuddy/byte-buddy-agent@1.17.8?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "net.bytebuddy:byte-buddy",
+      "version": "1.17.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/net.bytebuddy/byte-buddy@1.17.8?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "net.i2p.crypto:eddsa",
+      "version": "0.3.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:net.i2p.crypto:eddsa:jar:0.3.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "net.java.dev.jna:jna-platform",
+      "version": "5.17.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:net.java.dev.jna:jna-platform:jar:5.17.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "net.java.dev.jna:jna",
+      "version": "5.17.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:net.java.dev.jna:jna:jar:5.17.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "net.java.dev.jna:jna",
+      "version": "5.18.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/net.java.dev.jna/jna@5.18.1?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "net.minidev:accessors-smart",
+      "version": "2.6.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/net.minidev/accessors-smart@2.6.0?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "net.minidev:json-smart",
+      "version": "2.6.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/net.minidev/json-smart@2.6.0?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "net.sf.saxon:Saxon-HE",
+      "version": "10.6",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:net.sf.saxon:Saxon-HE:jar:10.6"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.antlr:antlr4-runtime",
+      "version": "4.7.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.antlr:antlr4-runtime:jar:4.7.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.antlr:antlr4-runtime",
+      "version": "4.9.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.antlr:antlr4-runtime:jar:4.9.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache-extras.beanshell:bsh",
+      "version": "2.0b6",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache-extras.beanshell:bsh:jar:2.0b6"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.ant:ant-launcher",
+      "version": "1.10.12",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.ant:ant-launcher:jar:1.10.12"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.ant:ant",
+      "version": "1.10.12",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.ant:ant:jar:1.10.12"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-compress",
+      "version": "1.20",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-compress:jar:1.20"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-compress",
+      "version": "1.26.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-compress:jar:1.26.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-compress",
+      "version": "1.27.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-compress:jar:1.27.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-compress",
+      "version": "1.28.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.apache.commons/commons-compress@1.28.0?type=jar",
+      "maven-plugin:org.apache.commons:commons-compress:jar:1.28.0"
+    ],
+    "scopes": [
+      "test",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-digester3",
+      "version": "3.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-digester3:jar:3.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-lang3",
+      "version": "3.12.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-lang3:jar:3.12.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-lang3",
+      "version": "3.14.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-lang3:jar:3.14.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-lang3",
+      "version": "3.16.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-lang3:jar:3.16.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-lang3",
+      "version": "3.17.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-lang3:jar:3.17.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-lang3",
+      "version": "3.18.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-lang3:jar:3.18.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-lang3",
+      "version": "3.19.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.apache.commons/commons-lang3@3.19.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-lang3",
+      "version": "3.20.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-lang3:jar:3.20.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-lang3",
+      "version": "3.8.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-lang3:jar:3.8.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-text",
+      "version": "1.12.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-text:jar:1.12.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.commons:commons-text",
+      "version": "1.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.commons:commons-text:jar:1.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.httpcomponents:httpclient",
+      "version": "4.5.13",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.httpcomponents:httpclient:jar:4.5.13"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.httpcomponents:httpcore",
+      "version": "4.4.14",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.httpcomponents:httpcore:jar:4.4.14"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.httpcomponents.client5:httpclient5",
+      "version": "5.5.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.httpcomponents.client5:httpclient5:jar:5.5.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.httpcomponents.core5:httpcore5-h2",
+      "version": "5.3.6",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.httpcomponents.core5:httpcore5-h2:jar:5.3.6"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.httpcomponents.core5:httpcore5",
+      "version": "5.3.6",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.httpcomponents.core5:httpcore5:jar:5.3.6"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.logging.log4j:log4j-api",
+      "version": "2.25.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.apache.logging.log4j/log4j-api@2.25.5?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.logging.log4j:log4j-to-slf4j",
+      "version": "2.25.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.apache.logging.log4j/log4j-to-slf4j@2.25.5?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-aether-provider",
+      "version": "3.2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-aether-provider:jar:3.2.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-archiver",
+      "version": "3.5.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-archiver:jar:3.5.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-archiver",
+      "version": "3.6.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-archiver:jar:3.6.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-archiver",
+      "version": "3.6.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-archiver:jar:3.6.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-archiver",
+      "version": "3.6.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-archiver:jar:3.6.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-artifact",
+      "version": "3.2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-artifact:jar:3.2.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-core",
+      "version": "3.2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-core:jar:3.2.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-model-builder",
+      "version": "3.2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-model-builder:jar:3.2.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-model",
+      "version": "3.2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-model:jar:3.2.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-plugin-api",
+      "version": "3.2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-plugin-api:jar:3.2.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-repository-metadata",
+      "version": "3.2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-repository-metadata:jar:3.2.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-settings-builder",
+      "version": "3.2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-settings-builder:jar:3.2.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven:maven-settings",
+      "version": "3.2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven:maven-settings:jar:3.2.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-core",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-core:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-core",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-core:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-decoration-model",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-decoration-model:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-integration-tools",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-integration-tools:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-integration-tools",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-integration-tools:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-logging-api",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-logging-api:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-logging-api",
+      "version": "1.12.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-logging-api:jar:1.12.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-apt",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-apt:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-apt",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-apt:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-confluence",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-confluence:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-docbook-simple",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-docbook-simple:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-fml",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-fml:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-markdown",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-markdown:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-twiki",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-twiki:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-xdoc",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-xdoc:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-xdoc",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-xdoc:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-xhtml",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-xhtml:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-xhtml5",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-xhtml5:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-module-xhtml5",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-module-xhtml5:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-sink-api",
+      "version": "1.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-sink-api:jar:1.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-sink-api",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-sink-api:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-sink-api",
+      "version": "1.12.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-sink-api:jar:1.12.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-sink-api",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-sink-api:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-site-model",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-site-model:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-site-renderer",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-site-renderer:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-site-renderer",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-site-renderer:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-skin-model",
+      "version": "1.11.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-skin-model:jar:1.11.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.doxia:doxia-skin-model",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.doxia:doxia-skin-model:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.enforcer:enforcer-api",
+      "version": "3.5.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.enforcer:enforcer-api:jar:3.5.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.enforcer:enforcer-rules",
+      "version": "3.5.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.enforcer:enforcer-rules:jar:3.5.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugin-tools:maven-plugin-annotations",
+      "version": "3.7.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugin-tools:maven-plugin-annotations:jar:3.7.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-antrun-plugin",
+      "version": "3.1.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-assembly-plugin",
+      "version": "3.7.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-checkstyle-plugin",
+      "version": "3.6.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-clean-plugin",
+      "version": "3.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-compiler-plugin",
+      "version": "3.14.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-dependency-plugin",
+      "version": "3.7.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-dependency-plugin:jar:3.7.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-deploy-plugin",
+      "version": "3.1.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-enforcer-plugin",
+      "version": "3.5.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-install-plugin",
+      "version": "3.1.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-install-plugin:jar:3.1.4"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-jar-plugin",
+      "version": "3.5.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-release-plugin",
+      "version": "3.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-release-plugin:jar:3.0.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-resources-plugin",
+      "version": "3.4.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-shade-plugin",
+      "version": "3.6.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-shade-plugin:jar:3.6.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-site-plugin",
+      "version": "3.12.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-site-plugin:jar:3.12.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.plugins:maven-surefire-plugin",
+      "version": "3.5.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.release:maven-release-api",
+      "version": "3.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.release:maven-release-api:jar:3.0.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.release:maven-release-manager",
+      "version": "3.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.release:maven-release-manager:jar:3.0.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.release:maven-release-oddeven-policy",
+      "version": "3.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.release:maven-release-oddeven-policy:jar:3.0.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.release:maven-release-semver-policy",
+      "version": "3.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.release:maven-release-semver-policy:jar:3.0.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.reporting:maven-reporting-api",
+      "version": "3.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.reporting:maven-reporting-api:jar:3.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.reporting:maven-reporting-api",
+      "version": "3.1.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.reporting:maven-reporting-api:jar:3.1.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.reporting:maven-reporting-api",
+      "version": "4.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.reporting:maven-reporting-api:jar:4.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.reporting:maven-reporting-exec",
+      "version": "1.6.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.reporting:maven-reporting-exec:jar:1.6.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.reporting:maven-reporting-impl",
+      "version": "3.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.reporting:maven-reporting-impl:jar:3.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.reporting:maven-reporting-impl",
+      "version": "4.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.reporting:maven-reporting-impl:jar:4.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.resolver:maven-resolver-api",
+      "version": "1.4.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.resolver:maven-resolver-api:jar:1.4.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.resolver:maven-resolver-api",
+      "version": "1.9.22",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.resolver:maven-resolver-api:jar:1.9.22"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.resolver:maven-resolver-util",
+      "version": "1.4.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.resolver:maven-resolver-util:jar:1.4.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.resolver:maven-resolver-util",
+      "version": "1.9.22",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.resolver:maven-resolver-util:jar:1.9.22"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.scm:maven-scm-api",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.scm:maven-scm-api:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.scm:maven-scm-manager-plexus",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.scm:maven-scm-manager-plexus:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.scm:maven-scm-provider-git-commons",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.scm:maven-scm-provider-git-commons:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.scm:maven-scm-provider-gitexe",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.scm:maven-scm-provider-gitexe:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.scm:maven-scm-provider-hg",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.scm:maven-scm-provider-hg:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.scm:maven-scm-provider-jgit",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.scm:maven-scm-provider-jgit:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.scm:maven-scm-provider-svn-commons",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.scm:maven-scm-provider-svn-commons:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.scm:maven-scm-provider-svnexe",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.scm:maven-scm-provider-svnexe:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.scm:maven-scm-providers-standard",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.scm:maven-scm-providers-standard:pom:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:file-management",
+      "version": "3.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:file-management:jar:3.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-artifact-transfer",
+      "version": "0.13.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-artifact-transfer:jar:0.13.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-common-artifact-filters",
+      "version": "3.3.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-common-artifact-filters:jar:3.3.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-common-artifact-filters",
+      "version": "3.4.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-common-artifact-filters:jar:3.4.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-dependency-analyzer",
+      "version": "1.14.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-dependency-analyzer:jar:1.14.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-dependency-tree",
+      "version": "3.3.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-dependency-tree:jar:3.3.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-filtering",
+      "version": "3.3.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-filtering:jar:3.3.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-filtering",
+      "version": "3.4.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-filtering:jar:3.4.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-invoker",
+      "version": "3.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-invoker:jar:3.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-shared-incremental",
+      "version": "1.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-shared-incremental:jar:1.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-shared-utils",
+      "version": "3.3.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-shared-utils:jar:3.3.4"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.shared:maven-shared-utils",
+      "version": "3.4.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.shared:maven-shared-utils:jar:3.4.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.surefire:maven-surefire-common",
+      "version": "3.5.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.surefire:maven-surefire-common:jar:3.5.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.surefire:surefire-api",
+      "version": "3.5.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.surefire:surefire-api:jar:3.5.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.surefire:surefire-booter",
+      "version": "3.5.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.surefire:surefire-booter:jar:3.5.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.surefire:surefire-extensions-api",
+      "version": "3.5.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.surefire:surefire-extensions-api:jar:3.5.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.surefire:surefire-extensions-spi",
+      "version": "3.5.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.surefire:surefire-extensions-spi:jar:3.5.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.surefire:surefire-logger-api",
+      "version": "3.5.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.surefire:surefire-logger-api:jar:3.5.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.maven.surefire:surefire-shared-utils",
+      "version": "3.5.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.maven.surefire:surefire-shared-utils:jar:3.5.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.sshd:sshd-common",
+      "version": "2.7.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.sshd:sshd-common:jar:2.7.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.sshd:sshd-core",
+      "version": "2.7.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.sshd:sshd-core:jar:2.7.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.sshd:sshd-osgi",
+      "version": "2.7.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.sshd:sshd-osgi:jar:2.7.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.sshd:sshd-sftp",
+      "version": "2.7.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.sshd:sshd-sftp:jar:2.7.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "11.0.26",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.26?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.tomcat.embed:tomcat-embed-el",
+      "version": "11.0.26",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.apache.tomcat.embed/tomcat-embed-el@11.0.26?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.tomcat.embed:tomcat-embed-websocket",
+      "version": "11.0.26",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.apache.tomcat.embed/tomcat-embed-websocket@11.0.26?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.velocity:velocity-engine-core",
+      "version": "2.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.velocity:velocity-engine-core:jar:2.4"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.velocity:velocity-tools",
+      "version": "2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.velocity:velocity-tools:jar:2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.velocity:velocity",
+      "version": "1.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.velocity:velocity:jar:1.7"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.velocity.tools:velocity-tools-generic",
+      "version": "3.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.velocity.tools:velocity-tools-generic:jar:3.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apache.xbean:xbean-reflect",
+      "version": "3.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.apache.xbean:xbean-reflect:jar:3.7"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.apiguardian:apiguardian-api",
+      "version": "1.1.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.apiguardian/apiguardian-api@1.1.2?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.assertj:assertj-core",
+      "version": "3.27.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.assertj/assertj-core@3.27.7?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.awaitility:awaitility",
+      "version": "4.3.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.awaitility/awaitility@4.3.0?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.checkerframework:checker-qual",
+      "version": "3.12.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.checkerframework:checker-qual:jar:3.12.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.checkerframework:checker-qual",
+      "version": "3.55.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.checkerframework/checker-qual@3.55.1?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.mojo:flatten-maven-plugin",
+      "version": "1.7.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-archiver",
+      "version": "4.10.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-archiver:jar:4.10.4"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-archiver",
+      "version": "4.2.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-archiver:jar:4.2.7"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-archiver",
+      "version": "4.9.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-archiver:jar:4.9.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-cipher",
+      "version": "2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-cipher:jar:2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-classworlds",
+      "version": "2.5.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-classworlds:jar:2.5.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-classworlds",
+      "version": "2.6.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-classworlds:jar:2.6.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-compiler-api",
+      "version": "2.15.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-compiler-api:jar:2.15.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-compiler-javac",
+      "version": "2.15.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-compiler-javac:jar:2.15.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-compiler-manager",
+      "version": "2.15.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-compiler-manager:jar:2.15.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-component-annotations",
+      "version": "2.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-component-annotations:jar:2.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-component-annotations",
+      "version": "2.1.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-component-annotations:jar:2.1.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-component-annotations",
+      "version": "2.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-component-annotations:jar:2.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-container-default",
+      "version": "2.1.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-container-default:jar:2.1.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-i18n",
+      "version": "1.0-beta-10",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-i18n:jar:1.0-beta-10"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-interactivity-api",
+      "version": "1.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-interactivity-api:jar:1.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-interpolation",
+      "version": "1.26",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-interpolation:jar:1.26"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-interpolation",
+      "version": "1.27",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-interpolation:jar:1.27"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-interpolation",
+      "version": "1.28",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-interpolation:jar:1.28"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-io",
+      "version": "3.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-io:jar:3.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-io",
+      "version": "3.4.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-io:jar:3.4.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-io",
+      "version": "3.6.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-io:jar:3.6.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-java",
+      "version": "1.4.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-java:jar:1.4.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-java",
+      "version": "1.5.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-java:jar:1.5.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-resources",
+      "version": "1.3.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-resources:jar:1.3.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-sec-dispatcher",
+      "version": "2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-sec-dispatcher:jar:2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-utils",
+      "version": "3.0.24",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-utils:jar:3.0.24"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-utils",
+      "version": "3.4.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-utils:jar:3.4.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-utils",
+      "version": "3.4.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-utils:jar:3.4.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-utils",
+      "version": "3.5.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-utils:jar:3.5.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-utils",
+      "version": "4.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-utils:jar:4.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-utils",
+      "version": "4.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-utils:jar:4.0.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-utils",
+      "version": "4.0.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-utils:jar:4.0.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-velocity",
+      "version": "1.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-velocity:jar:1.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-velocity",
+      "version": "2.2.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-velocity:jar:2.2.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-xml",
+      "version": "3.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-xml:jar:3.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.codehaus.plexus:plexus-xml",
+      "version": "3.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.codehaus.plexus:plexus-xml:jar:3.0.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.aether:aether-api",
+      "version": "1.0.0.v20140518",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.aether:aether-api:jar:1.0.0.v20140518"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.aether:aether-impl",
+      "version": "1.0.0.v20140518",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.aether:aether-impl:jar:1.0.0.v20140518"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.aether:aether-spi",
+      "version": "1.0.0.v20140518",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.aether:aether-spi:jar:1.0.0.v20140518"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.aether:aether-util",
+      "version": "1.0.0.v20140518",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.aether:aether-util:jar:1.0.0.v20140518"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.angus:angus-activation",
+      "version": "2.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.eclipse.angus/angus-activation@2.0.3?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.angus:angus-mail",
+      "version": "2.0.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.eclipse.angus/angus-mail@2.0.5?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jetty:jetty-http",
+      "version": "9.4.46.v20220331",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jetty:jetty-http:jar:9.4.46.v20220331"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jetty:jetty-io",
+      "version": "9.4.46.v20220331",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jetty:jetty-io:jar:9.4.46.v20220331"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jetty:jetty-security",
+      "version": "9.4.46.v20220331",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jetty:jetty-security:jar:9.4.46.v20220331"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jetty:jetty-server",
+      "version": "9.4.46.v20220331",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jetty:jetty-server:jar:9.4.46.v20220331"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jetty:jetty-servlet",
+      "version": "9.4.46.v20220331",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jetty:jetty-servlet:jar:9.4.46.v20220331"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jetty:jetty-util-ajax",
+      "version": "9.4.46.v20220331",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jetty:jetty-util-ajax:jar:9.4.46.v20220331"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jetty:jetty-util",
+      "version": "9.4.46.v20220331",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jetty:jetty-util:jar:9.4.46.v20220331"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jetty:jetty-webapp",
+      "version": "9.4.46.v20220331",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jetty:jetty-webapp:jar:9.4.46.v20220331"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jetty:jetty-xml",
+      "version": "9.4.46.v20220331",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jetty:jetty-xml:jar:9.4.46.v20220331"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jgit:org.eclipse.jgit.ssh.apache",
+      "version": "5.13.1.202206130422-r",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jgit:org.eclipse.jgit.ssh.apache:jar:5.13.1.202206130422-r"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.jgit:org.eclipse.jgit",
+      "version": "5.13.1.202206130422-r",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.jgit:org.eclipse.jgit:jar:5.13.1.202206130422-r"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.sisu:org.eclipse.sisu.inject",
+      "version": "0.3.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.sisu:org.eclipse.sisu.inject:jar:0.3.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.sisu:org.eclipse.sisu.inject",
+      "version": "0.9.0.M3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.sisu:org.eclipse.sisu.inject:jar:0.9.0.M3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.sisu:org.eclipse.sisu.plexus",
+      "version": "0.3.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.sisu:org.eclipse.sisu.plexus:jar:0.3.5"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.eclipse.sisu:org.eclipse.sisu.plexus",
+      "version": "0.9.0.M3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.eclipse.sisu:org.eclipse.sisu.plexus:jar:0.9.0.M3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-batch-service-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-batch-service-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-batch-service",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-batch-service@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-bom",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-bom@8.0.0?type=pom"
+    ],
+    "scopes": [
+      "import"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-bpmn-converter",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-bpmn-converter@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-bpmn-model",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-bpmn-model@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-cmmn-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-cmmn-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-cmmn-model",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-cmmn-model@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-content-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-content-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-dmn-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-dmn-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-dmn-model",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-dmn-model@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-engine-common-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-engine-common-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-engine-common",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-engine-common@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-engine",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-engine@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-entitylink-service-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-entitylink-service-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-entitylink-service",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-entitylink-service@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-event-registry-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-event-registry-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-event-registry-configurator",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-event-registry-configurator@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-event-registry-json-converter",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-event-registry-json-converter@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-event-registry-model",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-event-registry-model@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-event-registry-spring-configurator",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-event-registry-spring-configurator@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-event-registry-spring",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-event-registry-spring@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-event-registry",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-event-registry@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-eventsubscription-service-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-eventsubscription-service-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-eventsubscription-service",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-eventsubscription-service@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-form-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-form-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-form-model",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-form-model@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-http-common",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-http-common@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-identitylink-service-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-identitylink-service-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-identitylink-service",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-identitylink-service@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-idm-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-idm-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-idm-engine-configurator",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-idm-engine-configurator@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-idm-engine",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-idm-engine@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-image-generator",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-image-generator@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-job-service-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-job-service-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-job-service",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-job-service@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-job-spring-service",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-job-spring-service@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-mail",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-mail@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-process-validation",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-process-validation@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-spring-boot-autoconfigure",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-spring-boot-autoconfigure@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-spring-boot-starter-process",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-spring-boot-starter-process@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-spring-common",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-spring-common@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-spring-security",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-spring-security@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-spring",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-spring@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-task-service-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-task-service-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-task-service",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-task-service@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-variable-service-api",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-variable-service-api@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flowable:flowable-variable-service",
+      "version": "8.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flowable/flowable-variable-service@8.0.0?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flywaydb:flyway-core",
+      "version": "11.14.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flywaydb/flyway-core@11.14.1?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.flywaydb:flyway-database-postgresql",
+      "version": "11.14.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.flywaydb/flyway-database-postgresql@11.14.1?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.hamcrest:hamcrest-core",
+      "version": "1.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.hamcrest:hamcrest-core:jar:1.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.hamcrest:hamcrest",
+      "version": "3.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.hamcrest/hamcrest@3.0?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.hdrhistogram:HdrHistogram",
+      "version": "2.2.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.hdrhistogram/HdrHistogram@2.2.2?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.hibernate.validator:hibernate-validator",
+      "version": "9.0.1.Final",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.hibernate.validator/hibernate-validator@9.0.1.Final?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.iq80.snappy:snappy",
+      "version": "0.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.iq80.snappy:snappy:jar:0.4"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jacoco:jacoco-maven-plugin",
+      "version": "0.8.15",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.jacoco:jacoco-maven-plugin:jar:0.8.15"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jacoco:org.jacoco.agent",
+      "version": "0.8.15",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.jacoco:org.jacoco.agent:jar:runtime:0.8.15"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jacoco:org.jacoco.core",
+      "version": "0.8.15",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.jacoco:org.jacoco.core:jar:0.8.15"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jacoco:org.jacoco.report",
+      "version": "0.8.15",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.jacoco:org.jacoco.report:jar:0.8.15"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.javassist:javassist",
+      "version": "3.28.0-GA",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.javassist:javassist:jar:3.28.0-GA"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jboss.logging:jboss-logging",
+      "version": "3.6.3.Final",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.jboss.logging/jboss-logging@3.6.3.Final?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jdom:jdom2",
+      "version": "2.0.6.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.jdom:jdom2:jar:2.0.6.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jetbrains:annotations",
+      "version": "17.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.jetbrains/annotations@17.0.0?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jetbrains.kotlin:kotlin-stdlib",
+      "version": "2.2.21",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.2.21?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jsoup:jsoup",
+      "version": "1.10.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.jsoup:jsoup:jar:1.10.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jspecify:jspecify",
+      "version": "1.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.jspecify:jspecify:jar:1.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.jspecify:jspecify",
+      "version": "1.0.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.junit.jupiter:junit-jupiter-api",
+      "version": "6.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.junit.jupiter/junit-jupiter-api@6.0.3?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.junit.jupiter:junit-jupiter-engine",
+      "version": "6.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.junit.jupiter/junit-jupiter-engine@6.0.3?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.junit.jupiter:junit-jupiter-params",
+      "version": "6.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.junit.jupiter/junit-jupiter-params@6.0.3?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.junit.jupiter:junit-jupiter",
+      "version": "6.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.junit.jupiter/junit-jupiter@6.0.3?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.junit.platform:junit-platform-commons",
+      "version": "6.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.junit.platform/junit-platform-commons@6.0.3?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.junit.platform:junit-platform-engine",
+      "version": "6.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.junit.platform/junit-platform-engine@6.0.3?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.latencyutils:LatencyUtils",
+      "version": "2.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.latencyutils/LatencyUtils@2.0.3?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.mockito:mockito-core",
+      "version": "5.20.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.mockito/mockito-core@5.20.0?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.mockito:mockito-junit-jupiter",
+      "version": "5.20.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.mockito/mockito-junit-jupiter@5.20.0?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.mybatis:mybatis",
+      "version": "3.5.19",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.nibor.autolink:autolink",
+      "version": "0.6.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.nibor.autolink:autolink:jar:0.6.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.objenesis:objenesis",
+      "version": "3.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.objenesis/objenesis@3.3?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.opentest4j:opentest4j",
+      "version": "1.3.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.opentest4j/opentest4j@1.3.0?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm-commons",
+      "version": "5.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm-commons:jar:5.0.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm-commons",
+      "version": "9.10.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm-commons:jar:9.10.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm-commons",
+      "version": "9.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm-commons:jar:9.7"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm-tree",
+      "version": "5.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm-tree:jar:5.0.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm-tree",
+      "version": "9.10.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm-tree:jar:9.10.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm-tree",
+      "version": "9.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm-tree:jar:9.7"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm",
+      "version": "5.0.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm:jar:5.0.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm",
+      "version": "9.10.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm:jar:9.10.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm",
+      "version": "9.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm:jar:9.7"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm",
+      "version": "9.7.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.ow2.asm/asm@9.7.1?type=jar",
+      "maven-plugin:org.ow2.asm:asm:jar:9.7.1"
+    ],
+    "scopes": [
+      "test",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.ow2.asm:asm",
+      "version": "9.9.1",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.ow2.asm:asm:jar:9.9.1"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.postgresql:postgresql",
+      "version": "42.7.13",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.postgresql/postgresql@42.7.13?type=jar"
+    ],
+    "scopes": [
+      "runtime"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.reflections:reflections",
+      "version": "0.10.2",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.reflections:reflections:jar:0.10.2"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.rnorth.duct-tape:duct-tape",
+      "version": "1.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.rnorth.duct-tape/duct-tape@1.0.8?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.semver:api",
+      "version": "0.9.33",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.semver:api:jar:0.9.33"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.skyscreamer:jsonassert",
+      "version": "1.5.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.skyscreamer/jsonassert@1.5.3?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.slf4j:jcl-over-slf4j",
+      "version": "1.7.36",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.slf4j:jcl-over-slf4j:jar:1.7.36"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.slf4j:jcl-over-slf4j",
+      "version": "2.0.18",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.slf4j/jcl-over-slf4j@2.0.18?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.slf4j:jul-to-slf4j",
+      "version": "2.0.18",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.slf4j/jul-to-slf4j@2.0.18?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.slf4j:slf4j-api",
+      "version": "1.7.36",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.slf4j:slf4j-api:jar:1.7.36"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.slf4j:slf4j-api",
+      "version": "2.0.18",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.sonatype.plexus:plexus-build-api",
+      "version": "0.0.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.sonatype.plexus:plexus-build-api:jar:0.0.7"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.sonatype.plexus:plexus-cipher",
+      "version": "1.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.sonatype.plexus:plexus-cipher:jar:1.4"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.sonatype.plexus:plexus-sec-dispatcher",
+      "version": "1.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.sonatype.plexus:plexus-sec-dispatcher:jar:1.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.sonatype.sisu:sisu-guice",
+      "version": "3.2.3",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.sonatype.sisu:sisu-guice:jar:no_aop:3.2.3"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-aop",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-aop@7.0.9?type=jar",
+      "maven-plugin:org.springframework:spring-aop:jar:7.0.9"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-beans",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-beans@7.0.9?type=jar",
+      "maven-plugin:org.springframework:spring-beans:jar:7.0.9"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-context",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-context@7.0.9?type=jar",
+      "maven-plugin:org.springframework:spring-context:jar:7.0.9"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-core",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-core@7.0.9?type=jar",
+      "maven-plugin:org.springframework:spring-core:jar:7.0.9"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-expression",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-expression@7.0.9?type=jar",
+      "maven-plugin:org.springframework:spring-expression:jar:7.0.9"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-jdbc",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-orm",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-orm@7.0.9?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-test",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-test@7.0.9?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-tx",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-tx@7.0.9?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-web",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-web@7.0.9?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework:spring-webmvc",
+      "version": "7.0.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework/spring-webmvc@7.0.9?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-actuator-autoconfigure",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-actuator",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-actuator@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-autoconfigure",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-autoconfigure@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-buildpack-platform",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.springframework.boot:spring-boot-buildpack-platform:jar:4.0.8"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-dependencies",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-dependencies@4.0.8?type=pom"
+    ],
+    "scopes": [
+      "import"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-health",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-health@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-http-converter",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-jackson",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-jackson@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-jdbc",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-loader-tools",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.springframework.boot:spring-boot-loader-tools:jar:4.0.8"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-maven-plugin",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-micrometer-metrics",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-micrometer-observation",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-micrometer-tracing",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-opentelemetry",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-persistence",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-persistence@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-servlet",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-servlet@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-sql",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-sql@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-actuator",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-jackson",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-jackson@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-jdbc",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-jdbc@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-logging",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-logging@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-micrometer-metrics",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-opentelemetry",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-opentelemetry@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-test",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-test@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-tomcat-runtime",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat-runtime@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-tomcat",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-tomcat@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-validation",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter-web",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-starter",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-starter@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-test-autoconfigure",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-test-autoconfigure@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-test",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-test@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-tomcat",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-tomcat@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-transaction",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-transaction@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-validation",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-validation@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-web-server",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-web-server@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot-webmvc",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot-webmvc@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.springframework.boot:spring-boot",
+      "version": "4.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.springframework.boot/spring-boot@4.0.8?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.testcontainers:testcontainers-bom",
+      "version": "2.0.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.testcontainers/testcontainers-bom@2.0.5?type=pom"
+    ],
+    "scopes": [
+      "import"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.testcontainers:testcontainers-database-commons",
+      "version": "2.0.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.testcontainers/testcontainers-database-commons@2.0.5?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.testcontainers:testcontainers-jdbc",
+      "version": "2.0.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.testcontainers/testcontainers-jdbc@2.0.5?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.testcontainers:testcontainers-junit-jupiter",
+      "version": "2.0.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.testcontainers/testcontainers-junit-jupiter@2.0.5?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.testcontainers:testcontainers-postgresql",
+      "version": "2.0.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.testcontainers/testcontainers-postgresql@2.0.5?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.testcontainers:testcontainers",
+      "version": "2.0.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.testcontainers/testcontainers@2.0.5?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.tomlj:tomlj",
+      "version": "1.0.0",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.tomlj:tomlj:jar:1.0.0"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.tukaani:xz",
+      "version": "1.10",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.tukaani:xz:jar:1.10"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.tukaani:xz",
+      "version": "1.9",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.tukaani:xz:jar:1.9"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.vafer:jdependency",
+      "version": "2.10",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:org.vafer:jdependency:jar:2.10"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.xmlunit:xmlunit-core",
+      "version": "2.10.4",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.xmlunit/xmlunit-core@2.10.4?type=jar"
+    ],
+    "scopes": [
+      "test"
+    ]
+  },
+  {
+    "package": {
+      "name": "org.yaml:snakeyaml",
+      "version": "2.5",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/org.yaml/snakeyaml@2.5?type=jar"
+    ],
+    "scopes": [
+      "compile"
+    ]
+  },
+  {
+    "package": {
+      "name": "oro:oro",
+      "version": "2.0.8",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "maven-plugin:oro:oro:jar:2.0.8"
+    ],
+    "scopes": [
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "tools.jackson:jackson-bom",
+      "version": "3.1.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/tools.jackson/jackson-bom@3.1.7?type=pom"
+    ],
+    "scopes": [
+      "import"
+    ]
+  },
+  {
+    "package": {
+      "name": "tools.jackson.core:jackson-core",
+      "version": "3.1.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/tools.jackson.core/jackson-core@3.1.7?type=jar",
+      "maven-plugin:tools.jackson.core:jackson-core:jar:3.1.7"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "tools.jackson.core:jackson-databind",
+      "version": "3.1.7",
+      "ecosystem": "Maven"
+    },
+    "componentRefs": [
+      "pkg:maven/tools.jackson.core/jackson-databind@3.1.7?type=jar",
+      "maven-plugin:tools.jackson.core:jackson-databind:jar:3.1.7"
+    ],
+    "scopes": [
+      "compile",
+      "build-plugin"
+    ]
+  },
+  {
+    "package": {
+      "name": "typescript",
+      "version": "5.9.3",
+      "ecosystem": "npm"
+    },
+    "componentRefs": [
+      "pkg:npm/typescript@5.9.3"
+    ],
+    "scopes": [
+      "development"
+    ]
+  }
+]

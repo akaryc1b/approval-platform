@@ -28,6 +28,9 @@ import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResol
 import io.github.akaryc1b.approval.compiler.ApprovalDslCompiler;
 import io.github.akaryc1b.approval.engine.ApprovalEngine;
 import io.github.akaryc1b.approval.engine.flowable.FlowableApprovalEngine;
+import io.github.akaryc1b.approval.observability.ApprovalBusinessMetrics;
+import io.github.akaryc1b.approval.observability.ObservedApprovalProjectionStore;
+import io.github.akaryc1b.approval.observability.ObservedIdempotencyGuard;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalAttachmentStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalCommentStore;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMessageStore;
@@ -80,22 +83,28 @@ public class ApprovalPlatformConfiguration {
         DataSource dataSource,
         ObjectMapper approvalPersistenceObjectMapper,
         PlatformTransactionManager transactionManager,
-        Clock approvalClock
+        Clock approvalClock,
+        ApprovalBusinessMetrics approvalBusinessMetrics
     ) {
-        return new JdbcIdempotencyGuard(
+        return new ObservedIdempotencyGuard(new JdbcIdempotencyGuard(
             dataSource,
             approvalPersistenceObjectMapper,
             transactionManager,
             approvalClock
-        );
+        ), approvalBusinessMetrics);
     }
 
     @Bean
     ApprovalProjectionStore approvalProjectionStore(
         DataSource dataSource,
-        ObjectMapper approvalPersistenceObjectMapper
+        ObjectMapper approvalPersistenceObjectMapper,
+        ApprovalBusinessMetrics approvalBusinessMetrics
     ) {
-        return new JdbcApprovalProjectionStore(dataSource, approvalPersistenceObjectMapper);
+        return new ObservedApprovalProjectionStore(
+            new JdbcApprovalProjectionStore(dataSource, approvalPersistenceObjectMapper,
+                approvalBusinessMetrics::processTerminated),
+            approvalBusinessMetrics
+        );
     }
 
     @Bean

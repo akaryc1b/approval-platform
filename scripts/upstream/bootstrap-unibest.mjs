@@ -4,6 +4,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
+import { applyUnibestCompatibility } from './unibest-compatibility.mjs';
+
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, '../..');
 const configPath = resolve(repositoryRoot, 'apps/mobile/upstream.json');
@@ -150,6 +152,7 @@ packageJson.dependencies = {
   ...packageJson.dependencies,
   'wot-design-uni': config.wotDesignUniVersion,
 };
+applyUnibestCompatibility(packageJson);
 await writeFile(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8');
 
 const tsconfigPath = resolve(upstreamDirectory, 'tsconfig.json');

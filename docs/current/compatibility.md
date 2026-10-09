@@ -9,7 +9,7 @@
 | Area | Value | Status |
 | --- | --- | --- |
 | Java | 21 | 必需的构建与运行时基线 |
-| Spring Boot | 4.0.2 | 当前服务端框架基线 |
+| Spring Boot | 4.0.8 | 当前服务端框架基线 |
 | Flowable | 8.0.0 | 仅通过平台 Engine SPI 和公开 API 使用 |
 | Node.js | ^22.18.0 \|\| ^24.0.0 | 仓库客户端与工具基线 |
 | pnpm | 10.33.4 | 工作区包管理器基线 |

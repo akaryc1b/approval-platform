@@ -152,6 +152,7 @@ public final class SlaAwareApprovalProjectionStore implements ApprovalProjection
             activeTasks,
             instanceStatus,
             false,
+            completedAt,
             evidence.current()
         );
     }
@@ -183,6 +184,7 @@ public final class SlaAwareApprovalProjectionStore implements ApprovalProjection
             activeTasks,
             InstanceStatus.RUNNING,
             true,
+            changedAt,
             evidence.current()
         );
     }
@@ -199,6 +201,6 @@ public final class SlaAwareApprovalProjectionStore implements ApprovalProjection
             .orElseThrow(() -> new ProjectionConflictException(
                 "approval instance disappeared after withdrawal"
             ));
-        sla.terminalWithdrawnInstance(instance);
+        sla.terminalWithdrawnInstance(instance, withdrawnAt);
     }
 }

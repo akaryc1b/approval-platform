@@ -9,6 +9,10 @@ import type {
   UiSchemaDefinition,
   UiSection,
 } from '@/api/approval/form-types'
+
+import WdButton from 'wot-design-uni/components/wd-button/wd-button.vue'
+import WdInput from 'wot-design-uni/components/wd-input/wd-input.vue'
+
 import { uploadApprovalAttachment } from '@/api/approval/comments'
 
 interface SectionEntry { depth: number, section: UiSection }

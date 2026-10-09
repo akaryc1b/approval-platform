@@ -2,6 +2,11 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
 
 import { repositoryRoot } from './contract.mjs';
+import {
+  createSafeProcessOutput,
+  maximumCheckedOutputBytes,
+  safeProcessErrorCode,
+} from './safe-output.mjs';
 
 const pollIntervalMs = 1_000;
 const defaultCheckedProcessTimeoutMs = 15 * 60_000;
@@ -32,11 +37,29 @@ function checkedProcessTimeout(environment, timeoutMs) {
 
 function requireSuccessfulProcess(label, result) {
   if (result.error) {
-    throw new Error(`${label} could not start: ${result.error.message}`);
+    throw new Error(`${label} failed: ${safeProcessErrorCode(result.error)}`);
   }
   if (result.status !== 0) {
     const signal = result.signal ? ` signal ${result.signal}` : '';
     throw new Error(`${label} failed with exit code ${result.status}${signal}`);
+  }
+}
+
+function recordCheckedOutput(result) {
+  for (const output of [result.stdout, result.stderr]) {
+    const recorder = createSafeProcessOutput({ emit: value => process.stdout.write(value) });
+    if (output) recorder.write(output);
+    recorder.end();
+  }
+}
+
+function spawnChecked(label, spawnProcess) {
+  try {
+    return spawnProcess();
+  } catch (error) {
+    // Spawn validation errors may include paths, arguments, or environment
+    // values. Do not attach their raw message or cause to the safe failure.
+    throw new Error(`${label} failed: ${safeProcessErrorCode(error)}`);
   }
 }
 
@@ -47,13 +70,15 @@ export function runPnpmChecked(
   timeoutMs = undefined,
 ) {
   console.log(`\n==> ${label}`);
-  const result = spawnSync(pnpmExecutable(), args, {
+  const result = spawnChecked(label, () => spawnSync(pnpmExecutable(), args, {
     cwd: repositoryRoot,
     env: environment,
     shell: false,
-    stdio: 'inherit',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: maximumCheckedOutputBytes,
     timeout: checkedProcessTimeout(environment, timeoutMs),
-  });
+  }));
+  recordCheckedOutput(result);
   requireSuccessfulProcess(label, result);
 }
 
@@ -65,13 +90,15 @@ export function runNodeChecked(
   workingDirectory = repositoryRoot,
 ) {
   console.log(`\n==> ${label}`);
-  const result = spawnSync(process.execPath, args, {
+  const result = spawnChecked(label, () => spawnSync(process.execPath, args, {
     cwd: workingDirectory,
     env: environment,
     shell: false,
-    stdio: 'inherit',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: maximumCheckedOutputBytes,
     timeout: checkedProcessTimeout(environment, timeoutMs),
-  });
+  }));
+  recordCheckedOutput(result);
   requireSuccessfulProcess(label, result);
 }
 
@@ -93,20 +120,28 @@ export function startManagedNode(
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.once('error', error => {
-    state.spawnError = error;
+    state.spawnError = new Error(`${label} failed: ${safeProcessErrorCode(error)}`);
   });
   stream.once('error', error => {
-    state.spawnError = error;
+    state.spawnError = new Error(`${label} log failed: ${safeProcessErrorCode(error)}`);
   });
-  const record = chunk => {
-    const text = chunk.toString('utf8');
-    process.stdout.write(text);
-    if (!stream.destroyed && !stream.writableEnded) stream.write(text);
+  const retain = text => {
     state.buffer = `${state.buffer}${text}`.slice(-256_000);
   };
-  child.stdout.on('data', record);
-  child.stderr.on('data', record);
+  const emit = text => {
+    process.stdout.write(text);
+    if (!stream.destroyed && !stream.writableEnded) stream.write(text);
+    // Dynamic control values arrive separately; never replace them with the
+    // deliberately value-free logging projection.
+    if (!text.endsWith('=[value withheld]\n')) retain(text);
+  };
+  const recorders = [child.stdout, child.stderr].map(output => {
+    const recorder = createSafeProcessOutput({ emit, onControlLine: retain });
+    output.on('data', chunk => recorder.write(chunk));
+    return recorder;
+  });
   child.once('close', () => {
+    for (const recorder of recorders) recorder.end();
     if (!stream.destroyed && !stream.writableEnded) stream.end();
   });
   return { child, label, state };

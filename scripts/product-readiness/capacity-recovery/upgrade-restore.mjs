@@ -1,7 +1,7 @@
+import { appendPublicationEnvelope, preparePublicationFiles, publicationPolicy } from '../artifact-privacy/publication.mjs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
-  appendFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -32,6 +32,7 @@ import {
 } from '../purchase-payment-e2e/evidence.mjs';
 import { publishExactEventAllowlist, verifyExactAcceptedPayments } from './sandbox-event-allowlist.mjs';
 import { seededAttachmentIds } from './backlog-drain-evidence.mjs';
+import { waitForRestoreDatabase } from './restore-database-readiness.mjs';
 import {
   composeFile,
   composeProject,
@@ -50,6 +51,7 @@ import {
 import {
   backendTimeoutMs,
   baseEnvironment,
+  baselineSetupEnvironment,
   candidateEnvironment,
   claim,
   exactUpgradeRefs,
@@ -270,43 +272,6 @@ function createBackup(dumpPath, deadline) {
   };
 }
 
-async function waitForPostgres(deadline) {
-  while (Date.now() < deadline) {
-    const result = spawnSync(
-      composeArguments(
-        'exec',
-        '-T',
-        'postgres',
-        'pg_isready',
-        '-U',
-        'approval',
-        '-d',
-        'approval',
-      )[0],
-      composeArguments(
-        'exec',
-        '-T',
-        'postgres',
-        'pg_isready',
-        '-U',
-        'approval',
-        '-d',
-        'approval',
-      ).slice(1),
-      {
-        cwd: repositoryRoot,
-        encoding: 'utf8',
-        env: process.env,
-        shell: false,
-        timeout: Math.min(10_000, remainingMilliseconds(deadline, 'PostgreSQL readiness')),
-      },
-    );
-    if (!result.error && result.status === 0) return;
-    await new Promise(resolvePromise => setTimeout(resolvePromise, 500));
-  }
-  throw new Error('fresh PostgreSQL 16 did not become ready');
-}
-
 async function recreateInfrastructure(dumpPath, deadline) {
   run(composeArguments('down', '--volumes', '--remove-orphans'), {
     label: 'destroy pre-restore disposable PostgreSQL volume',
@@ -316,7 +281,7 @@ async function recreateInfrastructure(dumpPath, deadline) {
     label: 'create fresh PostgreSQL 16 and Redis infrastructure',
     timeoutMs: remainingMilliseconds(deadline, 'create fresh infrastructure'),
   });
-  await waitForPostgres(deadline);
+  const readiness = await waitForRestoreDatabase({ deadline, composeArguments, cwd: repositoryRoot });
   const restoreStartedAt = new Date();
   const dump = readFileSync(dumpPath);
   run(composeArguments(
@@ -342,6 +307,7 @@ async function recreateInfrastructure(dumpPath, deadline) {
     startedAt: restoreStartedAt.toISOString(),
     completedAt: restoreCompletedAt.toISOString(),
     elapsedMs: restoreCompletedAt.getTime() - restoreStartedAt.getTime(),
+    readiness,
   };
 }
 
@@ -445,7 +411,7 @@ function collectEvidence(directory, files = []) {
     const target = resolve(directory, name);
     const metadata = lstatSync(target);
     if (metadata.isSymbolicLink()) {
-      throw new Error(`upgrade/restore evidence rejects symbolic link: ${target}`);
+      throw new Error('upgrade/restore evidence rejects symbolic link');
     }
     if (metadata.isDirectory()) {
       collectEvidence(target, files);
@@ -466,10 +432,12 @@ function appendEvidenceEnvelope(status, runDirectory, identity) {
   }
   const canonicalRunDirectory = realpathSync(runDirectory);
   let totalBytes = 0;
-  const files = collectEvidence(canonicalRunDirectory).map((target) => {
-    const content = readFileSync(target);
+  const targets = collectEvidence(canonicalRunDirectory);
+  const published = preparePublicationFiles(targets);
+  const files = targets.map((target, index) => {
+    const content = Buffer.from(published[index].base64, 'base64');
     if (content.length > maximumEvidenceFileBytes) {
-      throw new Error(`upgrade/restore evidence file is too large: ${target}`);
+      throw new Error('upgrade/restore evidence file is too large');
     }
     totalBytes += content.length;
     if (totalBytes > maximumEvidenceTotalBytes) {
@@ -477,13 +445,14 @@ function appendEvidenceEnvelope(status, runDirectory, identity) {
     }
     const path = relative(canonicalRunDirectory, target).split(sep).join('/');
     if (!path || path.startsWith('../') || path.includes('/../')) {
-      throw new Error(`upgrade/restore evidence escaped its run directory: ${target}`);
+      throw new Error('upgrade/restore evidence escaped its run directory');
     }
     return {
       path,
       size: content.length,
       sha256: createHash('sha256').update(content).digest('hex'),
       base64: content.toString('base64'),
+      sanitization: published[index].sanitization,
     };
   });
   if (status === 'PASSED') {
@@ -505,7 +474,7 @@ function appendEvidenceEnvelope(status, runDirectory, identity) {
       }
     }
   }
-  appendFileSync(
+  appendPublicationEnvelope(
     artifactLog,
     `\n${envelopeBegin}\n${JSON.stringify({
       schemaVersion: 1,
@@ -516,6 +485,7 @@ function appendEvidenceEnvelope(status, runDirectory, identity) {
       githubRunId: process.env.GITHUB_RUN_ID || null,
       capturedAt: new Date().toISOString(),
       totalBytes,
+      publicationPolicy,
       files,
     })}\n${envelopeEnd}\n`,
     'utf8',
@@ -626,7 +596,7 @@ export async function executeUpgradeRestoreRehearsal(contract) {
       'Start exact-main baseline backend for in-flight backup',
       ['scripts/product-readiness/demo-backend.mjs', 'start'],
       resolve(runDirectory, 'base-backend.log'),
-      baseEnvironment(),
+      baselineSetupEnvironment(),
       worktree,
     );
     await waitForMarker(

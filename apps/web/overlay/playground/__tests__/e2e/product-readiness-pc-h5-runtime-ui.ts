@@ -1,5 +1,7 @@
 import type { Locator, Page, Response } from '@playwright/test';
 import { expect } from '@playwright/test';
+import type { CaptureBudget } from './product-readiness-capture-budget';
+import { readySurface } from './product-readiness-capture';
 
 import {
   businessKey,
@@ -61,16 +63,41 @@ async function triggerApproval(
   page: Page,
   confirmation: Locator,
   expectation: ApprovalActionExpectation,
+  budget: CaptureBudget,
+  acknowledged: (budget: CaptureBudget, assertCurrent: () => Promise<void>) => Promise<void>,
 ) {
-  await expect(confirmation).toBeVisible({ timeout: 5_000 });
-  const [response] = await Promise.all([
-    page.waitForResponse(
-      candidate => exactApprovalResponse(candidate, expectation),
-      { timeout: 30_000 },
-    ),
-    confirmation.click({ timeout: 10_000 }),
-  ]);
-  return response;
+  await expect(confirmation).toBeVisible({ timeout: budget.remaining(5_000) });
+  // Arm the exact positive feedback before the actual click. Capture it while
+  // the drawer may be closing / H5 may still be on its old detail route.
+  const success = page.locator('.el-message--success, uni-toast')
+    .getByText('审批已同意', { exact: true });
+  if (await budget.run(() => success.isVisible())) throw new Error('A prior approval acknowledgment is still visible');
+  let active = true;
+  const assertCurrent = async () => {
+    budget.remaining();
+    if (!active) throw new Error('Approval acknowledgment is no longer current');
+    const visible = await budget.run(() => success.isVisible());
+    if (!active || !visible) throw new Error('Approval acknowledgment is no longer current');
+  };
+  try {
+    const acknowledgedCapture = expect(success).toBeVisible({ timeout: budget.remaining(30_000) })
+      .then(async () => {
+        await assertCurrent();
+        await acknowledged(budget, assertCurrent);
+      });
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        candidate => exactApprovalResponse(candidate, expectation),
+        { timeout: budget.remaining(30_000) },
+      ),
+      confirmation.click({ timeout: budget.remaining(10_000) }),
+      acknowledgedCapture,
+    ]);
+    return response;
+  } finally {
+    // A failed sibling must not later write an acknowledged success capture.
+    active = false;
+  }
 }
 
 export async function ensurePcLogin(page: Page) {
@@ -126,17 +153,23 @@ export async function ensurePcLogin(page: Page) {
 export async function clickPcApproval(
   page: Page,
   expectation: ApprovalActionExpectation,
+  owner: CaptureBudget,
+  acknowledged: (budget: CaptureBudget, assertCurrent: () => Promise<void>) => Promise<void>,
 ): Promise<Response> {
+  const budget = owner.limit(30_000);
   const card = page.locator('.task-item')
     .filter({ hasText: expectation.businessKey })
     .first();
-  await expect(card).toBeVisible();
-  await card.getByRole('button', { name: '处理', exact: true }).click();
-  await expect(page.getByText('审批详情', { exact: true })).toBeVisible();
+  await expect(card).toBeVisible({ timeout: budget.remaining(15_000) });
+  await card.getByRole('button', { name: '处理', exact: true }).click({ timeout: budget.remaining(10_000) });
+  await expect(page.getByText('审批详情', { exact: true })).toBeVisible({ timeout: budget.remaining(15_000) });
+  await readySurface(page, budget, { client: 'pc', kind: 'detail', url: pcUrl, ...expectation, instanceId: expectation.processInstanceId });
+  await expect(page.getByRole('button', { name: '同意', exact: true }).last()).toBeEnabled({ timeout: budget.remaining(10_000) });
   await page.getByRole('button', { name: '同意', exact: true }).last().click({
-    timeout: 10_000,
+    timeout: budget.remaining(10_000),
   });
 
+  await readySurface(page, budget.limit(5_000), { client: 'pc', kind: 'confirmation', url: pcUrl, ...expectation, instanceId: expectation.processInstanceId });
   return triggerApproval(
     page,
     page.getByRole('button', {
@@ -144,6 +177,8 @@ export async function clickPcApproval(
       exact: true,
     }),
     expectation,
+    budget,
+    acknowledged,
   );
 }
 
@@ -151,17 +186,23 @@ export async function clickH5Approval(
   page: Page,
   expectation: ApprovalActionExpectation,
   stageLabel: '财务会签' | '财务审核' | '付款确认',
+  owner: CaptureBudget,
+  acknowledged: (budget: CaptureBudget, assertCurrent: () => Promise<void>) => Promise<void>,
 ): Promise<Response> {
+  const budget = owner.limit(30_000);
+  const detailUrl = new URL(page.url());
+  detailUrl.hash = `/pages/task/detail?id=${encodeURIComponent(expectation.taskId)}`;
   const card = page.locator('.task-card')
     .filter({ hasText: expectation.businessKey })
     .first();
-  await expect(card).toBeVisible();
-  await card.click({ timeout: 10_000 });
+  await expect(card).toBeVisible({ timeout: budget.remaining(15_000) });
+  await card.click({ timeout: budget.remaining(10_000) });
   await expect(page.getByText(stageLabel, { exact: true }).first())
-    .toBeVisible();
+    .toBeVisible({ timeout: budget.remaining(15_000) });
 
+  await readySurface(page, budget, { client: 'h5', kind: 'detail', url: detailUrl.toString(), ...expectation, instanceId: expectation.processInstanceId });
   const actionBar = page.locator('.action-bar');
-  await expect(actionBar).toBeVisible({ timeout: 10_000 });
+  await expect(actionBar).toBeVisible({ timeout: budget.remaining(10_000) });
   const wotButton = actionBar.locator('.wd-button.is-primary')
     .filter({ hasText: /^同意$/u })
     .last();
@@ -187,15 +228,16 @@ export async function clickH5Approval(
         : await uniButton.count() > 0
           ? uniButton
           : exactTextControl;
-  await expect(approvalButton).toBeVisible({ timeout: 10_000 });
-  await approvalButton.click({ timeout: 10_000 });
+  await expect(approvalButton).toBeVisible({ timeout: budget.remaining(10_000) });
+  await expect(approvalButton).toBeEnabled({ timeout: budget.remaining(10_000) });
+  await approvalButton.click({ timeout: budget.remaining(10_000) });
 
   const modalPrimary = page.locator(
     'uni-modal .uni-modal__btn_primary',
   ).last();
-  const confirmation = await modalPrimary.isVisible({ timeout: 3_000 })
+  const confirmation = await modalPrimary.isVisible({ timeout: budget.remaining(3_000) })
     ? modalPrimary
     : page.getByText('确认同意', { exact: true }).last();
 
-  return triggerApproval(page, confirmation, expectation);
+  return triggerApproval(page, confirmation, expectation, budget, acknowledged);
 }

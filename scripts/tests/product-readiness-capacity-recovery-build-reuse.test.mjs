@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './product-readiness-capacity-recovery-upgrade-build.test.mjs';
 import {
   mkdirSync,
   mkdtempSync,

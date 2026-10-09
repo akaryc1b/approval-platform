@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "M6_PR_E_E3_R3A_CURRENT_SOURCE_TRANSITION_V1",
+  "repository": "akaryc1b/approval-platform",
+  "historicalContractContentSha256": "aee05d7ad0452b2f3a29212afa367b96aff73fea1f9e5fd307dc1f236d440f6b",
+  "historicalContractFileSha256": "d57d59618c7e00d2410b0d0426e9f8da0f614f07ceda6f4ed1ccae23520826b8",
+  "sourceEvidence": {
+    "commitSha": "0ed5a7892bc580088be63e2d95646ca0ada5f85e",
+    "e2ContentSha256": "1be1f0ea8ca75fe3ade4627be39f8197a23f01b991aa9b029139ed98254923d7",
+    "runId": 37741669554,
+    "runNumber": 1811
+  },
+  "currentGraphDigest": "6557cef5d2ef11c36a8efb89cf7c1c607c721e32cdbabf0228441bb585b3c829",
+  "tomcat": {
+    "groupId": "org.apache.tomcat.embed",
+    "artifactId": "tomcat-embed-core",
+    "version": "11.0.26",
+    "type": "jar",
+    "historicalFindingId": "e6addd49c1ea8eddec10d654318f6cb52f458e139900b8e612c59fbc690b0b79",
+    "upstreamFindingId": "GHSA-x4m4-345f-5h5g",
+    "alias": "CVE-2026-34487",
+    "jarFileName": "tomcat-embed-core-11.0.26.jar",
+    "jarSha256": "062cf4191139c08aef678673039e41ed9d69b6c1b9b30b44820e5a83d0c09cb6",
+    "jarBytes": 3646429,
+    "officialArtifactUrl": "https://repo.maven.apache.org/maven2/org/apache/tomcat/embed/tomcat-embed-core/11.0.26/tomcat-embed-core-11.0.26.jar"
+  },
+  "httpcore": {
+    "groupId": "org.apache.httpcomponents.core5",
+    "artifactId": "httpcore5",
+    "version": "5.3.6",
+    "historicalFindingId": "35fb6917af4dcd633580647f3c9ffc2d2bd5e97f296634c1d8f3515a40b8413e",
+    "upstreamFindingId": "GHSA-hf6x-8p5f-cgmf",
+    "alias": "CVE-2026-54399",
+    "expectedPluginOwners": [
+      "org.springframework.boot:spring-boot-maven-plugin:4.0.8"
+    ],
+    "requiredCoResolvedComponents": [
+      "org.apache.httpcomponents.client5:httpclient5:5.5.2",
+      "org.apache.httpcomponents.core5:httpcore5-h2:5.3.6",
+      "org.springframework.boot:spring-boot-buildpack-platform:4.0.8"
+    ]
+  },
+  "decision": {
+    "historicalReviewRetained": true,
+    "currentTomcatFindingDispositionTransferred": false,
+    "currentTomcatFindingPresenceClaimed": false,
+    "currentOsvTotalsClaimed": false,
+    "httpcoreDisposition": "UNRESOLVED",
+    "releaseBlocked": true,
+    "findingDeletionClaimed": false,
+    "suppressionAdded": false,
+    "exceptionAdded": false,
+    "severityDowngradeAdded": false,
+    "readyAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "productionPromotionAuthorized": false,
+    "issue97": "OPEN",
+    "prb16": "OPEN",
+    "prb17": "OPEN"
+  },
+  "contentSha256": "44cd5fd8e11b833a47e5fbebdc841fa25cf388f4dcda9d0d2763d490b41c306b"
+}

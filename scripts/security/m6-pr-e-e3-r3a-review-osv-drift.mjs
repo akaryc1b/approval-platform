@@ -13,6 +13,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { acceptedE2GraphProjection, generateEvidence as generateE2Evidence }
+  from './m6-pr-e-e2-generate-sbom.mjs';
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, verifyReleasePluginDelta, verifySiteDependencyPluginDelta, verifyBuildPluginJacksonDelta, verifyObservabilityGraph }
+  from './observability-dependency-graph.mjs';
+import { verifyScannerCheckout, requireScannerCheckoutUnchanged } from './m6-pr-e-e4-scan.mjs';
+
+const CURRENT_TRANSITION_SHA256 = '6c093a36fbad3e87176f7e68b90ddf571db486b7b21025ab15dc744d3f20e209';
 
 const SHA40 = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -347,11 +354,12 @@ function pluginResolution(root, directory) {
     env: safeEnvironment(),
     timeout: 600000,
   });
-  return parseResolvedPluginReport(readFileSync(output, 'utf8'));
+  return readFileSync(output, 'utf8');
 }
 
 function jarEntryEvidence(version) {
-  const repository = process.env.M6_PR_E_E2_MAVEN_REPOSITORY
+  const repository = process.env.M6_PR_E_E3_R3A_JAR_REPOSITORY
+    ?? process.env.M6_PR_E_E2_MAVEN_REPOSITORY
     ?? path.join(os.homedir(), '.m2', 'repository');
   const jar = path.join(
     repository,
@@ -373,6 +381,8 @@ function jarEntryEvidence(version) {
     entry.startsWith(TOMCAT_CLOUD_PREFIX));
   return {
     jar: path.basename(jar),
+    jarSha256: sha256(readFileSync(jar)),
+    jarBytes: statSync(jar).size,
     entryCount: entries.length,
     vulnerableCloudMembershipEntryCount: cloudEntries.length,
     vulnerableCloudMembershipEntries: cloudEntries,
@@ -420,6 +430,110 @@ function readContract(root) {
     throw new Error('R3A review contract canonical hash mismatch');
   }
   return contract;
+}
+
+export function readCurrentSourceTransition(root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')) {
+  const raw = readFileSync(path.join(root, 'docs/m6/m6-pr-e-e3-r3a-current-source-transition.json'));
+  if (sha256(raw) !== CURRENT_TRANSITION_SHA256) throw new Error('R3A current transition file hash mismatch');
+  const transition = JSON.parse(raw), { contentSha256, ...payload } = transition;
+  if (sha256(canonical(payload)) !== contentSha256
+    || transition.schemaVersion !== 'M6_PR_E_E3_R3A_CURRENT_SOURCE_TRANSITION_V1'
+    || transition.repository !== 'akaryc1b/approval-platform'
+    || transition.currentGraphDigest !== SERVER_DEPENDENCY_GRAPH
+    || transition.decision.releaseBlocked !== true
+    || transition.decision.currentTomcatFindingDispositionTransferred !== false
+    || transition.decision.currentOsvTotalsClaimed !== false) throw new Error('R3A current transition identity drift');
+  return transition;
+}
+
+/** Current source/JAR observations never relabel the retained 11.0.15 finding or old totals. */
+export function evaluateCurrentEvidence({ contract, transition, commitSha, currentE2, checkout,
+  runtimeComponents, jarEvidence, sourceMatches, pluginReport }) {
+  const expected = readCurrentSourceTransition();
+  if (canonical(transition) !== canonical(expected)) throw new Error('R3A supplied transition differs from pinned current contract');
+  const { contentSha256, ...oldPayload } = contract;
+  if (contract.repository !== transition.repository || contentSha256 !== transition.historicalContractContentSha256
+    || sha256(canonical(oldPayload)) !== contentSha256) throw new Error('R3A historical review must remain exact');
+  if (!SHA40.test(commitSha || '') || currentE2?.commitSha !== commitSha
+    || checkout?.expectedHeadSha !== commitSha || checkout.exactTreeMatches !== true || checkout.trackedWorktreeClean !== true
+    || !SHA40.test(checkout.checkedOutSha || '') || !SHA40.test(checkout.expectedHeadTreeSha || '')
+    || checkout.checkedOutTreeSha !== checkout.expectedHeadTreeSha) throw new Error('R3A current source identity mismatch');
+  const graphTransition = verifyObservabilityGraph(currentE2, acceptedE2GraphProjection(currentE2), BASE_GRAPH, commitSha);
+  if (typeof pluginReport !== 'string') throw new Error('R3A raw current plugin report required');
+  const pluginReportSha256 = sha256(pluginReport), pluginGroups = parseResolvedPluginReport(pluginReport);
+  const subsequentPluginGraph = [BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH]
+    .includes(graphTransition.currentE2GraphDigest);
+  if (subsequentPluginGraph) {
+    const current = acceptedE2GraphProjection(currentE2);
+    const beforeRelease = graphTransition.currentE2GraphDigest === RELEASE_PLUGIN_GRAPH
+      ? verifyReleasePluginDelta(current) : current;
+    const prior = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH].includes(graphTransition.currentE2GraphDigest)
+      ? verifySiteDependencyPluginDelta(beforeRelease) : beforeRelease;
+    verifyBuildPluginJacksonDelta(prior);
+  }
+  if ((!subsequentPluginGraph && graphTransition.currentE2GraphDigest !== transition.currentGraphDigest)
+    || pluginReportSha256 !== currentE2.maven.pluginResolutionSha256) throw new Error('R3A current Maven graph/plugin evidence mismatch');
+  const tomcat = transition.tomcat, httpcore = transition.httpcore;
+  for (const [target, historical] of [[tomcat, contract.findings[0]], [httpcore, contract.findings[1]]]) {
+    if (target.historicalFindingId !== historical.findingId || target.upstreamFindingId !== historical.upstreamFindingId
+      || target.alias !== historical.alias) throw new Error('R3A historical advisory identity drift');
+  }
+  const embeds = runtimeComponents.filter(item => item.groupId === tomcat.groupId && item.artifactId === tomcat.artifactId);
+  const versions = [...new Set(embeds.map(item => item.version))];
+  if (canonical(versions) !== canonical([tomcat.version]) || embeds.some(item => item.type !== 'jar'
+    || !['compile', 'runtime'].includes(item.scope) || item.path?.[0] !== 'io.github.akaryc1b.approval:approval-server:0.1.0-SNAPSHOT'
+    || item.path?.at(-1) !== `${tomcat.groupId}:${tomcat.artifactId}:${tomcat.version}`)) {
+    throw new Error('R3A exact current Tomcat runtime component/path mismatch');
+  }
+  const edges = new Set(currentE2.maven.edges.map(edge => `${edge.from}\0${edge.to}`));
+  const components = new Set(currentE2.maven.components.map(item => item.bomRef));
+  for (const item of embeds) {
+    const refs = item.path.map(coordinate => {
+      const [group, name, version, ...extra] = coordinate.split(':');
+      if (!group || !name || !version || extra.length) throw new Error('R3A runtime path coordinate malformed');
+      return `pkg:maven/${group}/${name}@${version}?type=jar`;
+    });
+    if (refs.some(ref => !components.has(ref)) || refs.slice(1).some((ref, index) => !edges.has(`${refs[index]}\0${ref}`))) {
+      throw new Error('R3A runtime path edge is absent from admitted current E2');
+    }
+  }
+  if (runtimeComponents.some(item => item.groupId === 'org.apache.tomcat' && item.artifactId === 'tomcat-tribes')) {
+    throw new Error('Tomcat tribes entered the executable runtime graph');
+  }
+  if (jarEvidence.jar !== tomcat.jarFileName || jarEvidence.jarSha256 !== tomcat.jarSha256
+    || jarEvidence.jarBytes !== tomcat.jarBytes || !Number.isSafeInteger(jarEvidence.entryCount) || jarEvidence.entryCount < 1
+    || jarEvidence.vulnerableCloudMembershipEntryCount !== 0
+    || canonical(jarEvidence.vulnerableCloudMembershipEntries) !== '[]') throw new Error('R3A exact current Tomcat JAR/cloud evidence mismatch');
+  if (!Array.isArray(sourceMatches) || sourceMatches.length) throw new Error('R3A current Tomcat source/config drift');
+  const pluginPaths = findPluginResolutionPaths(pluginGroups, httpcore);
+  requireExactSet(pluginPaths.map(item => item.pluginOwner), httpcore.expectedPluginOwners, 'current httpcore5 plugin owner set');
+  const owner = pluginPaths.find(item => item.pluginOwner === httpcore.expectedPluginOwners[0]);
+  requireExactSet(httpcore.requiredCoResolvedComponents,
+    httpcore.requiredCoResolvedComponents.filter(component => owner.coResolvedComponents.includes(component)),
+    'current httpcore5 co-resolved component set');
+  const historical = contract.findings[1];
+  const payload = {
+    schemaVersion: 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V2', repository: transition.repository, commitSha, checkout,
+    sourceE2ContentSha256: currentE2.contentSha256, currentE2GraphDigest: graphTransition.currentE2GraphDigest,
+    ...(subsequentPluginGraph ? { preservedCurrentSourceGraphDigest: transition.currentGraphDigest } : {}),
+    currentGraphTransition: graphTransition, currentTransitionContentSha256: transition.contentSha256,
+    currentTransitionFileSha256: CURRENT_TRANSITION_SHA256,
+    historicalReview: { sourceMain: contract.sourceMain, sourceRun: contract.sourceRun,
+      contractSha256: contract.contentSha256, findings: contract.findings, decision: contract.decision },
+    currentTomcatObservation: { package: { ecosystem: 'Maven', name: `${tomcat.groupId}:${tomcat.artifactId}`, version: tomcat.version },
+      historicalFindingId: tomcat.historicalFindingId, upstreamFindingId: tomcat.upstreamFindingId, alias: tomcat.alias,
+      currentFindingPresenceClaimed: false, dispositionTransferred: false,
+      evidenceStatus: 'CURRENT_CODE_AND_CONFIGURATION_REVALIDATED_WITHOUT_FINDING_DISPOSITION',
+      runtimeDependencyPath: embeds[0].path, tomcatTribesRuntimeCount: 0, jar: jarEvidence,
+      firstPartyProductionMarkerMatches: sourceMatches },
+    findings: [{ findingId: httpcore.historicalFindingId, upstreamFindingId: httpcore.upstreamFindingId,
+      alias: httpcore.alias, severity: historical.severity, package: historical.package, disposition: 'UNRESOLVED',
+      rationaleCode: 'BUILD_PLUGIN_HTTP1_PARSE_PATH_REQUIRES_SEPARATE_REMEDIATION',
+      evidence: { pluginResolutionPaths: pluginPaths, pluginReportSha256,
+        remoteBuildResponsePathProvenUnreachable: false, revalidationTriggers: historical.revalidationTriggers } }],
+    decision: transition.decision,
+  };
+  return stable({ ...payload, contentSha256: sha256(canonical(payload)) });
 }
 
 function requireExactSet(actual, expected, boundary) {
@@ -548,25 +662,31 @@ export function evaluateEvidence({
   });
 }
 
+export function collectCurrentEvidence(root) {
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'm6-pr-e-r3a-'));
+  try {
+    const commitSha = exactHead(root), checkout = verifyScannerCheckout(root, commitSha);
+    const transition = readCurrentSourceTransition(root), contract = readContract(root);
+    if (sha256(readFileSync(path.join(root, 'docs/m6/m6-pr-e-e3-r3a-osv-drift-review.json')))
+      !== transition.historicalContractFileSha256) throw new Error('R3A retained historical file drift');
+    const currentE2 = generateE2Evidence(root, { fullMaven: true });
+    const runtimeComponents = serverRuntimeGraph(root, directory);
+    const pluginReport = pluginResolution(root, directory);
+    const evidence = evaluateCurrentEvidence({ contract, transition, commitSha, currentE2, checkout, runtimeComponents,
+      jarEvidence: jarEntryEvidence(transition.tomcat.version), sourceMatches: productionSourceMatches(root),
+      pluginReport });
+    requireScannerCheckoutUnchanged(root, commitSha, checkout);
+    return evidence;
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+}
+
 function main() {
   const rootArgument = process.argv.find((argument) =>
     argument.startsWith('--root='));
   const root = rootArgument
     ? path.resolve(rootArgument.slice('--root='.length))
     : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-  const directory = mkdtempSync(path.join(os.tmpdir(), 'm6-pr-e-r3a-'));
-  try {
-    const contract = readContract(root);
-    const runtimeComponents = serverRuntimeGraph(root, directory);
-    const pluginGroups = pluginResolution(root, directory);
-    const evidence = evaluateEvidence({
-      contract,
-      commitSha: exactHead(root),
-      runtimeComponents,
-      jarEvidence: jarEntryEvidence('11.0.15'),
-      sourceMatches: productionSourceMatches(root),
-      pluginGroups,
-    });
+    const evidence = collectCurrentEvidence(root);
     if (process.argv.includes('--markers')) {
       console.log(`M6_PR_E_E3_R3A_CANONICAL_SHA256=${evidence.contentSha256}`);
       console.log('M6_PR_E_E3_R3A_REVIEW_BEGIN');
@@ -575,9 +695,6 @@ function main() {
     } else {
       console.log(JSON.stringify(evidence, null, 2));
     }
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
 }
 
 const invoked = process.argv[1]

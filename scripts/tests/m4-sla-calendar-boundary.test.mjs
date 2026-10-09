@@ -1,2 +1,13 @@
 import './m4-sla-calendar-core-boundary.test.mjs';
 import './m4-sla-calendar-security-boundary.test.mjs';
+import './ops-observability-boundary.test.mjs';
+import './ops-delivery-dashboard.test.mjs';
+import './ops-engine-job-alerting.test.mjs';
+import './ops-engine-job-dashboard.test.mjs';
+import './ops-grafana-browser.test.mjs';
+import './ops-grafana-browser-transport.test.mjs';
+import './ops-grafana-browser-diagnostics.test.mjs';
+import './ops-grafana-native-snapshot.test.mjs';
+import './ops-grafana-io-window.test.mjs';
+import './ops-monitoring-isolation.test.mjs';
+import './ops-sla-completion-alerts.test.mjs';

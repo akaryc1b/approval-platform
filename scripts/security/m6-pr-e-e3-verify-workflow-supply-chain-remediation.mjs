@@ -17,7 +17,7 @@ const canonical = (value) => JSON.stringify(stable(value));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
 // These markers document the exact generic PR #110 boundary delegated to the
-// byte-identical generic module below. Permanent tests intentionally assert
+// generic module below, with its explicit reviewed prototype-remediation receipt. Tests assert
 // that this wrapper cannot hide or weaken those fail-closed semantics.
 const GENERIC_BOUNDARY_MARKERS = [
   'verifyAcceptedR2B',
@@ -55,8 +55,8 @@ function applyR3cReview(genericReconciliation, r3cReview) {
 
 export { classifyCurrentOsvIdentitySet };
 
-export function reconcileScannerFindingIdentities(e4) {
-  const genericReconciliation = reconcileGenericScannerFindingIdentities(e4);
+export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapshot = null, gitleaksReviewSnapshot = null) {
+  const genericReconciliation = reconcileGenericScannerFindingIdentities(e4, prototypeRemediationSnapshot, gitleaksReviewSnapshot);
   return applyR3cReview(
     genericReconciliation,
     reviewCurrentOsvIdentitySetR3c(e4?.scanners?.osv),

@@ -97,7 +97,7 @@ test('exact-main backend commands execute from the detached base worktree', () =
   );
   assert.match(
     runtime,
-    /baseBackend = startManagedNode\([\s\S]*?baseEnvironment\(\),\s*worktree,\s*\);/u,
+    /baseBackend = startManagedNode\([\s\S]*?baselineSetupEnvironment\(\),\s*worktree,\s*\);/u,
   );
 });
 

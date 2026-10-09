@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -35,7 +36,8 @@ class ApprovalSlaGovernedActionConfigurationTest {
                     return DispatchResult.permanentFailure("UNEXPECTED", "fallback invoked");
                 },
                 recorder,
-                Clock.fixed(NOW, ZoneOffset.UTC)
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                Optional.empty()
             );
 
         DispatchResult result = dispatcher.dispatch(intent(ActionType.OVERDUE));
@@ -59,7 +61,8 @@ class ApprovalSlaGovernedActionConfigurationTest {
                         "SLA action sequence changed concurrently"
                     );
                 },
-                Clock.fixed(NOW, ZoneOffset.UTC)
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                Optional.empty()
             );
 
         DispatchResult result = dispatcher.dispatch(intent(ActionType.OVERDUE));
@@ -79,12 +82,43 @@ class ApprovalSlaGovernedActionConfigurationTest {
                     return DispatchResult.permanentFailure("FALLBACK", "delegated");
                 },
                 new RecordingStateRecorder(),
-                Clock.fixed(NOW, ZoneOffset.UTC)
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                Optional.empty()
             );
 
         assertEquals("FALLBACK", dispatcher.dispatch(intent(ActionType.REMINDER)).errorCode());
         assertEquals("FALLBACK", dispatcher.dispatch(intent(ActionType.ESCALATION)).errorCode());
         assertEquals(2, fallbackCalls.get());
+    }
+
+    @Test
+    void enabledTimeoutRecorderOwnsTheAtomicEventWhileOtherActionsRemainUnchanged() {
+        AtomicInteger events = new AtomicInteger();
+        RecordingStateRecorder legacy = new RecordingStateRecorder();
+        var dispatcher = new ApprovalSlaGovernedActionConfiguration().governedApprovalSlaActionDispatcher(
+            intent -> DispatchResult.permanentFailure("FALLBACK", "unchanged"), legacy,
+            Clock.fixed(NOW, ZoneOffset.UTC), Optional.of(intent -> {
+                events.incrementAndGet();
+                assertEquals(ActionType.OVERDUE, intent.actionType());
+                return ApprovalSlaActionStateRecorder.RecordResult.RECORDED;
+            }));
+        assertTrue(dispatcher.dispatch(intent(ActionType.OVERDUE)).successful());
+        assertEquals("FALLBACK", dispatcher.dispatch(intent(ActionType.REMINDER)).errorCode());
+        assertEquals(1, events.get()); assertEquals(0, legacy.calls);
+    }
+
+    @Test
+    void failedAtomicRecordingCannotBeReportedAsSuccessfulOverdueHandling() {
+        for (boolean retryable : new boolean[] { true, false }) {
+            var dispatcher = new ApprovalSlaGovernedActionConfiguration().governedApprovalSlaActionDispatcher(
+                intent -> DispatchResult.succeeded(), new RecordingStateRecorder(),
+                Clock.fixed(NOW, ZoneOffset.UTC), Optional.of(intent -> {
+                    throw new ApprovalSlaActionStateRecorder.ActionStateException("EXPECTED", retryable, "bounded");
+                }));
+            var result = dispatcher.dispatch(intent(ActionType.OVERDUE));
+            assertFalse(result.successful()); assertEquals(retryable, result.retryable());
+            assertEquals("EXPECTED", result.errorCode());
+        }
     }
 
     private static ExecutionIntent intent(ActionType actionType) {

@@ -1,8 +1,14 @@
+import './product-readiness-capture-diagnostics.test.mjs';
+import './product-readiness-capture-evidence.test.mjs';
+import './product-readiness-capture-readiness.test.mjs';
+import './product-readiness-capture-state.test.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -42,6 +48,86 @@ const ciScope = text(
   'scripts/product-readiness/pc-h5-runtime/ci-scope.mjs',
 );
 const aggregate = text('scripts/tests/m3-repository-hygiene.test.mjs');
+
+function auditWithReadiness(expect) {
+  const start = spec.indexOf('async function controlEvidence(');
+  const end = spec.indexOf('async function documentEvidence(');
+  assert.ok(start >= 0 && end > start);
+  const source = stripTypeScriptTypes(spec.slice(start, end));
+  return runInNewContext(`${source}\n(controls) => auditControls(controls, { remaining: () => 20000, run: operation => operation(20000) })`, {
+    expect,
+    matrix: manifest,
+  });
+}
+
+function controlValue(tabIndex = 0) {
+  return { accessibleName: '同意', contrastRatio: 4.5, tabIndex };
+}
+
+test('H5 audit requires the loaded business task before inspecting its actions', () => {
+  assert.match(spec, /await h5Task\.click\(\{ timeout: h5DetailBudget\.remaining\(20_000\) \}\);[\s\S]*?await expect\(h5\.locator\('\.summary-card'\)\.filter\(\{ hasText: businessKey \}\)\)\s*\.toBeVisible\(\{ timeout: h5DetailBudget\.remaining\(20_000\) \}\);[\s\S]*?const h5Detail = await auditControls/u);
+  assert.equal(manifest.thresholds.seriousViolations, 0);
+  assert.equal(manifest.thresholds.criticalViolations, 0);
+});
+
+test('audit waits for an enabled control before collecting focus evidence', async () => {
+  const enabled = Promise.withResolvers();
+  const awaitingEnabled = Promise.withResolvers();
+  let evaluated = false;
+  const audit = auditWithReadiness(() => ({
+    toBeVisible: async () => {},
+    toBeEnabled: async () => {
+      awaitingEnabled.resolve();
+      await enabled.promise;
+    },
+  }));
+  const result = audit([{
+    label: 'h5-agree',
+    locator: { evaluate: async () => {
+      evaluated = true;
+      return controlValue();
+    } },
+  }]);
+  assert.equal(await Promise.race([
+    awaitingEnabled.promise.then(() => 'waiting for enablement'),
+    result.then(() => 'collected evidence too early'),
+  ]), 'waiting for enablement');
+  assert.equal(evaluated, false);
+  enabled.resolve();
+  assert.equal((await result).serious.length, 0);
+  assert.equal(evaluated, true);
+});
+
+test('persistently disabled actions fail readiness rather than being skipped', async () => {
+  let evaluated = false;
+  const readinessFailure = new Error('control remained disabled');
+  const audit = auditWithReadiness(() => ({
+    toBeVisible: async () => {},
+    toBeEnabled: async () => { throw readinessFailure; },
+  }));
+  await assert.rejects(audit([{
+    label: 'h5-reject',
+    locator: { evaluate: async () => {
+      evaluated = true;
+      return controlValue(-1);
+    } },
+  }]), error => error === readinessFailure);
+  assert.equal(evaluated, false);
+});
+
+test('enabled actions with a broken tab index still fail the serious gate', async () => {
+  const audit = auditWithReadiness(() => ({
+    toBeVisible: async () => {},
+    toBeEnabled: async () => {},
+  }));
+  const result = await audit([{
+    label: 'h5-agree',
+    locator: { evaluate: async () => controlValue(-1) },
+  }]);
+  assert.equal(result.serious.length, 1);
+  assert.equal(result.serious[0].rule, 'keyboard-focusable');
+  assert.equal(result.serious[0].severity, 'serious');
+});
 
 test('browser/accessibility plan is governed by the accepted demo manifests', () => {
   assert.equal(manifest.schemaVersion, 1);

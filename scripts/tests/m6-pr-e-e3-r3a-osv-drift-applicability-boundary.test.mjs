@@ -244,6 +244,7 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
 
   const inheritedRepository =
     process.env.M6_PR_E_E2_MAVEN_REPOSITORY;
+  const inheritedJarRepository = process.env.M6_PR_E_E3_R3A_JAR_REPOSITORY;
   const repository = ensureExactTomcatRepository();
   const result = spawnSync(process.execPath, [
     reviewer,
@@ -253,7 +254,7 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
     cwd: root,
     env: {
       ...process.env,
-      M6_PR_E_E2_MAVEN_REPOSITORY: repository,
+      M6_PR_E_E3_R3A_JAR_REPOSITORY: repository,
     },
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
@@ -263,6 +264,7 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
     process.env.M6_PR_E_E2_MAVEN_REPOSITORY,
     inheritedRepository,
   );
+  assert.equal(process.env.M6_PR_E_E3_R3A_JAR_REPOSITORY, inheritedJarRepository);
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const match = result.stdout.match(
     /M6_PR_E_E3_R3A_REVIEW_BEGIN\n([^\n]+)\nM6_PR_E_E3_R3A_REVIEW_END/,
@@ -270,28 +272,39 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
   assert.ok(match, 'R3A canonical review evidence must be retained');
   const resultEvidence = JSON.parse(match[1]);
   assert.match(resultEvidence.commitSha, /^[0-9a-f]{40}$/);
-  assert.equal(resultEvidence.findings[0].disposition, 'NOT_APPLICABLE');
+  assert.equal(resultEvidence.schemaVersion, 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V2');
+  assert.deepEqual(resultEvidence.historicalReview.findings, contract.findings);
+  assert.deepEqual(resultEvidence.historicalReview.decision, contract.decision);
+  assert.equal(resultEvidence.currentTomcatObservation.package.version, '11.0.26');
+  assert.equal(resultEvidence.currentTomcatObservation.currentFindingPresenceClaimed, false);
+  assert.equal(resultEvidence.currentTomcatObservation.dispositionTransferred, false);
   assert.equal(
-    resultEvidence.findings[0].evidence.tomcatTribesRuntimeCount,
+    resultEvidence.currentTomcatObservation.tomcatTribesRuntimeCount,
     0,
   );
   assert.equal(
-    resultEvidence.findings[0].evidence.jar
+    resultEvidence.currentTomcatObservation.jar
       .vulnerableCloudMembershipEntryCount,
     0,
   );
   assert.deepEqual(
-    resultEvidence.findings[0].evidence.firstPartyProductionMarkerMatches,
+    resultEvidence.currentTomcatObservation.firstPartyProductionMarkerMatches,
     [],
   );
   assert.deepEqual(
-    resultEvidence.findings[1].evidence.pluginResolutionPaths
+    resultEvidence.findings[0].evidence.pluginResolutionPaths
       .map((item) => item.pluginOwner),
-    ['org.springframework.boot:spring-boot-maven-plugin:4.0.2'],
+    ['org.springframework.boot:spring-boot-maven-plugin:4.0.8'],
   );
-  assert.equal(resultEvidence.findings[1].disposition, 'UNRESOLVED');
+  assert.equal(resultEvidence.findings.length, 1);
+  assert.equal(resultEvidence.findings[0].package.version, '5.3.6');
+  assert.equal(resultEvidence.findings[0].disposition, 'UNRESOLVED');
+  assert.equal(resultEvidence.decision.currentOsvTotalsClaimed, false);
+  assert.equal(resultEvidence.decision.releaseBlocked, true);
   assert.equal(resultEvidence.decision.issue97, 'OPEN');
 });
+
+import './m6-pr-e-e3-r3a-current-source.test.mjs';
 
 test('R3A canonicalization remains deterministic', () => {
   const value = { z: 1, a: { y: 2, x: [3, { b: 4, a: 5 }] } };

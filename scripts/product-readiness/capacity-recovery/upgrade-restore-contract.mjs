@@ -58,7 +58,7 @@ export function rehearsalPrefixes(contract) {
 export function candidateEnvironment(runDirectory, contract) {
   const callback = `${backendOrigin}/payment-sandbox/v1/events`;
   return {
-    ...java21Environment(),
+    ...baseEnvironment(),
     APPROVAL_DEMO_PAYMENT_SANDBOX_ENABLED: 'true',
     APPROVAL_DEMO_PAYMENT_SANDBOX_ENDPOINT: callback,
     APPROVAL_DEMO_PAYMENT_SANDBOX_CONTROL_FILE:
@@ -88,7 +88,25 @@ export function candidateEnvironment(runDirectory, contract) {
 }
 
 export function baseEnvironment() {
-  return java21Environment();
+  // The baseline installs the same Maven coordinates into the shared local repository.
+  // A source-tree marker cannot prove those jars still belong to the candidate.
+  // Reinstall on both sides of this version switch; keep earlier capacity-stage reuse.
+  return { ...java21Environment(), APPROVAL_DEMO_CAPACITY_REUSE_BUILD: 'false' };
+}
+
+export function baselineSetupEnvironment() {
+  const environment = baseEnvironment();
+  // Older exact-main launchers pass -DskipTests, but the JDBC module has its own
+  // skip property. Scope that setup-only flag to this child instead of changing
+  // baseline sources, parent verification, or the fresh version-switch builds.
+  // Maven 3.9+ prepends MAVEN_ARGS to the launcher's explicit CLI arguments.
+  return {
+    ...environment,
+    MAVEN_ARGS: [
+      environment.MAVEN_ARGS,
+      '-Dapproval.persistence.tests.skip=true',
+    ].filter(Boolean).join(' '),
+  };
 }
 
 export function upgradeRestorePlan() {

@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "APPROVAL_STANDALONE_OSV_DIAGNOSTIC_V1",
+  "classification": "STANDALONE_OSV_ONLY_DIAGNOSTIC_UNCOMMITTED_CANDIDATE_NOT_E4",
+  "repository": "akaryc1b/approval-platform",
+  "baseHeadSha": "28a9db4cf6372793ce32801d9812ab688d348b02",
+  "baseTreeSha": "7f1f58875b3d2c7ac80c23bd7933ea4c430bb2ea",
+  "candidateE2CommitField": "28a9db4cf6372793ce32801d9812ab688d348b02",
+  "candidateE2CommitFieldIsBaseHeadNotCandidateCommit": true,
+  "candidatePomSha256": "1e1999da948c22d5e7b704e81ee84b0849889b09a94e1deb1d16a4e806f1ddef",
+  "sourceE2FileSha256": "46821dad12b659c1d41949aa4123d42ad71893e9857da5cdeed130e83dc06e78",
+  "sourceE2ContentSha256": "9eea200e0d5b01767de636e9489cb2cbdbcbdfb653e0e5905c4ec480ccd94f9b",
+  "e2GraphDigest": "f2e4ca66b29bd4e819f8751117e56900416d47c474de270d84e9d2ef552c92c3",
+  "inputSha256": "302958d5b56c8138556e45704f94aec53dda2ebcedb7c5fe2956e8e8149d24d3",
+  "originalAuthorizedTargetCount": 535,
+  "inputPackageCount": 533,
+  "reportedExactPackageCount": 533,
+  "strictSubsetOfOriginalAuthorizedTargets": true,
+  "addedQueryTargets": [],
+  "missingTargets": [],
+  "unexpectedTargets": [],
+  "allInputPackagesReported": true,
+  "officialDestination": "https://api.osv.dev",
+  "sourceCodeOrCredentialsIncluded": false,
+  "scannerVersion": "2.5.0",
+  "scannerSourceCommit": "a258868211a57052da6bd323f758b8388dee02bb",
+  "scannerBinarySha256": "d450e21c0d8096bf644228783206753f0cac87b94120f74d15b3d5b44f4e43b7",
+  "sourceModuleZipSha256": "c7e9052011c94079912ad75fb46faded7476ca7c79a99612b8b005f2f18ae4d2",
+  "rawReportSha256": "dc4638af8428a7f52d7d824ac8de5dd5a936b21e49edb14188a3b6175848f228",
+  "normalizedFindingsSha256": "d8f76ed007d0c06a6076bd8197c39e6e6c65c8f416f0306eaec18b7fad0e78ad",
+  "coverageContentSha256": "5ef8b768db03693526900255a4828a59bd5ac39422575db57395fb8df1be4db5",
+  "scannerExecutionCompleted": true,
+  "exitStatus": 1,
+  "startedAt": "2026-10-08T08:09:59.728Z",
+  "finishedAt": "2026-10-08T08:10:10.683Z",
+  "unmodifiedCoverageHelperAcceptedActualExecution": true,
+  "unmodifiedNormalizerUsed": true,
+  "findingsCount": 63,
+  "affectedPackageTargetCount": 40,
+  "noAdvisoryReturnedTargetCount": 493,
+  "findingScopes": {
+    "build-plugin": 63
+  },
+  "comparison": {
+    "acceptedFindingCount": 70,
+    "addedFindingCount": 0,
+    "removedFindingCount": 7,
+    "changedRetainedFindingCount": 0,
+    "unchangedRetainedFindingCount": 63,
+    "allRemovedFindingsAreJackson315BuildPluginOnly": true
+  },
+  "jacksonTargetResults": [
+    {
+      "advisoryIds": [],
+      "componentRefs": [
+        "maven-plugin:tools.jackson.core:jackson-core:jar:3.1.7",
+        "pkg:maven/tools.jackson.core/jackson-core@3.1.7?type=jar"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "tools.jackson.core:jackson-core",
+        "version": "3.1.7"
+      },
+      "scopes": [
+        "build-plugin",
+        "compile"
+      ],
+      "reportEntryPresent": true,
+      "advisoryCount": 0,
+      "observation": "NO_KNOWN_ADVISORIES_RETURNED_FOR_EXACT_VERSION"
+    },
+    {
+      "advisoryIds": [],
+      "componentRefs": [
+        "maven-plugin:tools.jackson.core:jackson-databind:jar:3.1.7",
+        "pkg:maven/tools.jackson.core/jackson-databind@3.1.7?type=jar"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "tools.jackson.core:jackson-databind",
+        "version": "3.1.7"
+      },
+      "scopes": [
+        "build-plugin",
+        "compile"
+      ],
+      "reportEntryPresent": true,
+      "advisoryCount": 0,
+      "observation": "NO_KNOWN_ADVISORIES_RETURNED_FOR_EXACT_VERSION"
+    }
+  ],
+  "actualRawReportsRetained": true,
+  "allScannersCompleted": false,
+  "graphAdmitted": false,
+  "reviewDispositionTransferred": false,
+  "releaseBlocked": true,
+  "newNaturalCiRequiredAfterFinalSourceFreeze": true,
+  "interpretation": "Actual OSV-only scan of snapshot input derived from an uncommitted candidate. The E2 commit field is the base HEAD, not a final candidate commit. No E4 graph admission, E3 disposition transfer, release readiness or merge authorization is established; absence of OSV advisories is not proof of safety.",
+  "contentSha256": "3dd38c473c8ccecf47816062594673f82a83fdf871f79a52711453f8f8ca7b13"
+}

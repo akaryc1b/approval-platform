@@ -1,0 +1,183 @@
+{
+  "schemaVersion": "APPROVAL_RELEASE_PLUGIN_OFFICIAL_ARTIFACTS_V1",
+  "purpose": "Exact official artifact bytes; not scanner finding disposition",
+  "artifacts": [
+    {
+      "coordinate": "org.apache.maven.plugins:maven-release-plugin:pom:3.3.1",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-release-plugin/3.3.1/maven-release-plugin-3.3.1.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-release-plugin/3.3.1/maven-release-plugin-3.3.1.pom.sha1",
+      "officialSha1": "a8fd547de09273f2b825d660e99eb159e621bebf",
+      "sha256": "6c69a7ff43bf6ab79834ee7d239d1c94bba71c37a93597c6f40ac9530fed665a",
+      "bytes": 9727
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-release-plugin/3.3.1/maven-release-plugin-3.3.1.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-release-plugin/3.3.1/maven-release-plugin-3.3.1.jar.sha1",
+      "officialSha1": "1095138c8599eef448c254a9ac745fb75e081ee4",
+      "sha256": "432bc062df264bb99133a7a305d7be4c777f2eb4658ad2882a67bad76f5a98a8",
+      "bytes": 62871
+    },
+    {
+      "coordinate": "org.eclipse.jgit:org.eclipse.jgit:pom:5.13.5.202508271544-r",
+      "url": "https://repo.maven.apache.org/maven2/org/eclipse/jgit/org.eclipse.jgit/5.13.5.202508271544-r/org.eclipse.jgit-5.13.5.202508271544-r.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/eclipse/jgit/org.eclipse.jgit/5.13.5.202508271544-r/org.eclipse.jgit-5.13.5.202508271544-r.pom.sha1",
+      "officialSha1": "9a9d910db4f3f0b2b3961e004275d86f4d62276b",
+      "sha256": "814d7e5b37f398b204045a3cca26f21cb906f9a4d225df3598866f07ff661853",
+      "bytes": 7552
+    },
+    {
+      "coordinate": "org.eclipse.jgit:org.eclipse.jgit:jar:5.13.5.202508271544-r",
+      "url": "https://repo.maven.apache.org/maven2/org/eclipse/jgit/org.eclipse.jgit/5.13.5.202508271544-r/org.eclipse.jgit-5.13.5.202508271544-r.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/eclipse/jgit/org.eclipse.jgit/5.13.5.202508271544-r/org.eclipse.jgit-5.13.5.202508271544-r.jar.sha1",
+      "officialSha1": "166bc880beb891b201cd3216407fd4ffcd4930fd",
+      "sha256": "61ce363b10f81e97ca2954368a0f6ddb99d6208a0cf0bae622601bf802f4dd67",
+      "bytes": 2919368
+    },
+    {
+      "coordinate": "org.eclipse.jgit:org.eclipse.jgit.ssh.apache:pom:5.13.5.202508271544-r",
+      "url": "https://repo.maven.apache.org/maven2/org/eclipse/jgit/org.eclipse.jgit.ssh.apache/5.13.5.202508271544-r/org.eclipse.jgit.ssh.apache-5.13.5.202508271544-r.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/eclipse/jgit/org.eclipse.jgit.ssh.apache/5.13.5.202508271544-r/org.eclipse.jgit.ssh.apache-5.13.5.202508271544-r.pom.sha1",
+      "officialSha1": "17858dc0274712f635dd5a4761fe70f10ad5c46c",
+      "sha256": "242875d2bd4f19290f1e2ab3c180b52063d25dfa4c42195657a2b404b032718a",
+      "bytes": 7558
+    },
+    {
+      "coordinate": "org.eclipse.jgit:org.eclipse.jgit.ssh.apache:jar:5.13.5.202508271544-r",
+      "url": "https://repo.maven.apache.org/maven2/org/eclipse/jgit/org.eclipse.jgit.ssh.apache/5.13.5.202508271544-r/org.eclipse.jgit.ssh.apache-5.13.5.202508271544-r.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/eclipse/jgit/org.eclipse.jgit.ssh.apache/5.13.5.202508271544-r/org.eclipse.jgit.ssh.apache-5.13.5.202508271544-r.jar.sha1",
+      "officialSha1": "250e3ceaf96ef041fe081715d42ed1f07b920d9e",
+      "sha256": "aa782b1fb13e5cdfd4a55bea6cfe75fe7ab383dc1b6aafdc4991979803606d50",
+      "bytes": 186812
+    },
+    {
+      "coordinate": "org.apache.sshd:sshd-osgi:pom:2.16.0",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-osgi/2.16.0/sshd-osgi-2.16.0.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-osgi/2.16.0/sshd-osgi-2.16.0.pom.sha1",
+      "officialSha1": "ce85a40db42297f0d65be0ef64d3c7fb08162a41",
+      "sha256": "f4fda27ad9047cf6b76e3d0610b5215f008840abc3b8768e90185384552579e7",
+      "bytes": 9329
+    },
+    {
+      "coordinate": "org.apache.sshd:sshd-osgi:jar:2.16.0",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-osgi/2.16.0/sshd-osgi-2.16.0.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-osgi/2.16.0/sshd-osgi-2.16.0.jar.sha1",
+      "officialSha1": "87cab2aaa6e06c5d48d746e90f0b3635f8c06419",
+      "sha256": "398ee51e36d55f9ad72cb39f7edf552ac3d9e123736162ca0f8bc3776e51d855",
+      "bytes": 1917930
+    },
+    {
+      "coordinate": "org.apache.sshd:sshd-sftp:pom:2.16.0",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-sftp/2.16.0/sshd-sftp-2.16.0.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-sftp/2.16.0/sshd-sftp-2.16.0.pom.sha1",
+      "officialSha1": "7dadd722e157ee8c15c51795ba11b8c376a2fb54",
+      "sha256": "08dfc24789d422bba049adb0c16defc9a5b60d1ecee05e592722731376939865",
+      "bytes": 8677
+    },
+    {
+      "coordinate": "org.apache.sshd:sshd-sftp:jar:2.16.0",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-sftp/2.16.0/sshd-sftp-2.16.0.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-sftp/2.16.0/sshd-sftp-2.16.0.jar.sha1",
+      "officialSha1": "09d9e7024535fb4a3f74367ba7e0a2f5093af638",
+      "sha256": "88e38bfba0ae9dbd69155c9f9ecf925c5ccf6b34d2d903989803165bc8a917f3",
+      "bytes": 392102
+    },
+    {
+      "coordinate": "org.apache.sshd:sshd-core:pom:2.16.0",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-core/2.16.0/sshd-core-2.16.0.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-core/2.16.0/sshd-core-2.16.0.pom.sha1",
+      "officialSha1": "0b6c35cf24cbac086fb2a75901e5ddb4e91f5d72",
+      "sha256": "e9b44fe1ee9d3f850270fef3e6e68d80b70676f6ff34e5119636cdc09d196ad4",
+      "bytes": 12517
+    },
+    {
+      "coordinate": "org.apache.sshd:sshd-core:jar:2.16.0",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-core/2.16.0/sshd-core-2.16.0.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-core/2.16.0/sshd-core-2.16.0.jar.sha1",
+      "officialSha1": "4ad37ec93f2296821a60279a3acdb918129329ff",
+      "sha256": "f9b212696f2169dbc315a96fa2ab244b0cc49f2b7347d9c82c96b362db6a83af",
+      "bytes": 960322
+    },
+    {
+      "coordinate": "org.apache.sshd:sshd-common:pom:2.16.0",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-common/2.16.0/sshd-common-2.16.0.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-common/2.16.0/sshd-common-2.16.0.pom.sha1",
+      "officialSha1": "d957056138fd84cd333f2bb6f6922c36ab824a7d",
+      "sha256": "646c632ac75bcb60c2ae7636bb0330427a6bc76ce888bcaa5fefc93e50998a0d",
+      "bytes": 4885
+    },
+    {
+      "coordinate": "org.apache.sshd:sshd-common:jar:2.16.0",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-common/2.16.0/sshd-common-2.16.0.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/sshd/sshd-common/2.16.0/sshd-common-2.16.0.jar.sha1",
+      "officialSha1": "964e47b6a067a79cc21f394020950011d4058576",
+      "sha256": "81724582d58902addbf909f19945cd3b25579e7fd24ba0e4d9ada975cd82da85",
+      "bytes": 964193
+    },
+    {
+      "coordinate": "commons-io:commons-io:pom:2.20.0",
+      "url": "https://repo.maven.apache.org/maven2/commons-io/commons-io/2.20.0/commons-io-2.20.0.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/commons-io/commons-io/2.20.0/commons-io-2.20.0.pom.sha1",
+      "officialSha1": "5d26f9d6031e7a0fc1a05f8de8e725688905a3f1",
+      "sha256": "bdbdf81072c190ee9a8b181a5c58f5bd917a750fb13a256debbf53f5dbd33a2a",
+      "bytes": 20477
+    },
+    {
+      "coordinate": "commons-io:commons-io:jar:2.20.0",
+      "url": "https://repo.maven.apache.org/maven2/commons-io/commons-io/2.20.0/commons-io-2.20.0.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/commons-io/commons-io/2.20.0/commons-io-2.20.0.jar.sha1",
+      "officialSha1": "36f3474daec2849c149e877614e7f979b2082cd2",
+      "sha256": "df90bba0fe3cb586b7f164e78fe8f8f4da3f2dd5c27fa645f888100ccc25dd72",
+      "bytes": 563971
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-utils:pom:4.0.3",
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/4.0.3/plexus-utils-4.0.3.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/4.0.3/plexus-utils-4.0.3.pom.sha1",
+      "officialSha1": "6d4e933ead75316ddd0c521b4f0369880f2f04b0",
+      "sha256": "35736658f3fe1efa395086c91df2592664fafa24c3f2608fdaba1136d17fd360",
+      "bytes": 6786
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-utils:jar:4.0.3",
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/4.0.3/plexus-utils-4.0.3.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/4.0.3/plexus-utils-4.0.3.jar.sha1",
+      "officialSha1": "c097bf60a8a7aaf37dfb8f2c933a21e784035976",
+      "sha256": "421ff6ed146c53a9d4eaade8f629b52b12af7187101f1bd06c2c64e904019f3c",
+      "bytes": 193088
+    },
+    {
+      "coordinate": "org.apache.maven.scm:maven-scm-provider-jgit:pom:2.2.1",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/scm/maven-scm-provider-jgit/2.2.1/maven-scm-provider-jgit-2.2.1.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/maven/scm/maven-scm-provider-jgit/2.2.1/maven-scm-provider-jgit-2.2.1.pom.sha1",
+      "officialSha1": "2df59eb1165fc01d490f7234a804a825047e0bdc",
+      "sha256": "0b7228bdff088d8666f04e74eb20cadca8c81ffe8190facb983de7b2046198ee",
+      "bytes": 4468
+    },
+    {
+      "coordinate": "org.apache.maven.scm:maven-scm-provider-jgit:jar:2.2.1",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/scm/maven-scm-provider-jgit/2.2.1/maven-scm-provider-jgit-2.2.1.jar",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/maven/scm/maven-scm-provider-jgit/2.2.1/maven-scm-provider-jgit-2.2.1.jar.sha1",
+      "officialSha1": "7bcf1817d07349affbfbc3434fb17dfd336a229c",
+      "sha256": "390d3d0a0ec09cd5d9ce4260351bd23b54e36b24770332ab67621fb51ee30172",
+      "bytes": 74306
+    },
+    {
+      "coordinate": "org.apache.maven.scm:maven-scm-providers-git:pom:2.2.1",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/scm/maven-scm-providers-git/2.2.1/maven-scm-providers-git-2.2.1.pom",
+      "checksumUrl": "https://repo.maven.apache.org/maven2/org/apache/maven/scm/maven-scm-providers-git/2.2.1/maven-scm-providers-git-2.2.1.pom.sha1",
+      "officialSha1": "301961507cf901f31082847532664b4157f60270",
+      "sha256": "211bb5ced73ffb41021421357d30ca064eb3fdd663124861bbed84a8715aa2ec",
+      "bytes": 2229
+    }
+  ],
+  "compatibilityBasis": {
+    "releaseRequirements": "https://maven.apache.org/maven-release/maven-release-plugin/plugin-info.html",
+    "scmJgitDependencies": "https://maven.apache.org/scm/maven-scm-providers/maven-scm-providers-git/maven-scm-provider-jgit/dependencies.html",
+    "scmJgitDependencyManagement": "https://maven.apache.org/scm/maven-scm-providers/maven-scm-providers-git/maven-scm-provider-jgit/dependency-management.html",
+    "scmRelease": "2.2.1",
+    "jgitLine": "5.13",
+    "sshdManagementVersion": "2.16.0",
+    "selection": "Remain on JGit 5.13 patch line and the SSHD 2.16.0 family explicitly managed by SCM 2.2.1 for its integration tests. Do not claim this replaces actual realm compatibility tests."
+  }
+}

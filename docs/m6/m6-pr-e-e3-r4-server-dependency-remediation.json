@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "APPROVAL_SERVER_DEPENDENCY_REMEDIATION_PLAN_V1",
+  "repository": "akaryc1b/approval-platform",
+  "reviewBasisHead": "448e0fe2808a3d2f02d8ee0deb16480a4ed46494",
+  "priorE2GraphDigest": "0b6868f057a72fb8c7a4c9d0529f4469381f0024f403873c6d92121e4b34ee0a",
+  "historicalReviewPath": "docs/m6/m6-pr-e-e3-i3-reviewed-findings.json",
+  "historicalReviewFileSha256": "332b20d10547a60daefd3dfe9eeb9fbc44c929aa73f626706ac3a5d2df49da6e",
+  "targetE2GraphDigest": "6557cef5d2ef11c36a8efb89cf7c1c607c721e32cdbabf0228441bb585b3c829",
+  "advisoryEvidencePath": "docs/m6/m6-pr-e-e3-r4-server-advisories.json",
+  "advisoryEvidenceFileSha256": "e8ff22c245fc824aa902f3c4fec8407c80ea079f7ded0e1ec7137d6baf41505e",
+  "preparationOnly": {
+    "commitSha": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+    "treeSha": "79c138d18075b54e800829eb903cb58a0b39b040",
+    "e2ContentSha256": "4c423ae6f24cbdd6a83c07f2176e254dfbee413a1e49ca9f28c3524a050b43b7",
+    "partialOsvSummaryContentSha256": "0fc8d22d1329e651f53b59ca849ebaa9d7ab5f386d2e70c76f845d8dd1ca7605",
+    "rawAllPackagesOutputSha256": "2eba4411a7cd29332c8b5a3a8920cbfec77f9b79f5745576d254fbe6596d7fa4",
+    "diagnosticIsNotE4OrDisposition": true
+  },
+  "expectedInputPackageCount": 535,
+  "expectedInputBytesSha256": "4ad6aa3c20e6bcd0621506cc97ac59b13df336e88900fba5624d1e645d031dfb",
+  "historicalFindingCount": 2,
+  "remediatedFindings": [
+    {
+      "sourceClass": "E4_OSV_SCANNER",
+      "findingId": "2f4564d12f468262a89f22ffdba329df0c09144a51fc8101046dabbe846de46e",
+      "upstreamFindingId": "GHSA-8v8j-3hxp-93wr",
+      "aliases": [
+        "CVE-2026-40976"
+      ],
+      "priorDisposition": "NOT_APPLICABLE",
+      "priorComponentRef": "pkg:maven/org.springframework.boot/spring-boot@4.0.2?type=jar",
+      "priorReviewRecordSha256": "9d05272ee5f4858ad5074d47179d5ce3b915efc96e81869d0dad7183a3a6e96e",
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.springframework.boot:spring-boot",
+        "priorVersion": "4.0.2",
+        "targetVersion": "4.0.8"
+      },
+      "targetComponentRef": "pkg:maven/org.springframework.boot/spring-boot@4.0.8?type=jar",
+      "affectedEntryIndex": 0,
+      "fixedSince": "4.0.6",
+      "requiredAbsentFromCurrentScanner": true,
+      "additionalAbsentAliases": []
+    },
+    {
+      "sourceClass": "E4_OSV_SCANNER",
+      "findingId": "36365712da812532fa5a0e3ed4c7008a3bfdade1587219a7d38e489380118021",
+      "upstreamFindingId": "GHSA-r29c-68gh-xp6x",
+      "aliases": [
+        "BIT-tomcat-2026-41293",
+        "CVE-2026-41293"
+      ],
+      "priorDisposition": "UNRESOLVED",
+      "priorComponentRef": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.15?type=jar",
+      "priorReviewRecordSha256": "640caf026664efbc3410cf7f2b7a517f4eb4fa808c2fab967647c297d5409fc3",
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.tomcat.embed:tomcat-embed-core",
+        "priorVersion": "11.0.15",
+        "targetVersion": "11.0.26"
+      },
+      "targetComponentRef": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.26?type=jar",
+      "affectedEntryIndex": 2,
+      "fixedSince": "11.0.22",
+      "requiredAbsentFromCurrentScanner": true,
+      "additionalAbsentAliases": [
+        "CVE-2026-86350"
+      ]
+    }
+  ],
+  "requiredEvidence": {
+    "freshAllScannersCompleted": true,
+    "currentExactHeadAndE2": true,
+    "allCurrentOsvTargetsReported": true,
+    "allBuildPluginTargetsRetained": true,
+    "noHistoricalDispositionTransferToCurrentFindings": true
+  },
+  "knownRemainingBoundaries": {
+    "pluginJackson3Version": "3.1.5",
+    "projectJackson3Version": "3.1.7",
+    "licenseEvidenceUnavailableCount": 78,
+    "authoritativeInventoryUnavailable": true,
+    "bundledBinaryInventoryIsNotClosedByMavenCoordinates": true
+  },
+  "findingReviewRequired": true,
+  "releaseBlocked": true,
+  "suppressions": [],
+  "exceptions": [],
+  "contentSha256": "0e1d83fa0625a4fd0e3db00dc3549051208d9e4e4b6c696eb7ea883436329397"
+}

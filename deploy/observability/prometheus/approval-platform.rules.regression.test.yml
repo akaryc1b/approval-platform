@@ -1,0 +1,638 @@
+{
+  "rule_files": [
+    "approval-platform.rules.yml"
+  ],
+  "evaluation_interval": "1m",
+  "tests": [
+    {
+      "name": "runtime scrape failure fires after hold and resolves",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "up{job=\"approval-platform\",instance=\"approval-platform:8081\"}",
+          "values": "0 0 0 0 1 1"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "1m",
+          "alertname": "ApprovalPlatformDown",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "3m",
+          "alertname": "ApprovalPlatformDown",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "approval-platform",
+                "instance": "approval-platform:8081",
+                "severity": "critical",
+                "owner": "approval-platform",
+                "component": "runtime"
+              },
+              "exp_annotations": {
+                "summary": "Approval Platform metrics target is unavailable",
+                "description": "Prometheus has been unable to scrape approval-platform:8081 for more than two minutes.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalplatformdown"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "4m",
+          "alertname": "ApprovalPlatformDown",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "missing service discovery targets fire and recover on target return",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "up{job=\"approval-platform\",instance=\"approval-platform:8081\"}",
+          "values": "_ _ _ _ 1 1"
+        },
+        {
+          "series": "up{job=\"unrelated\",instance=\"other:9090\"}",
+          "values": "1+0x5"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "1m",
+          "alertname": "ApprovalPlatformScrapeMissing",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "3m",
+          "alertname": "ApprovalPlatformScrapeMissing",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "approval-platform",
+                "severity": "critical",
+                "owner": "approval-platform",
+                "component": "runtime"
+              },
+              "exp_annotations": {
+                "summary": "Approval Platform scrape targets are missing",
+                "description": "No approval-platform scrape target has been present for more than two minutes. Check service discovery and Prometheus configuration.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/prometheus-rule-validation.md#approvalplatformscrapemissing"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "4m",
+          "alertname": "ApprovalPlatformScrapeMissing",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "present but failing target is down not absent",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "up{job=\"approval-platform\",instance=\"approval-platform:8081\"}",
+          "values": "0+0x5"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "4m",
+          "alertname": "ApprovalPlatformScrapeMissing",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "4m",
+          "alertname": "ApprovalPlatformDown",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "approval-platform",
+                "instance": "approval-platform:8081",
+                "severity": "critical",
+                "owner": "approval-platform",
+                "component": "runtime"
+              },
+              "exp_annotations": {
+                "summary": "Approval Platform metrics target is unavailable",
+                "description": "Prometheus has been unable to scrape approval-platform:8081 for more than two minutes.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalplatformdown"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "HTTP error ratio respects hold and resolves after errors stop",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "http_server_requests_seconds_count{job=\"approval-platform\",instance=\"approval-platform:8081\",status=\"200\"}",
+          "values": "0+108x50"
+        },
+        {
+          "series": "http_server_requests_seconds_count{job=\"approval-platform\",instance=\"approval-platform:8081\",status=\"500\"}",
+          "values": "0+12x20 240+0x29"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "2m",
+          "alertname": "ApprovalPlatformHighHttp5xxRatio",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "16m",
+          "alertname": "ApprovalPlatformHighHttp5xxRatio",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "approval-platform",
+                "instance": "approval-platform:8081",
+                "severity": "critical",
+                "owner": "approval-platform",
+                "component": "api"
+              },
+              "exp_annotations": {
+                "summary": "Approval Platform HTTP 5xx ratio is elevated",
+                "description": "More than 5% of requests to approval-platform:8081 have returned 5xx for ten minutes with a minimum traffic floor.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalplatformhighhttp5xxratio"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "40m",
+          "alertname": "ApprovalPlatformHighHttp5xxRatio",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "HTTP P95 histograms fire and recover as slow requests stop",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "http_server_requests_seconds_bucket{job=\"approval-platform\",instance=\"approval-platform:8081\",le=\"1\"}",
+          "values": "0+90x20 1920+120x29"
+        },
+        {
+          "series": "http_server_requests_seconds_bucket{job=\"approval-platform\",instance=\"approval-platform:8081\",le=\"2\"}",
+          "values": "0+95x20 2020+120x29"
+        },
+        {
+          "series": "http_server_requests_seconds_bucket{job=\"approval-platform\",instance=\"approval-platform:8081\",le=\"5\"}",
+          "values": "0+120x50"
+        },
+        {
+          "series": "http_server_requests_seconds_bucket{job=\"approval-platform\",instance=\"approval-platform:8081\",le=\"+Inf\"}",
+          "values": "0+120x50"
+        },
+        {
+          "series": "http_server_requests_seconds_count{job=\"approval-platform\",instance=\"approval-platform:8081\"}",
+          "values": "0+120x50"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "2m",
+          "alertname": "ApprovalPlatformHighHttpP95Latency",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "16m",
+          "alertname": "ApprovalPlatformHighHttpP95Latency",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "job": "approval-platform",
+                "instance": "approval-platform:8081",
+                "severity": "warning",
+                "owner": "approval-platform",
+                "component": "api"
+              },
+              "exp_annotations": {
+                "summary": "Approval Platform HTTP P95 latency is above two seconds",
+                "description": "P95 request latency on approval-platform:8081 has exceeded two seconds for ten minutes with a minimum traffic floor.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalplatformhighhttpp95latency"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "40m",
+          "alertname": "ApprovalPlatformHighHttpP95Latency",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "overdue action increment fires and rolling window clears",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "approval_sla_execution_worker_total{application=\"approval-platform\",action=\"overdue\",result=\"delivered\"}",
+          "values": "0 0 1+0x20"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "1m",
+          "alertname": "ApprovalWorkflowOverdueDetected",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "3m",
+          "alertname": "ApprovalWorkflowOverdueDetected",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "application": "approval-platform",
+                "severity": "warning",
+                "owner": "approval-platform",
+                "component": "workflow-sla"
+              },
+              "exp_annotations": {
+                "summary": "An overdue workflow SLA action was detected",
+                "description": "The SLA worker emitted one or more overdue actions for approval-platform in the last ten minutes.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalworkflowoverduedetected"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "ApprovalWorkflowOverdueDetected",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "dead SLA action increment fires and rolling window clears",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "approval_sla_execution_worker_total{application=\"approval-platform\",action=\"overdue\",result=\"dead\",failure_class=\"non_retryable\"}",
+          "values": "0 0 1+0x20"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "1m",
+          "alertname": "ApprovalWorkflowSlaActionDead",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "3m",
+          "alertname": "ApprovalWorkflowSlaActionDead",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "application": "approval-platform",
+                "action": "overdue",
+                "severity": "critical",
+                "owner": "approval-platform",
+                "component": "workflow-sla"
+              },
+              "exp_annotations": {
+                "summary": "A workflow SLA action reached a terminal failure",
+                "description": "The overdue SLA action for approval-platform reached DEAD and requires operator review.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalworkflowslaactiondead"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "ApprovalWorkflowSlaActionDead",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "retry storm respects hold and resolves after retries stop",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "approval_sla_execution_worker_total{application=\"approval-platform\",action=\"overdue\",result=\"retry_scheduled\"}",
+          "values": "0+1x20 20+0x29"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "2m",
+          "alertname": "ApprovalWorkflowSlaActionRetryStorm",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "ApprovalWorkflowSlaActionRetryStorm",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "application": "approval-platform",
+                "action": "overdue",
+                "severity": "warning",
+                "owner": "approval-platform",
+                "component": "workflow-sla"
+              },
+              "exp_annotations": {
+                "summary": "Workflow SLA actions are repeatedly retrying",
+                "description": "At least three overdue actions for approval-platform scheduled retries in fifteen minutes.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalworkflowslaactionretrystorm"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "40m",
+          "alertname": "ApprovalWorkflowSlaActionRetryStorm",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "connector failures respect hold and resolve after failures stop",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "approval_connector_invocation_event_total{application=\"approval-platform\",provider=\"dingtalk\",operation=\"send_notification\",outcome=\"failure\"}",
+          "values": "0+12x20 240+0x29"
+        },
+        {
+          "series": "approval_connector_invocation_event_total{application=\"approval-platform\",provider=\"dingtalk\",operation=\"send_notification\",outcome=\"success\"}",
+          "values": "0+48x50"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "2m",
+          "alertname": "ApprovalConnectorFailureRatio",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "16m",
+          "alertname": "ApprovalConnectorFailureRatio",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "application": "approval-platform",
+                "provider": "dingtalk",
+                "operation": "send_notification",
+                "severity": "critical",
+                "owner": "approval-platform",
+                "component": "connector"
+              },
+              "exp_annotations": {
+                "summary": "Approval connector failure ratio is elevated",
+                "description": "More than 10% of dingtalk send_notification calls have failed for ten minutes with a minimum traffic floor.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalconnectorfailureratio"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "40m",
+          "alertname": "ApprovalConnectorFailureRatio",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "connector timeout increment fires and rolling window clears",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "approval_connector_invocation_event_total{application=\"approval-platform\",provider=\"dingtalk\",operation=\"send_notification\",outcome=\"failure\",failure=\"transport_timeout\"}",
+          "values": "0 0 1+0x20"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "1m",
+          "alertname": "ApprovalConnectorTimeoutDetected",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "3m",
+          "alertname": "ApprovalConnectorTimeoutDetected",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "application": "approval-platform",
+                "provider": "dingtalk",
+                "operation": "send_notification",
+                "severity": "warning",
+                "owner": "approval-platform",
+                "component": "connector"
+              },
+              "exp_annotations": {
+                "summary": "Approval connector transport timeout detected",
+                "description": "One or more dingtalk send_notification calls timed out in the last ten minutes.",
+                "runbook_url": "https://github.com/akaryc1b/approval-platform/blob/main/docs/operations/runbooks/approval-platform-alerts.md#approvalconnectortimeoutdetected"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "ApprovalConnectorTimeoutDetected",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "one slow failing request per minute does not pass traffic floors",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "http_server_requests_seconds_count{job=\"approval-platform\",instance=\"approval-platform:8081\",status=\"500\"}",
+          "values": "0+1x40"
+        },
+        {
+          "series": "http_server_requests_seconds_bucket{job=\"approval-platform\",instance=\"approval-platform:8081\",le=\"2\"}",
+          "values": "0+0x40"
+        },
+        {
+          "series": "http_server_requests_seconds_bucket{job=\"approval-platform\",instance=\"approval-platform:8081\",le=\"5\"}",
+          "values": "0+1x40"
+        },
+        {
+          "series": "http_server_requests_seconds_bucket{job=\"approval-platform\",instance=\"approval-platform:8081\",le=\"+Inf\"}",
+          "values": "0+1x40"
+        },
+        {
+          "series": "approval_connector_invocation_event_total{application=\"approval-platform\",provider=\"dingtalk\",operation=\"send_notification\",outcome=\"failure\"}",
+          "values": "0+1x40"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalPlatformHighHttp5xxRatio",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalPlatformHighHttpP95Latency",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalConnectorFailureRatio",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "counter reset alone is not a new timeout or workflow failure",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "approval_sla_execution_worker_total{application=\"approval-platform\",action=\"overdue\",result=\"dead\"}",
+          "values": "5+0x5 0+0x25"
+        },
+        {
+          "series": "approval_sla_execution_worker_total{application=\"approval-platform\",action=\"overdue\",result=\"retry_scheduled\"}",
+          "values": "5+0x5 0+0x25"
+        },
+        {
+          "series": "approval_connector_invocation_event_total{application=\"approval-platform\",provider=\"dingtalk\",operation=\"send_notification\",failure=\"transport_timeout\"}",
+          "values": "5+0x5 0+0x25"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "ApprovalWorkflowOverdueDetected",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "ApprovalWorkflowSlaActionDead",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "ApprovalWorkflowSlaActionRetryStorm",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "ApprovalConnectorTimeoutDetected",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "HTTP failures from another job cannot page approval operators",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "http_server_requests_seconds_count{job=\"approval-platform\",instance=\"approval-platform:8081\",status=\"200\"}",
+          "values": "0+120x40"
+        },
+        {
+          "series": "http_server_requests_seconds_count{job=\"unrelated\",instance=\"other:8081\",status=\"500\"}",
+          "values": "0+1000x40"
+        },
+        {
+          "series": "up{job=\"approval-platform\",instance=\"approval-platform:8081\"}",
+          "values": "1+0x40"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalPlatformHighHttp5xxRatio",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalPlatformScrapeMissing",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalPlatformDown",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "healthy no-traffic counters never fire",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "up{job=\"approval-platform\",instance=\"approval-platform:8081\"}",
+          "values": "1+0x40"
+        },
+        {
+          "series": "http_server_requests_seconds_count{job=\"approval-platform\",instance=\"approval-platform:8081\",status=\"200\"}",
+          "values": "0+0x40"
+        },
+        {
+          "series": "approval_sla_execution_worker_total{application=\"approval-platform\",action=\"overdue\",result=\"dead\"}",
+          "values": "0+0x40"
+        },
+        {
+          "series": "approval_connector_invocation_event_total{application=\"approval-platform\",provider=\"dingtalk\",operation=\"send_notification\",failure=\"transport_timeout\",outcome=\"failure\"}",
+          "values": "0+0x40"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalPlatformDown",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalPlatformHighHttp5xxRatio",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalPlatformHighHttpP95Latency",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalPlatformScrapeMissing",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalWorkflowOverdueDetected",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalWorkflowSlaActionDead",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalWorkflowSlaActionRetryStorm",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalConnectorFailureRatio",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "30m",
+          "alertname": "ApprovalConnectorTimeoutDetected",
+          "exp_alerts": []
+        }
+      ]
+    }
+  ]
+}

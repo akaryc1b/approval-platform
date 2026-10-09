@@ -6,6 +6,8 @@ import type {
 } from '@/api/approval/assistance'
 
 import { computed, ref, watch } from 'vue'
+import WdButton from 'wot-design-uni/components/wd-button/wd-button.vue'
+import WdTag from 'wot-design-uni/components/wd-tag/wd-tag.vue'
 
 import {
   findApprovalAssistance,
@@ -24,6 +26,9 @@ const DEFAULT_USE_CASES: ApprovalAssistanceUseCase[] = [
 
 const selectedUseCase = ref<ApprovalAssistanceUseCase>('SUMMARY')
 const loading = ref(false)
+const loadsInFlight = ref(0)
+const assistanceGeneration = ref(0)
+const assistanceLoadedGeneration = ref(0)
 const generating = ref(false)
 const loadError = ref('')
 const generationError = ref('')
@@ -45,6 +50,9 @@ function errorMessage(error: unknown) {
 
 async function loadAssistance() {
   if (!props.taskId) return
+  const generation = ++assistanceGeneration.value
+  assistanceLoadedGeneration.value = 0
+  loadsInFlight.value += 1
   loading.value = true
   loadError.value = ''
   try {
@@ -52,12 +60,14 @@ async function loadAssistance() {
       props.taskId,
       selectedUseCase.value,
     )
+    assistanceLoadedGeneration.value = generation
   }
   catch (error) {
     assistance.value = undefined
     loadError.value = errorMessage(error)
   }
   finally {
+    loadsInFlight.value -= 1
     loading.value = false
   }
 }
@@ -106,7 +116,21 @@ watch(
 </script>
 
 <template>
-  <view class="assistance-card" aria-label="AI 辅助（未验证）">
+  <view
+    class="assistance-card"
+    aria-label="AI 辅助（未验证）"
+    data-testid="approval-assistance"
+    :data-task-id="assistance?.taskSnapshot.taskId || ''"
+    :data-instance-id="assistance?.taskSnapshot.instanceId || ''"
+    :data-snapshot-task-id="assistance?.taskSnapshot.taskId || ''"
+    :data-loading="loading || loadsInFlight > 0"
+    :data-error="loadError"
+    :data-assistance-generation="assistanceGeneration"
+    :data-assistance-loaded-generation="assistanceLoadedGeneration"
+    :data-availability="assistance?.availability || ''"
+    :data-snapshot-use-case="assistance?.requestedUseCase || ''"
+    :data-selected-use-case="selectedUseCase"
+  >
     <view class="assistance-header">
       <view>
         <view class="assistance-title">AI 辅助（未验证）</view>

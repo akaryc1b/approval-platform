@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "APPROVAL_OBSERVABILITY_OTEL_UPGRADE_V1",
+  "repository": "akaryc1b/approval-platform",
+  "base": {
+    "commitSha": "129a0b9a3e8bdcea3852fdbc921e7e0a59b3cd86",
+    "runId": 34805063807,
+    "artifactId": 10332808509,
+    "artifactSha256": "65b6b79bef9ac94d257d60ca761d36d332d2e79708fa414707d913d8caf543e9",
+    "e2ContentSha256": "eae1b1f78a8da0b88144b47eedfd3773083ac700b5b5a59c7e9c69a8d2c99d52",
+    "graphDigest": "27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37"
+  },
+  "observed": {
+    "commitSha": "a4f627c4232d76da7bd00c3a3443cf691b3f2c7a",
+    "runId": 34816893697,
+    "artifactId": 10336632222,
+    "artifactSha256": "b62461192ffaa8929da6283995655ac3ebeed476c8fa109afa8be334cd9154e6",
+    "e2ContentSha256": "62485c12c051860935ac47d6c40e8ce8d5de909f8c96e3c6c8e84cb902f32638",
+    "graphDigest": "390773d2aa746a2203eec870e5dd0a8f97f81e91913bb016c9ef95b749c0e7b3"
+  },
+  "versionChanges": [
+    {
+      "group": "com.squareup.okhttp3",
+      "name": "okhttp-jvm",
+      "fromVersion": "5.2.1",
+      "toVersion": "5.3.2"
+    },
+    {
+      "group": "com.squareup.okio",
+      "name": "okio-jvm",
+      "fromVersion": "3.16.1",
+      "toVersion": "3.16.4"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-api",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-common",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-context",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-exporter-common",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-exporter-otlp",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-exporter-otlp-common",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-exporter-sender-okhttp",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-extension-trace-propagators",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-sdk",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-sdk-common",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-sdk-extension-autoconfigure-spi",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-sdk-logs",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-sdk-metrics",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    },
+    {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-sdk-trace",
+      "fromVersion": "1.55.0",
+      "toVersion": "1.62.0"
+    }
+  ],
+  "addedImportedBom": {
+    "index": 1,
+    "value": {
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-bom",
+      "scope": "import",
+      "version": "1.62.0"
+    }
+  },
+  "rewrittenEdgeCount": 17,
+  "findingDisposition": "UNRESOLVED_UNTIL_EXPLICIT_FINDING_REVIEW",
+  "releaseBlocked": true
+}

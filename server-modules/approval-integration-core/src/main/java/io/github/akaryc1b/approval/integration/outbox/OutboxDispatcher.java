@@ -22,6 +22,7 @@ public final class OutboxDispatcher {
     private final RetryPolicy retryPolicy;
     private final Clock clock;
     private final Duration leaseDuration;
+    private final OutboxDispatchObserver observer;
 
     public OutboxDispatcher(
         OutboxRepository repository,
@@ -30,11 +31,23 @@ public final class OutboxDispatcher {
         Clock clock,
         Duration leaseDuration
     ) {
+        this(repository, callbackResolver, retryPolicy, clock, leaseDuration, OutboxDispatchObserver.NOOP);
+    }
+
+    public OutboxDispatcher(
+        OutboxRepository repository,
+        BusinessCallbackResolver callbackResolver,
+        RetryPolicy retryPolicy,
+        Clock clock,
+        Duration leaseDuration,
+        OutboxDispatchObserver observer
+    ) {
         this.repository = Objects.requireNonNull(repository, "repository must not be null");
         this.callbackResolver = Objects.requireNonNull(callbackResolver, "callbackResolver must not be null");
         this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.leaseDuration = requirePositive(leaseDuration, "leaseDuration");
+        this.observer = Objects.requireNonNull(observer, "observer must not be null");
     }
 
     public DispatchReport dispatchBatch(int limit, String workerId) {
@@ -62,6 +75,41 @@ public final class OutboxDispatcher {
     }
 
     private DispatchOutcome dispatchOne(ClaimedMessage claimed) {
+        OutboxDispatchObserver.Attempt attempt = startObservation(claimed);
+        try {
+            DispatchOutcome outcome = deliverOne(claimed);
+            recordOutcome(attempt, OutboxDispatchObserver.Outcome.valueOf(outcome.name()));
+            return outcome;
+        } catch (RuntimeException failure) {
+            recordOutcome(attempt, OutboxDispatchObserver.Outcome.FAILED);
+            throw failure;
+        } finally {
+            try {
+                attempt.close();
+            } catch (RuntimeException ignored) {
+                // Telemetry failure must not retry an already delivered callback.
+            }
+        }
+    }
+
+    private OutboxDispatchObserver.Attempt startObservation(ClaimedMessage claimed) {
+        try {
+            OutboxDispatchObserver.Attempt attempt = observer.start(claimed.message().event().eventId());
+            return attempt == null ? OutboxDispatchObserver.Attempt.NOOP : attempt;
+        } catch (RuntimeException ignored) {
+            return OutboxDispatchObserver.Attempt.NOOP;
+        }
+    }
+
+    private static void recordOutcome(OutboxDispatchObserver.Attempt attempt, OutboxDispatchObserver.Outcome outcome) {
+        try {
+            attempt.outcome(outcome);
+        } catch (RuntimeException ignored) {
+            // Operational evidence is best effort, never a business acknowledgement.
+        }
+    }
+
+    private DispatchOutcome deliverOne(ClaimedMessage claimed) {
         try {
             var connector = callbackResolver.resolve(claimed.message().context().connectorKey());
             CallbackReceipt receipt = connector.deliver(

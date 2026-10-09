@@ -4,6 +4,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+// Historical fixture adapter only; current workflow verification has separate tests.
+import { historicalMavenWorkflow } from '../security/maven-workflow-transition.mjs';
 
 import { verifyWorkflowSupplyChainRemediation } from '../security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs';
 import { applyWorkflowSupplyChainReviews } from '../security/m6-pr-e-e3-apply-workflow-supply-chain-reviews.mjs';
@@ -13,7 +15,7 @@ const planPath = path.join(root, 'docs/m6/m6-pr-e-e3-r2b-workflow-supply-chain-r
 const i4ReviewPath = path.join(root, 'docs/m6/m6-pr-e-e3-i4-reviewed-findings.json');
 const contractPath = path.join(root, 'docs/m6/M6_PR_E_E3_R2B_WORKFLOW_SUPPLY_CHAIN_REMEDIATION.md');
 const workflowRoot = path.join(root, '.github/workflows');
-const load = (file) => readFileSync(file, 'utf8');
+const load = (file) => historicalMavenWorkflow(path.relative(root, file), readFileSync(file, 'utf8'));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const gitBlobSha = (value) => createHash('sha1').update(`blob ${Buffer.byteLength(value)}\0`).update(value).digest('hex');
 const clone = (value) => JSON.parse(JSON.stringify(value));

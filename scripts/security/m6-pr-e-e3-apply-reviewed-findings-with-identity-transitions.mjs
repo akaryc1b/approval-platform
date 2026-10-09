@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { verifyMavenSourceContinuation } from './maven-workflow-transition.mjs';
 
 import { applyReviewedFindings } from './m6-pr-e-e3-apply-reviewed-findings.mjs';
+import { buildScannerFindingIntake } from './m6-pr-e-e3-ingest-e4.mjs';
+import { verifyDesignerPrototypeRemediation } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 
 const SHA40 = /^[0-9a-f]{40}$/;
 const SHA64 = /^[0-9a-f]{64}$/;
@@ -140,7 +143,8 @@ function requireTransition(transition, intake, review, currentSources) {
     throw new Error(`current source evidence required ${transition.sourcePath}`);
   }
   const computedBlob = gitBlobSha(source.content);
-  if (computedBlob !== source.blobSha || computedBlob !== transition.currentSourceBlobSha) {
+  const sourceContinuation = verifyMavenSourceContinuation(transition.sourcePath, source, transition.currentSourceBlobSha);
+  if (computedBlob !== source.blobSha) {
     throw new Error('current Semgrep source blob drift');
   }
   const line = source.content.split(/\r?\n/)[newLocation.startLine - 1];
@@ -153,14 +157,14 @@ function requireTransition(transition, intake, review, currentSources) {
   );
   if (expression !== transition.sourceExpression) throw new Error('current Semgrep source expression drift');
 
-  return { reviewed, current };
+  return { reviewed, current, sourceContinuation };
 }
 
 export function applyReviewedFindingsWithIdentityTransitions(
   intake,
   review,
   transitionPlan,
-  { currentSources = {} } = {},
+  { currentSources = {}, currentE4 = null, prototypeRemediationSnapshot = null } = {},
 ) {
   if (!intake || !review) throw new Error('intake and review required');
   requireExactPlan(transitionPlan);
@@ -170,6 +174,18 @@ export function applyReviewedFindingsWithIdentityTransitions(
   if (review.reviewBasisHead !== transitionPlan.reviewBasisHead
       || review.reviewBasisIntakeCanonicalSha256 !== transitionPlan.reviewBasisIntakeCanonicalSha256) {
     throw new Error('identity transition I2 review basis mismatch');
+  }
+
+  const prototypeRemediation = prototypeRemediationSnapshot
+    ? verifyDesignerPrototypeRemediation(currentE4, prototypeRemediationSnapshot) : null;
+  const remediatedHistoricalFindings = prototypeRemediation?.remediatedFindings || [];
+  const remediatedKeys = new Set(remediatedHistoricalFindings.map(item => `${item.sourceClass}:${item.findingId}`));
+  if (prototypeRemediation) {
+    if (sha256(canonical(review)) !== prototypeRemediation.historicalReviewCanonicalSha256) {
+      throw new Error('prototype remediation historical I2 input drift');
+    }
+    const expectedIntake = buildScannerFindingIntake(currentE4, { snapshotTime: intake.decisions?.[0]?.decisionTime });
+    if (canonical(intake) !== canonical(expectedIntake)) throw new Error('prototype remediation exact current intake binding mismatch');
   }
 
   const seenHistorical = new Set();
@@ -182,8 +198,10 @@ export function applyReviewedFindingsWithIdentityTransitions(
     }
     seenHistorical.add(transition.historicalFindingId);
     seenCurrent.add(transition.currentFindingId);
-    const { reviewed } = requireTransition(transition, intake, review, currentSources);
-    replacements.set(`${transition.sourceClass}:${transition.historicalFindingId}`, transition);
+    const { reviewed, sourceContinuation } = requireTransition(transition, intake, review, currentSources);
+    const currentTransition = sourceContinuation
+      ? { ...transition, currentSourceBlobSha: sourceContinuation.toBlob, sourceContinuation } : transition;
+    replacements.set(`${transition.sourceClass}:${transition.historicalFindingId}`, currentTransition);
     transitionRecords.push(stable({
       sourceClass: transition.sourceClass,
       ruleId: transition.ruleId,
@@ -191,7 +209,8 @@ export function applyReviewedFindingsWithIdentityTransitions(
       historicalFindingId: transition.historicalFindingId,
       currentFindingId: transition.currentFindingId,
       historicalSourceBlobSha: transition.historicalSourceBlobSha,
-      currentSourceBlobSha: transition.currentSourceBlobSha,
+      currentSourceBlobSha: currentTransition.currentSourceBlobSha,
+      ...(sourceContinuation ? { sourceContinuation } : {}),
       historicalLocation: transition.historicalLocation,
       currentLocation: transition.currentLocation,
       historicalDisposition: reviewed.disposition,
@@ -204,7 +223,7 @@ export function applyReviewedFindingsWithIdentityTransitions(
 
   const mappedReview = stable({
     ...review,
-    reviewedFindings: (review.reviewedFindings || []).map((item) => {
+    reviewedFindings: (review.reviewedFindings || []).filter(item => !remediatedKeys.has(`${item.sourceClass}:${item.findingId}`)).map((item) => {
       const transition = replacements.get(`${item.sourceClass}:${item.findingId}`);
       return transition
         ? { ...item, findingId: transition.currentFindingId, sourceBlobSha: transition.currentSourceBlobSha }
@@ -212,7 +231,7 @@ export function applyReviewedFindingsWithIdentityTransitions(
     }),
   });
   const base = applyReviewedFindings(intake, mappedReview);
-  if (base.reviewedFindingCount !== (review.reviewedFindings || []).length) {
+  if (base.reviewedFindingCount + remediatedHistoricalFindings.length !== (review.reviewedFindings || []).length) {
     throw new Error('identity transition reviewed finding count mismatch');
   }
 
@@ -234,11 +253,18 @@ export function applyReviewedFindingsWithIdentityTransitions(
   const { contentSha256: ignored, ...basePayload } = base;
   const payload = stable({
     ...basePayload,
-    schemaVersion: TRIAGE_SCHEMA,
+    schemaVersion: prototypeRemediation ? 'M6_PR_E_E3_I2_TRIAGE_V3' : TRIAGE_SCHEMA,
     sourceLegacyI2CanonicalSha256: transitionPlan.priorI2CanonicalSha256,
     identityTransitionPlanCanonicalSha256: transitionPlan.contentSha256,
     historicalReviewedFindingCount: (review.reviewedFindings || []).length,
     currentReviewedFindingCount: base.reviewedFindingCount,
+    ...(prototypeRemediation ? {
+      designerPrototypeRemediation: prototypeRemediation,
+      remediatedHistoricalFindings,
+      remediatedHistoricalFindingCount: remediatedHistoricalFindings.length,
+      historicallyRemediatedFindingCount: remediatedHistoricalFindings.length,
+      historicallyRemediatedFindings: remediatedHistoricalFindings,
+    } : {}),
     relocatedReviewedFindingCount: transitionRecords.length,
     identityTransitions: transitionRecords,
     decisions,

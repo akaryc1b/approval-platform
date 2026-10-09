@@ -103,7 +103,8 @@ function startupPlan() {
       },
       {
         id: 'reactor-build',
-        command: `mvn -B -ntp ${profile} -Drevision=${revision} -DskipTests install`,
+        command: `mvn -B -ntp ${profile} -Drevision=${revision} -DskipTests `
+          + '-Dapproval.persistence.tests.skip=true install',
       },
       {
         id: 'backend',
@@ -360,6 +361,7 @@ async function start() {
       `-P${demoMavenProfile}`,
       `-Drevision=${revision}`,
       '-DskipTests',
+      '-Dapproval.persistence.tests.skip=true',
       'install',
     ]);
     if (reuseRequested) {

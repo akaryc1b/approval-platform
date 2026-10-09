@@ -1,3 +1,4 @@
+import './web-local-icons.test.mjs';
 import './document-authority-boundary.test.mjs';
 import './acceptance-catalog-boundary.test.mjs';
 import './m6-e-approval-assistance-boundary.test.mjs';
@@ -9,6 +10,11 @@ import './m6-e-p6-openai-codec-boundary.test.mjs';
 import './m6-e-p6-openai-codec-hardening-boundary.test.mjs';
 import './m6-e-p6-openai-sender-boundary.test.mjs';
 import './product-readiness-demo-guides-boundary.test.mjs';
+import './product-readiness-artifact-privacy.test.mjs';
+import './product-readiness-artifact-producers.test.mjs';
+import './product-readiness-artifact-response.test.mjs';
+import './product-readiness-artifact-transaction.test.mjs';
+import './product-readiness-safe-output.test.mjs';
 import './product-readiness-demo-backend-boundary.test.mjs';
 import './product-readiness-purchase-payment-contract.test.mjs';
 import './product-readiness-demo-seed-boundary.test.mjs';

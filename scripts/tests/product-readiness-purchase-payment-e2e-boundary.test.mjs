@@ -163,7 +163,7 @@ test('payment confirmation uses visible H5 controls without direct approval HTTP
   );
   assert.match(uiSupport, /locator\('\.action-bar uni-button'\)/u);
   assert.match(uiSupport, /filter\(\{ hasText: \/\^同意\$\/u \}\)/u);
-  assert.match(uiSupport, /approvalButton\.click\(\{ timeout: 10_000 \}\)/u);
+  assert.match(uiSupport, /approvalButton\.click\(\{ timeout: budget\.remaining\(10_000\) \}\)/u);
   assert.doesNotMatch(uiSupport, /force:\s*true/u);
   assert.match(uiSupport, /uni-modal__btn_primary/u);
 });

@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "milestonesMs": {
+    "launch": 0,
+    "launchReturned": 27.93,
+    "spawned": 31.572,
+    "firstWriteQueued": 31.401,
+    "firstWriteCallback": 31.744,
+    "firstStderr": 9297.728,
+    "firstProtocol": null,
+    "handshake": null,
+    "failure": 10032.537,
+    "exit": 11552.292,
+    "cleanupFinished": 11552.438
+  },
+  "firstWriteCallbackFailed": false,
+  "browserVersion": null,
+  "failureKind": "timeout",
+  "timeoutElapsedMs": 10001.029,
+  "timeoutDriftMs": 1.029,
+  "eventLoop": {
+    "activeMs": 71.395,
+    "idleMs": 9961.056
+  },
+  "resourceSampleDurationMs": {
+    "launch": 2.971,
+    "failure": 1.526
+  },
+  "resources": {
+    "launch": {
+      "owned": {
+        "state": "R",
+        "rssKiB": 3652,
+        "threads": 1,
+        "userCpuTicks": 0,
+        "systemCpuTicks": 0,
+        "schedulerCpuNs": 3994489,
+        "schedulerWaitNs": 0,
+        "schedulerSlices": 2
+      },
+      "host": {
+        "cpu": {
+          "someUs": 4106427,
+          "fullUs": 0
+        },
+        "memory": {
+          "someUs": 0,
+          "fullUs": 0
+        },
+        "io": {
+          "someUs": 12662965,
+          "fullUs": 12195543
+        }
+      },
+      "cgroup": {
+        "pressure": {
+          "cpu": {
+            "someUs": 1167281,
+            "fullUs": 502468
+          },
+          "memory": {
+            "someUs": 0,
+            "fullUs": 0
+          },
+          "io": {
+            "someUs": 8185064,
+            "fullUs": 8138989
+          }
+        },
+        "cpu": {
+          "usage_usec": 67687427,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "memoryEvents": {
+          "high": 0,
+          "oom": 0,
+          "oom_kill": 0
+        },
+        "memoryCurrentBytes": 4039192576,
+        "memoryMaxBytes": "max",
+        "pidsCurrent": 220,
+        "pidsMax": 19151
+      }
+    },
+    "failure": {
+      "owned": {
+        "state": "S",
+        "rssKiB": 110148,
+        "threads": 20,
+        "userCpuTicks": 10,
+        "systemCpuTicks": 9,
+        "schedulerCpuNs": 97897370,
+        "schedulerWaitNs": 32100,
+        "schedulerSlices": 933
+      },
+      "host": {
+        "cpu": {
+          "someUs": 4132248,
+          "fullUs": 0
+        },
+        "memory": {
+          "someUs": 0,
+          "fullUs": 0
+        },
+        "io": {
+          "someUs": 17515283,
+          "fullUs": 16967812
+        }
+      },
+      "cgroup": {
+        "pressure": {
+          "cpu": {
+            "someUs": 1190602,
+            "fullUs": 518239
+          },
+          "memory": {
+            "someUs": 0,
+            "fullUs": 0
+          },
+          "io": {
+            "someUs": 13036202,
+            "fullUs": 12916027
+          }
+        },
+        "cpu": {
+          "usage_usec": 76714437,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "memoryEvents": {
+          "high": 0,
+          "oom": 0,
+          "oom_kill": 0
+        },
+        "memoryCurrentBytes": 4242362368,
+        "memoryMaxBytes": "max",
+        "pidsCurrent": 250,
+        "pidsMax": 19151
+      }
+    }
+  },
+  "exit": {
+    "observed": true,
+    "code": null,
+    "signal": "SIGKILL"
+  },
+  "cleanup": {
+    "term": "sent",
+    "kill": "sent",
+    "exited": true,
+    "failed": false
+  }
+}

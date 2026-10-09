@@ -8,7 +8,14 @@ import {
   pcUrl,
   tenantId,
 } from './product-readiness-pc-h5-runtime-api';
+import { inspectH5TaskComponents } from './product-readiness-h5-components';
+import { testCaptureBudget } from './product-readiness-capture-budget';
+import { captureFailurePhase } from './product-readiness-capture-diagnostics';
+import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
+import type { CaptureBudget } from './product-readiness-capture-budget';
 import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
+
+const captureStartedAt = performance.now();
 
 function requiredEnvironment(name: string) {
   const value = process.env[name]?.trim();
@@ -47,11 +54,12 @@ if (pcActorId !== h5ActorId) {
 async function collectCjkFontEvidence(
   page: import('@playwright/test').Page,
   requireExplicitStack: boolean,
+  budget: CaptureBudget,
 ) {
-  await page.evaluate(async () => {
+  await budget.run(() => page.evaluate(async () => {
     await document.fonts.ready;
-  });
-  const evidence = await page.evaluate((sample) => {
+  }));
+  const evidence = await budget.run(() => page.evaluate((sample) => {
     const rootStyle = getComputedStyle(document.documentElement);
     const bodyStyle = getComputedStyle(document.body);
     const canvas = document.createElement('canvas');
@@ -94,7 +102,7 @@ async function collectCjkFontEvidence(
       minimumInkPixels: Math.min(...glyphs.map(glyph => glyph.inkPixels)),
       uniqueGlyphHashes: new Set(glyphs.map(glyph => glyph.hash)).size,
     };
-  }, cjkProbeText);
+  }, cjkProbeText));
 
   expect(evidence.minimumInkPixels).toBeGreaterThan(20);
   expect(evidence.uniqueGlyphHashes).toBeGreaterThanOrEqual(6);
@@ -114,68 +122,113 @@ async function collectCjkFontEvidence(
 
 test('a new user can see the seeded purchase-payment request in PC and H5', async ({
   browser,
-}) => {
+}, testInfo) => {
+  const phase = captureFailurePhase(testInfo);
+  phase.enter('TEST_SETUP');
+  const budget = testCaptureBudget(testInfo, captureStartedAt);
   const startedAt = new Date().toISOString();
   const context = await browser.newContext();
   const pc = await context.newPage();
   const h5 = await context.newPage();
+  const pcFailures = observeCaptureFailures(pc);
+  const h5Failures = observeCaptureFailures(h5);
   try {
+    phase.enter('PC_AUTHENTICATION');
     await ensurePcLogin(pc);
-    await pc.goto(pcUrl, { waitUntil: 'domcontentloaded' });
+    phase.enter('PC_NAVIGATION');
+    const pcBudget = budget.limit(30_000);
+    await pc.goto(pcUrl, { waitUntil: 'domcontentloaded', timeout: pcBudget.remaining() });
     const pcTask = pc.locator('.task-item')
       .filter({ hasText: businessKey })
       .first();
-    await expect(pcTask).toBeVisible({ timeout: 30_000 });
+    phase.enter('PC_TASK_VISIBILITY');
+    await expect(pcTask).toBeVisible({ timeout: pcBudget.remaining(30_000) });
     await expect(pc.getByText(businessKey, { exact: true }).first())
-      .toBeVisible();
-    const pcFont = await collectCjkFontEvidence(pc, true);
-    await pc.screenshot({
-      fullPage: true,
-      path: resolve(evidenceDirectory, 'quick-start-pc.png'),
-    });
+      .toBeVisible({ timeout: pcBudget.remaining(15_000) });
+    phase.enter('PC_SURFACE_READINESS');
+    const pcReadiness = await readySurface(pc, pcBudget, { client: 'pc', kind: 'list', url: pcUrl, businessKey, pendingTotal: 1, processedTotal: 0 });
+    phase.enter('PC_FONT');
+    const pcFont = await collectCjkFontEvidence(pc, true, pcBudget);
+    phase.enter('PC_SCREENSHOT');
+    pcFailures.assert();
+    await captureScreenshot(pc, pcBudget, resolve(evidenceDirectory, 'quick-start-pc.png'), { readiness: pcReadiness, assertCurrent: async () => pcFailures.assert() });
 
-    await h5.goto(h5Url, { waitUntil: 'domcontentloaded' });
+    phase.enter('H5_NAVIGATION');
+    const h5Budget = budget.limit(30_000);
+    await h5.goto(h5Url, { waitUntil: 'domcontentloaded', timeout: h5Budget.remaining() });
     const h5Task = h5.locator('.task-card')
       .filter({ hasText: businessKey })
       .first();
-    await expect(h5Task).toBeVisible({ timeout: 30_000 });
-    const h5Font = await collectCjkFontEvidence(h5, false);
-    await h5.screenshot({
-      fullPage: true,
-      path: resolve(evidenceDirectory, 'quick-start-h5.png'),
+    phase.enter('H5_TASK_VISIBILITY');
+    await expect(h5Task).toBeVisible({ timeout: h5Budget.remaining(30_000) });
+    phase.enter('H5_SURFACE_READINESS');
+    const h5Readiness = await readySurface(h5, h5Budget, { client: 'h5', kind: 'list', url: h5Url, businessKey, pendingTotal: 1, processedTotal: 0 });
+    phase.enter('H5_FONT');
+    const h5Font = await collectCjkFontEvidence(h5, false, h5Budget);
+    phase.enter('H5_COMPONENTS');
+    const h5Components = await h5Task.evaluate(inspectH5TaskComponents, undefined, {
+      timeout: h5Budget.remaining(5_000),
     });
+    expect(h5Components).toEqual({
+      buttonsRendered: true,
+      searchRendered: true,
+      taskTagRendered: true,
+      stylesApplied: true,
+      unresolvedTags: 0,
+    });
+    phase.enter('H5_SCREENSHOT');
+    h5Failures.assert();
+    await captureScreenshot(h5, h5Budget, resolve(evidenceDirectory, 'quick-start-h5.png'), { readiness: h5Readiness, assertCurrent: async () => h5Failures.assert() });
 
-    writeFileSync(
-      resolve(evidenceDirectory, 'quick-start-browser-evidence.json'),
-      `${JSON.stringify({
-        schemaVersion: 1,
-        evidenceKind: 'QUICK_START_BROWSER_READY_V1',
-        status: 'PASSED',
-        commitSha: exactHeadSha,
-        tenantId,
-        businessKey,
-        startedAt,
-        completedAt: new Date().toISOString(),
-        pc: {
-          actorId: pcActorId,
-          url: pc.url(),
-          businessKeyVisible: true,
-          cjkGlyphsRendered: true,
-          font: pcFont,
-          screenshot: 'quick-start-pc.png',
-        },
-        h5: {
-          actorId: h5ActorId,
-          url: h5.url(),
-          businessKeyVisible: true,
-          cjkGlyphsRendered: true,
-          font: h5Font,
-          screenshot: 'quick-start-h5.png',
-        },
-      }, null, 2)}\n`,
-      { encoding: 'utf8', mode: 0o600 },
-    );
+    phase.enter('RECEIPT_PUBLICATION');
+    budget.remaining();
+    pcFailures.assert();
+    h5Failures.assert();
+    const receiptPath = resolve(evidenceDirectory, 'quick-start-browser-evidence.json');
+    publishCaptureReceipt(budget, receiptPath, () => {
+      writeFileSync(
+        resolve(evidenceDirectory, 'quick-start-browser-evidence.json'),
+        `${JSON.stringify({
+          schemaVersion: 1,
+          evidenceKind: 'QUICK_START_BROWSER_READY_V1',
+          status: 'PASSED',
+          commitSha: exactHeadSha,
+          tenantId,
+          businessKey,
+          startedAt,
+          completedAt: new Date().toISOString(),
+          pc: {
+            actorId: pcActorId,
+            url: pc.url(),
+            businessKeyVisible: true,
+            cjkGlyphsRendered: true,
+            font: pcFont,
+            screenshot: 'quick-start-pc.png',
+            capturePhase: 'READY_BEFORE_ACTION',
+            readiness: pcReadiness,
+          },
+          h5: {
+            actorId: h5ActorId,
+            url: h5.url(),
+            businessKeyVisible: true,
+            cjkGlyphsRendered: true,
+            font: h5Font,
+            components: h5Components,
+            screenshot: 'quick-start-h5.png',
+            capturePhase: 'READY_BEFORE_ACTION',
+            readiness: h5Readiness,
+          },
+        }, null, 2)}\n`,
+        { encoding: 'utf8', mode: 0o600 },
+      );
+    });
+  } catch (error) {
+    phase.preserveFailure();
+    throw error;
   } finally {
+    phase.enter('CLEANUP');
+    pcFailures.dispose();
+    h5Failures.dispose();
     await context.close();
   }
 });

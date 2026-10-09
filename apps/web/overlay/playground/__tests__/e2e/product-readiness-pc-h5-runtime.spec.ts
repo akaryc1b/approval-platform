@@ -1,6 +1,9 @@
 import { resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
+import { testCaptureBudget } from './product-readiness-capture-budget';
+import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
+import type { CapturePhase } from './product-readiness-capture';
 
 import type {
   PendingTask,
@@ -37,6 +40,8 @@ import {
   clickPcApproval,
   ensurePcLogin,
 } from './product-readiness-pc-h5-runtime-ui';
+
+const captureStartedAt = performance.now();
 
 const allSeedActors = [
   authoritativeActors.managerApproval,
@@ -120,24 +125,19 @@ function approvalEvent(
   return matches[0];
 }
 
-async function capture(page: Parameters<typeof attachPageRuntimeDiagnostics>[0], file: string) {
-  await page.screenshot({
-    fullPage: true,
-    path: resolve(evidenceDirectory, file),
-  });
-}
-
 async function expectH5BusinessCard(
   page: Parameters<typeof attachPageRuntimeDiagnostics>[0],
+  budget: import('./product-readiness-capture-budget').CaptureBudget,
 ) {
   await expect(page.locator('.task-card').filter({ hasText: businessKey }).first())
-    .toBeVisible();
+    .toBeVisible({ timeout: budget.remaining(15_000) });
 }
 
 test('PC manager and H5 finance actors hand off the seeded instance to WeChat payment confirmation', async ({
   browser,
   request,
-}) => {
+}, testInfo) => {
+  const budget = testCaptureBudget(testInfo, captureStartedAt);
   const startedAt = new Date().toISOString();
   const context = await browser.newContext();
   const pc = await context.newPage();
@@ -166,6 +166,16 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
       authoritativeActors.financeCountersign[1],
     ),
   ];
+  const failures = [pc, h5Reviewer, h5CountersignA, h5CountersignB].map(observeCaptureFailures);
+  const screenshots: unknown[] = [];
+  const capture = async (page: typeof pc, file: string, phase: CapturePhase, readiness?: Awaited<ReturnType<typeof readySurface>>, captureBudget = budget, assertCurrent?: () => Promise<void>) => {
+    failures.forEach(observer => observer.assert());
+    await captureScreenshot(page, captureBudget, resolve(evidenceDirectory, file), { readiness, assertCurrent: async () => {
+      failures.forEach(observer => observer.assert());
+      if (assertCurrent) await assertCurrent();
+    } });
+    screenshots.push({ ...screenshotEvidence(file), phase, ...(readiness ? { readiness } : { successMessage: '审批已同意' }) });
+  };
   let processInstanceId: string | undefined;
 
   try {
@@ -206,16 +216,18 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
       processInstanceId,
     );
 
+    const surfaceBudget0 = budget.limit(15_000);
     await expect(pc.getByText(businessKey, { exact: true }).first())
-      .toBeVisible();
-    await capture(pc, 'pc-manager-before.png');
+      .toBeVisible({ timeout: surfaceBudget0.remaining(15_000) });
+    const ready0 = await readySurface(pc, surfaceBudget0, { client: 'pc', kind: 'list', url: pcUrl, businessKey, taskId: pcPending.task.taskId, instanceId: processInstanceId, pendingTotal: 1, processedTotal: 0 });
+    await capture(pc, 'pc-manager-before.png', 'READY_BEFORE_ACTION', ready0, surfaceBudget0);
 
     const pcApproval = await clickPcApproval(pc, {
       actorId: authoritativeActors.managerApproval,
       businessKey,
       processInstanceId,
       taskId: pcPending.task.taskId,
-    });
+    }, budget, (actionBudget, assertCurrent) => capture(pc, 'pc-manager-after.png', 'IMMEDIATE_ACKNOWLEDGED_RESULT', undefined, actionBudget, assertCurrent));
     const pcApprovalHeaders = expectResponseIdentity(
       pcApproval,
       authoritativeActors.managerApproval,
@@ -246,7 +258,9 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
       ),
     ]);
     expectActiveTaskIds(pcApprovalResult, [financeTask]);
-    await capture(pc, 'pc-manager-after.png');
+    const settledBudget0 = budget.limit(30_000);
+    const settled0 = await readySurface(pc, settledBudget0, { client: 'pc', kind: 'list', url: pcUrl, absentTaskId: pcPending.task.taskId, minimumRefresh: ready0.refresh + 1, pendingTotal: 0, processedTotal: 1 });
+    await capture(pc, 'pc-manager-settled.png', 'SETTLED_DESTINATION', settled0, settledBudget0);
 
     const financeAssignments = await pendingAssignments(
       request,
@@ -276,8 +290,10 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
       h5Pending.response,
       authoritativeActors.financeReview,
     );
-    await expectH5BusinessCard(h5Reviewer);
-    await capture(h5Reviewer, 'h5-finance-before.png');
+    const surfaceBudget1 = budget.limit(15_000);
+    await expectH5BusinessCard(h5Reviewer, surfaceBudget1);
+    const ready1 = await readySurface(h5Reviewer, surfaceBudget1, { client: 'h5', kind: 'list', url: h5UrlForActor(authoritativeActors.financeReview), businessKey, taskId: h5Pending.task.taskId, instanceId: processInstanceId, pendingTotal: 1, processedTotal: 0 });
+    await capture(h5Reviewer, 'h5-finance-before.png', 'READY_BEFORE_ACTION', ready1, surfaceBudget1);
 
     const h5Approval = await clickH5Approval(
       h5Reviewer,
@@ -288,6 +304,8 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
         taskId: h5Pending.task.taskId,
       },
       '财务审核',
+      budget,
+      (actionBudget, assertCurrent) => capture(h5Reviewer, 'h5-finance-after.png', 'IMMEDIATE_ACKNOWLEDGED_RESULT', undefined, actionBudget, assertCurrent),
     );
     const h5ApprovalHeaders = expectResponseIdentity(
       h5Approval,
@@ -323,7 +341,9 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
         authoritativeTaskKeys.financeCountersign,
       ),
     ]);
-    await capture(h5Reviewer, 'h5-finance-after.png');
+    const settledBudget1 = budget.limit(30_000);
+    const settled1 = await readySurface(h5Reviewer, settledBudget1, { client: 'h5', kind: 'list', url: h5UrlForActor(authoritativeActors.financeReview), absentTaskId: h5Pending.task.taskId, minimumRefresh: ready1.refresh + 1, pendingTotal: 0, processedTotal: 1 });
+    await capture(h5Reviewer, 'h5-finance-settled.png', 'SETTLED_DESTINATION', settled1, settledBudget1);
 
     expect(countersignA).toEqual(expect.objectContaining({
       instanceId: processInstanceId,
@@ -381,8 +401,10 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
       h5CountersignAPending.response,
       authoritativeActors.financeCountersign[0],
     );
-    await expectH5BusinessCard(h5CountersignA);
-    await capture(h5CountersignA, 'h5-countersign-a-before.png');
+    const surfaceBudget2 = budget.limit(15_000);
+    await expectH5BusinessCard(h5CountersignA, surfaceBudget2);
+    const ready2 = await readySurface(h5CountersignA, surfaceBudget2, { client: 'h5', kind: 'list', url: h5UrlForActor(authoritativeActors.financeCountersign[0]), businessKey, taskId: countersignA.taskId, instanceId: processInstanceId, pendingTotal: 1, processedTotal: 0 });
+    await capture(h5CountersignA, 'h5-countersign-a-before.png', 'READY_BEFORE_ACTION', ready2, surfaceBudget2);
 
     const countersignAApproval = await clickH5Approval(
       h5CountersignA,
@@ -393,6 +415,8 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
         taskId: countersignA.taskId,
       },
       '财务会签',
+      budget,
+      (actionBudget, assertCurrent) => capture(h5CountersignA, 'h5-countersign-a-after.png', 'IMMEDIATE_ACKNOWLEDGED_RESULT', undefined, actionBudget, assertCurrent),
     );
     const countersignAHeaders = expectResponseIdentity(
       countersignAApproval,
@@ -428,7 +452,9 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
       authoritativeTaskKeys.financeCountersign,
       processInstanceId,
     );
-    await capture(h5CountersignA, 'h5-countersign-a-after.png');
+    const settledBudget2 = budget.limit(30_000);
+    const settled2 = await readySurface(h5CountersignA, settledBudget2, { client: 'h5', kind: 'list', url: h5UrlForActor(authoritativeActors.financeCountersign[0]), absentTaskId: countersignA.taskId, minimumRefresh: ready2.refresh + 1, pendingTotal: 0, processedTotal: 1 });
+    await capture(h5CountersignA, 'h5-countersign-a-settled.png', 'SETTLED_DESTINATION', settled2, settledBudget2);
 
     const [h5CountersignBPending] = await Promise.all([
       pendingResponse(h5CountersignB, {
@@ -446,8 +472,10 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
       h5CountersignBPending.response,
       authoritativeActors.financeCountersign[1],
     );
-    await expectH5BusinessCard(h5CountersignB);
-    await capture(h5CountersignB, 'h5-countersign-b-before.png');
+    const surfaceBudget3 = budget.limit(15_000);
+    await expectH5BusinessCard(h5CountersignB, surfaceBudget3);
+    const ready3 = await readySurface(h5CountersignB, surfaceBudget3, { client: 'h5', kind: 'list', url: h5UrlForActor(authoritativeActors.financeCountersign[1]), businessKey, taskId: countersignB.taskId, instanceId: processInstanceId, pendingTotal: 1, processedTotal: 0 });
+    await capture(h5CountersignB, 'h5-countersign-b-before.png', 'READY_BEFORE_ACTION', ready3, surfaceBudget3);
 
     const countersignBApproval = await clickH5Approval(
       h5CountersignB,
@@ -458,6 +486,8 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
         taskId: countersignB.taskId,
       },
       '财务会签',
+      budget,
+      (actionBudget, assertCurrent) => capture(h5CountersignB, 'h5-countersign-b-after.png', 'IMMEDIATE_ACKNOWLEDGED_RESULT', undefined, actionBudget, assertCurrent),
     );
     const countersignBHeaders = expectResponseIdentity(
       countersignBApproval,
@@ -500,7 +530,9 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
       authoritativeTaskKeys.paymentConfirmation,
       processInstanceId,
     );
-    await capture(h5CountersignB, 'h5-countersign-b-after.png');
+    const settledBudget3 = budget.limit(30_000);
+    const settled3 = await readySurface(h5CountersignB, settledBudget3, { client: 'h5', kind: 'list', url: h5UrlForActor(authoritativeActors.financeCountersign[1]), absentTaskId: countersignB.taskId, minimumRefresh: ready3.refresh + 1, pendingTotal: 0, processedTotal: 1 });
+    await capture(h5CountersignB, 'h5-countersign-b-settled.png', 'SETTLED_DESTINATION', settled3, settledBudget3);
 
     const taskIds = [
       pcPending.task.taskId,
@@ -533,113 +565,109 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
       countersignBHeaders.requestId,
     );
 
-    writeEvidence({
-      schemaVersion: 1,
-      evidenceKind: 'PC_H5_BROWSER_APPROVAL_HANDOFF_V1',
-      claim: 'PC_H5_APPROVAL_HANDOFF_PASSED',
-      commitSha: process.env.APPROVAL_DEMO_EXACT_HEAD_SHA
-        || process.env.GITHUB_SHA
-        || null,
-      githubRunId: process.env.GITHUB_RUN_ID || null,
-      startedAt,
-      completedAt: new Date().toISOString(),
-      tenantId,
-      businessKey,
-      instanceId: processInstanceId,
-      instanceOrigin: 'DETERMINISTIC_BACKEND_SEED',
-      assignmentEvidence: {
-        source: assignmentSource,
-        semantics: 'operator-scoped real pending task visibility',
-        authoritativeActors,
-        authoritativeTaskKeys,
-        managerStage: managerAssignments,
-        financeReviewStage: financeAssignments,
-        financeCountersignStage: countersignAssignments,
-        afterCountersignA: afterCountersignAAssignments,
-        awaitingPayment: awaitingPaymentAssignments,
-      },
-      processStates: {
-        beforeManagerApproval: managerState,
-        afterManagerApproval: financeState,
-        afterFinanceReview: countersignState,
-        afterCountersignA: afterCountersignAState,
-        afterCountersignB: awaitingPaymentState,
-      },
-      steps: [
-        {
-          client: 'pc',
-          actorId: authoritativeActors.managerApproval,
-          taskDefinitionKey: authoritativeTaskKeys.managerApproval,
-          taskId: pcPending.task.taskId,
-          request: pcApprovalHeaders,
-          result: pcApprovalResult,
-          auditEventId: managerEvent.eventId,
-          auditRequestId: managerEvent.requestId,
+    budget.remaining();
+    failures.forEach(observer => observer.assert());
+    const receiptPath = resolve(evidenceDirectory, 'pc-h5-runtime-evidence.json');
+    publishCaptureReceipt(budget, receiptPath, () => {
+      writeEvidence({
+        schemaVersion: 1,
+        evidenceKind: 'PC_H5_BROWSER_APPROVAL_HANDOFF_V1',
+        claim: 'PC_H5_APPROVAL_HANDOFF_PASSED',
+        commitSha: process.env.APPROVAL_DEMO_EXACT_HEAD_SHA
+          || process.env.GITHUB_SHA
+          || null,
+        githubRunId: process.env.GITHUB_RUN_ID || null,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        tenantId,
+        businessKey,
+        instanceId: processInstanceId,
+        instanceOrigin: 'DETERMINISTIC_BACKEND_SEED',
+        assignmentEvidence: {
+          source: assignmentSource,
+          semantics: 'operator-scoped real pending task visibility',
+          authoritativeActors,
+          authoritativeTaskKeys,
+          managerStage: managerAssignments,
+          financeReviewStage: financeAssignments,
+          financeCountersignStage: countersignAssignments,
+          afterCountersignA: afterCountersignAAssignments,
+          awaitingPayment: awaitingPaymentAssignments,
         },
-        {
-          client: 'h5',
-          actorId: authoritativeActors.financeReview,
-          taskDefinitionKey: authoritativeTaskKeys.financeReview,
-          taskId: h5Pending.task.taskId,
-          request: h5ApprovalHeaders,
-          result: h5ApprovalResult,
-          auditEventId: financeReviewEvent.eventId,
-          auditRequestId: financeReviewEvent.requestId,
+        processStates: {
+          beforeManagerApproval: managerState,
+          afterManagerApproval: financeState,
+          afterFinanceReview: countersignState,
+          afterCountersignA: afterCountersignAState,
+          afterCountersignB: awaitingPaymentState,
         },
-        {
-          client: 'h5',
-          actorId: authoritativeActors.financeCountersign[0],
+        steps: [
+          {
+            client: 'pc',
+            actorId: authoritativeActors.managerApproval,
+            taskDefinitionKey: authoritativeTaskKeys.managerApproval,
+            taskId: pcPending.task.taskId,
+            request: pcApprovalHeaders,
+            result: pcApprovalResult,
+            auditEventId: managerEvent.eventId,
+            auditRequestId: managerEvent.requestId,
+          },
+          {
+            client: 'h5',
+            actorId: authoritativeActors.financeReview,
+            taskDefinitionKey: authoritativeTaskKeys.financeReview,
+            taskId: h5Pending.task.taskId,
+            request: h5ApprovalHeaders,
+            result: h5ApprovalResult,
+            auditEventId: financeReviewEvent.eventId,
+            auditRequestId: financeReviewEvent.requestId,
+          },
+          {
+            client: 'h5',
+            actorId: authoritativeActors.financeCountersign[0],
+            taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
+            taskId: countersignA.taskId,
+            request: countersignAHeaders,
+            result: countersignAResult,
+            auditEventId: countersignAEvent.eventId,
+            auditRequestId: countersignAEvent.requestId,
+          },
+          {
+            client: 'h5',
+            actorId: authoritativeActors.financeCountersign[1],
+            taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
+            taskId: countersignB.taskId,
+            request: countersignBHeaders,
+            result: countersignBResult,
+            auditEventId: countersignBEvent.eventId,
+            auditRequestId: countersignBEvent.requestId,
+          },
+        ],
+        countersignStage: {
           taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
-          taskId: countersignA.taskId,
-          request: countersignAHeaders,
-          result: countersignAResult,
-          auditEventId: countersignAEvent.eventId,
-          auditRequestId: countersignAEvent.requestId,
+          actorIds: [...authoritativeActors.financeCountersign],
+          taskIds: [countersignA.taskId, countersignB.taskId].sort(),
         },
-        {
-          client: 'h5',
-          actorId: authoritativeActors.financeCountersign[1],
-          taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
-          taskId: countersignB.taskId,
-          request: countersignBHeaders,
-          result: countersignBResult,
-          auditEventId: countersignBEvent.eventId,
-          auditRequestId: countersignBEvent.requestId,
+        paymentHandoff: {
+          client: 'wechat',
+          actorId: authoritativeActors.paymentConfirmation,
+          taskDefinitionKey: authoritativeTaskKeys.paymentConfirmation,
+          taskId: paymentTask.taskId,
         },
-      ],
-      countersignStage: {
-        taskDefinitionKey: authoritativeTaskKeys.financeCountersign,
-        actorIds: [...authoritativeActors.financeCountersign],
-        taskIds: [countersignA.taskId, countersignB.taskId].sort(),
-      },
-      paymentHandoff: {
-        client: 'wechat',
-        actorId: authoritativeActors.paymentConfirmation,
-        taskDefinitionKey: authoritativeTaskKeys.paymentConfirmation,
-        taskId: paymentTask.taskId,
-      },
-      finalState: awaitingPaymentState,
-      screenshots: [
-        screenshotEvidence('pc-manager-before.png'),
-        screenshotEvidence('pc-manager-after.png'),
-        screenshotEvidence('h5-finance-before.png'),
-        screenshotEvidence('h5-finance-after.png'),
-        screenshotEvidence('h5-countersign-a-before.png'),
-        screenshotEvidence('h5-countersign-a-after.png'),
-        screenshotEvidence('h5-countersign-b-before.png'),
-        screenshotEvidence('h5-countersign-b-after.png'),
-      ],
-      nonClaims: [
-        'PURCHASE_APPROVAL_E2E_NOT_EXECUTED',
-        'WECHAT_MINI_PROGRAM_RUNTIME_NOT_EXECUTED',
-        'PC_H5_WECHAT_RUNTIME_NOT_EXECUTED',
-        'BROWSER_COMPATIBILITY_NOT_VERIFIED',
-        'ACCESSIBILITY_NOT_VERIFIED',
-        'PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED',
-        'PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED',
-        'QUICK_START_10_MINUTES_NOT_EXECUTED',
-      ],
-    });
+        finalState: awaitingPaymentState,
+        screenshots,
+        nonClaims: [
+          'PURCHASE_APPROVAL_E2E_NOT_EXECUTED',
+          'WECHAT_MINI_PROGRAM_RUNTIME_NOT_EXECUTED',
+          'PC_H5_WECHAT_RUNTIME_NOT_EXECUTED',
+          'BROWSER_COMPATIBILITY_NOT_VERIFIED',
+          'ACCESSIBILITY_NOT_VERIFIED',
+          'PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED',
+          'PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED',
+          'QUICK_START_10_MINUTES_NOT_EXECUTED',
+        ],
+      });
+    }, `${receiptPath}.tmp`);
   } catch (error) {
     try {
       await writeRuntimeFailureDiagnostics({
@@ -660,6 +688,7 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
     }
     throw error;
   } finally {
+    failures.forEach(observer => observer.dispose());
     await context.close();
   }
 });

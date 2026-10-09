@@ -1,0 +1,243 @@
+{
+  "archivalE2": {
+    "commitSha": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+    "contentSha256": "4c423ae6f24cbdd6a83c07f2176e254dfbee413a1e49ca9f28c3524a050b43b7",
+    "path": "docs/operations/server-dependency-evidence-921d5ec5/M6_PR_E_E2_SBOM.json",
+    "rawSha256": "1f5e32f60e4bde4a608a24decbf913779128e1627f9128c7e0267e3f1c04927f"
+  },
+  "captureInvocations": [
+    {
+      "file": "maven-1791435960290165883.invocation.json",
+      "invocation": {
+        "command": [
+          "/workspace/shared/approval-platform-maven-runtime/approval-maven-mhhxfh/apache-maven-3.9.16/bin/mvn",
+          "--version",
+          "-Dstyle.color=never"
+        ],
+        "cwd": "/workspace/shared/approval-platform-dependency-graph-a0717",
+        "exitCode": 0,
+        "identityAfter": {
+          "cleanWorktree": true,
+          "head": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+          "porcelainStatus": "",
+          "tree": "79c138d18075b54e800829eb903cb58a0b39b040"
+        },
+        "identityBefore": {
+          "cleanWorktree": true,
+          "head": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+          "porcelainStatus": "",
+          "tree": "79c138d18075b54e800829eb903cb58a0b39b040"
+        },
+        "javaHome": "/workspace/shared/toolchains/jdk-21.0.12.1+1",
+        "licensePomRepository": "/workspace/shared/approval-dependency-graph-evidence/m2",
+        "mavenArgs": "-o -Dmaven.repo.local=/workspace/shared/approval-dependency-graph-evidence/m2",
+        "outputs": [],
+        "startedUtc": "2026-10-08T05:06:00.290166+00:00"
+      },
+      "rawSha256": "d145c16ba1e3c2bf82577bff4c23029a215b86bcc761d753982f04d2dc732de7"
+    },
+    {
+      "file": "maven-1791435960567879107.invocation.json",
+      "invocation": {
+        "command": [
+          "/workspace/shared/approval-platform-maven-runtime/approval-maven-mhhxfh/apache-maven-3.9.16/bin/mvn",
+          "-B",
+          "-ntp",
+          "org.apache.maven.plugins:maven-dependency-plugin:3.11.0:tree",
+          "-DoutputType=json",
+          "-DappendOutput=true",
+          "-DoutputFile=/tmp/e2-VUUYmc/t.json"
+        ],
+        "cwd": "/workspace/shared/approval-platform-dependency-graph-a0717",
+        "exitCode": 0,
+        "identityAfter": {
+          "cleanWorktree": true,
+          "head": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+          "porcelainStatus": "",
+          "tree": "79c138d18075b54e800829eb903cb58a0b39b040"
+        },
+        "identityBefore": {
+          "cleanWorktree": true,
+          "head": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+          "porcelainStatus": "",
+          "tree": "79c138d18075b54e800829eb903cb58a0b39b040"
+        },
+        "javaHome": "/workspace/shared/toolchains/jdk-21.0.12.1+1",
+        "licensePomRepository": "/workspace/shared/approval-dependency-graph-evidence/m2",
+        "mavenArgs": "-o -Dmaven.repo.local=/workspace/shared/approval-dependency-graph-evidence/m2",
+        "outputs": [
+          {
+            "bytes": 255524,
+            "path": "/workspace/shared/approval-dependency-graph-evidence/raw/maven-1791435960567879107.t.json",
+            "sha256": "6e1f74ae512ca5a4ba79a293e8a1f5861ad593ea5ba626cce60a00775e14a859",
+            "sourcePath": "/tmp/e2-VUUYmc/t.json"
+          }
+        ],
+        "startedUtc": "2026-10-08T05:06:00.567879+00:00"
+      },
+      "rawSha256": "a3e82d2fde1623f0c4c2b4e3eeeb9e17335da1ece1346421a0639491907d839f"
+    },
+    {
+      "file": "maven-1791435962950214604.invocation.json",
+      "invocation": {
+        "command": [
+          "/workspace/shared/approval-platform-maven-runtime/approval-maven-mhhxfh/apache-maven-3.9.16/bin/mvn",
+          "-B",
+          "-ntp",
+          "org.apache.maven.plugins:maven-dependency-plugin:3.11.0:resolve-plugins",
+          "-DappendOutput=true",
+          "-DoutputFile=/tmp/e2-VUUYmc/p.txt"
+        ],
+        "cwd": "/workspace/shared/approval-platform-dependency-graph-a0717",
+        "exitCode": 0,
+        "identityAfter": {
+          "cleanWorktree": true,
+          "head": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+          "porcelainStatus": "",
+          "tree": "79c138d18075b54e800829eb903cb58a0b39b040"
+        },
+        "identityBefore": {
+          "cleanWorktree": true,
+          "head": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+          "porcelainStatus": "",
+          "tree": "79c138d18075b54e800829eb903cb58a0b39b040"
+        },
+        "javaHome": "/workspace/shared/toolchains/jdk-21.0.12.1+1",
+        "licensePomRepository": "/workspace/shared/approval-dependency-graph-evidence/m2",
+        "mavenArgs": "-o -Dmaven.repo.local=/workspace/shared/approval-dependency-graph-evidence/m2",
+        "outputs": [
+          {
+            "bytes": 616375,
+            "path": "/workspace/shared/approval-dependency-graph-evidence/raw/maven-1791435962950214604.p.txt",
+            "sha256": "e9a095fee4fdbf3293833511950288c1932fbafc492799ffd3fa7468bd02b072",
+            "sourcePath": "/tmp/e2-VUUYmc/p.txt"
+          }
+        ],
+        "startedUtc": "2026-10-08T05:06:02.950215+00:00"
+      },
+      "rawSha256": "b77ac86d2c0114732c2d68a9110058aa3786097241d4022ee7c5fa3554876f36"
+    }
+  ],
+  "contentSha256": "2d7fb41f863f0746ebeb7d300a48d45cf66d565f2b1477e3d01d0420b3e8b470",
+  "findingReviewRequired": true,
+  "releaseBlocked": true,
+  "repository": "akaryc1b/approval-platform",
+  "schemaVersion": "APPROVAL_SERVER_DEPENDENCY_SOURCE_WITNESS_V1",
+  "sourceTransition": {
+    "baseHead": "a0717a017e94840141fc6841ff7bfb1226a3da6e",
+    "baseTree": "0c12c618fdd24d13caf5e37cc74fdb684a30fa0f",
+    "candidateHead": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+    "candidateTree": "79c138d18075b54e800829eb903cb58a0b39b040",
+    "files": [
+      {
+        "after": {
+          "bytes": 3052,
+          "gitBlob": "36be455ec24cbf28082a7fb46b8f6db8d83fdcd9",
+          "mode": "100644",
+          "sha256": "78743091069dff5f9085cb13e60989acda5d35b19035dd7c6911eed7ec0b33d7",
+          "type": "blob"
+        },
+        "before": null,
+        "path": "apps/server/src/test/java/io/github/akaryc1b/approval/config/ServerDependencyCompatibilityTest.java"
+      },
+      {
+        "after": {
+          "bytes": 12027,
+          "gitBlob": "af26be4db4af295a8b649023a2aec1dec33ce785",
+          "mode": "100644",
+          "sha256": "4bcb2834eba8c59b94603372477eb561f647fdf63bcff70509cb71d4b7cfc31a",
+          "type": "blob"
+        },
+        "before": {
+          "bytes": 12027,
+          "gitBlob": "6900b7142d24e1480ef4cbeae640fffd029d7b06",
+          "mode": "100644",
+          "sha256": "355f8e58bf5dba2727bc41bff09ebfa15dc205e4f9c790be257316e53072c832",
+          "type": "blob"
+        },
+        "path": "docs/current/capability-status.json"
+      },
+      {
+        "after": {
+          "bytes": 3383,
+          "gitBlob": "0b3bec258eb466f25f6adeb5f7ba6c738e5dfb3d",
+          "mode": "100644",
+          "sha256": "06e0243227e343edf7ae22d10493d18b52a6f394c7a59ad2957475d960b5fe76",
+          "type": "blob"
+        },
+        "before": {
+          "bytes": 3383,
+          "gitBlob": "e54be98e64a28f725cac56aaa5013d92cbbc056d",
+          "mode": "100644",
+          "sha256": "ad463e438770bf780a9c32b32eb2f5fa695e42ababd2570dc944c7ea0cd7f99c",
+          "type": "blob"
+        },
+        "path": "docs/current/compatibility.md"
+      },
+      {
+        "after": {
+          "bytes": 11160,
+          "gitBlob": "3e87385cf71f7b712a1f992e1e45e6d19927c904",
+          "mode": "100644",
+          "sha256": "32264883d8dbea56f9f8098e75aa448ec285aad8234e6238750b94e9f0d460e4",
+          "type": "blob"
+        },
+        "before": {
+          "bytes": 9513,
+          "gitBlob": "7dfee74f3bcaf2089809096bbeadb5e78668e9c2",
+          "mode": "100644",
+          "sha256": "93ace968d736a6bcfc9e5fd0d97f9a5951524efb2f3c1943f12524a146b3efb5",
+          "type": "blob"
+        },
+        "path": "pom.xml"
+      },
+      {
+        "after": {
+          "bytes": 6891,
+          "gitBlob": "3023a9500ec09f142ba6adff9425eb276deb46dd",
+          "mode": "100644",
+          "sha256": "fe97fc7cbefa201ad0514a78f9684d3c8ee491ac7547eb668efb5f07b9fce42f",
+          "type": "blob"
+        },
+        "before": null,
+        "path": "scripts/ci/verify-server-dependency-baseline.py"
+      },
+      {
+        "after": {
+          "bytes": 10690,
+          "gitBlob": "5e672ce44e7d68edccd1902e7660ce6ee055398a",
+          "mode": "100644",
+          "sha256": "68b59a850c76c2105b96b939da4a206a7d6fa891ea663c97d6e56736c4cbce40",
+          "type": "blob"
+        },
+        "before": {
+          "bytes": 10641,
+          "gitBlob": "aaf96fbb1fd7a15d95ed310aabfec89bf3d6e4fb",
+          "mode": "100644",
+          "sha256": "7fb0b23ca129489b72d70a9bf6e7b3489aa3cf4dfcba135f31f46a736c9dc4de",
+          "type": "blob"
+        },
+        "path": "scripts/tests/maven-toolchain-boundary.test.mjs"
+      },
+      {
+        "after": {
+          "bytes": 8898,
+          "gitBlob": "133281f6a873846fba798fa8bc33b0205560c095",
+          "mode": "100644",
+          "sha256": "d46bc30ef92dcd57b1ef4ffa0ebf2ebba4f2b33e023f5ca98c74b4331a79e8f7",
+          "type": "blob"
+        },
+        "before": null,
+        "path": "scripts/tests/server-dependency-baseline.test.mjs"
+      }
+    ],
+    "graphAdmissionModified": false,
+    "historicalEvidenceModified": false,
+    "localCommitChain": [
+      "daef4023ba10d9b989f566740ef6710f46e4162b",
+      "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe"
+    ],
+    "releaseBlocked": true,
+    "schemaVersion": "APPROVAL_SERVER_DEPENDENCY_SOURCE_TRANSITION_V1"
+  }
+}

@@ -79,6 +79,18 @@ export function diffDesignerValues(
   after: unknown,
   path = '',
 ): ApprovalDesignerValueChange[] {
+  // Validate even equal values and atomic replacements, including array items.
+  assertSafeDesignerValue(before);
+  assertSafeDesignerValue(after);
+  path.split('/').slice(1).map(unescapePointerToken).forEach(assertSafePointerToken);
+  return diffSafeDesignerValues(before, after, path);
+}
+
+function diffSafeDesignerValues(
+  before: unknown,
+  after: unknown,
+  path: string,
+): ApprovalDesignerValueChange[] {
   if (deepEqual(before, after)) return [];
   if (Array.isArray(before) || Array.isArray(after)) {
     return [change(path, before, after)];
@@ -87,9 +99,9 @@ export function diffDesignerValues(
     const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();
     return keys.flatMap((key) => {
       const nextPath = `${path}/${escapePointerToken(key)}`;
-      if (!(key in before)) return [change(nextPath, undefined, after[key])];
-      if (!(key in after)) return [change(nextPath, before[key], undefined)];
-      return diffDesignerValues(before[key], after[key], nextPath);
+      if (!Object.hasOwn(before, key)) return [change(nextPath, undefined, after[key])];
+      if (!Object.hasOwn(after, key)) return [change(nextPath, before[key], undefined)];
+      return diffSafeDesignerValues(before[key], after[key], nextPath);
     });
   }
   return [change(path, before, after)];
@@ -142,20 +154,48 @@ function applyChange(
     .slice(1)
     .map(unescapePointerToken);
   if (tokens.length === 0) throw new Error('不支持替换设计器快照根节点');
+  tokens.forEach(assertSafePointerToken);
+  assertSafeDesignerValue(changeValue.after);
   let target: Record<string, unknown> = root;
   for (const token of tokens.slice(0, -1)) {
-    const child = target[token];
+    let child = Object.hasOwn(target, token) ? target[token] : undefined;
     if (!isRecord(child)) {
-      target[token] = {};
+      child = {};
+      setOwnValue(target, token, child);
     }
-    target = target[token] as Record<string, unknown>;
+    target = child as Record<string, unknown>;
   }
   const key = tokens.at(-1)!;
   if (changeValue.type === 'REMOVED') {
     delete target[key];
   } else {
-    target[key] = cloneValue(changeValue.after);
+    setOwnValue(target, key, cloneValue(changeValue.after));
   }
+}
+
+function assertSafePointerToken(token: string) {
+  if (token === '__proto__' || token === 'constructor' || token === 'prototype') {
+    throw new Error(`设计器快照包含不安全的属性名：${token}`);
+  }
+}
+
+function assertSafeDesignerValue(value: unknown, seen = new WeakSet<object>()) {
+  if (typeof value !== 'object' || value === null || seen.has(value)) return;
+  seen.add(value);
+  for (const key of Object.keys(value)) {
+    assertSafePointerToken(key);
+    assertSafeDesignerValue((value as Record<string, unknown>)[key], seen);
+  }
+}
+
+function setOwnValue(target: Record<string, unknown>, key: string, value: unknown) {
+  // Define a data property instead of invoking an inherited setter.
+  Object.defineProperty(target, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
 }
 
 function deepEqual(left: unknown, right: unknown): boolean {

@@ -34,7 +34,11 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-        <spring-boot.version>4.0.2</spring-boot.version>
+        <spring-boot.version>4.0.8</spring-boot.version>
+        <jackson2-bom.version>2.21.7</jackson2-bom.version>
+        <jackson3-bom.version>3.1.7</jackson3-bom.version>
+        <tomcat-embed.version>11.0.26</tomcat-embed.version>
+        <opentelemetry.version>1.62.0</opentelemetry.version>
         <flowable.version>8.0.0</flowable.version>
         <archunit.version>1.4.2</archunit.version>
         <testcontainers.version>2.0.5</testcontainers.version>
@@ -43,6 +47,14 @@
         <maven.surefire.version>3.5.5</maven.surefire.version>
         <maven.enforcer.version>3.5.0</maven.enforcer.version>
         <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
+        <maven.release.version>3.3.1</maven.release.version>
+        <maven.release.jgit.version>5.13.5.202508271544-r</maven.release.jgit.version>
+        <maven.release.sshd.version>2.16.0</maven.release.sshd.version>
+        <maven.release.commons-io.version>2.20.0</maven.release.commons-io.version>
+        <maven.release.plexus-utils.version>4.0.3</maven.release.plexus-utils.version>
+        <maven.site.version>3.22.0</maven.site.version>
+        <maven.dependency.version>3.11.0</maven.dependency.version>
+        <maven.site.jsoup.version>1.23.2</maven.site.jsoup.version>
         <flatten.maven.version>1.7.3</flatten.maven.version>
         <jacoco.version>0.8.15</jacoco.version>
     </properties>
@@ -60,6 +72,45 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>42.7.13</version>
+            </dependency>
+            <!-- Boot is imported, not inherited: manage the complete embedded Tomcat family here. -->
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-core</artifactId>
+                <version>${tomcat-embed.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-el</artifactId>
+                <version>${tomcat-embed.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-websocket</artifactId>
+                <version>${tomcat-embed.version}</version>
+            </dependency>
+            <!-- Keep the complete stable OTel family aligned; fixes CVE-2026-45292. -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>${opentelemetry.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Imports before Boot override both Jackson families, including shared annotations. -->
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson2-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>tools.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson3-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
@@ -90,6 +141,72 @@
             <plugins>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-release-plugin</artifactId>
+                    <version>${maven.release.version}</version>
+                    <!-- Keep the isolated release realm on patched, compatible dependency lines. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.eclipse.jgit</groupId>
+                            <artifactId>org.eclipse.jgit</artifactId>
+                            <version>${maven.release.jgit.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.eclipse.jgit</groupId>
+                            <artifactId>org.eclipse.jgit.ssh.apache</artifactId>
+                            <version>${maven.release.jgit.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.sshd</groupId>
+                            <artifactId>sshd-osgi</artifactId>
+                            <version>${maven.release.sshd.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.sshd</groupId>
+                            <artifactId>sshd-sftp</artifactId>
+                            <version>${maven.release.sshd.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.sshd</groupId>
+                            <artifactId>sshd-core</artifactId>
+                            <version>${maven.release.sshd.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.sshd</groupId>
+                            <artifactId>sshd-common</artifactId>
+                            <version>${maven.release.sshd.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>commons-io</groupId>
+                            <artifactId>commons-io</artifactId>
+                            <version>${maven.release.commons-io.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>${maven.release.plexus-utils.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>${maven.site.version}</version>
+                    <!-- Site's plugin realm is independent of project BOM management. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.jsoup</groupId>
+                            <artifactId>jsoup</artifactId>
+                            <version>${maven.site.jsoup.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${maven.dependency.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven.compiler.version}</version>
                     <configuration>
@@ -110,6 +227,19 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
+                    <!-- Project BOMs do not manage the plugin's isolated dependency realm. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>tools.jackson.core</groupId>
+                            <artifactId>jackson-core</artifactId>
+                            <version>${jackson3-bom.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>tools.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                            <version>${jackson3-bom.version}</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
             </plugins>
         </pluginManagement>

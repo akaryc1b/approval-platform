@@ -1,0 +1,75 @@
+{
+  "base": {
+    "e2ContentSha256": "6994858ba6dae570659a9c40fda264feab18c8fbd31fe90a570d24326b0bf838",
+    "graphDigest": "6557cef5d2ef11c36a8efb89cf7c1c607c721e32cdbabf0228441bb585b3c829",
+    "sourceHead": "28a9db4cf6372793ce32801d9812ab688d348b02",
+    "sourceRunNumber": 1812
+  },
+  "capture": {
+    "e2": {
+      "contentSha256": "9eea200e0d5b01767de636e9489cb2cbdbcbdfb653e0e5905c4ec480ccd94f9b",
+      "path": "docs/operations/build-plugin-jackson-evidence/precommit-candidate-E2.json",
+      "rawSha256": "46821dad12b659c1d41949aa4123d42ad71893e9857da5cdeed130e83dc06e78"
+    },
+    "exactHeadEvidence": false,
+    "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+    "sourceBaseHead": "28a9db4cf6372793ce32801d9812ab688d348b02",
+    "sourcePomSha256": "1e1999da948c22d5e7b704e81ee84b0849889b09a94e1deb1d16a4e806f1ddef",
+    "sourceWorktreeClean": false
+  },
+  "contentSha256": "363730d08217e0cad2b0569579c6a23c2187452c4f54857f0134825addfc863d",
+  "exceptions": [],
+  "findingDisposition": "UNRESOLVED_UNTIL_FRESH_COMPLETE_SCANNER_AND_EXPLICIT_FINDING_REVIEW",
+  "findingReviewRequired": true,
+  "importedBomChangeCount": 0,
+  "inventory": {
+    "componentCount": 237,
+    "edgeCount": 345,
+    "importedBomCount": 6,
+    "reactorRootCount": 26,
+    "resolvedPluginCoordinateCount": 329
+  },
+  "licenseChangeCount": 0,
+  "observed": {
+    "graphDigest": "f2e4ca66b29bd4e819f8751117e56900416d47c474de270d84e9d2ef552c92c3"
+  },
+  "osvInput": {
+    "current": {
+      "inputBytesSha256": "302958d5b56c8138556e45704f94aec53dda2ebcedb7c5fe2956e8e8149d24d3",
+      "packageCount": 533
+    },
+    "prior": {
+      "inputBytesSha256": "4ad6aa3c20e6bcd0621506cc97ac59b13df336e88900fba5624d1e645d031dfb",
+      "packageCount": 535
+    }
+  },
+  "pluginCoordinateVersionChangeCount": 2,
+  "pluginCoordinateVersionChanges": [
+    {
+      "fromVersion": "3.1.5",
+      "group": "tools.jackson.core",
+      "name": "jackson-core",
+      "toVersion": "3.1.7",
+      "type": "jar"
+    },
+    {
+      "fromVersion": "3.1.5",
+      "group": "tools.jackson.core",
+      "name": "jackson-databind",
+      "toVersion": "3.1.7",
+      "type": "jar"
+    }
+  ],
+  "pluginOwner": "org.springframework.boot:spring-boot-maven-plugin:4.0.8",
+  "pluginResolutionHashChange": {
+    "from": "e9a095fee4fdbf3293833511950288c1932fbafc492799ffd3fa7468bd02b072",
+    "to": "39b63f7f24afa2aca54cde7698d1ee76c0d5107f203faa301084b3c493f695cf"
+  },
+  "releaseBlocked": true,
+  "repository": "akaryc1b/approval-platform",
+  "runtimeComponentChangeCount": 0,
+  "runtimeEdgeChangeCount": 0,
+  "schemaVersion": "APPROVAL_BUILD_PLUGIN_JACKSON_GRAPH_TRANSITION_V1",
+  "scopeChangeCount": 0,
+  "suppressions": []
+}

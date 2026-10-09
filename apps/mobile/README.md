@@ -18,11 +18,16 @@ apps/mobile/
 pnpm mobile:bootstrap
 pnpm mobile:install
 pnpm mobile:dev:h5
+node --test scripts/tests/mobile-cold-start-components.test.mjs
 pnpm mobile:typecheck
 pnpm mobile:build:h5
 pnpm mobile:build:weixin
 pnpm mobile:clean
 ```
+
+任务列表、任务详情及其审批组件显式导入所需的 Wot SFC，避免首轮 Uni 编译读取尚未生成 easycom 配置的基础 pages.json 时留下未解析组件。保留 easycom 配置供其他页面使用。`node --test scripts/tests/mobile-cold-start-components.test.mjs` 在已安装的固定上游工具链中，以独立的基础 pages.json 验证这五个组件的编译绑定；它不启动开发服务器或浏览器。
+
+Wot 的标签类型使用 `default` 表示中性色，任务列表不再传入其不支持的 `info`。固定的 `@uni-helper/uni-app-types@1.0.0-alpha.6` 声明通过 pnpm 内容校验补充 Wot 1.14.0 已声明并透传的 `getRealtimePhoneNumber` 开放类型；补丁只改三种声明文件，不改组件运行代码或依赖版本。补丁保存在覆盖层 `patches/uni-app-types-1.0.0-alpha.6.txt`，使用文本扩展名以符合仓库产物治理规则。冷启动检查同时验证合法/非法开放类型和标签状态。
 
 ## 当前页面
 

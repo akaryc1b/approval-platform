@@ -2,7 +2,14 @@ package io.github.akaryc1b.approval.persistence.jdbc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.application.ApprovalSlaExecutionPlanner;
+import io.github.akaryc1b.approval.application.ApprovalSlaService;
+import io.github.akaryc1b.approval.application.ApprovalWorkingTimeCalculator;
+import io.github.akaryc1b.approval.application.SlaAwareApprovalProjectionStore;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskStatus;
+import io.github.akaryc1b.approval.application.port.ApprovalRequestEvidenceProvider.RequestEvidence;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore.ExecutionIntentCriteria;
+import io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore.ExecutionIntentPage;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore.IntentStatus;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.AutomaticAction;
 import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.EscalationTargetType;
@@ -19,6 +26,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaTerminal
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -28,8 +37,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -68,6 +79,7 @@ class TransactionalApprovalSlaStoreIntegrationTest {
         .withPassword("approval");
 
     private JdbcApprovalSlaStore rawStore;
+    private JdbcApprovalProjectionStore projections;
     private JdbcApprovalSlaExecutionStore executionStore;
     private TransactionalApprovalSlaStore store;
     private TransactionTemplate transactions;
@@ -94,6 +106,7 @@ class TransactionalApprovalSlaStoreIntegrationTest {
         );
         transactions = new TransactionTemplate(transactionManager);
         rawStore = new JdbcApprovalSlaStore(dataSource, transactionManager);
+        projections = new JdbcApprovalProjectionStore(dataSource, new ObjectMapper());
         executionStore = new JdbcApprovalSlaExecutionStore(
             dataSource,
             new ObjectMapper(),
@@ -211,8 +224,155 @@ class TransactionalApprovalSlaStoreIntegrationTest {
         ));
     }
 
-    private io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore
-        .ExecutionIntentPage intents() {
+    @ParameterizedTest
+    @CsvSource({
+        "RUNNING, false, TASK_COMPLETED",
+        "RUNNING, true, TASK_CANCELED",
+        "COMPLETED, false, INSTANCE_COMPLETED",
+        "REJECTED, false, INSTANCE_REJECTED"
+    })
+    void terminalChangePersistsEventTimeAndLateDuplicatesCannotOverwriteIt(
+        InstanceStatus instanceStatus,
+        boolean canceled,
+        SlaTerminalReason reason
+    ) {
+        assertEquals(1, store.createInstances(List.of(
+            slaInstance(SLA_INSTANCE_ID, "request-terminal-time")
+        )));
+        Instant changedAt = NOW.plus(Duration.ofMinutes(10)).plusNanos(123_456_000);
+        ApprovalSlaService service = serviceAt(NOW.plus(Duration.ofDays(1)));
+
+        service.synchronizeTaskChange(
+            projections.findInstance(TENANT_ID, APPROVAL_INSTANCE_ID).orElseThrow(),
+            TASK_ID,
+            List.of(),
+            instanceStatus,
+            canceled,
+            changedAt,
+            new RequestEvidence("owner-a", "request-terminal-time", "trace-terminal-time")
+        );
+
+        SlaInstance terminal = rawStore.findInstance(TENANT_ID, SLA_INSTANCE_ID).orElseThrow();
+        assertEquals(SlaStatus.TERMINAL, terminal.status());
+        assertEquals(reason, terminal.terminalReason());
+        assertEquals(changedAt, terminal.terminalAt());
+        assertEquals(changedAt, terminal.updatedAt());
+        assertEquals(2, terminal.version());
+        ExecutionIntentPage cancelled = intents();
+        assertEquals(5, cancelled.total());
+        cancelled.items().forEach(intent -> {
+            assertEquals(IntentStatus.CANCELLED, intent.status());
+            assertEquals(changedAt, intent.cancelledAt());
+            assertEquals(changedAt, intent.updatedAt());
+        });
+
+        service.synchronizeTaskChange(
+            projections.findInstance(TENANT_ID, APPROVAL_INSTANCE_ID).orElseThrow(),
+            TASK_ID,
+            List.of(),
+            instanceStatus,
+            canceled,
+            changedAt.plus(Duration.ofHours(6)),
+            new RequestEvidence("owner-a", "request-late-duplicate", "trace-late-duplicate")
+        );
+
+        assertEquals(terminal, rawStore.findInstance(TENANT_ID, SLA_INSTANCE_ID).orElseThrow());
+        assertEquals(cancelled, intents());
+    }
+
+    @Test
+    void terminalChangeAndIntentCancellationRollbackToTheirOriginalState() {
+        SlaInstance active = slaInstance(SLA_INSTANCE_ID, "request-terminal-rollback");
+        assertEquals(1, store.createInstances(List.of(active)));
+        ExecutionIntentPage originalIntents = intents();
+        Instant changedAt = NOW.plus(Duration.ofMinutes(10));
+        ApprovalSlaService service = serviceAt(NOW.plus(Duration.ofDays(1)));
+
+        assertThrows(IllegalStateException.class, () -> transactions.execute(status -> {
+            service.synchronizeTaskChange(
+                projections.findInstance(TENANT_ID, APPROVAL_INSTANCE_ID).orElseThrow(),
+                TASK_ID,
+                List.of(),
+                InstanceStatus.RUNNING,
+                false,
+                changedAt,
+                new RequestEvidence("owner-a", "request-terminal-rollback", "trace-rollback")
+            );
+            SlaInstance terminal = rawStore.findInstance(TENANT_ID, SLA_INSTANCE_ID).orElseThrow();
+            assertEquals(SlaStatus.TERMINAL, terminal.status());
+            assertEquals(changedAt, terminal.terminalAt());
+            assertEquals(changedAt, terminal.updatedAt());
+            assertEquals(5, executionStore.summarize(TENANT_ID, NOW).cancelled());
+            throw new IllegalStateException("force outer terminal rollback");
+        }));
+
+        assertEquals(active, rawStore.findInstance(TENANT_ID, SLA_INSTANCE_ID).orElseThrow());
+        assertEquals(originalIntents, intents());
+        assertEquals(5, executionStore.summarize(TENANT_ID, NOW).ready());
+        assertEquals(0, executionStore.summarize(TENANT_ID, NOW).cancelled());
+    }
+
+    @Test
+    void withdrawalProjectionSlaAndIntentsShareEventTimeAndRollbackTogether() {
+        SlaInstance active = slaInstance(SLA_INSTANCE_ID, "request-withdrawal");
+        assertEquals(1, store.createInstances(List.of(active)));
+        var originalProjection = projections.findInstance(TENANT_ID, APPROVAL_INSTANCE_ID).orElseThrow();
+        var originalTasks = projections.findTasks(TENANT_ID, APPROVAL_INSTANCE_ID);
+        ExecutionIntentPage originalIntents = intents();
+        Instant withdrawnAt = NOW.plus(Duration.ofMinutes(10)).plusNanos(654_321_000);
+        ApprovalSlaService service = serviceAt(NOW.plus(Duration.ofDays(1)));
+        SlaAwareApprovalProjectionStore decorated = new SlaAwareApprovalProjectionStore(
+            projections, service,
+            () -> new RequestEvidence("initiator-a", "request-withdrawal", "trace-withdrawal")
+        );
+
+        assertThrows(IllegalStateException.class, () -> transactions.execute(status -> {
+            decorated.withdrawRunningInstance(TENANT_ID, APPROVAL_INSTANCE_ID, "initiator-a", withdrawnAt);
+            assertEquals(InstanceStatus.WITHDRAWN,
+                projections.findInstance(TENANT_ID, APPROVAL_INSTANCE_ID).orElseThrow().status());
+            assertEquals(withdrawnAt, rawStore.findInstance(TENANT_ID, SLA_INSTANCE_ID)
+                .orElseThrow().terminalAt());
+            assertEquals(5, executionStore.summarize(TENANT_ID, NOW).cancelled());
+            throw new IllegalStateException("force outer withdrawal rollback");
+        }));
+        assertEquals(originalProjection, projections.findInstance(TENANT_ID, APPROVAL_INSTANCE_ID).orElseThrow());
+        assertEquals(originalTasks, projections.findTasks(TENANT_ID, APPROVAL_INSTANCE_ID));
+        assertEquals(active, rawStore.findInstance(TENANT_ID, SLA_INSTANCE_ID).orElseThrow());
+        assertEquals(originalIntents, intents());
+
+        transactions.executeWithoutResult(status -> decorated.withdrawRunningInstance(
+            TENANT_ID, APPROVAL_INSTANCE_ID, "initiator-a", withdrawnAt
+        ));
+        var withdrawn = projections.findInstance(TENANT_ID, APPROVAL_INSTANCE_ID).orElseThrow();
+        assertEquals(InstanceStatus.WITHDRAWN, withdrawn.status());
+        assertEquals(withdrawnAt, withdrawn.updatedAt());
+        assertTrue(projections.findTasks(TENANT_ID, APPROVAL_INSTANCE_ID).stream()
+            .allMatch(task -> task.status() == TaskStatus.CANCELED && task.updatedAt().equals(withdrawnAt)));
+        SlaInstance terminal = rawStore.findInstance(TENANT_ID, SLA_INSTANCE_ID).orElseThrow();
+        assertEquals(SlaTerminalReason.INSTANCE_WITHDRAWN, terminal.terminalReason());
+        assertEquals(withdrawnAt, terminal.terminalAt());
+        assertEquals(withdrawnAt, terminal.updatedAt());
+        ExecutionIntentPage cancelled = intents();
+        cancelled.items().forEach(intent -> {
+            assertEquals(IntentStatus.CANCELLED, intent.status());
+            assertEquals(withdrawnAt, intent.cancelledAt());
+            assertEquals(withdrawnAt, intent.updatedAt());
+        });
+        service.terminalWithdrawnInstance(withdrawn, withdrawnAt.plus(Duration.ofHours(6)));
+        assertEquals(terminal, rawStore.findInstance(TENANT_ID, SLA_INSTANCE_ID).orElseThrow());
+        assertEquals(cancelled, intents());
+    }
+
+    private ApprovalSlaService serviceAt(Instant processingTime) {
+        return new ApprovalSlaService(
+            store,
+            new ApprovalWorkingTimeCalculator(),
+            Clock.fixed(processingTime, ZoneOffset.UTC),
+            UUID::randomUUID
+        );
+    }
+
+    private ExecutionIntentPage intents() {
         return executionStore.findIntents(new ExecutionIntentCriteria(
             TENANT_ID,
             Set.of(),

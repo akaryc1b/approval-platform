@@ -9,7 +9,13 @@ import {
   pcUrl,
   tenantId,
 } from './product-readiness-pc-h5-runtime-api';
+import { testCaptureBudget } from './product-readiness-capture-budget';
+import { captureFailurePhase, capturePageErrorContext } from './product-readiness-capture-diagnostics';
+import type { CaptureBudget } from './product-readiness-capture-budget';
+import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
 import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
+
+const captureStartedAt = performance.now();
 
 function requiredValue(label: string, value: string | undefined) {
   const normalized = value?.trim();
@@ -107,11 +113,11 @@ const evidenceNames = new Set([
   'pc-task-list.png',
 ]);
 
-async function collectCjkEvidence(page: Page) {
-  await page.evaluate(async () => {
+async function collectCjkEvidence(page: Page, budget: CaptureBudget) {
+  await budget.run(() => page.evaluate(async () => {
     await document.fonts.ready;
-  });
-  const evidence = await page.evaluate((sample) => {
+  }));
+  const evidence = await budget.run(() => page.evaluate((sample) => {
     const root = getComputedStyle(document.documentElement);
     const body = getComputedStyle(document.body);
     const canvas = document.createElement('canvas');
@@ -152,7 +158,7 @@ async function collectCjkEvidence(page: Page) {
       minimumInkPixels: Math.min(...glyphs.map(value => value.inkPixels)),
       uniqueGlyphHashes: new Set(glyphs.map(value => value.hash)).size,
     };
-  }, cjkProbeText);
+  }, cjkProbeText));
   expect(evidence.minimumInkPixels).toBeGreaterThanOrEqual(
     matrix.thresholds.minimumInkPixels,
   );
@@ -162,9 +168,10 @@ async function collectCjkEvidence(page: Page) {
   return { ...evidence, cjkGlyphsRendered: true };
 }
 
-async function controlEvidence(control: Locator, selector: string) {
-  await expect(control).toBeVisible();
-  return control.evaluate((element, label) => {
+async function controlEvidence(control: Locator, selector: string, budget: CaptureBudget) {
+  await expect(control).toBeVisible({ timeout: budget.remaining(20_000) });
+  await expect(control).toBeEnabled({ timeout: budget.remaining(20_000) });
+  return budget.run(() => control.evaluate((element, label) => {
     function channels(value: string) {
       const match = value.match(
         /rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)(?:\s*,\s*(\d+(?:\.\d+)?))?\s*\)/u,
@@ -237,16 +244,17 @@ async function controlEvidence(control: Locator, selector: string) {
       selector: label,
       tabIndex: (element as HTMLElement).tabIndex,
     };
-  }, selector);
+  }, selector));
 }
 
 async function auditControls(
   controls: Array<{ label: string; locator: Locator }>,
+  budget: CaptureBudget,
 ) {
   const serious: Violation[] = [];
   const evidence = [];
   for (const item of controls) {
-    const value = await controlEvidence(item.locator, item.label);
+    const value = await controlEvidence(item.locator, item.label, budget);
     evidence.push(value);
     if (!value.accessibleName) {
       serious.push({
@@ -276,8 +284,8 @@ async function auditControls(
   return { evidence, serious };
 }
 
-async function documentEvidence(page: Page, surface: string) {
-  return page.evaluate((name) => {
+async function documentEvidence(page: Page, surface: string, budget: CaptureBudget) {
+  return budget.run(() => page.evaluate((name) => {
     const serious: Violation[] = [];
     const lang = document.documentElement.lang.trim();
     if (!lang) {
@@ -301,19 +309,20 @@ async function documentEvidence(page: Page, surface: string) {
       });
     }
     return { lang, serious };
-  }, surface);
+  }, surface));
 }
 
 async function tabTo(
   page: Page,
   target: Locator,
   label: string,
+  budget: CaptureBudget,
   maximumTabs = 120,
 ) {
   const sequence = [];
   for (let index = 0; index < maximumTabs; index += 1) {
-    await page.keyboard.press('Tab');
-    const active = await page.evaluate(() => {
+    await budget.run(() => page.keyboard.press('Tab'));
+    const active = await budget.run(() => page.evaluate(() => {
       const element = document.activeElement as HTMLElement | null;
       if (!element) return null;
       const style = getComputedStyle(element);
@@ -326,9 +335,9 @@ async function tabTo(
         tag: element.tagName.toLowerCase(),
         text: element.textContent?.replace(/\s+/gu, ' ').trim().slice(0, 120),
       };
-    });
+    }));
     sequence.push(active);
-    if (await target.evaluate(element => element === document.activeElement)) {
+    if (await budget.run(() => target.evaluate(element => element === document.activeElement))) {
       const visibleFocus = active
         && ((active.outlineStyle !== 'none'
           && active.outlineWidth !== '0px')
@@ -340,17 +349,17 @@ async function tabTo(
   throw new Error(`${label} was not reached by keyboard`);
 }
 
-async function exactTextButton(container: Locator, label: '同意' | '驳回') {
+async function exactTextButton(container: Locator, label: '同意' | '驳回', budget: CaptureBudget) {
   const roleButton = container.getByRole('button', {
     name: label,
     exact: true,
   }).last();
-  if (await roleButton.count() > 0) return roleButton;
+  if (await budget.run(() => roleButton.count()) > 0) return roleButton;
   const candidates = container.locator('button, [role="button"], .wd-button');
-  const count = await candidates.count();
+  const count = await budget.run(() => candidates.count());
   for (let index = 0; index < count; index += 1) {
     const candidate = candidates.nth(index);
-    const text = (await candidate.textContent())?.replace(/\s+/gu, ' ').trim();
+    const text = (await budget.run(timeout => candidate.textContent({ timeout })))?.replace(/\s+/gu, ' ').trim();
     if (text === label) return candidate;
   }
   throw new Error(`H5 ${label} action does not expose a button`);
@@ -371,6 +380,10 @@ function evidencePath(
 test('PC and H5 expose the bounded browser/accessibility matrix', async ({
   browser,
 }, testInfo) => {
+  const phase = captureFailurePhase(testInfo);
+  phase.enter('TEST_SETUP');
+  const budget = testCaptureBudget(testInfo, captureStartedAt);
+  const captures: unknown[] = [];
   const project = matrix.projects.find(
     value => value.id === testInfo.project.name,
   );
@@ -387,92 +400,133 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
   const h5 = await h5Context.newPage();
   const startedAt = new Date().toISOString();
   const keyboardSequence: unknown[] = [];
+  const pcFailures = observeCaptureFailures(pc);
+  const h5Failures = observeCaptureFailures(h5);
   try {
+    phase.enter('PC_AUTHENTICATION');
     await ensurePcLogin(pc);
-    await pc.goto(pcUrl, { waitUntil: 'domcontentloaded' });
+    phase.enter('PC_NAVIGATION');
+    const pcBudget = budget.limit(30_000);
+    await pc.goto(pcUrl, { waitUntil: 'domcontentloaded', timeout: pcBudget.remaining() });
     const pcTask = pc.locator('.task-item')
       .filter({ hasText: businessKey }).first();
-    await expect(pcTask).toBeVisible({ timeout: 30_000 });
+    phase.enter('PC_TASK_VISIBILITY');
+    await expect(pcTask).toBeVisible({ timeout: pcBudget.remaining(30_000) });
+    phase.enter('PC_SURFACE_READINESS');
+    const pcReady = await readySurface(pc, pcBudget, { client: 'pc', kind: 'list', url: pcUrl, businessKey, pendingTotal: 1, processedTotal: 0 });
+    captures.push({ file: 'pc-task-list.png', phase: 'READY_BEFORE_ACTION', readiness: pcReady });
     const pcHandle = pcTask.getByRole('button', {
       name: '处理',
       exact: true,
     });
+    phase.enter('PC_AUDIT');
     const pcList = await auditControls([
       { label: 'pc-task-handle', locator: pcHandle },
-    ]);
-    const pcDocument = await documentEvidence(pc, 'pc-task-list');
-    const pcCjk = await collectCjkEvidence(pc);
-    await pc.screenshot({
-      fullPage: true,
-      path: evidencePath(project.id, 'pc-task-list.png'),
-    });
+    ], pcBudget);
+    const pcDocument = await documentEvidence(pc, 'pc-task-list', pcBudget);
+    phase.enter('PC_FONT');
+    const pcCjk = await collectCjkEvidence(pc, pcBudget);
+    phase.enter('PC_SCREENSHOT');
+    pcFailures.assert();
+    await captureScreenshot(pc, pcBudget, evidencePath(project.id, 'pc-task-list.png'), { readiness: pcReady, assertCurrent: async () => pcFailures.assert() });
 
+    phase.enter('PC_DETAIL_ACTION');
+    const detailBudget = budget.limit(20_000);
     if (project.id === 'system-chromium') {
-      keyboardSequence.push(...await tabTo(pc, pcHandle, 'PC task handle'));
-      await pc.keyboard.press('Enter');
+      keyboardSequence.push(...await tabTo(pc, pcHandle, 'PC task handle', detailBudget));
+      await detailBudget.run(() => pc.keyboard.press('Enter'));
     } else {
-      await pcHandle.click();
+      await pcHandle.click({ timeout: detailBudget.remaining(20_000) });
     }
     await expect(pc.getByText('审批详情', { exact: true }).first())
-      .toBeVisible({ timeout: 20_000 });
+      .toBeVisible({ timeout: detailBudget.remaining(20_000) });
+    const pcDetailExpected = { client: 'pc' as const, kind: 'detail' as const, url: pcUrl, businessKey, taskId: pcReady.taskId || undefined, instanceId: pcReady.instanceId || undefined };
+    phase.enter('PC_DETAIL_READINESS');
+    let pcDetailReady = await readySurface(pc, detailBudget, pcDetailExpected);
     const agree = pc.getByRole('button', {
       name: '同意',
       exact: true,
     }).last();
+    phase.enter('PC_DETAIL_AUDIT');
     const pcDetail = await auditControls([
       { label: 'pc-agree', locator: agree },
-    ]);
+    ], detailBudget);
     let authenticatedPcTaskFlow = false;
     if (project.id === 'system-chromium') {
-      keyboardSequence.push(...await tabTo(pc, agree, 'PC agree'));
-      await pc.keyboard.press('Enter');
+      phase.enter('PC_CONFIRMATION');
+      keyboardSequence.push(...await tabTo(pc, agree, 'PC agree', detailBudget));
+      await detailBudget.run(() => pc.keyboard.press('Enter'));
       const confirmation = pc.getByRole('button', {
         name: '确认同意',
         exact: true,
       });
-      await expect(confirmation).toBeVisible({ timeout: 10_000 });
+      await expect(confirmation).toBeVisible({ timeout: detailBudget.remaining(10_000) });
       keyboardSequence.push(...await tabTo(
         pc,
         confirmation,
         'PC confirmation',
+        detailBudget,
       ));
-      await pc.screenshot({
-        fullPage: true,
-        path: evidencePath(project.id, 'pc-confirmation-dialog.png'),
-      });
-      await pc.keyboard.press('Escape');
-      await expect(confirmation).toBeHidden({ timeout: 10_000 });
+      const confirmationBudget = detailBudget.limit(10_000);
+      const confirmationReady = await readySurface(pc, confirmationBudget, { ...pcDetailExpected, kind: 'confirmation' });
+      captures.push({ file: 'pc-confirmation-dialog.png', phase: 'READY_BEFORE_ACTION', readiness: confirmationReady });
+      pcFailures.assert();
+      await captureScreenshot(pc, confirmationBudget, evidencePath(project.id, 'pc-confirmation-dialog.png'), { readiness: confirmationReady, assertCurrent: async () => pcFailures.assert() });
+      await detailBudget.run(() => pc.keyboard.press('Escape'));
+      await expect(confirmation).toBeHidden({ timeout: detailBudget.remaining(10_000) });
+      await expect(pc.locator('.el-message-box__wrapper:visible, .el-overlay.is-message-box:visible')).toHaveCount(0, { timeout: detailBudget.remaining(10_000) });
+      await expect(agree).toBeFocused({ timeout: detailBudget.remaining(10_000) });
+      pcDetailReady = await readySurface(pc, detailBudget, pcDetailExpected);
       authenticatedPcTaskFlow = true;
     }
-    await pc.screenshot({
-      fullPage: true,
-      path: evidencePath(project.id, 'pc-task-detail.png'),
-    });
+    phase.enter('PC_DETAIL_SCREENSHOT');
+    captures.push({ file: 'pc-task-detail.png', phase: 'READY_BEFORE_ACTION', readiness: pcDetailReady });
+    pcFailures.assert();
+    await captureScreenshot(pc, detailBudget, evidencePath(project.id, 'pc-task-detail.png'), { readiness: pcDetailReady, assertCurrent: async () => pcFailures.assert() });
 
-    await h5.goto(h5Url, { waitUntil: 'domcontentloaded' });
+    phase.enter('H5_NAVIGATION');
+    const h5Budget = budget.limit(30_000);
+    await h5.goto(h5Url, { waitUntil: 'domcontentloaded', timeout: h5Budget.remaining() });
     const h5Task = h5.locator('.task-card')
       .filter({ hasText: businessKey }).first();
-    await expect(h5Task).toBeVisible({ timeout: 30_000 });
-    const h5Document = await documentEvidence(h5, 'h5-task-list');
-    const h5Cjk = await collectCjkEvidence(h5);
-    await h5.screenshot({
-      fullPage: true,
-      path: evidencePath(project.id, 'h5-task-list.png'),
-    });
-    await h5Task.click();
+    phase.enter('H5_TASK_VISIBILITY');
+    await expect(h5Task).toBeVisible({ timeout: h5Budget.remaining(30_000) });
+    phase.enter('H5_SURFACE_READINESS');
+    const h5Ready = await readySurface(h5, h5Budget, { client: 'h5', kind: 'list', url: h5Url, businessKey, pendingTotal: 1, processedTotal: 0 });
+    captures.push({ file: 'h5-task-list.png', phase: 'READY_BEFORE_ACTION', readiness: h5Ready });
+    phase.enter('H5_AUDIT');
+    const h5Document = await documentEvidence(h5, 'h5-task-list', h5Budget);
+    phase.enter('H5_FONT');
+    const h5Cjk = await collectCjkEvidence(h5, h5Budget);
+    phase.enter('H5_SCREENSHOT');
+    h5Failures.assert();
+    await captureScreenshot(h5, h5Budget, evidencePath(project.id, 'h5-task-list.png'), { readiness: h5Ready, assertCurrent: async () => h5Failures.assert() });
+    phase.enter('H5_DETAIL_ACTION');
+    const h5DetailBudget = budget.limit(20_000);
+    await h5Task.click({ timeout: h5DetailBudget.remaining(20_000) });
+    // The action bar is visible while detail requests are still in flight.
+    // Audit the loaded task, not its intentionally disabled loading controls.
+    await expect(h5.locator('.summary-card').filter({ hasText: businessKey }))
+      .toBeVisible({ timeout: h5DetailBudget.remaining(20_000) });
+    const detailUrl = new URL(h5Url);
+    detailUrl.hash = `/pages/task/detail?id=${encodeURIComponent(h5Ready.taskId || '')}`;
+    phase.enter('H5_DETAIL_READINESS');
+    const h5DetailReady = await readySurface(h5, h5DetailBudget, { client: 'h5', kind: 'detail', url: detailUrl.toString(), businessKey, taskId: h5Ready.taskId || undefined, instanceId: h5Ready.instanceId || undefined });
+    captures.push({ file: 'h5-task-detail.png', phase: 'READY_BEFORE_ACTION', readiness: h5DetailReady });
+    phase.enter('H5_DETAIL_AUDIT');
     const actionBar = h5.locator('.action-bar');
-    await expect(actionBar).toBeVisible({ timeout: 20_000 });
-    const h5Agree = await exactTextButton(actionBar, '同意');
-    const h5Reject = await exactTextButton(actionBar, '驳回');
+    await expect(actionBar).toBeVisible({ timeout: h5DetailBudget.remaining(20_000) });
+    const h5Agree = await exactTextButton(actionBar, '同意', h5DetailBudget);
+    const h5Reject = await exactTextButton(actionBar, '驳回', h5DetailBudget);
     const h5Detail = await auditControls([
       { label: 'h5-agree', locator: h5Agree },
       { label: 'h5-reject', locator: h5Reject },
-    ]);
-    await h5.screenshot({
-      fullPage: true,
-      path: evidencePath(project.id, 'h5-task-detail.png'),
-    });
+    ], h5DetailBudget);
+    phase.enter('H5_DETAIL_SCREENSHOT');
+    h5Failures.assert();
+    await captureScreenshot(h5, h5DetailBudget, evidencePath(project.id, 'h5-task-detail.png'), { readiness: h5DetailReady, assertCurrent: async () => h5Failures.assert() });
 
+    phase.enter('MATRIX_ASSERTIONS');
     const serious = [
       ...pcList.serious,
       ...pcDetail.serious,
@@ -518,6 +572,7 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
         font: h5Cjk,
         screenshots: ['h5-task-list.png', 'h5-task-detail.png'],
       },
+      captures,
       accessibility: {
         criticalViolations: critical.length,
         seriousViolations: serious.length,
@@ -544,12 +599,26 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
         'SCREEN_READER_MANUAL_TEST_NOT_VERIFIED',
       ],
     };
-    writeFileSync(
-      evidencePath(project.id, 'matrix-evidence.json'),
-      `${JSON.stringify(result, null, 2)}\n`,
-      { encoding: 'utf8', mode: 0o600 },
-    );
+    phase.enter('RECEIPT_PUBLICATION');
+    budget.remaining();
+    pcFailures.assert();
+    h5Failures.assert();
+    const receiptPath = evidencePath(project.id, 'matrix-evidence.json');
+    publishCaptureReceipt(budget, receiptPath, () => {
+      writeFileSync(
+        evidencePath(project.id, 'matrix-evidence.json'),
+        `${JSON.stringify(result, null, 2)}\n`,
+        { encoding: 'utf8', mode: 0o600 },
+      );
+    });
+  } catch (error) {
+    phase.preserveFailure();
+    capturePageErrorContext(testInfo, pcFailures.pageErrorSummary(), h5Failures.pageErrorSummary());
+    throw error;
   } finally {
+    phase.enter('CLEANUP');
+    pcFailures.dispose();
+    h5Failures.dispose();
     await Promise.allSettled([pcContext.close(), h5Context.close()]);
   }
 });

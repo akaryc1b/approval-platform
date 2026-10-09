@@ -146,15 +146,30 @@ public final class ApprovalSlaExecutionWorker {
                     ? WorkerResult.RETRY_SCHEDULED
                     : WorkerResult.DEAD;
             }
-            metrics.record(intent.actionType(), result, failureClass);
+            recordMetrics(intent.actionType(), result, failureClass);
+            if (result == WorkerResult.SUCCEEDED) {
+                try {
+                    metrics.completed(updated);
+                } catch (RuntimeException unavailable) {
+                    // A completed write must not become a conflict, retry or failed batch because of telemetry.
+                }
+            }
             return result;
         } catch (ExecutionConflictException exception) {
-            metrics.record(
+            recordMetrics(
                 intent.actionType(),
                 WorkerResult.PERSISTENCE_CONFLICT,
                 failureClass
             );
             return WorkerResult.PERSISTENCE_CONFLICT;
+        }
+    }
+
+    private void recordMetrics(ActionType action, WorkerResult result, FailureClass failure) {
+        try {
+            metrics.record(action, result, failure);
+        } catch (RuntimeException unavailable) {
+            // Preserve the already established execution outcome and continue the bounded batch.
         }
     }
 
@@ -270,6 +285,10 @@ public final class ApprovalSlaExecutionWorker {
     @FunctionalInterface
     public interface WorkerMetrics {
         void record(ActionType actionType, WorkerResult result, FailureClass failureClass);
+
+        /** Called once after markSucceeded returns. Implementations must reject uncommitted outer transactions. */
+        default void completed(ExecutionIntent succeeded) {
+        }
 
         static WorkerMetrics noop() {
             return (actionType, result, failureClass) -> {
