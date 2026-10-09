@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import WdButton from 'wot-design-uni/components/wd-button/wd-button.vue'
+import WdTag from 'wot-design-uni/components/wd-tag/wd-tag.vue'
+
 const boundary = {
   action: 'NOT_AUTHORIZED',
   authorizationPreview: 'ACTION_NOT_WHITELISTED',

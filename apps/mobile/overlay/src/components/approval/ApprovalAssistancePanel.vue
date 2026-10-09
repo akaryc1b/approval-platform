@@ -6,6 +6,8 @@ import type {
 } from '@/api/approval/assistance'
 
 import { computed, ref, watch } from 'vue'
+import WdButton from 'wot-design-uni/components/wd-button/wd-button.vue'
+import WdTag from 'wot-design-uni/components/wd-tag/wd-tag.vue'
 
 import {
   findApprovalAssistance,

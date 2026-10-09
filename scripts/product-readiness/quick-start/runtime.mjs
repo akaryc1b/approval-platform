@@ -113,7 +113,7 @@ async function healthEvidence(url, deadline) {
   throw new Error(`backend health did not become UP: ${lastDetail}`);
 }
 
-function validateBrowserEvidence(value, contract, identity) {
+export function validateBrowserEvidence(value, contract, identity) {
   if (value?.schemaVersion !== 1
       || value?.evidenceKind !== 'QUICK_START_BROWSER_READY_V1'
       || value?.status !== 'PASSED'
@@ -123,7 +123,12 @@ function validateBrowserEvidence(value, contract, identity) {
       || value?.pc?.actorId !== contract.clients.pc.actorId
       || value?.h5?.actorId !== contract.clients.h5.actorId
       || value?.pc?.businessKeyVisible !== true
-      || value?.h5?.businessKeyVisible !== true) {
+      || value?.h5?.businessKeyVisible !== true
+      || value?.h5?.components?.buttonsRendered !== true
+      || value?.h5?.components?.searchRendered !== true
+      || value?.h5?.components?.taskTagRendered !== true
+      || value?.h5?.components?.stylesApplied !== true
+      || value?.h5?.components?.unresolvedTags !== 0) {
     throw new Error('Quick Start browser evidence is inconsistent');
   }
   return value;

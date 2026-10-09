@@ -8,6 +8,7 @@ import {
   pcUrl,
   tenantId,
 } from './product-readiness-pc-h5-runtime-api';
+import { inspectH5TaskComponents } from './product-readiness-h5-components';
 import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
 
 function requiredEnvironment(name: string) {
@@ -140,6 +141,16 @@ test('a new user can see the seeded purchase-payment request in PC and H5', asyn
       .first();
     await expect(h5Task).toBeVisible({ timeout: 30_000 });
     const h5Font = await collectCjkFontEvidence(h5, false);
+    const h5Components = await h5Task.evaluate(inspectH5TaskComponents, undefined, {
+      timeout: 5_000,
+    });
+    expect(h5Components).toEqual({
+      buttonsRendered: true,
+      searchRendered: true,
+      taskTagRendered: true,
+      stylesApplied: true,
+      unresolvedTags: 0,
+    });
     await h5.screenshot({
       fullPage: true,
       path: resolve(evidenceDirectory, 'quick-start-h5.png'),
@@ -170,6 +181,7 @@ test('a new user can see the seeded purchase-payment request in PC and H5', asyn
           businessKeyVisible: true,
           cjkGlyphsRendered: true,
           font: h5Font,
+          components: h5Components,
           screenshot: 'quick-start-h5.png',
         },
       }, null, 2)}\n`,

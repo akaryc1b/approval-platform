@@ -1,0 +1,33 @@
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -1821,7 +1821,7 @@
+  *
+  * AgreePrivacyAuthorization 用户同意隐私协议按钮
+  */
+-type _ButtonOpenType = "feedback" | "share" | "getUserInfo" | "contact" | "getPhoneNumber" | "launchApp" | "openSetting" | "chooseAvatar" | "getAuthorize" | "lifestyle" | "contactShare" | "openGroupProfile" | "openGuildProfile" | "openPublicProfile" | "shareMessageToFriend" | "addFriend" | "addColorSign" | "addGroupApp" | "addToFavorites" | "chooseAddress" | "chooseInvoiceTitle" | "login" | "subscribe" | "favorite" | "watchLater" | "openProfile" | "agreePrivacyAuthorization";
++type _ButtonOpenType = "feedback" | "share" | "getUserInfo" | "contact" | "getPhoneNumber" | "getRealtimePhoneNumber" | "launchApp" | "openSetting" | "chooseAvatar" | "getAuthorize" | "lifestyle" | "contactShare" | "openGroupProfile" | "openGuildProfile" | "openPublicProfile" | "shareMessageToFriend" | "addFriend" | "addColorSign" | "addGroupApp" | "addToFavorites" | "chooseAddress" | "chooseInvoiceTitle" | "login" | "subscribe" | "favorite" | "watchLater" | "openProfile" | "agreePrivacyAuthorization";
+ /**
+  * 返回用户信息的语言
+  *
+--- a/dist/index.d.mts
++++ b/dist/index.d.mts
+@@ -1821,7 +1821,7 @@
+  *
+  * AgreePrivacyAuthorization 用户同意隐私协议按钮
+  */
+-type _ButtonOpenType = "feedback" | "share" | "getUserInfo" | "contact" | "getPhoneNumber" | "launchApp" | "openSetting" | "chooseAvatar" | "getAuthorize" | "lifestyle" | "contactShare" | "openGroupProfile" | "openGuildProfile" | "openPublicProfile" | "shareMessageToFriend" | "addFriend" | "addColorSign" | "addGroupApp" | "addToFavorites" | "chooseAddress" | "chooseInvoiceTitle" | "login" | "subscribe" | "favorite" | "watchLater" | "openProfile" | "agreePrivacyAuthorization";
++type _ButtonOpenType = "feedback" | "share" | "getUserInfo" | "contact" | "getPhoneNumber" | "getRealtimePhoneNumber" | "launchApp" | "openSetting" | "chooseAvatar" | "getAuthorize" | "lifestyle" | "contactShare" | "openGroupProfile" | "openGuildProfile" | "openPublicProfile" | "shareMessageToFriend" | "addFriend" | "addColorSign" | "addGroupApp" | "addToFavorites" | "chooseAddress" | "chooseInvoiceTitle" | "login" | "subscribe" | "favorite" | "watchLater" | "openProfile" | "agreePrivacyAuthorization";
+ /**
+  * 返回用户信息的语言
+  *
+--- a/dist/index.d.cts
++++ b/dist/index.d.cts
+@@ -1821,7 +1821,7 @@
+  *
+  * AgreePrivacyAuthorization 用户同意隐私协议按钮
+  */
+-type _ButtonOpenType = "feedback" | "share" | "getUserInfo" | "contact" | "getPhoneNumber" | "launchApp" | "openSetting" | "chooseAvatar" | "getAuthorize" | "lifestyle" | "contactShare" | "openGroupProfile" | "openGuildProfile" | "openPublicProfile" | "shareMessageToFriend" | "addFriend" | "addColorSign" | "addGroupApp" | "addToFavorites" | "chooseAddress" | "chooseInvoiceTitle" | "login" | "subscribe" | "favorite" | "watchLater" | "openProfile" | "agreePrivacyAuthorization";
++type _ButtonOpenType = "feedback" | "share" | "getUserInfo" | "contact" | "getPhoneNumber" | "getRealtimePhoneNumber" | "launchApp" | "openSetting" | "chooseAvatar" | "getAuthorize" | "lifestyle" | "contactShare" | "openGroupProfile" | "openGuildProfile" | "openPublicProfile" | "shareMessageToFriend" | "addFriend" | "addColorSign" | "addGroupApp" | "addToFavorites" | "chooseAddress" | "chooseInvoiceTitle" | "login" | "subscribe" | "favorite" | "watchLater" | "openProfile" | "agreePrivacyAuthorization";
+ /**
+  * 返回用户信息的语言
+  *

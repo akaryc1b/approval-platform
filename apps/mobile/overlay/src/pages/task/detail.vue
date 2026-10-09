@@ -7,6 +7,10 @@ import type { DelegatedTaskAssignment } from '@/api/approval/delegations'
 import type { FormRuntimeView } from '@/api/approval/form-types'
 import type { ParticipantTaskSla } from '@/api/approval/sla'
 
+import WdButton from 'wot-design-uni/components/wd-button/wd-button.vue'
+import WdTag from 'wot-design-uni/components/wd-tag/wd-tag.vue'
+import WdTextarea from 'wot-design-uni/components/wd-textarea/wd-textarea.vue'
+
 import {
   approveTask,
   findApprovalTimeline,

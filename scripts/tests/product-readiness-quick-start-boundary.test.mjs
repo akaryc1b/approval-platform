@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
+import { runInNewContext } from 'node:vm';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.mjs';
+import { validateBrowserEvidence } from '../product-readiness/quick-start/runtime.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -228,4 +233,124 @@ test('package and path-scoped CI expose the Quick Start without a second workflo
     aggregate,
     /import '\.\/product-readiness-quick-start-boundary\.test\.mjs';/u,
   );
+});
+
+
+test('first H5 capture rejects unresolved components and missing component styles', () => {
+  const helper = text(
+    'apps/web/overlay/playground/__tests__/e2e/product-readiness-h5-components.ts',
+  );
+  const inspect = runInNewContext(
+    `${stripTypeScriptTypes(helper).replace('export function', 'function')}\ninspectH5TaskComponents`,
+    { getComputedStyle: element => element.style },
+  );
+  function element(style = {}, children = {}) {
+    return {
+      style: {
+        display: 'block', visibility: 'visible', opacity: '1', ...style,
+      },
+      getBoundingClientRect: () => ({ width: 120, height: 24 }),
+      querySelector: selector => children[selector] ?? null,
+    };
+  }
+  function fixture() {
+    const content = element({ display: 'flex', alignItems: 'center' });
+    const button = element({}, { '.wd-button__content': content });
+    const searchControl = element();
+    const field = element({ position: 'relative' }, {
+      '.wd-search__cover .wd-icon, input': searchControl,
+    });
+    const search = element({ display: 'flex' }, { '.wd-search__field': field });
+    const tag = element({ borderTopStyle: 'solid', borderTopWidth: '1px' }, {
+      '.wd-tag__text': element(),
+    });
+    const page = element({}, { '.search-card .wd-search': search });
+    page.querySelectorAll = selector => selector === 'uni-button.wd-button'
+      ? [button, button, button, button] : [];
+    const task = element({}, { '.wd-tag': tag });
+    task.closest = () => page;
+    return { content, field, page, search, searchControl, tag, task };
+  }
+  const expected = {
+    buttonsRendered: true, searchRendered: true, taskTagRendered: true,
+    stylesApplied: true, unresolvedTags: 0,
+  };
+  const result = task => JSON.parse(JSON.stringify(inspect(task)));
+  assert.deepEqual(result(fixture().task), expected);
+
+  const unresolved = fixture();
+  unresolved.page.querySelectorAll = selector => selector === 'uni-button.wd-button'
+    ? [] : [element(), element(), element()];
+  unresolved.page.querySelector = () => null;
+  unresolved.task.querySelector = () => null;
+  assert.deepEqual(result(unresolved.task), {
+    buttonsRendered: false, searchRendered: false, taskTagRendered: false,
+    stylesApplied: false, unresolvedTags: 3,
+  }, 'plain task text and literal wd-* nodes cannot qualify as ready');
+
+  for (const [name, style] of [
+    ['content', { display: 'block' }],
+    ['search', { display: 'block' }],
+    ['field', { position: 'static' }],
+    ['tag', { borderTopStyle: 'none', borderTopWidth: '0px' }],
+  ]) {
+    const missingStyle = fixture();
+    Object.assign(missingStyle[name].style, style);
+    assert.equal(result(missingStyle.task).stylesApplied, false, `${name} style`);
+  }
+  const invisible = fixture();
+  invisible.searchControl.getBoundingClientRect = () => ({ width: 0, height: 0 });
+  assert.equal(result(invisible.task).searchRendered, false);
+  const missingStructure = fixture();
+  missingStructure.tag.querySelector = () => null;
+  assert.equal(result(missingStructure.task).taskTagRendered, false);
+  const unresolvedIcon = fixture();
+  unresolvedIcon.page.querySelectorAll = selector => selector === 'uni-button.wd-button'
+    ? [element(), element(), element(), element()] : [element()];
+  assert.equal(result(unresolvedIcon.task).unresolvedTags, 1);
+});
+
+test('Quick Start asserts positive component evidence before its original H5 screenshot', () => {
+  const inspection = browserSpec.indexOf('h5Task.evaluate(inspectH5TaskComponents');
+  const assertion = browserSpec.indexOf('expect(h5Components).toEqual(');
+  const screenshot = browserSpec.indexOf("path: resolve(evidenceDirectory, 'quick-start-h5.png')");
+  const receipt = browserSpec.indexOf('components: h5Components');
+  assert.ok(inspection > 0 && inspection < assertion && assertion < screenshot && screenshot < receipt);
+  assert.equal((browserSpec.match(/await h5.goto\(/gu) ?? []).length, 1);
+  assert.doesNotMatch(browserSpec, /\.reload\(|waitForTimeout|setTimeout/u);
+});
+
+
+test('component guard changes select the existing governed browser run', () => {
+  for (const path of [
+    'apps/web/overlay/playground/__tests__/e2e/product-readiness-h5-components.ts',
+    'scripts/tests/mobile-cold-start-components.test.mjs',
+    'scripts/upstream/unibest-compatibility.mjs',
+  ]) assert.equal(relevantChangeSet([path]), true, path);
+});
+
+test('Quick Start receipts cannot certify missing or failed component evidence', () => {
+  const contract = {
+    scenario: { tenant: { id: 'fixture' }, request: { businessKey: 'fixture' } },
+    clients: { pc: { actorId: 'manager' }, h5: { actorId: 'manager' } },
+  };
+  const identity = { commitSha: 'a'.repeat(40) };
+  const value = {
+    schemaVersion: 1, evidenceKind: 'QUICK_START_BROWSER_READY_V1', status: 'PASSED',
+    commitSha: identity.commitSha, tenantId: 'fixture', businessKey: 'fixture',
+    pc: { actorId: 'manager', businessKeyVisible: true },
+    h5: { actorId: 'manager', businessKeyVisible: true, components: {
+      buttonsRendered: true, searchRendered: true, taskTagRendered: true,
+      stylesApplied: true, unresolvedTags: 0,
+    } },
+  };
+  assert.equal(validateBrowserEvidence(value, contract, identity), value);
+  for (const key of Object.keys(value.h5.components)) {
+    const missing = structuredClone(value);
+    delete missing.h5.components[key];
+    assert.throws(() => validateBrowserEvidence(missing, contract, identity), /inconsistent/u);
+    const failed = structuredClone(value);
+    failed.h5.components[key] = key === 'unresolvedTags' ? 1 : false;
+    assert.throws(() => validateBrowserEvidence(failed, contract, identity), /inconsistent/u);
+  }
 });

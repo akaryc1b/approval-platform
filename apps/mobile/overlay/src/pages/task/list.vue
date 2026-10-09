@@ -8,6 +8,10 @@ import type {
   StartedInstancePage,
 } from '@/api/approval'
 
+import WdButton from 'wot-design-uni/components/wd-button/wd-button.vue'
+import WdSearch from 'wot-design-uni/components/wd-search/wd-search.vue'
+import WdTag from 'wot-design-uni/components/wd-tag/wd-tag.vue'
+
 import {
   findPendingTasks,
   findProcessedTasks,
@@ -120,7 +124,7 @@ function statusTone(status: StartedInstanceItem['status']) {
   if (status === 'RUNNING') {
     return 'primary'
   }
-  return 'info'
+  return 'default'
 }
 
 function formatMoney(value: number) {
@@ -398,7 +402,7 @@ onShow(refreshAll)
           >
             拿回
           </wd-button>
-          <wd-tag v-else type="info" plain>不可拿回</wd-tag>
+          <wd-tag v-else type="default" plain>不可拿回</wd-tag>
         </view>
       </view>
     </view>
