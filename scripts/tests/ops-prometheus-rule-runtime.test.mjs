@@ -1,4 +1,5 @@
 import './ops-workflow-population-alerting.test.mjs';
+import './ops-archive-digest.test.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, truncateSync, writeFileSync } from 'node:fs';

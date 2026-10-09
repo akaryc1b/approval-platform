@@ -14,6 +14,7 @@ import { verifyEngineJobDashboard } from './verify-engine-job-dashboard.mjs';
 import { verifyGrafanaBrowser } from './verify-grafana-browser.mjs';
 import { verifyMonitoringIsolation } from './verify-monitoring-isolation.mjs';
 import { verifySlaCompletionAlerts } from './verify-sla-completion-alerts.mjs';
+import { archiveSha256Sync } from './archive-digest.mjs';
 
 // Upstream archive identity, not a mutable image tag or a checksum downloaded beside it.
 // Source: https://prometheus.io/download/ (3.13.3 linux-amd64, 2026-09-07).
@@ -35,10 +36,9 @@ const checked = (condition, message) => { if (!condition) throw new Error(messag
 
 export function verifyArchiveDigest(file, expected) {
   checked(/^[0-9a-f]{64}$/u.test(expected), 'PROMTOOL_DIGEST_REQUIRED');
-  const stat = lstatSync(file);
-  checked(stat.isFile() && !stat.isSymbolicLink() && stat.size > 0
-    && stat.size <= maximumArchiveBytes, 'PROMTOOL_ARCHIVE_REJECTED');
-  checked(hash(readFileSync(file)) === expected, 'PROMTOOL_ARCHIVE_DIGEST_MISMATCH');
+  const digest = archiveSha256Sync(file, { maximumBytes: maximumArchiveBytes,
+    rejectionMessage: 'PROMTOOL_ARCHIVE_REJECTED' });
+  checked(digest === expected, 'PROMTOOL_ARCHIVE_DIGEST_MISMATCH');
 }
 
 function command(run, executable, args, cwd, timeout) {

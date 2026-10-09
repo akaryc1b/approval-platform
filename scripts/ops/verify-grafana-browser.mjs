@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
+import { lstatSync, mkdirSync, realpathSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { sourceIdentities } from './grafana-browser-runtime.mjs';
+import { archiveSha256Sync } from './archive-digest.mjs';
 
 // Official Grafana OSS standalone download, verified 2026-09-22:
 // https://grafana.com/grafana/download/13.2.2?edition=oss
@@ -11,10 +12,10 @@ export const grafanaPin = Object.freeze({ version: '13.2.2',
   sha256: '9662c838a09824fdb072e5f6fbdd45b62cf541b20f3d609ea5011e6e5f544c8f' });
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 export function verifyGrafanaArchive(file) {
-  const stat = lstatSync(file);
-  assert.ok(stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size <= 512 * 1024 * 1024,
-    'GRAFANA_BROWSER_ARCHIVE_FILE');
-  assert.equal(sha256(readFileSync(file)), grafanaPin.sha256, 'GRAFANA_BROWSER_ARCHIVE_DIGEST');
+  const digest = archiveSha256Sync(file, { maximumBytes: 512 * 1024 * 1024,
+    rejectionMessage: 'GRAFANA_BROWSER_ARCHIVE_FILE',
+    rejectionError: message => new assert.AssertionError({ message, actual: false, expected: true, operator: '==' }) });
+  assert.equal(digest, grafanaPin.sha256, 'GRAFANA_BROWSER_ARCHIVE_DIGEST');
 }
 export function validateGrafanaReceipt(receipt, expectedInputs) {
   assert.equal(receipt.status, 'OPS_GRAFANA_BROWSER_VERIFIED');
