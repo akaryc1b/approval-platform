@@ -15,6 +15,11 @@ import { SITE_DEPENDENCY_PLUGIN_GRAPH, SITE_DEPENDENCY_PLUGIN_MANIFEST_SHA256,
 export { SITE_DEPENDENCY_PLUGIN_GRAPH, readSiteDependencyPluginManifest, verifySiteDependencyPluginDelta,
   readSiteDependencyPluginCandidate, readSiteDependencyPluginReport } from './site-dependency-plugin-graph-transition.mjs';
 
+import { RELEASE_PLUGIN_GRAPH, RELEASE_PLUGIN_MANIFEST_SHA256,
+  readReleasePluginManifest, verifyReleasePluginDelta } from './release-plugin-graph-transition.mjs';
+export { RELEASE_PLUGIN_GRAPH, readReleasePluginManifest, verifyReleasePluginDelta,
+  readReleasePluginCandidate, readReleasePluginReport } from './release-plugin-graph-transition.mjs';
+
 export const BASE_GRAPH = '2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94';
 export const OBSERVABILITY_GRAPH = '27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37';
 export const OBSERVABILITY_OTEL_GRAPH = '390773d2aa746a2203eec870e5dd0a8f97f81e91913bb016c9ef95b749c0e7b3';
@@ -222,6 +227,27 @@ function siteDependencyPluginReceipt(identity) {
   return { ...payload, contentSha256: graphHash(payload) };
 }
 
+function releasePluginReceipt(identity) {
+  const manifest = readReleasePluginManifest();
+  const payload = {
+    schemaVersion: 'APPROVAL_RELEASE_PLUGIN_GRAPH_LINEAGE_V1',
+    repository: REPOSITORY, commitSha: identity.commitSha, sourceE2ContentSha256: identity.contentSha256,
+    baseE2GraphDigest: BASE_GRAPH, priorE2GraphDigest: SITE_DEPENDENCY_PLUGIN_GRAPH,
+    currentE2GraphDigest: RELEASE_PLUGIN_GRAPH,
+    manifestSha256: RELEASE_PLUGIN_MANIFEST_SHA256,
+    preservedSiteDependencyPluginLineage: siteDependencyPluginReceipt({ commitSha: manifest.base.sourceHead,
+      contentSha256: manifest.base.e2ContentSha256 }),
+    archivalCandidate: manifest.capture,
+    addedPluginCoordinateCount: manifest.addedPluginCoordinateCount,
+    removedPluginCoordinateCount: manifest.removedPluginCoordinateCount,
+    unchangedOtherPluginOwnerCount: manifest.unchangedOtherPluginOwnerCount,
+    runtimeComponentChangeCount: 0, runtimeEdgeChangeCount: 0, importedBomChangeCount: 0,
+    scopeChangeCount: 0, licenseChangeCount: 0,
+    inventory: manifest.inventory, findingReviewRequired: true, releaseBlocked: true,
+  };
+  return { ...payload, contentSha256: graphHash(payload) };
+}
+
 /** Graph admission is not finding disposition or production authorization. */
 export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, expectedCommitSha) {
   requireValue(e2.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(e2.commitSha || ''),
@@ -238,24 +264,27 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, exp
   }), 'E2 graph projection mismatch');
   const digest = graphHash(projection);
   requireValue(expectedBaseDigest === BASE_GRAPH, 'unrecognized dependency graph baseline');
-  if ([SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH].includes(digest)) requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1'
+  if ([SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH].includes(digest)) requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1'
     && /^[0-9a-f]{40}$/.test(expectedCommitSha || '') && e2.commitSha === expectedCommitSha,
   'server dependency E2 requires current verified head and schema');
   if (digest === expectedBaseDigest) return null;
   requireValue(expectedBaseDigest === BASE_GRAPH
-    && [OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH].includes(digest),
+    && [OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH].includes(digest),
     `E2 graph drift ${digest}`);
   const manifest = readObservabilityManifest();
   requireValue(manifest.repository === REPOSITORY && manifest.base.graphDigest === BASE_GRAPH
     && manifest.observed.graphDigest === OBSERVABILITY_GRAPH, 'graph transition identity drift');
-  const beforeSite = digest === SITE_DEPENDENCY_PLUGIN_GRAPH ? verifySiteDependencyPluginDelta(projection) : projection;
-  const beforePlugin = [BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH].includes(digest)
+  const beforeRelease = digest === RELEASE_PLUGIN_GRAPH ? verifyReleasePluginDelta(projection) : projection;
+  const beforeSite = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH].includes(digest)
+    ? verifySiteDependencyPluginDelta(beforeRelease) : beforeRelease;
+  const beforePlugin = [BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH].includes(digest)
     ? verifyBuildPluginJacksonDelta(beforeSite) : beforeSite;
-  const beforeServer = [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH].includes(digest)
+  const beforeServer = [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH].includes(digest)
     ? verifyServerDependencyDelta(beforePlugin) : beforePlugin;
-  const previous = [OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH].includes(digest)
+  const previous = [OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH].includes(digest)
     ? verifyOtelUpgradeDelta(beforeServer, readOtelUpgradeManifest()) : beforeServer;
   verifyDependencyDelta(previous, manifest);
+  if (digest === RELEASE_PLUGIN_GRAPH) return releasePluginReceipt(e2);
   if (digest === SITE_DEPENDENCY_PLUGIN_GRAPH) return siteDependencyPluginReceipt(e2);
   if (digest === BUILD_PLUGIN_JACKSON_GRAPH) return buildPluginJacksonReceipt(e2);
   if (digest === SERVER_DEPENDENCY_GRAPH) return serverDependencyReceipt(e2);
@@ -272,18 +301,19 @@ export function requirePreservedGraph(e4, historicalGraph, expectedCommitSha) {
     return null;
   }
   requireValue(e4.repository === REPOSITORY && historicalGraph === BASE_GRAPH
-    && [OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH].includes(e4.e2GraphDigest)
+    && [OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH].includes(e4.e2GraphDigest)
     && /^[0-9a-f]{40}$/.test(e4.commitSha || '')
     && /^[0-9a-f]{64}$/.test(e4.e2CurrentContentSha256 || ''), 'remediation E2 graph mismatch');
   readObservabilityManifest();
-  const site = e4.e2GraphDigest === SITE_DEPENDENCY_PLUGIN_GRAPH;
+  const release = e4.e2GraphDigest === RELEASE_PLUGIN_GRAPH;
+  const site = release || e4.e2GraphDigest === SITE_DEPENDENCY_PLUGIN_GRAPH;
   const plugin = site || e4.e2GraphDigest === BUILD_PLUGIN_JACKSON_GRAPH;
   const server = plugin || e4.e2GraphDigest === SERVER_DEPENDENCY_GRAPH;
   if (server) requireValue(/^[0-9a-f]{40}$/.test(expectedCommitSha || '')
     && e4.commitSha === expectedCommitSha, 'server dependency receipt requires current verified head');
   const upgraded = server || e4.e2GraphDigest === OBSERVABILITY_OTEL_GRAPH;
   if (upgraded) readOtelUpgradeManifest();
-  const expected = (site ? siteDependencyPluginReceipt : plugin ? buildPluginJacksonReceipt : server ? serverDependencyReceipt : upgraded ? otelReceipt : receipt)(
+  const expected = (release ? releasePluginReceipt : site ? siteDependencyPluginReceipt : plugin ? buildPluginJacksonReceipt : server ? serverDependencyReceipt : upgraded ? otelReceipt : receipt)(
     { commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 });
   requireValue(canonicalGraph(e4.e2GraphTransition) === canonicalGraph(expected),
     'remediation E2 graph lineage mismatch');

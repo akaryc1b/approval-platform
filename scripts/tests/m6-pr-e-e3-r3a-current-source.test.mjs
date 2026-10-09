@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { readBuildPluginJacksonCandidate, BUILD_PLUGIN_JACKSON_GRAPH, SERVER_DEPENDENCY_GRAPH,
-  SITE_DEPENDENCY_PLUGIN_GRAPH, readSiteDependencyPluginCandidate, readSiteDependencyPluginReport }
+  SITE_DEPENDENCY_PLUGIN_GRAPH, readSiteDependencyPluginCandidate, readSiteDependencyPluginReport,
+  RELEASE_PLUGIN_GRAPH, readReleasePluginCandidate, readReleasePluginReport }
   from '../security/observability-dependency-graph.mjs';
 import { canonical, sha256, readCurrentSourceTransition, evaluateCurrentEvidence }
   from '../security/m6-pr-e-e3-r3a-review-osv-drift.mjs';
@@ -152,4 +153,39 @@ for (const [name, mutate] of [
   ['stale source contract', x => { x.transition.currentGraphDigest = SITE_DEPENDENCY_PLUGIN_GRAPH; }],
 ]) test(`R3A Site/Dependency descendant rejects ${name}`, () => {
   const input = siteDescendantFixture(); mutate(input); assert.throws(() => evaluateCurrentEvidence(input));
+});
+
+// Unit-only checkout/runtime observations; the retained capture is not exact-head execution.
+function releaseDescendantFixture() {
+  const input = fixture(), current = readReleasePluginCandidate();
+  return { ...input, commitSha: current.commitSha, currentE2: current, pluginReport: readReleasePluginReport(),
+    checkout: { ...input.checkout, expectedHeadSha: current.commitSha, checkedOutSha: current.commitSha } };
+}
+test('R3A revalidates the Release descendant while preserving all historical reviews and current Tomcat/Boot HTTP evidence', () => {
+  const input = releaseDescendantFixture(), before = canonical(input), result = evaluateCurrentEvidence(input);
+  assert.equal(result.currentE2GraphDigest, RELEASE_PLUGIN_GRAPH);
+  assert.equal(result.preservedCurrentSourceGraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(result.currentTransitionContentSha256, transition.contentSha256);
+  assert.equal(result.findings[0].evidence.pluginReportSha256, input.currentE2.maven.pluginResolutionSha256);
+  assert.equal(result.currentTomcatObservation.jar.jarSha256, transition.tomcat.jarSha256);
+  assert.equal(result.currentTomcatObservation.currentFindingPresenceClaimed, false);
+  assert.equal(result.currentTomcatObservation.dispositionTransferred, false);
+  assert.equal(result.findings[0].package.version, '5.3.6');
+  assert.equal(result.findings[0].disposition, 'UNRESOLVED');
+  assert.equal(result.decision.currentOsvTotalsClaimed, false);
+  assert.equal(result.decision.releaseBlocked, true);
+  assert.deepEqual(result.historicalReview.findings, contract.findings);
+  assert.deepEqual(result.historicalReview.decision, contract.decision);
+  assert.equal(canonical(input), before);
+});
+for (const [name, mutate] of [
+  ['pre-Release report', x => { x.pluginReport = readSiteDependencyPluginReport(); }],
+  ['runtime pin drift', x => { x.runtimeComponents[0].version = '11.0.27'; }],
+  ['JAR pin drift', x => { x.jarEvidence.jarSha256 = '0'.repeat(64); }],
+  ['HTTP owner drift', x => { x.pluginReport = x.pluginReport.replaceAll('4.0.8', '4.0.9'); }],
+  ['stale source contract', x => { x.transition.currentGraphDigest = RELEASE_PLUGIN_GRAPH; }],
+  ['stale verified head', x => { x.commitSha = 'f'.repeat(40); }],
+  ['dirty checkout', x => { x.checkout.trackedWorktreeClean = false; }],
+]) test(`R3A Release descendant rejects ${name}`, () => {
+  const input = releaseDescendantFixture(); mutate(input); assert.throws(() => evaluateCurrentEvidence(input));
 });

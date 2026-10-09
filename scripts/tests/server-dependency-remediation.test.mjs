@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { syntheticSitePluginOsv } from './fixtures/site-dependency-plugin-fixture.mjs';
+import { syntheticReleasePluginOsv } from './fixtures/release-plugin-fixture.mjs';
 import { pluginOsvDiagnosticFixture } from './fixtures/build-plugin-jackson-fixture.mjs';
 import { acceptedE2GraphProjection } from '../security/m6-pr-e-e2-generate-sbom.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBuildPluginJacksonCandidate, SITE_DEPENDENCY_PLUGIN_GRAPH, readSiteDependencyPluginCandidate, graphHash, verifyObservabilityGraph } from '../security/observability-dependency-graph.mjs';
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBuildPluginJacksonCandidate, SITE_DEPENDENCY_PLUGIN_GRAPH, readSiteDependencyPluginCandidate, RELEASE_PLUGIN_GRAPH, readReleasePluginCandidate, readReleasePluginManifest, graphHash, verifyObservabilityGraph } from '../security/observability-dependency-graph.mjs';
 import { readServerDependencyRemediationPlan, verifyServerDependencyRemediation, requireServerDependencyRemediation }
   from '../security/m6-pr-e-e3-verify-server-dependency-remediation.mjs';
 import { verifyPgjdbcRemediation } from '../security/m6-pr-e-e3-verify-pgjdbc-remediation.mjs';
@@ -285,4 +286,74 @@ test('a synthetic new Site finding retains its identity and unresolved dispositi
   const result = applyRuntimeDeploymentReviews(triage, e4, review, pg, receipt);
   assert.deepEqual(result.decisions, triage.decisions); assert.equal(result.summary.releaseBlocked, true);
   assert.equal(result.summary.dispositionCounts.UNRESOLVED, 1);
+});
+
+// Entire scanner/checkout envelope remains synthetic unit-only, including OSV.
+// No fresh scan, absence, exact-head execution, or release admission is claimed.
+function releaseDescendantFixture() {
+  const e4 = fixture(), e2 = readReleasePluginCandidate();
+  e4.commitSha = e2.commitSha; e4.e2CurrentEvidence = e2; e4.e2CurrentContentSha256 = e2.contentSha256;
+  e4.e2GraphDigest = RELEASE_PLUGIN_GRAPH;
+  e4.e2GraphTransition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, e2.commitSha);
+  e4.checkout.checkedOutSha = e2.commitSha; e4.checkout.expectedHeadSha = e2.commitSha;
+  e4.scanners.osv = syntheticReleasePluginOsv(e2, e4.scanners.osv);
+  e4.totalFindingCount = Object.values(e4.scanners).reduce((n, scanner) => n + scanner.findingCount, 0);
+  return resign(e4);
+}
+test('R4 and pgjdbc preserve all prior contracts through the Release descendant and full current coverage', () => {
+  const e4 = releaseDescendantFixture(), original = structuredClone(e4), receipt = verifyPlugin(e4);
+  assert.equal(receipt.currentE2GraphDigest, RELEASE_PLUGIN_GRAPH);
+  assert.equal(receipt.historicalTargetE2GraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(receipt.subsequentGraphTransition.priorE2GraphDigest, SITE_DEPENDENCY_PLUGIN_GRAPH);
+  const site = receipt.subsequentGraphTransition.preservedSiteDependencyPluginLineage;
+  assert.equal(site.priorE2GraphDigest, BUILD_PLUGIN_JACKSON_GRAPH);
+  assert.equal(site.preservedBuildPluginJacksonLineage.priorE2GraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(receipt.remediatedFindings.length, 2);
+  assert.deepEqual(receipt.remediatedFindings.map(finding => finding.findingId), plan.remediatedFindings.map(finding => finding.findingId));
+  assert.equal(receipt.releaseBlocked, true); assert.equal(receipt.findingReviewRequired, true);
+  assert.equal(e4.scanners.osv.coverage.inputPackageCount, 475); assert.equal(plan.expectedInputPackageCount, 535);
+  assert.equal(e4.scanners.osv.coverage.inputBytesSha256, readReleasePluginManifest().osvInput.current.inputBytesSha256);
+  assert.deepEqual(requireServerDependencyRemediation(e4, receipt, { expectedCommitSha: e4.commitSha }), receipt);
+  const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
+  assert.equal(pg.currentE2GraphDigest, RELEASE_PLUGIN_GRAPH);
+  assert.deepEqual(pg.subsequentGraphTransition, receipt.subsequentGraphTransition);
+  assert.equal(pg.remediatedFindings.length, 2); assert.equal(pg.releaseBlocked, true);
+  assert.deepEqual(e4, original);
+});
+for (const [name, alter] of [
+  ['pre-Release receipt', e => { e.e2GraphTransition = siteDescendantFixture().e2GraphTransition; }],
+  ['prior input count', e => { e.scanners.osv.coverage.inputPackageCount = 486; resign(e.scanners.osv.coverage); }],
+  ['prior input bytes', e => { e.scanners.osv.coverage.inputBytesSha256 = readReleasePluginManifest().osvInput.prior.inputBytesSha256; resign(e.scanners.osv.coverage); }],
+  ['missing clean target', e => { e.scanners.osv.coverage.targets = e.scanners.osv.coverage.targets.filter(target => target.package.name !== 'org.springframework.boot:spring-boot'); resign(e.scanners.osv.coverage); }],
+  ['missing current JGit target', e => { e.scanners.osv.coverage.targets = e.scanners.osv.coverage.targets.filter(target => target.package.name !== 'org.eclipse.jgit:org.eclipse.jgit'); resign(e.scanners.osv.coverage); }],
+  ['missing build-plugin targets', e => { e.scanners.osv.coverage.targets = e.scanners.osv.coverage.targets.filter(target => !target.scopes.includes('build-plugin')); resign(e.scanners.osv.coverage); }],
+  ['missing exact E2', e => { delete e.e2CurrentEvidence; }],
+  ['missing coverage', e => { delete e.scanners.osv.coverage; }],
+  ['incomplete scanner', e => { e.scanners.semgrep.scanCompleted = false; }],
+  ['stale coverage head', e => { e.scanners.osv.coverage.commitSha = 'f'.repeat(40); resign(e.scanners.osv.coverage); }],
+  ['stale nested Site receipt', e => { e.e2GraphTransition.preservedSiteDependencyPluginLineage.commitSha = 'f'.repeat(40); resign(e.e2GraphTransition.preservedSiteDependencyPluginLineage); resign(e.e2GraphTransition); }],
+]) test(`R4 Release descendant rejects ${name} even after rehashing`, () => {
+  const e4 = releaseDescendantFixture(); alter(e4); resign(e4); assert.throws(() => verifyPlugin(e4));
+});
+test('Release descendant requires the independently verified head in both R4 and pgjdbc', () => {
+  const e4 = releaseDescendantFixture();
+  for (const expectedCommitSha of [undefined, 'f'.repeat(40)]) {
+    assert.throws(() => verifyServerDependencyRemediation(e4, plan, { expectedCommitSha }));
+    assert.throws(() => verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha }));
+  }
+});
+test('Release descendant cannot conceal a remediated advisory alias at the new JGit target', () => {
+  const e4 = releaseDescendantFixture();
+  injectFinding(e4, 'org.eclipse.jgit:org.eclipse.jgit', '5.13.5.202508271544-r', 'GHSA-synthetic-unit-returned-alias', ['CVE-2026-40976']);
+  assert.throws(() => verifyPlugin(e4), /advisory is still present/);
+});
+test('a synthetic new Release finding keeps its exact identity and unresolved disposition through I3', () => {
+  const e4 = releaseDescendantFixture(), before = structuredClone(e4), receipt = verifyPlugin(e4);
+  const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
+  const triage = { repository: e4.repository, commitSha: e4.commitSha, contentSha256: 'a'.repeat(64),
+    decisions: e4.scanners.osv.findings.map(f => ({ sourceClass: f.sourceClass, findingId: f.findingId,
+      severityBand: 'UNKNOWN', disposition: 'UNRESOLVED', componentRef: f.componentRefs[0] })) };
+  const result = applyRuntimeDeploymentReviews(triage, e4, review, pg, receipt);
+  assert.deepEqual(result.decisions, triage.decisions); assert.equal(result.summary.releaseBlocked, true);
+  assert.equal(result.summary.dispositionCounts.UNRESOLVED, 1); assert.deepEqual(e4, before);
 });

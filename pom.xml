@@ -47,6 +47,11 @@
         <maven.surefire.version>3.5.5</maven.surefire.version>
         <maven.enforcer.version>3.5.0</maven.enforcer.version>
         <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
+        <maven.release.version>3.3.1</maven.release.version>
+        <maven.release.jgit.version>5.13.5.202508271544-r</maven.release.jgit.version>
+        <maven.release.sshd.version>2.16.0</maven.release.sshd.version>
+        <maven.release.commons-io.version>2.20.0</maven.release.commons-io.version>
+        <maven.release.plexus-utils.version>4.0.3</maven.release.plexus-utils.version>
         <maven.site.version>3.22.0</maven.site.version>
         <maven.dependency.version>3.11.0</maven.dependency.version>
         <maven.site.jsoup.version>1.23.2</maven.site.jsoup.version>
@@ -134,6 +139,54 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-release-plugin</artifactId>
+                    <version>${maven.release.version}</version>
+                    <!-- Keep the isolated release realm on patched, compatible dependency lines. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.eclipse.jgit</groupId>
+                            <artifactId>org.eclipse.jgit</artifactId>
+                            <version>${maven.release.jgit.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.eclipse.jgit</groupId>
+                            <artifactId>org.eclipse.jgit.ssh.apache</artifactId>
+                            <version>${maven.release.jgit.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.sshd</groupId>
+                            <artifactId>sshd-osgi</artifactId>
+                            <version>${maven.release.sshd.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.sshd</groupId>
+                            <artifactId>sshd-sftp</artifactId>
+                            <version>${maven.release.sshd.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.sshd</groupId>
+                            <artifactId>sshd-core</artifactId>
+                            <version>${maven.release.sshd.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.sshd</groupId>
+                            <artifactId>sshd-common</artifactId>
+                            <version>${maven.release.sshd.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>commons-io</groupId>
+                            <artifactId>commons-io</artifactId>
+                            <version>${maven.release.commons-io.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>${maven.release.plexus-utils.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-site-plugin</artifactId>

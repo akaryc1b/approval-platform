@@ -99,6 +99,8 @@ test('the real upgrade manifest cannot be edited or supplemented without failing
   writeFileSync(resolve(directory, 'scripts/security/observability-dependency-graph.mjs'), module);
   writeFileSync(resolve(directory, 'scripts/security/server-dependency-graph-transition.mjs'),
     readFileSync(new URL('../security/server-dependency-graph-transition.mjs', import.meta.url)));
+  writeFileSync(resolve(directory, 'scripts/security/release-plugin-graph-transition.mjs'),
+    readFileSync(new URL('../security/release-plugin-graph-transition.mjs', import.meta.url)));
   writeFileSync(resolve(directory, 'scripts/security/site-dependency-plugin-graph-transition.mjs'),
     readFileSync(new URL('../security/site-dependency-plugin-graph-transition.mjs', import.meta.url)));
   writeFileSync(resolve(directory, 'scripts/security/build-plugin-jackson-graph-transition.mjs'),
