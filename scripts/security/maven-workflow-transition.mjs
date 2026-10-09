@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { priorJava21Workflow, requireNoHygieneJava21Sources, verifyHygieneJava21WorkflowContinuation } from './hygiene-java21-workflow-transition.mjs';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +25,7 @@ export function historicalMavenWorkflow(workflowPath, content) {
   const change = manifest.workflows[workflowPath];
   if (!change) return content;
   if (gitBlob(content) === change.fromBlob) return content;
+  content = priorJava21Workflow(workflowPath, content);
   requireValue(gitBlob(content) === change.toBlob, `unrecognized toolchain workflow blob ${workflowPath}`);
   const pieces = content.split(manifest.insertedStep);
   requireValue(pieces.length - 1 === change.stepCount, `Maven setup step count drift ${workflowPath}`);
@@ -47,16 +49,21 @@ export function verifyMavenWorkflowTransition(workflows, priorTargets, root = RO
     requireValue(gitBlob(historicalMavenWorkflow(workflowPath, value.content)) === priorTargets[workflowPath], `toolchain historical workflow mismatch ${workflowPath}`);
     changed += 1;
   }
-  if (!changed) return { targetBlobs: priorTargets, toolchainTransition: null };
+  if (!changed) {
+    requireNoHygieneJava21Sources(root);
+    return { targetBlobs: priorTargets, toolchainTransition: null };
+  }
   requireValue(changed === Object.keys(manifest.workflows).length, 'mixed Maven toolchain workflow state');
   for (const [relative, expected] of Object.entries(manifest.toolchainSourceBlobs)) {
     requireValue(gitBlob(readFileSync(path.join(root, relative))) === expected, `Maven toolchain source blob drift ${relative}`);
   }
+  const java21WorkflowContinuation = verifyHygieneJava21WorkflowContinuation(workflows, root);
   return {
     targetBlobs: Object.fromEntries(paths.map(relative => [relative, workflows[relative].blobSha])),
     toolchainTransition: { schemaVersion: manifest.schemaVersion, manifestSha256: MANIFEST_SHA256,
       version: manifest.maven.version, distributionSha512: manifest.maven.sha512,
-      changedWorkflowCount: changed, historicalWorkflowIdentityRetained: true },
+      changedWorkflowCount: changed, historicalWorkflowIdentityRetained: true,
+      ...(java21WorkflowContinuation ? { java21WorkflowContinuation } : {}) },
   };
 }
 

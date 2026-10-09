@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "APPROVAL_HYGIENE_JAVA21_WORKFLOW_CONTINUATION_V1",
+  "repository": "akaryc1b/approval-platform",
+  "reviewBasisHead": "40241f8b2c16d7a5ac6312bb337e3416d6169e76",
+  "priorMavenTransitionManifestSha256": "7179499a14be5d76a06d0ae24b1f80fee5268e3a18cb6dad41db6dded6c9fa6b",
+  "java": {
+    "majorVersion": 21,
+    "selectionEnvironment": "JAVA_HOME_21_X64",
+    "source": "GITHUB_HOSTED_RUNNER_PREINSTALLED_JDK",
+    "versionVerification": [
+      "java -version",
+      "javac -version"
+    ],
+    "publication": [
+      "GITHUB_ENV:JAVA_HOME",
+      "GITHUB_PATH:bin"
+    ],
+    "runnerDocumentation": "https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md#java"
+  },
+  "insertedStep": "      - name: Select verified preinstalled Java 21\n        run: node scripts/ci/select-java21.mjs\n",
+  "workflows": {
+    ".github/workflows/approval-platform-validation.yml": {
+      "fromBlob": "563f504c82630304b1ad2b1e1165a21b64eb3ba3",
+      "toBlob": "e2d9d43a8594503f4efd9e3683ba69fe3f291581",
+      "stepCount": 1,
+      "job": "hygiene"
+    }
+  },
+  "toolchainSourceBlobs": {
+    "scripts/ci/select-java21.mjs": "216ad9590990f12cde355d9177923f469d17b285"
+  },
+  "invariants": {
+    "historicalManifestsModified": false,
+    "historicalGraphChanged": false,
+    "actionUseCount": 43,
+    "checkoutCredentialBoundaryCount": 14,
+    "templateInjectionBoundaryCount": 1,
+    "newActionUses": 0,
+    "scannerSuppressionAdded": false,
+    "findingDispositionChanged": false,
+    "releaseBlocked": true,
+    "readyAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false
+  }
+}

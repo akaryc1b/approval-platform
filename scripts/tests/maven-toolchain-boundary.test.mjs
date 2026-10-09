@@ -158,3 +158,5 @@ import './server-dependency-baseline.test.mjs';
 import './site-dependency-plugin-baseline.test.mjs';
 
 import './release-plugin-baseline.test.mjs';
+
+import './hygiene-java21-workflow-transition.test.mjs';

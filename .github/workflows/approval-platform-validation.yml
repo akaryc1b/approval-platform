@@ -29,6 +29,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Select verified preinstalled Java 21
+        run: node scripts/ci/select-java21.mjs
       - name: Install verified Maven 3.9.16
         run: node scripts/ci/setup-maven.mjs
       - name: Reject temporary PR artifacts
