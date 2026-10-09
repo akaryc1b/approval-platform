@@ -5,6 +5,48 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 
+import { selectedFiles } from '../product-readiness/capacity-recovery/ci-scope.mjs';
+import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.mjs';
+
+const layoutPaths = [
+  'apps/web/overlay/playground/__tests__/e2e/product-readiness-detail-layout.ts',
+  'scripts/tests/product-readiness-detail-layout.test.mjs',
+];
+
+for (const path of layoutPaths) {
+  test(`layout-only change independently selects native browser verification: ${path}`, () => {
+    assert.equal(relevantChangeSet([path]), true);
+  });
+}
+
+test('layout selection remains exact and excludes unrelated or lookalike paths', () => {
+  const unrelated = [
+    'docs/unrelated-notes.md',
+    'apps/web/overlay/playground/__tests__/unit/product-readiness-detail-layout.ts',
+    'apps/web/overlay/playground/__tests__/e2e/product-readiness-detail-layout.tsx',
+    'apps/web/overlay/playground/__tests__/e2e/product-readiness-detail-layout-extra.ts',
+    'scripts/tests/product-readiness-detail-layout.test.py',
+    'scripts/tests/product-readiness-detail-layout-extra.test.mjs',
+    ...layoutPaths.flatMap(path => [`copy/${path}`, `${path}.bak`, `${path}/nested`]),
+  ];
+  assert.equal(relevantChangeSet([]), false);
+  for (const path of unrelated) assert.equal(relevantChangeSet([path]), false, path);
+  assert.equal(relevantChangeSet(unrelated), false);
+  for (const path of layoutPaths) assert.equal(relevantChangeSet([...unrelated, path]), true, path);
+});
+
+test('layout helper, geometry regression and shared selector changes do not select capacity execution', () => {
+  assert.deepEqual(selectedFiles([
+    ...layoutPaths,
+    'scripts/product-readiness/pc-h5-runtime/ci-scope.mjs',
+  ]), []);
+  const capacityConfig = 'config/demo/capacity-recovery.json';
+  for (const path of layoutPaths) {
+    assert.deepEqual(selectedFiles([path]), []);
+    assert.deepEqual(selectedFiles([path, capacityConfig]), [capacityConfig]);
+  }
+});
+
 const root = resolve(import.meta.dirname, '../..');
 const source = readFileSync(resolve(root,
   'apps/web/overlay/playground/__tests__/e2e/product-readiness-detail-layout.ts'), 'utf8');
