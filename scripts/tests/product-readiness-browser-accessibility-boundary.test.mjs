@@ -1,3 +1,4 @@
+import './product-readiness-capture-diagnostics.test.mjs';
 import './product-readiness-capture-evidence.test.mjs';
 import './product-readiness-capture-readiness.test.mjs';
 import './product-readiness-capture-state.test.mjs';

@@ -6,12 +6,13 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import test from 'node:test';
 
-import { publicationPolicy } from '../product-readiness/artifact-privacy/publication.mjs';
+import { publicationPolicy, publicationRejectionCategories } from '../product-readiness/artifact-privacy/publication.mjs';
 
 const publicationUrl = new URL('../product-readiness/artifact-privacy/publication.mjs', import.meta.url).href;
 const canary = 'SYNTHETIC_ONLY_SANITIZER_RESPONSE_SECRET_CANARY_42';
 const invalidResponse = 'EVIDENCE_PUBLICATION_REJECTED: invalid sanitizer response';
 const unsafeEvidence = 'EVIDENCE_PUBLICATION_REJECTED: unsupported or unsafe evidence';
+const rejectionLine = category => `EVIDENCE_REJECTION_V1 category=${category}\n`;
 
 function response(zip = false) {
   const bytes = Buffer.from('synthetic sanitized publication');
@@ -37,23 +38,33 @@ function response(zip = false) {
   };
 }
 
-function invokeSanitizer({ value = response(), stdout, mode = 'success', zip = false } = {}) {
+function invokeSanitizer({ value = response(), stdout, stderr = '', mode = 'success', status = 1,
+  zip = false, category } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'synthetic-sanitizer-response-'));
   try {
     const payload = join(root, 'response.txt');
     writeFileSync(payload, stdout ?? JSON.stringify(value));
+    const errors = join(root, 'stderr.txt');
+    writeFileSync(errors, stderr);
     const executable = join(root, 'python3');
     // The shim is visible only to a child Node process. The real publication
     // wrapper still owns spawnSync, response parsing, validation and diagnostics.
     writeFileSync(executable, `#!${process.execPath}\n` + [
       "const fs = require('node:fs');",
       "fs.writeSync(1, fs.readFileSync(process.env.SYNTHETIC_RESPONSE_PATH));",
-      `fs.writeSync(2, ${JSON.stringify(canary)});`,
-      "if (process.env.SYNTHETIC_RESPONSE_MODE === 'nonzero') process.exit(9);",
+      "fs.writeSync(2, fs.readFileSync(process.env.SYNTHETIC_ERROR_PATH));",
+      "if (process.env.SYNTHETIC_RESPONSE_MODE === 'nonzero') process.exit(Number(process.env.SYNTHETIC_RESPONSE_STATUS));",
       "if (process.env.SYNTHETIC_RESPONSE_MODE === 'signal') process.kill(process.pid, 'SIGTERM');",
     ].join('\n'));
     chmodSync(executable, 0o700);
+    if (mode === 'missing') rmSync(executable);
     const script = [
+      "import childProcess from 'node:child_process';",
+      "import { syncBuiltinESMExports } from 'node:module';",
+      ...(mode === 'throw' ? [
+        `childProcess.spawnSync = () => { throw new Error(${JSON.stringify(canary)}); };`,
+        'syncBuiltinESMExports();',
+      ] : []),
       `import { preparePublicationFiles, publicFailureDetail } from ${JSON.stringify(publicationUrl)};`,
       'try {',
       `  const files = preparePublicationFiles([${JSON.stringify(join(root, zip ? 'synthetic.zip' : 'synthetic.json'))}]);`,
@@ -64,22 +75,24 @@ function invokeSanitizer({ value = response(), stdout, mode = 'success', zip = f
     ].join('\n');
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
       encoding: 'utf8', shell: false, timeout: 10_000, maxBuffer: 1024 * 1024,
-      env: { ...process.env, PATH: `${root}${delimiter}${process.env.PATH || ''}`,
-        SYNTHETIC_RESPONSE_PATH: payload, SYNTHETIC_RESPONSE_MODE: mode },
+      env: { ...process.env, PATH: mode === 'missing' ? root : `${root}${delimiter}${process.env.PATH || ''}`,
+        SYNTHETIC_RESPONSE_PATH: payload, SYNTHETIC_ERROR_PATH: errors,
+        SYNTHETIC_RESPONSE_MODE: mode, SYNTHETIC_RESPONSE_STATUS: String(status) },
     });
     assert.equal(result.error, undefined, 'publication child process did not finish');
     assert.equal(result.status, 0, 'publication child process failed');
     assert.equal(`${result.stdout}${result.stderr}`.includes(canary), false,
       'untrusted sanitizer output reached a diagnostic or returned artifact');
-    assert.equal(result.stderr, '', 'captured sanitizer stderr must not escape');
+    assert.equal(result.stderr, category ? rejectionLine(category) : '',
+      'only the selected fixed category may reach public stderr');
     return JSON.parse(result.stdout);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 }
 
-function reject(options, message = invalidResponse) {
-  assert.deepEqual(invokeSanitizer(options), {
+function reject(options, message = invalidResponse, category = 'SANITIZER_RESPONSE_INVALID') {
+  assert.deepEqual(invokeSanitizer({ ...options, category }), {
     rejected: true, message, detail: 'EVIDENCE_PUBLICATION_REJECTED',
   });
 }
@@ -91,11 +104,57 @@ for (const zip of [false, true]) {
   });
 }
 
-for (const mode of ['nonzero', 'signal']) {
+for (const [mode, category] of [['nonzero', 'SANITIZER_PROTOCOL_INVALID'], ['signal', 'SANITIZER_TERMINATED'],
+  ['missing', 'SANITIZER_PROCESS_FAILED'], ['throw', 'SANITIZER_PROCESS_FAILED']]) {
   test(`publication rejects sanitizer ${mode} termination without echoing its output`, () => {
-    reject({ mode, stdout: canary }, unsafeEvidence);
+    reject({ mode, stdout: canary, stderr: canary }, unsafeEvidence, category);
   });
 }
+
+for (const category of publicationRejectionCategories.filter(value => ![
+  'SANITIZER_PROCESS_FAILED', 'SANITIZER_TERMINATED', 'SANITIZER_PROTOCOL_INVALID', 'SANITIZER_RESPONSE_INVALID',
+].includes(value))) {
+  test(`publication independently emits the trusted ${category} rejection before the exception`, () => {
+    reject({ mode: 'nonzero', stdout: '', stderr: rejectionLine(category) }, unsafeEvidence, category);
+  });
+}
+
+const malformedProtocols = [
+  ['missing line', ''],
+  ['freeform secret', canary],
+  ['input path', `/synthetic/private/${canary}.zip`],
+  ['parser exception', `SyntaxError: Unexpected token ${canary}`],
+  ['unknown category', rejectionLine('UNKNOWN_CATEGORY')],
+  ['wrapper-owned category', rejectionLine('SANITIZER_PROCESS_FAILED')],
+  ['wrong version', 'EVIDENCE_REJECTION_V2 category=ARCHIVE_INVALID\n'],
+  ['lowercase category', 'EVIDENCE_REJECTION_V1 category=archive_invalid\n'],
+  ['missing LF', 'EVIDENCE_REJECTION_V1 category=ARCHIVE_INVALID'],
+  ['CRLF', 'EVIDENCE_REJECTION_V1 category=ARCHIVE_INVALID\r\n'],
+  ['extra LF', rejectionLine('ARCHIVE_INVALID') + '\n'],
+  ['multiple lines', rejectionLine('ARCHIVE_INVALID') + rejectionLine('CONTENT_INVALID')],
+  ['leading whitespace', ' ' + rejectionLine('ARCHIVE_INVALID')],
+  ['extra field', `EVIDENCE_REJECTION_V1 category=ARCHIVE_INVALID detail=${canary}\n`],
+  ['ANSI decoration', '\u001b[31m' + rejectionLine('ARCHIVE_INVALID')],
+  ['NUL suffix', rejectionLine('ARCHIVE_INVALID') + '\u0000'],
+];
+for (const [label, stderr] of malformedProtocols) {
+  test(`publication closes malformed sanitizer protocol: ${label}`, () => {
+    reject({ mode: 'nonzero', stdout: '', stderr }, unsafeEvidence, 'SANITIZER_PROTOCOL_INVALID');
+  });
+}
+
+test('publication rejects a trusted category with an unexpected exit status or nonempty stdout', () => {
+  for (const options of [{ status: 9, stdout: '' }, { stdout: canary }, { stdout: ' ' }]) {
+    reject({ mode: 'nonzero', stderr: rejectionLine('ARCHIVE_INVALID'), ...options },
+      unsafeEvidence, 'SANITIZER_PROTOCOL_INVALID');
+  }
+});
+
+test('publication rejects any stderr on a successful sanitizer status', () => {
+  for (const stderr of [canary, rejectionLine('ARCHIVE_INVALID')]) {
+    reject({ stderr }, invalidResponse, 'SANITIZER_PROTOCOL_INVALID');
+  }
+});
 
 test('publication rejects malformed sanitizer JSON without parser excerpts', () => {
   reject({ stdout: `{"password":"${canary}` });

@@ -3,8 +3,8 @@
 The eight product-readiness envelope producers prepare a sanitized publication
 copy before computing their final size, SHA-256, base64 and envelope totals.
 Original capture files are never modified. The complete batch must succeed before
-the producer appends anything to `root-install.log`; failure has a constant public
-diagnostic and no raw fallback. Normal source identity and business acceptance
+the producer appends anything to `root-install.log`; failure has a fixed-category
+public diagnostic and no raw fallback. Normal source identity and business acceptance
 checks still run. This codec is not an authentication mechanism.
 
 Each append uses an exclusive publication lock and a private same-directory
@@ -72,7 +72,70 @@ CRC and references are validated. Python failures never print input names, parse
 details or raw content; the Node wrapper validates the returned base64, size,
 digest and exact provenance schema before a producer can append an envelope.
 
+## Publication rejection diagnostics
+
+Before throwing the existing publication exception, the Node wrapper emits one
+independent line to stderr: `EVIDENCE_REJECTION_V1 category=CODE`, terminated by
+exactly one LF. The category describes the rejected guard or processing stage;
+it does not identify an artifact, disclose input values, or establish the cause
+of the browser failure. It survives even when the entire artifact batch is
+rejected. The exception messages and `publicFailureDetail` projection are
+unchanged, and a category never permits partial publication or a raw fallback.
+
+The version-1 allowlist is:
+
+- `REQUEST_INVALID`: request parsing or request-shape guard
+- `INPUT_READ_FAILED`: file access or the existing file-identity guard
+- `ARCHIVE_INVALID`: native ZIP framing or archive validation
+- `CONTENT_INVALID`: supported content, JSON/UTF-8, or trace-schema validation
+- `BINARY_INVALID`: binary validation, including credential-preservation guards
+- `REFERENCE_INVALID`: native resource reference or content-hash validation
+- `DISCOVERY_REJECTED`: credential discovery or its supported-codec guard
+- `TRANSFORM_REJECTED`: a supported transformation cannot safely preserve content
+- `IDENTITY_CHANGE`: an identity, object key, or evidence path would change
+- `ASSERTION_CHANGE`: a change exceeds the existing received-DOM exception
+- `RESOURCE_LIMIT`: an explicit existing resource-budget guard
+- `SANITIZER_INTERNAL`: an unexpected sanitizer exception or unknown category
+- `SANITIZER_PROCESS_FAILED`: spawning, process execution, or capture failed
+- `SANITIZER_TERMINATED`: the sanitizer terminated without a normal exit status
+- `SANITIZER_PROTOCOL_INVALID`: inconsistent status/streams or an unknown or
+  malformed rejection line
+- `SANITIZER_RESPONSE_INVALID`: success output failed the existing JSON, schema,
+  provenance, canonical base64, size, digest, or total validation
+
+Only the first twelve categories may come from Python. They are enum members
+selected by explicit trusted guards or narrowly scoped parser/codec/I/O
+boundaries. Unexpected exceptions remain `SANITIZER_INTERNAL`, even when their
+stage is known. No category is read from evidence metadata, filenames, exception
+messages, parser excerpts, or subprocess error text.
+
+A Python rejection has exit status 1, empty stdout, and exactly one allowlisted
+protocol line on stderr. Node verifies all three before emitting its own line.
+Extra whitespace, CRLF, multiple lines, suffixes, unknown codes, wrapper-owned
+codes, raw error text, and output alongside a rejection are protocol failures.
+Success requires status 0 and empty stderr; its artifact/provenance schema is
+unchanged. A missing executable, thrown spawn error, signal, invalid protocol,
+or invalid success response maps to a Node-owned category. Subprocess output
+is never forwarded. The existing safe process-output projection separately
+allowlists these complete versioned lines.
+
 ## Subprocess diagnostics
+
+An additive Playwright reporter retains the configured list reporter and emits
+`BROWSER_FAILURE_V1 phase=PHASE category=CATEGORY reason=REASON` before artifact
+publication. Quick Start records a closed operation phase and preserves the
+first failing phase through cleanup. Category comes from the runner's terminal
+status; reason is a private exact lookup of known helper diagnostics, including
+the pinned runner/evaluate wrappers. Unknown or ambiguous exceptions stay
+`UNKNOWN`. No exception, stack, path, URL or identifier is copied into the line.
+Other tests without phase annotations report `UNAVAILABLE`.
+
+Both diagnostic protocols are advisory failure information, never acceptance,
+readiness, control values or provenance. The projector checks their original
+ASCII line before normalization. Invalid diagnostic-looking lines are omitted
+without falling through to the existing readiness-marker parser. Browser and
+publication failures retain their original nonzero outcome; diagnostics cannot
+authorize a PASSED receipt or omit an unsafe artifact.
 
 The managed/checked process helpers publish only fixed readiness markers and
 bounded typed numeric test/build summaries. Each stdout/stderr pipe has its own

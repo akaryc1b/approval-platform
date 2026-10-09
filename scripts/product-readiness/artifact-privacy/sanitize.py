@@ -5,6 +5,9 @@ This is a publication transform, never a credential or authentication mechanism.
 No input-controlled text, filenames, parser exceptions or secret digests are logged.
 """
 import base64
+import binascii
+from contextlib import contextmanager
+from enum import Enum
 import hashlib
 import html
 import io
@@ -12,9 +15,11 @@ import json
 import math
 import re
 import stat
+import struct
 import sys
 import urllib.parse
 import zipfile
+import zlib
 
 POLICY = 'approval-mock-auth-publication-v1'
 REDACTED = '[REDACTED-MOCK-AUTH]'
@@ -43,13 +48,43 @@ TEXT_EXT = {'.json', '.html', '.txt', '.css', '.js', '.svg', '.dat'}
 BINARY_EXT = {'.png', '.jpeg', '.jpg', '.webp', '.ttf', '.woff', '.woff2'}
 
 
+class RejectionCategory(Enum):
+    REQUEST_INVALID = 'REQUEST_INVALID'
+    INPUT_READ_FAILED = 'INPUT_READ_FAILED'
+    ARCHIVE_INVALID = 'ARCHIVE_INVALID'
+    CONTENT_INVALID = 'CONTENT_INVALID'
+    BINARY_INVALID = 'BINARY_INVALID'
+    REFERENCE_INVALID = 'REFERENCE_INVALID'
+    DISCOVERY_REJECTED = 'DISCOVERY_REJECTED'
+    TRANSFORM_REJECTED = 'TRANSFORM_REJECTED'
+    IDENTITY_CHANGE = 'IDENTITY_CHANGE'
+    ASSERTION_CHANGE = 'ASSERTION_CHANGE'
+    RESOURCE_LIMIT = 'RESOURCE_LIMIT'
+    SANITIZER_INTERNAL = 'SANITIZER_INTERNAL'
+
+
 class UnsafeEvidence(Exception):
-    pass
+    def __init__(self, category=None):
+        super().__init__()
+        self.category = category
 
 
-def require(condition):
+@contextmanager
+def rejection_stage(category, expected=()):
+    """Only trusted code stages select diagnostics; never inspect error text."""
+    try:
+        yield
+    except UnsafeEvidence as error:
+        if error.category is not None:
+            raise
+        raise UnsafeEvidence(category) from None
+    except expected:
+        raise UnsafeEvidence(category) from None
+
+
+def require(condition, category=None):
     if not condition:
-        raise UnsafeEvidence()
+        raise UnsafeEvidence(category)
 
 
 def normalized(value):
@@ -96,19 +131,19 @@ class Sanitizer:
 
     def budget(self, text):
         self.work_bytes += len(text)
-        require(self.work_bytes <= 1024 * 1024 * 1024)
+        require(self.work_bytes <= 1024 * 1024 * 1024, RejectionCategory.RESOURCE_LIMIT)
 
     def remember(self, value):
         if isinstance(value, (dict, list)):
             for item in (value.values() if isinstance(value, dict) else value):
                 self.remember(item)
         elif isinstance(value, str) and value and value != REDACTED:
-            require(len(value) <= 128 * 1024)
+            require(len(value) <= 128 * 1024, RejectionCategory.RESOURCE_LIMIT)
             if value not in self.secrets:
                 self.secret_bytes += len(value)
-                require(self.secret_bytes <= 512 * 1024)
+                require(self.secret_bytes <= 512 * 1024, RejectionCategory.RESOURCE_LIMIT)
             self.secrets.add(value)
-            require(len(self.secrets) <= 16384)
+            require(len(self.secrets) <= 16384, RejectionCategory.RESOURCE_LIMIT)
             if value.lower().startswith('basic '):
                 decoded = base64.b64decode(value.split(None, 1)[1], validate=True)
                 self.remember(utf8(decoded).split(':', 1)[-1])
@@ -137,7 +172,7 @@ class Sanitizer:
 
     def data_url_content(self, meta, encoded):
         data = base64.b64decode(encoded, validate=True) if meta.endswith(';base64') else urllib.parse.unquote_to_bytes(encoded)
-        require(len(data) <= MAX_FILE)
+        require(len(data) <= MAX_FILE, RejectionCategory.RESOURCE_LIMIT)
         mime = meta.split(';', 1)[0].lower()
         if mime == 'application/json' or mime == 'image/svg+xml' or mime.startswith('text/'):
             return utf8(data)
@@ -214,7 +249,7 @@ class Sanitizer:
                 or str(value.get('autocomplete', '')).lower() in ('current-password', 'new-password'))
 
     def discover_text(self, text, depth=0):
-        require(depth <= MAX_DEPTH)
+        require(depth <= MAX_DEPTH, RejectionCategory.RESOURCE_LIMIT)
         self.budget(text)
         self.named_query(text)
         self.userinfo(text)
@@ -255,7 +290,7 @@ class Sanitizer:
                 self.discover_text(decoded, depth + 1)
 
     def discover(self, value, depth=0, parent=''):
-        require(depth <= MAX_DEPTH)
+        require(depth <= MAX_DEPTH, RejectionCategory.RESOURCE_LIMIT)
         if isinstance(value, dict):
             name = value.get('name')
             if self.password_input(value):
@@ -295,11 +330,11 @@ class Sanitizer:
                                json.dumps(atom, ensure_ascii=True)[1:-1]))
         # Boundaries avoid corrupting IDs/timings containing a short fixture password.
         alternatives = sorted(values, key=lambda value: (-len(value), value))
-        require(sum(len(value) for value in alternatives) <= 4 * 1024 * 1024)
+        require(sum(len(value) for value in alternatives) <= 4 * 1024 * 1024, RejectionCategory.RESOURCE_LIMIT)
         self.pattern = re.compile('|'.join(r'(?<![\w])' + re.escape(v) + r'(?![\w])' if len(v) < 12 else re.escape(v) for v in alternatives)) if alternatives else None
 
     def text(self, text, depth=0):
-        require(depth <= MAX_DEPTH)
+        require(depth <= MAX_DEPTH, RejectionCategory.RESOURCE_LIMIT)
         self.budget(text)
         original = text
         stripped = text.strip()
@@ -346,21 +381,21 @@ class Sanitizer:
         return text
 
     def validate_encoded(self, text, depth):
-        require(depth <= MAX_DEPTH)
+        require(depth <= MAX_DEPTH, RejectionCategory.RESOURCE_LIMIT)
         for decoded in self.decoded_layers(text):
             self.budget(decoded)
             require(not JWT.search(decoded) and not (self.pattern and self.pattern.search(decoded)))
             self.validate_encoded(decoded, depth + 1)
 
     def value(self, value, depth=0, parent=''):
-        require(depth <= MAX_DEPTH)
+        require(depth <= MAX_DEPTH, RejectionCategory.RESOURCE_LIMIT)
         if isinstance(value, dict):
             result = {}
             name = value.get('name')
             named_secret = isinstance(name, str) and (normalized(name) in SENSITIVE or parent == 'cookies' or (parent in ('localStorage', 'sessionStorage') and normalized(name) in QUERY_SENSITIVE) or (parent == 'headers' and normalized(name) in HEADER_SENSITIVE) or (parent in ('queryString', 'params') and normalized(name) in QUERY_SENSITIVE))
             secret_input = value.get('method') in ('fill', 'type', 'pressSequentially', 'insertText') and isinstance(value.get('params'), dict) and re.search(r'password|passwd|\bpwd\b', str(value['params'].get('selector', '')), re.I)
             for key, item in value.items():
-                require(self.text(key, depth + 1) == key)
+                require(self.text(key, depth + 1) == key, RejectionCategory.IDENTITY_CHANGE)
                 if normalized(key) in SENSITIVE or (normalized(parent) in ('headers', 'extrahttpheaders') and normalized(key) in HEADER_SENSITIVE) or (key == 'value' and named_secret) or (self.password_input(value) and key in ('value', '__playwright_value_')):
                     result[key] = REDACTED if item is not None else None
                     self.changes += item != result[key]
@@ -372,7 +407,7 @@ class Sanitizer:
                 else:
                     result[key] = self.value(item, depth + 1, key)
                     if normalized(key) in IDENTITY_FIELDS:
-                        require(result[key] == item)
+                        require(result[key] == item, RejectionCategory.IDENTITY_CHANGE)
             return result
         if isinstance(value, list):
             return [self.value(item, depth + 1, parent) for item in value]
@@ -390,6 +425,7 @@ def inflate(data, limit, raw=False):
     return content
 
 
+@rejection_stage(RejectionCategory.ARCHIVE_INVALID, (struct.error, zlib.error, UnicodeError))
 def archive(data):
     import struct
     import unicodedata
@@ -422,9 +458,9 @@ def archive(data):
         alias = unicodedata.normalize('NFC', name).casefold()
         require(name not in entries and alias not in aliases)
         aliases.add(alias)
-        require(size <= MAX_FILE and packed <= MAX_FILE)
+        require(size <= MAX_FILE and packed <= MAX_FILE, RejectionCategory.RESOURCE_LIMIT)
         total += size
-        require(total <= MAX_EXPANDED)
+        require(total <= MAX_EXPANDED, RejectionCategory.RESOURCE_LIMIT)
         require(offset == local_end and offset + 30 <= directory_offset)
         local = struct.unpack_from('<4s5H3I2H', data, offset)
         require(local[:6] == (b'PK\x03\x04', version, flags, method, time, date))
@@ -479,7 +515,7 @@ def validate_png(data):
             require(compression == filtering == interlace == 0)
             stride = (width * channels[color] * depth + 7) // 8 + 1
             expected = height * stride
-            require(expected <= MAX_EXPANDED)
+            require(expected <= MAX_EXPANDED, RejectionCategory.RESOURCE_LIMIT)
         elif kind == b'IDAT':
             require(chunks[-1] in (b'IDAT', b'IHDR', b'PLTE', b'sRGB', b'sBIT', b'gAMA', b'cHRM', b'pHYs', b'tRNS'))
             require(color != 3 or palette)
@@ -510,7 +546,7 @@ def validate_png(data):
                 require((color == 0 and size == 2) or (color == 2 and size == 6) or
                         (color == 3 and palette and 0 < size <= 256))
         chunks.append(kind)
-        require(len(chunks) <= MAX_ENTRIES)
+        require(len(chunks) <= MAX_ENTRIES, RejectionCategory.RESOURCE_LIMIT)
         position += 12 + size
     require(False)
 
@@ -759,6 +795,7 @@ def validate_font(data, extension):
     return font_tables(tables)
 
 
+@rejection_stage(RejectionCategory.BINARY_INVALID, (struct.error, zlib.error, UnicodeError))
 def validate_binary(data, extension, sanitizer=None):
     """Supported capture formats only; no binary or pixel content is rewritten."""
     require(0 < len(data) <= MAX_FILE)
@@ -791,6 +828,7 @@ def validate_binary(data, extension, sanitizer=None):
             require(sanitizer.pattern.search(text) is None)
 
 
+@rejection_stage(RejectionCategory.CONTENT_INVALID, (json.JSONDecodeError, UnicodeError))
 def trace_objects(entries):
     objects = {}
     for name, data in entries.items():
@@ -833,6 +871,7 @@ def references(value):
             yield from references(item)
 
 
+@rejection_stage(RejectionCategory.REFERENCE_INVALID)
 def validate_references(entries, objects):
     for obj in objects.values():
         for ref in references(obj):
@@ -843,9 +882,10 @@ def validate_references(entries, objects):
             require(hashlib.sha1(data).hexdigest() == match.group(1))
 
 
+@rejection_stage(RejectionCategory.TRANSFORM_REJECTED, (binascii.Error, UnicodeError))
 def transform_trace(entries, objects, sanitizer):
     validate_references(entries, objects)
-    require(all(sanitizer.text(name) == name for name in entries))
+    require(all(sanitizer.text(name) == name for name in entries), RejectionCategory.IDENTITY_CHANGE)
     output = {}
     renamed = {}
     sources = []
@@ -897,17 +937,17 @@ def transform_trace(entries, objects, sanitizer):
                 # Playwright includes the received DOM in successful assertions,
                 # including password inputs. Only that diagnostic may change;
                 # predicates, expected criteria, outcomes and timing stay exact.
-                require(original.get('type') == 'after')
+                require(original.get('type') == 'after', RejectionCategory.ASSERTION_CHANGE)
                 received = original.get('result', {}).get('received', {})
                 changed_received = published.get('result', {}).get('received', {})
-                require(isinstance(received, dict) and isinstance(changed_received, dict))
+                require(isinstance(received, dict) and isinstance(changed_received, dict), RejectionCategory.ASSERTION_CHANGE)
                 old_snapshot = received.get('ariaSnapshot')
                 new_snapshot = changed_received.get('ariaSnapshot')
                 require(isinstance(old_snapshot, str) and isinstance(new_snapshot, str)
-                        and old_snapshot != new_snapshot and REDACTED in new_snapshot)
+                        and old_snapshot != new_snapshot and REDACTED in new_snapshot, RejectionCategory.ASSERTION_CHANGE)
                 restored = parse(dumps(published))
                 restored['result']['received']['ariaSnapshot'] = old_snapshot
-                require(restored == original)
+                require(restored == original, RejectionCategory.ASSERTION_CHANGE)
                 assertion_diagnostics.append({'trace': name, 'recordIndex': index,
                     'callId': original['callId'], 'field': 'result.received.ariaSnapshot',
                     'transformation': 'credential redaction in received DOM diagnostic only',
@@ -932,85 +972,104 @@ def transform_trace(entries, objects, sanitizer):
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = (stat.S_IFREG | 0o600) << 16
             z.writestr(info, content)
-    require(len(result.getvalue()) <= MAX_FILE)
+    require(len(result.getvalue()) <= MAX_FILE, RejectionCategory.RESOURCE_LIMIT)
     return result.getvalue(), manifest
 
 
 def prepare(request):
-    paths = request['paths']
-    require(isinstance(paths, list) and len(paths) <= 2048)
+    with rejection_stage(RejectionCategory.REQUEST_INVALID, (KeyError, TypeError)):
+        paths = request['paths']
+        require(isinstance(paths, list))
+        require(len(paths) <= 2048, RejectionCategory.RESOURCE_LIMIT)
     sanitizer = Sanitizer()
     loaded = []
     total = 0
     expanded_total = 0
     entry_total = 0
     for path in paths:
-        require(isinstance(path, str))
-        import os
-        require(os.path.abspath(path) == os.path.realpath(path))
-        before = os.lstat(path)
-        require(stat.S_ISREG(before.st_mode) and before.st_size <= MAX_FILE)
-        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-        with os.fdopen(descriptor, 'rb') as stream:
-            opened = os.fstat(stream.fileno())
+        require(isinstance(path, str), RejectionCategory.REQUEST_INVALID)
+        with rejection_stage(RejectionCategory.INPUT_READ_FAILED, (OSError, ValueError)):
+            import os
+            require(os.path.abspath(path) == os.path.realpath(path))
+            before = os.lstat(path)
+            require(stat.S_ISREG(before.st_mode))
+            require(before.st_size <= MAX_FILE, RejectionCategory.RESOURCE_LIMIT)
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(descriptor, 'rb') as stream:
+                opened = os.fstat(stream.fileno())
+                require((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+                        == (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns))
+                data = stream.read(MAX_FILE + 1)
+                after = os.fstat(stream.fileno())
+                require((opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns)
+                        == (after.st_size, after.st_mtime_ns, after.st_ctime_ns))
+            current = os.lstat(path)
             require((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
-                    == (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns))
-            data = stream.read(MAX_FILE + 1)
-            after = os.fstat(stream.fileno())
-            require((opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns)
-                    == (after.st_size, after.st_mtime_ns, after.st_ctime_ns))
-        current = os.lstat(path)
-        require((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
-                == (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns, current.st_ctime_ns))
+                    == (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns, current.st_ctime_ns))
         total += len(data)
-        require(len(data) <= MAX_FILE and total <= MAX_TOTAL)
+        require(len(data) <= MAX_FILE and total <= MAX_TOTAL, RejectionCategory.RESOURCE_LIMIT)
         extension = '.' + path.rsplit('.', 1)[-1].lower()
         if extension == '.zip':
             entries = archive(data)
             expanded_total += sum(len(content) for content in entries.values())
             entry_total += len(entries)
-            require(expanded_total <= MAX_EXPANDED and entry_total <= MAX_ENTRIES)
+            require(expanded_total <= MAX_EXPANDED and entry_total <= MAX_ENTRIES, RejectionCategory.RESOURCE_LIMIT)
             objects = trace_objects(entries)
             validate_references(entries, objects)
-            for name in entries:
-                sanitizer.discover_text(name)
-            for value in objects.values():
-                sanitizer.discover(value)
+            with rejection_stage(RejectionCategory.DISCOVERY_REJECTED, (binascii.Error, UnicodeError)):
+                for name in entries:
+                    sanitizer.discover_text(name)
+                for value in objects.values():
+                    sanitizer.discover(value)
             loaded.append((extension, data, (entries, objects)))
         elif extension in ('.json', '.md'):
-            obj = parse(utf8(data)) if extension == '.json' else utf8(data)
-            sanitizer.discover(obj)
+            with rejection_stage(RejectionCategory.CONTENT_INVALID, (json.JSONDecodeError, UnicodeError)):
+                obj = parse(utf8(data)) if extension == '.json' else utf8(data)
+            with rejection_stage(RejectionCategory.DISCOVERY_REJECTED, (binascii.Error, UnicodeError)):
+                sanitizer.discover(obj)
             loaded.append((extension, data, obj))
         else:
-            require(extension == '.png')
+            require(extension == '.png', RejectionCategory.CONTENT_INVALID)
             validate_binary(data, extension)
             loaded.append((extension, data, None))
-    sanitizer.freeze()
-    require(all(sanitizer.text(path) == path for path in paths))
+    with rejection_stage(RejectionCategory.DISCOVERY_REJECTED, (UnicodeError,)):
+        sanitizer.freeze()
+    with rejection_stage(RejectionCategory.TRANSFORM_REJECTED, (binascii.Error, UnicodeError)):
+        require(all(sanitizer.text(path) == path for path in paths), RejectionCategory.IDENTITY_CHANGE)
     files = []
     for extension, data, obj in loaded:
         manifest = {'policy': POLICY}
         if extension == '.zip':
             content, manifest = transform_trace(*obj, sanitizer)
         elif extension in ('.json', '.md'):
-            updated = sanitizer.value(obj)
-            content = ((dumps(updated) + '\n').encode() if extension == '.json' else updated.encode()) if updated != obj else data
+            with rejection_stage(RejectionCategory.TRANSFORM_REJECTED, (binascii.Error, UnicodeError)):
+                updated = sanitizer.value(obj)
+                content = ((dumps(updated) + '\n').encode() if extension == '.json' else updated.encode()) if updated != obj else data
         else:
             validate_binary(data, extension, sanitizer)
             content = data
-        require(len(content) <= MAX_FILE)
+        require(len(content) <= MAX_FILE, RejectionCategory.RESOURCE_LIMIT)
         files.append({'size': len(content), 'sha256': hashlib.sha256(content).hexdigest(),
                       'base64': base64.b64encode(content).decode(), 'sanitization': manifest})
-    require(sum(file['size'] for file in files) <= MAX_TOTAL)
+    require(sum(file['size'] for file in files) <= MAX_TOTAL, RejectionCategory.RESOURCE_LIMIT)
     return {'policy': POLICY, 'files': files}
 
 
-if __name__ == '__main__':
+def main():
     try:
-        request = parse(sys.stdin.read(1024 * 1024 + 1))
+        with rejection_stage(RejectionCategory.REQUEST_INVALID, (json.JSONDecodeError, UnicodeError)):
+            request = parse(sys.stdin.read(1024 * 1024 + 1))
         result = prepare(request)
         sys.stdout.write(dumps(result))
-    except Exception:
+    except Exception as error:
         # No parser detail, filename, input value, traceback or raw fallback.
-        sys.stderr.write('EVIDENCE_PUBLICATION_REJECTED: unsupported or unsafe evidence\n')
-        sys.exit(1)
+        category = error.category if isinstance(error, UnsafeEvidence) else None
+        if not isinstance(category, RejectionCategory):
+            category = RejectionCategory.SANITIZER_INTERNAL
+        sys.stderr.write('EVIDENCE_REJECTION_V1 category=' + category.value + '\n')
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

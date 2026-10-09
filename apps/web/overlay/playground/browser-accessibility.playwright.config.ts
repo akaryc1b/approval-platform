@@ -42,7 +42,7 @@ export default defineConfig({
       use: { browserName: 'webkit' },
     },
   ],
-  reporter: [['list']],
+  reporter: [['list'], ['./__tests__/e2e/product-readiness-capture-diagnostics.ts']],
   retries: 0,
   testDir: './__tests__/e2e',
   testMatch: 'product-readiness-browser-accessibility.spec.ts',

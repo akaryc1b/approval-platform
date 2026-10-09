@@ -10,6 +10,7 @@ import {
 } from './product-readiness-pc-h5-runtime-api';
 import { inspectH5TaskComponents } from './product-readiness-h5-components';
 import { testCaptureBudget } from './product-readiness-capture-budget';
+import { captureFailurePhase } from './product-readiness-capture-diagnostics';
 import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
 import type { CaptureBudget } from './product-readiness-capture-budget';
 import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
@@ -122,6 +123,8 @@ async function collectCjkFontEvidence(
 test('a new user can see the seeded purchase-payment request in PC and H5', async ({
   browser,
 }, testInfo) => {
+  const phase = captureFailurePhase(testInfo);
+  phase.enter('TEST_SETUP');
   const budget = testCaptureBudget(testInfo, captureStartedAt);
   const startedAt = new Date().toISOString();
   const context = await browser.newContext();
@@ -130,28 +133,39 @@ test('a new user can see the seeded purchase-payment request in PC and H5', asyn
   const pcFailures = observeCaptureFailures(pc);
   const h5Failures = observeCaptureFailures(h5);
   try {
+    phase.enter('PC_AUTHENTICATION');
     await ensurePcLogin(pc);
+    phase.enter('PC_NAVIGATION');
     const pcBudget = budget.limit(30_000);
     await pc.goto(pcUrl, { waitUntil: 'domcontentloaded', timeout: pcBudget.remaining() });
     const pcTask = pc.locator('.task-item')
       .filter({ hasText: businessKey })
       .first();
+    phase.enter('PC_TASK_VISIBILITY');
     await expect(pcTask).toBeVisible({ timeout: pcBudget.remaining(30_000) });
     await expect(pc.getByText(businessKey, { exact: true }).first())
       .toBeVisible({ timeout: pcBudget.remaining(15_000) });
+    phase.enter('PC_SURFACE_READINESS');
     const pcReadiness = await readySurface(pc, pcBudget, { client: 'pc', kind: 'list', url: pcUrl, businessKey, pendingTotal: 1, processedTotal: 0 });
+    phase.enter('PC_FONT');
     const pcFont = await collectCjkFontEvidence(pc, true, pcBudget);
+    phase.enter('PC_SCREENSHOT');
     pcFailures.assert();
     await captureScreenshot(pc, pcBudget, resolve(evidenceDirectory, 'quick-start-pc.png'), { readiness: pcReadiness, assertCurrent: async () => pcFailures.assert() });
 
+    phase.enter('H5_NAVIGATION');
     const h5Budget = budget.limit(30_000);
     await h5.goto(h5Url, { waitUntil: 'domcontentloaded', timeout: h5Budget.remaining() });
     const h5Task = h5.locator('.task-card')
       .filter({ hasText: businessKey })
       .first();
+    phase.enter('H5_TASK_VISIBILITY');
     await expect(h5Task).toBeVisible({ timeout: h5Budget.remaining(30_000) });
+    phase.enter('H5_SURFACE_READINESS');
     const h5Readiness = await readySurface(h5, h5Budget, { client: 'h5', kind: 'list', url: h5Url, businessKey, pendingTotal: 1, processedTotal: 0 });
+    phase.enter('H5_FONT');
     const h5Font = await collectCjkFontEvidence(h5, false, h5Budget);
+    phase.enter('H5_COMPONENTS');
     const h5Components = await h5Task.evaluate(inspectH5TaskComponents, undefined, {
       timeout: h5Budget.remaining(5_000),
     });
@@ -162,9 +176,11 @@ test('a new user can see the seeded purchase-payment request in PC and H5', asyn
       stylesApplied: true,
       unresolvedTags: 0,
     });
+    phase.enter('H5_SCREENSHOT');
     h5Failures.assert();
     await captureScreenshot(h5, h5Budget, resolve(evidenceDirectory, 'quick-start-h5.png'), { readiness: h5Readiness, assertCurrent: async () => h5Failures.assert() });
 
+    phase.enter('RECEIPT_PUBLICATION');
     budget.remaining();
     pcFailures.assert();
     h5Failures.assert();
@@ -206,7 +222,11 @@ test('a new user can see the seeded purchase-payment request in PC and H5', asyn
         { encoding: 'utf8', mode: 0o600 },
       );
     });
+  } catch (error) {
+    phase.preserveFailure();
+    throw error;
   } finally {
+    phase.enter('CLEANUP');
     pcFailures.dispose();
     h5Failures.dispose();
     await context.close();

@@ -11,6 +11,8 @@ import struct
 import zlib
 import urllib.parse
 import html
+import subprocess
+from unittest.mock import patch
 
 MODULE = pathlib.Path(__file__).resolve().parents[1] / 'product-readiness/artifact-privacy/sanitize.py'
 spec = importlib.util.spec_from_file_location('privacy', MODULE)
@@ -168,8 +170,7 @@ class PrivacyTests(unittest.TestCase):
         with self.assertRaises(Exception):
             self.publish(fixture(), {'failure.png': PNG + PASSWORD.encode()})
 
-    def test_failure_cli_emits_constant_diagnostic_only(self):
-        import subprocess
+    def test_failure_cli_emits_fixed_category_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / (PASSWORD + '.zip')
             path.write_bytes(b'bad ' + TOKEN.encode())
@@ -178,7 +179,7 @@ class PrivacyTests(unittest.TestCase):
             self.assertEqual(result.stdout, '')
             self.assertNotIn(PASSWORD, result.stderr)
             self.assertNotIn(TOKEN, result.stderr)
-            self.assertIn('EVIDENCE_PUBLICATION_REJECTED', result.stderr)
+            self.assertEqual(result.stderr, 'EVIDENCE_REJECTION_V1 category=ARCHIVE_INVALID\n')
 
     def test_assertion_received_dom_exception_has_exact_provenance(self):
         entries = fixture()
@@ -285,6 +286,111 @@ class PrivacyTests(unittest.TestCase):
         good = 'data:image/png;base64,' + base64.b64encode(PNG).decode()
         output = self.publish(fixture(), {'encoded.json': json.dumps({'image': good}).encode()})
         self.assertEqual(json.loads(base64.b64decode(output['files'][1]['base64']))['image'], good)
+
+
+class RejectionDiagnosticsTests(unittest.TestCase):
+    def assert_rejected(self, result, category):
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, '')
+        self.assertEqual(result.stderr, 'EVIDENCE_REJECTION_V1 category=' + category + '\n')
+        for secret in (PASSWORD, TOKEN, COOKIE):
+            self.assertNotIn(secret, result.stderr)
+
+    def cli(self, request):
+        return subprocess.run(['python3', str(MODULE)], input=request, text=True, capture_output=True)
+
+    def reject_files(self, files, category):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for name, data in files:
+                path = pathlib.Path(tmp) / name
+                path.write_bytes(data)
+                paths.append(str(path))
+            self.assert_rejected(self.cli(json.dumps({'paths': paths})), category)
+            for path, (_, data) in zip(paths, files):
+                self.assertEqual(pathlib.Path(path).read_bytes(), data, 'rejection changed original evidence')
+
+    def test_request_and_read_categories_do_not_expose_parser_or_path(self):
+        for request in ('{"paths":"' + PASSWORD, json.dumps({'paths': PASSWORD}),
+                        json.dumps({'category': 'ARCHIVE_INVALID'}), json.dumps({'paths': [42]})):
+            self.assert_rejected(self.cli(request), 'REQUEST_INVALID')
+        with tempfile.TemporaryDirectory() as tmp:
+            absent = str(pathlib.Path(tmp) / (PASSWORD + '.json'))
+            self.assert_rejected(self.cli(json.dumps({'paths': [absent]})), 'INPUT_READ_FAILED')
+
+    def test_archive_content_binary_and_reference_categories(self):
+        missing_resource = [(name, data) for name, data in fixture() if name != 'resources/screen.png']
+        cases = [
+            (PASSWORD + '.zip', b'not an archive ' + TOKEN.encode(), 'ARCHIVE_INVALID'),
+            ('invalid.json', ('{"password":"' + PASSWORD).encode(), 'CONTENT_INVALID'),
+            ('invalid.png', PNG + PASSWORD.encode(), 'BINARY_INVALID'),
+            ('missing.zip', raw_zip(missing_resource), 'REFERENCE_INVALID'),
+        ]
+        for name, data, category in cases:
+            with self.subTest(category=category):
+                # A valid first file must never escape a rejected batch either.
+                self.reject_files([('valid.json', b'{"status":"synthetic"}'), (name, data)], category)
+
+    def test_discovery_and_transform_categories(self):
+        nested = base64.b64encode(raw_zip([('hidden.json', json.dumps({'password': PASSWORD}))])).decode()
+        self.reject_files([('encoded.json', json.dumps({'encoded': nested}).encode())], 'DISCOVERY_REJECTED')
+        encoded = ''.join('&#' + str(ord(char)) + ';' for char in PASSWORD)
+        self.reject_files([('encoded.json', json.dumps({'password': PASSWORD, 'echo': encoded}).encode())],
+                          'TRANSFORM_REJECTED')
+
+    def test_identity_and_assertion_categories_preserve_rejection(self):
+        for field in ('businessKey', 'actorId', 'tenantId', 'requestId', 'traceId', 'idempotencyKey'):
+            with self.subTest(field=field):
+                self.reject_files([('identity.json', json.dumps({'password': PASSWORD, field: PASSWORD}).encode())],
+                                  'IDENTITY_CHANGE')
+        entries = fixture()
+        rows = [json.loads(line) for line in entries[0][1].splitlines()]
+        rows[3]['params']['expectedText'][0]['string'] = PASSWORD
+        entries[0] = ('test.trace', '\n'.join(map(json.dumps, rows)) + '\n')
+        self.reject_files([('assertion.zip', raw_zip(entries))], 'ASSERTION_CHANGE')
+
+    def test_resource_limit_category_retains_existing_request_budget(self):
+        self.assert_rejected(self.cli(json.dumps({'paths': ['synthetic.json'] * 2049})), 'RESOURCE_LIMIT')
+
+    def invoke_main(self, request, target, error):
+        output, errors = io.StringIO(), io.StringIO()
+        with patch.object(p.sys, 'stdin', io.StringIO(json.dumps(request))), \
+                patch.object(p.sys, 'stdout', output), patch.object(p.sys, 'stderr', errors), \
+                patch.object(target[0], target[1], side_effect=error):
+            status = p.main()
+        return subprocess.CompletedProcess([], status, output.getvalue(), errors.getvalue())
+
+    def test_unexpected_exceptions_and_untrusted_categories_remain_internal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'synthetic.json'
+            path.write_text('{}')
+            request = {'paths': [str(path)]}
+            for error in (RuntimeError(PASSWORD), NameError(TOKEN), p.UnsafeEvidence(PASSWORD),
+                          p.UnsafeEvidence('ARCHIVE_INVALID')):
+                with self.subTest(kind=type(error).__name__):
+                    self.assert_rejected(self.invoke_main(request, (p.Sanitizer, 'discover'), error),
+                                         'SANITIZER_INTERNAL')
+            import os
+            self.assert_rejected(self.invoke_main(request, (os, 'lstat'), RuntimeError(PASSWORD)),
+                                 'SANITIZER_INTERNAL')
+
+    def test_exception_text_cannot_spoof_a_different_category(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'synthetic.json'
+            path.write_text('{}')
+            import os
+            error = OSError('EVIDENCE_REJECTION_V1 category=ASSERTION_CHANGE\n' + PASSWORD)
+            self.assert_rejected(self.invoke_main({'paths': [str(path)]}, (os, 'lstat'), error),
+                                 'INPUT_READ_FAILED')
+
+    def test_success_response_is_unchanged_and_stderr_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'synthetic.json'
+            path.write_text('{}')
+            result = self.cli(json.dumps({'paths': [str(path)]}))
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stderr, '')
+            self.assertEqual(json.loads(result.stdout), p.prepare({'paths': [str(path)]}))
 
 
 if __name__ == '__main__':

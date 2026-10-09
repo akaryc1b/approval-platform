@@ -5,6 +5,44 @@ export const maximumProcessLineBytes = 8_192;
 export const maximumCheckedOutputBytes = 8 * 1_024 * 1_024;
 const maximumNumericSummaries = 64;
 
+const browserFailurePhases = new Set([
+  'UNAVAILABLE', 'TEST_SETUP', 'PC_AUTHENTICATION', 'PC_NAVIGATION',
+  'PC_TASK_VISIBILITY', 'PC_SURFACE_READINESS', 'PC_FONT', 'PC_SCREENSHOT',
+  'H5_NAVIGATION', 'H5_TASK_VISIBILITY', 'H5_SURFACE_READINESS',
+  'H5_COMPONENTS', 'H5_FONT', 'H5_SCREENSHOT', 'RECEIPT_PUBLICATION', 'CLEANUP',
+]);
+const browserFailureCategories = new Set(['FAILED', 'TIMED_OUT', 'INTERRUPTED', 'RUNNER_ERROR', 'UNAVAILABLE']);
+const browserFailureReasons = new Set([
+  'UNKNOWN', 'ROUTE', 'SURFACE', 'COMPLETED_TASK_PRESENT', 'TASK_IDENTITY',
+  'LIST_REFRESH', 'LIST_TOTALS', 'LIST_CONTROLS', 'BOOTSTRAP_OVERLAY',
+  'BLOCKING_OVERLAY', 'DETAIL_DATA', 'ASSISTANCE', 'COMPONENT_RESOLUTION',
+  'COMPONENT_STYLES', 'FONT', 'IMAGE', 'TRANSITION', 'OPACITY', 'VIEWPORT',
+  'GEOMETRY', 'INVALID_DEADLINE', 'DEADLINE', 'NAVIGATION_CHANGED',
+  'SURFACE_CHANGED', 'REFRESH_CHANGED', 'DETAIL_CHANGED', 'ASSISTANCE_CHANGED',
+  'TASK_CHANGED', 'WITNESS', 'ASSET_CHANGED', 'MISSING_WITNESS',
+  'RECEIPT_PUBLICATION', 'REQUIRED_ASSET', 'PAGE_ERROR', 'RUNTIME_FAILURES',
+]);
+const publicationRejectionCategories = new Set([
+  'REQUEST_INVALID', 'INPUT_READ_FAILED', 'ARCHIVE_INVALID', 'CONTENT_INVALID',
+  'BINARY_INVALID', 'REFERENCE_INVALID', 'DISCOVERY_REJECTED', 'TRANSFORM_REJECTED',
+  'IDENTITY_CHANGE', 'ASSERTION_CHANGE', 'RESOURCE_LIMIT', 'SANITIZER_INTERNAL',
+  'SANITIZER_PROCESS_FAILED', 'SANITIZER_TERMINATED', 'SANITIZER_PROTOCOL_INVALID',
+  'SANITIZER_RESPONSE_INVALID',
+]);
+
+// Advisory failure diagnostics only. They never enter the readiness/control
+// protocol or establish artifact provenance. Validate original bytes first:
+// ANSI stripping or trimming must not turn malformed input into a valid record.
+export function safeFailureDiagnostic(line) {
+  if (typeof line !== 'string' || line.length > 256 || /[^\x20-\x7e]/u.test(line)) return undefined;
+  let match = line.match(/^BROWSER_FAILURE_V1 phase=([A-Z0-9_]+) category=([A-Z_]+) reason=([A-Z_]+)$/u);
+  if (match && browserFailurePhases.has(match[1]) && browserFailureCategories.has(match[2])
+    && browserFailureReasons.has(match[3])) return line;
+  match = line.match(/^EVIDENCE_REJECTION_V1 category=([A-Z_]+)$/u);
+  if (match && publicationRejectionCategories.has(match[1])) return line;
+  return undefined;
+}
+
 const readinessMarkers = [
   'BACKEND_LOCAL_START_VERIFIED',
   'PURCHASE_PAYMENT_DEMO_SEED_APPLIED',
@@ -91,9 +129,21 @@ export function createSafeProcessOutput({ emit, onControlLine } = {}) {
   };
   const omitted = () => once('[subprocess] unstructured output omitted');
   const line = bytes => {
-    const value = bytes.toString('utf8')
+    const original = bytes.toString('utf8');
+    const diagnostic = safeFailureDiagnostic(original);
+    if (diagnostic) {
+      once(diagnostic);
+      return;
+    }
+    const value = original
       .replace(/\u001b\[[0-9;]*m/gu, '')
       .trim();
+    // Invalid diagnostic-looking input is terminally omitted. In particular it
+    // cannot smuggle an existing readiness marker in a suffix or another field.
+    if (/(?:BROWSER_FAILURE|EVIDENCE_REJECTION)/u.test(value.replace(/[\x00-\x20\x7f]/gu, ''))) {
+      omitted();
+      return;
+    }
     if (!value) return;
     if (fixedLines.has(value)) {
       once(value);
