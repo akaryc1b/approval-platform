@@ -61,9 +61,30 @@ function safeEnv(extra={}){const e={...process.env,...extra};for(const k of ['GH
 function collectFiles(dir,predicate,out=[]){if(!existsSync(dir))return out;for(const n of readdirSync(dir).sort()){const f=path.join(dir,n),s=statSync(f);if(s.isDirectory())collectFiles(f,predicate,out);else if(predicate(f))out.push(f);}return out;}
 function findingId(parts){return H(parts.join('\0'));}
 export function e2GraphDigest(e2){return H(C(acceptedE2GraphProjection(e2)));}
-function normalizeOsv(raw,lookup){
+export function normalizeOsv(raw,lookup){
   const out=[];
-  for(const result of raw.results||[])for(const entry of result.packages||[]){const p=entry.package||{};const key=`${p.ecosystem}\0${p.name}\0${p.version}`,m=lookup.get(key)||{componentRefs:[],scopes:[]};for(const v of entry.vulnerabilities||[]){const aliases=[...new Set(v.aliases||[])].sort();const severity=(v.severity||[]).map(x=>({type:String(x.type||''),score:String(x.score||'')}));const fixed=[...new Set((v.affected||[]).flatMap(a=>(a.ranges||[]).flatMap(r=>(r.events||[]).map(e=>e.fixed).filter(Boolean))))].sort();out.push({findingId:findingId(['OSV',v.id||'',p.ecosystem||'',p.name||'',p.version||'']),sourceClass:'E4_OSV_SCANNER',upstreamFindingId:String(v.id||''),aliases,package:{ecosystem:p.ecosystem,name:p.name,version:p.version},componentRefs:[...m.componentRefs].sort(),scopes:[...m.scopes].sort(),upstreamSeverity:severity,fixedVersions:fixed});}}
+  for(const result of raw.results||[])for(const entry of result.packages||[]){
+    const p=entry.package||{};
+    const key=`${p.ecosystem}\0${p.name}\0${p.version}`,m=lookup.get(key)||{componentRefs:[],scopes:[]};
+    for(const v of entry.vulnerabilities||[]){
+      const aliases=[...new Set(v.aliases||[])].sort();
+      const severity=(v.severity||[]).map(x=>({type:String(x.type||''),score:String(x.score||'')}));
+      // An advisory may cover multiple packages, ecosystems, or entries for the
+      // same package. Keep only this coordinate, then union its fixed events.
+      // Missing affected metadata yields no fix; buildOsvCoverage still rejects
+      // present affected metadata that does not include the queried coordinate.
+      // Preserve the original complete traversal, deduplication and sort before
+      // scoping. Filtering earlier could hide malformed foreign ranges/events
+      // or fixed values that the original normalizer rejected during sorting.
+      const affected=(v.affected||[]).map(a=>({package:a.package,
+        fixedEvents:(a.ranges||[]).flatMap(r=>(r.events||[]).map(e=>e.fixed).filter(Boolean))}));
+      const allFixed=[...new Set(affected.flatMap(a=>a.fixedEvents))].sort();
+      const matchingFixed=new Set(affected.filter(a=>a.package?.ecosystem===p.ecosystem&&a.package?.name===p.name)
+        .flatMap(a=>a.fixedEvents));
+      const fixed=allFixed.filter(version=>matchingFixed.has(version));
+      out.push({findingId:findingId(['OSV',v.id||'',p.ecosystem||'',p.name||'',p.version||'']),sourceClass:'E4_OSV_SCANNER',upstreamFindingId:String(v.id||''),aliases,package:{ecosystem:p.ecosystem,name:p.name,version:p.version},componentRefs:[...m.componentRefs].sort(),scopes:[...m.scopes].sort(),upstreamSeverity:severity,fixedVersions:fixed});
+    }
+  }
   return out.sort((a,b)=>a.findingId.localeCompare(b.findingId));
 }
 function normalizeGitleaks(raw){return (raw||[]).map(x=>({findingId:findingId(['GITLEAKS',x.Fingerprint||'',x.RuleID||'',x.File||'',String(x.StartLine||'')]),sourceClass:'E4_GITLEAKS',ruleId:String(x.RuleID||''),description:String(x.Description||''),path:String(x.File||''),startLine:x.StartLine??null,endLine:x.EndLine??null,commit:String(x.Commit||''),fingerprint:String(x.Fingerprint||'')})).sort((a,b)=>a.findingId.localeCompare(b.findingId));}

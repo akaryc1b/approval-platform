@@ -45,6 +45,14 @@ export function validateGrafanaReceipt(receipt, expectedInputs) {
   }
 }
 
+export function parseGrafanaBrowserResult(output, inputs) {
+  const lines = output.split(/\r?\n/u).filter(line => line.startsWith('OPS_GRAFANA_BROWSER_RESULT='));
+  assert.equal(lines.length, 1, 'GRAFANA_BROWSER_ONE_RECEIPT_REQUIRED');
+  const receipt = JSON.parse(lines[0].slice('OPS_GRAFANA_BROWSER_RESULT='.length));
+  validateGrafanaReceipt(receipt, inputs);
+  return receipt;
+}
+
 /** Reuse already verified Prometheus; one digest-pinned Grafana download, no new workflow or npm install. */
 export function verifyGrafanaBrowser({ directory, repositoryRoot, prometheus, runCommand }) {
   assert.ok(isAbsolute(prometheus));
@@ -69,9 +77,6 @@ export function verifyGrafanaBrowser({ directory, repositoryRoot, prometheus, ru
   assert.equal(fontPreparation.status, 'OPS_GRAFANA_CJK_READY');
   const output = runCommand(process.execPath, [resolve(repositoryRoot, 'scripts/ops/grafana-browser-runtime.mjs'),
     directory, repositoryRoot, home, prometheus], directory, 120000);
-  const lines = output.split(/\r?\n/u).filter(line => line.startsWith('OPS_GRAFANA_BROWSER_RESULT='));
-  assert.equal(lines.length, 1, 'GRAFANA_BROWSER_ONE_RECEIPT_REQUIRED');
-  const receipt = JSON.parse(lines[0].slice('OPS_GRAFANA_BROWSER_RESULT='.length));
-  validateGrafanaReceipt(receipt, inputs);
+  const receipt = parseGrafanaBrowserResult(output, inputs);
   return { ...receipt, fontPreparation, grafanaArchiveSha256: grafanaPin.sha256 };
 }

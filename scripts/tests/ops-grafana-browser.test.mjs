@@ -137,7 +137,7 @@ test('browser startup failures are attributed to startup rather than the last da
   const source = readFileSync(resolve(root, 'scripts/ops/grafana-browser-runtime.mjs'), 'utf8');
   // Source-boundary coverage only; native browser acceptance remains required separately.
   assert.equal(source.split("phase = 'browser-start';").length, 2);
-  assert.match(source, /phase = 'browser-start';\s+browser = new BrowserPipe\(resolve\(workspace, 'chrome'\), env\); const browserVersion = await browser\.start\(\);\s+phase = 'browser-login';/u);
+  assert.match(source, /phase = 'browser-start';\s+startupCapture = createStartupEvidenceCapture\(owned\);\s+browser = new BrowserPipe\(resolve\(workspace, 'chrome'\), env, \{ diagnostics: startupCapture\.diagnostics \}\); const browserVersion = await browser\.start\(\);\s+phase = 'browser-login';/u);
   assert.match(source, /'GRAFANA_BROWSER_FAILED:' \+ phase/u);
 });
 

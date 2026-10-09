@@ -156,8 +156,9 @@ CI #1818 recorded 961 major faults, 132,087,808 process read bytes and about
 6.674 seconds of added cgroup full-I/O pressure during the failed handshake.
 That is evidence of correlated native I/O delay, not a faulting filename or a
 proven browser remedy. The optional `ioWindow` adds a narrow comparison at the
-same launch and first-failure sample points; successful runs have no paired
-window. No launch, probe, retry, deadline, cleanup or acceptance condition changes.
+same launch and first-failure sample points. The integrated rehearsal now also
+retains a separate handshake window on success, as described below. No launch,
+probe, retry, deadline, cleanup or acceptance condition changes.
 
 The existing validated cgroup membership supplies a private location under the
 conventional `/sys/fs/cgroup` mount. Each phase reads its `io.stat` and the fixed
@@ -226,3 +227,81 @@ Sources for these conservative semantics (not an assertion of #1818's kernel):
 - [Linux v6.17 block-cgroup accounting](https://github.com/torvalds/linux/blob/v6.17/block/blk-cgroup.c)
 - [Linux I/O-statistics fields and limitations](https://docs.kernel.org/admin-guide/iostats.html)
 - [Linux block-statistics units](https://docs.kernel.org/block/stat.html)
+
+## First integrated rehearsal: retained success and service context
+
+Natural CI #1832 failed the unchanged 10-second `Browser.getVersion` command.
+Its first protocol-data marker at 10,865.694 ms was recorded after failure; those
+bytes were discarded without parsing. This is not evidence of a completed late
+handshake. Later component successes do not complete that failed rehearsal.
+Previously, successful full-rehearsal results dropped their startup stderr
+records, preventing a like-for-like comparison with a failed first launch.
+
+Only the integrated runtime enables the new optional evidence capture. Immediately
+before its one browser construction, it samples the two already-owned Prometheus
+and Grafana leader handles. It reads stat/io/stat for each, and host/group dirty
+and writeback gauges. A single bounded current-runtime cgroup membership read
+supplies the private conventional mount location. The browser's existing resource
+reads must report that same location at launch and at the endpoint; there is no
+additional post-spawn/pre-command-timer I/O or alternate mount discovery.
+
+The companion closes on the first handshake or failure. A successful handshake
+is marked before sampling, after its command timer was cleared. Later failure
+does not resample or relabel the completed companion. Service identity uses the
+owned handle's live state, matching private PID and exact field-22 start-time
+tokens within each stat/io/stat bracket and across endpoints. Unknown layouts,
+missing/exited/duplicate handles, changed identities, counter decreases and
+unsafe sums produce explicit coverage and null totals. Both leaders must pair
+before aggregate read/write bytes are reported. No descendants are discovered.
+
+The separate `GRAFANA_BROWSER_STARTUP_IO=` record is at most 512 JSON bytes:
+
+- `end`, `spanMs`, `leadMs` and `sampleMs` identify the first endpoint, its span
+  from baseline start, the baseline-start lead to browser origin, and both sampler
+  durations. They do not pretend that the prelaunch baseline equals browser launch.
+- `services` contains expected/paired counts, coverage and aggregate accounted
+  read/write-byte deltas. It does not distinguish the two services individually.
+- Host and cgroup `dirtyBytes`/`writebackBytes` are `[baseline, endpoint]` gauges.
+  Decreases are valid. They are never subtracted or described as completed traffic.
+- Missing, denied, malformed, duplicate, oversize or truncated input stays null.
+  Capture/serialization/size failures produce a small fixed unavailable record.
+
+The companion adds at most 17 logical reads / 40,977 bytes including overflow
+sentinels across both endpoints. Each service bracket has 2,048/1,024/2,048-byte
+caps; gauge and baseline membership reads have 4,096-byte caps. The existing
+bounded reader, fixed paths, parser row bounds and private identity guards apply.
+Virtual-file latency is not hard wall-clock bounded; durations are reported.
+
+After the first successful integrated handshake, a separate resource snapshot
+retains the existing owned CPU/RSS/scheduler fields, full PSI, and a non-consuming
+group/device I/O comparison against the launch baseline. This adds at most 18
+logical reads / 48,658 bytes and records its duration. `nativeSampling:
+not-requested` is explicit: it does not add native leader I/O reads, thread
+enumeration, statfs or readlink. Any later failure still uses the original launch
+baseline and retains every original failure/native/PSI field and assertion.
+
+After cleanup, a guarded typed callback adds `startupEvidence` to the existing
+successful result: the canonical finalized diagnostic, handshake endpoint and
+companion. It never parses or forwards arbitrary stderr. The callback receives
+detached numeric/enum-allowlisted data. The new handshake endpoint is capped at
+2,048 bytes and the bundle at 6,000; unavailable additions do not evict existing
+diagnostics or change acceptance. The original diagnostic remains at 3,000 bytes,
+the error tail at 4,000 characters, and screenshot/output ceilings are unchanged.
+The two stderr records remain adjacent, leaving room for the original failure.
+
+These are accounting observations, not a browser cure. Linux process read bytes
+describe storage accounting, while write bytes are charged when pages become
+dirty and may later be cancelled. Leader counters include live threads and may
+include reaped children, not a complete live descendant tree. Start-time tokens
+are clock-tick/time-namespace based and do not authenticate executables or detect
+exec. Host/group gauges are shared, non-atomic endpoints and cannot identify
+which file or earlier operation created writeback. No service/group/device
+subtraction, outside-workload attribution or causality claim is made. Full native
+rehearsal, screenshot, CJK, access-control, cleanup and scanner gates still apply.
+
+Primary semantics:
+[Linux proc accounting and memory gauges](https://docs.kernel.org/filesystems/proc.html),
+[process I/O implementation](https://raw.githubusercontent.com/torvalds/linux/v6.17/fs/proc/base.c),
+[reaped-child accounting](https://raw.githubusercontent.com/torvalds/linux/v6.17/kernel/exit.c),
+[cgroup memory gauges](https://docs.kernel.org/admin-guide/cgroup-v2.html), and
+[process start-time fields](https://raw.githubusercontent.com/torvalds/linux/v6.17/fs/proc/array.c).

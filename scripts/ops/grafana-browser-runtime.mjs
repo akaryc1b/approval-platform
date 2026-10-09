@@ -6,6 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BrowserPipe, panelReadExpression, assertNavigation, stopProcess } from './grafana-browser-driver.mjs';
+import { createStartupEvidenceCapture } from './grafana-browser-startup-evidence.mjs';
 
 export const dashboardFiles = ['approval-operations.json', 'approval-engine-jobs.json'];
 export const states = ['healthy', 'unavailable', 'empty'];
@@ -29,7 +30,7 @@ export function sourceIdentities(repositoryRoot) {
 
 export async function runGrafanaBrowser({ directory, repositoryRoot, grafanaHome, prometheus }) {
   const workspace = mkdtempSync(resolve(directory, 'grafana-browser-'));
-  const owned = [], listeners = []; let browser, result, state = 'healthy', phase = 'setup';
+  const owned = [], listeners = []; let browser, result, startupCapture, state = 'healthy', phase = 'setup';
   const abort = new AbortController(); const deadline = performance.now() + 105000;
   const interrupt = () => abort.abort();
   process.once('SIGTERM', interrupt); process.once('SIGINT', interrupt);
@@ -129,7 +130,8 @@ export async function runGrafanaBrowser({ directory, repositoryRoot, grafanaHome
     assert.equal((await json(baseUrl + '/api/org/users/' + user.body.id, { method: 'PATCH', headers: adminHeaders,
       body: JSON.stringify({ role: 'Viewer' }) })).status, 200);
     phase = 'browser-start';
-    browser = new BrowserPipe(resolve(workspace, 'chrome'), env); const browserVersion = await browser.start();
+    startupCapture = createStartupEvidenceCapture(owned);
+    browser = new BrowserPipe(resolve(workspace, 'chrome'), env, { diagnostics: startupCapture.diagnostics }); const browserVersion = await browser.start();
     phase = 'browser-login'; await browser.navigate(baseUrl + '/login');
     await wait(() => browser.evaluate(`!!document.querySelector('input[name="user"]') && !!document.querySelector('input[name="password"]')`), phase);
     await browser.evaluate(`(() => {
@@ -233,13 +235,14 @@ export async function runGrafanaBrowser({ directory, repositoryRoot, grafanaHome
     throw new Error('GRAFANA_BROWSER_FAILED:' + phase + ':' + (error.message?.startsWith('GRAFANA_BROWSER_') ? error.message : 'ASSERTION_OR_IO'));
   } finally {
     const errors = [];
+    startupCapture?.clear(); // Also release private baselines if browser construction threw.
     if (browser) try { await browser.stop(); } catch { errors.push('browser'); }
     for (const child of owned.reverse()) try { await stopProcess(child); } catch { errors.push('native'); }
     for (const server of listeners) { server.closeAllConnections(); await new Promise(done => server.close(done)); }
     rmSync(workspace, { recursive: true, force: true });
     process.removeListener('SIGTERM', interrupt); process.removeListener('SIGINT', interrupt);
     assert.equal(errors.length, 0, 'GRAFANA_BROWSER_CLEANUP_FAILED'); assert.ok(!existsSync(workspace));
-    if (result) result.cleanupPassed = true;
+    if (result) { result.cleanupPassed = true; startupCapture.attach(result); }
   }
   return result;
 }
