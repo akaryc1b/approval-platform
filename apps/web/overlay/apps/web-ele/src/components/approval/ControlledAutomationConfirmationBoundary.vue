@@ -94,11 +94,14 @@ const boundary = {
 <style scoped>
 .confirmation-boundary {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 12px;
   padding: 16px;
   border: 1px solid var(--el-color-danger-light-5);
   border-radius: 10px;
   background: var(--el-color-danger-light-9);
+  overflow-wrap: anywhere;
 }
 
 .boundary-heading,
@@ -110,7 +113,21 @@ const boundary = {
 }
 
 .boundary-heading {
+  flex-wrap: wrap;
   justify-content: space-between;
+}
+
+.confirmation-boundary > *,
+.boundary-heading > * {
+  min-width: 0;
+}
+
+.confirmation-action {
+  flex-wrap: wrap;
+}
+
+.confirmation-boundary :deep(.el-descriptions__table) {
+  table-layout: fixed;
 }
 
 .boundary-tags {

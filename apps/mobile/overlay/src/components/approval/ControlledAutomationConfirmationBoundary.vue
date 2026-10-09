@@ -63,11 +63,14 @@ const boundary = {
 <style scoped>
 .confirmation-boundary {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 18rpx;
   padding: 22rpx;
   border: 1rpx solid rgb(239 68 68 / 35%);
   border-radius: 18rpx;
   background: rgb(239 68 68 / 6%);
+  overflow-wrap: anywhere;
 }
 
 .boundary-heading,
@@ -78,7 +81,13 @@ const boundary = {
 }
 
 .boundary-heading {
+  flex-wrap: wrap;
   justify-content: space-between;
+}
+
+.boundary-heading > *,
+.boundary-grid > view {
+  min-width: 0;
 }
 
 .boundary-tags {

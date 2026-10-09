@@ -447,7 +447,7 @@ onMounted(refreshWorkbench);
             type="warning"
             :title="`该任务由 ${taskDelegation.principalAssigneeId} 委托给 ${taskDelegation.delegateAssigneeId} 处理`"
           />
-          <ElDescriptions :column="2" border title="申请信息">
+          <ElDescriptions :column="2" border class="application-snapshot" title="申请信息">
             <ElDescriptionsItem label="业务编号">{{ selectedTask.businessKey }}</ElDescriptionsItem><ElDescriptionsItem label="当前环节">{{ taskStage(selectedTask) }}</ElDescriptionsItem><ElDescriptionsItem label="发起人">{{ selectedTask.initiatorId }}</ElDescriptionsItem><ElDescriptionsItem label="付款金额">{{ formatMoney(selectedTask.amount) }}</ElDescriptionsItem>
             <template v-if="taskDelegation">
               <ElDescriptionsItem label="原责任人">{{ taskDelegation.principalAssigneeId }}</ElDescriptionsItem>
@@ -489,5 +489,19 @@ onMounted(refreshWorkbench);
 </template>
 
 <style scoped>
+.detail-content {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-content > * {
+  min-width: 0;
+}
+
+.application-snapshot :deep(.el-descriptions__table) {
+  table-layout: fixed;
+}
+
 .workbench,.detail-content{display:grid;gap:16px}.overview-grid{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:16px}.overview-card{display:grid;gap:6px;cursor:pointer}.overview-card strong{font-size:32px}.section-header,.task-item,.task-actions,.search-bar,.drawer-footer,.action-group{display:flex;align-items:center;gap:12px}.section-header,.task-item,.drawer-footer{justify-content:space-between}.search-bar{margin:12px 0}.task-list{display:grid}.task-item{padding:18px 0;border-bottom:1px solid var(--el-border-color-lighter)}.task-item>div:first-child,.task-actions{display:grid;gap:6px}.task-item span{color:var(--el-text-color-secondary);font-size:13px}.task-actions{justify-items:end}.detail-section{padding-top:8px}.detail-section h3{margin:0 0 16px;font-size:16px}.full-width{width:100%}.drawer-footer{width:100%}@media(max-width:900px){.overview-grid{grid-template-columns:1fr}}@media(max-width:720px){.task-item,.search-bar{align-items:stretch;flex-direction:column}.task-actions{justify-items:start}}
 </style>

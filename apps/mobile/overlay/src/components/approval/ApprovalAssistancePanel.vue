@@ -253,6 +253,8 @@ watch(
 <style scoped>
 .assistance-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 20rpx;
   margin-bottom: 20rpx;
   padding: 28rpx;
@@ -260,6 +262,7 @@ watch(
   border-radius: 24rpx;
   background: var(--wot-color-warning-light, rgb(245 158 11 / 8%));
   box-shadow: 0 8rpx 24rpx rgb(15 23 42 / 5%);
+  overflow-wrap: anywhere;
 }
 
 .assistance-header,
@@ -273,7 +276,14 @@ watch(
 
 .assistance-header,
 .result-heading {
+  flex-wrap: wrap;
   justify-content: space-between;
+}
+
+.assistance-card > *,
+.assistance-header > *,
+.snapshot-grid > view {
+  min-width: 0;
 }
 
 .safety-tags,

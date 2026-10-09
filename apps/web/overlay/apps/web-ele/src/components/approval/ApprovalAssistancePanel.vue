@@ -285,11 +285,14 @@ watch(
 <style scoped>
 .assistance-panel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 16px;
   padding: 18px;
   border: 1px solid var(--el-color-warning-light-5);
   border-radius: 12px;
   background: var(--el-color-warning-light-9);
+  overflow-wrap: anywhere;
 }
 
 .assistance-header,
@@ -303,8 +306,23 @@ watch(
 }
 
 .assistance-header,
+.generation-action,
 .result-heading {
+  flex-wrap: wrap;
   justify-content: space-between;
+}
+
+.assistance-panel > *,
+.assistance-header > * {
+  min-width: 0;
+}
+
+.assistance-header > div:first-child {
+  flex: 1 1 260px;
+}
+
+.snapshot :deep(.el-descriptions__table) {
+  table-layout: fixed;
 }
 
 .assistance-header h3,
