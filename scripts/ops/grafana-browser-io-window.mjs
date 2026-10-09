@@ -122,7 +122,7 @@ function summary(before, after) {
 
 /** Private baseline/maps; only anonymous numeric deltas and fixed enums can leave this closure. */
 export function createBrowserIoSampler({ now = () => performance.now() } = {}) {
-  let baseline = null, launched = false, completed = false;
+  let baseline = null, launched = false, completed = false, observedHandshake = false;
   const capture = (root, read) => {
     const started = clock(now);
     // Reuse the resource sampler's validated conventional cgroup-v2 mount only.
@@ -133,10 +133,15 @@ export function createBrowserIoSampler({ now = () => performance.now() } = {}) {
   };
   return {
     sample(phase, root, read = readBoundedDiagnosticFile) {
-      if (completed || !['launch', 'failure'].includes(phase)) return null;
+      if (completed || !['launch', 'failure', 'handshake'].includes(phase)) return null;
       if (phase === 'launch') {
         if (!launched) { launched = true; baseline = capture(root, read); }
         return null;
+      }
+      if (phase === 'handshake') {
+        if (observedHandshake) return null;
+        observedHandshake = true;
+        return summary(baseline, capture(root, read));
       }
       completed = true;
       try { return summary(baseline, capture(root, read)); }

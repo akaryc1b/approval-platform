@@ -21,3 +21,13 @@ export function safeDiagnosticRead(read, file, limit) {
     return typeof text === 'string' && Buffer.byteLength(text) <= limit ? text : null;
   } catch { return null; }
 }
+
+/** Private conventional cgroup-v2 location; callers must never report this path. */
+export function diagnosticCgroupRoot(membership) {
+  const entries = membership?.trim().split('\n') ?? [];
+  const path = entries.length === 1 && entries[0].startsWith('0::/') ? entries[0].slice(3) : null;
+  const segments = path?.split('/') ?? [];
+  return path !== null && path.length <= 1024 && /^\/[A-Za-z0-9_./:-]*$/u.test(path)
+    && !segments.some(part => part === '.' || part === '..')
+    ? '/sys/fs/cgroup' + (path === '/' ? '' : path) : null;
+}

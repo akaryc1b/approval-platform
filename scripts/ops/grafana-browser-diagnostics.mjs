@@ -1,7 +1,8 @@
 import { performance } from 'node:perf_hooks';
-import { readBoundedDiagnosticFile, safeDiagnosticRead as safe } from './grafana-browser-diagnostic-files.mjs';
+import { diagnosticCgroupRoot, readBoundedDiagnosticFile, safeDiagnosticRead as safe } from './grafana-browser-diagnostic-files.mjs';
 import { browserNativeSnapshot } from './grafana-browser-native-snapshot.mjs';
 import { createBrowserIoSampler } from './grafana-browser-io-window.mjs';
+import { finalizedStartupEvidence, startupCompanion, startupHandshake, startupIoMarker } from './grafana-browser-startup-evidence.mjs';
 export { readBoundedDiagnosticFile } from './grafana-browser-diagnostic-files.mjs';
 
 const signals = new Set(['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT',
@@ -60,16 +61,10 @@ export function browserResourceSnapshot(pid, { read = readBoundedDiagnosticFile,
     [name, pressure(safe(read, '/proc/pressure/' + name, 2048))]));
   // The kernel-provided unified-cgroup location is used only for fixed diagnostic files.
   // Reject traversal, ambiguity and arbitrary paths; never export the location itself.
-  const membership = safe(read, processRoot + '/cgroup', 4096);
-  const entries = membership?.trim().split('\n') ?? [];
-  const path = entries.length === 1 && entries[0].startsWith('0::/') ? entries[0].slice(3) : null;
-  const segments = path?.split('/') ?? [];
-  const validPath = path !== null && path.length <= 1024 && /^\/[A-Za-z0-9_./:-]*$/u.test(path)
-    && !segments.some(part => part === '.' || part === '..');
-  let cgroup = null, cgroupRoot = null;
-  if (validPath) {
-    const root = '/sys/fs/cgroup' + (path === '/' ? '' : path);
-    cgroupRoot = root;
+  const cgroupRoot = diagnosticCgroupRoot(safe(read, processRoot + '/cgroup', 4096));
+  let cgroup = null;
+  if (cgroupRoot !== null) {
+    const root = cgroupRoot;
     const scalar = file => { const text = safe(read, root + '/' + file, 64)?.trim();
       return text === 'max' ? 'max' : integer(text); };
     cgroup = {
@@ -94,12 +89,15 @@ export function browserResourceSnapshot(pid, { read = readBoundedDiagnosticFile,
 /** One bounded report per owned browser; diagnostics cannot change the browser's result. */
 export class BrowserStartupDiagnostics {
   constructor({ now = () => performance.now(), utilization = () => performance.eventLoopUtilization(),
-    snapshot = browserResourceSnapshot, nativeSnapshot = browserNativeSnapshot, profile = null, ioSampler,
+    snapshot = browserResourceSnapshot, nativeSnapshot = browserNativeSnapshot, profile = null, ioSampler, startupIo = null, onFinalized,
     report = text => console.error(text) } = {}) {
     this.now = now; this.utilization = utilization; this.snapshot = snapshot; this.report = report;
     this.nativeSnapshot = nativeSnapshot; this.profile = profile;
     this.ioSampler = ioSampler ?? createBrowserIoSampler({ now });
     this.origin = this.readClock(); this.baselineLoop = this.readLoop(); this.pid = null; this.emitted = false;
+    this.startupIo = startupIo; this.onFinalized = onFinalized; this.handshakeSample = null; this.startupIoValue = null;
+    this.handshakeSampled = false;
+    try { this.startupIo?.origin?.(this.origin); } catch {}
     this.value = { schema: 1, milestonesMs: { launch: 0, launchReturned: null, spawned: null, firstWriteQueued: null,
       firstWriteCallback: null, firstStderr: null, firstProtocol: null, handshake: null, failure: null,
       exit: null, cleanupFinished: null }, firstWriteCallbackFailed: null, browserVersion: null,
@@ -124,6 +122,7 @@ export class BrowserStartupDiagnostics {
     const observeIo = (root, read) => {
       if (observed) return;
       observed = true;
+      try { this.startupIo?.observeRoot?.(phase, root); } catch {}
       try { const window = this.ioSampler.sample(phase, root, read);
         if (phase === 'failure') this.value.ioWindow = window; }
       catch { if (phase === 'failure') this.value.ioWindow = { coverage: 'unavailable' }; }
@@ -149,7 +148,27 @@ export class BrowserStartupDiagnostics {
     this.mark('firstWriteCallback'); this.value.firstWriteCallbackFailed = failed === true; }
   version(product) { if (typeof product === 'string' && product.length <= 64
     && /^(?:HeadlessChrome|Chrome)\/\d{1,5}(?:\.\d{1,5}){3}$/u.test(product)) this.value.browserVersion = product;
-    this.mark('handshake'); }
+    this.mark('handshake');
+    if ((this.startupIo || this.onFinalized) && !this.handshakeSampled && this.value.failureKind === null) {
+      this.handshakeSampled = true;
+      const before = this.readClock(); let resources = null, ioWindow = null, observed = false, captured = false;
+      try { resources = this.snapshot(this.pid, { observeIo: (root, read) => {
+        if (observed) return; observed = true;
+        try { this.startupIo?.observeRoot?.('handshake', root); } catch {}
+        try { ioWindow = this.ioSampler.sample('handshake', root, read); } catch {}
+      } }); captured = true; } catch {}
+      const after = this.readClock();
+      this.handshakeSample = captured ? startupHandshake({ atMs: this.value.milestonesMs.handshake,
+        sampleMs: before === null || after === null ? null : milliseconds(after - before),
+        nativeSampling: 'not-requested', resources, ioWindow }) : { status: 'unavailable', reason: 'capture' };
+      this.completeStartupIo('handshake');
+    }
+  }
+  completeStartupIo(end) {
+    if (!this.startupIo || this.startupIoValue !== null) return;
+    try { this.startupIoValue = startupCompanion(this.startupIo.complete(end)); }
+    catch { this.startupIoValue = { status: 'unavailable', reason: 'capture' }; }
+  }
   timeout(startedAt, budget) {
     const now = this.readClock();
     if (now !== null && finite(startedAt) && budget === 10000) {
@@ -171,6 +190,7 @@ export class BrowserStartupDiagnostics {
       activeMs: milliseconds(loop.active - this.baselineLoop.active), idleMs: milliseconds(loop.idle - this.baselineLoop.idle) };
     this.value.resources.failure = this.sample('failure');
     this.observeNative('failure');
+    this.completeStartupIo('failure');
   }
   exited(code, signal) { this.mark('exit'); this.value.exit = { observed: true,
     code: Number.isInteger(code) && code >= 0 && code <= 255 ? code : null,
@@ -181,12 +201,14 @@ export class BrowserStartupDiagnostics {
   }
   finish(child, failed) {
     try { this.ioSampler.clear(); } catch {}
+    try { this.startupIo?.clear(); } catch {}
     this.mark('cleanupFinished'); this.value.cleanup.failed = failed === true;
     this.value.cleanup.exited = child?.exitCode !== null && child?.exitCode !== undefined
       || child?.signalCode !== null && child?.signalCode !== undefined;
     if (!this.value.exit.observed && this.value.cleanup.exited) this.exited(child.exitCode, child.signalCode);
     if (this.emitted) return;
     this.emitted = true;
+    let diagnostic = null;
     try { let value = this.value, text, ioOmitted = null;
       if (Object.hasOwn(value, 'ioWindow')) {
         try { text = JSON.stringify(value); } catch {}
@@ -209,7 +231,14 @@ export class BrowserStartupDiagnostics {
         const annotated = JSON.stringify({ ...value, ioOmitted });
         if (Buffer.byteLength(annotated) <= 3000) text = annotated;
       }
-      if (Buffer.byteLength(text) <= 3000) this.report('GRAFANA_BROWSER_DIAGNOSTICS=' + text);
+      if (Buffer.byteLength(text) <= 3000) {
+        diagnostic = JSON.parse(text); this.report('GRAFANA_BROWSER_DIAGNOSTICS=' + text);
+      }
     } catch {} // A reporting failure must never replace the original browser/cleanup failure.
+    if (this.startupIo) {
+      this.startupIoValue = startupCompanion(this.startupIoValue);
+      try { this.report(startupIoMarker + JSON.stringify(this.startupIoValue)); } catch {}
+    }
+    try { this.onFinalized?.(finalizedStartupEvidence(diagnostic, this.handshakeSample, this.startupIoValue)); } catch {}
   }
 }
