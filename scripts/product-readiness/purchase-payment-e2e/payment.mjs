@@ -1,3 +1,4 @@
+import { verifyActionCaptures } from '../pc-h5-runtime/capture-evidence.mjs';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -135,6 +136,7 @@ export async function runPaymentStage(
   managed.push(h5);
   await waitForHttp(`${h5Origin}/`, clientTimeoutMs);
 
+  const browserDeadline = Date.now() + browserTimeoutMs;
   runPnpmChecked(
     'Complete paymentConfirmation through the visible H5 mobile UI',
     [
@@ -159,6 +161,7 @@ export async function runPaymentStage(
       APPROVAL_DEMO_H5_URL: `${h5Origin}/#/pages/task/list`,
       APPROVAL_DEMO_INSTANCE_ID: pcH5Evidence.instanceId,
       APPROVAL_DEMO_PLAYWRIGHT_TIMEOUT_MS: String(browserTimeoutMs),
+      APPROVAL_DEMO_CAPTURE_DEADLINE_EPOCH_MS: String(browserDeadline),
       APPROVAL_DEMO_REPOSITORY_ROOT: repositoryRoot,
     },
   );
@@ -181,6 +184,10 @@ export async function runPaymentStage(
     || h5Evidence.finalState?.status !== 'COMPLETED') {
     throw new Error('H5 payment runtime evidence is inconsistent');
   }
+
+  verifyActionCaptures(h5Evidence.screenshots, [{
+    name: 'h5-payment', client: 'h5', taskId: h5Evidence.taskId, actorId: contract.policy.actorId,
+  }], runDirectory, h5Evidence.instanceId, pcH5Evidence.businessKey);
 
   const pending = await waitForState(
     '503 recovery evidence',

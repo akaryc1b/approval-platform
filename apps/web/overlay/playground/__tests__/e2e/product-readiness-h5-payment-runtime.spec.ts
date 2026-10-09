@@ -3,6 +3,8 @@ import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
+import { testCaptureBudget } from './product-readiness-capture-budget';
+import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
 
 import {
   authoritativeActors,
@@ -19,6 +21,8 @@ import {
   waitForPendingTaskToDisappear,
 } from './product-readiness-pc-h5-runtime-api';
 import { clickH5Approval } from './product-readiness-pc-h5-runtime-ui';
+
+const captureStartedAt = performance.now();
 
 function requiredEnvironment(name: string) {
   const value = process.env[name]?.trim();
@@ -89,10 +93,12 @@ function sha256(path: string) {
 test('H5 mobile surrogate completes the governed payment confirmation', async ({
   browser,
   request,
-}) => {
+}, testInfo) => {
+  const budget = testCaptureBudget(testInfo, captureStartedAt);
   const startedAt = new Date().toISOString();
   const context = await browser.newContext();
   const page = await context.newPage();
+  const failures = observeCaptureFailures(page);
   try {
     const [pending] = await Promise.all([
       pendingResponse(page, {
@@ -115,12 +121,12 @@ test('H5 mobile surrogate completes the governed payment confirmation', async ({
       traceId: expect.any(String),
     });
 
+    const beforeBudget = budget.limit(15_000);
     await expect(page.locator('.task-card').filter({ hasText: businessKey }).first())
-      .toBeVisible();
-    await page.screenshot({
-      fullPage: true,
-      path: resolve(evidenceDirectory, 'h5-payment-before.png'),
-    });
+      .toBeVisible({ timeout: beforeBudget.remaining(15_000) });
+    const before = await readySurface(page, beforeBudget, { client: 'h5', kind: 'list', url: h5SurrogateUrl(), businessKey, taskId: expectedPaymentTaskId, instanceId: expectedInstanceId, pendingTotal: 1, processedTotal: 0 });
+    failures.assert();
+    await captureScreenshot(page, beforeBudget, resolve(evidenceDirectory, 'h5-payment-before.png'), { readiness: before, assertCurrent: async () => failures.assert() });
 
     const approvalResponse = await clickH5Approval(
       page,
@@ -131,6 +137,11 @@ test('H5 mobile surrogate completes the governed payment confirmation', async ({
         taskId: expectedPaymentTaskId,
       },
       '付款确认',
+      budget,
+      async (actionBudget, assertCurrent) => {
+        failures.assert();
+        await captureScreenshot(page, actionBudget, resolve(evidenceDirectory, 'h5-payment-after.png'), { assertCurrent: async () => { failures.assert(); await assertCurrent(); } });
+      },
     );
     const approvalHeaders = selectedHeaders(approvalResponse);
     expect(approvalHeaders).toEqual({
@@ -162,47 +173,54 @@ test('H5 mobile surrogate completes the governed payment confirmation', async ({
         && item.requestId === approvalHeaders.requestId);
     expect(approvalEvents).toHaveLength(1);
 
-    await page.screenshot({
-      fullPage: true,
-      path: resolve(evidenceDirectory, 'h5-payment-after.png'),
-    });
+    const settledBudget = budget.limit(30_000);
+    const settled = await readySurface(page, settledBudget, { client: 'h5', kind: 'list', url: h5SurrogateUrl(), absentTaskId: expectedPaymentTaskId, minimumRefresh: before.refresh + 1, pendingTotal: 0, processedTotal: 1 });
+    failures.assert();
+    await captureScreenshot(page, settledBudget, resolve(evidenceDirectory, 'h5-payment-settled.png'), { readiness: settled, assertCurrent: async () => failures.assert() });
     const screenshots = [
-      screenshotEvidence('h5-payment-before.png'),
-      screenshotEvidence('h5-payment-after.png'),
+      { ...screenshotEvidence('h5-payment-before.png'), phase: 'READY_BEFORE_ACTION', readiness: before },
+      { ...screenshotEvidence('h5-payment-after.png'), phase: 'IMMEDIATE_ACKNOWLEDGED_RESULT', successMessage: '审批已同意' },
+      { ...screenshotEvidence('h5-payment-settled.png'), phase: 'SETTLED_DESTINATION', readiness: settled },
     ];
     for (const screenshot of screenshots) {
       expect(sha256(resolve(evidenceDirectory, screenshot.file)))
         .toBe(screenshot.sha256);
     }
 
-    writeEvidence({
-      schemaVersion: 1,
-      evidenceKind: 'H5_PAYMENT_CONFIRMATION_SURROGATE_V1',
-      status: 'PASSED',
-      stageMarker: 'H5_PAYMENT_CONFIRMATION_STAGE_PASSED',
-      commitSha: process.env.APPROVAL_DEMO_EXACT_HEAD_SHA || null,
-      githubRunId: process.env.GITHUB_RUN_ID || null,
-      startedAt,
-      completedAt: new Date().toISOString(),
-      acceptanceSource,
-      targetClient: policy.targetClient,
-      acceptanceClient: policy.acceptanceClient,
-      acceptanceMode: policy.acceptanceMode,
-      tenantId,
-      businessKey,
-      actorId: policy.actorId,
-      taskDefinitionKey: policy.taskDefinitionKey,
-      taskId: expectedPaymentTaskId,
-      instanceId: expectedInstanceId,
-      request: approvalHeaders,
-      result,
-      auditEventId: approvalEvents[0].eventId,
-      auditRequestId: approvalEvents[0].requestId,
-      finalState,
-      screenshots,
-      nonClaims: acceptance.nonClaims,
-    });
+    budget.remaining();
+    failures.assert();
+    const receiptPath = resolve(evidenceDirectory, 'h5-payment-runtime-evidence.json');
+    publishCaptureReceipt(budget, receiptPath, () => {
+      writeEvidence({
+        schemaVersion: 1,
+        evidenceKind: 'H5_PAYMENT_CONFIRMATION_SURROGATE_V1',
+        status: 'PASSED',
+        stageMarker: 'H5_PAYMENT_CONFIRMATION_STAGE_PASSED',
+        commitSha: process.env.APPROVAL_DEMO_EXACT_HEAD_SHA || null,
+        githubRunId: process.env.GITHUB_RUN_ID || null,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        acceptanceSource,
+        targetClient: policy.targetClient,
+        acceptanceClient: policy.acceptanceClient,
+        acceptanceMode: policy.acceptanceMode,
+        tenantId,
+        businessKey,
+        actorId: policy.actorId,
+        taskDefinitionKey: policy.taskDefinitionKey,
+        taskId: expectedPaymentTaskId,
+        instanceId: expectedInstanceId,
+        request: approvalHeaders,
+        result,
+        auditEventId: approvalEvents[0].eventId,
+        auditRequestId: approvalEvents[0].requestId,
+        finalState,
+        screenshots,
+        nonClaims: acceptance.nonClaims,
+      });
+    }, `${receiptPath}.tmp`);
   } finally {
+    failures.dispose();
     await context.close();
   }
 });

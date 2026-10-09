@@ -8,9 +8,11 @@ const relevantPaths = [
   /^package\.json$/u,
   /^apps\/mobile\/overlay\//u,
   /^apps\/mobile\/upstream\.json$/u,
+  /^apps\/web\/upstream\.json$/u,
+  /^apps\/web\/overlay\/apps\/web-ele\/vite\.config\.ts$/u,
   /^apps\/server\/src\/(?:main|test)\/java\/.*\/demo\//u,
-  /^apps\/web\/overlay\/apps\/web-ele\/src\/(?:api\/approval|platform\/approval|views\/approval)/u,
-  /^apps\/web\/overlay\/playground\/(?:__tests__\/e2e\/(?:product-readiness-pc-h5-runtime(?:-(?:api|diagnostics|ui)|\.spec)|product-readiness-h5-payment-runtime\.spec|product-readiness-h5-components|product-readiness-quick-start-ready\.spec|product-readiness-browser-accessibility\.spec)\.ts|product-readiness\.playwright\.config\.ts|browser-accessibility\.playwright\.config\.ts)$/u,
+  /^apps\/web\/overlay\/apps\/web-ele\/src\/(?:api\/approval|platform\/approval|views\/approval|components\/approval)/u,
+  /^apps\/web\/overlay\/playground\/(?:__tests__\/e2e\/(?:product-readiness-pc-h5-runtime(?:-(?:api|diagnostics|ui)|\.spec)|product-readiness-h5-payment-runtime\.spec|product-readiness-h5-components|product-readiness-capture(?:-budget)?|product-readiness-quick-start-ready\.spec|product-readiness-browser-accessibility\.spec)\.ts|product-readiness\.playwright\.config\.ts|browser-accessibility\.playwright\.config\.ts)$/u,
   /^config\/demo\/purchase-payment-alpha-acceptance\.json$/u,
   /^config\/demo\/quick-start\.json$/u,
   /^config\/demo\/browser-accessibility-matrix\.json$/u,
@@ -22,8 +24,8 @@ const relevantPaths = [
   /^scripts\/product-readiness\/quick-start\//u,
   /^scripts\/product-readiness\/artifact-privacy\//u,
   /^scripts\/tests\/product-readiness-(?:artifact-[^/]+|safe-output)\.test\.(?:mjs|py)$/u,
-  /^scripts\/tests\/(?:m3-repository-hygiene|mobile-cold-start-components|product-readiness-pc-h5-runtime-boundary|product-readiness-purchase-payment-e2e-boundary|product-readiness-quick-start-boundary|product-readiness-browser-accessibility-boundary)\.test\.mjs$/u,
-  /^scripts\/upstream\/(?:bootstrap-unibest|unibest-compatibility)\.mjs$/u,
+  /^scripts\/tests\/(?:m3-repository-hygiene|mobile-cold-start-components|web-cold-start-style-graph|product-readiness-capture-evidence|product-readiness-capture-readiness|product-readiness-capture-state|product-readiness-pc-h5-runtime-boundary|product-readiness-purchase-payment-e2e-boundary|product-readiness-quick-start-boundary|product-readiness-browser-accessibility-boundary)\.test\.mjs$/u,
+  /^scripts\/upstream\/(?:bootstrap-unibest|bootstrap-vben|unibest-compatibility)\.mjs$/u,
 ];
 
 const capacityCorePaths = [

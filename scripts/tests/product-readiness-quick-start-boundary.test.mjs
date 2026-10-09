@@ -313,7 +313,7 @@ test('first H5 capture rejects unresolved components and missing component style
 test('Quick Start asserts positive component evidence before its original H5 screenshot', () => {
   const inspection = browserSpec.indexOf('h5Task.evaluate(inspectH5TaskComponents');
   const assertion = browserSpec.indexOf('expect(h5Components).toEqual(');
-  const screenshot = browserSpec.indexOf("path: resolve(evidenceDirectory, 'quick-start-h5.png')");
+  const screenshot = browserSpec.indexOf("captureScreenshot(h5, h5Budget, resolve(evidenceDirectory, 'quick-start-h5.png')");
   const receipt = browserSpec.indexOf('components: h5Components');
   assert.ok(inspection > 0 && inspection < assertion && assertion < screenshot && screenshot < receipt);
   assert.equal((browserSpec.match(/await h5.goto\(/gu) ?? []).length, 1);
@@ -332,7 +332,7 @@ test('component guard changes select the existing governed browser run', () => {
 test('Quick Start receipts cannot certify missing or failed component evidence', () => {
   const contract = {
     scenario: { tenant: { id: 'fixture' }, request: { businessKey: 'fixture' } },
-    clients: { pc: { actorId: 'manager' }, h5: { actorId: 'manager' } },
+    clients: { pc: { actorId: 'manager', port: 5777, route: '/approval/workbench' }, h5: { actorId: 'manager', port: 9000, route: '/pages/task/list' } },
   };
   const identity = { commitSha: 'a'.repeat(40) };
   const value = {
@@ -344,6 +344,14 @@ test('Quick Start receipts cannot certify missing or failed component evidence',
       stylesApplied: true, unresolvedTags: 0,
     } },
   };
+  for (const client of ['pc', 'h5']) {
+    const url = client === 'pc' ? 'http://127.0.0.1:5777/approval/workbench?demoOperator=manager' : 'http://127.0.0.1:9000/?demoOperator=manager#/pages/task/list';
+    Object.assign(value[client], { url, capturePhase: 'READY_BEFORE_ACTION', readiness: {
+      surface: `${client}-list`, url, taskId: 'task', instanceId: 'instance', businessKey: 'fixture',
+      refresh: 1, activeTab: 'pending', pendingTotal: 1, processedTotal: 0,
+      documentWidth: 390, viewportWidth: 390, bounds: { x: 0, y: 0, width: 390, height: 100 },
+    } });
+  }
   assert.equal(validateBrowserEvidence(value, contract, identity), value);
   for (const key of Object.keys(value.h5.components)) {
     const missing = structuredClone(value);

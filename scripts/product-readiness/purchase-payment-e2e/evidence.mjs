@@ -87,6 +87,7 @@ export function appendCiEvidenceEnvelope(status, runDirectory, identity) {
       'h5-payment-runtime-evidence.json',
       'h5-payment-before.png',
       'h5-payment-after.png',
+      'h5-payment-settled.png',
       'outbox-pending-evidence.json',
       'outbox-delivered-evidence.json',
       'cleanup-evidence.json',

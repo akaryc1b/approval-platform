@@ -65,6 +65,20 @@ const currentPage = ref(1);
 const keyword = ref('');
 const loading = ref(false);
 const loadError = ref('');
+// Observe request completion without changing the list's existing loading behavior.
+const listLoadsInFlight = ref(0);
+const listGeneration = ref(0);
+const listLoadedGeneration = ref(0);
+const loadedListContext = ref<{ tab: WorkbenchTab; page: number; keyword: string }>();
+const countsLoadsInFlight = ref(0);
+const countsGeneration = ref(0);
+const countsLoadedGeneration = ref(0);
+const countsError = ref('');
+const refreshGeneration = ref(0);
+const refreshCompletedGeneration = ref(0);
+const listContextValid = computed(() => loadedListContext.value?.tab === activeTab.value
+  && loadedListContext.value?.page === currentPage.value
+  && loadedListContext.value?.keyword === keyword.value);
 const listActionId = ref('');
 const pendingPage = ref<PendingTaskPage>(emptyPendingPage());
 const processedPage = ref<ProcessedTaskPage>(emptyProcessedPage());
@@ -76,6 +90,10 @@ const startedTotal = ref(0);
 const drawerOpen = ref(false);
 const detailLoading = ref(false);
 const detailError = ref('');
+const detailLoadsInFlight = ref(0);
+const detailGeneration = ref(0);
+const detailLoadedGeneration = ref(0);
+const formRuntimeTaskId = ref('');
 const selectedTask = ref<PendingTaskDetails>();
 const taskDelegation = ref<DelegatedTaskAssignment>();
 const timeline = ref<ApprovalTimeline>();
@@ -148,6 +166,10 @@ function timelineType(item: ApprovalTimelineItem): TagType {
 }
 
 async function loadActivePage() {
+  const generation = ++listGeneration.value;
+  const context = { tab: activeTab.value, page: currentPage.value, keyword: keyword.value };
+  listLoadsInFlight.value += 1;
+  listLoadedGeneration.value = 0;
   loading.value = true;
   loadError.value = '';
   const parameters = { keyword: keyword.value, limit: pageSize, offset: pageOffset.value };
@@ -162,14 +184,21 @@ async function loadActivePage() {
       pendingPage.value = await findPendingTasks(parameters);
       pendingTotal.value = pendingPage.value.total;
     }
+    loadedListContext.value = context;
+    listLoadedGeneration.value = generation;
   } catch (error) {
     loadError.value = errorMessage(error);
   } finally {
+    listLoadsInFlight.value -= 1;
     loading.value = false;
   }
 }
 
 async function loadOverviewCounts() {
+  const generation = ++countsGeneration.value;
+  countsLoadsInFlight.value += 1;
+  countsLoadedGeneration.value = 0;
+  countsError.value = '';
   const parameters = { limit: 1, offset: 0 };
   const [pending, processed, started] = await Promise.allSettled([
     findPendingTasks(parameters), findProcessedTasks(parameters), findStartedInstances(parameters),
@@ -177,13 +206,27 @@ async function loadOverviewCounts() {
   if (pending.status === 'fulfilled') pendingTotal.value = pending.value.total;
   if (processed.status === 'fulfilled') processedTotal.value = processed.value.total;
   if (started.status === 'fulfilled') startedTotal.value = started.value.total;
+  countsError.value = [
+    pending.status === 'rejected' ? 'pending' : '',
+    processed.status === 'rejected' ? 'processed' : '',
+    started.status === 'rejected' ? 'started' : '',
+  ].filter(Boolean).join(',');
+  countsLoadedGeneration.value = countsError.value ? 0 : generation;
+  countsLoadsInFlight.value -= 1;
 }
 
 async function refreshWorkbench() {
+  const generation = ++refreshGeneration.value;
+  refreshCompletedGeneration.value = 0;
   await Promise.all([loadActivePage(), loadOverviewCounts()]);
+  refreshCompletedGeneration.value = generation;
 }
 
 async function openTask(task: PendingTaskItem) {
+  const generation = ++detailGeneration.value;
+  detailLoadedGeneration.value = 0;
+  detailLoadsInFlight.value += 1;
+  formRuntimeTaskId.value = '';
   drawerOpen.value = true;
   detailLoading.value = true;
   detailError.value = '';
@@ -206,13 +249,16 @@ async function openTask(task: PendingTaskItem) {
     try {
       const runtime = await findTaskFormRuntime(task.taskId);
       formRuntime.value = runtime;
+      formRuntimeTaskId.value = task.taskId;
       formValues.value = { ...runtime.values };
     } catch {
       formRuntime.value = undefined;
     }
+    detailLoadedGeneration.value = generation;
   } catch (error) {
     detailError.value = errorMessage(error);
   } finally {
+    detailLoadsInFlight.value -= 1;
     detailLoading.value = false;
   }
 }
@@ -322,7 +368,25 @@ onMounted(refreshWorkbench);
 
 <template>
   <Page title="审批工作台">
-    <div class="workbench">
+    <div
+      class="workbench"
+      data-testid="approval-task-list"
+      :data-active-tab="activeTab"
+      :data-list-loading="loading || listLoadsInFlight > 0"
+      :data-list-error="loadError"
+      :data-list-generation="listGeneration"
+      :data-list-loaded-generation="listLoadedGeneration"
+      :data-list-context-valid="listContextValid"
+      :data-counts-loading="countsLoadsInFlight > 0"
+      :data-counts-error="countsError"
+      :data-counts-generation="countsGeneration"
+      :data-counts-loaded-generation="countsLoadedGeneration"
+      :data-refresh-generation="refreshGeneration"
+      :data-refresh-completed-generation="refreshCompletedGeneration"
+      :data-pending-total="pendingTotal"
+      :data-processed-total="processedTotal"
+      :data-started-total="startedTotal"
+    >
       <section class="overview-grid">
         <ElCard shadow="never" @click="activeTab = 'pending'"><div class="overview-card"><span>待我处理</span><strong>{{ pendingTotal }}</strong></div></ElCard>
         <ElCard shadow="never" @click="activeTab = 'processed'"><div class="overview-card"><span>我已处理</span><strong>{{ processedTotal }}</strong></div></ElCard>
@@ -336,15 +400,21 @@ onMounted(refreshWorkbench);
         <ElSkeleton v-else-if="loading" :rows="5" animated/>
         <ElEmpty v-else-if="activeItemCount === 0" description="当前没有相关审批记录"/>
         <div v-else class="task-list">
-          <article v-for="task in pendingPage.items" v-show="activeTab === 'pending'" :key="task.taskId" class="task-item">
+          <article v-for="task in pendingPage.items" v-show="activeTab === 'pending'" :key="task.taskId" class="task-item"
+            :data-task-id="task.taskId" :data-instance-id="task.instanceId" :data-business-key="task.businessKey"
+          >
             <div><strong>{{ task.supplier }}采购付款</strong><span>{{ task.businessKey }}</span></div>
             <div class="task-actions"><ElTag :type="taskTagType(task)">{{ taskStage(task) }}</ElTag><strong>{{ formatMoney(task.amount) }}</strong><ElButton type="primary" @click="openTask(task)">{{ task.taskDefinitionKey === 'initiatorRevision' ? '修改' : '处理' }}</ElButton></div>
           </article>
-          <article v-for="task in processedPage.items" v-show="activeTab === 'processed'" :key="task.taskId" class="task-item">
+          <article v-for="task in processedPage.items" v-show="activeTab === 'processed'" :key="task.taskId" class="task-item"
+            :data-task-id="task.taskId" :data-instance-id="task.instanceId" :data-business-key="task.businessKey"
+          >
             <div><strong>{{ task.supplier }}采购付款</strong><span>{{ task.businessKey }} · {{ formatDate(task.completedAt) }}</span></div>
             <div class="task-actions"><strong>{{ formatMoney(task.amount) }}</strong><ElButton v-if="task.retrievable" :loading="listActionId === task.taskId" @click="submitRetrieve(task)">拿回</ElButton></div>
           </article>
-          <article v-for="item in startedPage.items" v-show="activeTab === 'started'" :key="item.instanceId" class="task-item">
+          <article v-for="item in startedPage.items" v-show="activeTab === 'started'" :key="item.instanceId" class="task-item"
+            :data-instance-id="item.instanceId" :data-business-key="item.businessKey"
+          >
             <div><strong>{{ item.supplier }}采购付款</strong><span>{{ item.businessKey }} · {{ item.currentTaskName || '流程已结束' }}</span></div>
             <div class="task-actions"><ElTag :type="instanceStatusType(item.status)">{{ instanceStatusLabel(item.status) }}</ElTag><ElButton v-if="item.withdrawable" :loading="listActionId === item.instanceId" type="danger" plain @click="submitWithdrawal(item)">撤回</ElButton></div>
           </article>
@@ -354,51 +424,64 @@ onMounted(refreshWorkbench);
     </div>
 
     <ElDrawer v-model="drawerOpen" :title="drawerTitle" destroy-on-close size="720px">
-      <ElSkeleton v-if="detailLoading" :rows="10" animated/>
-      <ElAlert v-else-if="detailError" :closable="false" :title="detailError" type="error"/>
-      <div v-else-if="selectedTask" class="detail-content">
-        <ElAlert v-if="revisionTask" :closable="false" title="仅可修改当前节点允许编辑的字段。" type="warning"/>
-        <ElAlert
-          v-else-if="taskDelegation"
-          :closable="false"
-          show-icon
-          type="warning"
-          :title="`该任务由 ${taskDelegation.principalAssigneeId} 委托给 ${taskDelegation.delegateAssigneeId} 处理`"
-        />
-        <ElDescriptions :column="2" border title="申请信息">
-          <ElDescriptionsItem label="业务编号">{{ selectedTask.businessKey }}</ElDescriptionsItem><ElDescriptionsItem label="当前环节">{{ taskStage(selectedTask) }}</ElDescriptionsItem><ElDescriptionsItem label="发起人">{{ selectedTask.initiatorId }}</ElDescriptionsItem><ElDescriptionsItem label="付款金额">{{ formatMoney(selectedTask.amount) }}</ElDescriptionsItem>
-          <template v-if="taskDelegation">
-            <ElDescriptionsItem label="原责任人">{{ taskDelegation.principalAssigneeId }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="实际处理人">{{ taskDelegation.delegateAssigneeId }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="代理范围">{{ taskDelegation.delegationScope === 'ALL' ? '全部审批' : taskDelegation.definitionKey }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="代理规则">{{ taskDelegation.delegationRuleId }}</ElDescriptionsItem>
-          </template>
-        </ElDescriptions>
-        <ApprovalAssistancePanel v-if="!revisionTask" :task-id="selectedTask.taskId"/>
-        <section v-if="formRuntime" class="detail-section">
-          <div class="section-header"><h3>申请表单</h3><ElTag effect="plain">{{ formRuntime.defaultedUiSchema ? '安全默认' : `UI v${formRuntime.uiSchema.version}` }}</ElTag></div>
-          <ApprovalFormRenderer v-model="formValues" :field-permissions="formRuntime.fieldPermissions" :required-fields="formRuntime.requiredFields" :readonly="!revisionTask" :schema="formRuntime.definition" :ui-schema="formRuntime.uiSchema"/>
-        </section>
-        <section class="detail-section">
-          <h3>审批进度</h3>
-          <ElTimeline v-if="timeline?.items.length">
-            <ElTimelineItem
-              v-for="item in timeline.items"
-              :key="item.eventId"
-              :timestamp="formatDate(item.occurredAt)"
-              :type="timelineType(item)"
-            >
-              <strong>{{ item.summary }}</strong>
-              <div>{{ item.operatorId }}</div>
-              <ElTag effect="plain" size="small">
-                {{ item.schemaName }} v{{ item.schemaVersion }}
-              </ElTag>
-            </ElTimelineItem>
-          </ElTimeline>
-          <ElEmpty v-else description="暂无审批记录"/>
-        </section>
-        <section v-if="!revisionTask && selectedTask.transferCandidates?.length" class="detail-section"><h3>转办人员</h3><ElSelect v-model="transferTargetId" class="full-width" placeholder="从审批人快照中选择"><ElOption v-for="candidate in selectedTask.transferCandidates" :key="candidate.userId" :label="candidate.displayName" :value="candidate.userId"/></ElSelect></section>
-        <section class="detail-section"><h3>{{ revisionTask ? '修改说明' : '审批意见' }}</h3><ElInput v-model="approvalComment" :maxlength="2000" :rows="4" show-word-limit type="textarea"/></section>
+      <div
+        data-testid="approval-task-detail"
+        :data-task-id="selectedTask?.taskId || ''"
+        :data-instance-id="selectedTask?.instanceId || ''"
+        :data-business-key="selectedTask?.businessKey || ''"
+        :data-detail-loading="detailLoading || detailLoadsInFlight > 0"
+        :data-detail-error="detailError"
+        :data-detail-generation="detailGeneration"
+        :data-detail-loaded-generation="detailLoadedGeneration"
+        :data-form-loaded="!!formRuntime && formRuntimeTaskId === selectedTask?.taskId"
+        :data-timeline-loaded="!!timeline && timeline.instanceId === selectedTask?.instanceId"
+      >
+        <ElSkeleton v-if="detailLoading" :rows="10" animated/>
+        <ElAlert v-else-if="detailError" :closable="false" :title="detailError" type="error"/>
+        <div v-else-if="selectedTask" class="detail-content">
+          <ElAlert v-if="revisionTask" :closable="false" title="仅可修改当前节点允许编辑的字段。" type="warning"/>
+          <ElAlert
+            v-else-if="taskDelegation"
+            :closable="false"
+            show-icon
+            type="warning"
+            :title="`该任务由 ${taskDelegation.principalAssigneeId} 委托给 ${taskDelegation.delegateAssigneeId} 处理`"
+          />
+          <ElDescriptions :column="2" border title="申请信息">
+            <ElDescriptionsItem label="业务编号">{{ selectedTask.businessKey }}</ElDescriptionsItem><ElDescriptionsItem label="当前环节">{{ taskStage(selectedTask) }}</ElDescriptionsItem><ElDescriptionsItem label="发起人">{{ selectedTask.initiatorId }}</ElDescriptionsItem><ElDescriptionsItem label="付款金额">{{ formatMoney(selectedTask.amount) }}</ElDescriptionsItem>
+            <template v-if="taskDelegation">
+              <ElDescriptionsItem label="原责任人">{{ taskDelegation.principalAssigneeId }}</ElDescriptionsItem>
+              <ElDescriptionsItem label="实际处理人">{{ taskDelegation.delegateAssigneeId }}</ElDescriptionsItem>
+              <ElDescriptionsItem label="代理范围">{{ taskDelegation.delegationScope === 'ALL' ? '全部审批' : taskDelegation.definitionKey }}</ElDescriptionsItem>
+              <ElDescriptionsItem label="代理规则">{{ taskDelegation.delegationRuleId }}</ElDescriptionsItem>
+            </template>
+          </ElDescriptions>
+          <ApprovalAssistancePanel v-if="!revisionTask" :task-id="selectedTask.taskId"/>
+          <section v-if="formRuntime" class="detail-section">
+            <div class="section-header"><h3>申请表单</h3><ElTag effect="plain">{{ formRuntime.defaultedUiSchema ? '安全默认' : `UI v${formRuntime.uiSchema.version}` }}</ElTag></div>
+            <ApprovalFormRenderer v-model="formValues" :field-permissions="formRuntime.fieldPermissions" :required-fields="formRuntime.requiredFields" :readonly="!revisionTask" :schema="formRuntime.definition" :ui-schema="formRuntime.uiSchema"/>
+          </section>
+          <section class="detail-section">
+            <h3>审批进度</h3>
+            <ElTimeline v-if="timeline?.items.length">
+              <ElTimelineItem
+                v-for="item in timeline.items"
+                :key="item.eventId"
+                :timestamp="formatDate(item.occurredAt)"
+                :type="timelineType(item)"
+              >
+                <strong>{{ item.summary }}</strong>
+                <div>{{ item.operatorId }}</div>
+                <ElTag effect="plain" size="small">
+                  {{ item.schemaName }} v{{ item.schemaVersion }}
+                </ElTag>
+              </ElTimelineItem>
+            </ElTimeline>
+            <ElEmpty v-else description="暂无审批记录"/>
+          </section>
+          <section v-if="!revisionTask && selectedTask.transferCandidates?.length" class="detail-section"><h3>转办人员</h3><ElSelect v-model="transferTargetId" class="full-width" placeholder="从审批人快照中选择"><ElOption v-for="candidate in selectedTask.transferCandidates" :key="candidate.userId" :label="candidate.displayName" :value="candidate.userId"/></ElSelect></section>
+          <section class="detail-section"><h3>{{ revisionTask ? '修改说明' : '审批意见' }}</h3><ElInput v-model="approvalComment" :maxlength="2000" :rows="4" show-word-limit type="textarea"/></section>
+        </div>
       </div>
       <template #footer><div class="drawer-footer"><ElButton @click="drawerOpen = false">取消</ElButton><div class="action-group"><ElButton v-if="revisionTask" :loading="submitting" type="primary" @click="submitResubmission">重新提交</ElButton><template v-else><ElButton v-if="selectedTask?.transferCandidates?.length" :loading="submitting" @click="submitTransfer">转办</ElButton><ElButton :loading="submitting" type="danger" plain @click="submitRejection">驳回</ElButton><ElButton :loading="submitting" type="primary" @click="submitApproval">同意</ElButton></template></div></div></template>
     </ElDrawer>

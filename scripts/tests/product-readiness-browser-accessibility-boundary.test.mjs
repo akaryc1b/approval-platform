@@ -1,3 +1,6 @@
+import './product-readiness-capture-evidence.test.mjs';
+import './product-readiness-capture-readiness.test.mjs';
+import './product-readiness-capture-state.test.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -50,7 +53,7 @@ function auditWithReadiness(expect) {
   const end = spec.indexOf('async function documentEvidence(');
   assert.ok(start >= 0 && end > start);
   const source = stripTypeScriptTypes(spec.slice(start, end));
-  return runInNewContext(`${source}\nauditControls`, {
+  return runInNewContext(`${source}\n(controls) => auditControls(controls, { remaining: () => 20000, run: operation => operation(20000) })`, {
     expect,
     matrix: manifest,
   });
@@ -61,7 +64,7 @@ function controlValue(tabIndex = 0) {
 }
 
 test('H5 audit requires the loaded business task before inspecting its actions', () => {
-  assert.match(spec, /await h5Task\.click\(\);[\s\S]*?await expect\(h5\.locator\('\.summary-card'\)\.filter\(\{ hasText: businessKey \}\)\)\s*\.toBeVisible\(\);[\s\S]*?const h5Detail = await auditControls/u);
+  assert.match(spec, /await h5Task\.click\(\{ timeout: h5DetailBudget\.remaining\(20_000\) \}\);[\s\S]*?await expect\(h5\.locator\('\.summary-card'\)\.filter\(\{ hasText: businessKey \}\)\)\s*\.toBeVisible\(\{ timeout: h5DetailBudget\.remaining\(20_000\) \}\);[\s\S]*?const h5Detail = await auditControls/u);
   assert.equal(manifest.thresholds.seriousViolations, 0);
   assert.equal(manifest.thresholds.criticalViolations, 0);
 });

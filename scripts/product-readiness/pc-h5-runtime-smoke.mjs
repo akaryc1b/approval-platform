@@ -55,12 +55,16 @@ const requiredPassFiles = [
   'pc-h5-runtime-evidence.json',
   'pc-manager-before.png',
   'pc-manager-after.png',
+  'pc-manager-settled.png',
   'h5-finance-before.png',
   'h5-finance-after.png',
+  'h5-finance-settled.png',
   'h5-countersign-a-before.png',
   'h5-countersign-a-after.png',
+  'h5-countersign-a-settled.png',
   'h5-countersign-b-before.png',
   'h5-countersign-b-after.png',
+  'h5-countersign-b-settled.png',
 ];
 const sha40 = /^[0-9a-f]{40}$/u;
 
@@ -372,6 +376,7 @@ async function executeSmoke() {
       waitForHttp('http://127.0.0.1:9000/', clientTimeoutMs),
     ]);
 
+    const browserDeadline = Date.now() + browserTimeoutMs;
     runPnpmChecked(
       'Execute PC/H5 approval handoff in system Chromium',
       [
@@ -396,6 +401,7 @@ async function executeSmoke() {
         APPROVAL_DEMO_PC_URL:
           'http://127.0.0.1:5777/approval/workbench?demoOperator=demo-manager',
         APPROVAL_DEMO_PLAYWRIGHT_TIMEOUT_MS: String(browserTimeoutMs),
+        APPROVAL_DEMO_CAPTURE_DEADLINE_EPOCH_MS: String(browserDeadline),
         APPROVAL_DEMO_REPOSITORY_ROOT: repositoryRoot,
       },
     );

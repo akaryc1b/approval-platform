@@ -32,6 +32,9 @@ const taskId = ref('')
 const opinion = ref('')
 const loading = ref(false)
 const loadError = ref('')
+const detailLoadsInFlight = ref(0)
+const detailGeneration = ref(0)
+const detailLoadedGeneration = ref(0)
 const submitting = ref(false)
 const details = ref<PendingTaskDetails>()
 const delegation = ref<DelegatedTaskAssignment>()
@@ -114,6 +117,9 @@ async function loadDetails() {
     loadError.value = '缺少审批任务编号'
     return
   }
+  const generation = ++detailGeneration.value
+  detailLoadedGeneration.value = 0
+  detailLoadsInFlight.value += 1
   loading.value = true
   loadError.value = ''
   delegation.value = undefined
@@ -134,11 +140,13 @@ async function loadDetails() {
     formValues.value = { ...runtime.values }
     opinion.value = ''
     transferIndex.value = -1
+    detailLoadedGeneration.value = generation
   }
   catch (error) {
     loadError.value = errorMessage(error)
   }
   finally {
+    detailLoadsInFlight.value -= 1
     loading.value = false
   }
 }
@@ -243,7 +251,19 @@ onLoad((query) => {
 </script>
 
 <template>
-  <view class="page">
+  <view
+    class="page"
+    data-testid="approval-task-detail"
+    :data-task-id="details?.taskId || ''"
+    :data-instance-id="details?.instanceId || ''"
+    :data-business-key="details?.businessKey || ''"
+    :data-detail-loading="loading || detailLoadsInFlight > 0"
+    :data-detail-error="loadError"
+    :data-detail-generation="detailGeneration"
+    :data-detail-loaded-generation="detailLoadedGeneration"
+    :data-form-loaded="!!formRuntime && details?.taskId === taskId"
+    :data-timeline-loaded="!!timeline && timeline.instanceId === details?.instanceId"
+  >
     <view v-if="loadError" class="state-card state-card--error">
       <text>{{ loadError }}</text>
       <wd-button size="small" plain @click="loadDetails">重新加载</wd-button>

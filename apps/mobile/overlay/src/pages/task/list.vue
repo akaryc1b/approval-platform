@@ -43,6 +43,20 @@ const currentPage = ref(1)
 const keyword = ref('')
 const loading = ref(false)
 const loadError = ref('')
+// Observe request completion without changing the list's existing loading behavior.
+const listLoadsInFlight = ref(0)
+const listGeneration = ref(0)
+const listLoadedGeneration = ref(0)
+const loadedListContext = ref<{ tab: ViewMode, page: number, keyword: string }>()
+const countsLoadsInFlight = ref(0)
+const countsGeneration = ref(0)
+const countsLoadedGeneration = ref(0)
+const countsError = ref('')
+const refreshGeneration = ref(0)
+const refreshCompletedGeneration = ref(0)
+const listContextValid = computed(() => loadedListContext.value?.tab === activeMode.value
+  && loadedListContext.value?.page === currentPage.value
+  && loadedListContext.value?.keyword === keyword.value)
 const actionId = ref('')
 const pendingTotal = ref(0)
 const processedTotal = ref(0)
@@ -141,6 +155,10 @@ function errorMessage(error: unknown) {
 }
 
 async function loadActivePage() {
+  const generation = ++listGeneration.value
+  const context = { tab: activeMode.value, page: currentPage.value, keyword: keyword.value }
+  listLoadsInFlight.value += 1
+  listLoadedGeneration.value = 0
   loading.value = true
   loadError.value = ''
   const parameters = {
@@ -161,6 +179,8 @@ async function loadActivePage() {
       pendingPage.value = await findPendingTasks(parameters)
       pendingTotal.value = pendingPage.value.total
     }
+    loadedListContext.value = context
+    listLoadedGeneration.value = generation
   }
   catch (error) {
     loadError.value = errorMessage(error)
@@ -175,11 +195,16 @@ async function loadActivePage() {
     }
   }
   finally {
+    listLoadsInFlight.value -= 1
     loading.value = false
   }
 }
 
 async function loadCounts() {
+  const generation = ++countsGeneration.value
+  countsLoadsInFlight.value += 1
+  countsLoadedGeneration.value = 0
+  countsError.value = ''
   const parameters = { limit: 1, offset: 0 }
   const [pending, processed, started] = await Promise.allSettled([
     findPendingTasks(parameters),
@@ -195,10 +220,20 @@ async function loadCounts() {
   if (started.status === 'fulfilled') {
     startedTotal.value = started.value.total
   }
+  countsError.value = [
+    pending.status === 'rejected' ? 'pending' : '',
+    processed.status === 'rejected' ? 'processed' : '',
+    started.status === 'rejected' ? 'started' : '',
+  ].filter(Boolean).join(',')
+  countsLoadedGeneration.value = countsError.value ? 0 : generation
+  countsLoadsInFlight.value -= 1
 }
 
 async function refreshAll() {
+  const generation = ++refreshGeneration.value
+  refreshCompletedGeneration.value = 0
   await Promise.all([loadActivePage(), loadCounts()])
+  refreshCompletedGeneration.value = generation
 }
 
 async function switchMode(mode: ViewMode) {
@@ -316,7 +351,25 @@ onShow(refreshAll)
 </script>
 
 <template>
-  <view class="page">
+  <view
+    class="page"
+    data-testid="approval-task-list"
+    :data-active-tab="activeMode"
+    :data-list-loading="loading || listLoadsInFlight > 0"
+    :data-list-error="loadError"
+    :data-list-generation="listGeneration"
+    :data-list-loaded-generation="listLoadedGeneration"
+    :data-list-context-valid="listContextValid"
+    :data-counts-loading="countsLoadsInFlight > 0"
+    :data-counts-error="countsError"
+    :data-counts-generation="countsGeneration"
+    :data-counts-loaded-generation="countsLoadedGeneration"
+    :data-refresh-generation="refreshGeneration"
+    :data-refresh-completed-generation="refreshCompletedGeneration"
+    :data-pending-total="pendingTotal"
+    :data-processed-total="processedTotal"
+    :data-started-total="startedTotal"
+  >
     <scroll-view class="mode-scroll" scroll-x>
       <view class="mode-row">
         <wd-button
@@ -365,6 +418,9 @@ onShow(refreshAll)
         v-for="task in pendingPage.items"
         :key="task.taskId"
         class="task-card"
+        :data-task-id="task.taskId"
+        :data-instance-id="task.instanceId"
+        :data-business-key="task.businessKey"
         @click="openTask(task.taskId)"
       >
         <view class="task-card__header">
@@ -381,7 +437,14 @@ onShow(refreshAll)
     </view>
 
     <view v-else-if="activeMode === 'processed'" class="task-list">
-      <view v-for="task in processedPage.items" :key="task.taskId" class="task-card">
+      <view
+        v-for="task in processedPage.items"
+        :key="task.taskId"
+        class="task-card"
+        :data-task-id="task.taskId"
+        :data-instance-id="task.instanceId"
+        :data-business-key="task.businessKey"
+      >
         <view class="task-card__header">
           <text class="task-card__title">{{ task.supplier }}采购付款</text>
           <wd-tag type="success" plain>{{ taskStage(task) }}</wd-tag>
@@ -408,7 +471,13 @@ onShow(refreshAll)
     </view>
 
     <view v-else class="task-list">
-      <view v-for="item in startedPage.items" :key="item.instanceId" class="task-card">
+      <view
+        v-for="item in startedPage.items"
+        :key="item.instanceId"
+        class="task-card"
+        :data-instance-id="item.instanceId"
+        :data-business-key="item.businessKey"
+      >
         <view class="task-card__header">
           <text class="task-card__title">{{ item.supplier }}采购付款</text>
           <wd-tag :type="statusTone(item.status)" plain>{{ statusLabel(item.status) }}</wd-tag>

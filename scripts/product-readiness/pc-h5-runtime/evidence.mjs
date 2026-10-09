@@ -1,3 +1,4 @@
+import { verifyActionCaptures } from './capture-evidence.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -60,12 +61,16 @@ const expectedSteps = [
 const expectedScreenshots = [
   'pc-manager-before.png',
   'pc-manager-after.png',
+  'pc-manager-settled.png',
   'h5-finance-before.png',
   'h5-finance-after.png',
+  'h5-finance-settled.png',
   'h5-countersign-a-before.png',
   'h5-countersign-a-after.png',
+  'h5-countersign-a-settled.png',
   'h5-countersign-b-before.png',
   'h5-countersign-b-after.png',
+  'h5-countersign-b-settled.png',
 ];
 
 const requiredNonClaims = [
@@ -185,6 +190,10 @@ export function verifyEvidence() {
       throw new Error(`screenshot digest mismatch: ${screenshot.file}`);
     }
   }
+  verifyActionCaptures(evidence.screenshots, evidence.steps.map((step, index) => ({
+    name: ['pc-manager', 'h5-finance', 'h5-countersign-a', 'h5-countersign-b'][index],
+    client: step.client, taskId: step.taskId, actorId: step.actorId,
+  })), outputDirectory, evidence.instanceId, evidence.businessKey);
   for (const nonClaim of requiredNonClaims) {
     if (!evidence.nonClaims?.includes(nonClaim)) {
       throw new Error(`runtime evidence lost non-claim: ${nonClaim}`);

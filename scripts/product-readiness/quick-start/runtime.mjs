@@ -1,3 +1,4 @@
+import { verifyReadySurface } from '../pc-h5-runtime/capture-evidence.mjs';
 import {
   existsSync,
   mkdirSync,
@@ -130,6 +131,18 @@ export function validateBrowserEvidence(value, contract, identity) {
       || value?.h5?.components?.stylesApplied !== true
       || value?.h5?.components?.unresolvedTags !== 0) {
     throw new Error('Quick Start browser evidence is inconsistent');
+  }
+  for (const client of ['pc', 'h5']) {
+    const receipt = value[client];
+    const ready = verifyReadySurface(receipt.readiness, `${client}-list`, value.businessKey, { actorId: contract.clients[client].actorId, url: clientUrl(client, contract.clients[client]) });
+    if (receipt.capturePhase !== 'READY_BEFORE_ACTION' || ready.url !== receipt.url
+      || ready.pendingTotal !== 1 || ready.processedTotal !== 0) {
+      throw new Error('Quick Start capture is not a ready initial task list');
+    }
+  }
+  if (value.pc.readiness.taskId !== value.h5.readiness.taskId
+    || value.pc.readiness.instanceId !== value.h5.readiness.instanceId) {
+    throw new Error('Quick Start captures do not show the same task');
   }
   return value;
 }
@@ -334,6 +347,7 @@ export async function execute({ keepAlive }) {
         ...process.env,
         APPROVAL_DEMO_BACKEND_ORIGIN: 'http://127.0.0.1:8080',
         APPROVAL_DEMO_CHROME_PATH: chromeExecutable(),
+        APPROVAL_DEMO_CAPTURE_DEADLINE_EPOCH_MS: String(deadline),
         APPROVAL_DEMO_EVIDENCE_DIR: runDirectory,
         APPROVAL_DEMO_EXACT_HEAD_SHA: identity.commitSha,
         APPROVAL_DEMO_H5_URL: h5Url,
@@ -348,6 +362,15 @@ export async function execute({ keepAlive }) {
         APPROVAL_DEMO_QUICK_START_TENANT: contract.scenario.tenant.id,
         APPROVAL_DEMO_REPOSITORY_ROOT: repositoryRoot,
       },
+    );
+
+    // Run only after this normal first browser stage. The optimizer test owns a
+    // disposable fixture/cache and verifies acceptance caches remain unchanged.
+    runNodeChecked(
+      'Verify the pinned PC style graph in an isolated optimizer fixture',
+      ['--test', 'scripts/tests/web-cold-start-style-graph.test.mjs'],
+      process.env,
+      remainingMilliseconds(deadline, 'isolated PC style graph validation'),
     );
 
     const browserEvidencePath = resolve(runDirectory, browserEvidenceFile);

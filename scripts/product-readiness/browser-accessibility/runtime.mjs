@@ -1,3 +1,4 @@
+import { verifyMatrixCaptures } from '../pc-h5-runtime/capture-evidence.mjs';
 import {
   existsSync,
   mkdirSync,
@@ -90,7 +91,7 @@ function prepareBrowserRuntimes(environment, timeoutMs) {
   );
 }
 
-function validateProjectEvidence(value, project, contract, identity) {
+function validateProjectEvidence(value, project, contract, identity, urls) {
   if (value?.schemaVersion !== 1
       || value?.evidenceKind !== 'BROWSER_ACCESSIBILITY_PROJECT_V1'
       || value?.status !== 'PASSED'
@@ -100,6 +101,7 @@ function validateProjectEvidence(value, project, contract, identity) {
       || value?.treeSha !== identity.treeSha
       || value?.tenantId !== contract.scenario.tenantId
       || value?.businessKey !== contract.scenario.businessKey
+      || value?.actorId !== contract.scenario.pcActorId
       || value?.pc?.cjkGlyphsRendered !== true
       || value?.h5?.cjkGlyphsRendered !== true
       || value?.accessibility?.criticalViolations !== 0
@@ -110,6 +112,7 @@ function validateProjectEvidence(value, project, contract, identity) {
       && value?.keyboard?.authenticatedPcTaskFlow !== true) {
     throw new Error('Chromium keyboard evidence is incomplete');
   }
+  verifyMatrixCaptures(value, urls);
   return value;
 }
 
@@ -229,6 +232,7 @@ export async function execute(contract) {
           'config/demo/browser-accessibility-matrix.json',
         APPROVAL_DEMO_BACKEND_ORIGIN: 'http://127.0.0.1:8080',
         APPROVAL_DEMO_CHROME_PATH: chromeExecutable(),
+        APPROVAL_DEMO_CAPTURE_DEADLINE_EPOCH_MS: String(deadline),
         APPROVAL_DEMO_EVIDENCE_DIR: runDirectory,
         APPROVAL_DEMO_EXACT_HEAD_SHA: identity.commitSha,
         APPROVAL_DEMO_EXACT_TREE_SHA: identity.treeSha,
@@ -254,6 +258,7 @@ export async function execute(contract) {
         project,
         contract,
         identity,
+        { pc: pcUrl, h5: h5Url },
       );
     });
     matrix = {

@@ -32,6 +32,9 @@ const DEFAULT_USE_CASES: ApprovalAssistanceUseCase[] = [
 
 const selectedUseCase = ref<ApprovalAssistanceUseCase>('SUMMARY');
 const loading = ref(false);
+const loadsInFlight = ref(0);
+const assistanceGeneration = ref(0);
+const assistanceLoadedGeneration = ref(0);
 const generating = ref(false);
 const loadError = ref('');
 const generationError = ref('');
@@ -53,6 +56,9 @@ function errorMessage(error: unknown) {
 
 async function loadAssistance() {
   if (!props.taskId) return;
+  const generation = ++assistanceGeneration.value;
+  assistanceLoadedGeneration.value = 0;
+  loadsInFlight.value += 1;
   loading.value = true;
   loadError.value = '';
   try {
@@ -60,10 +66,12 @@ async function loadAssistance() {
       props.taskId,
       selectedUseCase.value,
     );
+    assistanceLoadedGeneration.value = generation;
   } catch (error) {
     assistance.value = undefined;
     loadError.value = errorMessage(error);
   } finally {
+    loadsInFlight.value -= 1;
     loading.value = false;
   }
 }
@@ -110,7 +118,21 @@ watch(
 </script>
 
 <template>
-  <section class="assistance-panel" aria-label="AI 辅助（未验证）">
+  <section
+    class="assistance-panel"
+    aria-label="AI 辅助（未验证）"
+    data-testid="approval-assistance"
+    :data-task-id="assistance?.taskSnapshot.taskId || ''"
+    :data-instance-id="assistance?.taskSnapshot.instanceId || ''"
+    :data-snapshot-task-id="assistance?.taskSnapshot.taskId || ''"
+    :data-loading="loading || loadsInFlight > 0"
+    :data-error="loadError"
+    :data-assistance-generation="assistanceGeneration"
+    :data-assistance-loaded-generation="assistanceLoadedGeneration"
+    :data-availability="assistance?.availability || ''"
+    :data-snapshot-use-case="assistance?.requestedUseCase || ''"
+    :data-selected-use-case="selectedUseCase"
+  >
     <div class="assistance-header">
       <div>
         <h3>AI 辅助（未验证）</h3>
