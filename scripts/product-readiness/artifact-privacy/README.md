@@ -25,6 +25,8 @@ join. Changed content-addressed resources receive new hashes and all native
 `sha1`/`_sha1` references are rebound, including DOM overrides and screenshots.
 Original network sizes describe observed traffic; resource hashes describe the
 published bytes. ZIP CRCs and enclosing file digests describe the published ZIP.
+An idle context's zero-byte `.network` member remains zero bytes. Blank JSONL
+records and empty `.trace` members still reject publication.
 
 The pinned producer stores test attachments, including automatic failure
 `error-context` Markdown, as extensionless `resources/<40-lowercase-hex-SHA1>`
@@ -151,7 +153,9 @@ the pinned runner/evaluate wrappers. Unknown or ambiguous exceptions stay
 `UNKNOWN`. No exception, stack, path, URL or identifier is copied into the line.
 Other tests without phase annotations report `UNAVAILABLE`.
 
-Both diagnostic protocols are advisory failure information, never acceptance,
+The matrix also emits `BROWSER_CONTEXT_V1 engine=ENGINE pcCount=COUNT pcKind=KIND h5Count=COUNT h5Kind=KIND` on failed tests. Engine must match an exact configured project/browser pair. PC/H5 are the existing page roles; the observer retains only counts and an allowlisted native Error name class, never the error message, stack, URL or arbitrary name. Missing/malformed state and counts outside 0–999999 become UNKNOWN. Different observed classes become MULTIPLE. Zero counts require NONE. The original page-error assertion and count remain unchanged. At most 64 distinct context diagnostics per output recorder are retained; duplicates do not consume another slot and excess input emits the existing fixed omission marker.
+
+All diagnostic protocols are advisory failure information, never acceptance,
 readiness, control values or provenance. The projector checks their original
 ASCII line before normalization. Invalid diagnostic-looking lines are omitted
 without falling through to the existing readiness-marker parser. Browser and

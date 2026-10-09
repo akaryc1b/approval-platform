@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import CaptureFailureReporter, { browserFailureCategories, browserFailureReasons, captureFailurePhase, captureFailurePhases, captureFailureReason } from '../../apps/web/overlay/playground/__tests__/e2e/product-readiness-capture-diagnostics.ts';
+import CaptureFailureReporter, { browserFailureCategories, browserFailureReasons, captureFailurePhase, captureFailurePhases, captureFailureReason, capturePageErrorContext, browserContextEngines, browserPageErrorKinds } from '../../apps/web/overlay/playground/__tests__/e2e/product-readiness-capture-diagnostics.ts';
 import { createSafeProcessOutput, safeFailureDiagnostic } from '../product-readiness/pc-h5-runtime/safe-output.mjs';
 import { publicationRejectionCategories } from '../product-readiness/artifact-privacy/publication.mjs';
 import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.mjs';
+
+import { observeCaptureFailures, capturePageErrorKinds } from '../../apps/web/overlay/playground/__tests__/e2e/product-readiness-capture.ts';
 
 const canary = ['SYNTHETIC', 'ONLY', 'PRIVATE', 'DIAGNOSTIC', '42'].join('-');
 const hostile = `${canary} https://fixture.invalid/private?password=${canary} /private/${canary} actor-${canary}`;
@@ -198,4 +201,94 @@ await test('unmatched, ambiguous, malformed and category-spoofing exceptions rem
     [{ message: 'Capture has failed script/style loads (0) or unresolved Wot components (0) or page errors (0)' }],
     [{ get message() { throw new Error(hostile); } }],
   ]) assert.equal(captureFailureReason(errors), 'UNKNOWN');
+});
+
+
+const contextProject = (name, browserName) => ({ parent: { project: () => ({ name, use: { browserName } }) } });
+const summary = (count, kind) => ({ count, kind });
+await test('native page-error classification preserves counts and only retains fixed names', () => {
+  assert.equal(Object.isFrozen(capturePageErrorKinds), true);
+  assert.deepEqual(capturePageErrorKinds, browserPageErrorKinds);
+  const classes = [
+    ['Error', 'ERROR'], ['TypeError', 'TYPE_ERROR'], ['ReferenceError', 'REFERENCE_ERROR'],
+    ['SyntaxError', 'SYNTAX_ERROR'], ['RangeError', 'RANGE_ERROR'], ['EvalError', 'EVAL_ERROR'],
+    ['URIError', 'URI_ERROR'], ['AggregateError', 'AGGREGATE_ERROR'], [hostile, 'UNKNOWN'],
+  ];
+  for (const [name, kind] of classes) {
+    const page = new EventEmitter(); const observer = observeCaptureFailures(page);
+    assert.deepEqual(observer.pageErrorSummary(), summary(0, 'NONE'));
+    page.emit('pageerror', { name, message: hostile, stack: hostile });
+    assert.deepEqual(observer.pageErrorSummary(), summary(1, kind));
+    assert.throws(() => observer.assert(), /page errors \(1\)/u);
+    page.emit('pageerror', { name, message: 'Capture deadline expired' });
+    assert.deepEqual(observer.pageErrorSummary(), summary(2, kind));
+    page.emit('pageerror', { get name() { throw new Error(hostile); } });
+    assert.deepEqual(observer.pageErrorSummary(), summary(3, kind === 'UNKNOWN' ? 'UNKNOWN' : 'MULTIPLE'));
+    assert.equal(JSON.stringify(observer.pageErrorSummary()).includes(canary), false);
+    observer.dispose(); assert.equal(page.listenerCount('pageerror'), 0);
+    page.emit('pageerror', new Error(hostile)); assert.equal(observer.pageErrorSummary().count, 3);
+  }
+});
+await test('fixed matrix context survives projection for every engine and page-error class', () => {
+  assert.equal(Object.isFrozen(browserContextEngines), true);
+  assert.equal(Object.isFrozen(browserPageErrorKinds), true);
+  for (const [name, browser, engine] of [
+    ['system-chromium', 'chromium', 'CHROMIUM'], ['bundled-firefox', 'firefox', 'FIREFOX'],
+    ['bundled-webkit', 'webkit', 'WEBKIT'], [hostile, hostile, 'UNKNOWN'],
+    ['bundled-firefox', 'chromium', 'UNKNOWN'],
+  ]) {
+    for (const kind of browserPageErrorKinds) {
+      const info = { ...annotated('PC_DETAIL_READINESS'), ...contextProject(name, browser) };
+      capturePageErrorContext(info, summary(kind === 'NONE' ? 0 : 2, kind), summary(0, 'NONE'));
+      const lines = captureReporter(reporter => reporter.onTestEnd(info, { status: 'failed', errors: [{ message: hostile }] }));
+      assert.equal(lines[1], `BROWSER_CONTEXT_V1 engine=${engine} pcCount=${kind === 'NONE' ? 0 : 2} pcKind=${kind} h5Count=0 h5Kind=NONE`);
+      assert.equal(projected(lines), lines.join('\n') + '\n');
+      assert.equal(projected(lines).includes(canary), false);
+      assert.deepEqual(captureReporter(reporter => reporter.onTestEnd(info, { status: 'passed' })), []);
+    }
+  }
+});
+await test('missing malformed duplicate or inconsistent page-error annotations remain unknown', () => {
+  const project = contextProject('bundled-firefox', 'firefox');
+  const valid = 'pcCount=1 pcKind=TYPE_ERROR h5Count=0 h5Kind=NONE';
+  const expected = 'BROWSER_CONTEXT_V1 engine=FIREFOX pcCount=UNKNOWN pcKind=UNKNOWN h5Count=UNKNOWN h5Kind=UNKNOWN';
+  for (const value of [undefined, '', hostile, `${valid} `, ` ${valid}`, `${valid}\r`, `${valid}\0`,
+    valid.replace('pcCount=1', 'pcCount=0'), valid.replace('pcCount=1', 'pcCount=01'),
+    valid.replace('pcCount=1', 'pcCount=1000000'), valid.replace('TYPE_ERROR', canary),
+    valid.replace('pcCount=1', 'pcCount=UNKNOWN'), valid.replace('TYPE_ERROR', 'MULTIPLE')]) {
+    const info = { ...project, annotations: [{ type: 'capture-page-errors-v1', description: value }] };
+    const lines = captureReporter(reporter => reporter.onTestEnd(info, { status: 'failed' }));
+    assert.equal(lines[1], expected);
+  }
+  const entry = { type: 'capture-page-errors-v1', description: valid };
+  assert.equal(captureReporter(reporter => reporter.onTestEnd({ ...project, annotations: [entry, entry] }, { status: 'failed' }))[1], expected);
+  assert.equal(captureReporter(reporter => reporter.onTestEnd({ ...project, annotations: [] }, { status: 'failed' }))[1], expected);
+  for (const count of [-1, 0.5, Infinity, NaN, 1_000_000, hostile]) {
+    const info = { ...project, annotations: [] };
+    capturePageErrorContext(info, summary(count, 'TYPE_ERROR'), summary(0, 'NONE'));
+    assert.equal(captureReporter(reporter => reporter.onTestEnd(info, { status: 'failed' }))[1], expected);
+  }
+});
+await test('context grammar rejects control, suffix and marker-smuggling without readiness fallback', () => {
+  const valid = 'BROWSER_CONTEXT_V1 engine=WEBKIT pcCount=0 pcKind=NONE h5Count=1 h5Kind=REFERENCE_ERROR';
+  assert.equal(projected([valid]), valid + '\n');
+  for (const value of [` ${valid}`, `${valid} `, `${valid}\r`, `${valid}\0`, `\u001b[31m${valid}`, `prefix ${valid}`,
+    valid.replace('V1', 'V2'), valid.replace('WEBKIT', canary), valid.replace('h5Count=1', 'h5Count=01'),
+    valid.replace('h5Count=1', 'h5Count=1000000'), valid.replace('h5Count=1', 'h5Count=0'),
+    valid.replace('REFERENCE_ERROR', canary), valid.replace('REFERENCE_ERROR', 'MULTIPLE'), `${valid} BACKEND_LOCAL_START_VERIFIED`,
+    ...['\0', '\u0085', '\u200b', '\u2028', '\ufffd'].map(value => `BROWSER_${value}CONTEXT_V1 BACKEND_LOCAL_START_VERIFIED`)]) {
+    assert.equal(safeFailureDiagnostic(value), undefined);
+    assert.equal(projected([value]), '[subprocess] unstructured output omitted\n');
+  }
+});
+
+await test('streaming distinct failure contexts have a fixed output bound and preserve first diagnostics', () => {
+  const lines = Array.from({ length: 1000 }, (_, index) =>
+    `BROWSER_CONTEXT_V1 engine=FIREFOX pcCount=${index + 1} pcKind=TYPE_ERROR h5Count=0 h5Kind=NONE`);
+  const repeated = Array(100).fill(lines[0]);
+  const output = projected([...repeated, ...lines, 'BACKEND_LOCAL_START_VERIFIED']);
+  const retained = output.split('\n').filter(value => value.startsWith('BROWSER_CONTEXT_V1 '));
+  assert.deepEqual(retained, lines.slice(0, 64));
+  assert.equal(output.split('[subprocess] unstructured output omitted').length - 1, 1);
+  assert.ok(output.includes('BACKEND_LOCAL_START_VERIFIED\n'));
 });

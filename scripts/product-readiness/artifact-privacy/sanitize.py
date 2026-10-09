@@ -998,7 +998,10 @@ def transform_trace(entries, objects, sanitizer):
                     'callId': original['callId'], 'field': 'result.received.ariaSnapshot',
                     'transformation': 'credential redaction in received DOM diagnostic only',
                     'assertionPredicateExpectedCriterionAndOutcome': 'unchanged'})
-        if name.endswith(('.trace', '.network')):
+        if name.endswith('.network') and not sanitized:
+            # An idle native context has zero network records, not a blank line.
+            content = b''
+        elif name.endswith(('.trace', '.network')):
             content = ('\n'.join(dumps(row) for row in sanitized) + '\n').encode()
         else:
             content = dumps(sanitized).encode()

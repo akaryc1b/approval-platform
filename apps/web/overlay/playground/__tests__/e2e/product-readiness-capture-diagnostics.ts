@@ -1,5 +1,6 @@
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 import type { TestInfo } from '@playwright/test';
+import type { CapturePageErrorSummary } from './product-readiness-capture';
 
 // Closed diagnostic vocabulary, never receipt fields or acceptance markers.
 export const captureFailurePhases = Object.freeze([
@@ -7,6 +8,9 @@ export const captureFailurePhases = Object.freeze([
   'PC_TASK_VISIBILITY', 'PC_SURFACE_READINESS', 'PC_FONT', 'PC_SCREENSHOT',
   'H5_NAVIGATION', 'H5_TASK_VISIBILITY', 'H5_SURFACE_READINESS',
   'H5_COMPONENTS', 'H5_FONT', 'H5_SCREENSHOT', 'RECEIPT_PUBLICATION', 'CLEANUP',
+  'PC_AUDIT', 'PC_DETAIL_ACTION', 'PC_DETAIL_READINESS', 'PC_DETAIL_AUDIT',
+  'PC_CONFIRMATION', 'PC_DETAIL_SCREENSHOT', 'H5_AUDIT', 'H5_DETAIL_ACTION',
+  'H5_DETAIL_READINESS', 'H5_DETAIL_AUDIT', 'H5_DETAIL_SCREENSHOT', 'MATRIX_ASSERTIONS',
 ] as const);
 export type CaptureFailurePhase = typeof captureFailurePhases[number];
 export const browserFailureCategories = Object.freeze(['FAILED', 'TIMED_OUT', 'INTERRUPTED', 'RUNNER_ERROR', 'UNAVAILABLE'] as const);
@@ -49,6 +53,56 @@ export const browserFailureReasons = Object.freeze([
   'REQUIRED_ASSET', 'PAGE_ERROR', 'RUNTIME_FAILURES',
 ]);
 const annotationType = 'capture-failure-phase-v1';
+const pageErrorsAnnotation = 'capture-page-errors-v1';
+export const browserPageErrorKinds = Object.freeze([
+  'NONE', 'UNKNOWN', 'MULTIPLE', 'ERROR', 'TYPE_ERROR', 'REFERENCE_ERROR',
+  'SYNTAX_ERROR', 'RANGE_ERROR', 'EVAL_ERROR', 'URI_ERROR', 'AGGREGATE_ERROR',
+] as const);
+export const browserContextEngines = Object.freeze(['UNKNOWN', 'CHROMIUM', 'FIREFOX', 'WEBKIT'] as const);
+const unavailablePageErrors = 'pcCount=UNKNOWN pcKind=UNKNOWN h5Count=UNKNOWN h5Kind=UNKNOWN';
+
+function validPageError(count: unknown, kind: unknown) {
+  return typeof kind === 'string' && browserPageErrorKinds.some(value => value === kind)
+    && ((count === 'UNKNOWN' && kind === 'UNKNOWN')
+      || (typeof count === 'number' && Number.isInteger(count) && count >= 0 && count <= 999_999
+        && (count === 0 ? kind === 'NONE' : kind !== 'NONE')
+        && (kind !== 'MULTIPLE' || count >= 2)));
+}
+
+/** Bounded advisory state only; this annotation is never receipt evidence. */
+export function capturePageErrorContext(info: Pick<TestInfo, 'annotations'>,
+  pc: CapturePageErrorSummary, h5: CapturePageErrorSummary) {
+  let description = unavailablePageErrors;
+  if (validPageError(pc?.count, pc?.kind) && validPageError(h5?.count, h5?.kind)) {
+    description = `pcCount=${pc.count} pcKind=${pc.kind} h5Count=${h5.count} h5Kind=${h5.kind}`;
+  }
+  info.annotations = info.annotations.filter(item => item.type !== pageErrorsAnnotation);
+  info.annotations.push({ type: pageErrorsAnnotation, description });
+}
+
+function pageErrorContext(annotations: TestCase['annotations']) {
+  const values = Array.isArray(annotations) ? annotations.filter(item => item?.type === pageErrorsAnnotation) : [];
+  const text = values.length === 1 ? values[0]?.description : undefined;
+  const match = typeof text === 'string' && text.length <= 160
+    ? text.match(/^pcCount=(UNKNOWN|0|[1-9][0-9]{0,5}) pcKind=([A-Z_]+) h5Count=(UNKNOWN|0|[1-9][0-9]{0,5}) h5Kind=([A-Z_]+)$/u) : null;
+  const count = (value: string) => value === 'UNKNOWN' ? value : Number(value);
+  return match && validPageError(count(match[1]), match[2]) && validPageError(count(match[3]), match[4])
+    ? text : unavailablePageErrors;
+}
+
+function contextEngine(test: TestCase): string | undefined {
+  try {
+    const project = test.parent?.project();
+    if (!project) return undefined;
+    const known = [
+      ['system-chromium', 'chromium', 'CHROMIUM'],
+      ['bundled-firefox', 'firefox', 'FIREFOX'],
+      ['bundled-webkit', 'webkit', 'WEBKIT'],
+    ];
+    return known.find(([name, browser]) => project.name === name && project.use.browserName === browser)?.[2] ?? 'UNKNOWN';
+  } catch { return 'UNKNOWN'; }
+}
+
 
 /** Private, exact known-helper lookup. Only a closed reason ever leaves here. */
 export function captureFailureReason(errors: unknown): string {
@@ -114,6 +168,12 @@ export default class CaptureFailureReporter implements Reporter {
       : result.status === 'timedOut' ? 'TIMED_OUT'
         : result.status === 'interrupted' ? 'INTERRUPTED' : 'UNAVAILABLE';
     this.emit(phase, category, captureFailureReason(result.errors));
+    const engine = contextEngine(test);
+    const hasContext = Array.isArray(test.annotations)
+      && test.annotations.some(item => item?.type === pageErrorsAnnotation);
+    if (engine !== undefined || hasContext) {
+      console.log(`BROWSER_CONTEXT_V1 engine=${engine ?? 'UNKNOWN'} ${pageErrorContext(test.annotations)}`);
+    }
   }
 
   onError() { this.emit('UNAVAILABLE', 'RUNNER_ERROR'); }

@@ -339,6 +339,42 @@ class NativeAttachmentTests(unittest.TestCase):
             self.assertEqual(result.stderr, 'EVIDENCE_REJECTION_V1 category=' + category + '\n')
             self.assertEqual(path.read_bytes(), original)
 
+    def test_idle_context_network_members_remain_empty_on_publication(self):
+        entries = self.rows(native_attachment_fixture(), lambda rows: rows.append({
+            'type': 'error', 'message': 'Synthetic matrix failure before H5 navigation'}))
+        context = {'type': 'context-options', 'version': 8, 'playwrightVersion': '1.60.0',
+                   'options': {}}
+        for prefix in ('idle', 'second-idle'):
+            entries.extend([(prefix + '.trace', json.dumps(context) + '\n'),
+                            (prefix + '.network', b'')])
+        original_rows = [json.loads(line) for line in dict(entries)['test.trace'].splitlines()]
+        published, manifest = self.publish(entries)
+        for prefix in ('idle', 'second-idle'):
+            self.assertEqual(published[prefix + '.network'], b'')
+            self.assertEqual(json.loads(published[prefix + '.trace']), context)
+        rows = [json.loads(line) for line in published['test.trace'].splitlines()]
+        self.assertEqual(rows[3:5], original_rows[3:5], 'assertion records changed')
+        self.assertEqual(rows[-1], original_rows[-1], 'failure outcome changed')
+        self.assertEqual(json.loads(published['0.network'])['snapshot']['response']['status'], 200)
+        self.assertEqual(published['resources/screen.png'], PNG)
+        self.assertEqual(len(manifest['changedSources']), 1)
+        self.assertEqual(manifest['resourceReferencesRebound'], 2)
+        self.assertEqual(manifest['changedAssertionDiagnostics'], [])
+        for secret in (PASSWORD, TOKEN, COOKIE):
+            self.assertNotIn(secret.encode(), b'\n'.join(published.values()))
+        native = {name: data for name, data in published.items()
+                  if name != 'approval-sanitization.json'}
+        p.validate_references(native, p.trace_objects(native))
+
+    def test_empty_network_support_keeps_jsonl_and_trace_input_guards(self):
+        for content in (b'\n', b'\r\n', b' \n', b'\t\n', b'\x00',
+                        (json.dumps({'type': 'resource-snapshot'}) + '\n\n').encode()):
+            with self.subTest(network=repr(content)):
+                self.reject(fixture([('idle.network', content)]))
+        for content in (b'', b'\n', b'\r\n', b' \n'):
+            with self.subTest(trace=repr(content)):
+                self.reject(fixture([('idle.trace', content)]))
+
     def test_native_markdown_redaction_and_png_preservation_ignore_member_order(self):
         entries = native_attachment_fixture()
         original_rows = [json.loads(line) for line in dict(entries)['test.trace'].splitlines()]

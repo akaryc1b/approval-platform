@@ -16,11 +16,19 @@ export interface SurfaceExpectation {
   absentTaskId?: string;
 }
 
+export const capturePageErrorKinds = Object.freeze([
+  'NONE', 'UNKNOWN', 'MULTIPLE', 'ERROR', 'TYPE_ERROR', 'REFERENCE_ERROR',
+  'SYNTAX_ERROR', 'RANGE_ERROR', 'EVAL_ERROR', 'URI_ERROR', 'AGGREGATE_ERROR',
+] as const);
+export type CapturePageErrorKind = typeof capturePageErrorKinds[number];
+export interface CapturePageErrorSummary { count: number; kind: CapturePageErrorKind }
+
 /** Observe failures without filtering or changing the native console/network record. */
 export function observeCaptureFailures(page: Page) {
   let moduleFailures = 0;
   let unresolvedComponents = 0;
   let pageErrors = 0;
+  const errorKinds = new Set<CapturePageErrorKind>();
   const response = (value: import('@playwright/test').Response) => {
     if (value.status() >= 400 && ['script', 'stylesheet'].includes(value.request().resourceType())) moduleFailures += 1;
   };
@@ -30,12 +38,31 @@ export function observeCaptureFailures(page: Page) {
   const consoleMessage = (value: import('@playwright/test').ConsoleMessage) => {
     if (/Failed to resolve component:\s*wd-/u.test(value.text())) unresolvedComponents += 1;
   };
-  const pageError = () => { pageErrors += 1; };
+  const pageError = (error: Error) => {
+    pageErrors += 1;
+    let kind: CapturePageErrorKind = 'UNKNOWN';
+    try {
+      // Inspect the actual native error privately. Never retain its message,
+      // stack, URL or arbitrary name, and never change the failure count.
+      const known: Array<[string, CapturePageErrorKind]> = [
+        ['Error', 'ERROR'], ['TypeError', 'TYPE_ERROR'], ['ReferenceError', 'REFERENCE_ERROR'],
+        ['SyntaxError', 'SYNTAX_ERROR'], ['RangeError', 'RANGE_ERROR'], ['EvalError', 'EVAL_ERROR'],
+        ['URIError', 'URI_ERROR'], ['AggregateError', 'AGGREGATE_ERROR'],
+      ];
+      const name = error?.name;
+      kind = known.find(([candidate]) => candidate === name)?.[1] ?? 'UNKNOWN';
+    } catch { /* Diagnostic inspection must not replace a native failure. */ }
+    errorKinds.add(kind);
+  };
   page.on('pageerror', pageError);
   page.on('response', response);
   page.on('requestfailed', failed);
   page.on('console', consoleMessage);
   return {
+    pageErrorSummary(): CapturePageErrorSummary {
+      return { count: pageErrors, kind: errorKinds.size > 1
+        ? 'MULTIPLE' : errorKinds.values().next().value ?? 'NONE' };
+    },
     assert() {
       if (moduleFailures || unresolvedComponents || pageErrors) {
         throw new Error(`Capture has failed script/style loads (${moduleFailures}) or unresolved Wot components (${unresolvedComponents}) or page errors (${pageErrors})`);

@@ -4,12 +4,16 @@
 export const maximumProcessLineBytes = 8_192;
 export const maximumCheckedOutputBytes = 8 * 1_024 * 1_024;
 const maximumNumericSummaries = 64;
+const maximumContextSummaries = 64;
 
 const browserFailurePhases = new Set([
   'UNAVAILABLE', 'TEST_SETUP', 'PC_AUTHENTICATION', 'PC_NAVIGATION',
   'PC_TASK_VISIBILITY', 'PC_SURFACE_READINESS', 'PC_FONT', 'PC_SCREENSHOT',
   'H5_NAVIGATION', 'H5_TASK_VISIBILITY', 'H5_SURFACE_READINESS',
   'H5_COMPONENTS', 'H5_FONT', 'H5_SCREENSHOT', 'RECEIPT_PUBLICATION', 'CLEANUP',
+  'PC_AUDIT', 'PC_DETAIL_ACTION', 'PC_DETAIL_READINESS', 'PC_DETAIL_AUDIT',
+  'PC_CONFIRMATION', 'PC_DETAIL_SCREENSHOT', 'H5_AUDIT', 'H5_DETAIL_ACTION',
+  'H5_DETAIL_READINESS', 'H5_DETAIL_AUDIT', 'H5_DETAIL_SCREENSHOT', 'MATRIX_ASSERTIONS',
 ]);
 const browserFailureCategories = new Set(['FAILED', 'TIMED_OUT', 'INTERRUPTED', 'RUNNER_ERROR', 'UNAVAILABLE']);
 const browserFailureReasons = new Set([
@@ -22,6 +26,14 @@ const browserFailureReasons = new Set([
   'TASK_CHANGED', 'WITNESS', 'ASSET_CHANGED', 'MISSING_WITNESS',
   'RECEIPT_PUBLICATION', 'REQUIRED_ASSET', 'PAGE_ERROR', 'RUNTIME_FAILURES',
 ]);
+const browserPageErrorKinds = new Set([
+  'NONE', 'UNKNOWN', 'MULTIPLE', 'ERROR', 'TYPE_ERROR', 'REFERENCE_ERROR',
+  'SYNTAX_ERROR', 'RANGE_ERROR', 'EVAL_ERROR', 'URI_ERROR', 'AGGREGATE_ERROR',
+]);
+function validPageError(count, kind) {
+  return browserPageErrorKinds.has(kind) && (count === 'UNKNOWN' ? kind === 'UNKNOWN'
+    : count === '0' ? kind === 'NONE' : kind !== 'NONE' && (kind !== 'MULTIPLE' || Number(count) >= 2));
+}
 const publicationRejectionCategories = new Set([
   'REQUEST_INVALID', 'INPUT_READ_FAILED', 'ARCHIVE_INVALID', 'CONTENT_INVALID',
   'BINARY_INVALID', 'REFERENCE_INVALID', 'DISCOVERY_REJECTED', 'TRANSFORM_REJECTED',
@@ -38,6 +50,8 @@ export function safeFailureDiagnostic(line) {
   let match = line.match(/^BROWSER_FAILURE_V1 phase=([A-Z0-9_]+) category=([A-Z_]+) reason=([A-Z_]+)$/u);
   if (match && browserFailurePhases.has(match[1]) && browserFailureCategories.has(match[2])
     && browserFailureReasons.has(match[3])) return line;
+  match = line.match(/^BROWSER_CONTEXT_V1 engine=(UNKNOWN|CHROMIUM|FIREFOX|WEBKIT) pcCount=(UNKNOWN|0|[1-9][0-9]{0,5}) pcKind=([A-Z_]+) h5Count=(UNKNOWN|0|[1-9][0-9]{0,5}) h5Kind=([A-Z_]+)$/u);
+  if (match && validPageError(match[2], match[3]) && validPageError(match[4], match[5])) return line;
   match = line.match(/^EVIDENCE_REJECTION_V1 category=([A-Z_]+)$/u);
   if (match && publicationRejectionCategories.has(match[1])) return line;
   return undefined;
@@ -119,6 +133,7 @@ export function createSafeProcessOutput({ emit, onControlLine } = {}) {
   let dropping = false;
   let ended = false;
   let numericSummaries = 0;
+  let contextSummaries = 0;
   const emitted = new Set();
   const controls = new Set();
 
@@ -132,6 +147,14 @@ export function createSafeProcessOutput({ emit, onControlLine } = {}) {
     const original = bytes.toString('utf8');
     const diagnostic = safeFailureDiagnostic(original);
     if (diagnostic) {
+      if (diagnostic.startsWith('BROWSER_CONTEXT_V1 ')) {
+        if (emitted.has(diagnostic)) return;
+        if (contextSummaries >= maximumContextSummaries) {
+          omitted();
+          return;
+        }
+        contextSummaries += 1;
+      }
       once(diagnostic);
       return;
     }
@@ -140,7 +163,7 @@ export function createSafeProcessOutput({ emit, onControlLine } = {}) {
       .trim();
     // Invalid diagnostic-looking input is terminally omitted. In particular it
     // cannot smuggle an existing readiness marker in a suffix or another field.
-    if (/(?:BROWSER_FAILURE|EVIDENCE_REJECTION)/u.test(value.replace(/[\x00-\x20\x7f]/gu, ''))) {
+    if (/(?:BROWSER_FAILURE|BROWSER_CONTEXT|EVIDENCE_REJECTION)/u.test(value.replace(/[^\x21-\x7e]/gu, ''))) {
       omitted();
       return;
     }

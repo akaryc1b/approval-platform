@@ -10,6 +10,7 @@ import {
   tenantId,
 } from './product-readiness-pc-h5-runtime-api';
 import { testCaptureBudget } from './product-readiness-capture-budget';
+import { captureFailurePhase, capturePageErrorContext } from './product-readiness-capture-diagnostics';
 import type { CaptureBudget } from './product-readiness-capture-budget';
 import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
 import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
@@ -379,6 +380,8 @@ function evidencePath(
 test('PC and H5 expose the bounded browser/accessibility matrix', async ({
   browser,
 }, testInfo) => {
+  const phase = captureFailurePhase(testInfo);
+  phase.enter('TEST_SETUP');
   const budget = testCaptureBudget(testInfo, captureStartedAt);
   const captures: unknown[] = [];
   const project = matrix.projects.find(
@@ -400,26 +403,34 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
   const pcFailures = observeCaptureFailures(pc);
   const h5Failures = observeCaptureFailures(h5);
   try {
+    phase.enter('PC_AUTHENTICATION');
     await ensurePcLogin(pc);
+    phase.enter('PC_NAVIGATION');
     const pcBudget = budget.limit(30_000);
     await pc.goto(pcUrl, { waitUntil: 'domcontentloaded', timeout: pcBudget.remaining() });
     const pcTask = pc.locator('.task-item')
       .filter({ hasText: businessKey }).first();
+    phase.enter('PC_TASK_VISIBILITY');
     await expect(pcTask).toBeVisible({ timeout: pcBudget.remaining(30_000) });
+    phase.enter('PC_SURFACE_READINESS');
     const pcReady = await readySurface(pc, pcBudget, { client: 'pc', kind: 'list', url: pcUrl, businessKey, pendingTotal: 1, processedTotal: 0 });
     captures.push({ file: 'pc-task-list.png', phase: 'READY_BEFORE_ACTION', readiness: pcReady });
     const pcHandle = pcTask.getByRole('button', {
       name: '处理',
       exact: true,
     });
+    phase.enter('PC_AUDIT');
     const pcList = await auditControls([
       { label: 'pc-task-handle', locator: pcHandle },
     ], pcBudget);
     const pcDocument = await documentEvidence(pc, 'pc-task-list', pcBudget);
+    phase.enter('PC_FONT');
     const pcCjk = await collectCjkEvidence(pc, pcBudget);
+    phase.enter('PC_SCREENSHOT');
     pcFailures.assert();
     await captureScreenshot(pc, pcBudget, evidencePath(project.id, 'pc-task-list.png'), { readiness: pcReady, assertCurrent: async () => pcFailures.assert() });
 
+    phase.enter('PC_DETAIL_ACTION');
     const detailBudget = budget.limit(20_000);
     if (project.id === 'system-chromium') {
       keyboardSequence.push(...await tabTo(pc, pcHandle, 'PC task handle', detailBudget));
@@ -430,16 +441,19 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
     await expect(pc.getByText('审批详情', { exact: true }).first())
       .toBeVisible({ timeout: detailBudget.remaining(20_000) });
     const pcDetailExpected = { client: 'pc' as const, kind: 'detail' as const, url: pcUrl, businessKey, taskId: pcReady.taskId || undefined, instanceId: pcReady.instanceId || undefined };
+    phase.enter('PC_DETAIL_READINESS');
     let pcDetailReady = await readySurface(pc, detailBudget, pcDetailExpected);
     const agree = pc.getByRole('button', {
       name: '同意',
       exact: true,
     }).last();
+    phase.enter('PC_DETAIL_AUDIT');
     const pcDetail = await auditControls([
       { label: 'pc-agree', locator: agree },
     ], detailBudget);
     let authenticatedPcTaskFlow = false;
     if (project.id === 'system-chromium') {
+      phase.enter('PC_CONFIRMATION');
       keyboardSequence.push(...await tabTo(pc, agree, 'PC agree', detailBudget));
       await detailBudget.run(() => pc.keyboard.press('Enter'));
       const confirmation = pc.getByRole('button', {
@@ -465,21 +479,29 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
       pcDetailReady = await readySurface(pc, detailBudget, pcDetailExpected);
       authenticatedPcTaskFlow = true;
     }
+    phase.enter('PC_DETAIL_SCREENSHOT');
     captures.push({ file: 'pc-task-detail.png', phase: 'READY_BEFORE_ACTION', readiness: pcDetailReady });
     pcFailures.assert();
     await captureScreenshot(pc, detailBudget, evidencePath(project.id, 'pc-task-detail.png'), { readiness: pcDetailReady, assertCurrent: async () => pcFailures.assert() });
 
+    phase.enter('H5_NAVIGATION');
     const h5Budget = budget.limit(30_000);
     await h5.goto(h5Url, { waitUntil: 'domcontentloaded', timeout: h5Budget.remaining() });
     const h5Task = h5.locator('.task-card')
       .filter({ hasText: businessKey }).first();
+    phase.enter('H5_TASK_VISIBILITY');
     await expect(h5Task).toBeVisible({ timeout: h5Budget.remaining(30_000) });
+    phase.enter('H5_SURFACE_READINESS');
     const h5Ready = await readySurface(h5, h5Budget, { client: 'h5', kind: 'list', url: h5Url, businessKey, pendingTotal: 1, processedTotal: 0 });
     captures.push({ file: 'h5-task-list.png', phase: 'READY_BEFORE_ACTION', readiness: h5Ready });
+    phase.enter('H5_AUDIT');
     const h5Document = await documentEvidence(h5, 'h5-task-list', h5Budget);
+    phase.enter('H5_FONT');
     const h5Cjk = await collectCjkEvidence(h5, h5Budget);
+    phase.enter('H5_SCREENSHOT');
     h5Failures.assert();
     await captureScreenshot(h5, h5Budget, evidencePath(project.id, 'h5-task-list.png'), { readiness: h5Ready, assertCurrent: async () => h5Failures.assert() });
+    phase.enter('H5_DETAIL_ACTION');
     const h5DetailBudget = budget.limit(20_000);
     await h5Task.click({ timeout: h5DetailBudget.remaining(20_000) });
     // The action bar is visible while detail requests are still in flight.
@@ -488,8 +510,10 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
       .toBeVisible({ timeout: h5DetailBudget.remaining(20_000) });
     const detailUrl = new URL(h5Url);
     detailUrl.hash = `/pages/task/detail?id=${encodeURIComponent(h5Ready.taskId || '')}`;
+    phase.enter('H5_DETAIL_READINESS');
     const h5DetailReady = await readySurface(h5, h5DetailBudget, { client: 'h5', kind: 'detail', url: detailUrl.toString(), businessKey, taskId: h5Ready.taskId || undefined, instanceId: h5Ready.instanceId || undefined });
     captures.push({ file: 'h5-task-detail.png', phase: 'READY_BEFORE_ACTION', readiness: h5DetailReady });
+    phase.enter('H5_DETAIL_AUDIT');
     const actionBar = h5.locator('.action-bar');
     await expect(actionBar).toBeVisible({ timeout: h5DetailBudget.remaining(20_000) });
     const h5Agree = await exactTextButton(actionBar, '同意', h5DetailBudget);
@@ -498,9 +522,11 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
       { label: 'h5-agree', locator: h5Agree },
       { label: 'h5-reject', locator: h5Reject },
     ], h5DetailBudget);
+    phase.enter('H5_DETAIL_SCREENSHOT');
     h5Failures.assert();
     await captureScreenshot(h5, h5DetailBudget, evidencePath(project.id, 'h5-task-detail.png'), { readiness: h5DetailReady, assertCurrent: async () => h5Failures.assert() });
 
+    phase.enter('MATRIX_ASSERTIONS');
     const serious = [
       ...pcList.serious,
       ...pcDetail.serious,
@@ -573,6 +599,7 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
         'SCREEN_READER_MANUAL_TEST_NOT_VERIFIED',
       ],
     };
+    phase.enter('RECEIPT_PUBLICATION');
     budget.remaining();
     pcFailures.assert();
     h5Failures.assert();
@@ -584,7 +611,12 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
         { encoding: 'utf8', mode: 0o600 },
       );
     });
+  } catch (error) {
+    phase.preserveFailure();
+    capturePageErrorContext(testInfo, pcFailures.pageErrorSummary(), h5Failures.pageErrorSummary());
+    throw error;
   } finally {
+    phase.enter('CLEANUP');
     pcFailures.dispose();
     h5Failures.dispose();
     await Promise.allSettled([pcContext.close(), h5Context.close()]);
