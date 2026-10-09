@@ -145,3 +145,72 @@ await test('actual merged config retains graph and isolated pinned optimizer lea
   assert.equal(existsSync(fixture), false);
   retain('optimizer-fixture.json', { ...optimizerEvidence, fixtureDeleted: true });
 });
+
+await test('pinned shell icons register synchronously from exact local data without remote lookup', async () => {
+  const beforeCache = cacheSnapshot();
+  const source = join(root, 'apps/web/overlay/apps/web-ele/src/platform/approval/local-icons.ts');
+  const generated = join(app, 'src/platform/approval/local-icons.ts');
+  assert.equal(readFileSync(generated, 'utf8'), readFileSync(source, 'utf8'));
+  const { approvalShellIcons, registerApprovalShellIcons } = await import(pathToFileURL(source));
+  const requireDesign = createRequire(join(upstream, 'packages/@core/base/design/package.json'));
+  const requireIcons = createRequire(join(upstream, 'packages/@core/base/icons/package.json'));
+  const iconDataPackage = requireDesign.resolve('@iconify/json/package.json');
+  const iconDataRoot = dirname(iconDataPackage);
+  const runtimePackage = join(dirname(dirname(requireIcons.resolve('@iconify/vue'))), 'package.json');
+  assert.equal(JSON.parse(readFileSync(iconDataPackage)).version, '2.2.476');
+  assert.equal(JSON.parse(readFileSync(runtimePackage)).version, '5.0.1');
+  const expectedNames = ['ep:expand', 'ep:fold', 'fluent-mdl2:world-clock', 'lucide:inbox', 'lucide:workflow'];
+  const defaults = { left: 0, top: 0, width: 16, height: 16, rotate: 0, hFlip: false, vFlip: false };
+  const pinned = {}; const dataFiles = new Map();
+  for (const name of expectedNames) {
+    const [prefix, icon] = name.split(':');
+    const path = join(iconDataRoot, 'json', `${prefix}.json`);
+    const data = readFileSync(path); const collection = JSON.parse(data);
+    assert.ok(collection.icons[icon], `pinned icon missing: ${name}`);
+    const inherited = Object.fromEntries(Object.keys(defaults).filter(key => key in collection).map(key => [key, collection[key]]));
+    pinned[name] = { ...defaults, ...inherited, ...collection.icons[icon] };
+    dataFiles.set(prefix, { file: relative(upstream, path), sha256: createHash('sha256').update(data).digest('hex'), license: collection.info.license });
+  }
+  const verify = definitions => assert.deepEqual(definitions, pinned);
+  verify(approvalShellIcons);
+  const missing = structuredClone(approvalShellIcons); delete missing['ep:fold'];
+  assert.throws(() => verify(missing));
+  const wrong = structuredClone(approvalShellIcons); wrong['lucide:workflow'].body = '<path d="M0 0"/>';
+  assert.throws(() => verify(wrong));
+  let fetchCalls = 0; const previousFetch = globalThis.fetch;
+  let runtimeEvidence;
+  try {
+    globalThis.fetch = () => { fetchCalls += 1; throw new Error('Unexpected remote icon lookup'); };
+    const runtimePath = join(dirname(runtimePackage), 'dist/iconify.mjs');
+    const runtime = await import(pathToFileURL(runtimePath));
+    assert.ok(expectedNames.every(name => !runtime.iconLoaded(name)), 'registration proof requires a fresh runtime');
+    const apiBefore = JSON.stringify(runtime._api.getAPIConfig(''));
+    const custom = { body: '<path d="M1 1"/>' };
+    assert.equal(runtime.addIcon('approval-test:custom', custom), true);
+    const originalCustom = runtime.getIcon('approval-test:custom');
+    registerApprovalShellIcons(runtime.addIcon);
+    for (const name of expectedNames) assert.deepEqual(runtime.getIcon(name), pinned[name]);
+    assert.deepEqual(runtime.getIcon('approval-test:custom'), originalCustom);
+    assert.equal(runtime.iconLoaded('approval-test:unknown'), false);
+    assert.equal(JSON.stringify(runtime._api.getAPIConfig('')), apiBefore);
+    const result = await new Promise((resolveLoad, reject) => {
+      const timer = setTimeout(() => reject(new Error('Local icon callback did not complete')), 1000);
+      runtime.loadIcons(expectedNames, (loaded, missing, pending) => {
+        clearTimeout(timer); resolveLoad({ loaded: loaded.map(icon => `${icon.prefix}:${icon.name}`).sort(), missing, pending });
+      });
+    });
+    assert.deepEqual(result, { loaded: expectedNames, missing: [], pending: [] });
+    assert.equal(fetchCalls, 0);
+    runtimeEvidence = { runtimeSha256: createHash('sha256').update(readFileSync(runtimePath)).digest('hex'), result, fetchCalls, apiConfigurationUnchanged: true, customIconUnchanged: true };
+  } finally {
+    globalThis.fetch = previousFetch;
+    assert.deepEqual(cacheSnapshot(), beforeCache, 'icon proof modified acceptance caches');
+  }
+  retain('local-icons-registration.json', {
+    dataVersion: '2.2.476', runtimeVersion: '5.0.1', names: expectedNames,
+    sourceSha256: createHash('sha256').update(readFileSync(source)).digest('hex'),
+    dataPackageSha256: createHash('sha256').update(readFileSync(iconDataPackage)).digest('hex'),
+    dataFiles: Object.fromEntries(dataFiles), missingAndWrongDataRejected: true,
+    ...runtimeEvidence, browserLaunched: false, acceptanceCacheBefore: beforeCache, acceptanceCacheAfter: cacheSnapshot(),
+  });
+});

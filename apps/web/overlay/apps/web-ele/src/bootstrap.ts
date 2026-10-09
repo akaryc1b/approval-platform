@@ -2,6 +2,7 @@ import { createApp, watchEffect } from 'vue';
 
 import { registerAccessDirective } from '@vben/access';
 import { registerLoadingDirective } from '@vben/common-ui';
+import { addIcon } from '@vben/icons';
 import { preferences } from '@vben/preferences';
 import { initStores } from '@vben/stores';
 import '@vben/styles';
@@ -18,8 +19,10 @@ import { initComponentAdapter } from './adapter/component';
 import { initSetupVbenForm } from './adapter/form';
 import App from './app.vue';
 import { router } from './router';
+import { registerApprovalShellIcons } from './platform/approval/local-icons';
 
 async function bootstrap(namespace: string) {
+  registerApprovalShellIcons(addIcon);
   // 初始化组件适配器
   await initComponentAdapter();
 

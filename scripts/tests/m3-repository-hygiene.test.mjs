@@ -1,3 +1,4 @@
+import './web-local-icons.test.mjs';
 import './document-authority-boundary.test.mjs';
 import './acceptance-catalog-boundary.test.mjs';
 import './m6-e-approval-assistance-boundary.test.mjs';
