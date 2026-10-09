@@ -8,5 +8,6 @@ import './ops-grafana-browser.test.mjs';
 import './ops-grafana-browser-transport.test.mjs';
 import './ops-grafana-browser-diagnostics.test.mjs';
 import './ops-grafana-native-snapshot.test.mjs';
+import './ops-grafana-io-window.test.mjs';
 import './ops-monitoring-isolation.test.mjs';
 import './ops-sla-completion-alerts.test.mjs';

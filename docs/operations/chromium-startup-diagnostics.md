@@ -132,7 +132,8 @@ The snapshot contains only fixed categories and numbers:
 Filesystem metadata calls are count-bounded synchronous calls, not hard
 wall-clock-bounded system calls; pathological OS/filesystem latency can delay
 diagnostic completion. The duration is retained rather than hidden. The
-3,000-byte JSON budget is preserved. If a larger snapshot exceeds that budget,
+3,000-byte JSON budget is preserved. Optional I/O-window details are omitted
+before any existing fields. If the original receipt itself exceeds that budget,
 shared resource details are explicitly omitted first, preserving native,
 lifecycle, original-failure and cleanup information. A further size fallback
 explicitly omits native details too; a non-serializable native extension also
@@ -148,3 +149,80 @@ Field semantics and marker names are checked against primary sources:
 - [Linux proc filesystem fields and I/O counters](https://docs.kernel.org/filesystems/proc.html)
 - [Linux delay-accounting limitations](https://docs.kernel.org/accounting/delay-accounting.html)
 - [Linux filesystem magic constants](https://raw.githubusercontent.com/torvalds/linux/v6.17/include/uapi/linux/magic.h)
+
+## Anonymous cgroup/device I/O window
+
+CI #1818 recorded 961 major faults, 132,087,808 process read bytes and about
+6.674 seconds of added cgroup full-I/O pressure during the failed handshake.
+That is evidence of correlated native I/O delay, not a faulting filename or a
+proven browser remedy. The optional `ioWindow` adds a narrow comparison at the
+same launch and first-failure sample points; successful runs have no paired
+window. No launch, probe, retry, deadline, cleanup or acceptance condition changes.
+
+The existing validated cgroup membership supplies a private location under the
+conventional `/sys/fs/cgroup` mount. Each phase reads its `io.stat` and the fixed
+`/proc/diskstats`, at most 8,193 bytes each including the overflow sentinel.
+Across both phases this adds four logical reads and at most 32,772 bytes, without
+another membership read. Each table permits 64 nonempty rows, 1,024 bytes and
+32 tokens per row; the union of group device keys is also capped at 64. Oversized,
+duplicate-key, non-LF-terminated, or unsupported tables are unknown, not successful
+prefix samples. Diskstats supports the 11-, 15-, and 17-counter Linux layouts.
+Existing resource-sample durations include this added work. These are bounded
+bytes/iterations, not hard wall-clock limits: reading cgroup counters can flush
+kernel accounting. No polling, device traversal or additional privileges are used.
+
+The summary contains only fixed enums and nullable finite numbers:
+
+- `devices` counts distinct observed group keys; `paired` counts usable matching
+  group rows with monotonic counters. Neither counts physical disks.
+- `selected: largest-read-delta` chooses one paired group row with the largest
+  positive read-byte delta, using a stable private key tie-break. Selection happens
+  before checking device availability. There is no write-only fallback, device
+  summation, inferred zero baseline, or substitution of a smaller readable device.
+- `cgroup` reports that row's read/write bytes and operations; `device` reports
+  matching device read/write bytes and completed operations, active-I/O and weighted
+  milliseconds, and final `inFlight`. All are deltas except the in-flight gauge.
+  Disk sectors use 512 bytes. Counter decreases, unsafe arithmetic, missing matches
+  or a changed private device name make affected deltas unknown.
+- `spanMs` measures the difference between sampling starts; unavailable,
+  non-increasing or over-one-day clocks invalidate the window. Reads are sequential,
+  not atomic. `scope: visible-root` or `visible-nested` describes only the membership
+  path shape; `unknown` covers unavailable or changed membership.
+- `coverage: complete` means the bounded parsed inputs and paired counters were
+  usable, not complete system visibility. `partial` retains a usable selected row
+  if possible when other rows or matching device counters are unavailable.
+  `unavailable` gives no group delta. `no-activity` means all paired group counters
+  were unchanged (or both group tables empty), not that no I/O wait occurred.
+  A complete write-only window has no selected row. Missing/null values are never
+  zero-traffic evidence.
+
+The mount/namespace mapping is not independently discovered or authenticated.
+A visible root can be a namespace root, and even identical membership/device
+keys and names cannot prove cgroup or hardware continuity. No alternate mounts
+are searched after a failure. Private paths, device keys/names and baseline maps
+never enter the receipt and are discarded after comparison or cleanup.
+
+Accounting scopes differ. Linux's non-root cgroup accounting records submitted
+bios and can include descendants and unrelated group members; actual root
+accounting may instead derive from whole-device statistics. Diskstats counts
+completed device requests, potentially merged from multiple bios. Thus device
+minus cgroup traffic is not an estimate of traffic from other workloads, and
+operation counts are not interchangeable. Weighted time may exceed elapsed time;
+active-I/O time can undercount concurrency. Partitions, stacked/virtual devices,
+sampling skew, queued work and hidden host contention limit interpretation. These
+counters cannot identify a faulting page/file, isolate Chrome, or prove causality.
+
+The unchanged 3,000-byte JSON budget tries the new summary last in priority:
+if it does not fit or serialization fails, it is removed before any existing
+PSI/native/lifecycle fields. A fixed `ioOmitted` reason is included only if it
+also fits. Only an already-oversized original receipt uses the older fallbacks.
+Tests combine the saved #1818 receipt with maximal new counters and exercise
+exact-budget fallback. Existing native browser/scanner acceptance remains required;
+this instrumentation and local mocked tests are not a fix or acceptance evidence.
+
+Sources for these conservative semantics (not an assertion of #1818's kernel):
+
+- [Linux cgroup v2 I/O interface](https://docs.kernel.org/admin-guide/cgroup-v2.html#io-interface-files)
+- [Linux v6.17 block-cgroup accounting](https://github.com/torvalds/linux/blob/v6.17/block/blk-cgroup.c)
+- [Linux I/O-statistics fields and limitations](https://docs.kernel.org/admin-guide/iostats.html)
+- [Linux block-statistics units](https://docs.kernel.org/block/stat.html)
