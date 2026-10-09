@@ -2,6 +2,7 @@ import './product-readiness-capture-diagnostics.test.mjs';
 import './product-readiness-capture-evidence.test.mjs';
 import './product-readiness-capture-readiness.test.mjs';
 import './product-readiness-capture-state.test.mjs';
+import './product-readiness-detail-layout.test.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';

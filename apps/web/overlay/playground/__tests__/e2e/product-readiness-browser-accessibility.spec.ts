@@ -14,6 +14,7 @@ import { captureFailurePhase, capturePageErrorContext } from './product-readines
 import type { CaptureBudget } from './product-readiness-capture-budget';
 import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
 import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
+import { detailLayoutEvidence, detailLayoutViolations, footerLayoutEvidence, footerLayoutViolations } from './product-readiness-detail-layout';
 
 const captureStartedAt = performance.now();
 
@@ -527,6 +528,13 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
     await captureScreenshot(h5, h5DetailBudget, evidencePath(project.id, 'h5-task-detail.png'), { readiness: h5DetailReady, assertCurrent: async () => h5Failures.assert() });
 
     phase.enter('MATRIX_ASSERTIONS');
+    const pcLayout = await detailLayoutEvidence(pc, 'pc', budget);
+    const h5Layout = await detailLayoutEvidence(h5, 'h5', budget);
+    const h5Footer = await footerLayoutEvidence(h5, budget);
+    expect(detailLayoutViolations(pcLayout), 'PC drawer text and tables stay inside their containers').toEqual([]);
+    expect(detailLayoutViolations(h5Layout), 'narrow H5 long assistance values stay inside their columns').toEqual([]);
+    expect(footerLayoutViolations(h5Footer), 'H5 actions and final content remain reachable').toEqual([]);
+
     const serious = [
       ...pcList.serious,
       ...pcDetail.serious,
@@ -573,6 +581,7 @@ test('PC and H5 expose the bounded browser/accessibility matrix', async ({
         screenshots: ['h5-task-list.png', 'h5-task-detail.png'],
       },
       captures,
+      layout: { pc: pcLayout, h5: h5Layout, h5Footer },
       accessibility: {
         criticalViolations: critical.length,
         seriousViolations: serious.length,

@@ -427,7 +427,7 @@ onLoad((query) => {
 <style scoped>
 .page {
   min-height: 100vh;
-  padding: 24rpx 24rpx 180rpx;
+  padding: 24rpx 24rpx calc(180rpx + env(safe-area-inset-bottom));
   background: var(--wot-color-bg, var(--uni-bg-color-grey));
 }
 
@@ -553,6 +553,11 @@ onLoad((query) => {
 }
 
 .action-bar {
+  --wot-button-medium-height: 44px;
+  --wot-button-medium-padding: 0 8rpx;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: 12rpx;
   position: fixed;
   z-index: 20;
   right: 0;
@@ -564,6 +569,15 @@ onLoad((query) => {
 }
 
 .action-group {
-  justify-content: flex-end;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 12rpx;
+}
+
+.action-bar :deep(.wd-button) {
+  width: 100%;
+  min-width: 0;
 }
 </style>
