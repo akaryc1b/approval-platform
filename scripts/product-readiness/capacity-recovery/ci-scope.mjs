@@ -11,6 +11,9 @@ const relevantPaths = [
   /^scripts\/product-readiness\/(?:capacity-recovery|demo-backend|purchase-payment-e2e)\.mjs$/u,
   /^scripts\/product-readiness\/capacity-recovery\//u,
   /^scripts\/product-readiness\/purchase-payment-e2e\//u,
+  /^scripts\/product-readiness\/artifact-privacy\//u,
+  /^scripts\/product-readiness\/pc-h5-runtime\/(?:processes|safe-output)\.mjs$/u,
+  /^scripts\/tests\/product-readiness-(?:artifact-[^/]+|safe-output)\.test\.(?:mjs|py)$/u,
   /^scripts\/tests\/m3-repository-hygiene\.test\.mjs$/u,
   /^scripts\/tests\/product-readiness-capacity-recovery-[^/]+\.test\.mjs$/u,
   /^apps\/server\/src\/(?:main|test)\/java\/.*\/(?:api|demo)\//u,
@@ -63,7 +66,7 @@ function githubEvent() {
   return JSON.parse(readFileSync(eventPath, 'utf8'));
 }
 
-function selectedFiles(files) {
+export function selectedFiles(files) {
   return files.filter(path =>
     relevantPaths.some(pattern => pattern.test(path)));
 }

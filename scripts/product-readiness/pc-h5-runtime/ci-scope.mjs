@@ -20,6 +20,8 @@ const relevantPaths = [
   /^scripts\/product-readiness\/pc-h5-runtime\//u,
   /^scripts\/product-readiness\/purchase-payment-e2e\//u,
   /^scripts\/product-readiness\/quick-start\//u,
+  /^scripts\/product-readiness\/artifact-privacy\//u,
+  /^scripts\/tests\/product-readiness-(?:artifact-[^/]+|safe-output)\.test\.(?:mjs|py)$/u,
   /^scripts\/tests\/(?:m3-repository-hygiene|product-readiness-pc-h5-runtime-boundary|product-readiness-purchase-payment-e2e-boundary|product-readiness-quick-start-boundary|product-readiness-browser-accessibility-boundary)\.test\.mjs$/u,
   /^scripts\/upstream\/bootstrap-unibest\.mjs$/u,
 ];
@@ -90,7 +92,7 @@ function githubEvent() {
   return JSON.parse(readFileSync(eventPath, 'utf8'));
 }
 
-function relevantChangeSet(files) {
+export function relevantChangeSet(files) {
   return files.some(path =>
     relevantPaths.some(pattern => pattern.test(path)));
 }

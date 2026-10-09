@@ -1,9 +1,9 @@
 #!/usr/bin/env node
+import { appendPublicationEnvelope, preparePublicationFiles, publicationPolicy, publicFailureDetail } from './artifact-privacy/publication.mjs';
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  appendFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -173,7 +173,7 @@ function collectEvidenceFiles(directory, files = []) {
     const target = resolve(directory, name);
     const metadata = lstatSync(target);
     if (metadata.isSymbolicLink()) {
-      throw new Error(`runtime evidence must not contain a symbolic link: ${target}`);
+      throw new Error('runtime evidence must not contain a symbolic link');
     }
     if (metadata.isDirectory()) {
       collectEvidenceFiles(target, files);
@@ -189,7 +189,7 @@ function collectEvidenceFiles(directory, files = []) {
 function evidenceRelativePath(target) {
   const path = relative(outputDirectory, target).split(sep).join('/');
   if (!path || path === '..' || path.startsWith('../') || path.includes('/../')) {
-    throw new Error(`runtime evidence escaped its output directory: ${target}`);
+    throw new Error('runtime evidence escaped its output directory');
   }
   return path;
 }
@@ -202,11 +202,13 @@ function appendCiEvidenceEnvelope(status, sourceIdentity) {
   }
 
   let totalBytes = 0;
-  const files = collectEvidenceFiles(outputDirectory).map(target => {
-    const content = readFileSync(target);
+  const targets = collectEvidenceFiles(outputDirectory);
+  const published = preparePublicationFiles(targets);
+  const files = targets.map((target, index) => {
+    const content = Buffer.from(published[index].base64, 'base64');
     if (content.length > maximumEvidenceFileBytes) {
       throw new Error(
-        `runtime evidence file exceeds ${maximumEvidenceFileBytes} bytes: ${target}`,
+        'runtime evidence file exceeds ${maximumEvidenceFileBytes} bytes',
       );
     }
     totalBytes += content.length;
@@ -220,6 +222,7 @@ function appendCiEvidenceEnvelope(status, sourceIdentity) {
       size: content.length,
       sha256: createHash('sha256').update(content).digest('hex'),
       base64: content.toString('base64'),
+      sanitization: published[index].sanitization,
     };
   });
 
@@ -253,9 +256,10 @@ function appendCiEvidenceEnvelope(status, sourceIdentity) {
       'playwright/**/*test-failed*.png',
     ],
     totalBytes,
+    publicationPolicy,
     files,
   };
-  appendFileSync(
+  appendPublicationEnvelope(
     artifactLog,
     `\n${evidenceEnvelopeBegin}\n${JSON.stringify(envelope)}\n${evidenceEnvelopeEnd}\n`,
     'utf8',
@@ -447,7 +451,7 @@ async function executeSmoke() {
         javaEnvironment,
       );
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
+      const detail = publicFailureDetail(error);
       console.error(`PC_H5_RUNTIME_CLEANUP_WARNING: ${detail}`);
     }
   }
@@ -468,7 +472,7 @@ async function main() {
 }
 
 main().catch(error => {
-  const detail = error instanceof Error ? error.message : String(error);
+  const detail = publicFailureDetail(error);
   console.error(`PC_H5_RUNTIME_SMOKE_FAILED: ${detail}`);
   if (error instanceof UsageError) console.error(usage());
   process.exitCode = error instanceof UsageError ? 2 : 1;

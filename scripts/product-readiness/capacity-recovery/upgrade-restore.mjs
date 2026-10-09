@@ -1,7 +1,7 @@
+import { appendPublicationEnvelope, preparePublicationFiles, publicationPolicy } from '../artifact-privacy/publication.mjs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
-  appendFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -411,7 +411,7 @@ function collectEvidence(directory, files = []) {
     const target = resolve(directory, name);
     const metadata = lstatSync(target);
     if (metadata.isSymbolicLink()) {
-      throw new Error(`upgrade/restore evidence rejects symbolic link: ${target}`);
+      throw new Error('upgrade/restore evidence rejects symbolic link');
     }
     if (metadata.isDirectory()) {
       collectEvidence(target, files);
@@ -432,10 +432,12 @@ function appendEvidenceEnvelope(status, runDirectory, identity) {
   }
   const canonicalRunDirectory = realpathSync(runDirectory);
   let totalBytes = 0;
-  const files = collectEvidence(canonicalRunDirectory).map((target) => {
-    const content = readFileSync(target);
+  const targets = collectEvidence(canonicalRunDirectory);
+  const published = preparePublicationFiles(targets);
+  const files = targets.map((target, index) => {
+    const content = Buffer.from(published[index].base64, 'base64');
     if (content.length > maximumEvidenceFileBytes) {
-      throw new Error(`upgrade/restore evidence file is too large: ${target}`);
+      throw new Error('upgrade/restore evidence file is too large');
     }
     totalBytes += content.length;
     if (totalBytes > maximumEvidenceTotalBytes) {
@@ -443,13 +445,14 @@ function appendEvidenceEnvelope(status, runDirectory, identity) {
     }
     const path = relative(canonicalRunDirectory, target).split(sep).join('/');
     if (!path || path.startsWith('../') || path.includes('/../')) {
-      throw new Error(`upgrade/restore evidence escaped its run directory: ${target}`);
+      throw new Error('upgrade/restore evidence escaped its run directory');
     }
     return {
       path,
       size: content.length,
       sha256: createHash('sha256').update(content).digest('hex'),
       base64: content.toString('base64'),
+      sanitization: published[index].sanitization,
     };
   });
   if (status === 'PASSED') {
@@ -471,7 +474,7 @@ function appendEvidenceEnvelope(status, runDirectory, identity) {
       }
     }
   }
-  appendFileSync(
+  appendPublicationEnvelope(
     artifactLog,
     `\n${envelopeBegin}\n${JSON.stringify({
       schemaVersion: 1,
@@ -482,6 +485,7 @@ function appendEvidenceEnvelope(status, runDirectory, identity) {
       githubRunId: process.env.GITHUB_RUN_ID || null,
       capturedAt: new Date().toISOString(),
       totalBytes,
+      publicationPolicy,
       files,
     })}\n${envelopeEnd}\n`,
     'utf8',

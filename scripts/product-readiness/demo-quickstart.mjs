@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { publicFailureDetail } from './artifact-privacy/publication.mjs';
+
 import { shouldRunInCi } from './pc-h5-runtime/ci-scope.mjs';
 import {
   loadContract,
@@ -32,9 +34,7 @@ async function executeWithLedgerReset(options) {
     try {
       resetLedger(sourceIdentity(), launcherFailureId());
     } catch (resetError) {
-      const detail = resetError instanceof Error
-        ? resetError.message
-        : String(resetError);
+      const detail = publicFailureDetail(resetError);
       console.error(`QUICK_START_LEDGER_RESET_FAILED: ${detail}`);
     }
     throw error;
@@ -66,7 +66,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  const detail = error instanceof Error ? error.message : String(error);
+  const detail = publicFailureDetail(error);
   console.error(`DEMO_QUICK_START_FAILED: ${detail}`);
   if (error instanceof UsageError) console.error(usage());
   process.exitCode = error instanceof UsageError ? 2 : 1;

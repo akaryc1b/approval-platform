@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { publicFailureDetail } from './artifact-privacy/publication.mjs';
+
 import { shouldRunInCi } from './pc-h5-runtime/ci-scope.mjs';
 import {
   loadContract,
@@ -30,7 +32,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  const detail = error instanceof Error ? error.message : String(error);
+  const detail = publicFailureDetail(error);
   console.error(`BROWSER_ACCESSIBILITY_MATRIX_FAILED: ${detail}`);
   if (error instanceof UsageError) console.error(usage());
   process.exitCode = error instanceof UsageError ? 2 : 1;
