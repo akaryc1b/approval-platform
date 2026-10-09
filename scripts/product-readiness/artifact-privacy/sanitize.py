@@ -46,6 +46,7 @@ TRACE_TYPES = {'context-options', 'before', 'after', 'event', 'console', 'log',
                'stdout', 'stderr', 'error', 'attachment'}
 TEXT_EXT = {'.json', '.html', '.txt', '.css', '.js', '.svg', '.dat'}
 BINARY_EXT = {'.png', '.jpeg', '.jpg', '.webp', '.ttf', '.woff', '.woff2'}
+ATTACHMENT_TYPES = {'text/markdown': '.md', 'image/png': '.png'}
 
 
 class RejectionCategory(Enum):
@@ -828,9 +829,41 @@ def validate_binary(data, extension, sanitizer=None):
             require(sanitizer.pattern.search(text) is None)
 
 
+@rejection_stage(RejectionCategory.CONTENT_INVALID)
+def native_attachment_types(objects):
+    """Infer extensionless resources only from the pinned native attachment shape."""
+    types = {}
+    for name, rows in objects.items():
+        if not name.endswith('.trace'):
+            continue
+        before_ids = {}
+        for row in rows:
+            if row.get('type') == 'before' and isinstance(row.get('callId'), str):
+                before_ids[row['callId']] = before_ids.get(row['callId'], 0) + 1
+        for row in rows:
+            if row.get('type') != 'after':
+                continue
+            attachments = row.get('attachments', [])
+            require(isinstance(attachments, list))
+            if attachments:
+                require(isinstance(row.get('callId'), str) and before_ids.get(row['callId']) == 1)
+            for attachment in attachments:
+                require(isinstance(attachment, dict) and set(attachment) == {'name', 'contentType', 'sha1'})
+                require(isinstance(attachment['name'], str))
+                mime, ref = attachment['contentType'], attachment['sha1']
+                require(isinstance(mime, str) and mime in ATTACHMENT_TYPES)
+                require(isinstance(ref, str) and re.fullmatch(r'[0-9a-f]{40}', ref) is not None)
+                resource = 'resources/' + ref
+                require(resource not in types or types[resource] == mime)
+                types[resource] = mime
+    return types
+
+
 @rejection_stage(RejectionCategory.CONTENT_INVALID, (json.JSONDecodeError, UnicodeError))
 def trace_objects(entries):
     objects = {}
+    # Native attachments precede the .trace member in Playwright's ZIP output.
+    # Parse records first so member order cannot decide a resource's codec.
     for name, data in entries.items():
         if name.endswith(('.trace', '.network')):
             lines = utf8(data).splitlines()
@@ -847,12 +880,23 @@ def trace_objects(entries):
             objects[name] = rows
         elif name.endswith('.stacks') or name == 'storage-state.json':
             objects[name] = parse(utf8(data))
-        else:
+    attachments = native_attachment_types(objects)
+    for name, data in entries.items():
+        if name not in objects:
             require(name.startswith('resources/'))
-            extension = '.' + name.rsplit('.', 1)[-1]
-            require(extension in TEXT_EXT | BINARY_EXT)
+            if re.fullmatch(r'resources/[0-9a-f]{40}', name):
+                require(name in attachments)
+                extension = ATTACHMENT_TYPES[attachments[name]]
+            else:
+                extension = '.' + name.rsplit('.', 1)[-1]
+                require(extension in TEXT_EXT | BINARY_EXT)
             if extension == '.json':
                 objects[name] = parse(utf8(data))
+            elif extension == '.md':
+                text = utf8(data)
+                # Markdown is text, not an alternate route for binary bytes.
+                require(re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', text) is None)
+                objects[name] = text
             elif extension in TEXT_EXT:
                 objects[name] = utf8(data)
             else:
@@ -885,6 +929,7 @@ def validate_references(entries, objects):
 @rejection_stage(RejectionCategory.TRANSFORM_REJECTED, (binascii.Error, UnicodeError))
 def transform_trace(entries, objects, sanitizer):
     validate_references(entries, objects)
+    attachments = native_attachment_types(objects)
     require(all(sanitizer.text(name) == name for name in entries), RejectionCategory.IDENTITY_CHANGE)
     output = {}
     renamed = {}
@@ -901,7 +946,8 @@ def transform_trace(entries, objects, sanitizer):
         else:
             # Pixels/font bytes are never rewritten. Any known plaintext/encoded
             # credential in a binary resource rejects the whole publication.
-            validate_binary(data, '.' + name.rsplit('.', 1)[-1], sanitizer)
+            extension = ATTACHMENT_TYPES[attachments[name]] if name in attachments else '.' + name.rsplit('.', 1)[-1]
+            validate_binary(data, extension, sanitizer)
             content = data
         target = name
         if content != data:

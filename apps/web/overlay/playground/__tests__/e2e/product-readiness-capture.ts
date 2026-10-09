@@ -246,7 +246,13 @@ export function observeSurface(input: SurfaceExpectation & { timeout: number }) 
             const text = tag?.querySelector('.wd-tag__text');
             const style = tag && getComputedStyle(tag);
             const outlined = tag?.classList.contains('is-plain') || tag?.classList.contains('is-round');
-            if (!required(!!tag && visible(tag) && !!text && visible(text) && !!style && style.display === 'inline-block'
+            // Both shipped headers are flex containers. CSS blockifies the
+            // Wot root's declared inline-block display when it is a flex item.
+            const display = style?.display === 'inline-block'
+              || (style?.display === 'block' && !!tag?.parentElement
+                && !['absolute', 'fixed'].includes(style.position)
+                && ['flex', 'inline-flex'].includes(getComputedStyle(tag.parentElement).display));
+            if (!required(!!tag && visible(tag) && !!text && visible(text) && !!style && display
               && getComputedStyle(text).display === 'inline-block'
               && (outlined ? style.borderTopStyle === 'solid' && Number.parseFloat(style.borderTopWidth) > 0
                 : style.backgroundColor !== 'transparent' && !/rgba\([^)]*,\s*0\)$/u.test(style.backgroundColor)), 'Wot tag styles')) return false;

@@ -75,6 +75,25 @@ def fixture(extra=None):
     return entries + (extra or [])
 
 
+def native_attachment_fixture(markdown=None, png=PNG):
+    markdown = markdown if markdown is not None else ('# Failure context\n\npassword: "' + PASSWORD + '"\n' + TOKEN + '\n').encode()
+    attachments = []
+    resources = []
+    for name, mime, data in [('error-context', 'text/markdown', markdown), ('synthetic-image', 'image/png', png)]:
+        if data is None:
+            continue
+        sha1 = hashlib.sha1(data).hexdigest()
+        attachments.append({'name': name, 'contentType': mime, 'sha1': sha1})
+        resources.append(('resources/' + sha1, data))
+    entries = fixture()
+    rows = [json.loads(line) for line in entries[0][1].splitlines()]
+    rows.extend([{'type': 'before', 'callId': 'attachment-3', 'method': 'attach', 'params': {}, 'startTime': 24},
+                 {'type': 'after', 'callId': 'attachment-3', 'endTime': 25, 'attachments': attachments}])
+    entries[0] = ('test.trace', '\n'.join(map(json.dumps, rows)) + '\n')
+    # This is the pinned producer's order: content-addressed attachments first.
+    return resources + entries
+
+
 class PrivacyTests(unittest.TestCase):
     def publish(self, entries, extra_files=None):
         with tempfile.TemporaryDirectory() as tmp:
@@ -286,6 +305,153 @@ class PrivacyTests(unittest.TestCase):
         good = 'data:image/png;base64,' + base64.b64encode(PNG).decode()
         output = self.publish(fixture(), {'encoded.json': json.dumps({'image': good}).encode()})
         self.assertEqual(json.loads(base64.b64decode(output['files'][1]['base64']))['image'], good)
+
+
+class NativeAttachmentTests(unittest.TestCase):
+    def rows(self, entries, change):
+        result = list(entries)
+        index = next(i for i, (name, _) in enumerate(result) if name == 'test.trace')
+        rows = [json.loads(line) for line in result[index][1].splitlines()]
+        change(rows)
+        result[index] = ('test.trace', '\n'.join(map(json.dumps, rows)) + '\n')
+        return result
+
+    def publish(self, entries):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'native.zip'
+            original = raw_zip(entries)
+            path.write_bytes(original)
+            result = p.prepare({'paths': [str(path)]})['files'][0]
+            self.assertEqual(path.read_bytes(), original)
+            with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['base64']))) as archive:
+                self.assertIsNone(archive.testzip())
+                return {name: archive.read(name) for name in archive.namelist()}, result['sanitization']
+
+    def reject(self, entries, category='CONTENT_INVALID'):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'native.zip'
+            original = raw_zip(entries)
+            path.write_bytes(original)
+            result = subprocess.run(['python3', str(MODULE)], input=json.dumps({'paths': [str(path)]}),
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(result.stdout, '')
+            self.assertEqual(result.stderr, 'EVIDENCE_REJECTION_V1 category=' + category + '\n')
+            self.assertEqual(path.read_bytes(), original)
+
+    def test_native_markdown_redaction_and_png_preservation_ignore_member_order(self):
+        entries = native_attachment_fixture()
+        original_rows = [json.loads(line) for line in dict(entries)['test.trace'].splitlines()]
+        original_attachments = original_rows[-1]['attachments']
+        for ordered in (entries, list(reversed(entries)), entries[2:] + entries[:2]):
+            with self.subTest(order=next(name for name, _ in ordered)):
+                published, manifest = self.publish(ordered)
+                rows = [json.loads(line) for line in published['test.trace'].splitlines()]
+                self.assertEqual(rows[3:5], original_rows[3:5], 'assertion records changed')
+                attachments = rows[-1]['attachments']
+                for original, attachment in zip(original_attachments, attachments):
+                    self.assertEqual(attachment['name'], original['name'])
+                    self.assertEqual(attachment['contentType'], original['contentType'])
+                    data = published['resources/' + attachment['sha1']]
+                    self.assertEqual(hashlib.sha1(data).hexdigest(), attachment['sha1'])
+                    if attachment['contentType'] == 'image/png':
+                        self.assertEqual(data, PNG)
+                        self.assertEqual(attachment, original)
+                    else:
+                        self.assertNotEqual(attachment['sha1'], original['sha1'])
+                        self.assertIn(p.REDACTED.encode(), data)
+                        self.assertNotIn('resources/' + original['sha1'], published)
+                joined = b'\n'.join(published.values())
+                self.assertNotIn(PASSWORD.encode(), joined)
+                self.assertNotIn(TOKEN.encode(), joined)
+                self.assertEqual(manifest['resourceReferencesRebound'], 2)
+                self.assertEqual(manifest['screenshotsAndFonts'], 'byte-identical')
+                self.assertEqual(manifest['changedAssertionDiagnostics'], [])
+
+    def test_identical_repeated_attachment_references_share_rebound_resource(self):
+        entries = self.rows(native_attachment_fixture(), lambda rows:
+                            rows[-1]['attachments'].append(dict(rows[-1]['attachments'][0])))
+        published, _ = self.publish(entries)
+        attachments = json.loads(published['test.trace'].splitlines()[-1])['attachments']
+        self.assertEqual(attachments[0], attachments[2])
+        self.assertEqual(sum(name == 'resources/' + attachments[0]['sha1'] for name in published), 1)
+        original_rows = [json.loads(line) for line in dict(entries)['test.trace'].splitlines()]
+        second = [original_rows[0], original_rows[-2], original_rows[-1]]
+        published, _ = self.publish(entries + [('second.trace', '\n'.join(map(json.dumps, second)) + '\n')])
+        self.assertEqual(json.loads(published['second.trace'].splitlines()[-1])['attachments'], attachments)
+
+    def test_conflicting_or_unsupported_attachment_mime_is_rejected(self):
+        def conflict(rows):
+            other = dict(rows[-1]['attachments'][0], contentType='image/png')
+            rows[-1]['attachments'].append(other)
+        self.reject(self.rows(native_attachment_fixture(), conflict))
+        for mime in ('text/plain', 'application/octet-stream', 'text/markdown; charset=utf-8',
+                     'image/PNG', PASSWORD, None, ['text/markdown']):
+            with self.subTest(mimeType=type(mime).__name__):
+                self.reject(self.rows(native_attachment_fixture(), lambda rows:
+                                      rows[-1]['attachments'][0].update(contentType=mime)))
+
+    def test_only_valid_native_after_attachments_can_authorize_extensionless_bytes(self):
+        mutations = [
+            lambda rows: rows[-1].update(type='event'),
+            lambda rows: rows[-1].update(callId='no-matching-before'),
+            lambda rows: rows[-1].update(callId=[]),
+            lambda rows: rows.append(dict(rows[-2])),
+            lambda rows: rows[-1].update(attachments={}),
+            lambda rows: rows[-1].update(attachments=[None]),
+            lambda rows: rows[-1]['attachments'][0].update(name=None),
+            lambda rows: rows[-1]['attachments'][0].update(path=PASSWORD),
+            lambda rows: rows[-1]['attachments'][0].pop('contentType'),
+            lambda rows: rows[-1].update(result={'attachments': rows[-1].pop('attachments')}),
+        ]
+        for index, mutate in enumerate(mutations):
+            with self.subTest(mutation=index):
+                self.reject(self.rows(native_attachment_fixture(), mutate))
+        self.reject(native_attachment_fixture()[:2] + fixture())
+        entries = native_attachment_fixture()
+        attachments = json.loads(dict(entries)['test.trace'].splitlines()[-1])['attachments']
+        for member, record in [('extra.stacks', {'attachments': attachments}),
+                               ('extra.network', {'type': 'resource-snapshot', 'attachments': attachments})]:
+            self.reject(entries[:2] + fixture() + [(member, json.dumps(record) + '\n')])
+
+    def test_resource_names_and_original_hashes_remain_strict(self):
+        entries = native_attachment_fixture()
+        original_ref = entries[0][0].removeprefix('resources/')
+        for ref in ('x' * 40, original_ref.upper(), original_ref[:-1], original_ref + '0',
+                    '../' + original_ref, original_ref + '.md'):
+            with self.subTest(length=len(ref)):
+                renamed = [('resources/' + ref if name == 'resources/' + original_ref else name, value)
+                           for name, value in entries]
+                self.reject(self.rows(renamed, lambda rows: rows[-1]['attachments'][0].update(sha1=ref)),
+                            'ARCHIVE_INVALID' if ref.startswith('../') else 'CONTENT_INVALID')
+        wrong = '0' * 40
+        renamed = [('resources/' + wrong if name == 'resources/' + original_ref else name, value)
+                   for name, value in entries]
+        self.reject(self.rows(renamed, lambda rows: rows[-1]['attachments'][0].update(sha1=wrong)),
+                    'REFERENCE_INVALID')
+        self.reject([(name, value) for name, value in entries if name != 'resources/' + original_ref],
+                    'REFERENCE_INVALID')
+
+    def test_attachment_mime_must_match_supported_bytes(self):
+        for markdown in (PNG, b'\xff' + PASSWORD.encode(), b'\x00' + PASSWORD.encode(), b'\x1b[31mred'):
+            self.reject(native_attachment_fixture(markdown=markdown, png=None))
+        for image in (b'# This is Markdown\n' + PASSWORD.encode(), PNG[:-12], PNG + PASSWORD.encode()):
+            self.reject(native_attachment_fixture(png=image), 'BINARY_INVALID')
+
+    def test_markdown_uses_existing_encoded_credential_guards(self):
+        nested = base64.b64encode(raw_zip([('hidden.json', json.dumps({'password': PASSWORD}))]))
+        self.reject(native_attachment_fixture(markdown=b'# Failure\n' + nested), 'DISCOVERY_REJECTED')
+        encoded = ''.join('&#' + str(ord(char)) + ';' for char in PASSWORD)
+        self.reject(native_attachment_fixture(markdown=encoded.encode()), 'TRANSFORM_REJECTED')
+        payload = base64.b64encode(json.dumps({'password': PASSWORD}).encode())
+        published, _ = self.publish(native_attachment_fixture(markdown=b'# Failure\n' + payload))
+        self.assertNotIn(payload, b'\n'.join(published.values()))
+
+    def test_attachment_support_does_not_bypass_identity_or_assertion_guards(self):
+        self.reject(native_attachment_fixture(markdown=json.dumps({'actorId': PASSWORD}).encode()),
+                    'IDENTITY_CHANGE')
+        entries = self.rows(native_attachment_fixture(), lambda rows: rows[-1].update(callId='expect-2'))
+        self.reject(entries, 'ASSERTION_CHANGE')
 
 
 class RejectionDiagnosticsTests(unittest.TestCase):

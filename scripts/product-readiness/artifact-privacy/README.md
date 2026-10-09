@@ -26,6 +26,27 @@ join. Changed content-addressed resources receive new hashes and all native
 Original network sizes describe observed traffic; resource hashes describe the
 published bytes. ZIP CRCs and enclosing file digests describe the published ZIP.
 
+The pinned producer stores test attachments, including automatic failure
+`error-context` Markdown, as extensionless `resources/<40-lowercase-hex-SHA1>`
+members. That narrow profile is supported only through native `.trace` after
+records with an `attachments` list. Each attachment must have exactly `name`,
+`contentType`, and `sha1`; the name is a string, the hash has the exact native
+shape, and its after record has one matching before-record call ID in the same
+trace. MIME must be exactly `text/markdown` or `image/png`. Repeated references
+with the same hash and MIME are permitted for native deduplication. Conflicting
+MIME declarations, unsupported MIME, unreferenced extensionless members, missing
+resources, and mismatched original hashes reject the entire batch.
+
+Records are parsed before resources, so ZIP member order cannot choose a codec.
+Markdown must decode as strict UTF-8 without non-text control characters; it
+passes through the existing credential discovery, redaction, and encoded-content
+guards. PNG attachments use the existing structural and credential checks and
+remain byte-identical. A declared MIME never bypasses those checks. Changed
+Markdown receives a new extensionless content hash, and all native references
+are rebound. This does not enable arbitrary extensionless text, additional MIME
+types, or `.md` archive members, and does not change source provenance or the
+assertion rules below.
+
 Embedded source resources sometimes contain fixture credential literals. Those
 resources are explicitly transformed source evidence. `approval-sanitization.json`
 lists each affected source path and its whole-source original/published SHA-256,

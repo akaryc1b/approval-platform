@@ -386,6 +386,80 @@ function h5Detail({ root, mocks }) {
   Object.assign(root.children, { '.wd-tag': tag, 'uni-button.wd-button': [button], '.timeline-item': element(), '.form-card': element() });
   root.children['[data-testid="approval-assistance"]'].children['.snapshot-grid'] = element();
 }
+// The shipped list/detail tag roots are direct flex items. Pinned Wot declares
+// inline-block; CSS Flexbox/Display blockify its computed display to block.
+function h5FlexTag(kind, parentDisplay = 'flex') {
+  return inputs => {
+    h5Detail(inputs);
+    const { root, task } = inputs;
+    const tag = root.children['.wd-tag'];
+    tag.style.display = 'block';
+    tag.parentElement = element();
+    tag.parentElement.style = { display: parentDisplay, visibility: 'visible', opacity: '1' };
+    if (kind === 'list') {
+      tag.classList.contains = name => name === 'is-plain';
+      Object.assign(tag.style, { borderTopStyle: 'solid', borderTopWidth: '1px', backgroundColor: 'transparent' });
+      task.children['.wd-tag'] = tag;
+      root.children['uni-button.wd-button'] = Array(4).fill(root.children['uni-button.wd-button'][0]);
+      root.children['.mode-row .wd-button'] = root.children['uni-button.wd-button'][0];
+      const field = element({}, { '.wd-search__cover .wd-icon, input': [element()] });
+      field.style = { display: 'flex', position: 'relative', visibility: 'visible', opacity: '1' };
+      const search = element({}, { '.wd-search__field': field });
+      search.style = { display: 'flex', visibility: 'visible', opacity: '1' };
+      root.children['.wd-search'] = search;
+      root.children['.wd-search__field'] = field;
+    }
+  };
+}
+for (const kind of ['list', 'detail']) {
+  for (const display of ['flex', 'inline-flex']) {
+    await check(`H5 ${kind} accepts naturally blockified tag under ${display} parent`, kind, async f => {
+      await f.step(4);
+      assert.equal(f.status(), 'fulfilled', f.failure()?.message);
+    }, h5FlexTag(kind, display));
+  }
+  await check(`H5 ${kind} rejects block tag outside a flex formatting parent`, kind, async f => {
+    await f.step(4);
+    assert.equal(f.status(), 'pending');
+  }, h5FlexTag(kind, 'block'));
+}
+for (const kind of ['list', 'detail']) {
+  for (const position of ['absolute', 'fixed']) {
+    await check(`H5 ${kind} cannot infer flex-item blockification for ${position} tag`, kind, async f => {
+      f.root.children['.wd-tag'].style.position = position;
+      await f.step(4); assert.equal(f.status(), 'pending');
+    }, h5FlexTag(kind));
+  }
+}
+await check('blockified plain list tag still requires its real border style', 'list', async f => {
+  f.root.children['.wd-tag'].style.borderTopStyle = 'none';
+  await f.step(4); assert.equal(f.status(), 'pending');
+}, h5FlexTag('list'));
+await check('blockified normal detail tag still requires its real background style', 'detail', async f => {
+  f.root.children['.wd-tag'].style.backgroundColor = 'transparent';
+  await f.step(4); assert.equal(f.status(), 'pending');
+}, h5FlexTag('detail'));
+await check('blockified tag with a hidden ancestor cannot certify readiness', 'list', async f => {
+  f.root.children['.wd-tag'].parentElement.style.visibility = 'hidden';
+  await f.step(4); assert.equal(f.status(), 'pending');
+}, h5FlexTag('list'));
+await check('blockified root does not relax the tag text style contract', 'detail', async f => {
+  f.root.children['.wd-tag'].children['.wd-tag__text'].style.display = 'block';
+  await f.step(4); assert.equal(f.status(), 'pending');
+}, h5FlexTag('detail'));
+await test('flex-item fixtures bind the shipped list and detail header layout', () => {
+  for (const [page, header] of [['list', 'task-card__header'], ['detail', 'summary-header']]) {
+    const source = readFileSync(resolve(import.meta.dirname, `../../apps/mobile/overlay/src/pages/task/${page}.vue`), 'utf8');
+    const start = source.indexOf(`<view class="${header}">`);
+    assert.ok(start >= 0);
+    assert.ok(source.indexOf('<wd-tag', start) > start);
+    const css = source.slice(source.indexOf('<style'));
+    const selector = css.indexOf(`.${header}`);
+    const end = css.indexOf('}', selector);
+    assert.ok(selector >= 0 && end > selector);
+    assert.match(css.slice(selector, end), /display: flex;/u);
+  }
+});
 await check('the real non-plain H5 detail tag style does not require a nonexistent border', 'detail', async f => {
   await f.step(4);
   assert.equal(f.status(), 'fulfilled', f.failure()?.message);
