@@ -1,0 +1,33 @@
+{
+  "actualSuccessfulAttempt": 3,
+  "all474InputRowsIncludingZeroFindingsExactlyReported": true,
+  "allScannersCompleted": false,
+  "classification": "STANDALONE_OSV_ONLY_PRECOMMIT_DIAGNOSTIC_NOT_EXACT_HEAD_E4",
+  "comparison": {
+    "added": 0,
+    "changed": 0,
+    "current": 23,
+    "prior": 25,
+    "removed": 2,
+    "unchanged": 23
+  },
+  "completeInputTupleSetReconstructed": true,
+  "correctPackageScopedFixedVersionAttribution": true,
+  "coverageContentSha256": "72b450447ca6e1dff30250f5b1f702dea76354f64a6a592ccc8ec8b531e11c76",
+  "everyNormalizedFieldIndependentlyReconstructedFromRaw": true,
+  "exactHeadEvidence": false,
+  "failedFirstAttemptPreserved": true,
+  "fullMain1834NormalizedFindingDiffRecomputed": true,
+  "rejectsActualFailedFirstAttempt": true,
+  "rejectsAlteredInputBytes": true,
+  "rejectsMissingFinding": true,
+  "rejectsMissingZeroFindingTarget": true,
+  "rejectsUnexpectedDiagnostics": true,
+  "rejectsWrongHead": true,
+  "releaseBlocked": true,
+  "repositoryCoverageBuilderAndVerifierPassed": true,
+  "reviewDispositionTransferred": false,
+  "sourceBaseHeadIsNotCandidateExactHead": true,
+  "status": "INDEPENDENT_LOCAL_REVALIDATION_PASSED",
+  "summaryContentSha256": "eae580dbd1a39d75bc002254acece4109b5dbe553a1aea612bc6a0a2cc258e4e"
+}

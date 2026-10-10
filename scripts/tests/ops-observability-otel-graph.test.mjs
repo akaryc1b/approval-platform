@@ -105,6 +105,11 @@ test('the real upgrade manifest cannot be edited or supplemented without failing
     readFileSync(new URL('../security/site-dependency-plugin-graph-transition.mjs', import.meta.url)));
   writeFileSync(resolve(directory, 'scripts/security/build-plugin-jackson-graph-transition.mjs'),
     readFileSync(new URL('../security/build-plugin-jackson-graph-transition.mjs', import.meta.url)));
+  mkdirSync(resolve(directory, 'scripts/ci'), { recursive: true });
+  for (const file of ['security/clean-plugin-graph-transition.mjs', 'security/m6-pr-e-e2-generate-sbom.mjs',
+    'security/maven-workflow-transition.mjs', 'security/hygiene-java21-workflow-transition.mjs', 'ci/maven-toolchain.mjs']) {
+    writeFileSync(resolve(directory, `scripts/${file}`), readFileSync(new URL(`../${file}`, import.meta.url)));
+  }
   writeFileSync(resolve(directory, 'run.mjs'), "import {readOtelUpgradeManifest} from './scripts/security/observability-dependency-graph.mjs'; readOtelUpgradeManifest();");
   const path = resolve(directory, 'docs/operations/observability-otel-upgrade.json');
   const raw = readFileSync(new URL('../../docs/operations/observability-otel-upgrade.json', import.meta.url), 'utf8');

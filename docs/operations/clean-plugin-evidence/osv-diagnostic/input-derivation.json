@@ -1,0 +1,39 @@
+{
+  "addedPackages": [],
+  "candidateInputPackageCount": 474,
+  "classification": "STANDALONE_OSV_ONLY_PRECOMMIT_DIAGNOSTIC_NOT_EXACT_HEAD_E4",
+  "e2GraphDigest": "255008a8cf1b3d57182cdd47c680aad7e484b027f23ae5e3a19590791732d950",
+  "exactHeadEvidence": false,
+  "independentTupleDerivationMatches": true,
+  "inputSha256": "0e63e50daa1c6216b990a67e05fda85296f0cb0439130013f0715ef3dc080aef",
+  "priorE2ContentSha256": "04738e5be3a900c7993c2a7700dc932ce666eb76089fcc7d35d25da0efa623e2",
+  "priorE4BytesSha256": "4bf3c645aed2284dc152e855cfa83a6fe394c7e857e25acefe573d3aaa7e550c",
+  "priorE4ContentSha256": "3bedc22bca22184e4e9a63201df60130171226e650096d35bea6844d179488f7",
+  "priorInputPackageCount": 475,
+  "removedPackages": [
+    {
+      "ecosystem": "Maven",
+      "name": "commons-io:commons-io",
+      "version": "2.6"
+    }
+  ],
+  "sourceBaseHead": "757fe355b2d868916e112f2fcbbe093b865e0669",
+  "sourceCaptureExecutionSha256": "e78bcd5d528d917f1fae74630418e5f02dc3b2214c688e2e357df9213ba75262",
+  "sourceE2BytesSha256": "e6bedb11b031b1ede7a724f792b87688e8700ae95532b908bc9a40ae19b8464b",
+  "sourceE2ContentSha256": "f4e7f0bc5dd2a77ea6e81bd61539d1c1afd0f1ffd7de51ee30c66eab5c1fb19a",
+  "sourceGraphDeltaAuditSha256": "9144eeee7aebb863811e013d8f9ef13f843812561cd2bab89619d956a66cbd57",
+  "sourceHashes": {
+    "docs/m6/m6-pr-e-e4-scanner-baseline.json": "03ad70bfe23e655a599eb2454402b470845f0f3e46caaaad9ff21fa243933227",
+    "pom.xml": "e5637b8d5752474f9d1940f7b295ef0d3046bc6460391992f1936d4b306f40f2",
+    "scripts/security/m6-pr-e-e2-generate-sbom.mjs": "a974b4c07eaf40c6c440415af11d50f8f5da22ec33c7789080de042b3b46dc7f",
+    "scripts/security/m6-pr-e-e4-scan.mjs": "04d601d05b22a50b8d6bf2888e480ffd1ed9be88ab55bd99b3c094d5e70b0873",
+    "scripts/security/osv-scan-coverage.mjs": "0053f5d507cfb7f9d742fbad84555944c3a4b9c56b376136f41c035f737d1cad",
+    "scripts/security/scanner-report-structure.mjs": "5b1f34657fef399aac32ce0b82f8422c0310a7a022a6b26f7d222046ca1ecf02"
+  },
+  "sourceOwnerReportSha256": "78f8dfa63888ef5a671a10a928716b5ae8d1e7d7265c7ec4ac9757bcb49e31fc",
+  "sourcePomSha256": "e5637b8d5752474f9d1940f7b295ef0d3046bc6460391992f1936d4b306f40f2",
+  "tupleCountsByEcosystem": {
+    "Maven": 473,
+    "npm": 1
+  }
+}

@@ -48,6 +48,8 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null,
     ? requireServerDependencyRemediation(e4,serverRemediation,{expectedCommitSha:triage.commitSha}):null;
   if(serverDependencyRemediation)requireServerDependencyHistoricalReview(review);
 
+  if((e4.scanners?.gitleaks?.findingCount===29||triage.gitleaksPublicCommitReview)
+    &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview))throw new Error('public commit review requires both source review receipts');
   const gitleaksReview=triage.gitleaksTestExpressionReview
     ? requireGitleaksTestExpressionTriage(e4,triage):null;
   const prototypeRemediation=triage.designerPrototypeRemediation
@@ -130,7 +132,8 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null,
     remediatedHistoricalFindingCount:remediatedHistoricalFindings.length,
     remediatedHistoricalFindings,
     cumulativeReviewedFindingCount,
-    ...(gitleaksReview?{gitleaksTestExpressionReview:gitleaksReview,appendOnlyReviewedFindingCount:1}:{}),
+    ...(gitleaksReview?{gitleaksTestExpressionReview:gitleaksReview,appendOnlyReviewedFindingCount:triage.appendOnlyReviewedFindingCount}:{}),
+    ...(triage.gitleaksPublicCommitReview?{gitleaksPublicCommitReview:triage.gitleaksPublicCommitReview}:{}),
     ...(prototypeRemediation?{
       designerPrototypeRemediation:prototypeRemediation,
       historicallyRemediatedFindings:[...inheritedRemediatedFindings,...remediatedHistoricalFindings],

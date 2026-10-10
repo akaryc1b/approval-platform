@@ -52,8 +52,6 @@
         <maven.release.sshd.version>2.16.0</maven.release.sshd.version>
         <maven.release.commons-io.version>2.20.0</maven.release.commons-io.version>
         <maven.release.plexus-utils.version>4.0.3</maven.release.plexus-utils.version>
-        <maven.clean.version>3.2.0</maven.clean.version>
-        <maven.clean.commons-io.version>2.20.0</maven.clean.commons-io.version>
         <maven.site.version>3.22.0</maven.site.version>
         <maven.dependency.version>3.11.0</maven.dependency.version>
         <maven.site.jsoup.version>1.23.2</maven.site.jsoup.version>
@@ -186,18 +184,6 @@
                             <groupId>org.codehaus.plexus</groupId>
                             <artifactId>plexus-utils</artifactId>
                             <version>${maven.release.plexus-utils.version}</version>
-                        </dependency>
-                    </dependencies>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-clean-plugin</artifactId>
-                    <version>${maven.clean.version}</version>
-                    <dependencies>
-                        <dependency>
-                            <groupId>commons-io</groupId>
-                            <artifactId>commons-io</artifactId>
-                            <version>${maven.clean.commons-io.version}</version>
                         </dependency>
                     </dependencies>
                 </plugin>

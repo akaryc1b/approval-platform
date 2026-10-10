@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "APPROVAL_CLEAN_PLUGIN_GRAPH_TRANSITION_V1",
+  "repository": "akaryc1b/approval-platform",
+  "base": {
+    "sourceHead": "757fe355b2d868916e112f2fcbbe093b865e0669",
+    "sourceTree": "c305d47c2049e500af916da83632e221cc2e36e3",
+    "sourceRunId": 37953669285,
+    "sourceRunNumber": 1834,
+    "graphDigest": "7a719e7a07e9c7c51c5dddc228f4f00cb89ec7a62b4731067d2d977bc72ebc63",
+    "e2": {
+      "path": "docs/operations/clean-plugin-evidence/accepted-main-1834-E2.json",
+      "rawSha256": "359e9ac9a2541fa044de8fff5681f2b95c80780106b62cea768870415b51d2f6",
+      "contentSha256": "04738e5be3a900c7993c2a7700dc932ce666eb76089fcc7d35d25da0efa623e2"
+    },
+    "releaseLineage": {
+      "path": "docs/operations/clean-plugin-evidence/accepted-main-1834-release-lineage.json",
+      "rawSha256": "ce510bdfed7c0cfd88d898c2469247788c7a6f0431d80f3008864c3138441eaf",
+      "contentSha256": "b99400f63544b6832406a7394148c0b794e6b53c92f6010cf4bfeff53ce8db69"
+    }
+  },
+  "observed": {
+    "graphDigest": "255008a8cf1b3d57182cdd47c680aad7e484b027f23ae5e3a19590791732d950"
+  },
+  "capture": {
+    "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+    "exactHeadEvidence": false,
+    "sourceWorktreeClean": false,
+    "sourceBaseHead": "757fe355b2d868916e112f2fcbbe093b865e0669",
+    "sourceBaseTree": "c305d47c2049e500af916da83632e221cc2e36e3",
+    "e2": {
+      "path": "docs/operations/clean-plugin-evidence/precommit-candidate-E2.json",
+      "rawSha256": "e6bedb11b031b1ede7a724f792b87688e8700ae95532b908bc9a40ae19b8464b",
+      "contentSha256": "f4e7f0bc5dd2a77ea6e81bd61539d1c1afd0f1ffd7de51ee30c66eab5c1fb19a"
+    },
+    "pluginReport": {
+      "path": "docs/operations/clean-plugin-evidence/plugin-owner-report.txt",
+      "rawSha256": "78f8dfa63888ef5a671a10a928716b5ae8d1e7d7265c7ec4ac9757bcb49e31fc",
+      "sourceReportSha256": "78f8dfa63888ef5a671a10a928716b5ae8d1e7d7265c7ec4ac9757bcb49e31fc"
+    },
+    "sourcePom": {
+      "path": "docs/operations/clean-plugin-evidence/precommit-pom.xml",
+      "rawSha256": "e5637b8d5752474f9d1940f7b295ef0d3046bc6460391992f1936d4b306f40f2"
+    },
+    "sourceWitness": {
+      "path": "docs/operations/clean-plugin-evidence/source-witness.json",
+      "rawSha256": "0221ce68617ccecc2c1c5d7f6c56b3a886dbea64f6352dff6837137cecd98a82",
+      "contentSha256": "9d1394cb758a8d62cad204efb5d58353ecd4002c873fc93566f2485a0a6163a3"
+    }
+  },
+  "pluginResolutionHashChange": {
+    "from": "2cbd1cd9f5fbfabab0b2ce7f8a2c7f5fe3f9bd43bf91b3db1bb444b513a70fcb",
+    "to": "78f8dfa63888ef5a671a10a928716b5ae8d1e7d7265c7ec4ac9757bcb49e31fc"
+  },
+  "addedPluginCoordinates": [],
+  "removedPluginCoordinates": [
+    "commons-io:commons-io:jar:2.6"
+  ],
+  "addedPluginCoordinateCount": 0,
+  "removedPluginCoordinateCount": 1,
+  "pluginOwnerChanges": [
+    {
+      "owner": "org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "before": [
+        "commons-io:commons-io:jar:2.6",
+        "org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+        "org.apache.maven.shared:maven-shared-utils:jar:3.3.4"
+      ],
+      "after": [
+        "commons-io:commons-io:jar:2.20.0",
+        "org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+        "org.apache.maven.shared:maven-shared-utils:jar:3.3.4"
+      ]
+    }
+  ],
+  "ownerCount": 17,
+  "unchangedOtherPluginOwnerCount": 16,
+  "previousOwnerInventorySha256": "d3a570b43756302e70501a2904cf073bdcc85a4178de282db55c8aa8ab3cc062",
+  "currentOwnerInventorySha256": "2a04054d59df774ea430b518ef2d65fa743a44628f93466dfef47da9fa04afcc",
+  "runtimeComponentChangeCount": 0,
+  "runtimeEdgeChangeCount": 0,
+  "importedBomChangeCount": 0,
+  "scopeChangeCount": 0,
+  "licenseChangeCount": 0,
+  "inventory": {
+    "componentCount": 237,
+    "edgeCount": 345,
+    "reactorRootCount": 26,
+    "importedBomCount": 6,
+    "resolvedPluginCoordinateCount": 271
+  },
+  "osvInput": {
+    "prior": {
+      "packageCount": 475,
+      "inputBytesSha256": "29fb9b1a286d58d08550977676fca28115e00e202f5b4aa66b2cb6b5b0636ff8"
+    },
+    "current": {
+      "packageCount": 474,
+      "inputBytesSha256": "0e63e50daa1c6216b990a67e05fda85296f0cb0439130013f0715ef3dc080aef"
+    }
+  },
+  "findingReviewRequired": true,
+  "releaseBlocked": true,
+  "findingDisposition": "UNRESOLVED_UNTIL_FRESH_COMPLETE_SCANNER_AND_EXPLICIT_FINDING_REVIEW",
+  "suppressions": [],
+  "exceptions": [],
+  "contentSha256": "77b97890d4f686b10cecc5138f10dacea824bffddb9d41b19997a275be6e9c2e"
+}

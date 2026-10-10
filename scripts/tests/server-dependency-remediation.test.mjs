@@ -1,3 +1,5 @@
+import { CLEAN_PLUGIN_GRAPH, readCleanPluginCandidate, readCleanPluginManifest } from '../security/observability-dependency-graph.mjs';
+import { syntheticCleanPluginOsv } from './fixtures/clean-plugin-fixture.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -349,6 +351,69 @@ test('Release descendant cannot conceal a remediated advisory alias at the new J
 });
 test('a synthetic new Release finding keeps its exact identity and unresolved disposition through I3', () => {
   const e4 = releaseDescendantFixture(), before = structuredClone(e4), receipt = verifyPlugin(e4);
+  const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
+  const triage = { repository: e4.repository, commitSha: e4.commitSha, contentSha256: 'a'.repeat(64),
+    decisions: e4.scanners.osv.findings.map(f => ({ sourceClass: f.sourceClass, findingId: f.findingId,
+      severityBand: 'UNKNOWN', disposition: 'UNRESOLVED', componentRef: f.componentRefs[0] })) };
+  const result = applyRuntimeDeploymentReviews(triage, e4, review, pg, receipt);
+  assert.deepEqual(result.decisions, triage.decisions); assert.equal(result.summary.releaseBlocked, true);
+  assert.equal(result.summary.dispositionCounts.UNRESOLVED, 1); assert.deepEqual(e4, before);
+});
+
+// Fully synthetic scanner/checkout envelope; actual retained E2 does not establish scan absence.
+function cleanDescendantFixture() {
+  const e4 = fixture(), e2 = readCleanPluginCandidate();
+  e4.commitSha = e2.commitSha; e4.e2CurrentEvidence = e2; e4.e2CurrentContentSha256 = e2.contentSha256;
+  e4.e2GraphDigest = CLEAN_PLUGIN_GRAPH;
+  e4.e2GraphTransition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, e2.commitSha);
+  e4.checkout.checkedOutSha = e2.commitSha; e4.checkout.expectedHeadSha = e2.commitSha;
+  e4.scanners.osv = syntheticCleanPluginOsv(e2, e4.scanners.osv);
+  e4.totalFindingCount = Object.values(e4.scanners).reduce((n, scanner) => n + scanner.findingCount, 0);
+  return resign(e4);
+}
+test('R4 and pgjdbc preserve every prior input contract and exact main Release receipt through Clean', () => {
+  const e4 = cleanDescendantFixture(), original = structuredClone(e4), receipt = verifyPlugin(e4);
+  assert.equal(receipt.currentE2GraphDigest, CLEAN_PLUGIN_GRAPH);
+  assert.equal(receipt.historicalTargetE2GraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(receipt.subsequentGraphTransition.priorE2GraphDigest, RELEASE_PLUGIN_GRAPH);
+  const release = receipt.subsequentGraphTransition.preservedReleasePluginLineage;
+  assert.equal(release.priorE2GraphDigest, SITE_DEPENDENCY_PLUGIN_GRAPH);
+  assert.equal(release.commitSha, '757fe355b2d868916e112f2fcbbe093b865e0669');
+  assert.equal(release.contentSha256, 'b99400f63544b6832406a7394148c0b794e6b53c92f6010cf4bfeff53ce8db69');
+  assert.deepEqual(receipt.remediatedFindings.map(f => f.findingId), plan.remediatedFindings.map(f => f.findingId));
+  assert.equal(receipt.releaseBlocked, true); assert.equal(receipt.findingReviewRequired, true);
+  assert.equal(e4.scanners.osv.coverage.inputPackageCount, 474); assert.equal(plan.expectedInputPackageCount, 535);
+  assert.equal(e4.scanners.osv.coverage.inputBytesSha256, readCleanPluginManifest().osvInput.current.inputBytesSha256);
+  assert.deepEqual(requireServerDependencyRemediation(e4, receipt, { expectedCommitSha: e4.commitSha }), receipt);
+  const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
+  assert.equal(pg.currentE2GraphDigest, CLEAN_PLUGIN_GRAPH); assert.deepEqual(pg.subsequentGraphTransition, receipt.subsequentGraphTransition);
+  assert.equal(pg.remediatedFindings.length, 2); assert.equal(pg.releaseBlocked, true); assert.deepEqual(e4, original);
+});
+for (const [name, alter] of [
+  ['pre-Clean receipt', e => { e.e2GraphTransition = releaseDescendantFixture().e2GraphTransition; }],
+  ['prior input count', e => { e.scanners.osv.coverage.inputPackageCount = 475; resign(e.scanners.osv.coverage); }],
+  ['prior input bytes', e => { e.scanners.osv.coverage.inputBytesSha256 = readCleanPluginManifest().osvInput.prior.inputBytesSha256; resign(e.scanners.osv.coverage); }],
+  ['missing non-finding target', e => { e.scanners.osv.coverage.targets.splice(e.scanners.osv.coverage.targets.findIndex(t => !t.advisoryIds.length), 1); resign(e.scanners.osv.coverage); }],
+  ['missing build-plugin targets', e => { e.scanners.osv.coverage.targets = e.scanners.osv.coverage.targets.filter(t => !t.scopes.includes('build-plugin')); resign(e.scanners.osv.coverage); }],
+  ['missing exact E2', e => { delete e.e2CurrentEvidence; }],
+  ['missing coverage', e => { delete e.scanners.osv.coverage; }],
+  ['incomplete scanner', e => { e.scanners.semgrep.scanCompleted = false; }],
+  ['stale coverage head', e => { e.scanners.osv.coverage.commitSha = 'f'.repeat(40); resign(e.scanners.osv.coverage); }],
+  ['stale nested Release receipt', e => { e.e2GraphTransition.preservedReleasePluginLineage.commitSha = 'f'.repeat(40); resign(e.e2GraphTransition.preservedReleasePluginLineage); resign(e.e2GraphTransition); }],
+]) test(`R4 Clean descendant rejects ${name} even after rehashing`, () => {
+  const e4 = cleanDescendantFixture(); alter(e4); resign(e4); assert.throws(() => verifyPlugin(e4));
+});
+test('Clean descendant requires independent current head and rejects any returned historical advisory alias', () => {
+  const e4 = cleanDescendantFixture();
+  for (const expectedCommitSha of [undefined, 'f'.repeat(40)]) {
+    assert.throws(() => verifyServerDependencyRemediation(e4, plan, { expectedCommitSha }));
+    assert.throws(() => verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha }));
+  }
+  injectFinding(e4, 'commons-io:commons-io', '2.20.0', 'GHSA-synthetic-unit-returned-alias', ['CVE-2026-40976']);
+  assert.throws(() => verifyPlugin(e4), /advisory is still present/);
+});
+test('new synthetic Clean finding retains its exact identity and unresolved disposition through I3', () => {
+  const e4 = cleanDescendantFixture(), before = structuredClone(e4), receipt = verifyPlugin(e4);
   const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
   const triage = { repository: e4.repository, commitSha: e4.commitSha, contentSha256: 'a'.repeat(64),
     decisions: e4.scanners.osv.findings.map(f => ({ sourceClass: f.sourceClass, findingId: f.findingId,

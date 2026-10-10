@@ -10,6 +10,7 @@ not release-workflow, vulnerability-applicability or scanner evidence.
 import argparse
 from pathlib import Path
 import re
+from runpy import run_path
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
@@ -175,6 +176,11 @@ def verify_source(root):
     require(len(candidates) == 1, "missing/duplicate managed Release plugin")
     verify_release(candidates[0])
     allowed_dependencies = candidates[0].findall("m:dependencies/m:dependency", NS)
+    # Grant only this element, after validating the complete root-only Clean
+    # declaration, exact pins, all source POMs and IO ownership. Keep IO in the
+    # original eight-coordinate guard; arbitrary plugin dependencies stay banned.
+    clean_contract = run_path(str(Path(__file__).with_name("clean_plugin_contract.py")))
+    allowed_dependencies.append(clean_contract["verify_source"](root, projects))
     for file, project in projects:
         for dependency in project.findall(".//m:dependency", NS):
             require(coordinate(dependency) not in OVERRIDES or dependency in allowed_dependencies,
