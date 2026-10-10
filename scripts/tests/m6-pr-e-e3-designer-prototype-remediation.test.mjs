@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { spawnSync as historicalGit } from 'node:child_process';
+import { buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview } from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import { buildGitleaksPublicCommitReviewSnapshot } from '../security/m6-pr-e-e3-review-gitleaks-public-commit.mjs';
 import { readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview }
   from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
@@ -359,6 +360,7 @@ export function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype
   runInNewContext(source.slice(source.indexOf("test('E4 full scanner emits")), {
     assert, createHash, Buffer, readdirSync, existsSync, readDesignerPrototypeRemediationPlan,
     readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview, buildGitleaksPublicCommitReviewSnapshot,
+    buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview,
     expectedScannerHead: () => expectedHead,
     SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     readServerDependencyRemediationPlan, verifyServerDependencyRemediation,

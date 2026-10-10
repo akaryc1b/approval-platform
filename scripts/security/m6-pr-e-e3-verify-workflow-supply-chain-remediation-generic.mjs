@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifyGitleaksCaptureHashReview } from './m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { verifyGitleaksPublicCommitReview } from './m6-pr-e-e3-review-gitleaks-public-commit.mjs';
@@ -239,10 +240,13 @@ export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapsh
   const historicalSemgrepIds = prototypeRemediation
     ? [...semgrepIds, prototypeRemediation.remediatedFindings[0].findingId].sort() : semgrepIds;
   const gitleaksReview = gitleaksReviewSnapshot ? verifyGitleaksTestExpressionReview(e4, gitleaksReviewSnapshot) : null;
+  const captureHashReview = gitleaksReviewSnapshot?.captureHashReviewSnapshot
+    ? verifyGitleaksCaptureHashReview(e4, gitleaksReviewSnapshot.captureHashReviewSnapshot) : null;
   const publicCommitReview = gitleaksReviewSnapshot?.publicCommitReviewSnapshot
-    ? verifyGitleaksPublicCommitReview(e4, gitleaksReviewSnapshot.publicCommitReviewSnapshot) : null;
+    ? verifyGitleaksPublicCommitReview(e4, gitleaksReviewSnapshot.publicCommitReviewSnapshot, captureHashReview) : null;
+  const captureIds = new Set(captureHashReview?.findings.map(finding => finding.findingId) || []);
   const historicalGitleaksIds = gitleaksReview
-    ? gitleaksIds.filter(id => id !== gitleaksReview.historicalFinding.findingId && id !== publicCommitReview?.finding.findingId) : gitleaksIds;
+    ? gitleaksIds.filter(id => id !== gitleaksReview.historicalFinding.findingId && id !== publicCommitReview?.finding.findingId && !captureIds.has(id)) : gitleaksIds;
   requireIdentitySet('current Gitleaks', historicalGitleaksIds, expectedCurrent.gitleaks);
   requireIdentitySet('current Semgrep', historicalSemgrepIds, expectedCurrent.semgrep);
   requireIdentitySet('current zizmor', zizmorIds, expectedCurrent.zizmor);
@@ -267,8 +271,9 @@ export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapsh
     databaseSnapshotIdentity: identityContract.databaseDriftObservation.databaseSnapshotIdentity,
     databaseSnapshotIdentityAvailability: identityContract.databaseDriftObservation.databaseSnapshotIdentityAvailability,
     ...osvReconciliation,
-    ...(gitleaksReview ? { gitleaksTestExpressionReview: gitleaksReview, retainedHistoricalGitleaksFindingCount: historicalGitleaksIds.length, reviewedAddedGitleaksFindingCount: publicCommitReview ? 2 : 1 } : {}),
+    ...(gitleaksReview ? { gitleaksTestExpressionReview: gitleaksReview, retainedHistoricalGitleaksFindingCount: historicalGitleaksIds.length, reviewedAddedGitleaksFindingCount: (publicCommitReview ? 2 : 1) + (captureHashReview ? 3 : 0) } : {}),
     ...(publicCommitReview ? { gitleaksPublicCommitReview: publicCommitReview } : {}),
+    ...(captureHashReview ? { gitleaksCaptureHashReview: captureHashReview } : {}),
     ...(prototypeRemediation ? { designerPrototypeRemediation: prototypeRemediation,
       historicalSemgrepFindingCount: historicalSemgrepIds.length,
       remediatedHistoricalSemgrepFindingCount: 1 } : {}),

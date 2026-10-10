@@ -68,6 +68,8 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
     if(workflowRemediation.workflowSupplyChainRemediationValidated!==true)throw new Error('R2B workflow remediation validation required');
   }
 
+  if((e4.scanners?.gitleaks?.findingCount===32||triage.gitleaksCaptureHashReview)
+    &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview||!triage.gitleaksCaptureHashReview))throw new Error('capture hash review requires all three source review receipts');
   if((e4.scanners?.gitleaks?.findingCount===29||triage.gitleaksPublicCommitReview)
     &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview))throw new Error('public commit review requires both source review receipts');
   const gitleaksReview=triage.gitleaksTestExpressionReview
@@ -125,6 +127,7 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
     reviewBasisHead:review.reviewBasisHead,reviewBasisE4CanonicalSha256:review.reviewBasisE4CanonicalSha256,reviewBasisI3CanonicalSha256:review.reviewBasisI3CanonicalSha256,historicalReviewedFindingCount:planned.length,reviewedFindingCount:delta.size,remediatedHistoricalFindingCount:remediatedHistoricalFindings.length,remediatedHistoricalFindings,cumulativeReviewedFindingCount,historicallyRemediatedFindingCount,decisions,
     ...(gitleaksReview?{gitleaksTestExpressionReview:gitleaksReview,appendOnlyReviewedFindingCount:triage.appendOnlyReviewedFindingCount}:{}),
     ...(triage.gitleaksPublicCommitReview?{gitleaksPublicCommitReview:triage.gitleaksPublicCommitReview}:{}),
+    ...(triage.gitleaksCaptureHashReview?{gitleaksCaptureHashReview:triage.gitleaksCaptureHashReview}:{}),
     ...(prototypeRemediation?{designerPrototypeRemediation:prototypeRemediation,historicallyRemediatedFindings:[...inheritedRemediatedFindings,...remediatedHistoricalFindings]}:{}),
     summary:{dispositionCounts,applicableCount:dispositionCounts.APPLICABLE||0,notApplicableCount:dispositionCounts.NOT_APPLICABLE||0,unresolvedCount:dispositionCounts.UNRESOLVED||0,releaseBlocked:true,reasonCodes:['AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE','E3_SCANNER_FINDINGS_UNRESOLVED',...(dispositionCounts.APPLICABLE?['E3_APPLICABLE_FINDINGS_REQUIRE_REMEDIATION']:[])]}
   });
