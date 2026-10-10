@@ -68,7 +68,7 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
     if(workflowRemediation.workflowSupplyChainRemediationValidated!==true)throw new Error('R2B workflow remediation validation required');
   }
 
-  if((e4.scanners?.gitleaks?.findingCount===32||triage.gitleaksCaptureHashReview)
+  if(([32,70].includes(e4.scanners?.gitleaks?.findingCount)||triage.gitleaksCaptureHashReview)
     &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview||!triage.gitleaksCaptureHashReview))throw new Error('capture hash review requires all three source review receipts');
   if((e4.scanners?.gitleaks?.findingCount===29||triage.gitleaksPublicCommitReview)
     &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview))throw new Error('public commit review requires both source review receipts');

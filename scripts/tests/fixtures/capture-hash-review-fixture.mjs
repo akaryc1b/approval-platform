@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { treeEntries, objectHash } from '../../security/gitleaks-git-source-proof.mjs';
-import { readGitleaksCaptureHashReviewPlan, buildGitleaksCaptureHashReviewSnapshot }
+import { readGitleaksCaptureHashReviewPlan, buildGitleaksCaptureHashReviewSnapshot, gitleaksPlanMetadataFields }
   from '../../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import { seal } from './public-commit-review-fixture.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url)), plan = readGitleaksCaptureHashReviewPlan();
 const hash = value => createHash('sha256').update(value).digest('hex');
-export function modeledCaptureHashFixture(label = 'source-equivalent capture publication', { mergeHead = false, mergeIntroduction = false, bundledIntroduction = false } = {}) {
+export function modeledCaptureHashFixture(label = 'source-equivalent capture publication', { mergeHead = false, mergeIntroduction = false, bundledIntroduction = false, planMetadata = false } = {}) {
   const objects = new Map(), commands = [];
   const git = (command, args) => {
     commands.push([command, args]);
@@ -49,23 +49,32 @@ export function modeledCaptureHashFixture(label = 'source-equivalent capture pub
   const introductionParents = [plan.acceptedPublicBaseCommit];
   if (mergeIntroduction) introductionParents.push(commit(plan.acceptedPublicBaseTreeSha, [plan.acceptedPublicBaseCommit], 'modeled independent branch without capture', 1791600000));
   const intro = commit(introductionTree, introductionParents, label, 1791600001);
-  const tree = overlay(introductionTree, [['zz-capture-review-refinement.txt', Buffer.from('modeled additive review\n')]]);
-  const branchHead = commit(tree, [intro], 'modeled classification refinement', 1791600002);
+  const planPath = 'docs/m6/m6-pr-e-e3-gitleaks-capture-hash-review.json';
+  const metadataTree = planMetadata ? overlay(introductionTree, [[planPath, readFileSync(`${root}${planPath}`)]]) : introductionTree;
+  const metadataIntro = planMetadata ? commit(metadataTree, [intro], 'modeled source-reviewed plan publication', 1791600002) : null;
+  const tree = overlay(metadataTree, [['zz-capture-review-refinement.txt', Buffer.from('modeled additive review\n')]]);
+  const branchHead = commit(tree, [metadataIntro || intro], 'modeled classification refinement', planMetadata ? 1791600003 : 1791600002);
   const head = mergeHead ? commit(tree, [plan.acceptedPublicBaseCommit, branchHead], 'modeled normal main merge', 1791600003) : branchHead;
   const findings = plan.observations.map(({ line }) => {
     const { ruleId, description, sourceClass } = plan.finding, path = plan.source.path, fingerprint = `${intro}:${path}:${ruleId}:${line}`;
     return { sourceClass, ruleId, path, startLine: line, endLine: line, description, commit: intro, fingerprint,
       findingId: hash(['GITLEAKS', fingerprint, ruleId, path, String(line)].join('\0')) };
   });
+  const policy = plan.retainedFindings.find(finding => finding.ruleId === 'sourcegraph-access-token');
+  const planMetadataFindings = planMetadata ? gitleaksPlanMetadataFields().map(({ line }) => {
+    const { ruleId, description, sourceClass } = policy, path = planPath, fingerprint = `${metadataIntro}:${path}:${ruleId}:${line}`;
+    return { sourceClass, ruleId, path, startLine: line, endLine: line, description, commit: metadataIntro, fingerprint,
+      findingId: hash(['GITLEAKS', fingerprint, ruleId, path, String(line)].join('\0')) };
+  }) : [];
   const prepareEvidence = evidence => {
     const e4 = structuredClone(evidence); e4.commitSha = head;
     e4.checkout = { checkedOutSha: head, expectedHeadSha: head, checkedOutTreeSha: tree,
       expectedHeadTreeSha: tree, exactTreeMatches: true, trackedWorktreeClean: true };
-    e4.scanners.gitleaks = { ...e4.scanners.gitleaks, ...plan.scannerIdentity, findingCount: 32,
-      findings: [...structuredClone(plan.retainedFindings), ...findings].sort((a, b) => a.findingId.localeCompare(b.findingId)) };
+    e4.scanners.gitleaks = { ...e4.scanners.gitleaks, ...plan.scannerIdentity, findingCount: 32 + planMetadataFindings.length,
+      findings: [...structuredClone(plan.retainedFindings), ...findings, ...planMetadataFindings].sort((a, b) => a.findingId.localeCompare(b.findingId)) };
     e4.totalFindingCount = Object.values(e4.scanners).reduce((sum, scanner) => sum + scanner.findingCount, 0);
     return seal(e4);
   };
-  return { head, intro, introductionTree, introductionParents, tree, branchHead, findings, git, commands, prepareEvidence,
+  return { head, intro, introductionTree, introductionParents, tree, branchHead, findings, metadataIntro, planMetadataFindings, git, commands, prepareEvidence,
     snapshot: e4 => buildGitleaksCaptureHashReviewSnapshot(e4, { root, git }) };
 }

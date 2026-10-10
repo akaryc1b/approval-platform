@@ -5,6 +5,7 @@ import './m6-pr-e-e3-designer-prototype-remediation.test.mjs';
 import './m6-pr-e-e3-gitleaks-test-expression-review.test.mjs';
 import './m6-pr-e-e3-gitleaks-public-commit-review.test.mjs';
 import './m6-pr-e-e3-gitleaks-capture-hash-review.test.mjs';
+import './m6-pr-e-e3-gitleaks-plan-metadata-review.test.mjs';
 import './server-dependency-graph-transition.test.mjs';
 import './build-plugin-jackson-graph-transition.test.mjs';
 import './site-dependency-plugin-graph-transition.test.mjs';
@@ -24,7 +25,7 @@ import {fileURLToPath} from 'node:url';
 import {buildScannerFindingIntake} from '../security/m6-pr-e-e3-ingest-e4.mjs';
 import {applyReviewedFindings} from '../security/m6-pr-e-e3-apply-reviewed-findings.mjs';
 import {exactHead as expectedScannerHead} from '../security/m6-pr-e-e4-scan.mjs';
-import {buildGitleaksCaptureHashReviewSnapshot,verifyGitleaksCaptureHashReview} from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
+import {buildGitleaksCaptureHashReviewSnapshot,verifyGitleaksCaptureHashReview,gitleaksCaptureReviewFindings} from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import {buildGitleaksPublicCommitReviewSnapshot} from '../security/m6-pr-e-e3-review-gitleaks-public-commit.mjs';
 import {readGitleaksTestExpressionReviewPlan,applyGitleaksTestExpressionReview} from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import {readDesignerPrototypeRemediationPlan} from '../security/m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
@@ -99,10 +100,10 @@ test('E4 full scanner emits E4→I1→I2→R1→I3→R2A→R2B→I4 exact-head c
   const historicalContent=spawnSync('git',['show',historicalRef],{cwd:root,encoding:'utf8'});
   assert.equal(historicalBlob.status,0,historicalBlob.stderr||historicalBlob.stdout);
   assert.equal(historicalContent.status,0,historicalContent.stderr);
-  const captureHashReviewSnapshot=e.scanners.gitleaks.findingCount===32
+  const captureHashReviewSnapshot=[32,70].includes(e.scanners.gitleaks.findingCount)
     ? buildGitleaksCaptureHashReviewSnapshot(e,{root,git:spawnSync}):null;
   const captureHashReview=captureHashReviewSnapshot?verifyGitleaksCaptureHashReview(e,captureHashReviewSnapshot):null;
-  const publicCommitReviewSnapshot=[29,32].includes(e.scanners.gitleaks.findingCount)
+  const publicCommitReviewSnapshot=[29,32,70].includes(e.scanners.gitleaks.findingCount)
     ? buildGitleaksPublicCommitReviewSnapshot(e,{root,git:spawnSync,captureHashReview}):null;
   const gitleaksReviewSnapshot={...(captureHashReviewSnapshot?{captureHashReviewSnapshot}:{}),...(publicCommitReviewSnapshot?{publicCommitReviewSnapshot}:{}),repository:e.repository,commitSha:e.commitSha,currentE4CanonicalSha256:e.contentSha256,
     historicalSource:{commitSha:historicalSource.commitSha,path:historicalSource.path,blobSha:historicalBlob.stdout.trim(),content:historicalContent.stdout}};
@@ -110,7 +111,7 @@ test('E4 full scanner emits E4→I1→I2→R1→I3→R2A→R2B→I4 exact-head c
   assert.equal(dh.status,0,dh.stderr||dh.stdout);
   const r2bPlan=JSON.parse(T(R2B)),r2a=verifyDependabotCooldownRemediation(e,JSON.parse(T(R2A)),dh.stdout.trim(),{subsequentWorkflowRemediationPlan:r2bPlan}),workflowNames=readdirSync(P('.github/workflows')).filter(n=>/\.ya?ml$/.test(n)).sort(),workflows=Object.fromEntries(workflowNames.map(n=>{const workflowPath=`.github/workflows/${n}`,h=spawnSync('git',['hash-object',workflowPath],{cwd:root,encoding:'utf8'});assert.equal(h.status,0,h.stderr||h.stdout);return[workflowPath,{blobSha:h.stdout.trim(),content:T(workflowPath)}]})),suppressionPathsPresent=['.semgrepignore','.gitleaksignore','.gitleaks.toml','.zizmor.yml','.zizmor.yaml'].filter(x=>existsSync(P(x))),r2b=verifyWorkflowSupplyChainRemediation(e,r2bPlan,{repository:e.repository,commitSha:e.commitSha,currentE4CanonicalSha256:e.contentSha256,dependabotBlobSha:dh.stdout.trim(),scannerExecutionCount:1,suppressionPathsPresent,workflows,prototypeRemediationSnapshot,gitleaksReviewSnapshot}),i4=applyWorkflowSupplyChainReviews(i3,e,JSON.parse(T(I4)),r2a,r2b);
   assert.equal(i2.relocatedReviewedFindingCount,1);assert.equal(i2.identityTransitions[0].historicalFindingId,REGEXP_OLD);assert.equal(i2.identityTransitions[0].currentFindingId,REGEXP_CURRENT);
-  const captureReviewCount=captureHashReview?captureHashReview.findings.length:0;
+  const captureReviewCount=captureHashReview?gitleaksCaptureReviewFindings(captureHashReview).length:0;
   assert.equal(r1.remediatedFindings.length,2);assert.equal(r4.remediatedFindings.length,2);assert.equal(r4.releaseBlocked,true);assert.deepEqual(i3.serverDependencyRemediation,r4);assert.deepEqual(i4.serverDependencyRemediation,r4);assert.equal(i3.cumulativeReviewedFindingCount,(publicCommitReviewSnapshot?9:8)+captureReviewCount);assert.equal(e.scanners.zizmor.findingCount,0);assert.equal(e.scanners.zizmor.findings.length,0);assert.equal(e.scanners.semgrep.findingCount,2);assert.equal(r2a.remediatedFindings.length,3);assert.equal(r2b.remediatedFindings.length,58);assert.equal(r2b.actionUseCount,43);assert.equal(r2b.checkoutCredentialBoundaryCount,14);assert.equal(r2b.templateInjectionBoundaryCount,1);assert.equal(i4.historicalReviewedFindingCount,61);assert.equal(i4.reviewedFindingCount,0);assert.equal(i4.remediatedHistoricalFindingCount,61);assert.equal(i4.cumulativeReviewedFindingCount,(publicCommitReviewSnapshot?70:69)+captureReviewCount);assert.equal(i4.historicallyRemediatedFindingCount,66);assert.equal(i4.historicallyRemediatedFindings.length,66);assert.equal(i2.remediatedHistoricalFindingCount,1);assert.equal(i2.currentReviewedFindingCount,(publicCommitReviewSnapshot?4:3)+captureReviewCount);assert.equal(i3.historicallyRemediatedFindingCount,5);assert.deepEqual(i4.designerPrototypeRemediation,i2.designerPrototypeRemediation);assert.equal(i4.summary.dispositionCounts.NOT_APPLICABLE,(publicCommitReviewSnapshot?4:3)+captureReviewCount);assert.equal(i4.summary.dispositionCounts.APPLICABLE||0,0);assert.equal(i4.summary.dispositionCounts.UNRESOLVED,e.totalFindingCount-((publicCommitReviewSnapshot?4:3)+captureReviewCount));assert.equal(i4.summary.releaseBlocked,true);assert.equal(i4.summary.reasonCodes.includes('E3_APPLICABLE_FINDINGS_REQUIRE_REMEDIATION'),false);
   const a=new Set(e.scanners.osv.findings.flatMap(x=>x.aliases||[]));assert.equal(a.has('CVE-2026-42198'),false);assert.equal(a.has('CVE-2026-54291'),false);
   for(const [n,v] of [['E4',e],['E3_SCANNER_INTAKE',intake],['E3_I2_TRIAGE',i2],['E3_GITLEAKS_TEST_EXPRESSION_REVIEW',i2.gitleaksTestExpressionReview],...(publicCommitReviewSnapshot?[['E3_GITLEAKS_PUBLIC_COMMIT_REVIEW',i2.gitleaksPublicCommitReview]]:[]),...(captureHashReviewSnapshot?[['E3_GITLEAKS_CAPTURE_HASH_REVIEW',i2.gitleaksCaptureHashReview]]:[]),['E3_DESIGNER_PROTOTYPE_REMEDIATION',i2.designerPrototypeRemediation],['E3_R1_REMEDIATION',r1],['E3_R4_SERVER_DEPENDENCY_REMEDIATION',r4],['E3_I3_TRIAGE',i3],['E3_R2A_REMEDIATION',r2a],['E3_R2B_REMEDIATION',r2b],['E3_I4_TRIAGE',i4]]){console.log(`M6_PR_E_${n}_CANONICAL_SHA256=${v.contentSha256}`);console.log(`M6_PR_E_${n}_BEGIN\n${JSON.stringify(v)}\nM6_PR_E_${n}_END`)}

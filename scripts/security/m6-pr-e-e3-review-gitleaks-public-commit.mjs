@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { bytesFromBase64, commitObject, treeEntries, verifyPath, objectHash } from './gitleaks-git-source-proof.mjs';
-import { requireGitleaksCaptureHashReviewReceipt } from './m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
+import { requireGitleaksCaptureHashReviewReceipt, gitleaksCaptureReviewFindings } from './m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import { requireCompleteCurrentE4 } from './scanner-evidence-provenance.mjs';
 
 const PLAN_SHA256 = '3ba1b2a520fb29a3adcc81b7c26b5f0e54da7fd3f411769fb6c6a81ac43ba590';
@@ -37,13 +37,13 @@ function requireCurrentFinding(e4, plan, captureHashReview = null) {
   for (const [field, value] of Object.entries(plan.scannerIdentity)) {
     requireValue(scanner[field] === value, `scanner identity drift ${field}`);
   }
-  requireValue(scanner.findingCount === plan.retainedFindingCount + 1 + (captureHashReview ? 3 : 0), 'requires exactly one addition');
+  requireValue(scanner.findingCount === plan.retainedFindingCount + 1 + (captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).length : 0), 'requires exactly one addition');
   const ids = new Set(plan.retainedFindings.map(finding => finding.findingId));
   const retained = scanner.findings.filter(finding => ids.has(finding.findingId));
   requireValue(canonical(retained) === canonical(plan.retainedFindings), 'retained finding metadata/order drift');
   requireValue(canonical(scanner.findings) === canonical([...scanner.findings].sort((a, b) => a.findingId.localeCompare(b.findingId))),
     'current finding order drift');
-  const captureIds = new Set(captureHashReview?.findings.map(finding => finding.findingId) || []);
+  const captureIds = new Set(captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).map(finding => finding.findingId) : []);
   const added = scanner.findings.filter(finding => !ids.has(finding.findingId) && !captureIds.has(finding.findingId));
   requireValue(added.length === 1 && SHA40.test(added[0].commit || '')
     && canonical(added[0]) === canonical(expectedFinding(plan, added[0].commit)), 'unreviewed addition or identity drift');
@@ -81,7 +81,8 @@ function receipt(e4, finding, proof, plan, captureHashReview = null) {
   return seal({ schemaVersion: 'M6_PR_E_E3_GITLEAKS_PUBLIC_COMMIT_REVIEW_EVIDENCE_V1',
     repository: e4.repository, commitSha: e4.commitSha, sourceE4CanonicalSha256: e4.contentSha256,
     planCanonicalSha256: plan.contentSha256, finding, source: plan.source,
-    ...(captureHashReview ? { sourceCaptureHashReviewCanonicalSha256: captureHashReview.contentSha256, separatelyReviewedCaptureFindingCount: 3 } : {}),
+    ...(captureHashReview ? { sourceCaptureHashReviewCanonicalSha256: captureHashReview.contentSha256, separatelyReviewedCaptureFindingCount: 3,
+      ...(captureHashReview.planMetadataReview ? { separatelyReviewedPlanMetadataFindingCount: 38 } : {}) } : {}),
     acceptedPublicBaseCommit: plan.acceptedPublicBaseCommit, introductionTreeSha: plan.introductionTreeSha,
     retainedFindingCount: plan.retainedFindingCount, currentFindingCount: e4.scanners.gitleaks.findingCount,
     retainedFindingsSha256: hash(canonical(plan.retainedFindings)), proof,

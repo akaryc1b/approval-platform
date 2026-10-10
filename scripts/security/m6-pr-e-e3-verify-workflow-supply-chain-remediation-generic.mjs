@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { verifyGitleaksCaptureHashReview } from './m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
+import { verifyGitleaksCaptureHashReview, gitleaksCaptureReviewFindings } from './m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { verifyGitleaksPublicCommitReview } from './m6-pr-e-e3-review-gitleaks-public-commit.mjs';
@@ -244,7 +244,7 @@ export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapsh
     ? verifyGitleaksCaptureHashReview(e4, gitleaksReviewSnapshot.captureHashReviewSnapshot) : null;
   const publicCommitReview = gitleaksReviewSnapshot?.publicCommitReviewSnapshot
     ? verifyGitleaksPublicCommitReview(e4, gitleaksReviewSnapshot.publicCommitReviewSnapshot, captureHashReview) : null;
-  const captureIds = new Set(captureHashReview?.findings.map(finding => finding.findingId) || []);
+  const captureIds = new Set(captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).map(finding => finding.findingId) : []);
   const historicalGitleaksIds = gitleaksReview
     ? gitleaksIds.filter(id => id !== gitleaksReview.historicalFinding.findingId && id !== publicCommitReview?.finding.findingId && !captureIds.has(id)) : gitleaksIds;
   requireIdentitySet('current Gitleaks', historicalGitleaksIds, expectedCurrent.gitleaks);
@@ -271,7 +271,7 @@ export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapsh
     databaseSnapshotIdentity: identityContract.databaseDriftObservation.databaseSnapshotIdentity,
     databaseSnapshotIdentityAvailability: identityContract.databaseDriftObservation.databaseSnapshotIdentityAvailability,
     ...osvReconciliation,
-    ...(gitleaksReview ? { gitleaksTestExpressionReview: gitleaksReview, retainedHistoricalGitleaksFindingCount: historicalGitleaksIds.length, reviewedAddedGitleaksFindingCount: (publicCommitReview ? 2 : 1) + (captureHashReview ? 3 : 0) } : {}),
+    ...(gitleaksReview ? { gitleaksTestExpressionReview: gitleaksReview, retainedHistoricalGitleaksFindingCount: historicalGitleaksIds.length, reviewedAddedGitleaksFindingCount: (publicCommitReview ? 2 : 1) + (captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).length : 0) } : {}),
     ...(publicCommitReview ? { gitleaksPublicCommitReview: publicCommitReview } : {}),
     ...(captureHashReview ? { gitleaksCaptureHashReview: captureHashReview } : {}),
     ...(prototypeRemediation ? { designerPrototypeRemediation: prototypeRemediation,

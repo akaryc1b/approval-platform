@@ -59,3 +59,45 @@ decisions, unresolved findings and release blocks remain. No scanner rule,
 path, regex or history suppression, exception, severity downgrade, readiness,
 deployment or release clearance is introduced. Fresh exact-head scanner
 evidence remains required after this source change.
+
+## Typed metadata in the unchanged review plan
+
+The second actual local preflight retained all previous 32 normalized records
+and 38 additional observations in the review plan itself. The access-token
+rule identified in the [unchanged plan's retained finding metadata](m6-pr-e-e3-gitleaks-capture-hash-review.json)
+can match bare Git identifiers after its keyword filter is activated by that
+metadata. The second attempt remains a failed
+attempt. The plan, its findings, and both attempts remain unchanged.
+
+The same verifier derives exactly 38 field positions from the pinned plan's
+typed structure: three accepted-base identity fields, one scanner source
+metadata field, 29 retained finding commit fields, two capture source/collector
+blob fields, and three input document blob fields. It binds each observation's
+rule, path, line, fingerprint and finding identity to the plan's actual Git
+introduction. The complete pinned plan bytes must exist at introduction and
+current Head, be absent from every introduction parent and the accepted base,
+and belong to the proved ancestry. Arbitrary hexadecimal values, extra keys,
+different positions and unrecognized observations are rejected.
+
+The 29 copied commit fields use exact accepted-inventory metadata provenance.
+The receipt exposes the accepted E4 canonical digest and the complete retained
+inventory's count and canonical digest. It does not replay those 29 commit
+objects or assert their independent object revalidation. The fixed plan's
+accepted inventory was independently checked against the accepted evidence;
+new historical author, email and message preimages are not serialized.
+The scanner source field is separately bound to the accepted-base scanner
+baseline's exact blob and version/source/asset tuple. This establishes accepted
+external source metadata; it makes no upstream tag, vendor commit-object or
+reproducible-build claim. Base and capture/input blob roles retain their actual
+Git-object and source-byte proofs.
+
+For a 70-record invocation, the V2 capture receipt retains its original three
+findings and adds a nested `planMetadataReview` containing all 38 new findings
+and their typed provenance. The complete 70-record E4 must pass before that
+receipt is composed. Consumers replay all 41 capture/plan decisions, including
+every nested receipt binding, while preserving the separate Clean public
+reference and expression proofs. I2 adds 38 `NOT_APPLICABLE` decisions with
+`UNKNOWN` severity and the distinct
+`E3-I2-APPEND_ONLY-GITLEAKS-PLAN-METADATA` layer. The same 13 output stages remain.
+Historical 28-, 29- and 32-record invocations retain their canonical outputs;
+unrelated findings and all release blocks remain.
