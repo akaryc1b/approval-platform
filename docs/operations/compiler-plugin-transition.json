@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "APPROVAL_COMPILER_PLUGIN_GRAPH_TRANSITION_V1",
+  "repository": "akaryc1b/approval-platform",
+  "base": {
+    "sourceHead": "0c55ff5e7d974022e5c76d9a88a4312d2af81827",
+    "sourceTree": "2b378b6654f2bc246df7618b35db63cb9d817948",
+    "sourceRunNumber": 1836,
+    "graphDigest": "255008a8cf1b3d57182cdd47c680aad7e484b027f23ae5e3a19590791732d950",
+    "e2": {
+      "path": "docs/operations/compiler-plugin-evidence/baseline-E2.json",
+      "rawSha256": "c0005a3183abfbcfc72532feed744096c3bbb4af1f6db1710bf0dbcd29f5b906",
+      "contentSha256": "8df130e795ff0d445534b9ab6f4591723a0e0957cda86b2b4240651bb8cce316"
+    },
+    "cleanLineage": {
+      "path": "docs/operations/compiler-plugin-evidence/preserved-clean-lineage.json",
+      "rawSha256": "ddfefae3600ebfe74e646c1d3c2c8f89608ff2fe1869667c863fa5fbfaefa935",
+      "contentSha256": "a1d709d9bb956625480d5f65e3c9164dd26d4b7fc345d3267087684605ea8e9c"
+    }
+  },
+  "observed": {
+    "graphDigest": "92f6b10a9fd199bbea69ce3a1bc743b77b00990b1e7ec4b1ca695407da7c91fe"
+  },
+  "capture": {
+    "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+    "exactHeadEvidence": false,
+    "sourceWorktreeClean": false,
+    "sourceBaseHead": "0c55ff5e7d974022e5c76d9a88a4312d2af81827",
+    "sourceBaseTree": "2b378b6654f2bc246df7618b35db63cb9d817948",
+    "e2": {
+      "path": "docs/operations/compiler-plugin-evidence/candidate-E2.json",
+      "rawSha256": "903c8f20091bfe7b6115c8011478a480c58156bd242c0df147aa7ffa1e7dce4f",
+      "contentSha256": "0d03033d740dc426bdc32ac12f0784753f95440ebcea33b426bb2aa2be762004"
+    },
+    "pluginReport": {
+      "path": "docs/operations/compiler-plugin-evidence/plugin-owner-report.txt",
+      "rawSha256": "1d28b8fd0741cfc19bd976eff7c8af8c55769eaf0b001d6fe362bc2def95bb3c"
+    },
+    "sourcePom": {
+      "path": "docs/operations/compiler-plugin-evidence/candidate-root-pom.xml",
+      "rawSha256": "1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a"
+    },
+    "sourceWitness": {
+      "path": "docs/operations/compiler-plugin-evidence/source-witness.json",
+      "rawSha256": "24fef7f9bccdc52e59d9f22c0048e1d4a306a1e07c79d0294c271190538b125a",
+      "contentSha256": "6ff12626401f2aa05046fb416c48eb1be01d1e305ca82b6753776419b6b6c213"
+    }
+  },
+  "pluginResolutionHashChange": {
+    "from": "78f8dfa63888ef5a671a10a928716b5ae8d1e7d7265c7ec4ac9757bcb49e31fc",
+    "to": "1d28b8fd0741cfc19bd976eff7c8af8c55769eaf0b001d6fe362bc2def95bb3c"
+  },
+  "addedPluginCoordinates": [],
+  "removedPluginCoordinates": [
+    "commons-io:commons-io:jar:2.11.0"
+  ],
+  "addedPluginCoordinateCount": 0,
+  "removedPluginCoordinateCount": 1,
+  "pluginOwnerChanges": [
+    {
+      "owner": "org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "before": [
+        "com.thoughtworks.qdox:qdox:jar:2.2.0",
+        "commons-io:commons-io:jar:2.11.0",
+        "javax.inject:javax.inject:jar:1",
+        "org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+        "org.apache.maven.shared:maven-shared-incremental:jar:1.1",
+        "org.apache.maven.shared:maven-shared-utils:jar:3.4.2",
+        "org.codehaus.plexus:plexus-compiler-api:jar:2.15.0",
+        "org.codehaus.plexus:plexus-compiler-javac:jar:2.15.0",
+        "org.codehaus.plexus:plexus-compiler-manager:jar:2.15.0",
+        "org.codehaus.plexus:plexus-java:jar:1.4.0",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.1",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1",
+        "org.ow2.asm:asm:jar:9.7.1",
+        "org.slf4j:slf4j-api:jar:1.7.36"
+      ],
+      "after": [
+        "com.thoughtworks.qdox:qdox:jar:2.2.0",
+        "commons-io:commons-io:jar:2.20.0",
+        "javax.inject:javax.inject:jar:1",
+        "org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+        "org.apache.maven.shared:maven-shared-incremental:jar:1.1",
+        "org.apache.maven.shared:maven-shared-utils:jar:3.4.2",
+        "org.codehaus.plexus:plexus-compiler-api:jar:2.15.0",
+        "org.codehaus.plexus:plexus-compiler-javac:jar:2.15.0",
+        "org.codehaus.plexus:plexus-compiler-manager:jar:2.15.0",
+        "org.codehaus.plexus:plexus-java:jar:1.4.0",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.1",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1",
+        "org.ow2.asm:asm:jar:9.7.1",
+        "org.slf4j:slf4j-api:jar:1.7.36"
+      ]
+    }
+  ],
+  "ownerCount": 17,
+  "unchangedOtherPluginOwnerCount": 16,
+  "previousOwnerInventorySha256": "2a04054d59df774ea430b518ef2d65fa743a44628f93466dfef47da9fa04afcc",
+  "currentOwnerInventorySha256": "eeff6f40b5109db32cb6c1aa8bbf6bec86872b0aaebcbbc82ec0b2aa39ab049b",
+  "runtimeComponentChangeCount": 0,
+  "runtimeEdgeChangeCount": 0,
+  "importedBomChangeCount": 0,
+  "scopeChangeCount": 0,
+  "licenseChangeCount": 0,
+  "inventory": {
+    "componentCount": 237,
+    "edgeCount": 345,
+    "reactorRootCount": 26,
+    "importedBomCount": 6,
+    "resolvedPluginCoordinateCount": 270
+  },
+  "osvInput": {
+    "prior": {
+      "packageCount": 474,
+      "inputBytesSha256": "0e63e50daa1c6216b990a67e05fda85296f0cb0439130013f0715ef3dc080aef"
+    },
+    "current": {
+      "packageCount": 473,
+      "inputBytesSha256": "9372daf69ae2867257d7f5d801f36bbd60f4f673f1f4dd5cb2e95e8ec289c97e"
+    }
+  },
+  "findingReviewRequired": true,
+  "releaseBlocked": true,
+  "findingDisposition": "UNRESOLVED_UNTIL_FRESH_COMPLETE_SCANNER_AND_EXPLICIT_FINDING_REVIEW",
+  "suppressions": [],
+  "exceptions": [],
+  "contentSha256": "f6804110241d72bec82e88171a068047f08e4d640514a7ca0308f9d8e36f6f8c"
+}

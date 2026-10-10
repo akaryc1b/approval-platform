@@ -161,6 +161,9 @@ test('Clean production reader rejects changed archived bytes and current POM byt
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const witness = readCleanPluginSourceWitness();
   const files = ['scripts/security/clean-plugin-graph-transition.mjs', 'scripts/security/release-plugin-graph-transition.mjs',
+    'scripts/security/compiler-plugin-source-continuation.mjs',
+    'docs/operations/compiler-plugin-evidence/candidate-root-pom.xml',
+    'docs/operations/compiler-plugin-evidence/baseline-root-pom.xml',
     'scripts/security/site-dependency-plugin-graph-transition.mjs', 'scripts/security/build-plugin-jackson-graph-transition.mjs',
     'scripts/security/server-dependency-graph-transition.mjs', 'scripts/security/m6-pr-e-e2-generate-sbom.mjs',
     'scripts/security/maven-workflow-transition.mjs', 'scripts/security/hygiene-java21-workflow-transition.mjs',

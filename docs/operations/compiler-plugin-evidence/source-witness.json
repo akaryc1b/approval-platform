@@ -1,0 +1,179 @@
+{
+  "schemaVersion": "APPROVAL_COMPILER_PLUGIN_SOURCE_WITNESS_V1",
+  "sourceBaseHead": "0c55ff5e7d974022e5c76d9a88a4312d2af81827",
+  "sourceBaseTree": "2b378b6654f2bc246df7618b35db63cb9d817948",
+  "captureKind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+  "exactHeadEvidence": false,
+  "sourceWorktreeClean": false,
+  "rootPom": {
+    "path": "docs/operations/compiler-plugin-evidence/candidate-root-pom.xml",
+    "rawSha256": "1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a"
+  },
+  "baselineRootPom": {
+    "path": "docs/operations/compiler-plugin-evidence/baseline-root-pom.xml",
+    "rawSha256": "e5637b8d5752474f9d1940f7b295ef0d3046bc6460391992f1936d4b306f40f2"
+  },
+  "sourcePomFiles": [
+    {
+      "path": "apps/server/pom.xml",
+      "candidateSha256": "69a0c69919beb3609cb4b2de37f3debe8311d5baa1c4012ef1272b478d01647e",
+      "baselineSha256": "69a0c69919beb3609cb4b2de37f3debe8311d5baa1c4012ef1272b478d01647e"
+    },
+    {
+      "path": "examples/generic-spring-host/pom.xml",
+      "candidateSha256": "21feeee09b850d14364637199b7e12c544e2a65ab819c3eef5ff3a5b55c6e183",
+      "baselineSha256": "21feeee09b850d14364637199b7e12c544e2a65ab819c3eef5ff3a5b55c6e183"
+    },
+    {
+      "path": "integrations/host-sdk/pom.xml",
+      "candidateSha256": "e755e3a2abd6d2df15b7e5739b10cd81f9a59476d8c21e6dc231961145b2d701",
+      "baselineSha256": "e755e3a2abd6d2df15b7e5739b10cd81f9a59476d8c21e6dc231961145b2d701"
+    },
+    {
+      "path": "integrations/ruoyi5-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml",
+      "candidateSha256": "4ebaca6aa1e149ca8cf90e1e57587819165b6334a8f388e48c94e06116ddb26e",
+      "baselineSha256": "4ebaca6aa1e149ca8cf90e1e57587819165b6334a8f388e48c94e06116ddb26e"
+    },
+    {
+      "path": "integrations/ruoyi6-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml",
+      "candidateSha256": "e5c8bc8e57aaa61a7f18ce2c8b983bbfc99e4d04e3e56d58ac817493a57e0e5b",
+      "baselineSha256": "e5c8bc8e57aaa61a7f18ce2c8b983bbfc99e4d04e3e56d58ac817493a57e0e5b"
+    },
+    {
+      "path": "pom.xml",
+      "candidateSha256": "1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a",
+      "baselineSha256": "e5637b8d5752474f9d1940f7b295ef0d3046bc6460391992f1936d4b306f40f2"
+    },
+    {
+      "path": "server-modules/approval-ai-core/pom.xml",
+      "candidateSha256": "2b8628889c024ee8a5d5c17bbc9f1701ecfb84ef6f984618997497cbe88d0281",
+      "baselineSha256": "2b8628889c024ee8a5d5c17bbc9f1701ecfb84ef6f984618997497cbe88d0281"
+    },
+    {
+      "path": "server-modules/approval-ai-openai/pom.xml",
+      "candidateSha256": "fb9fc4022846b949c4daf4a1a62f8a9e9834cecca190f6f4dc860b60dfc40e71",
+      "baselineSha256": "fb9fc4022846b949c4daf4a1a62f8a9e9834cecca190f6f4dc860b60dfc40e71"
+    },
+    {
+      "path": "server-modules/approval-ai-spi/pom.xml",
+      "candidateSha256": "a75edc55da13480c361b5a3bb002ee883ff6087f07a30d3827327270030b6c60",
+      "baselineSha256": "a75edc55da13480c361b5a3bb002ee883ff6087f07a30d3827327270030b6c60"
+    },
+    {
+      "path": "server-modules/approval-application/pom.xml",
+      "candidateSha256": "f084f201e21d3b5a2c83fe8845ecfdad8839c36848e09111b20c33d8e4ecef2a",
+      "baselineSha256": "f084f201e21d3b5a2c83fe8845ecfdad8839c36848e09111b20c33d8e4ecef2a"
+    },
+    {
+      "path": "server-modules/approval-architecture-tests/pom.xml",
+      "candidateSha256": "27f43fa57f0884225ebba03ba790ebaf7dbdc9ee4377ab357842292e9647c60b",
+      "baselineSha256": "27f43fa57f0884225ebba03ba790ebaf7dbdc9ee4377ab357842292e9647c60b"
+    },
+    {
+      "path": "server-modules/approval-connector-credential-core/pom.xml",
+      "candidateSha256": "da233be1eda3b93b12ac218917b6c4971c6cd4ae0f6062e19b4ee44821af8db8",
+      "baselineSha256": "da233be1eda3b93b12ac218917b6c4971c6cd4ae0f6062e19b4ee44821af8db8"
+    },
+    {
+      "path": "server-modules/approval-connector-dingtalk-http/pom.xml",
+      "candidateSha256": "98f0372092cf91493b6a4438d1e07238afd170896d67dd3556648c9a01fae071",
+      "baselineSha256": "98f0372092cf91493b6a4438d1e07238afd170896d67dd3556648c9a01fae071"
+    },
+    {
+      "path": "server-modules/approval-connector-dingtalk-token/pom.xml",
+      "candidateSha256": "994c5748a7eb132a5f13db5b555ee885a62cd18a9c56e23aa5714f584f6ceb8d",
+      "baselineSha256": "994c5748a7eb132a5f13db5b555ee885a62cd18a9c56e23aa5714f584f6ceb8d"
+    },
+    {
+      "path": "server-modules/approval-connector-dingtalk/pom.xml",
+      "candidateSha256": "c50fb2253b3667aa1d13b0cf37512b46c7088b74068ebaae821442a74e7abb38",
+      "baselineSha256": "c50fb2253b3667aa1d13b0cf37512b46c7088b74068ebaae821442a74e7abb38"
+    },
+    {
+      "path": "server-modules/approval-connector-generic/pom.xml",
+      "candidateSha256": "7f226080386ca849a0076ff51c748096ada6f2d2646fe4049f7e761b9ee878c9",
+      "baselineSha256": "7f226080386ca849a0076ff51c748096ada6f2d2646fe4049f7e761b9ee878c9"
+    },
+    {
+      "path": "server-modules/approval-connector-invocation-core/pom.xml",
+      "candidateSha256": "768e1d57b36cdfbb9f2fed3d2532542617bd6387abfaf16acaa7904493380406",
+      "baselineSha256": "768e1d57b36cdfbb9f2fed3d2532542617bd6387abfaf16acaa7904493380406"
+    },
+    {
+      "path": "server-modules/approval-connector-operations-core/pom.xml",
+      "candidateSha256": "38bf725009ebe48bfd1942c2dde5159ef50803ecc1d24561bf222f03e7a47536",
+      "baselineSha256": "38bf725009ebe48bfd1942c2dde5159ef50803ecc1d24561bf222f03e7a47536"
+    },
+    {
+      "path": "server-modules/approval-connector-routing-core/pom.xml",
+      "candidateSha256": "edf0e239c3f290842fcf38da95fc27fc495712551c57c5bbcaeb7ee7f1b61562",
+      "baselineSha256": "edf0e239c3f290842fcf38da95fc27fc495712551c57c5bbcaeb7ee7f1b61562"
+    },
+    {
+      "path": "server-modules/approval-connector-spi/pom.xml",
+      "candidateSha256": "fb07cb267bcd32c3b552fce6ba1697576388ebf7985c86743ba7370fa84efc5f",
+      "baselineSha256": "fb07cb267bcd32c3b552fce6ba1697576388ebf7985c86743ba7370fa84efc5f"
+    },
+    {
+      "path": "server-modules/approval-definition-compiler/pom.xml",
+      "candidateSha256": "130d55075fd78ee4cbe6959bc2d03ea4d899893238b72e037f554686d4dbff7a",
+      "baselineSha256": "130d55075fd78ee4cbe6959bc2d03ea4d899893238b72e037f554686d4dbff7a"
+    },
+    {
+      "path": "server-modules/approval-domain/pom.xml",
+      "candidateSha256": "3322d720ed7aac9150472acadc07511860de12aaf13069aa8147ea9ce155122c",
+      "baselineSha256": "3322d720ed7aac9150472acadc07511860de12aaf13069aa8147ea9ce155122c"
+    },
+    {
+      "path": "server-modules/approval-engine-flowable/pom.xml",
+      "candidateSha256": "507f397261fb5aa362600c9f8df3c5de4bf07194aed3b9f4a312e4b268baaff4",
+      "baselineSha256": "507f397261fb5aa362600c9f8df3c5de4bf07194aed3b9f4a312e4b268baaff4"
+    },
+    {
+      "path": "server-modules/approval-engine-spi/pom.xml",
+      "candidateSha256": "8a9ed53f68870022c4ea12837ea38410a56ee9c0d98f8ec365cdcada8da82dda",
+      "baselineSha256": "8a9ed53f68870022c4ea12837ea38410a56ee9c0d98f8ec365cdcada8da82dda"
+    },
+    {
+      "path": "server-modules/approval-integration-core/pom.xml",
+      "candidateSha256": "f973a4d8370d25cef5be1d0e975a1cd2a51582f31bc2624bbf601aea4b443a3b",
+      "baselineSha256": "f973a4d8370d25cef5be1d0e975a1cd2a51582f31bc2624bbf601aea4b443a3b"
+    },
+    {
+      "path": "server-modules/approval-integration-jdbc/pom.xml",
+      "candidateSha256": "2cdddc5c49b81cede35c68a1425a41cde1ff50aec7928bc0592002a6c03e71fe",
+      "baselineSha256": "2cdddc5c49b81cede35c68a1425a41cde1ff50aec7928bc0592002a6c03e71fe"
+    },
+    {
+      "path": "server-modules/approval-persistence-jdbc/pom.xml",
+      "candidateSha256": "c926a989ecbba95d9ac9f2772cb50c1e2eb4ffc802bd59b7ea89ac107aba8666",
+      "baselineSha256": "c926a989ecbba95d9ac9f2772cb50c1e2eb4ffc802bd59b7ea89ac107aba8666"
+    },
+    {
+      "path": "server-modules/pom.xml",
+      "candidateSha256": "accffd503c91bb0e6cc794474f1ef1cf23977cead5171019a09df116c92d2f8c",
+      "baselineSha256": "accffd503c91bb0e6cc794474f1ef1cf23977cead5171019a09df116c92d2f8c"
+    }
+  ],
+  "captureExecution": {
+    "path": "docs/operations/compiler-plugin-evidence/capture-execution.json",
+    "rawSha256": "87a10d5872bfff586f7e89e2aa88cd65b90976cb389267b4ca3800d1c44176a3"
+  },
+  "collector": {
+    "path": "docs/operations/compiler-plugin-evidence/capture.py",
+    "rawSha256": "d9afae057a6af5320250ef00047abf6f1f884bb9c0659f55bc2c4b9370ae4992"
+  },
+  "generatorSources": {
+    "scripts/ci/maven-toolchain.mjs": "83610848fb4408402a0f7e397f8ea091fbec0285e60f027a66fdd00295aebd91",
+    "scripts/security/hygiene-java21-workflow-transition.mjs": "820cffc7c6202de35c767c445a60361c00e632e8c7163a5284b0e7490e605f0e",
+    "scripts/security/m6-pr-e-e2-generate-sbom.mjs": "a974b4c07eaf40c6c440415af11d50f8f5da22ec33c7789080de042b3b46dc7f",
+    "scripts/security/maven-workflow-transition.mjs": "f3c5db5e03ded602d2d6cbe0a35269be815c1ab09dab12061de9fb3c6d111e32"
+  },
+  "captureInputsStable": true,
+  "effectiveModelSha256": "9e56cc7e820efe125464c824af97790ce85dd6af8875692439d68d83600800e2",
+  "compatibilityAcceptanceClaimed": false,
+  "scannerDispositionClaimed": false,
+  "reviewerAcceptanceClaimed": false,
+  "releaseBlocked": true,
+  "contentSha256": "6ff12626401f2aa05046fb416c48eb1be01d1e305ca82b6753776419b6b6c213"
+}

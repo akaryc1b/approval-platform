@@ -4,6 +4,7 @@ import copy
 import hashlib
 from pathlib import Path
 import re
+from runpy import run_path
 import xml.etree.ElementTree as ET
 
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
@@ -227,6 +228,8 @@ def verify_effective(file, source_projects):
     require(sorted(coordinate(p) for p in projects) == sorted(PROJECT_GROUP + ":" + a for a in REACTOR.values()),
             "effective POM must contain exactly all 26 source reactor identities")
     for project in projects:
+        compiler = run_path(str(Path(__file__).with_name("compiler_plugin_contract.py")))
+        project = compiler["before_compiler"](project, effective=True, required=False)
         structure(project)
         verify_properties(project, True)
         managed = [p for p in project.findall("m:build/m:pluginManagement/m:plugins/m:plugin", NS) if targeted(p)]
