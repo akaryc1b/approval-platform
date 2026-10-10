@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { acceptedE2GraphProjection, generateEvidence as generateE2Evidence }
   from './m6-pr-e-e2-generate-sbom.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, verifyReleasePluginDelta, verifySiteDependencyPluginDelta, verifyBuildPluginJacksonDelta, verifyObservabilityGraph }
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, verifyCleanPluginDelta, verifyReleasePluginDelta, verifySiteDependencyPluginDelta, verifyBuildPluginJacksonDelta, verifyObservabilityGraph }
   from './observability-dependency-graph.mjs';
 import { verifyScannerCheckout, requireScannerCheckoutUnchanged } from './m6-pr-e-e4-scan.mjs';
 
@@ -461,13 +461,14 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
   const graphTransition = verifyObservabilityGraph(currentE2, acceptedE2GraphProjection(currentE2), BASE_GRAPH, commitSha);
   if (typeof pluginReport !== 'string') throw new Error('R3A raw current plugin report required');
   const pluginReportSha256 = sha256(pluginReport), pluginGroups = parseResolvedPluginReport(pluginReport);
-  const subsequentPluginGraph = [BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH]
+  const subsequentPluginGraph = [BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH]
     .includes(graphTransition.currentE2GraphDigest);
   if (subsequentPluginGraph) {
     const current = acceptedE2GraphProjection(currentE2);
-    const beforeRelease = graphTransition.currentE2GraphDigest === RELEASE_PLUGIN_GRAPH
-      ? verifyReleasePluginDelta(current) : current;
-    const prior = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH].includes(graphTransition.currentE2GraphDigest)
+    const beforeClean = graphTransition.currentE2GraphDigest === CLEAN_PLUGIN_GRAPH ? verifyCleanPluginDelta(current) : current;
+    const beforeRelease = [RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH].includes(graphTransition.currentE2GraphDigest)
+      ? verifyReleasePluginDelta(beforeClean) : beforeClean;
+    const prior = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH].includes(graphTransition.currentE2GraphDigest)
       ? verifySiteDependencyPluginDelta(beforeRelease) : beforeRelease;
     verifyBuildPluginJacksonDelta(prior);
   }

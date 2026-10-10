@@ -1,0 +1,150 @@
+{
+  "addedFindings": [],
+  "allNormalizedFieldsCompared": true,
+  "changedRetainedFindings": [],
+  "classification": "STANDALONE_OSV_ONLY_PRECOMMIT_DIAGNOSTIC_NOT_EXACT_HEAD_E4",
+  "comparison": {
+    "added": 0,
+    "changed": 0,
+    "current": 23,
+    "prior": 25,
+    "removed": 2,
+    "unchanged": 23
+  },
+  "comparisonSource": "ACCEPTED_MAIN1834_E4_OSV_FINDINGS_AND_METADATA",
+  "expectedTwoCommonsIO26FindingRemovalHypothesisConfirmed": true,
+  "priorE4BytesSha256": "4bf3c645aed2284dc152e855cfa83a6fe394c7e857e25acefe573d3aaa7e550c",
+  "priorE4ContentSha256": "3bedc22bca22184e4e9a63201df60130171226e650096d35bea6844d179488f7",
+  "rawAdvisoryMetadataComparisonAvailable": false,
+  "rawAdvisoryMetadataComparisonLimitation": "Accepted main1834 E4 retains normalized finding metadata, not raw advisory bodies. Every retained normalized field was compared; raw published/modified/details/ranges cannot be diffed against that receipt.",
+  "removedFindings": [
+    {
+      "aliases": [
+        "CVE-2024-47554"
+      ],
+      "componentRefs": [
+        "maven-plugin:commons-io:commons-io:jar:2.6"
+      ],
+      "findingId": "6f8f8e4ee9de4732973c0bd01d7a363dcb1d0b36477f73f0b89d135547cdee26",
+      "fixedVersions": [
+        "2.14.0"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "commons-io:commons-io",
+        "version": "2.6"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-78wr-2p64-hpwj",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+          "type": "CVSS_V3"
+        },
+        {
+          "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N",
+          "type": "CVSS_V4"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "CVE-2021-29425"
+      ],
+      "componentRefs": [
+        "maven-plugin:commons-io:commons-io:jar:2.6"
+      ],
+      "findingId": "f27db0832b2f2c3cdf768b5399acb39fdc5af7d59f3203a74f6da7c6d0f240b4",
+      "fixedVersions": [
+        "2.7"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "commons-io:commons-io",
+        "version": "2.6"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-gwrp-pvrq-jmwv",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    }
+  ],
+  "reviewDispositionTransferred": false,
+  "scannerMetadata": {
+    "current": {
+      "binarySha256": "b82653ab45a56d0d0e5b306cd458ba0473b5c1287b4529115380946ad127a94d",
+      "findingCount": 23,
+      "inputPackageCount": 474,
+      "rawReportRetained": true,
+      "scanCompleted": true,
+      "sourceCommit": "a258868211a57052da6bd323f758b8388dee02bb",
+      "version": "2.5.0"
+    },
+    "differences": [
+      {
+        "current": "b82653ab45a56d0d0e5b306cd458ba0473b5c1287b4529115380946ad127a94d",
+        "field": "binarySha256",
+        "prior": "10168fdf984144d2bb284b57678d1e3b7cbcab29bdc1bd44d2a8adf7afcc264a"
+      },
+      {
+        "current": 23,
+        "field": "findingCount",
+        "prior": 25
+      },
+      {
+        "current": 474,
+        "field": "inputPackageCount",
+        "prior": 475
+      },
+      {
+        "current": true,
+        "field": "rawReportRetained",
+        "prior": false
+      }
+    ],
+    "prior": {
+      "binarySha256": "10168fdf984144d2bb284b57678d1e3b7cbcab29bdc1bd44d2a8adf7afcc264a",
+      "findingCount": 25,
+      "inputPackageCount": 475,
+      "rawReportRetained": false,
+      "scanCompleted": true,
+      "sourceCommit": "a258868211a57052da6bd323f758b8388dee02bb",
+      "version": "2.5.0"
+    }
+  },
+  "unchangedRetainedFindingIds": [
+    "1584c1a266be132c5d9919683ca4e8ceba78504490b507c621789e182aac52ef",
+    "16f811af186ed7c784deae29e2a0b8495045121c72f7397c7cf477bdc442b928",
+    "17beddba593cf4d22edec85208b1022caa6bb0955f27a5c49778dd588092445e",
+    "19910d2b442141a0bfcd11200baae14047f88500f6c8f35892729c182b6c03b2",
+    "2a51e87b26d0980da65d8468e9e83e771e8c2fe5f919c7372e900a5603c4a6af",
+    "35fb6917af4dcd633580647f3c9ffc2d2bd5e97f296634c1d8f3515a40b8413e",
+    "3ad9bdfd90d5aaeabeecac2709dfd90a944875243f4357db8cc55071f20a9bf7",
+    "3d20d4701a12f3002ee5fb691d2b255ab1309e913d1471fd58aac792670ea616",
+    "4aa76bdebc8551788b20d9bac4519c231012bee5be6277fd3f3f24f64ff073ca",
+    "4df647bbd165e91d5422620b9bdb67e3ecc1424a7b560d86912ecb0b9b27d416",
+    "4f17df58d4cc0ea34be7302cd3dd7bf60153e39323996540c6c7af51fe21119e",
+    "5e63544c0ea7c20e2d9b793649021cdfc3cfbaf5253dc618b7dd04824bd1118f",
+    "7eeb4b05e0cc7191b7a76b59d3ae5a9ac883bea2f24b1410066ee02a86763def",
+    "8419f0d874794fc97d2c94877e9c5aa5bdd86f8ac76e6de9d4a82a07daee18ea",
+    "a4b4579e5125d9fda51fc7613a334f5b099e572f481fe889c57d1dd50d2a18a0",
+    "b2fcf4ce44c7cae1d7a6eb32fd02460d7e17f6ca533dbdbfb2fee943ee989043",
+    "beb6e52da833af4fa8fe16ea494ac7caa4b7c437512a401bffb3910dedcb0de0",
+    "c5597a14d04fcdc486119f0f160eca2668e518c8973bc07693639cbe8325d3c8",
+    "c9290ef39e54e8600014f7ca4beb61b6adf1a7f73caafdd5cb0be770cc3dc156",
+    "e8495e74597c5bddbafdde30029187931fa49316b60d4981df839ec8e49605ee",
+    "ece287db3a3aebfbd3371bc02ce2d44b4070048b933bbeaa19312507e3302c3e",
+    "ef8c6012565dac2cf90df4b927a9f1b6ab965095e54c12925c17cc837eeb1ad7",
+    "fce31ce12ad398147c01f2908fe8ffeb88de7de2180ac27de0452ecefa0d969c"
+  ]
+}

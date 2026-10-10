@@ -1,0 +1,52 @@
+{
+  "goArchiveSha256": "5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053",
+  "installedOrBuiltSoftware": false,
+  "modules": [
+    {
+      "archiveSha256": "c7e9052011c94079912ad75fb46faded7476ca7c79a99612b8b005f2f18ae4d2",
+      "everyRetainedSourceFileMatchesArchive": true,
+      "fileCount": 759,
+      "goModSha256": "407b22c7ed94537ba94e365df1120c6ef6ab40bd96ea5f15c3b6591b7244fbbc",
+      "module": "github.com/google/osv-scanner/v2",
+      "moduleH1": "h1:HKPS70sj4tvNpBxmQl6MG2OdLiLbQpNxbOs2S+HA43U=",
+      "origin": {
+        "Origin": {
+          "Hash": "a258868211a57052da6bd323f758b8388dee02bb",
+          "Ref": "refs/tags/v2.5.0",
+          "URL": "https://github.com/google/osv-scanner",
+          "VCS": "git"
+        },
+        "Time": "2026-08-07T03:49:44Z",
+        "Version": "v2.5.0"
+      },
+      "version": "v2.5.0"
+    },
+    {
+      "archiveSha256": "25d81815376e1e96ae4b41ff5b4e055a895e450e11d1e9f56024c80e1347bb48",
+      "everyRetainedSourceFileMatchesArchive": true,
+      "fileCount": 15,
+      "goModSha256": "cbe633642261a2b0dd4f555322e61b8e0b4b34e1a9523918ab70d05bee762c85",
+      "module": "osv.dev/bindings/go",
+      "moduleH1": "h1:1cVzYzGXOOvFVi5B6LOjPeZeqLA59IAowEfYZPwed2g=",
+      "origin": {
+        "Origin": {
+          "Hash": "3a57b89df3b6d8c3dcddc28c41bce6de3cf57d0a",
+          "Subdir": "bindings/go",
+          "URL": "https://github.com/google/osv.dev",
+          "VCS": "git"
+        },
+        "Time": "2026-08-05T02:17:07Z",
+        "Version": "v0.0.0-20260805021707-3a57b89df3b6"
+      },
+      "version": "v0.0.0-20260805021707-3a57b89df3b6"
+    }
+  ],
+  "noBuildModuleReplacements": true,
+  "officialSourceCommit": "a258868211a57052da6bd323f758b8388dee02bb",
+  "retainedBuildInfoExactlyMatchesActualBinary": true,
+  "scannerBinarySha256": "b82653ab45a56d0d0e5b306cd458ba0473b5c1287b4529115380946ad127a94d",
+  "scannerBuildInfoSha256": "7945be849b42b4cb947be26c0769664ed35291bfd77d532381b01a7d57a723f2",
+  "scannerVersionSha256": "925c66f46bd799799b14bfe3d46e2d04160d9dd0f1f1fc6ce6cefbe70ac789c5",
+  "status": "VERIFIED_RETAINED_OFFICIAL_MODULE_PROVENANCE",
+  "verificationNetworkCalls": false
+}

@@ -1,0 +1,164 @@
+{
+  "schemaVersion": "APPROVAL_RELEASE_PLUGIN_GRAPH_LINEAGE_V1",
+  "repository": "akaryc1b/approval-platform",
+  "commitSha": "757fe355b2d868916e112f2fcbbe093b865e0669",
+  "sourceE2ContentSha256": "04738e5be3a900c7993c2a7700dc932ce666eb76089fcc7d35d25da0efa623e2",
+  "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+  "priorE2GraphDigest": "e7a2f92ae31e016e6691eb8625311a32e930ef1103836ad28a45a9b4c27748b6",
+  "currentE2GraphDigest": "7a719e7a07e9c7c51c5dddc228f4f00cb89ec7a62b4731067d2d977bc72ebc63",
+  "manifestSha256": "a696e3ea1e23ca22838c90b7387f12e0a87e5c4f8ec927ebcd44ca93ac754ed9",
+  "preservedSiteDependencyPluginLineage": {
+    "schemaVersion": "APPROVAL_SITE_DEPENDENCY_PLUGIN_GRAPH_LINEAGE_V1",
+    "repository": "akaryc1b/approval-platform",
+    "commitSha": "1aecc248d963556a9c00efbc55dd002cb7bc0a75",
+    "sourceE2ContentSha256": "38aff337f77aab1b19b1b2bdd215696011e9ab2d0a930c7835c672d9e84b2c97",
+    "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+    "priorE2GraphDigest": "f2e4ca66b29bd4e819f8751117e56900416d47c474de270d84e9d2ef552c92c3",
+    "currentE2GraphDigest": "e7a2f92ae31e016e6691eb8625311a32e930ef1103836ad28a45a9b4c27748b6",
+    "manifestSha256": "6aa929fb3e460451ca62f8271854c50db59f8f59e928e101c8064c9a905e0d9f",
+    "preservedBuildPluginJacksonLineage": {
+      "schemaVersion": "APPROVAL_BUILD_PLUGIN_JACKSON_GRAPH_LINEAGE_V1",
+      "repository": "akaryc1b/approval-platform",
+      "commitSha": "ea71ab67467779c7b4dc83c8a67508f6bfd73055",
+      "sourceE2ContentSha256": "3c66dff4322d6920c0666203e2fbd09542cccdd3249fa4f7fb401f02de792a4a",
+      "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+      "priorE2GraphDigest": "6557cef5d2ef11c36a8efb89cf7c1c607c721e32cdbabf0228441bb585b3c829",
+      "currentE2GraphDigest": "f2e4ca66b29bd4e819f8751117e56900416d47c474de270d84e9d2ef552c92c3",
+      "manifestSha256": "315f897668e2ec542fd00656413d7bc369af5b976879f3088869a6ce8b3aed52",
+      "preservedServerGraphLineage": {
+        "schemaVersion": "APPROVAL_SERVER_DEPENDENCY_GRAPH_LINEAGE_V1",
+        "repository": "akaryc1b/approval-platform",
+        "commitSha": "28a9db4cf6372793ce32801d9812ab688d348b02",
+        "sourceE2ContentSha256": "6994858ba6dae570659a9c40fda264feab18c8fbd31fe90a570d24326b0bf838",
+        "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+        "intermediateE2GraphDigest": "27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37",
+        "priorE2GraphDigest": "390773d2aa746a2203eec870e5dd0a8f97f81e91913bb016c9ef95b749c0e7b3",
+        "currentE2GraphDigest": "6557cef5d2ef11c36a8efb89cf7c1c607c721e32cdbabf0228441bb585b3c829",
+        "foundationManifestSha256": "8aa64be5a9db6a6c7988226e5386592b94b91b034c10c6ccb914c2a171a26993",
+        "otelManifestSha256": "20e7bf496628c36b5afb66d593b57424bb092d80666c41b7097849380a98dc86",
+        "manifestSha256": "32f5da54a05cdaee6e5eaa555ffc3df99b088c4d4b6f214d874876eef41ab8df",
+        "sourceWitnessSha256": "0975f7932690123120fd9dd11606b0a5d4a971d083b62d25985a0694b136e18c",
+        "archivalSourceHead": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+        "archivalSourceTree": "79c138d18075b54e800829eb903cb58a0b39b040",
+        "archivalE2ContentSha256": "4c423ae6f24cbdd6a83c07f2176e254dfbee413a1e49ca9f28c3524a050b43b7",
+        "componentVersionChangeCount": 90,
+        "rewrittenEdgeCount": 180,
+        "addedImportedBomCount": 2,
+        "importedBomVersionChangeCount": 1,
+        "pluginCoordinateVersionChangeCount": 13,
+        "scopeChangeCount": 0,
+        "licenseChangeCount": 0,
+        "inventory": {
+          "componentCount": 237,
+          "edgeCount": 345,
+          "importedBomCount": 6,
+          "priorImportedBomCount": 4,
+          "reactorRootCount": 26,
+          "resolvedPluginCoordinateCount": 329,
+          "unknownLicenseComponentCount": 78
+        },
+        "findingReviewRequired": true,
+        "releaseBlocked": true,
+        "contentSha256": "14b595e396486ab5316b17fd8cb3f9ee1455a7a610bab80a61b9a3af9daebad1"
+      },
+      "archivalCandidate": {
+        "e2": {
+          "contentSha256": "9eea200e0d5b01767de636e9489cb2cbdbcbdfb653e0e5905c4ec480ccd94f9b",
+          "path": "docs/operations/build-plugin-jackson-evidence/precommit-candidate-E2.json",
+          "rawSha256": "46821dad12b659c1d41949aa4123d42ad71893e9857da5cdeed130e83dc06e78"
+        },
+        "exactHeadEvidence": false,
+        "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+        "sourceBaseHead": "28a9db4cf6372793ce32801d9812ab688d348b02",
+        "sourcePomSha256": "1e1999da948c22d5e7b704e81ee84b0849889b09a94e1deb1d16a4e806f1ddef",
+        "sourceWorktreeClean": false
+      },
+      "pluginCoordinateVersionChangeCount": 2,
+      "runtimeComponentChangeCount": 0,
+      "runtimeEdgeChangeCount": 0,
+      "importedBomChangeCount": 0,
+      "scopeChangeCount": 0,
+      "licenseChangeCount": 0,
+      "inventory": {
+        "componentCount": 237,
+        "edgeCount": 345,
+        "importedBomCount": 6,
+        "reactorRootCount": 26,
+        "resolvedPluginCoordinateCount": 329
+      },
+      "findingReviewRequired": true,
+      "releaseBlocked": true,
+      "contentSha256": "e737b12b4c28ca192c3cb31356382afda67313b2bb070af679b6ead2ab6a1256"
+    },
+    "archivalCandidate": {
+      "e2": {
+        "contentSha256": "69d4ae5beb112eb6d50986ad311c760a6eef69c4482117bad7ff77306fde61c6",
+        "path": "docs/operations/site-dependency-plugin-evidence/precommit-candidate-E2.json",
+        "rawSha256": "4b18e41a0335d896efb9185e5fbedb472484cdf2bb9baa22eabbbc58f910763e"
+      },
+      "exactHeadEvidence": false,
+      "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+      "pluginReport": {
+        "path": "docs/operations/site-dependency-plugin-evidence/plugin-report-segments.json",
+        "rawSha256": "432f35088ce345966bbd6a5139d1f979ad39a107a77fb55848b7b7e7bb1e6974",
+        "sourceReportSha256": "fe5814b0c77a377d1237ca4f53243dbe1ff5401a53344d03a66aad7442165ec2"
+      },
+      "sourceBaseHead": "ea71ab67467779c7b4dc83c8a67508f6bfd73055",
+      "sourcePomSha256": "53d9a654ec4feed7c44ddfc4874d27ba288381e69f4cc1720ecd1b4ece87a734",
+      "sourceWorktreeClean": false
+    },
+    "addedPluginCoordinateCount": 69,
+    "removedPluginCoordinateCount": 116,
+    "unchangedOtherPluginOwnerCount": 15,
+    "runtimeComponentChangeCount": 0,
+    "runtimeEdgeChangeCount": 0,
+    "importedBomChangeCount": 0,
+    "scopeChangeCount": 0,
+    "licenseChangeCount": 0,
+    "inventory": {
+      "componentCount": 237,
+      "edgeCount": 345,
+      "importedBomCount": 6,
+      "reactorRootCount": 26,
+      "resolvedPluginCoordinateCount": 282
+    },
+    "findingReviewRequired": true,
+    "releaseBlocked": true,
+    "contentSha256": "cb90e9eb003905092fa648933a354c9550ee1ee1964826b84ccdccb6cc1214cc"
+  },
+  "archivalCandidate": {
+    "e2": {
+      "contentSha256": "6ff899787d566b7526064d4d607b7955718379c575b87de65bd3f4dff2bf4897",
+      "path": "docs/operations/release-plugin-evidence/precommit-candidate-E2.json",
+      "rawSha256": "f02401bc985fc810ce626571493f8037e4c62a7c887c0c526647732a436ad6f8"
+    },
+    "exactHeadEvidence": false,
+    "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+    "pluginReport": {
+      "path": "docs/operations/release-plugin-evidence/plugin-report-segments.json",
+      "rawSha256": "e9d065a7e4521be4fc6999ebefc34649887387dd401eec8ddbdac4516e8cdaed",
+      "sourceReportSha256": "2cbd1cd9f5fbfabab0b2ce7f8a2c7f5fe3f9bd43bf91b3db1bb444b513a70fcb"
+    },
+    "sourceBaseHead": "1aecc248d963556a9c00efbc55dd002cb7bc0a75",
+    "sourcePomSha256": "1db89fd63a63880d84f15071dda4e4e1553b4a6b6cf69849f505e4e736c9d98b",
+    "sourceWorktreeClean": false
+  },
+  "addedPluginCoordinateCount": 26,
+  "removedPluginCoordinateCount": 36,
+  "unchangedOtherPluginOwnerCount": 16,
+  "runtimeComponentChangeCount": 0,
+  "runtimeEdgeChangeCount": 0,
+  "importedBomChangeCount": 0,
+  "scopeChangeCount": 0,
+  "licenseChangeCount": 0,
+  "inventory": {
+    "componentCount": 237,
+    "edgeCount": 345,
+    "importedBomCount": 6,
+    "reactorRootCount": 26,
+    "resolvedPluginCoordinateCount": 272
+  },
+  "findingReviewRequired": true,
+  "releaseBlocked": true,
+  "contentSha256": "b99400f63544b6832406a7394148c0b794e6b53c92f6010cf4bfeff53ce8db69"
+}

@@ -7,10 +7,11 @@ import './server-dependency-graph-transition.test.mjs';
 import './build-plugin-jackson-graph-transition.test.mjs';
 import './site-dependency-plugin-graph-transition.test.mjs';
 import './release-plugin-graph-transition.test.mjs';
+import './clean-plugin-graph-transition.test.mjs';
 import './m6-pr-e-e4-osv-target-coverage.test.mjs';
 import './m6-pr-e-e4-osv-package-attribution.test.mjs';
 import './server-dependency-remediation.test.mjs';
-import { RELEASE_PLUGIN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';
+import { CLEAN_PLUGIN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';
 import assert from 'node:assert/strict';
 import {existsSync,readFileSync,readdirSync} from 'node:fs';
 import path from 'node:path';
@@ -74,7 +75,7 @@ test('E4 full scanner emits E4→I1→I2→R1→I3→R2A→R2B→I4 exact-head c
   assert.equal(r.status,0,r.stderr||r.stdout);
   console.log(r.stdout); // Retain normalized findings even when a later historical review rejects them.
   const m=r.stdout.match(/M6_PR_E_E4_SCANNER_EVIDENCE_BEGIN\n([^\n]+)\nM6_PR_E_E4_SCANNER_EVIDENCE_END/);assert.ok(m);
-  const e=JSON.parse(m[1]);assert.equal(e.commitSha,expectedScannerHead());assert.equal(e.e2GraphDigest,RELEASE_PLUGIN_GRAPH);assert.ok(requirePreservedGraph(e,NG,expectedScannerHead()));assert.equal(e.allScannersCompleted,true);assert.equal(e.rawScannerReportsRetained,false);assert.equal(e.candidateSecretMaterialRetained,false);
+  const e=JSON.parse(m[1]);assert.equal(e.commitSha,expectedScannerHead());assert.equal(e.e2GraphDigest,CLEAN_PLUGIN_GRAPH);assert.ok(requirePreservedGraph(e,NG,expectedScannerHead()));assert.equal(e.allScannersCompleted,true);assert.equal(e.rawScannerReportsRetained,false);assert.equal(e.candidateSecretMaterialRetained,false);
   const gt=spawnSync('git',['show','-s','--format=%cI',e.commitSha],{cwd:root,encoding:'utf8'});assert.equal(gt.status,0);
   const transitionPlan=JSON.parse(T(I2T)),e2SourcePath=transitionPlan.transitions[0].sourcePath,e2SourceHash=spawnSync('git',['hash-object',e2SourcePath],{cwd:root,encoding:'utf8'});assert.equal(e2SourceHash.status,0,e2SourceHash.stderr||e2SourceHash.stdout);
   const prototypePlan=readDesignerPrototypeRemediationPlan();
