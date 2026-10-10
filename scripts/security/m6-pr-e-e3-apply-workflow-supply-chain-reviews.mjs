@@ -68,6 +68,8 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
     if(workflowRemediation.workflowSupplyChainRemediationValidated!==true)throw new Error('R2B workflow remediation validation required');
   }
 
+  if((e4.scanners?.gitleaks?.findingCount===29||triage.gitleaksPublicCommitReview)
+    &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview))throw new Error('public commit review requires both source review receipts');
   const gitleaksReview=triage.gitleaksTestExpressionReview
     ? requireGitleaksTestExpressionTriage(e4,triage):null;
   const prototypeRemediation=triage.designerPrototypeRemediation
@@ -121,7 +123,8 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
     schemaVersion:serverDependencyRemediation?'M6_PR_E_E3_I4_TRIAGE_V6':gitleaksReview?'M6_PR_E_E3_I4_TRIAGE_V5':prototypeRemediation?'M6_PR_E_E3_I4_TRIAGE_V4':workflowRemediation?'M6_PR_E_E3_I4_TRIAGE_V3':remediation?'M6_PR_E_E3_I4_TRIAGE_V2':'M6_PR_E_E3_I4_TRIAGE_V1',repository:triage.repository,commitSha:triage.commitSha,sourceI3CanonicalSha256:triage.contentSha256,sourceE4CanonicalSha256:e4.contentSha256,sourceRemediationCanonicalSha256:remediation?.contentSha256??null,...(workflowRemediation?{sourceWorkflowRemediationCanonicalSha256:workflowRemediation.contentSha256}:{}),
     ...(serverDependencyRemediation?{serverDependencyRemediation,sourceServerDependencyRemediationCanonicalSha256:serverDependencyRemediation.contentSha256}:{}),
     reviewBasisHead:review.reviewBasisHead,reviewBasisE4CanonicalSha256:review.reviewBasisE4CanonicalSha256,reviewBasisI3CanonicalSha256:review.reviewBasisI3CanonicalSha256,historicalReviewedFindingCount:planned.length,reviewedFindingCount:delta.size,remediatedHistoricalFindingCount:remediatedHistoricalFindings.length,remediatedHistoricalFindings,cumulativeReviewedFindingCount,historicallyRemediatedFindingCount,decisions,
-    ...(gitleaksReview?{gitleaksTestExpressionReview:gitleaksReview,appendOnlyReviewedFindingCount:1}:{}),
+    ...(gitleaksReview?{gitleaksTestExpressionReview:gitleaksReview,appendOnlyReviewedFindingCount:triage.appendOnlyReviewedFindingCount}:{}),
+    ...(triage.gitleaksPublicCommitReview?{gitleaksPublicCommitReview:triage.gitleaksPublicCommitReview}:{}),
     ...(prototypeRemediation?{designerPrototypeRemediation:prototypeRemediation,historicallyRemediatedFindings:[...inheritedRemediatedFindings,...remediatedHistoricalFindings]}:{}),
     summary:{dispositionCounts,applicableCount:dispositionCounts.APPLICABLE||0,notApplicableCount:dispositionCounts.NOT_APPLICABLE||0,unresolvedCount:dispositionCounts.UNRESOLVED||0,releaseBlocked:true,reasonCodes:['AUTHORITATIVE_GITHUB_ALERT_INVENTORY_EVIDENCE_UNAVAILABLE','E3_SCANNER_FINDINGS_UNRESOLVED',...(dispositionCounts.APPLICABLE?['E3_APPLICABLE_FINDINGS_REQUIRE_REMEDIATION']:[])]}
   });

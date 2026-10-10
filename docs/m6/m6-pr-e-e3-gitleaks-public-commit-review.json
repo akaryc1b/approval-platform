@@ -1,0 +1,369 @@
+{
+  "schemaVersion": "M6_PR_E_E3_GITLEAKS_PUBLIC_COMMIT_REVIEW_PLAN_V1",
+  "repository": "akaryc1b/approval-platform",
+  "acceptedPublicBaseCommit": "757fe355b2d868916e112f2fcbbe093b865e0669",
+  "acceptedPublicBaseUrl": "https://github.com/akaryc1b/approval-platform/commit/757fe355b2d868916e112f2fcbbe093b865e0669",
+  "introductionTreeSha": "45eba09492ca88a7e08f4ecc0a136e032f122807",
+  "source": {
+    "path": "docs/operations/clean-plugin-evidence/osv-diagnostic/input-derivation.json",
+    "blobSha": "21cf22657f3f0ded29f3afbf85e338dc42307ba1",
+    "sha256": "fc87d5e6bf1560c14163ef62819da44e07871e1f1c0f927d81293052d50cbcfb",
+    "line": 20,
+    "lineSha256": "f388fe790bdd33ab89b028a1b9136d0a6cd91f314d10f90cab906c031ac0b482",
+    "field": "sourceBaseHead"
+  },
+  "finding": {
+    "ruleParts": [
+      "source",
+      "graph-access-token"
+    ],
+    "descriptionParts": [
+      "Source",
+      "graph is a code search and navigation engine."
+    ],
+    "sourceClass": "E4_GITLEAKS"
+  },
+  "scannerIdentity": {
+    "assetSha256": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+    "candidateSecretMaterialRetained": false,
+    "mode": "FULL_GIT_HISTORY",
+    "rawReportRetained": false,
+    "redactionPercent": 100,
+    "scanCompleted": true,
+    "sourceCommit": "83d9cd684c87d95d656c1458ef04895a7f1cbd8e",
+    "version": "8.30.1"
+  },
+  "retainedFindings": [
+    {
+      "commit": "445d1205bd611f6e3b9255737c5dd482dddebaa9",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 96,
+      "findingId": "04d58ffd3accfc0cc945cdaa34e1b9b92678d3a060e9e0f75f33c222b90a904f",
+      "fingerprint": "445d1205bd611f6e3b9255737c5dd482dddebaa9:server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalSlaExecutionIndexPlanIntegrationTest.java:generic-api-key:96",
+      "path": "server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalSlaExecutionIndexPlanIntegrationTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 96
+    },
+    {
+      "commit": "6f35a3e57f29f02091079f1fca60c01831ed3fe8",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 22,
+      "findingId": "0985995f4e3a85d8ec212e8c796fdec4ba193f78df8da9790b84a7c2ea9657bd",
+      "fingerprint": "6f35a3e57f29f02091079f1fca60c01831ed3fe8:server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestAuthenticationConnectorTest.java:generic-api-key:22",
+      "path": "server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestAuthenticationConnectorTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 22
+    },
+    {
+      "commit": "a2b3da316fc5fb97bcb7394627c3aa9262ce37fb",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 91,
+      "findingId": "35546688230e94e02dd1dbba590bab1f463fd43d77659d5caf58a0592a7da81e",
+      "fingerprint": "a2b3da316fc5fb97bcb7394627c3aa9262ce37fb:contracts/sdk/v1/fixtures/adapter-binding-v1.json:generic-api-key:91",
+      "path": "contracts/sdk/v1/fixtures/adapter-binding-v1.json",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 91
+    },
+    {
+      "commit": "42820e7d35ac81f1cd7d7eed878f709abc173ea5",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 22,
+      "findingId": "36f2e4fdf9f6c7410d767c66eb140235bb95a78fd14678ac3e57e8007a97b979",
+      "fingerprint": "42820e7d35ac81f1cd7d7eed878f709abc173ea5:server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestAuthenticationConnectorTest.java:generic-api-key:22",
+      "path": "server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestAuthenticationConnectorTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 22
+    },
+    {
+      "commit": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 102,
+      "findingId": "3e609f81d333ded79799301476c2fbde346cf4078d7871e9d3d52173abb6db9a",
+      "fingerprint": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f:.github/workflows/generic-spring-host-ci.yml:generic-api-key:102",
+      "path": ".github/workflows/generic-spring-host-ci.yml",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 102
+    },
+    {
+      "commit": "1cf3d6a786ad337c5ef706cccbe71d12ab8c7c48",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 74,
+      "findingId": "49853b232eeba9aee28a5149bee62ad64b2b3bbdb39b4294ffaea4eeb30730fa",
+      "fingerprint": "1cf3d6a786ad337c5ef706cccbe71d12ab8c7c48:.github/workflows/generic-spring-host-ci.yml:generic-api-key:74",
+      "path": ".github/workflows/generic-spring-host-ci.yml",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 74
+    },
+    {
+      "commit": "1cf3d6a786ad337c5ef706cccbe71d12ab8c7c48",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 41,
+      "findingId": "4aae6fb5730a0f8fbcced14a699280ec681211c3ccc04d925a9b342b04cb489c",
+      "fingerprint": "1cf3d6a786ad337c5ef706cccbe71d12ab8c7c48:.github/workflows/generic-spring-host-ci.yml:generic-api-key:41",
+      "path": ".github/workflows/generic-spring-host-ci.yml",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 41
+    },
+    {
+      "commit": "47dee26f8443dd008f4553bc77ee4991ee7b4047",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 30,
+      "findingId": "5fb13ba6d950d034667e4de83992e03880d08657381792c78227415b01f3dc40",
+      "fingerprint": "47dee26f8443dd008f4553bc77ee4991ee7b4047:server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestBusinessCallbackConnectorTest.java:generic-api-key:30",
+      "path": "server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestBusinessCallbackConnectorTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 30
+    },
+    {
+      "commit": "234dc1f8a3b2990ceb648e959c80bfde36e17961",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 21,
+      "findingId": "637786f50111c46bbe0b6b23dc966b6bf24d658a1fe2bf35087896fddfb2a28b",
+      "fingerprint": "234dc1f8a3b2990ceb648e959c80bfde36e17961:integrations/host-sdk/src/test/java/io/github/akaryc1b/approval/host/security/HostRequestSecurityTest.java:generic-api-key:21",
+      "path": "integrations/host-sdk/src/test/java/io/github/akaryc1b/approval/host/security/HostRequestSecurityTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 21
+    },
+    {
+      "commit": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 74,
+      "findingId": "72973a87b8819fd9134a994fca0a83327509162b18ac619f980117d1885532f3",
+      "fingerprint": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f:.github/workflows/generic-spring-host-ci.yml:generic-api-key:74",
+      "path": ".github/workflows/generic-spring-host-ci.yml",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 74
+    },
+    {
+      "commit": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 99,
+      "findingId": "734b1602caf6451237000f3c46eb4a0a6dd1eb2223754ca19b29480a3f567c8a",
+      "fingerprint": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f:examples/generic-spring-host/README.md:generic-api-key:99",
+      "path": "examples/generic-spring-host/README.md",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 99
+    },
+    {
+      "commit": "1cf3d6a786ad337c5ef706cccbe71d12ab8c7c48",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 102,
+      "findingId": "7bbe54fc2cee00f199b9dedbc1eb081178221804b9c2352841e30106f81ea1f8",
+      "fingerprint": "1cf3d6a786ad337c5ef706cccbe71d12ab8c7c48:.github/workflows/generic-spring-host-ci.yml:generic-api-key:102",
+      "path": ".github/workflows/generic-spring-host-ci.yml",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 102
+    },
+    {
+      "commit": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 41,
+      "findingId": "86b5d6f438ccb24510cd71b2a8b2b827b8cbccf1d8a9c50f478afcfd94b77d88",
+      "fingerprint": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f:.github/workflows/generic-spring-host-ci.yml:generic-api-key:41",
+      "path": ".github/workflows/generic-spring-host-ci.yml",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 41
+    },
+    {
+      "commit": "9ce273becd217c80217792a9d66edc79d4100e96",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 18,
+      "findingId": "8bb6dc41061f8b36fb8a6583b84aa1088061758f5428bc138bbd26637703fcef",
+      "fingerprint": "9ce273becd217c80217792a9d66edc79d4100e96:server-modules/approval-integration-core/src/test/java/io/github/akaryc1b/approval/integration/webhook/WebhookSecurityTest.java:generic-api-key:18",
+      "path": "server-modules/approval-integration-core/src/test/java/io/github/akaryc1b/approval/integration/webhook/WebhookSecurityTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 18
+    },
+    {
+      "commit": "8a475d71cccdf172c6676a5179e1c7463059906e",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 72,
+      "findingId": "8d50372c70864aec48f072adc53ab2bcddd68499286f2fcf1aeb08d77d5b10c7",
+      "fingerprint": "8a475d71cccdf172c6676a5179e1c7463059906e:examples/generic-spring-host/README.md:generic-api-key:72",
+      "path": "examples/generic-spring-host/README.md",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 72
+    },
+    {
+      "commit": "9ce273becd217c80217792a9d66edc79d4100e96",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 40,
+      "findingId": "a2a6e026423dfb0dc4bf5fe01a59b8fbfdb3daecdc5adc296bf43796588c4795",
+      "fingerprint": "9ce273becd217c80217792a9d66edc79d4100e96:server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestBusinessCallbackConnectorTest.java:generic-api-key:40",
+      "path": "server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestBusinessCallbackConnectorTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 40
+    },
+    {
+      "commit": "8a475d71cccdf172c6676a5179e1c7463059906e",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 46,
+      "findingId": "a2c56fac19aca49f1a8c94af6a8ed77735bee8c2977d10899bd2729361890a47",
+      "fingerprint": "8a475d71cccdf172c6676a5179e1c7463059906e:examples/generic-spring-host/README.md:generic-api-key:46",
+      "path": "examples/generic-spring-host/README.md",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 46
+    },
+    {
+      "commit": "b99747739ba39096928d9bcca00fff646bb934a5",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 21,
+      "findingId": "a753581c267b30c7d0af6939fa893031c9d0dfabb90cef5c57685c4445d0684a",
+      "fingerprint": "b99747739ba39096928d9bcca00fff646bb934a5:integrations/host-sdk/src/test/java/io/github/akaryc1b/approval/host/security/HostRequestSecurityTest.java:generic-api-key:21",
+      "path": "integrations/host-sdk/src/test/java/io/github/akaryc1b/approval/host/security/HostRequestSecurityTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 21
+    },
+    {
+      "commit": "f37e12b65f16bb07f387c91bb13dc998a563ed1c",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 18,
+      "findingId": "ab87670ff8c48d0cc1cea8261abf39492589fbd8f2fc1af21fbfa40418e0ed96",
+      "fingerprint": "f37e12b65f16bb07f387c91bb13dc998a563ed1c:server-modules/approval-integration-core/src/test/java/io/github/akaryc1b/approval/integration/webhook/WebhookSecurityTest.java:generic-api-key:18",
+      "path": "server-modules/approval-integration-core/src/test/java/io/github/akaryc1b/approval/integration/webhook/WebhookSecurityTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 18
+    },
+    {
+      "commit": "2a310553d4de552c064906ee1f57efb742e18162",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 18,
+      "findingId": "bbfccade1028572131367011f9d5c54538a1fb8f97d1414208c2d645a678d254",
+      "fingerprint": "2a310553d4de552c064906ee1f57efb742e18162:docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS_EVIDENCE_CORRECTION.md:generic-api-key:18",
+      "path": "docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS_EVIDENCE_CORRECTION.md",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 18
+    },
+    {
+      "commit": "c322cc42d4a79f15ba62db6c8c85c50c589ac717",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 11,
+      "findingId": "bc06c52dd704f3c706d16d4ba6002d973726f5f8bacf9a49550e3d9fdebaf775",
+      "fingerprint": "c322cc42d4a79f15ba62db6c8c85c50c589ac717:examples/connector-smoke/test/client.test.mjs:generic-api-key:11",
+      "path": "examples/connector-smoke/test/client.test.mjs",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 11
+    },
+    {
+      "commit": "42820e7d35ac81f1cd7d7eed878f709abc173ea5",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 26,
+      "findingId": "bdf58828e510359641ac81816e5a9d33826e4d8179d2c3a1d897bc57b82e30ba",
+      "fingerprint": "42820e7d35ac81f1cd7d7eed878f709abc173ea5:server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestOrganizationConnectorTest.java:generic-api-key:26",
+      "path": "server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestOrganizationConnectorTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 26
+    },
+    {
+      "commit": "bbbd0edbc0d9055791e42e7068134dc13276549d",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 26,
+      "findingId": "c02016c68b36664c6cb9520df274c8ceb2f66fa088859bb8dfba66dec5f93c83",
+      "fingerprint": "bbbd0edbc0d9055791e42e7068134dc13276549d:server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestOrganizationConnectorTest.java:generic-api-key:26",
+      "path": "server-modules/approval-connector-generic/src/test/java/io/github/akaryc1b/approval/connector/generic/GenericRestOrganizationConnectorTest.java",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 26
+    },
+    {
+      "commit": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 72,
+      "findingId": "cd7abdc70b67ea2dabf1485c62887b40e041997ede8b7f78ff62f41b7b44031a",
+      "fingerprint": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f:examples/generic-spring-host/README.md:generic-api-key:72",
+      "path": "examples/generic-spring-host/README.md",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 72
+    },
+    {
+      "commit": "a3271c7f60f6afe259f521bc27fe64caf87338a5",
+      "description": "Identified a Vault Service Token, potentially compromising infrastructure security and access to sensitive credentials.",
+      "endLine": 245,
+      "findingId": "d1585860c64fd87f3762e58910483b1bd6a495678f1353ae491c15b2bfa04bfb",
+      "fingerprint": "a3271c7f60f6afe259f521bc27fe64caf87338a5:scripts/tests/m6-pr-e-e3-designer-prototype-remediation.test.mjs:vault-service-token:245",
+      "path": "scripts/tests/m6-pr-e-e3-designer-prototype-remediation.test.mjs",
+      "ruleId": "vault-service-token",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 245
+    },
+    {
+      "commit": "8a475d71cccdf172c6676a5179e1c7463059906e",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 99,
+      "findingId": "e9140ea559c07ca7548bc0ffab463fef6428f5f9e714ff5ea357dc472d7c4d48",
+      "fingerprint": "8a475d71cccdf172c6676a5179e1c7463059906e:examples/generic-spring-host/README.md:generic-api-key:99",
+      "path": "examples/generic-spring-host/README.md",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 99
+    },
+    {
+      "commit": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 46,
+      "findingId": "e984cdc4d07b1d2a742a650e6a98b00fa69164352eca6d33d844537ee96ce04f",
+      "fingerprint": "581cfd4d47ca50f9c828fc465beb8806b16d9b1f:examples/generic-spring-host/README.md:generic-api-key:46",
+      "path": "examples/generic-spring-host/README.md",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 46
+    },
+    {
+      "commit": "49f85c98930a42edf71ce74d8129af9cb8157c84",
+      "description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "endLine": 11,
+      "findingId": "eda6c6277ddf6f5e2d49df048e0c481b951919760765963bff6305e02b262906",
+      "fingerprint": "49f85c98930a42edf71ce74d8129af9cb8157c84:examples/connector-smoke/test/client.test.mjs:generic-api-key:11",
+      "path": "examples/connector-smoke/test/client.test.mjs",
+      "ruleId": "generic-api-key",
+      "sourceClass": "E4_GITLEAKS",
+      "startLine": 11
+    }
+  ],
+  "retainedFindingCount": 28,
+  "retainedEvidence": {
+    "head": "757fe355b2d868916e112f2fcbbe093b865e0669",
+    "canonicalSha256": "3bedc22bca22184e4e9a63201df60130171226e650096d35bea6844d179488f7",
+    "runNumber": 1834
+  },
+  "decision": {
+    "disposition": "NOT_APPLICABLE",
+    "severityBand": "UNKNOWN",
+    "evidenceCode": "EXACT_PUBLIC_GIT_COMMIT_REFERENCE_IS_NOT_A_CREDENTIAL",
+    "exploitPreconditionsSatisfied": false,
+    "exception": null,
+    "findingRetained": true,
+    "releaseBlocked": true
+  },
+  "invariants": {
+    "scannerSuppressionAdded": false,
+    "severityDowngradeAdded": false,
+    "historyRewritten": false,
+    "unrelatedAdditionsAllowed": false,
+    "rawCandidateMaterialRetained": false
+  },
+  "contentSha256": "3ba1b2a520fb29a3adcc81b7c26b5f0e54da7fd3f411769fb6c6a81ac43ba590"
+}

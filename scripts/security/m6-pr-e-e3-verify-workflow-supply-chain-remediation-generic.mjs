@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { verifyGitleaksPublicCommitReview } from './m6-pr-e-e3-review-gitleaks-public-commit.mjs';
 import { verifyGitleaksTestExpressionReview } from './m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { verifyDesignerPrototypeRemediation } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 
@@ -238,8 +239,10 @@ export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapsh
   const historicalSemgrepIds = prototypeRemediation
     ? [...semgrepIds, prototypeRemediation.remediatedFindings[0].findingId].sort() : semgrepIds;
   const gitleaksReview = gitleaksReviewSnapshot ? verifyGitleaksTestExpressionReview(e4, gitleaksReviewSnapshot) : null;
+  const publicCommitReview = gitleaksReviewSnapshot?.publicCommitReviewSnapshot
+    ? verifyGitleaksPublicCommitReview(e4, gitleaksReviewSnapshot.publicCommitReviewSnapshot) : null;
   const historicalGitleaksIds = gitleaksReview
-    ? gitleaksIds.filter(id => id !== gitleaksReview.historicalFinding.findingId) : gitleaksIds;
+    ? gitleaksIds.filter(id => id !== gitleaksReview.historicalFinding.findingId && id !== publicCommitReview?.finding.findingId) : gitleaksIds;
   requireIdentitySet('current Gitleaks', historicalGitleaksIds, expectedCurrent.gitleaks);
   requireIdentitySet('current Semgrep', historicalSemgrepIds, expectedCurrent.semgrep);
   requireIdentitySet('current zizmor', zizmorIds, expectedCurrent.zizmor);
@@ -264,7 +267,8 @@ export function reconcileScannerFindingIdentities(e4, prototypeRemediationSnapsh
     databaseSnapshotIdentity: identityContract.databaseDriftObservation.databaseSnapshotIdentity,
     databaseSnapshotIdentityAvailability: identityContract.databaseDriftObservation.databaseSnapshotIdentityAvailability,
     ...osvReconciliation,
-    ...(gitleaksReview ? { gitleaksTestExpressionReview: gitleaksReview, retainedHistoricalGitleaksFindingCount: historicalGitleaksIds.length, reviewedAddedGitleaksFindingCount: 1 } : {}),
+    ...(gitleaksReview ? { gitleaksTestExpressionReview: gitleaksReview, retainedHistoricalGitleaksFindingCount: historicalGitleaksIds.length, reviewedAddedGitleaksFindingCount: publicCommitReview ? 2 : 1 } : {}),
+    ...(publicCommitReview ? { gitleaksPublicCommitReview: publicCommitReview } : {}),
     ...(prototypeRemediation ? { designerPrototypeRemediation: prototypeRemediation,
       historicalSemgrepFindingCount: historicalSemgrepIds.length,
       remediatedHistoricalSemgrepFindingCount: 1 } : {}),
