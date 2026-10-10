@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "COMPILER_OSV_DIAGNOSTIC_INPUT_CONTINUATION_V1",
+  "classification": "ORIGINAL_DIRECT_API_DIAGNOSTIC_WITH_IDENTICAL_COMMITTED_SOURCE_INPUT",
+  "originalQuery": {
+    "sourceBaseHead": "0c55ff5e7d974022e5c76d9a88a4312d2af81827",
+    "sourceE2": {
+      "path": "docs/operations/compiler-plugin-evidence/candidate-E2.json",
+      "rawSha256": "903c8f20091bfe7b6115c8011478a480c58156bd242c0df147aa7ffa1e7dce4f",
+      "contentSha256": "0d03033d740dc426bdc32ac12f0784753f95440ebcea33b426bb2aa2be762004"
+    },
+    "sourcePomSha256": "1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a",
+    "captureSealSha256": "aa0f5d8e59b90e6f773611e47a9b89420093d803ba0d151eb72d3c94da17e141",
+    "diagnosticSealSha256": "d52a400656f499afcd37ff076a5a97be2a344127ffbf4b03a5eb335cfe2882c0",
+    "queryStartedAt": "2026-10-10T03:53:51.901168+00:00",
+    "queryCompletedAt": "2026-10-10T03:57:11.794716+00:00",
+    "method": "DIRECT_OFFICIAL_OSV_API",
+    "exactQueryBytesSha256": "a506047c17a16eb0c8b34263bd150e7ccc6ebed3e367883d3e4d4eba9320b7d9",
+    "exactQueryBytes": 47016
+  },
+  "boundLocalCapture3": {
+    "head": "b94b8c08c27dc9f43de4aba3699b2559df420c5f",
+    "tree": "aab0392eb4f10561a6fa2ea52b22dba6c452ebd1",
+    "captureSealSha256": "c98a3d570843ccfc97dd09894c6bad1e1d81b2c25c0138c83edcdf9c496bcba0",
+    "sourceE2": {
+      "path": "docs/operations/compiler-plugin-evidence/osv-diagnostic/bound-local-capture3-E2.json",
+      "rawSha256": "68f072a810590c79e274ef84b8fdc51d0f416d1e2e05c40a251254b25235cf26",
+      "contentSha256": "094303ce0499625d753ddce892594a9e764ab64f5fea1efe653609ed961b815f"
+    },
+    "sourceComparisonSha256": "30c4f63248d157efa9a4ccb4bb6b759d596b2e151dc937457484eab32d9db801",
+    "fullE2PayloadOtherThanCommitAndContentIdentical": true,
+    "ownerReportBytesIdentical": true,
+    "allTuplesRefsScopesAndOrderIdentical": true,
+    "sourceHelpersIdentical": true
+  },
+  "sourceHelpers": {
+    "scripts/security/m6-pr-e-e2-generate-sbom.mjs": "a974b4c07eaf40c6c440415af11d50f8f5da22ec33c7789080de042b3b46dc7f",
+    "scripts/security/m6-pr-e-e4-scan.mjs": "04d601d05b22a50b8d6bf2888e480ffd1ed9be88ab55bd99b3c094d5e70b0873",
+    "scripts/security/osv-scan-coverage.mjs": "0053f5d507cfb7f9d742fbad84555944c3a4b9c56b376136f41c035f737d1cad",
+    "scripts/security/scanner-report-structure.mjs": "5b1f34657fef399aac32ce0b82f8422c0310a7a022a6b26f7d222046ca1ecf02"
+  },
+  "candidateGraphDigest": "92f6b10a9fd199bbea69ce3a1bc743b77b00990b1e7ec4b1ca695407da7c91fe",
+  "inputPackageCount": 473,
+  "equivalentScannerInputBytesSha256": "9372daf69ae2867257d7f5d801f36bbd60f4f673f1f4dd5cb2e95e8ec289c97e",
+  "baseline": {
+    "head": "0c55ff5e7d974022e5c76d9a88a4312d2af81827",
+    "e4BytesSha256": "6056c1e11e396a488d1b72b42156262c723255e701baa7e3fd2b01c36698971f",
+    "e4ContentSha256": "7276f778a8327d0092a66e04c6620984be8d2516de22e58e0f2f691ec43bc0ac",
+    "normalizedFindingsPath": "baseline-normalized-osv-findings.json",
+    "normalizedFindingsRawSha256": "105b8f58727e2b6adaad8a7e22b4403ccef8e865c9b5fdfafc007cff9a566566"
+  },
+  "scannerCliExecuted": false,
+  "queryExecutedOnCapture3Claimed": false,
+  "newQueryOrFreshnessClaimed": false,
+  "canonicalE4": false,
+  "graphAdmitted": false,
+  "reviewDispositionTransferred": false,
+  "releaseBlocked": true,
+  "privateLocalGitObjectsRequiredByCi": false
+}

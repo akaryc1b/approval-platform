@@ -1,0 +1,12 @@
+{
+  "allNormalizedFieldsCompared": true,
+  "allQueryPagesIndependentlyReconstructed": true,
+  "checkedAtUtc": "2026-10-10T03:57:23.588Z",
+  "everyRetainedResponseHashAndStatusVerified": true,
+  "noSyntheticScannerDiagnostics": true,
+  "normalizerScriptSha256": "2c4090e456d7b79649071975c69c57eaae0feff5f66bf0d16e6c86fe0d499fbf",
+  "scannerCoverageBuilderNotInvoked": true,
+  "sourceBaseShaIsNotFinalCandidateSha": true,
+  "sourceBoundPureNormalizerMatchesIndependentNormalization": true,
+  "status": "PASS"
+}

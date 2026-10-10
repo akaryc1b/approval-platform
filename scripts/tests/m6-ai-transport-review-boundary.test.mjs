@@ -34,6 +34,7 @@ import './clean-plugin-baseline.test.mjs';
 import './clean-plugin-live-compatibility.test.mjs';
 import './compiler-plugin-baseline.test.mjs';
 import './compiler-plugin-graph-transition.test.mjs';
+import './compiler-plugin-osv-diagnostic.test.mjs';
 import './compiler-plugin-live-compatibility.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

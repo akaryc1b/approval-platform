@@ -1,0 +1,111 @@
+{
+  "allModifiedTimestampsMatchAtBatchPrecision": true,
+  "differences": [
+    {
+      "advisoryId": "GHSA-2fvj-hgj9-j2gr",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:51:10.292148883Z",
+      "queryModified": "2026-09-10T03:51:10.292148Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-355h-qmc2-wpwf",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:50:42.440988142Z",
+      "queryModified": "2026-09-10T03:50:42.440988Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-5mg8-w23w-74h3",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:49:26.651391253Z",
+      "queryModified": "2026-09-10T03:49:26.651391Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-6fmv-xxpf-w3cw",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:50:37.828087615Z",
+      "queryModified": "2026-09-10T03:50:37.828087Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-7g45-4rm6-3mm3",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:49:53.859811124Z",
+      "queryModified": "2026-09-10T03:49:53.859811Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-7p3p-8qv8-m2vh",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:51:11.096731360Z",
+      "queryModified": "2026-09-10T03:51:11.096731Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-8wh2-6qhj-h7j9",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:50:15.013963189Z",
+      "queryModified": "2026-09-10T03:50:15.013963Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-hf6x-8p5f-cgmf",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:50:52.486045504Z",
+      "queryModified": "2026-09-10T03:50:52.486045Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-hjcp-jmpx-g3qm",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:50:12.358752934Z",
+      "queryModified": "2026-09-10T03:50:12.358752Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-j288-q9x7-2f5v",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:50:26.176912270Z",
+      "queryModified": "2026-09-10T03:50:26.176912Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-p53j-g8pw-4w5f",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:49:48.504055684Z",
+      "queryModified": "2026-09-10T03:49:48.504055Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-qh8g-58pp-2wxh",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:50:19.940231683Z",
+      "queryModified": "2026-09-10T03:50:19.940231Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-v3jc-474w-2wm6",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:51:12.247227504Z",
+      "queryModified": "2026-09-10T03:51:12.247227Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-vx9q-rhv9-3jvg",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:50:32.261397070Z",
+      "queryModified": "2026-09-10T03:50:32.261397Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    },
+    {
+      "advisoryId": "GHSA-wxr5-93ph-8wr9",
+      "classification": "DETAIL_HAS_ADDITIONAL_FRACTIONAL_PRECISION",
+      "detailModified": "2026-09-10T03:50:24.755642299Z",
+      "queryModified": "2026-09-10T03:50:24.755642Z",
+      "validation": "Same UTC second; detail fractional digits start with every batch fractional digit."
+    }
+  ],
+  "exactStringEqualityClaimed": false
+}

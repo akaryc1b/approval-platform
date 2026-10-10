@@ -1,0 +1,5347 @@
+{
+  "status": "FINAL_COMMITTED_SOURCE_CAPTURE_AND_QUERY_INPUT_EQUIVALENCE_VERIFIED",
+  "completedAt": "2026-10-10T04:02:03.134249+00:00",
+  "head": "b94b8c08c27dc9f43de4aba3699b2559df420c5f",
+  "tree": "aab0392eb4f10561a6fa2ea52b22dba6c452ebd1",
+  "parent": "0c55ff5e7d974022e5c76d9a88a4312d2af81827",
+  "canonicalCiEvidence": false,
+  "scannerExecutedByAuditor": false,
+  "captureSealSha256": "c98a3d570843ccfc97dd09894c6bad1e1d81b2c25c0138c83edcdf9c496bcba0",
+  "sourceFiles": 2450,
+  "sourceSnapshots": 236,
+  "sourceManifestFiles": 39,
+  "e2Sha256": "68f072a810590c79e274ef84b8fdc51d0f416d1e2e05c40a251254b25235cf26",
+  "e2ContentSha256": "094303ce0499625d753ddce892594a9e764ab64f5fea1efe653609ed961b815f",
+  "graphDigest": "92f6b10a9fd199bbea69ce3a1bc743b77b00990b1e7ec4b1ca695407da7c91fe",
+  "ownerReportSha256": "1d28b8fd0741cfc19bd976eff7c8af8c55769eaf0b001d6fe362bc2def95bb3c",
+  "ownerOccurrences": 413,
+  "owners": 17,
+  "applicationComponents": 237,
+  "applicationEdges": 345,
+  "queryTargets": 473,
+  "helperInputSha256": "9372daf69ae2867257d7f5d801f36bbd60f4f673f1f4dd5cb2e95e8ec289c97e",
+  "r3aReceiptSha256": "f86829662ad756f34ea296cb9d8d2de520f3829f3d8da89a13cf4c5962577b2f",
+  "r3aReceiptContentSha256": "4bf2b63e64aaf5f0a63b1e44213273c9e269e14c44e34a1d6d6923662acce7ca",
+  "releaseBlocked": true,
+  "checks": [
+    {
+      "check": "prior_seal_compiler-io-inventory-review",
+      "passed": true
+    },
+    {
+      "check": "prior_output_compiler-io-inventory-review/REPORT.md",
+      "passed": true
+    },
+    {
+      "check": "prior_output_compiler-io-inventory-review/audit-receipt.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_compiler-io-inventory-review/audit_inventory.py",
+      "passed": true
+    },
+    {
+      "check": "prior_output_compiler-io-inventory-review/canonical-seal-verification.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_compiler-io-inventory-review/effective-pom-comparison.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_compiler-io-inventory-review/input-manifest.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_compiler-io-inventory-review/input-stability.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_compiler-io-inventory-review/owner-occurrence-inventories.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_compiler-io-inventory-review/toolchain-and-artifact-verification.json",
+      "passed": true
+    },
+    {
+      "check": "prior_seal_capture-2-review",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/REPORT.md",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/audit-receipt.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/audit_inventory.py",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/canonical-seal-verification.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/comparison-to-capture-1-models.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/effective-pom-comparison.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/input-manifest.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/input-stability.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/owner-occurrence-inventories.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/source-binding-and-closure.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/supplemental-current-cache-licenses.json",
+      "passed": true
+    },
+    {
+      "check": "prior_output_capture-2-review/toolchain-and-artifact-verification.json",
+      "passed": true
+    },
+    {
+      "check": "capture3_seal_hash",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/baseline-effective-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/baseline-effective-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/baseline-effective.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/baseline-effective.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/baseline-effective.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/baseline-effective.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/capture.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/capture.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/e2.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/e2.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/e2.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/e2.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/effective-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/effective-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/effective.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/effective.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/effective.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/effective.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/empty-settings.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/empty-settings.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/execution.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/execution.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/owners.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/owners.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/owners.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/owners.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/plugin-owner-report.txt",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/plugin-owner-report.txt",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/.github/workflows/approval-platform-validation.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/.github/workflows/approval-platform-validation.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/.github/workflows/backend-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/.github/workflows/backend-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/.github/workflows/connector-smoke-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/.github/workflows/connector-smoke-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/.github/workflows/frontend-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/.github/workflows/frontend-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/.github/workflows/generic-spring-host-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/.github/workflows/generic-spring-host-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/.github/workflows/mobile-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/.github/workflows/mobile-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/.github/workflows/ruoyi5-host-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/.github/workflows/ruoyi5-host-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/.github/workflows/ruoyi6-host-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/.github/workflows/ruoyi6-host-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/.github/workflows/web-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/.github/workflows/web-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/apps/server/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/apps/server/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/apps/server/src/test/resources/templates/m6c/valid-template-package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/apps/server/src/test/resources/templates/m6c/valid-template-package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_FOUNDATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_FOUNDATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_FOUNDATION_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_FOUNDATION_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS_EVIDENCE_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS_EVIDENCE_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_OPERATIONS_RUNBOOK.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_CONNECTOR_OPERATIONS_RUNBOOK.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_PRODUCTION_TRANSPORT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_PRODUCTION_TRANSPORT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_PRODUCTION_TRANSPORT_HARDENING.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_PRODUCTION_TRANSPORT_HARDENING.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_TOKEN_LIFECYCLE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_TOKEN_LIFECYCLE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_TOKEN_LIFECYCLE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_TOKEN_LIFECYCLE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_TRANSPORT_CONFORMANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_DINGTALK_TRANSPORT_CONFORMANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_FAULT_SECURITY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_FAULT_SECURITY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_FAULT_SECURITY_ACCEPTANCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_FAULT_SECURITY_ACCEPTANCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_FINAL_ACCEPTANCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_FINAL_ACCEPTANCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_GOVERNED_READ_ONLY_INVOCATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_GOVERNED_READ_ONLY_INVOCATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_GOVERNED_READ_ONLY_INVOCATION_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_GOVERNED_READ_ONLY_INVOCATION_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_NON_PRODUCTION_RELEASE_REHEARSAL.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_NON_PRODUCTION_RELEASE_REHEARSAL.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_POST_M5_REBASELINE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_POST_M5_REBASELINE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_PRODUCTION_BLOCKER_CATALOG.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_PRODUCTION_BLOCKER_CATALOG.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_PRODUCTION_INTEGRATION_GATE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_PRODUCTION_INTEGRATION_GATE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_PRODUCTION_SECRET_MATERIAL_SOURCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_PRODUCTION_SECRET_MATERIAL_SOURCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_PRODUCTION_SECRET_MATERIAL_SOURCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_PRODUCTION_SECRET_MATERIAL_SOURCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_SERVER_OWNED_CREDENTIAL_BINDING.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_SERVER_OWNED_CREDENTIAL_BINDING.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_TENANT_ROUTING.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_TENANT_ROUTING.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_A_TENANT_ROUTING_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_A_TENANT_ROUTING_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_B_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_B_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_B_FINAL_ACCEPTANCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_B_FINAL_ACCEPTANCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_B_G4_POST_MERGE_ACCEPTANCE_CORRECTION_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_B_G4_POST_MERGE_ACCEPTANCE_CORRECTION_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_B_POST_M6_A_REBASELINE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_B_POST_M6_A_REBASELINE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_B_SDK_EVENT_ECOSYSTEM_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_B_SDK_EVENT_ECOSYSTEM_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_CAPABILITY_GAP_AND_ROADMAP_REBASELINE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_CAPABILITY_GAP_AND_ROADMAP_REBASELINE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_C_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_C_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_C_TEMPLATE_COMPONENT_ECOSYSTEM_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_C_TEMPLATE_COMPONENT_ECOSYSTEM_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_C_TEMPLATE_FOUNDATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_C_TEMPLATE_FOUNDATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_C_TEMPLATE_FOUNDATION_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_C_TEMPLATE_FOUNDATION_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_D_AI_FOUNDATION_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_D_AI_FOUNDATION_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_D_COMPATIBILITY_AND_SECURITY_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_D_COMPATIBILITY_AND_SECURITY_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_D_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_D_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_D_G4_POST_MERGE_CORRECTIONS.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_D_G4_POST_MERGE_CORRECTIONS.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_D_PROVIDER_TRANSPORT_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_D_PROVIDER_TRANSPORT_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_D_RUNTIME_TRUST_ACTIVATION_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_D_RUNTIME_TRUST_ACTIVATION_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_APPROVAL_ASSISTANCE_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_APPROVAL_ASSISTANCE_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_APPROVAL_ASSISTANCE_THREAT_MODEL.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_APPROVAL_ASSISTANCE_THREAT_MODEL.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P0_REBASELINE_AND_THREAT_MODEL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P0_REBASELINE_AND_THREAT_MODEL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P1_SERVER_OWNED_CONTEXT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P1_SERVER_OWNED_CONTEXT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P2_BOUNDED_ADVISORY_CONTRACT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P2_BOUNDED_ADVISORY_CONTRACT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P3_SYNCHRONOUS_ORCHESTRATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P3_SYNCHRONOUS_ORCHESTRATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P4_DURABLE_EVIDENCE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P4_DURABLE_EVIDENCE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P5_READ_ONLY_API_AND_PRESENTATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P5_READ_ONLY_API_AND_PRESENTATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P6_A_OPENAI_PROVIDER_AUDIT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P6_A_OPENAI_PROVIDER_AUDIT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P6_B_OPENAI_SECRET_SOURCE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P6_B_OPENAI_SECRET_SOURCE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P6_C_OPENAI_CODEC_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P6_C_OPENAI_CODEC_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P6_D_OPENAI_SECURE_SENDER_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P6_D_OPENAI_SECURE_SENDER_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P6_E_PRODUCTION_INVOCATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P6_E_PRODUCTION_INVOCATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P6_F_FAULT_SECURITY_INCIDENT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P6_F_FAULT_SECURITY_INCIDENT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P6_F_OPENAI_INCIDENT_RUNBOOK.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P6_F_OPENAI_INCIDENT_RUNBOOK.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P6_OPENAI_PROVIDER_ACTIVATION_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P6_OPENAI_PROVIDER_ACTIVATION_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P7_CANONICAL_TENANT_EVIDENCE_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P7_CANONICAL_TENANT_EVIDENCE_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P7_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P7_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P7_FINAL_READY_REVIEW_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P7_FINAL_READY_REVIEW_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P7_FINAL_READY_REVIEW_CORRECTION_VALIDATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P7_FINAL_READY_REVIEW_CORRECTION_VALIDATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P7_READY_REACTION_STATUS_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P7_READY_REACTION_STATUS_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P7_REVIEW_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P7_REVIEW_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P7_REVIEW_CORRECTION_REBASELINE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P7_REVIEW_CORRECTION_REBASELINE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_P7_SECOND_READY_REVIEW_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_P7_SECOND_READY_REVIEW_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_E_R0_PRODUCTION_INVOCATION_REBASELINE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_E_R0_PRODUCTION_INVOCATION_REBASELINE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_ACTION_WHITELIST_DECISION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_ACTION_WHITELIST_DECISION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P0_EXISTING_COMMAND_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P0_EXISTING_COMMAND_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P1_TYPED_NON_EXECUTABLE_PROPOSAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P1_TYPED_NON_EXECUTABLE_PROPOSAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P2_FRESH_GOVERNANCE_EVALUATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P2_FRESH_GOVERNANCE_EVALUATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P3_EXPLICIT_CONFIRMATION_REAUTHENTICATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P3_EXPLICIT_CONFIRMATION_REAUTHENTICATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P4_DURABLE_LINEAGE_CAS_REPLAY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P4_DURABLE_LINEAGE_CAS_REPLAY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P6_A_AI_GOVERNANCE_INVENTORY_READ_ONLY_OPERATIONS_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P6_A_AI_GOVERNANCE_INVENTORY_READ_ONLY_OPERATIONS_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P6_B_PROVIDER_GOVERNANCE_PLAN_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P6_B_PROVIDER_GOVERNANCE_PLAN_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P6_C_SHARED_RUNTIME_CONTROL_HEALTH_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P6_C_SHARED_RUNTIME_CONTROL_HEALTH_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P6_D_PROCESS_LOCAL_USAGE_OBSERVABILITY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P6_D_PROCESS_LOCAL_USAGE_OBSERVABILITY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P6_E_DURABLE_GOVERNANCE_HISTORY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P6_E_DURABLE_GOVERNANCE_HISTORY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P6_F_COMPOSITE_INCIDENT_READINESS_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P6_F_COMPOSITE_INCIDENT_READINESS_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P7_ADVERSARIAL_FAULT_CONCURRENCY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P7_ADVERSARIAL_FAULT_CONCURRENCY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P7_ADVERSARIAL_FAULT_CONCURRENCY_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P7_ADVERSARIAL_FAULT_CONCURRENCY_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P8_G1_COMPLETENESS_PRODUCTION_READINESS_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P8_G1_COMPLETENESS_PRODUCTION_READINESS_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_P8_R0_FINAL_REBASELINE_SCOPE_FREEZE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_P8_R0_FINAL_REBASELINE_SCOPE_FREEZE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_R0_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_R0_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_F_R0_REBASELINE_AND_AUTHORITY_THREAT_MODEL.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_F_R0_REBASELINE_AND_AUTHORITY_THREAT_MODEL.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_G_CROSS_WORKSTREAM_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_G_CROSS_WORKSTREAM_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_G_G1_BLOCKER_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_G_G1_BLOCKER_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_G_PRODUCTION_READINESS_BLOCKER_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_G_PRODUCTION_READINESS_BLOCKER_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_G_REBASELINE_AND_SCOPE_FREEZE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_G_REBASELINE_AND_SCOPE_FREEZE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_OVERALL_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_OVERALL_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E0_SECURITY_DEPENDENCY_REBASELINE_AND_THREAT_MODEL.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E0_SECURITY_DEPENDENCY_REBASELINE_AND_THREAT_MODEL.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E2_DETERMINISTIC_DEPENDENCY_GRAPH_AND_SBOM.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E2_DETERMINISTIC_DEPENDENCY_GRAPH_AND_SBOM.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_DESIGNER_PROTOTYPE_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_DESIGNER_PROTOTYPE_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_E4_SCANNER_FINDING_INTAKE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_E4_SCANNER_FINDING_INTAKE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_I2_SEMGREP_SOURCE_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_I2_SEMGREP_SOURCE_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_I3_OSV_RUNTIME_DEPLOYMENT_PRECONDITION_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_I3_OSV_RUNTIME_DEPLOYMENT_PRECONDITION_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_I4_WORKFLOW_SUPPLY_CHAIN_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_I4_WORKFLOW_SUPPLY_CHAIN_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R1_PGJDBC_SECURITY_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R1_PGJDBC_SECURITY_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2A_DEPENDABOT_COOLDOWN_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2A_DEPENDABOT_COOLDOWN_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_RUN_1433_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_RUN_1433_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_RUN_1434_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_RUN_1434_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_RUN_1435_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_RUN_1435_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_WORKFLOW_SUPPLY_CHAIN_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R2B_WORKFLOW_SUPPLY_CHAIN_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3A_CI_JAR_MATERIALIZATION_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3A_CI_JAR_MATERIALIZATION_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3A_ENVIRONMENT_SCOPE_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3A_ENVIRONMENT_SCOPE_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3A_OSV_DRIFT_APPLICABILITY.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3A_OSV_DRIFT_APPLICABILITY.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3B_OSV_DRIFT_EVIDENCE_RETENTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3B_OSV_DRIFT_EVIDENCE_RETENTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3C_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_R3C_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E3_VULNERABILITY_APPLICABILITY_AND_REACHABILITY.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E3_VULNERABILITY_APPLICABILITY_AND_REACHABILITY.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_E4_CODE_SECRET_DEPENDENCY_SCANNING_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_E4_CODE_SECRET_DEPENDENCY_SCANNING_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_OSV_DATABASE_DRIFT_FAIL_CLOSED_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_OSV_DATABASE_DRIFT_FAIL_CLOSED_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_SECURITY_EVIDENCE_SOURCE_CONTRACT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_SECURITY_EVIDENCE_SOURCE_CONTRACT.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_E_SECURITY_OWNERSHIP_AND_REMEDIATION_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_E_SECURITY_OWNERSHIP_AND_REMEDIATION_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_PR_R0_BLOCKER_REBASELINE_AND_REMEDIATION_SEQUENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_PR_R0_BLOCKER_REBASELINE_AND_REMEDIATION_SEQUENCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/M6_R1_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/M6_R1_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/hygiene-java21-workflow-transition.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/hygiene-java21-workflow-transition.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e2-action-resolution-baseline.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e2-action-resolution-baseline.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e2-sbom.schema.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e2-sbom.schema.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-designer-prototype-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-designer-prototype-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-finding-source-baseline.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-finding-source-baseline.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-gitleaks-public-commit-review.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-gitleaks-public-commit-review.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-gitleaks-test-expression-review.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-gitleaks-test-expression-review.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-i2-reviewed-findings.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-i2-reviewed-findings.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-i3-reviewed-findings.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-i3-reviewed-findings.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-i4-reviewed-findings.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-i4-reviewed-findings.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r1-pgjdbc-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r1-pgjdbc-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r2a-dependabot-cooldown-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r2a-dependabot-cooldown-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r2b-scanner-identity-reconciliation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r2b-scanner-identity-reconciliation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r2b-semgrep-finding-identity-transition.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r2b-semgrep-finding-identity-transition.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r2b-workflow-supply-chain-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r2b-workflow-supply-chain-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r3a-current-source-transition.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r3a-current-source-transition.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r3a-osv-drift-review.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r3a-osv-drift-review.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r3c-osv-identity-reconciliation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r3c-osv-identity-reconciliation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r4-osv-preparation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r4-osv-preparation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r4-server-advisories.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r4-server-advisories.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r4-server-dependency-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e3-r4-server-dependency-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-e4-scanner-baseline.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-e4-scanner-baseline.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/m6-pr-e-security-evidence-envelope.schema.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/m6-pr-e-security-evidence-envelope.schema.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/m6/maven-toolchain-transition.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/m6/maven-toolchain-transition.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/operations/clean-plugin-evidence/accepted-main-1834-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/operations/clean-plugin-evidence/accepted-main-1834-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/operations/clean-plugin-evidence/precommit-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/operations/clean-plugin-evidence/precommit-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/operations/compiler-plugin-evidence/baseline-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/operations/compiler-plugin-evidence/baseline-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/docs/operations/compiler-plugin-evidence/candidate-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/docs/operations/compiler-plugin-evidence/candidate-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/examples/connector-smoke/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/examples/connector-smoke/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/examples/generic-spring-host/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/examples/generic-spring-host/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/integrations/host-sdk/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/integrations/host-sdk/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/integrations/ruoyi5-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/integrations/ruoyi5-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/integrations/ruoyi6-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/integrations/ruoyi6-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/packages/approval-sdk/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/packages/approval-sdk/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/packages/contracts/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/packages/contracts/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/packages/form-schema/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/packages/form-schema/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/packages/process-dsl/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/packages/process-dsl/package.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/clean_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/clean_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/compiler_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/compiler_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/maven-toolchain.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/maven-toolchain.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/select-java21.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/select-java21.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/select-persistence-jdbc-tests.sh",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/select-persistence-jdbc-tests.sh",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/setup-maven.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/setup-maven.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/verify-clean-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/verify-clean-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/verify-compiler-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/verify-compiler-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/verify-persistence-jdbc-shards.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/verify-persistence-jdbc-shards.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/verify-release-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/verify-release-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/verify-server-dependency-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/verify-server-dependency-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/ci/verify-site-dependency-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/ci/verify-site-dependency-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/build-plugin-jackson-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/build-plugin-jackson-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/clean-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/clean-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/compiler-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/compiler-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/compiler-plugin-source-continuation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/compiler-plugin-source-continuation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/hygiene-java21-workflow-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/hygiene-java21-workflow-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e2-generate-sbom.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e2-generate-sbom.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-apply-reviewed-findings-with-identity-transitions.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-apply-reviewed-findings-with-identity-transitions.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-apply-reviewed-findings.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-apply-reviewed-findings.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-apply-runtime-deployment-reviews.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-apply-runtime-deployment-reviews.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-apply-workflow-supply-chain-reviews.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-apply-workflow-supply-chain-reviews.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-ingest-e4.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-ingest-e4.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-r3a-review-osv-drift.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-r3a-review-osv-drift.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-reconcile-current-osv-drift.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-reconcile-current-osv-drift.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-review-current-osv-r3c.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-review-current-osv-r3c.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-review-gitleaks-public-commit.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-review-gitleaks-public-commit.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-review-gitleaks-test-expression.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-review-gitleaks-test-expression.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-dependabot-cooldown-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-dependabot-cooldown-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-designer-prototype-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-designer-prototype-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-pgjdbc-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-pgjdbc-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-server-dependency-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-server-dependency-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-generic.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-generic.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/m6-pr-e-e4-scan.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/m6-pr-e-e4-scan.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/maven-workflow-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/maven-workflow-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/observability-dependency-graph.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/observability-dependency-graph.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/osv-scan-coverage.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/osv-scan-coverage.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/release-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/release-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/scanner-evidence-provenance.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/scanner-evidence-provenance.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/scanner-report-structure.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/scanner-report-structure.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/semgrep-scan-coverage.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/semgrep-scan-coverage.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/server-dependency-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/server-dependency-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/scripts/security/site-dependency-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/scripts/security/site-dependency-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-ai-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-ai-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-ai-openai/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-ai-openai/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-ai-spi/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-ai-spi/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-application/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-application/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-architecture-tests/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-architecture-tests/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-connector-credential-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-connector-credential-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-connector-dingtalk/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-connector-dingtalk/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-connector-dingtalk-http/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-connector-dingtalk-http/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-connector-dingtalk-token/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-connector-dingtalk-token/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-connector-generic/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-connector-generic/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-connector-invocation-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-connector-invocation-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-connector-operations-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-connector-operations-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-connector-routing-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-connector-routing-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-connector-spi/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-connector-spi/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-definition-compiler/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-definition-compiler/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-domain/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-domain/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-engine-flowable/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-engine-flowable/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-engine-spi/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-engine-spi/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-integration-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-integration-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-integration-jdbc/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-integration-jdbc/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/approval-persistence-jdbc/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/approval-persistence-jdbc/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3/source-inputs/server-modules/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3/source-inputs/server-modules/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3.py",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3.py",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3-comparison.json",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3-comparison.json",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3-model-comparison.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3-model-comparison.stdout",
+      "passed": true
+    },
+    {
+      "check": "seal_safe_unique_capture-3-model-comparison.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_bytes_capture-3-model-comparison.stderr",
+      "passed": true
+    },
+    {
+      "check": "seal_254_files",
+      "passed": true
+    },
+    {
+      "check": "capture_directory_fully_sealed",
+      "passed": true
+    },
+    {
+      "check": "seal_identity",
+      "passed": true
+    },
+    {
+      "check": "manifest_hash_bound",
+      "passed": true
+    },
+    {
+      "check": "source_identity_all_records",
+      "passed": true
+    },
+    {
+      "check": "39_changed_source_files",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-compatibility.md",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-compatibility.md",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-evidence/baseline-E2.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-evidence/baseline-E2.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-evidence/baseline-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-evidence/baseline-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-evidence/candidate-E2.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-evidence/candidate-E2.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-evidence/candidate-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-evidence/candidate-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-evidence/capture-execution.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-evidence/capture-execution.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-evidence/capture.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-evidence/capture.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-evidence/plugin-owner-report.txt",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-evidence/plugin-owner-report.txt",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-evidence/preserved-clean-lineage.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-evidence/preserved-clean-lineage.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-evidence/source-witness.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-evidence/source-witness.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_docs/operations/compiler-plugin-transition.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_docs/operations/compiler-plugin-transition.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_pom.xml",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_pom.xml",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/ci/clean_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/ci/clean_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/ci/compiler_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/ci/compiler_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/ci/verify-compiler-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/ci/verify-compiler-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/ci/verify-release-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/ci/verify-release-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/security/clean-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/security/clean-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/security/compiler-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/security/compiler-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/security/compiler-plugin-source-continuation.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/security/compiler-plugin-source-continuation.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/security/m6-pr-e-e3-r3a-review-osv-drift.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/security/m6-pr-e-e3-r3a-review-osv-drift.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/security/m6-pr-e-e3-verify-server-dependency-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/security/m6-pr-e-e3-verify-server-dependency-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/security/observability-dependency-graph.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/security/observability-dependency-graph.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/clean-plugin-graph-transition.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/clean-plugin-graph-transition.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/compiler-plugin-baseline.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/compiler-plugin-baseline.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/compiler-plugin-graph-transition.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/compiler-plugin-graph-transition.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/compiler-plugin-live-compatibility.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/compiler-plugin-live-compatibility.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/fixtures/CompilerRealmObserver.java",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/fixtures/CompilerRealmObserver.java",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/fixtures/CompilerSharedIoProbe.java",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/fixtures/CompilerSharedIoProbe.java",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/fixtures/compiler-artifact-hashes.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/fixtures/compiler-artifact-hashes.json",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/fixtures/compiler-plugin-fixture.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/fixtures/compiler-plugin-fixture.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/fixtures/run_compiler_live_compatibility.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/fixtures/run_compiler_live_compatibility.py",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/m6-ai-transport-review-boundary.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/m6-ai-transport-review-boundary.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/m6-pr-e-e3-designer-prototype-remediation.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/m6-pr-e-e3-designer-prototype-remediation.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/m6-pr-e-e3-r3a-current-source.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/m6-pr-e-e3-r3a-current-source.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/ops-observability-otel-graph.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/ops-observability-otel-graph.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/ops-observability-scanner-binding.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/ops-observability-scanner-binding.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/server-dependency-graph-transition.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/server-dependency-graph-transition.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_file_scripts/tests/server-dependency-remediation.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "manifest_baseline_scripts/tests/server-dependency-remediation.test.mjs",
+      "passed": true
+    },
+    {
+      "check": "all_2450_committed_source_files_match",
+      "passed": true
+    },
+    {
+      "check": "full_tree_sha_reconstructed",
+      "passed": true
+    },
+    {
+      "check": "raw_commit_object_hash",
+      "passed": true
+    },
+    {
+      "check": "raw_commit_tree_parent",
+      "passed": true
+    },
+    {
+      "check": "patch_hash_bound",
+      "passed": true
+    },
+    {
+      "check": "snapshot_.github/workflows/approval-platform-validation.yml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_.github/workflows/backend-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_.github/workflows/connector-smoke-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_.github/workflows/frontend-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_.github/workflows/generic-spring-host-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_.github/workflows/mobile-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_.github/workflows/ruoyi5-host-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_.github/workflows/ruoyi6-host-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_.github/workflows/web-ci.yml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_apps/server/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_apps/server/src/test/resources/templates/m6c/valid-template-package.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_CONNECTOR_FOUNDATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_CONNECTOR_FOUNDATION_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_CONNECTOR_OPERATIONS_DIAGNOSTICS_EVIDENCE_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_CONNECTOR_OPERATIONS_RUNBOOK.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_DINGTALK_PRODUCTION_TRANSPORT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_DINGTALK_PRODUCTION_TRANSPORT_HARDENING.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_DINGTALK_TOKEN_LIFECYCLE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_DINGTALK_TOKEN_LIFECYCLE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_DINGTALK_TRANSPORT_CONFORMANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_FAULT_SECURITY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_FAULT_SECURITY_ACCEPTANCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_FINAL_ACCEPTANCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_GOVERNED_READ_ONLY_INVOCATION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_GOVERNED_READ_ONLY_INVOCATION_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_NON_PRODUCTION_RELEASE_REHEARSAL.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_POST_M5_REBASELINE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_PRODUCTION_BLOCKER_CATALOG.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_PRODUCTION_INTEGRATION_GATE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_PRODUCTION_SECRET_MATERIAL_SOURCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_PRODUCTION_SECRET_MATERIAL_SOURCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_SERVER_OWNED_CREDENTIAL_BINDING.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_TENANT_ROUTING.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_A_TENANT_ROUTING_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_B_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_B_FINAL_ACCEPTANCE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_B_G4_POST_MERGE_ACCEPTANCE_CORRECTION_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_B_POST_M6_A_REBASELINE_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_B_SDK_EVENT_ECOSYSTEM_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_CAPABILITY_GAP_AND_ROADMAP_REBASELINE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_C_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_C_TEMPLATE_COMPONENT_ECOSYSTEM_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_C_TEMPLATE_FOUNDATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_C_TEMPLATE_FOUNDATION_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_D_AI_FOUNDATION_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_D_COMPATIBILITY_AND_SECURITY_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_D_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_D_G4_POST_MERGE_CORRECTIONS.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_D_PROVIDER_TRANSPORT_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_D_RUNTIME_TRUST_ACTIVATION_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_APPROVAL_ASSISTANCE_BOOTSTRAP.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_APPROVAL_ASSISTANCE_THREAT_MODEL.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P0_REBASELINE_AND_THREAT_MODEL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P1_SERVER_OWNED_CONTEXT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P2_BOUNDED_ADVISORY_CONTRACT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P3_SYNCHRONOUS_ORCHESTRATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P4_DURABLE_EVIDENCE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P5_READ_ONLY_API_AND_PRESENTATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P6_A_OPENAI_PROVIDER_AUDIT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P6_B_OPENAI_SECRET_SOURCE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P6_C_OPENAI_CODEC_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P6_D_OPENAI_SECURE_SENDER_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P6_E_PRODUCTION_INVOCATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P6_F_FAULT_SECURITY_INCIDENT_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P6_F_OPENAI_INCIDENT_RUNBOOK.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P6_OPENAI_PROVIDER_ACTIVATION_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P7_CANONICAL_TENANT_EVIDENCE_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P7_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P7_FINAL_READY_REVIEW_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P7_FINAL_READY_REVIEW_CORRECTION_VALIDATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P7_READY_REACTION_STATUS_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P7_REVIEW_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P7_REVIEW_CORRECTION_REBASELINE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_P7_SECOND_READY_REVIEW_CORRECTION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_E_R0_PRODUCTION_INVOCATION_REBASELINE_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_ACTION_WHITELIST_DECISION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P0_EXISTING_COMMAND_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P1_TYPED_NON_EXECUTABLE_PROPOSAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P2_FRESH_GOVERNANCE_EVALUATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P3_EXPLICIT_CONFIRMATION_REAUTHENTICATION_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P4_DURABLE_LINEAGE_CAS_REPLAY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P6_A_AI_GOVERNANCE_INVENTORY_READ_ONLY_OPERATIONS_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P6_B_PROVIDER_GOVERNANCE_PLAN_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P6_C_SHARED_RUNTIME_CONTROL_HEALTH_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P6_D_PROCESS_LOCAL_USAGE_OBSERVABILITY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P6_E_DURABLE_GOVERNANCE_HISTORY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P6_F_COMPOSITE_INCIDENT_READINESS_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P7_ADVERSARIAL_FAULT_CONCURRENCY_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P7_ADVERSARIAL_FAULT_CONCURRENCY_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P8_G1_COMPLETENESS_PRODUCTION_READINESS_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_P8_R0_FINAL_REBASELINE_SCOPE_FREEZE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_R0_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_F_R0_REBASELINE_AND_AUTHORITY_THREAT_MODEL.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_G_CROSS_WORKSTREAM_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_G_END_TO_END_PRODUCTION_READINESS_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_G_G1_BLOCKER_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_G_PRODUCTION_READINESS_BLOCKER_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_G_REBASELINE_AND_SCOPE_FREEZE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_OVERALL_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E0_SECURITY_DEPENDENCY_REBASELINE_AND_THREAT_MODEL.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E2_DETERMINISTIC_DEPENDENCY_GRAPH_AND_SBOM.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_DESIGNER_PROTOTYPE_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_E4_SCANNER_FINDING_INTAKE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_I2_SEMGREP_SOURCE_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_I3_OSV_RUNTIME_DEPLOYMENT_PRECONDITION_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_I4_WORKFLOW_SUPPLY_CHAIN_AUDIT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R1_PGJDBC_SECURITY_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R2A_DEPENDABOT_COOLDOWN_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R2B_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R2B_RUN_1433_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R2B_RUN_1434_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R2B_RUN_1435_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R2B_WORKFLOW_SUPPLY_CHAIN_REMEDIATION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R3A_CI_JAR_MATERIALIZATION_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R3A_ENVIRONMENT_SCOPE_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R3A_OSV_DRIFT_APPLICABILITY.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R3B_OSV_DRIFT_EVIDENCE_RETENTION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_R3C_FINAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E3_VULNERABILITY_APPLICABILITY_AND_REACHABILITY.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_E4_CODE_SECRET_DEPENDENCY_SCANNING_EVIDENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_OSV_DATABASE_DRIFT_FAIL_CLOSED_CORRECTION.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_SECURITY_EVIDENCE_SOURCE_CONTRACT.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_E_SECURITY_OWNERSHIP_AND_REMEDIATION_MATRIX.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_PR_R0_BLOCKER_REBASELINE_AND_REMEDIATION_SEQUENCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/M6_R1_FORMAL_ACCEPTANCE.md",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/hygiene-java21-workflow-transition.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e2-action-resolution-baseline.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e2-sbom.schema.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-designer-prototype-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-finding-source-baseline.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-gitleaks-public-commit-review.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-gitleaks-test-expression-review.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-i2-reviewed-findings.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-i3-reviewed-findings.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-i4-reviewed-findings.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r1-pgjdbc-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r2a-dependabot-cooldown-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r2b-scanner-identity-reconciliation.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r2b-semgrep-finding-identity-transition.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r2b-workflow-supply-chain-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r3a-current-source-transition.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r3a-osv-drift-review.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r3c-osv-identity-reconciliation.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r4-osv-preparation.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r4-server-advisories.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e3-r4-server-dependency-remediation.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-e4-scanner-baseline.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/m6-pr-e-security-evidence-envelope.schema.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/m6/maven-toolchain-transition.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/operations/clean-plugin-evidence/accepted-main-1834-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/operations/clean-plugin-evidence/precommit-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/operations/compiler-plugin-evidence/baseline-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_docs/operations/compiler-plugin-evidence/candidate-root-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_examples/connector-smoke/package.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_examples/generic-spring-host/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_integrations/host-sdk/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_integrations/ruoyi5-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_integrations/ruoyi6-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_package.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_packages/approval-sdk/package.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_packages/contracts/package.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_packages/form-schema/package.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_packages/process-dsl/package.json",
+      "passed": true
+    },
+    {
+      "check": "snapshot_pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/clean_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/compiler_plugin_contract.py",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/maven-toolchain.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/select-java21.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/select-persistence-jdbc-tests.sh",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/setup-maven.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/verify-clean-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/verify-compiler-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/verify-persistence-jdbc-shards.py",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/verify-release-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/verify-server-dependency-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/ci/verify-site-dependency-plugin-baseline.py",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/build-plugin-jackson-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/clean-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/compiler-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/compiler-plugin-source-continuation.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/hygiene-java21-workflow-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e2-generate-sbom.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-apply-reviewed-findings-with-identity-transitions.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-apply-reviewed-findings.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-apply-runtime-deployment-reviews.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-apply-workflow-supply-chain-reviews.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-ingest-e4.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-r3a-review-osv-drift.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-reconcile-current-osv-drift.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-review-current-osv-r3c.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-review-gitleaks-public-commit.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-review-gitleaks-test-expression.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-verify-dependabot-cooldown-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-verify-designer-prototype-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-verify-pgjdbc-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-verify-server-dependency-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-accepted.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation-generic.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e3-verify-workflow-supply-chain-remediation.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/m6-pr-e-e4-scan.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/maven-workflow-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/observability-dependency-graph.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/osv-scan-coverage.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/release-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/scanner-evidence-provenance.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/scanner-report-structure.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/semgrep-scan-coverage.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/server-dependency-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_scripts/security/site-dependency-plugin-graph-transition.mjs",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-ai-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-ai-openai/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-ai-spi/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-application/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-architecture-tests/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-connector-credential-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-connector-dingtalk-http/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-connector-dingtalk-token/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-connector-dingtalk/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-connector-generic/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-connector-invocation-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-connector-operations-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-connector-routing-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-connector-spi/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-definition-compiler/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-domain/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-engine-flowable/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-engine-spi/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-integration-core/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-integration-jdbc/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/approval-persistence-jdbc/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "snapshot_server-modules/pom.xml",
+      "passed": true
+    },
+    {
+      "check": "236_snapshot_selection_complete",
+      "passed": true
+    },
+    {
+      "check": "all_32_pom_snapshots_bound",
+      "passed": true
+    },
+    {
+      "check": "collector_hash",
+      "passed": true
+    },
+    {
+      "check": "collector_before_after_source_assertions",
+      "passed": true
+    },
+    {
+      "check": "collector_success_flags",
+      "passed": true
+    },
+    {
+      "check": "collector_snapshots_before_commands",
+      "passed": true
+    },
+    {
+      "check": "current_e2_head_and_digest",
+      "passed": true
+    },
+    {
+      "check": "all_e2_payload_fields_equal_except_identity",
+      "passed": true
+    },
+    {
+      "check": "canonical_baseline_e2_digest",
+      "passed": true
+    },
+    {
+      "check": "full_application_graph_equal_to_ci1836",
+      "passed": true
+    },
+    {
+      "check": "baseline_raw_owner_binding",
+      "passed": true
+    },
+    {
+      "check": "raw_owner_hash_and_prior_identity",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_1_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_2_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_3_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_4_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_5_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_6_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_7_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_8_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_9_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_10_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_11_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_12_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_13_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_14_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_15_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_16_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_17_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_18_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_19_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_20_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_21_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_22_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_23_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_24_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_25_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-release-plugin:jar:3.3.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-site-plugin:jar:3.22.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-surefire-plugin:jar:3.5.5",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-jar-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-clean-plugin:jar:3.2.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-install-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-dependency-plugin:jar:3.11.0",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-deploy-plugin:jar:3.1.4",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+      "passed": true
+    },
+    {
+      "check": "owner_occurrence_26_org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0",
+      "passed": true
+    },
+    {
+      "check": "complete_owner_inventory",
+      "passed": true
+    },
+    {
+      "check": "only_global_211_removed",
+      "passed": true
+    },
+    {
+      "check": "effective_model_exact_prior_after_capture_path_effective-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "effective_model_exact_prior_after_capture_path_baseline-effective-pom.xml",
+      "passed": true
+    },
+    {
+      "check": "all_26_models_retained",
+      "passed": true
+    },
+    {
+      "check": "actual_capture_command_e2",
+      "passed": true
+    },
+    {
+      "check": "actual_capture_command_owners",
+      "passed": true
+    },
+    {
+      "check": "actual_capture_command_effective",
+      "passed": true
+    },
+    {
+      "check": "actual_capture_command_baseline-effective",
+      "passed": true
+    },
+    {
+      "check": "e2_four_module_closure_unchanged",
+      "passed": true
+    },
+    {
+      "check": "complete_query_target_ref_scope_identity",
+      "passed": true
+    },
+    {
+      "check": "retained_scanner_input_complete_unique",
+      "passed": true
+    },
+    {
+      "check": "exact_equivalent_scanner_bytes",
+      "passed": true
+    },
+    {
+      "check": "exact_direct_query_bytes",
+      "passed": true
+    },
+    {
+      "check": "all_retained_target_attribution_matches",
+      "passed": true
+    },
+    {
+      "check": "same_query_helper_source",
+      "passed": true
+    },
+    {
+      "check": "query_helper_excludes_commit_identity",
+      "passed": true
+    },
+    {
+      "check": "graph_digest_same_query_and_final",
+      "passed": true
+    },
+    {
+      "check": "query_plan_original_provenance_retained",
+      "passed": true
+    },
+    {
+      "check": "r3a_collector_hash",
+      "passed": true
+    },
+    {
+      "check": "r3a_real_command_receipt",
+      "passed": true
+    },
+    {
+      "check": "r3a_command_exact_source_path",
+      "passed": true
+    },
+    {
+      "check": "r3a_receipt_digest",
+      "passed": true
+    },
+    {
+      "check": "r3a_exact_committed_checkout",
+      "passed": true
+    },
+    {
+      "check": "r3a_current_e2_and_graph_bind",
+      "passed": true
+    },
+    {
+      "check": "r3a_compiler_lineage_binding",
+      "passed": true
+    },
+    {
+      "check": "r3a_exact_delta_counters",
+      "passed": true
+    },
+    {
+      "check": "r3a_contracts_digest",
+      "passed": true
+    },
+    {
+      "check": "r3a_historical_review_exact",
+      "passed": true
+    },
+    {
+      "check": "r3a_decision_current_no_scanner_or_release_claim",
+      "passed": true
+    },
+    {
+      "check": "r3a_plugin_report_hash_GHSA-hf6x-8p5f-cgmf",
+      "passed": true
+    },
+    {
+      "check": "r3a_owner_attribution_org.springframework.boot:spring-boot-maven-plugin:jar:4.0.8",
+      "passed": true
+    },
+    {
+      "check": "r3a_httpcore_stays_unresolved",
+      "passed": true
+    },
+    {
+      "check": "r3a_tomcat_path_in_full_current_e2",
+      "passed": true
+    },
+    {
+      "check": "r3a_current_retained_jar_static_corroboration",
+      "passed": true
+    },
+    {
+      "check": "r3a_observation_not_finding_transfer",
+      "passed": true
+    },
+    {
+      "check": "r3a_committed_production_marker_scan",
+      "passed": true,
+      "details": {
+        "inspectedFiles": 1365,
+        "over2MiBSkipped": []
+      }
+    },
+    {
+      "check": "r3a_tool_release-recovery-tools/apache-maven-3.9.16/bin/mvn",
+      "passed": true
+    },
+    {
+      "check": "r3a_tool_release-recovery-tools/apache-maven-3.9.16/boot/plexus-classworlds-2.11.0.jar",
+      "passed": true
+    },
+    {
+      "check": "r3a_tool_release-recovery-tools/apache-maven-3.9.16/lib/maven-core-3.9.16.jar",
+      "passed": true
+    },
+    {
+      "check": "r3a_tool_release-recovery-tools/jdk-21.0.12.1+1/bin/java",
+      "passed": true
+    },
+    {
+      "check": "r3a_tool_release-recovery-tools/jdk-21.0.12.1+1/bin/javac",
+      "passed": true
+    },
+    {
+      "check": "r3a_tool_release-recovery-tools/jdk-21.0.12.1+1/bin/javap",
+      "passed": true
+    },
+    {
+      "check": "r3a_tool_release-recovery-tools/jdk-21.0.12.1+1/lib/modules",
+      "passed": true
+    },
+    {
+      "check": "r3a_runner_clean_source_brackets",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Exact local committed-source capture and query-input continuation only; no public/final natural-CI or scanner acceptance.",
+    "Raw application and R3A internal Maven dependency-tree outputs remain ephemeral and absent.",
+    "Capture-time whole Node runtime and Maven artifact cache were not frozen; current byte corroboration remains supplemental.",
+    "Query reuse preserves original direct-API diagnostic provenance and timing. No new scanner/current-freshness conclusion follows.",
+    "Prior capture-1/capture-2 reviews and their stated limits remain unchanged."
+  ]
+}
