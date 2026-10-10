@@ -1,0 +1,101 @@
+{
+  "allOriginalFilesPreserved": true,
+  "allPagesComplete": true,
+  "baseline": {
+    "e4BytesSha256": "6056c1e11e396a488d1b72b42156262c723255e701baa7e3fd2b01c36698971f",
+    "e4ContentSha256": "7276f778a8327d0092a66e04c6620984be8d2516de22e58e0f2f691ec43bc0ac",
+    "graphDigest": "255008a8cf1b3d57182cdd47c680aad7e484b027f23ae5e3a19590791732d950",
+    "head": "0c55ff5e7d974022e5c76d9a88a4312d2af81827"
+  },
+  "candidate": {
+    "acceptedGraphDigest": "92f6b10a9fd199bbea69ce3a1bc743b77b00990b1e7ec4b1ca695407da7c91fe",
+    "capture2SealSha256": "aa0f5d8e59b90e6f773611e47a9b89420093d803ba0d151eb72d3c94da17e141",
+    "capture3AcceptedGraphAndAllQueryInputsEqual": true,
+    "capture3Head": "b94b8c08c27dc9f43de4aba3699b2559df420c5f",
+    "capture3SealSha256": "c98a3d570843ccfc97dd09894c6bad1e1d81b2c25c0138c83edcdf9c496bcba0",
+    "capture3Tree": "aab0392eb4f10561a6fa2ea52b22dba6c452ebd1",
+    "commitTreeBindingSeparatelyReviewed": true,
+    "sourceBaseHead": "0c55ff5e7d974022e5c76d9a88a4312d2af81827",
+    "sourceHelperBytesEqual": true
+  },
+  "claims": {
+    "acceptedInputReuse": true,
+    "canonicalE4": false,
+    "exactHeadScannerRun": false,
+    "graphAdmission": false,
+    "normalizedRecordDriftObserved": false,
+    "rawBaselineAdvisoryDriftExcluded": false,
+    "releaseClearance": false,
+    "reviewDispositionTransfer": false,
+    "scannerCliExecuted": false,
+    "subMicrosecondDriftExcluded": false
+  },
+  "comparison": {
+    "added": 0,
+    "changed": 0,
+    "current": 22,
+    "prior": 23,
+    "removed": 1,
+    "unchanged": 22
+  },
+  "continuationHttpCount": 14,
+  "counts": {
+    "affectedPackageTargetCount": 20,
+    "completeResultPackageCount": 473,
+    "inputPackageCount": 473,
+    "queriedPackageCount": 473,
+    "queryAdvisoryTupleCount": 22,
+    "uniqueAdvisoryDetailCount": 15,
+    "zeroFindingPackageTargetCount": 453
+  },
+  "findingsCanonicalSha256": "d93453b7b6e975e73769164603efdcf4ca05366c71f47c3cd9d93cae8294bc23",
+  "getCount": 15,
+  "http200Count": 16,
+  "httpRequestCount": 16,
+  "initialHttpCount": 2,
+  "initialIncompleteAttemptRetained": true,
+  "limitations": [
+    "OSV direct-API query and hydrated details are diagnostic evidence; no scanner CLI or canonical E4 was executed.",
+    "CI1836 retains normalized records, not raw advisory bodies; absence of drift is established only across all retained normalized fields. Raw metadata changes cannot be excluded.",
+    "Every current modified timestamp agrees at the six fractional digits returned by querybatch. This does not establish exact nanosecond equality or exclude a change inside the unreported sub-microsecond interval.",
+    "Capture3 accepted projection, full query/ref/scope inventory and helper bytes equal capture2. This enables bounded input reuse, not a claim that the API call ran on commit b94b8c08. Full commit/tree/source binding remains the separate review boundary.",
+    "Fixed versions are the union of all matching ecosystem/name affected entries, as the frozen normalizer specifies. They do not by themselves establish the correct upgrade branch, runtime applicability, exploitability or release readiness."
+  ],
+  "originalDiagnosticSealSha256": "d52a400656f499afcd37ff076a5a97be2a344127ffbf4b03a5eb335cfe2882c0",
+  "postCount": 1,
+  "precision": {
+    "batchFractionDigits": 6,
+    "detailFractionDigits": 9,
+    "exactTimestampEquality": false,
+    "matchingAtBatchPrecision": 15,
+    "maximumAdditionalNanoseconds": 934
+  },
+  "queryBytes": 47016,
+  "querySha256": "a506047c17a16eb0c8b34263bd150e7ccc6ebed3e367883d3e4d4eba9320b7d9",
+  "retriesObserved": 0,
+  "reviewedAtUtc": "2026-10-10T04:02:32.161Z",
+  "schemaVersion": "INDEPENDENT_COMPILER_OSV_DIAGNOSTIC_AUDIT_V1",
+  "sourceHelpers": {
+    "m6-pr-e-e2-generate-sbom.mjs": "a974b4c07eaf40c6c440415af11d50f8f5da22ec33c7789080de042b3b46dc7f",
+    "m6-pr-e-e4-scan.mjs": "04d601d05b22a50b8d6bf2888e480ffd1ed9be88ab55bd99b3c094d5e70b0873",
+    "osv-scan-coverage.mjs": "0053f5d507cfb7f9d742fbad84555944c3a4b9c56b376136f41c035f737d1cad",
+    "scanner-report-structure.mjs": "5b1f34657fef399aac32ce0b82f8422c0310a7a022a6b26f7d222046ca1ecf02"
+  },
+  "status": "PASS_BOUNDED_DIRECT_API_DIAGNOSTIC",
+  "transportChecks": [
+    {
+      "config": "transport-config.json",
+      "noRedirects": true,
+      "noRetries": true,
+      "scriptSha256": "ec1e261a2e75a5c51a3eca71902db91aef5f7c81b36b4abf0c660107b69a2097",
+      "tlsVerifiedAsRecorded": true
+    },
+    {
+      "config": "transport-config.continuation.json",
+      "noRedirects": true,
+      "noRetries": true,
+      "scriptSha256": "3a216127bfa35a53c9549da7e58fb9e70d6ec40ac68798671ec8e3503eaf3b83",
+      "tlsVerifiedAsRecorded": true
+    }
+  ]
+}

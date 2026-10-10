@@ -168,6 +168,17 @@ def verify_other_plugins(project, effective=False):
 def verify_source(root):
     root = root.resolve()
     projects = reactor(root)
+    compiler = run_path(str(Path(__file__).with_name("compiler_plugin_contract.py")))
+    compiler["verify_source"](root, projects)
+    historical = [(path, compiler["before_compiler"](project) if path == root / "pom.xml" else project)
+                  for path, project in projects]
+    verify_source_before_compiler(root, historical)
+    return projects
+
+
+def verify_source_before_compiler(root, projects):
+    # The successor removes only validated Compiler additions before the exact
+    # original Release/Clean ownership checks. No old allowance is broadened.
     root_project = projects[0][1]
     verify_pins(root_project)
     verify_other_plugins(root_project)

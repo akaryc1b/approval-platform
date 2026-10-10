@@ -1,3 +1,4 @@
+import { COMPILER_PLUGIN_GRAPH, readCompilerPluginCandidate, readCompilerPluginReport } from '../security/observability-dependency-graph.mjs';
 import { CLEAN_PLUGIN_GRAPH, readCleanPluginCandidate, readCleanPluginReport } from '../security/observability-dependency-graph.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -223,4 +224,37 @@ for (const [name, mutate] of [
   ['dirty checkout', x => { x.checkout.trackedWorktreeClean = false; }],
 ]) test(`R3A Clean descendant rejects ${name}`, () => {
   const input = cleanDescendantFixture(); mutate(input); assert.throws(() => evaluateCurrentEvidence(input));
+});
+
+function compilerDescendantFixture() {
+  const input = fixture(), current = readCompilerPluginCandidate();
+  return { ...input, commitSha: current.commitSha, currentE2: current, pluginReport: readCompilerPluginReport(),
+    checkout: { ...input.checkout, expectedHeadSha: current.commitSha, checkedOutSha: current.commitSha } };
+}
+test('R3A Compiler descendant retains the complete historical review and unchanged Tomcat and Boot HTTP contracts', () => {
+  const input = compilerDescendantFixture(), before = canonical(input), result = evaluateCurrentEvidence(input);
+  assert.equal(result.currentE2GraphDigest, COMPILER_PLUGIN_GRAPH);
+  assert.equal(result.preservedCurrentSourceGraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(result.currentGraphTransition.preservedCleanPluginLineage.preservedReleasePluginLineage.currentE2GraphDigest, RELEASE_PLUGIN_GRAPH);
+  assert.equal(result.currentTransitionContentSha256, transition.contentSha256);
+  assert.equal(result.findings[0].evidence.pluginReportSha256, input.currentE2.maven.pluginResolutionSha256);
+  assert.equal(result.currentTomcatObservation.jar.jarSha256, transition.tomcat.jarSha256);
+  assert.equal(result.currentTomcatObservation.currentFindingPresenceClaimed, false);
+  assert.equal(result.currentTomcatObservation.dispositionTransferred, false);
+  assert.equal(result.findings[0].package.version, '5.3.6');
+  assert.equal(result.findings[0].disposition, 'UNRESOLVED');
+  assert.equal(result.decision.currentOsvTotalsClaimed, false); assert.equal(result.decision.releaseBlocked, true);
+  assert.deepEqual(result.historicalReview.findings, contract.findings);
+  assert.deepEqual(result.historicalReview.decision, contract.decision); assert.equal(canonical(input), before);
+});
+for (const [name, mutate] of [
+  ['pre-Compiler report', x => { x.pluginReport = readCleanPluginReport(); }],
+  ['runtime pin drift', x => { x.runtimeComponents[0].version = '11.0.27'; }],
+  ['JAR pin drift', x => { x.jarEvidence.jarSha256 = '0'.repeat(64); }],
+  ['HTTP owner drift', x => { x.pluginReport = x.pluginReport.replaceAll('4.0.8', '4.0.9'); }],
+  ['stale source contract', x => { x.transition.currentGraphDigest = COMPILER_PLUGIN_GRAPH; }],
+  ['stale verified head', x => { x.commitSha = 'f'.repeat(40); }],
+  ['dirty checkout', x => { x.checkout.trackedWorktreeClean = false; }],
+]) test(`R3A Compiler descendant rejects ${name}`, () => {
+  const input = compilerDescendantFixture(); mutate(input); assert.throws(() => evaluateCurrentEvidence(input));
 });

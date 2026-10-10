@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { RELEASE_PLUGIN_GRAPH, readReleasePluginReport } from './release-plugin-graph-transition.mjs';
+import { readPreservedCleanSource } from './compiler-plugin-source-continuation.mjs';
 
 export const CLEAN_PLUGIN_GRAPH = '255008a8cf1b3d57182cdd47c680aad7e484b027f23ae5e3a19590791732d950';
 export const CLEAN_PLUGIN_MANIFEST_SHA256 = '9d810b921b021ce10eca41c6ff278964ed16210285fbca0e9c8af0814464e7b1';
@@ -122,7 +123,10 @@ export function readCleanPluginSourceWitness(manifest = readCleanPluginManifest(
     keys(row, ['repoPath', 'candidateSha256', 'baselineSha256', 'changed'], 'source POM row');
     requireValue(row.candidateSha256 === execution.sourceAdmission.sourcePomHashes[row.repoPath]
       && row.changed === (row.candidateSha256 !== row.baselineSha256), 'Clean source POM hash binding mismatch');
-    bytes(row.repoPath, row.candidateSha256, `current source ${row.repoPath}`);
+    // Preserve the original source witness byte-for-byte. The successor accepts
+    // only its two exact pinned Compiler additions and returns the old bytes.
+    requireValue(sha256(readPreservedCleanSource(row.repoPath, row.candidateSha256)) === row.candidateSha256,
+      `Clean current source ${row.repoPath} byte digest mismatch`);
     if (row.changed) changed.push(row.repoPath);
   }
   requireValue(same(changed, ['pom.xml']) && witness.sourcePomFiles.find(row => row.repoPath === 'pom.xml').baselineSha256

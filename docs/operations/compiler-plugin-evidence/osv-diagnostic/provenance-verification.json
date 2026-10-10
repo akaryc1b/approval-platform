@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "COMPILER_OSV_DIAGNOSTIC_PROVENANCE_V1",
+  "originalDiagnosticSealSha256": "d52a400656f499afcd37ff076a5a97be2a344127ffbf4b03a5eb335cfe2882c0",
+  "independentDiagnosticReviewSealSha256": "08694460cb8bf80653cc119a173c0d39292c1a2f5bb9cfb9bd3060b21e37097a",
+  "independentDiagnosticReceiptSha256": "f70b2b47cd2dae0a1b068bdb98e161f151c1f632f0c86c62071d79543e724f5e",
+  "independentCommittedInputReviewChecksumsSha256": "b6708a06cbb3fd447f73c396f1caba9b6cab8b09db757ffb9e412be759ea71eb",
+  "independentCommittedInputReceiptSha256": "164f69b1bc9e888b68a9169dcd7b2659153a8fe7beda06672f5b62028760f2be",
+  "allOriginalDiagnosticSealEntriesVerified": true,
+  "allIndependentDiagnosticSealEntriesVerified": true,
+  "allCommittedInputReviewEntriesVerified": true,
+  "rawAdvisoryBodiesAndHeadersPublished": false,
+  "networkQueryRepeated": false,
+  "scannerCliExecuted": false,
+  "canonicalE4": false,
+  "reviewDispositionTransferred": false,
+  "releaseBlocked": true
+}

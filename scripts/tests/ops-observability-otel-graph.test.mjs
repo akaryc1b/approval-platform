@@ -107,6 +107,8 @@ test('the real upgrade manifest cannot be edited or supplemented without failing
     readFileSync(new URL('../security/build-plugin-jackson-graph-transition.mjs', import.meta.url)));
   mkdirSync(resolve(directory, 'scripts/ci'), { recursive: true });
   for (const file of ['security/clean-plugin-graph-transition.mjs', 'security/m6-pr-e-e2-generate-sbom.mjs',
+    'security/compiler-plugin-graph-transition.mjs', 'security/compiler-plugin-source-continuation.mjs',
+    'security/osv-scan-coverage.mjs', 'security/scanner-report-structure.mjs',
     'security/maven-workflow-transition.mjs', 'security/hygiene-java21-workflow-transition.mjs', 'ci/maven-toolchain.mjs']) {
     writeFileSync(resolve(directory, `scripts/${file}`), readFileSync(new URL(`../${file}`, import.meta.url)));
   }

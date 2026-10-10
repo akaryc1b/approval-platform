@@ -1,3 +1,5 @@
+import { COMPILER_PLUGIN_GRAPH, readCompilerPluginCandidate, readCompilerPluginManifest } from '../security/observability-dependency-graph.mjs';
+import { syntheticCompilerPluginOsv } from './fixtures/compiler-plugin-fixture.mjs';
 import { CLEAN_PLUGIN_GRAPH, readCleanPluginCandidate, readCleanPluginManifest } from '../security/observability-dependency-graph.mjs';
 import { syntheticCleanPluginOsv } from './fixtures/clean-plugin-fixture.mjs';
 import assert from 'node:assert/strict';
@@ -414,6 +416,68 @@ test('Clean descendant requires independent current head and rejects any returne
 });
 test('new synthetic Clean finding retains its exact identity and unresolved disposition through I3', () => {
   const e4 = cleanDescendantFixture(), before = structuredClone(e4), receipt = verifyPlugin(e4);
+  const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
+  const triage = { repository: e4.repository, commitSha: e4.commitSha, contentSha256: 'a'.repeat(64),
+    decisions: e4.scanners.osv.findings.map(f => ({ sourceClass: f.sourceClass, findingId: f.findingId,
+      severityBand: 'UNKNOWN', disposition: 'UNRESOLVED', componentRef: f.componentRefs[0] })) };
+  const result = applyRuntimeDeploymentReviews(triage, e4, review, pg, receipt);
+  assert.deepEqual(result.decisions, triage.decisions); assert.equal(result.summary.releaseBlocked, true);
+  assert.equal(result.summary.dispositionCounts.UNRESOLVED, 1); assert.deepEqual(e4, before);
+});
+
+function compilerDescendantFixture() {
+  const e4 = fixture(), e2 = readCompilerPluginCandidate();
+  e4.commitSha = e2.commitSha; e4.e2CurrentEvidence = e2; e4.e2CurrentContentSha256 = e2.contentSha256;
+  e4.e2GraphDigest = COMPILER_PLUGIN_GRAPH;
+  e4.e2GraphTransition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, e2.commitSha);
+  e4.checkout.checkedOutSha = e2.commitSha; e4.checkout.expectedHeadSha = e2.commitSha;
+  e4.scanners.osv = syntheticCompilerPluginOsv(e2, e4.scanners.osv);
+  e4.totalFindingCount = Object.values(e4.scanners).reduce((n, scanner) => n + scanner.findingCount, 0);
+  return resign(e4);
+}
+test('R4 and pgjdbc preserve every prior input contract and exact main Clean receipt through Compiler', () => {
+  const e4 = compilerDescendantFixture(), original = structuredClone(e4), receipt = verifyPlugin(e4);
+  assert.equal(receipt.currentE2GraphDigest, COMPILER_PLUGIN_GRAPH);
+  assert.equal(receipt.historicalTargetE2GraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(receipt.subsequentGraphTransition.priorE2GraphDigest, CLEAN_PLUGIN_GRAPH);
+  const release = receipt.subsequentGraphTransition.preservedCleanPluginLineage.preservedReleasePluginLineage;
+  assert.equal(release.priorE2GraphDigest, SITE_DEPENDENCY_PLUGIN_GRAPH);
+  assert.equal(release.commitSha, '757fe355b2d868916e112f2fcbbe093b865e0669');
+  assert.equal(release.contentSha256, 'b99400f63544b6832406a7394148c0b794e6b53c92f6010cf4bfeff53ce8db69');
+  assert.deepEqual(receipt.remediatedFindings.map(f => f.findingId), plan.remediatedFindings.map(f => f.findingId));
+  assert.equal(receipt.releaseBlocked, true); assert.equal(receipt.findingReviewRequired, true);
+  assert.equal(e4.scanners.osv.coverage.inputPackageCount, 473); assert.equal(plan.expectedInputPackageCount, 535);
+  assert.equal(e4.scanners.osv.coverage.inputBytesSha256, readCompilerPluginManifest().osvInput.current.inputBytesSha256);
+  assert.deepEqual(requireServerDependencyRemediation(e4, receipt, { expectedCommitSha: e4.commitSha }), receipt);
+  const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
+  assert.equal(pg.currentE2GraphDigest, COMPILER_PLUGIN_GRAPH); assert.deepEqual(pg.subsequentGraphTransition, receipt.subsequentGraphTransition);
+  assert.equal(pg.remediatedFindings.length, 2); assert.equal(pg.releaseBlocked, true); assert.deepEqual(e4, original);
+});
+for (const [name, alter] of [
+  ['pre-Compiler receipt', e => { e.e2GraphTransition = cleanDescendantFixture().e2GraphTransition; }],
+  ['prior input count', e => { e.scanners.osv.coverage.inputPackageCount = 475; resign(e.scanners.osv.coverage); }],
+  ['prior input bytes', e => { e.scanners.osv.coverage.inputBytesSha256 = readCompilerPluginManifest().osvInput.prior.inputBytesSha256; resign(e.scanners.osv.coverage); }],
+  ['missing non-finding target', e => { e.scanners.osv.coverage.targets.splice(e.scanners.osv.coverage.targets.findIndex(t => !t.advisoryIds.length), 1); resign(e.scanners.osv.coverage); }],
+  ['missing build-plugin targets', e => { e.scanners.osv.coverage.targets = e.scanners.osv.coverage.targets.filter(t => !t.scopes.includes('build-plugin')); resign(e.scanners.osv.coverage); }],
+  ['missing exact E2', e => { delete e.e2CurrentEvidence; }],
+  ['missing coverage', e => { delete e.scanners.osv.coverage; }],
+  ['incomplete scanner', e => { e.scanners.semgrep.scanCompleted = false; }],
+  ['stale coverage head', e => { e.scanners.osv.coverage.commitSha = 'f'.repeat(40); resign(e.scanners.osv.coverage); }],
+  ['stale nested Release receipt', e => { e.e2GraphTransition.preservedCleanPluginLineage.preservedReleasePluginLineage.commitSha = 'f'.repeat(40); resign(e.e2GraphTransition.preservedCleanPluginLineage.preservedReleasePluginLineage); resign(e.e2GraphTransition); }],
+]) test(`R4 Compiler descendant rejects ${name} even after rehashing`, () => {
+  const e4 = compilerDescendantFixture(); alter(e4); resign(e4); assert.throws(() => verifyPlugin(e4));
+});
+test('Compiler descendant requires independent current head and rejects any returned historical advisory alias', () => {
+  const e4 = compilerDescendantFixture();
+  for (const expectedCommitSha of [undefined, 'f'.repeat(40)]) {
+    assert.throws(() => verifyServerDependencyRemediation(e4, plan, { expectedCommitSha }));
+    assert.throws(() => verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha }));
+  }
+  injectFinding(e4, 'commons-io:commons-io', '2.20.0', 'GHSA-synthetic-unit-returned-alias', ['CVE-2026-40976']);
+  assert.throws(() => verifyPlugin(e4), /advisory is still present/);
+});
+test('new synthetic Compiler finding retains its exact identity and unresolved disposition through I3', () => {
+  const e4 = compilerDescendantFixture(), before = structuredClone(e4), receipt = verifyPlugin(e4);
   const pg = verifyPgjdbcRemediation(e4, pgPlan, { expectedCommitSha: e4.commitSha });
   const triage = { repository: e4.repository, commitSha: e4.commitSha, contentSha256: 'a'.repeat(64),
     decisions: e4.scanners.osv.findings.map(f => ({ sourceClass: f.sourceClass, findingId: f.findingId,

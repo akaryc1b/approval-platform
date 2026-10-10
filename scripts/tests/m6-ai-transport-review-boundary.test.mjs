@@ -32,6 +32,10 @@ import './m6-pr-e-e3-i4-workflow-supply-chain-boundary.test.mjs';
 import './m6-pr-e-e3-r2b-workflow-supply-chain-remediation-boundary.test.mjs';
 import './clean-plugin-baseline.test.mjs';
 import './clean-plugin-live-compatibility.test.mjs';
+import './compiler-plugin-baseline.test.mjs';
+import './compiler-plugin-graph-transition.test.mjs';
+import './compiler-plugin-osv-diagnostic.test.mjs';
+import './compiler-plugin-live-compatibility.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(

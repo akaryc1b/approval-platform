@@ -1,0 +1,16 @@
+{
+  "com.thoughtworks.qdox:qdox:jar:2.2.0": "c260c3230b2340af97d54bf01f7f67ebc57c901922736c881bb11cb981302be2",
+  "commons-io:commons-io:jar:2.20.0": "df90bba0fe3cb586b7f164e78fe8f8f4da3f2dd5c27fa645f888100ccc25dd72",
+  "javax.inject:javax.inject:jar:1": "91c77044a50c481636c32d916fd89c9118a72195390452c81065080f957de7ff",
+  "org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0": "e55fe35b95cf499e5092f146c6613984cff896a8947c2f347ab88270f11acb76",
+  "org.apache.maven.shared:maven-shared-incremental:jar:1.1": "61988e54486a5dc38f06c70fdae5b108556c63bd433697b9f4305fcdb30fa40e",
+  "org.apache.maven.shared:maven-shared-utils:jar:3.4.2": "b613357e1bad4dfc1dead801691c9460f9585fe7c6b466bc25186212d7d18487",
+  "org.codehaus.plexus:plexus-compiler-api:jar:2.15.0": "d31d744eb69f77dffd3722dca4094758e0f90e79918a7b3b9fdc37ce49b60342",
+  "org.codehaus.plexus:plexus-compiler-javac:jar:2.15.0": "89603334988453b9cf4d7ec404d4b54f140de28b678d6a8e8edc448240dd0e90",
+  "org.codehaus.plexus:plexus-compiler-manager:jar:2.15.0": "c13b12c32a18b00e457de9b93cfc3d5593bfa1fb992b2c46a3498be1a77c4889",
+  "org.codehaus.plexus:plexus-java:jar:1.4.0": "e295f379d7885edec5d9501ee0a9152300359167f875dc7c483305c9799d70d0",
+  "org.codehaus.plexus:plexus-utils:jar:4.0.1": "96b9cc44439191d2d0635974e2d44e768736b4fb2abcb65f94cd95e41912fa8b",
+  "org.codehaus.plexus:plexus-xml:jar:3.0.1": "c1a510a87a62bd2d74ac1472dd31c3f9e9b0b8b8568f37d77c0f135415bebd05",
+  "org.ow2.asm:asm:jar:9.7.1": "8cadd43ac5eb6d09de05faecca38b917a040bb9139c7edeb4cc81c740b713281",
+  "org.slf4j:slf4j-api:jar:1.7.36": "d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0"
+}
