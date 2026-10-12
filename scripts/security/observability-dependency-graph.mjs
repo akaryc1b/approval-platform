@@ -40,6 +40,13 @@ import { CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_MANIFEST_SHA256, readCheckst
 export { CHECKSTYLE_PLUGIN_GRAPH, readCheckstylePluginManifest, readCheckstylePluginCandidate, readCheckstylePluginReport,
   readCheckstylePluginBaseline, readCheckstylePluginSourceWitness, readCheckstylePluginPreservedCompilerLineage,
   verifyCheckstylePluginDelta, verifyCheckstylePluginOwnerDelta } from './checkstyle-plugin-graph-transition.mjs';
+import { CHECKSTYLE_GUAVA_GRAPH, CHECKSTYLE_GUAVA_MANIFEST_SHA256, readCheckstyleGuavaManifest,
+  readCheckstyleGuavaBaseline, readCheckstyleGuavaPreservedCheckstyleLineage,
+  verifyCheckstyleGuavaDelta, verifyCheckstyleGuavaCurrentEvidence } from './checkstyle-guava-graph-transition.mjs';
+export { CHECKSTYLE_GUAVA_GRAPH, readCheckstyleGuavaManifest, readCheckstyleGuavaCandidate,
+  readCheckstyleGuavaBaseline, readCheckstyleGuavaSourceWitness, readCheckstyleGuavaReport,
+  readCheckstyleGuavaPreservedCheckstyleLineage, verifyCheckstyleGuavaDelta, verifyCheckstyleGuavaOwnerDelta }
+  from './checkstyle-guava-graph-transition.mjs';
 
 export const BASE_GRAPH = '2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94';
 export const OBSERVABILITY_GRAPH = '27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37';
@@ -330,6 +337,27 @@ function checkstylePluginReceipt(identity) {
   return { ...payload, contentSha256: graphHash(payload) };
 }
 
+function checkstyleGuavaReceipt(identity) {
+  const manifest = readCheckstyleGuavaManifest(), preserved = readCheckstyleGuavaPreservedCheckstyleLineage(manifest);
+  requireValue(canonicalGraph(preserved) === canonicalGraph(checkstylePluginReceipt({
+    commitSha: manifest.base.sourceHead, contentSha256: manifest.base.e2.contentSha256,
+  })), 'Guava preserved accepted main Checkstyle receipt mismatch');
+  const payload = {
+    schemaVersion: 'APPROVAL_CHECKSTYLE_GUAVA_GRAPH_LINEAGE_V1',
+    repository: REPOSITORY, commitSha: identity.commitSha, sourceE2ContentSha256: identity.contentSha256,
+    baseE2GraphDigest: BASE_GRAPH, priorE2GraphDigest: CHECKSTYLE_PLUGIN_GRAPH,
+    currentE2GraphDigest: CHECKSTYLE_GUAVA_GRAPH, manifestSha256: CHECKSTYLE_GUAVA_MANIFEST_SHA256,
+    sourceWitnessSha256: manifest.capture.sourceWitness.rawSha256,
+    preservedCheckstylePluginLineage: preserved, archivalCandidate: manifest.capture,
+    addedPluginCoordinateCount: manifest.addedPluginCoordinateCount,
+    removedPluginCoordinateCount: manifest.removedPluginCoordinateCount,
+    unchangedOtherPluginOwnerCount: 16, runtimeComponentChangeCount: 0, runtimeEdgeChangeCount: 0,
+    importedBomChangeCount: 0, scopeChangeCount: 0, licenseChangeCount: 0,
+    inventory: manifest.inventory, findingReviewRequired: true, releaseBlocked: true,
+  };
+  return { ...payload, contentSha256: graphHash(payload) };
+}
+
 /** Graph admission is not finding disposition or production authorization. */
 export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, expectedCommitSha) {
   requireValue(e2.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(e2.commitSha || ''),
@@ -346,6 +374,14 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, exp
   }), 'E2 graph projection mismatch');
   const digest = graphHash(projection);
   requireValue(expectedBaseDigest === BASE_GRAPH, 'unrecognized dependency graph baseline');
+  if (digest === CHECKSTYLE_GUAVA_GRAPH) {
+    requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e2.commitSha === expectedCommitSha, 'Guava E2 requires current verified head and schema');
+    verifyCheckstyleGuavaCurrentEvidence(e2);
+    const previous = verifyCheckstyleGuavaDelta(projection), baseline = readCheckstyleGuavaBaseline();
+    verifyObservabilityGraph(baseline, previous, BASE_GRAPH, baseline.commitSha);
+    return checkstyleGuavaReceipt(e2);
+  }
   if ([SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(digest)) requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1'
     && /^[0-9a-f]{40}$/.test(expectedCommitSha || '') && e2.commitSha === expectedCommitSha,
   'server dependency E2 requires current verified head and schema');
@@ -390,6 +426,14 @@ export function requirePreservedGraph(e4, historicalGraph, expectedCommitSha) {
   if (e4.e2GraphDigest === historicalGraph) {
     requireValue(e4.e2GraphTransition === undefined, 'unexpected dependency graph lineage');
     return null;
+  }
+  if (e4.e2GraphDigest === CHECKSTYLE_GUAVA_GRAPH) {
+    requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e4.commitSha === expectedCommitSha && /^[0-9a-f]{64}$/.test(e4.e2CurrentContentSha256 || ''),
+    'Guava receipt requires current verified head and E2 identity');
+    const expected = checkstyleGuavaReceipt({ commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 });
+    requireValue(canonicalGraph(e4.e2GraphTransition) === canonicalGraph(expected), 'Guava E2 graph lineage mismatch');
+    return expected;
   }
   requireValue(e4.repository === REPOSITORY && historicalGraph === BASE_GRAPH
     && [OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest)

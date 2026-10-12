@@ -1,0 +1,25 @@
+{
+  "baselineE2": {
+    "contentSha256": "8a490bd73a5aca2adc8a7121a436c3906712c752f05b39f23c658467f253088a",
+    "path": "docs/operations/checkstyle-guava-evidence/baseline-E2.json",
+    "rawSha256": "e05be0637f2d110ab53881cf6285eceb0fa8a38f855a6075caf62b28b4485a2c"
+  },
+  "candidateCaptureClaimed": false,
+  "checkstyleLineage": {
+    "contentSha256": "9671d65f3c313af35b881751ba97604219fd6b842136b99e125210bfddb7341d",
+    "path": "docs/operations/checkstyle-guava-evidence/preserved-checkstyle-lineage.json",
+    "rawSha256": "6e902720bd30b3f1adcd3a890ea399eb5ba7c8dec47f10f4672a9d41ac7e0ee5"
+  },
+  "compatibilityAcceptanceClaimed": false,
+  "extraction": "Retain the recovered standalone E2 bytes and complete nested Checkstyle lineage without modifying receipt fields.",
+  "releaseBlocked": true,
+  "scannerDispositionClaimed": false,
+  "schemaVersion": "APPROVAL_CHECKSTYLE_GUAVA_ACCEPTED_MAIN_RECOVERY_V1",
+  "sourceArchiveBytes": 1487989,
+  "sourceArchiveSha256": "679e1bea542d53583e2e6bca20419b90aa5d605e77bf9c4cde3ce24a7defc619",
+  "sourceArtifactId": "11739718700",
+  "sourceHead": "01aa72c1d2dfdc5a85dd0ff61e2e2a9e7f727a0c",
+  "sourceRunId": "38233623823",
+  "sourceRunNumber": 1841,
+  "sourceTree": "fc9c0a6c7124bd8fbb92615c40625e6ae7e192d1"
+}

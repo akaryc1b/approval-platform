@@ -5,11 +5,15 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { readPreservedCheckstyleSource } from '../security/checkstyle-guava-source-continuation.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
+for (const transition of ['lang', 'guava']) test.describe(`Checkstyle ${transition} source/model contract`, () => {
 const checker = path.join(root, 'scripts/ci/verify-checkstyle-plugin-baseline.py');
-const contract = path.join(root, 'scripts/ci/checkstyle_plugin_contract.py');
-const source = readFileSync(path.join(root, 'pom.xml'), 'utf8');
+const contract = path.join(root, `scripts/ci/checkstyle_${transition === 'lang' ? 'plugin' : 'guava'}_contract.py`);
+const source = transition === 'lang'
+  ? readPreservedCheckstyleSource('pom.xml', 'd55f730aa8490c60ddf8c3d76d062fd6c4706be4816adf8db8936df15941a6fb').toString('utf8')
+  : readFileSync(path.join(root, 'pom.xml'), 'utf8');
 const poms = JSON.parse(readFileSync(path.join(root, 'docs/operations/compiler-plugin-evidence/source-witness.json'))).sourcePomFiles.map(row => row.path);
 assert.equal(poms.length, 28);
 const pattern = /<plugin>\s*<groupId>org\.apache\.maven\.plugins<\/groupId>\s*<artifactId>maven-checkstyle-plugin<\/artifactId>[\s\S]*?<\/plugin>/;
@@ -19,7 +23,7 @@ const invoke = args => spawnSync('/usr/bin/python3', ['-I', '-S', '-B', ...args]
   encoding: 'utf8', timeout: 20000, maxBuffer: 32 * 1024 * 1024,
   env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' },
 });
-const check = directory => invoke([checker, `--root=${directory}`]);
+const check = directory => invoke([checker, `--root=${directory}`, `--transition=${transition}`]);
 function temporary(t, name) {
   const directory = mkdtempSync(path.join(tmpdir(), name));
   t.after(() => rmSync(directory, { recursive: true, force: true })); return directory;
@@ -32,7 +36,7 @@ function fixture(t, mutate = x => x, fileMutation = () => {}) {
   }
   writeFileSync(path.join(directory, 'pom.xml'), mutate(source)); fileMutation(directory); return directory;
 }
-test('Checkstyle source accepts exact root-only Lang substitution and retains all historical source gates', t => {
+test(`Checkstyle source accepts exact root-only ${transition} additions and retains all historical source gates`, t => {
   const result = check(fixture(t)); assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /26 projects and both overlays/);
 });
@@ -68,6 +72,31 @@ for (const relative of [poms.find(p => p.startsWith('server-modules/') && p !== 
       const file = path.join(directory, relative); writeFileSync(file, readFileSync(file, 'utf8') + '\n');
     })); assert.notEqual(result.status, 0); assert.match(result.stderr, /Checkstyle/);
   });
+if (transition === 'guava') {
+  const guavaProperty = '<maven.checkstyle.guava.version>32.0.1-jre</maven.checkstyle.guava.version>';
+  const guava = plugin.match(/<dependency>\s*<groupId>com\.google\.guava<\/groupId>[\s\S]*?<\/dependency>/)[0];
+  for (const [name, mutate] of [
+    ['missing Guava property', p => p.replace(guavaProperty, '')],
+    ['duplicate Guava property', p => p.replace(guavaProperty, guavaProperty.repeat(2))],
+    ['Guava downgrade', p => p.replace(guavaProperty, guavaProperty.replace('32.0.1-jre', '31.0.1-jre'))],
+    ['missing Guava override', p => p.replace(guava, '')],
+    ['duplicate Guava override', p => p.replace(guava, guava.repeat(2))],
+    ['literal Guava version', p => p.replace('${maven.checkstyle.guava.version}', '32.0.1-jre')],
+    ['Guava alias to Lang pin', p => p.replace('${maven.checkstyle.guava.version}', '${maven.checkstyle.commons-lang3.version}')],
+    ['Guava runtime escape', p => p.replace('</project>', `<dependencies>${guava}</dependencies></project>`) ],
+    ['Guava managed escape', p => p.replace('<dependencyManagement>\n        <dependencies>', `<dependencyManagement>\n        <dependencies>${guava}`)],
+    ['Guava reference escape', p => p.replace('<name>Approval Platform</name>', '<name>${maven.checkstyle.guava.version}</name>')],
+    ['Guava scope', p => p.replace(guava, guava.replace('</dependency>', '<scope>compile</scope></dependency>'))],
+    ['Guava exclusions', p => p.replace(guava, guava.replace('</dependency>', '<exclusions/></dependency>'))],
+    ['Guava foreign group', p => p.replace(guava, guava.replace('com.google.guava', 'foreign.guava'))],
+    ['Guava profile owner', p => p.replace('<profiles>', `<profiles><profile><id>guava-override</id><build><plugins>${plugin}</plugins></build></profile>`)],
+    ['reordered overrides', p => p.replace(dependency, '__LANG_OVERRIDE__').replace(guava, dependency).replace('__LANG_OVERRIDE__', guava)],
+  ]) test(`Checkstyle source rejects ${name}`, t => {
+    const changed = mutate(source); assert.notEqual(changed, source, 'fixture must mutate source');
+    const result = check(fixture(t, () => changed)); assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Checkstyle|Compiler|Release|pin drift|duplicate property|duplicate element/);
+  });
+}
 
 // Synthetic parser fixtures only. They demonstrate order handling and rejection;
 // they cannot serve as a retained Maven model capture or compatibility receipt.
@@ -75,11 +104,13 @@ const generate = String.raw`
 import copy, json, runpy, sys
 from pathlib import Path
 import xml.etree.ElementTree as E
-c = runpy.run_path(sys.argv[1]); root = Path(sys.argv[2]); ns = c['NS']; prefix = c['P']
+c = runpy.run_path(sys.argv[1]); root = Path(sys.argv[2]); ns = c['NS']; prefix = c['P']; transition = sys.argv[3]
 release = runpy.run_path(str(root/'scripts/ci/verify-release-plugin-baseline.py'))
 projects = release['reactor'](root)
 result = {}
-for label, file, base in [('before', root/'docs/operations/compiler-plugin-evidence/candidate-root-pom.xml', '/fixture/baseline'), ('after', root/'pom.xml', '/fixture/candidate')]:
+prior = root / ('docs/operations/compiler-plugin-evidence/candidate-root-pom.xml' if transition == 'lang' else 'docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml')
+current = root / ('docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml' if transition == 'lang' else 'pom.xml')
+for label, file, base in [('before', prior, '/fixture/baseline'), ('after', current, '/fixture/candidate')]:
     template = E.parse(file).getroot(); props = template.find('m:properties', ns)
     pins = {p.tag.removeprefix(prefix): p.text for p in props}; pins['maven.multiModuleProjectDirectory'] = base
     document = E.Element(prefix+'projects')
@@ -92,14 +123,14 @@ for label, file, base in [('before', root/'docs/operations/compiler-plugin-evide
         checkstyle.remove(checkstyle.find('m:groupId', ns))
         execution = checkstyle.find('m:executions/m:execution', ns)
         execution.append(copy.deepcopy(checkstyle.find('m:configuration', ns)))
-        dependency = checkstyle.find('m:dependencies/m:dependency', ns)
-        if dependency is not None: E.SubElement(dependency, prefix+'scope').text = 'compile'
+        for dependency in checkstyle.findall('m:dependencies/m:dependency', ns):
+            E.SubElement(dependency, prefix+'scope').text = 'compile'
     raw = E.tostring(document, encoding='unicode')
     for key, value in pins.items(): raw = raw.replace('$'+'{'+key+'}', value)
     result[label] = raw
 print(json.dumps(result))
 `;
-const generated = invoke(['-c', generate, contract, root]);
+const generated = invoke(['-c', generate, contract, root, transition]);
 assert.equal(generated.status, 0, generated.stderr);
 const models = JSON.parse(generated.stdout);
 function compareModels(t, after = models.after, before = models.before) {
@@ -135,6 +166,33 @@ test('paired models reject reordered candidate without reordering actual baselin
   assert.notEqual(changed, models.after); assert.notEqual(compareModels(t, changed).status, 0);
 });
 test('effective-model verification fails closed when no paired actual baseline is supplied', () => {
-  const result = invoke([checker, `--effective-pom=${path.join(root, 'pom.xml')}`]);
+  const result = invoke([checker, `--effective-pom=${path.join(root, 'pom.xml')}`, `--transition=${transition}`]);
   assert.notEqual(result.status, 0); assert.match(result.stderr, /comparison requires candidate, baseline and baseline root/);
+});
+if (transition === 'guava') {
+  const guava = models.after.match(/<ns0:dependency>\s*<ns0:groupId>com\.google\.guava<\/ns0:groupId>[\s\S]*?<\/ns0:dependency>/)[0];
+  for (const [name, alter] of [
+    ['Guava downgrade', x => x.replace('>32.0.1-jre<', '>31.0.1-jre<')],
+    ['missing Guava override', x => x.replace(guava, '')],
+    ['duplicate Guava override', x => x.replace(guava, guava.repeat(2))],
+    ['wrong Guava scope', x => x.replace(guava, guava.replace('>compile<', '>runtime<'))],
+    ['missing Guava scope', x => x.replace(guava, guava.replace('<ns0:scope>compile</ns0:scope>', ''))],
+    ['extra Guava exclusion', x => x.replace(guava, guava.replace('</ns0:dependency>', '<ns0:exclusions/></ns0:dependency>'))],
+    ['duplicate Guava property', x => x.replace('</ns0:properties>', '<ns0:maven.checkstyle.guava.version>32.0.1-jre</ns0:maven.checkstyle.guava.version></ns0:properties>')],
+    ['runtime Guava escape', x => x.replace('</ns0:project>', `<ns0:dependencies>${guava}</ns0:dependencies></ns0:project>`) ],
+    ['baseline already contains Guava', x => x],
+  ]) test(`paired Checkstyle models reject ${name}`, t => {
+    if (name === 'baseline already contains Guava') {
+      const baseline = models.after.replaceAll('/fixture/candidate/', '/fixture/baseline/');
+      assert.notEqual(compareModels(t, models.after, baseline).status, 0);
+    } else {
+      const changed = alter(models.after); assert.notEqual(changed, models.after, 'fixture must mutate models');
+      const result = compareModels(t, changed); assert.notEqual(result.status, 0); assert.match(result.stderr, /Checkstyle/);
+    }
+  });
+  test('Guava reversal returns byte-exact accepted Lang source and retains the original contract', () => {
+    const result = invoke(['-c', 'import runpy,sys; from pathlib import Path; c=runpy.run_path(sys.argv[1]); root=Path(sys.argv[2]); assert c["reverse_source"]((root/"pom.xml").read_bytes()) == (root/"docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml").read_bytes(); assert c["before_checkstyle"](c["ET"].parse(root/"pom.xml").getroot()) is not None', contract, root]);
+    assert.equal(result.status, 0, result.stderr);
+  });
+}
 });

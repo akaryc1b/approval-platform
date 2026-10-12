@@ -163,6 +163,8 @@ test('Clean production reader rejects changed archived bytes and current POM byt
   const files = ['scripts/security/clean-plugin-graph-transition.mjs', 'scripts/security/release-plugin-graph-transition.mjs',
     'scripts/security/compiler-plugin-source-continuation.mjs',
     'scripts/security/checkstyle-plugin-source-continuation.mjs',
+    'scripts/security/checkstyle-guava-source-continuation.mjs',
+    'docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml',
     'docs/operations/compiler-plugin-evidence/candidate-root-pom.xml',
     'docs/operations/compiler-plugin-evidence/baseline-root-pom.xml',
     'scripts/security/site-dependency-plugin-graph-transition.mjs', 'scripts/security/build-plugin-jackson-graph-transition.mjs',

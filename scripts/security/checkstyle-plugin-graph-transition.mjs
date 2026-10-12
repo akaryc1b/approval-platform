@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { COMPILER_PLUGIN_GRAPH, readCompilerPluginReport } from './compiler-plugin-graph-transition.mjs';
 import { readPreservedCompilerSource } from './checkstyle-plugin-source-continuation.mjs';
+import { readPreservedCheckstyleSource } from './checkstyle-guava-source-continuation.mjs';
 import { osvInputFromE2 } from './osv-scan-coverage.mjs';
 
 // Fresh retained capture bytes seal these identities; archival evidence stays immutable.
@@ -52,7 +53,7 @@ function validate(manifest) {
 }
 
 /** Strict owner evidence parser; repeated modules must retain identical inventories. */
-function owners(raw) {
+export function parseCheckstylePluginOwners(raw) {
   const result = {}, occurrences = {}; let owner, coordinates;
   const finish = () => {
     if (!owner) return;
@@ -73,7 +74,7 @@ function owners(raw) {
 
 /** Pure comparison for mutation fixtures; it is not production evidence admission. */
 export function verifyCheckstyleOwnerSubstitution(beforeRaw, afterRaw) {
-  const before = owners(beforeRaw), after = owners(afterRaw), names = Object.keys(before.owners).sort();
+  const before = parseCheckstylePluginOwners(beforeRaw), after = parseCheckstylePluginOwners(afterRaw), names = Object.keys(before.owners).sort();
   requireValue(names.length === 17 && same(names, Object.keys(after.owners).sort())
     && same(before.occurrences, after.occurrences), 'Checkstyle owner membership/count drift');
   const changed = names.filter(name => !same(before.owners[name], after.owners[name]));
@@ -144,7 +145,7 @@ export function readCheckstylePluginSourceWitness(manifest = readCheckstylePlugi
     'Checkstyle source POM membership drift');
   const changed = [];
   for (const row of witness.sourcePomFiles) {
-    bytes(row.path, row.candidateSha256);
+    readPreservedCheckstyleSource(row.path, row.candidateSha256);
     requireValue(execution.sourcePomHashes[row.path] === row.candidateSha256
       && historical.sourcePomFiles.find(prior => prior.path === row.path).candidateSha256 === row.baselineSha256,
     'Checkstyle source POM capture/baseline mismatch');

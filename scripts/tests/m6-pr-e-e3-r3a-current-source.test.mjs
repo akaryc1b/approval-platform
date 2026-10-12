@@ -1,4 +1,5 @@
 import { COMPILER_PLUGIN_GRAPH, readCompilerPluginCandidate, readCompilerPluginReport } from '../security/observability-dependency-graph.mjs';
+import { CHECKSTYLE_GUAVA_GRAPH, readCheckstyleGuavaCandidate, readCheckstyleGuavaReport } from '../security/observability-dependency-graph.mjs';
 import { CLEAN_PLUGIN_GRAPH, readCleanPluginCandidate, readCleanPluginReport } from '../security/observability-dependency-graph.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -32,6 +33,22 @@ function fixture() {
       jarBytes: transition.tomcat.jarBytes, entryCount: 1615, vulnerableCloudMembershipEntryCount: 0, vulnerableCloudMembershipEntries: [] },
     sourceMatches: [], pluginReport: plugins });
 }
+
+test('R3A Guava continuation preserves exact runtime evidence and the historical unresolved HTTP finding', () => {
+  const input = fixture(), current = readCheckstyleGuavaCandidate();
+  input.currentE2 = current; input.commitSha = current.commitSha; input.pluginReport = readCheckstyleGuavaReport();
+  input.checkout.expectedHeadSha = current.commitSha; input.checkout.checkedOutSha = current.commitSha;
+  const before = canonical(input), result = evaluateCurrentEvidence(input);
+  assert.equal(result.currentE2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
+  assert.equal(result.preservedCurrentSourceGraphDigest, SERVER_DEPENDENCY_GRAPH);
+  assert.equal(result.currentTransitionContentSha256, transition.contentSha256);
+  assert.equal(result.findings[0].package.version, '5.3.6');
+  assert.equal(result.findings[0].disposition, 'UNRESOLVED');
+  assert.equal(result.decision.currentOsvTotalsClaimed, false); assert.equal(result.decision.releaseBlocked, true);
+  assert.deepEqual(result.historicalReview.findings, contract.findings); assert.equal(canonical(input), before);
+  input.pluginReport = plugins;
+  assert.throws(() => evaluateCurrentEvidence(input), /Maven graph\/plugin evidence mismatch/);
+});
 
 test('R3A current observation keeps the entire historical review separate without transferring old counts or disposition', () => {
   const input = fixture(), before = canonical(input), result = evaluateCurrentEvidence(input);

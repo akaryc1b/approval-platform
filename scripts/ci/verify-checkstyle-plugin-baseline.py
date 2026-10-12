@@ -16,18 +16,21 @@ def main():
     parser.add_argument('--effective-pom', type=Path)
     parser.add_argument('--baseline-effective-pom', type=Path)
     parser.add_argument('--baseline-root', type=Path)
+    parser.add_argument('--transition', choices=('lang', 'guava'), default='lang')
     args = parser.parse_args()
+    contract = (run_path(str(Path(__file__).with_name('checkstyle_guava_contract.py')))
+                if args.transition == 'guava' else CHECKSTYLE)
     CHECKSTYLE['require'](bool(args.effective_pom) == bool(args.baseline_effective_pom) == bool(args.baseline_root),
                          'Checkstyle model comparison requires candidate, baseline and baseline root')
     projects = RELEASE['verify_source'](args.root)
-    CHECKSTYLE['verify_source'](args.root, projects)
+    contract['verify_source'](args.root, projects)
     print('Checkstyle exact root additions and unchanged Compiler/Release/Clean source verified across 26 projects and both overlays.')
     if args.effective_pom:
         RELEASE['verify_effective'](args.effective_pom, projects)
         CLEAN['verify_effective'](args.effective_pom, projects)
         COMPILER['verify_effective'](args.effective_pom)
-        count = CHECKSTYLE['verify_effective'](args.root, args.effective_pom, args.baseline_effective_pom, args.baseline_root)
-        print(f'Checkstyle exact Lang override verified in all {count} paired models; not scanner or live compatibility evidence.')
+        count = contract['verify_effective'](args.root, args.effective_pom, args.baseline_effective_pom, args.baseline_root)
+        print(f'Checkstyle exact {args.transition.title()} override verified in all {count} paired models; not scanner or live compatibility evidence.')
 
 
 if __name__ == '__main__':

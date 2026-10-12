@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from checkstyle_live_support import (HERE, ROOT, NS, CASES, GOAL, REPORT_GOAL, MODEL_GOAL, PREPARE_GOAL, CENTRAL_SETTINGS, REFERENCE_HASH,
     Commands, cached_artifacts, cached_report_skin, digest, execution_mode, inside, isolated_env, load_contract,
     logging_import, maven_command, natural_origins, parent_xml, preparation_command, preparation_xml, prepare_repository,
-    realm_artifacts, realm_imports, require, source_inputs)
+    realm_artifacts, realm_imports, require, source_inputs, transition_spec)
 
 GOOD = 'package fixture;\npublic class Good { String value = "café"; }\n'
 TEST_GOOD = 'package fixture;\npublic class TestGood { int value = 1; }\n'
@@ -35,7 +35,7 @@ FAILURES = {
 }
 SETTINGS = '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"/>\n'
 FIXTURE_NAMES = ('run_checkstyle_live_compatibility.py', 'checkstyle_live_support.py',
-                 'CheckstyleRealmObserver.java', 'CheckstyleLangProbe.java')
+                 'CheckstyleRealmObserver.java', 'CheckstyleLangProbe.java', 'CheckstyleGuavaProbe.java')
 CONTRACT_INPUTS = ('scripts/ci/checkstyle_plugin_contract.py', 'scripts/ci/verify-release-plugin-baseline.py',
                    'scripts/ci/compiler_plugin_contract.py', 'scripts/ci/clean_plugin_contract.py',
                    'docs/operations/compiler-plugin-evidence/source-witness.json')
@@ -63,26 +63,47 @@ class ReportRows(HTMLParser):
 
 
 class Run:
-    def __init__(self, source, sandbox, repository, jdk, maven, offline, stage, baseline):
+    def __init__(self, source, sandbox, repository, jdk, maven, offline, stage, baseline, transition='lang'):
         self.source, self.sandbox, self.repository = source, sandbox, repository
         self.jdk, self.maven, self.offline, self.stage, self.baseline = jdk, maven, offline, stage, baseline
-        self.contract_hashes = {p: digest(source / p) for p in CONTRACT_INPUTS}
-        self.contract = load_contract(source)
+        self.transition, self.spec = transition, transition_spec(transition)
+        self.fixed, self.observer_hash = {}, None
+        self.supplied_source, self.supplied_hashes = source, {}
+        contract_inputs = CONTRACT_INPUTS
+        root_pom = source / 'pom.xml'
+        require(root_pom.is_file() and root_pom.stat().st_size < 1024 * 1024, 'bounded source root POM required')
+        has_guava = ET.parse(root_pom).getroot().find('m:properties/m:maven.checkstyle.guava.version', NS) is not None
+        if transition == 'guava' or has_guava:
+            contract_inputs += ('scripts/ci/checkstyle_guava_contract.py',)
+        if transition == 'lang' and has_guava:
+            guava_contract = load_contract(source, 'guava')
+            _, _, input_hashes = source_inputs(source, guava_contract)
+            self.supplied_hashes = input_hashes | {p: digest(source / p) for p in contract_inputs}
+            historical = inside(sandbox / 'accepted-lang-source', sandbox); historical.mkdir()
+            for relative in self.supplied_hashes:
+                data = (source / relative).read_bytes()
+                if relative == 'pom.xml':
+                    data = guava_contract['reverse_source'](data)
+                target = inside(historical / relative, sandbox); target.parent.mkdir(parents=True, exist_ok=True)
+                self.put_fixed(target, data)
+            source = historical; self.source = source
+        self.contract_hashes = {p: digest(source / p) for p in contract_inputs}
+        self.contract = load_contract(source, transition)
         root, plugin, self.source_hashes = source_inputs(source, self.contract)
         if baseline:
             root = self.contract['before_checkstyle'](root)
             plugin = [p for p in root.findall('m:build/m:plugins/m:plugin', NS) if self.contract['targeted'](p)][0]
         self.identity = sandbox.stat().st_dev, sandbox.stat().st_ino
         self.harness_hashes = {name: digest(HERE / name) for name in FIXTURE_NAMES}
-        self.fixed, self.observer_hash = {}, None
         for name in ('home', 'tmp', 'classes', 'parent', 'config/checkstyle'):
             inside(sandbox / name, sandbox).mkdir(parents=True)
         self.put_fixed(sandbox / 'empty-settings.xml', SETTINGS)
         self.put_fixed(sandbox / 'config/checkstyle/checkstyle.xml', (source / 'config/checkstyle/checkstyle.xml').read_text())
-        self.put_fixed(sandbox / 'parent/pom.xml', parent_xml(root, plugin, baseline))
+        self.put_fixed(sandbox / 'parent/pom.xml', parent_xml(root, plugin, baseline, transition))
         self.commands = Commands(sandbox, isolated_env(jdk, sandbox), 660 if stage == 'models' else 720)
         self.report = {'status': 'RUNNING', 'stage': stage, 'variant': 'baseline' if baseline else 'candidate',
-            'offline': offline, 'sandbox': str(sandbox), 'sourceHashes': self.source_hashes,
+            'offline': offline, 'sandbox': str(sandbox), 'transition': transition, 'sourceHashes': self.source_hashes,
+            'suppliedSourceHashes': self.supplied_hashes, 'historicalLangMaterialized': bool(self.supplied_hashes),
             'harnessSourceHashes': self.harness_hashes, 'contractSourceHashes': self.contract_hashes,
             'commands': self.commands.results, 'cases': {}, 'coverageGaps': [],
             'scannerEvidence': False, 'canonicalCiEvidence': False, 'vulnerableApiReachabilityClaim': False}
@@ -94,6 +115,7 @@ class Run:
     def containment(self):
         require(not self.sandbox.is_symlink() and self.identity == (self.sandbox.stat().st_dev, self.sandbox.stat().st_ino), 'sandbox identity drift')
         require(all(digest(self.source / p) == h for p, h in self.source_hashes.items()), 'source drift')
+        require(all(digest(self.supplied_source / p) == h for p, h in self.supplied_hashes.items()), 'supplied source drift')
         require(all(digest(self.source / p) == h for p, h in self.contract_hashes.items()), 'contract drift')
         require(all(digest(HERE / p) == h for p, h in self.harness_hashes.items()), 'harness drift')
         require(all(not p.is_symlink() and p.read_bytes() == t for p, t in self.fixed.items()), 'fixed fixture/settings/rules drift')
@@ -154,16 +176,16 @@ class Run:
         self.report['cachePreparation'] = preparation
         # Existing mismatches fail before resolution. Only absent files may be
         # provisioned; a warm valid cache needs no network preparation.
-        present = cached_artifacts(self.repository, True, allow_missing=not self.offline)
-        present |= cached_artifacts(self.repository, False, allow_missing=not self.offline)
+        present = cached_artifacts(self.repository, True, allow_missing=not self.offline, transition=self.transition)
+        present |= cached_artifacts(self.repository, False, allow_missing=not self.offline, transition=self.transition)
         skin = cached_report_skin(self.repository, allow_missing=not self.offline)
         preparation.update(initialOwnerArtifactCount=len(present), initialReportResourceCount=len(skin))
-        if not self.offline and (len(present) != 60 or len(skin) != 1):
+        if not self.offline and (len(present) != self.spec['artifactUnionCount'] or len(skin) != 1):
             self.put_fixed(self.sandbox / 'central-settings.xml', CENTRAL_SETTINGS)
             preparation.update(goal=PREPARE_GOAL, projectSha256={}, settingsSha256=digest(self.sandbox / 'central-settings.xml'))
             for baseline, label in [(True, 'baseline'), (False, 'extras')]:
                 project = self.sandbox / ('cache-preparation-' + label + '.xml')
-                self.put_fixed(project, preparation_xml(baseline))
+                self.put_fixed(project, preparation_xml(baseline, self.transition))
                 preparation['projectSha256'][label] = digest(project)
                 self.run('prepare-artifacts-' + label, preparation_command(self.maven, self.sandbox,
                     self.repository, self.offline, baseline), 120, {'MAVEN_BASEDIR': str(self.sandbox),
@@ -171,8 +193,8 @@ class Run:
                 preparation['resolutionCommandsRun'] += 1
         # Preparation is never an acceptance goal. Both variants must already
         # have exact bytes before any actual model, Checkstyle goal or replay.
-        union = cached_artifacts(self.repository, True) | cached_artifacts(self.repository, False)
-        require(len(union) == 60, '60 verified cached artifacts required before acceptance')
+        union = cached_artifacts(self.repository, True, transition=self.transition) | cached_artifacts(self.repository, False, transition=self.transition)
+        require(len(union) == self.spec['artifactUnionCount'], 'exact verified cached artifact union required before acceptance')
         preparation.update(status='VERIFIED', artifacts=union, reportResources=cached_report_skin(self.repository))
 
     def fixture(self, name, invalid=False):
@@ -202,7 +224,7 @@ class Run:
         for file in selected:
             require(inside(file, self.sandbox).is_file() and file.stat().st_size <= 65536, 'bounded fixture source required')
         hashes = {str(file.relative_to(child)): digest(file) for file in selected}
-        artifacts = cached_artifacts(self.repository, self.baseline)
+        artifacts = cached_artifacts(self.repository, self.baseline, transition=self.transition)
         options = ('-Xmx384m -XX:MaxMetaspaceSize=192m -Dorg.slf4j.simpleLogger.logFile=System.out -Duser.home='
             + str(self.sandbox / 'home') + ' -javaagent:' + str(self.sandbox / 'observer.jar') + ' -Xlog:class+load=info:stderr')
         expected = 1 if invalid or (rule and not report_goal) else 0
@@ -213,7 +235,8 @@ class Run:
         marker = '--- checkstyle:3.6.0:checkstyle (default-cli)' if report_goal else '--- checkstyle:3.6.0:check (checkstyle)'
         require(marker in stdout, 'versionless goal failed source inheritance')
         approved = realm_artifacts(stdout, artifacts)
-        origins = natural_origins(stdout, stderr, approved, early_failure=invalid, report=report_goal)
+        origins = natural_origins(stdout, stderr, approved, early_failure=invalid, report=report_goal,
+            guava_discovery=self.transition == 'guava' and invalid)
         record = {'status': 'PASSED', 'exitStatus': status, 'expectedFailure': bool(expected), 'fixtureSourceHashes': hashes,
             'realmArtifacts': approved, 'naturalOrigins': origins, 'actualForeignImports': realm_imports(stdout),
             'loggingImport': logging_import(origins, self.maven), 'stdoutSha256': digest(self.sandbox / (label + '.stdout.log')),
@@ -221,6 +244,9 @@ class Run:
         if invalid:
             require('NoSuchFixtureCheck' in stdout and ('Unable to' in stdout or 'cannot initialize' in stdout), 'specific configuration failure absent')
             record['invalidConfigurationDetected'] = True
+            if self.transition == 'guava':
+                record['guavaDiscovery'] = {'status': 'EXPECTED_MISSING_MODULE_FAILURE',
+                    'successfulCustomModuleNaturalGoalClaim': False, 'actualSelectedGuavaOriginsRequired': True}
         else:
             output = inside(child / 'target/checkstyle-result.xml', self.sandbox)
             require(output.is_file() and output.stat().st_size <= 1024 * 1024, 'bounded actual XML required')
@@ -299,7 +325,8 @@ class Run:
         self.report['status'] = 'PASSED'
 
     def api_probe(self):
-        passing = self.report['cases']['passing']; approved = passing['realmArtifacts']
+        observed_case = 'invalid-configuration' if self.transition == 'guava' else 'passing'
+        passing = self.report['cases'][observed_case]; approved = passing['realmArtifacts']
         by_path = {a['path']: (c, a) for c, a in approved.items()}
         ordered = [by_path[p] for p in passing['naturalOrigins']['actualPrivateRealmUrls']]
         logging = passing['loggingImport']; manifest = self.sandbox / 'observed-artifacts.tsv'
@@ -307,28 +334,28 @@ class Run:
         text += 'maven-import\t' + logging['coordinate'] + '\t' + logging['sha256'] + '\t' + logging['path'] + '\n'
         self.put_fixed(manifest, text)
         self.run('compile-api-probe', [str(self.jdk / 'bin/javac'), '-J-Xmx96m', '-proc:none', '--release', '21',
-            '-d', str(self.sandbox / 'classes'), str(HERE / 'CheckstyleLangProbe.java')])
-        version = '3.17.0' if self.baseline else '3.18.0'
-        command = [str(self.jdk / 'bin/java'), '-Xmx192m', '-XX:MaxMetaspaceSize=128m', '-cp', str(self.sandbox / 'classes'), 'CheckstyleLangProbe']
+            '-d', str(self.sandbox / 'classes'), str(HERE / (self.spec['probe'] + '.java'))])
+        version = self.spec['versions'][0 if self.baseline else 1]
+        command = [str(self.jdk / 'bin/java'), '-Xmx192m', '-XX:MaxMetaspaceSize=128m', '-cp', str(self.sandbox / 'classes'), self.spec['probe']]
         _, out, _ = self.run('run-api-probe', command + [str(manifest), version], 60)
         receipts = [line for line in out.splitlines() if line.startswith('CHECKSTYLE_API_COMPLETE ')]
         require(len(receipts) == 1, 'one completed replay required')
         receipt = json.loads(receipts[0].removeprefix('CHECKSTYLE_API_COMPLETE '))
-        require(receipt['status'] == 'PASSED' and receipt['langMemberReferences'] == 58
-            and receipt['referenceSetSha256'] == REFERENCE_HASH, 'complete exact descriptor replay required')
-        self.report['apiProbe'] = dict(receipt, goalReachabilityClaim=False,
+        require(receipt['status'] == 'PASSED' and receipt[self.spec['memberField']] == self.spec['memberCount']
+            and receipt['referenceSetSha256'] == self.spec['referenceHash'], 'complete exact descriptor replay required')
+        self.report['apiProbe'] = dict(receipt, goalReachabilityClaim=False, observedGoalCase=observed_case,
             observedGoalStdoutSha256=passing['stdoutSha256'], observedClassLoadSha256=passing['classLoadLogSha256'],
             observedArtifactsSha256=digest(manifest), probeStdoutSha256=digest(self.sandbox / 'run-api-probe.stdout.log'), negativeControls={})
         lines = text.splitlines(keepends=True)
-        lang_rows = [line for line in lines if line.startswith('private\torg.apache.commons:commons-lang3:')]
-        require(len(lang_rows) == 1, 'one selected Lang row required')
-        lang_row = lang_rows[0]; opposite = cached_artifacts(self.repository, not self.baseline)
-        other_coordinate = 'org.apache.commons:commons-lang3:jar:' + ('3.18.0' if self.baseline else '3.17.0')
-        other = opposite[other_coordinate]; bad_hash = lang_row.split('\t'); bad_hash[2] = '0' * 64
+        target_rows = [line for line in lines if line.startswith('private\t' + self.spec['prefix'])]
+        require(len(target_rows) == 1, 'one selected transition artifact row required')
+        target_row = target_rows[0]; opposite = cached_artifacts(self.repository, not self.baseline, transition=self.transition)
+        other_coordinate = self.spec['prefix'] + self.spec['versions'][1 if self.baseline else 0]
+        other = opposite[other_coordinate]; bad_hash = target_row.split('\t'); bad_hash[2] = '0' * 64
         controls = {
-            'missing-lang': (text.replace(lang_row, ''), '54 observed private artifacts'),
-            'wrong-lang': (text.replace(lang_row, 'private\t' + other_coordinate + '\t' + other['sha256'] + '\t' + other['path'] + '\n'), 'only selected Lang variant'),
-            'changed-pin': (text.replace(lang_row, '\t'.join(bad_hash)), 'actual observed bytes commons-lang3-'),
+            'missing-' + self.transition: (text.replace(target_row, ''), '54 observed private artifacts'),
+            'wrong-' + self.transition: (text.replace(target_row, 'private\t' + other_coordinate + '\t' + other['sha256'] + '\t' + other['path'] + '\n'), 'only selected ' + self.transition.capitalize() + ' variant'),
+            'changed-pin': (text.replace(target_row, '\t'.join(bad_hash)), 'actual observed bytes ' + self.spec['prefix'].split(':')[1] + '-'),
         }
         for name, (invalid, cause) in controls.items():
             file = self.sandbox / (name + '.tsv'); self.put_fixed(file, invalid)
@@ -342,15 +369,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--execute', action='store_true'); parser.add_argument('--stage', choices=('models', 'fixtures'), default='fixtures')
     parser.add_argument('--variant', choices=('baseline', 'candidate'), default='candidate')
+    parser.add_argument('--transition', choices=('lang', 'guava'), default='lang')
     parser.add_argument('--source', type=Path, default=ROOT); parser.add_argument('--repository', type=Path)
     parser.add_argument('--evidence-directory', type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(); spec = transition_spec(args.transition)
     if not args.execute:
-        print(json.dumps({'execution': 'NOT_RUN', 'goals': [MODEL_GOAL, GOAL, REPORT_GOAL], 'cases': list(CASES),
+        print(json.dumps({'execution': 'NOT_RUN', 'transition': args.transition, 'goals': [MODEL_GOAL, GOAL, REPORT_GOAL], 'cases': list(CASES),
             'variants': ['baseline', 'candidate'], 'explicitOptInRequiredEvenInCi': True, 'localAlwaysOffline': True,
-            'ciPreparation': {'goal': PREPARE_GOAL, 'artifactCount': 60, 'reportResourceCount': 1,
+            'ciPreparation': {'goal': PREPARE_GOAL, 'artifactCount': spec['artifactUnionCount'], 'reportResourceCount': 1,
                 'maximumCommands': 2, 'acceptanceGoal': False, 'commandTimeoutSeconds': 120},
-            'modelCount': 26, 'langMemberReferenceExpectation': 58, 'referenceSetSha256': REFERENCE_HASH,
+            'modelCount': 26, args.transition + 'MemberReferenceExpectation': spec['memberCount'],
+            'referenceSetSha256': spec['referenceHash'],
             'aggregateTimeoutSeconds': {'models': 660, 'fixtures': 720},
             'commandTimeoutSeconds': {'models': 300, 'checkstyle': 120, 'javac': 30, 'probe': 60, 'negativeProbe': 30},
             'maxCommandOutputBytes': 16 * 1024 * 1024, 'maxAggregateOutputBytes': 96 * 1024 * 1024})); return 0
@@ -372,7 +401,7 @@ def main():
         signal.signal(signum, interrupted)
     run = None
     try:
-        run = Run(source, sandbox, repository, jdk, Path(executable).resolve(), offline, args.stage, args.variant == 'baseline')
+        run = Run(source, sandbox, repository, jdk, Path(executable).resolve(), offline, args.stage, args.variant == 'baseline', args.transition)
         run.toolchain(); run.prepare_artifacts()
         run.models() if args.stage == 'models' else run.fixtures()
         run.containment()

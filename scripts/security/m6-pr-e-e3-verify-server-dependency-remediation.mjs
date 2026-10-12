@@ -7,6 +7,7 @@ import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBu
   RELEASE_PLUGIN_GRAPH, readReleasePluginManifest, verifyReleasePluginDelta,
   COMPILER_PLUGIN_GRAPH, readCompilerPluginManifest, verifyCompilerPluginDelta,
   CHECKSTYLE_PLUGIN_GRAPH, readCheckstylePluginManifest, verifyCheckstylePluginDelta,
+  CHECKSTYLE_GUAVA_GRAPH, readCheckstyleGuavaManifest, verifyCheckstyleGuavaDelta,
   CLEAN_PLUGIN_GRAPH, readCleanPluginManifest, verifyCleanPluginDelta }
   from './observability-dependency-graph.mjs';
 import { verifyOsvCoverage, osvInputFromE2 } from './osv-scan-coverage.mjs';
@@ -104,7 +105,7 @@ function requireFreshFullEvidence(e4, expectedHead) {
   requireValue(total === e4.totalFindingCount, 'server remediation scanner finding count mismatch');
   const e2 = e4.e2CurrentEvidence;
   requireValue(e2?.commitSha === expectedHead && e2.contentSha256 === e4.e2CurrentContentSha256
-    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
+    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
   const transition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, expectedHead);
   requireValue(same(transition, requirePreservedGraph(e4, BASE_GRAPH, expectedHead)), 'server remediation graph receipt mismatch');
   return verifyOsvCoverage(e4.scanners.osv.coverage, e4.scanners.osv.findings, e2,
@@ -118,18 +119,20 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
   const coverage = requireFreshFullEvidence(e4, expectedCommitSha);
   let expectedInput = { packageCount: plan.expectedInputPackageCount, inputBytesSha256: plan.expectedInputBytesSha256 };
   let subsequentGraphTransition;
-  if ([BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest)) {
+  if ([BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH].includes(e4.e2GraphDigest)) {
     const manifest = readBuildPluginJacksonManifest();
     const current = acceptedE2GraphProjection(e4.e2CurrentEvidence);
-    const checkstyleManifest = e4.e2GraphDigest === CHECKSTYLE_PLUGIN_GRAPH ? readCheckstylePluginManifest() : null;
-    const beforeCheckstyle = checkstyleManifest ? verifyCheckstylePluginDelta(current, checkstyleManifest) : current;
-    const compilerManifest = [COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest) ? readCompilerPluginManifest() : null;
+    const guavaManifest = e4.e2GraphDigest === CHECKSTYLE_GUAVA_GRAPH ? readCheckstyleGuavaManifest() : null;
+    const beforeGuava = guavaManifest ? verifyCheckstyleGuavaDelta(current, guavaManifest) : current;
+    const checkstyleManifest = [CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH].includes(e4.e2GraphDigest) ? readCheckstylePluginManifest() : null;
+    const beforeCheckstyle = checkstyleManifest ? verifyCheckstylePluginDelta(beforeGuava, checkstyleManifest) : beforeGuava;
+    const compilerManifest = [COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH].includes(e4.e2GraphDigest) ? readCompilerPluginManifest() : null;
     const beforeCompiler = compilerManifest ? verifyCompilerPluginDelta(beforeCheckstyle, compilerManifest) : beforeCheckstyle;
-    const cleanManifest = [CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest) ? readCleanPluginManifest() : null;
+    const cleanManifest = [CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH].includes(e4.e2GraphDigest) ? readCleanPluginManifest() : null;
     const beforeClean = cleanManifest ? verifyCleanPluginDelta(beforeCompiler, cleanManifest) : beforeCompiler;
-    const releaseManifest = [RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest) ? readReleasePluginManifest() : null;
+    const releaseManifest = [RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH].includes(e4.e2GraphDigest) ? readReleasePluginManifest() : null;
     const beforeRelease = releaseManifest ? verifyReleasePluginDelta(beforeClean, releaseManifest) : beforeClean;
-    const siteManifest = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest)
+    const siteManifest = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH].includes(e4.e2GraphDigest)
       ? readSiteDependencyPluginManifest() : null;
     const priorPlugin = siteManifest ? verifySiteDependencyPluginDelta(beforeRelease, siteManifest) : beforeRelease;
     const preserved = verifyBuildPluginJacksonDelta(priorPlugin, manifest);
@@ -172,6 +175,13 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
         && hash(JSON.stringify(priorCheckstyleInput.scannerInput)) === expectedInput.inputBytesSha256
         && same(checkstyleManifest.osvInput.prior, expectedInput), 'server remediation prior Checkstyle OSV input lineage mismatch');
       expectedInput = checkstyleManifest.osvInput.current;
+    }
+    if (guavaManifest) {
+      const priorGuavaInput = osvInputFromE2(beforeGuava);
+      requireValue(priorGuavaInput.packageCount === expectedInput.packageCount
+        && hash(JSON.stringify(priorGuavaInput.scannerInput)) === expectedInput.inputBytesSha256
+        && same(guavaManifest.osvInput.prior, expectedInput), 'server remediation prior Guava OSV input lineage mismatch');
+      expectedInput = guavaManifest.osvInput.current;
     }
     subsequentGraphTransition = requirePreservedGraph(e4, BASE_GRAPH, expectedCommitSha);
   }
