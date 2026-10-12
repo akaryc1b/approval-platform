@@ -22,6 +22,7 @@ public final class CheckstyleRealmObserver {
                 if (name != null && (name.startsWith("org/apache/maven/plugins/checkstyle/")
                         || name.startsWith("com/puppycrawl/tools/checkstyle/")
                         || name.startsWith("org/apache/commons/lang3/")
+                        || name.startsWith("com/google/common/")
                         || name.startsWith("org/apache/commons/text/")
                         || name.startsWith("org/apache/maven/doxia/")
                         || name.startsWith("org/apache/velocity/") || name.startsWith("org/slf4j/"))) {

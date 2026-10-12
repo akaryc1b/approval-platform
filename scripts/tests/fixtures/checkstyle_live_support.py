@@ -127,8 +127,32 @@ def normalized(element):
     return element.tag, (element.text or '').strip(), tuple(sorted(element.attrib.items())), tuple(normalized(c) for c in element)
 
 
-def load_contract(source):
-    return run_path(str(source / 'scripts/ci/checkstyle_plugin_contract.py'))
+def transition_spec(name='lang'):
+    require(name in ('lang', 'guava'), 'only named lang/guava transitions admitted')
+    return {
+        'lang': {'contract': 'checkstyle_plugin_contract.py', 'probe': 'CheckstyleLangProbe',
+                 'property': PROP, 'prefix': 'org.apache.commons:commons-lang3:jar:',
+                 'versions': ('3.17.0', '3.18.0'), 'memberField': 'langMemberReferences',
+                 'memberCount': 58, 'referenceHash': REFERENCE_HASH, 'artifactUnionCount': 60},
+        'guava': {'contract': 'checkstyle_guava_contract.py', 'probe': 'CheckstyleGuavaProbe',
+                  'property': 'maven.checkstyle.guava.version', 'prefix': 'com.google.guava:guava:jar:',
+                  'versions': ('31.0.1-jre', '32.0.1-jre'), 'memberField': 'guavaMemberReferences',
+                  'memberCount': 4, 'referenceHash': 'e2c5e81005d7620b6fa48d4157f9e7413b05f9f8e07176c7e461ac9af2d2b833',
+                  'artifactUnionCount': 63},
+    }[name]
+
+
+# Exact candidate bytes verified during separate Central plugins-only provisioning.
+GUAVA_REPLACEMENTS = {
+    'com.google.guava:guava:jar:31.0.1-jre': ('com.google.guava:guava:jar:32.0.1-jre', 'bd7fa227591fb8509677d0d1122cf95158f3b8a9f45653f58281d879f6dc48c5'),
+    'org.checkerframework:checker-qual:jar:3.12.0': ('org.checkerframework:checker-qual:jar:3.33.0', 'e316255bbfcd9fe50d165314b85abb2b33cb2a66a93c491db648e498a82c2de1'),
+    'com.google.errorprone:error_prone_annotations:jar:2.7.1': ('com.google.errorprone:error_prone_annotations:jar:2.18.0', '9e6814cb71816988a4fd1b07a993a8f21bb7058d522c162b1de849e19bea54ae'),
+    'com.google.j2objc:j2objc-annotations:jar:1.3': ('com.google.j2objc:j2objc-annotations:jar:2.8', 'f02a95fa1a5e95edb3ed859fd0fb7df709d121a35290eff8b74dce2ab7f4d6ed'),
+}
+
+
+def load_contract(source, transition='lang'):
+    return run_path(str(source / 'scripts/ci' / transition_spec(transition)['contract']))
 
 
 def source_inputs(source, contract):
@@ -147,13 +171,15 @@ def source_inputs(source, contract):
     return root, selected[0], hashes
 
 
-def parent_xml(root, plugin, baseline=False):
+def parent_xml(root, plugin, baseline=False, transition='lang'):
+    spec = transition_spec(transition)
     parent = ET.Element(P + 'project')
     for name, value in [('modelVersion', '4.0.0'), ('groupId', 'local.checkstyle.compatibility'),
                         ('artifactId', 'checkstyle-parent'), ('version', '1'), ('packaging', 'pom')]:
         ET.SubElement(parent, P + name).text = value
     properties = ET.SubElement(parent, P + 'properties')
-    for name in ('maven.checkstyle.version', *(() if baseline else (PROP,)), 'project.build.sourceEncoding'):
+    for name in ('maven.checkstyle.version', *((PROP,) if transition == 'guava' else ()),
+                 *(() if baseline else (spec['property'],)), 'project.build.sourceEncoding'):
         matches = root.findall('m:properties/m:' + name, NS)
         require(len(matches) == 1, 'one source property required')
         properties.append(copy.deepcopy(matches[0]))
@@ -197,18 +223,25 @@ def maven_command(maven, sandbox, repository, offline, stage, project, model_out
     return command + ['-N', '-X', *([REPORT_GOAL, '-DlinkXRef=false'] if stage == 'report' else [GOAL])]
 
 
-def artifact_hashes(baseline=False):
+def artifact_hashes(baseline=False, transition='lang'):
+    transition_spec(transition)
     result = dict(ARTIFACT_HASHES)
-    if baseline:
+    if transition == 'guava':
+        if not baseline:
+            for old, (new, expected) in GUAVA_REPLACEMENTS.items():
+                del result[old]; result[new] = expected
+    elif baseline:
         del result[LANG]
         result['org.apache.commons:commons-lang3:jar:3.17.0'] = '6ee731df5c8e5a2976a1ca023b6bb320ea8d3539fbe64c8a1d5cb765127c33b4'
     return result
 
 
-def preparation_xml(baseline):
-    """Separate same-GA Lang versions; no project inheritance or lifecycle."""
-    artifacts = artifact_hashes(True) if baseline else {LANG: ARTIFACT_HASHES[LANG], **REPORT_SKIN}
-    require(len(artifacts) == (59 if baseline else 2), 'exact preparation artifacts required')
+def preparation_xml(baseline, transition='lang'):
+    """Separate same-GA versions; no project inheritance or lifecycle."""
+    prior, candidate = artifact_hashes(True, transition), artifact_hashes(False, transition)
+    artifacts = prior if baseline else {**{c: h for c, h in candidate.items() if c not in prior}, **REPORT_SKIN}
+    require(len(artifacts) == (59 if baseline else transition_spec(transition)['artifactUnionCount'] - 58),
+            'exact preparation artifacts required')
     project = ET.Element(P + 'project')
     for name, value in [('modelVersion', '4.0.0'), ('groupId', 'local.checkstyle.compatibility'),
                         ('artifactId', 'checkstyle-cache-' + ('baseline' if baseline else 'extras')),
@@ -236,8 +269,8 @@ def preparation_command(maven, sandbox, repository, offline, baseline):
             '-Dmaven.multiModuleProjectDirectory=' + str(sandbox), '-f', str(project), PREPARE_GOAL, '-DexcludeTransitive=true']
 
 
-def cached_artifacts(repository, baseline=False, allow_missing=False):
-    hashes = artifact_hashes(baseline)
+def cached_artifacts(repository, baseline=False, allow_missing=False, transition='lang'):
+    hashes = artifact_hashes(baseline, transition)
     require(len(hashes) == 59 and all(re.fullmatch('[0-9a-f]{64}', h) for h in hashes.values()), '59 valid expected artifact hashes required')
     return cached_files(repository, hashes, allow_missing)
 
@@ -295,7 +328,7 @@ def local_url(value):
     return str(Path(unquote(parsed.path)).resolve())
 
 
-def natural_origins(stdout, stderr, approved, early_failure=False, report=False):
+def natural_origins(stdout, stderr, approved, early_failure=False, report=False, guava_discovery=False):
     pattern = r'^\[[^\n]*\]\[class,load\] '
     require(not re.search(pattern, stdout, re.M) and re.search(pattern, stderr, re.M), 'separate JVM class channel required')
     observations = []
@@ -315,9 +348,15 @@ def natural_origins(stdout, stderr, approved, early_failure=False, report=False)
         required |= {'com/puppycrawl/tools/checkstyle/Checker', 'com/puppycrawl/tools/checkstyle/TreeWalker', 'org/apache/commons/lang3/StringUtils'}
     if report:
         required.add('org/apache/maven/plugins/checkstyle/CheckstyleReportRenderer')
+    if guava_discovery:
+        required |= {'com/puppycrawl/tools/checkstyle/utils/ModuleReflectionUtil',
+                     'com/google/common/reflect/ClassPath', 'com/google/common/reflect/ClassPath$ClassInfo',
+                     'com/google/common/collect/ImmutableSet'}
     require(required <= {o['class'] for o in own}, 'required naturally loaded classes missing')
     langs = [c for c in approved if c.startswith('org.apache.commons:commons-lang3:jar:')]
     require(len(langs) == 1, 'one private Lang version required')
+    guavas = [c for c in approved if c.startswith('com.google.guava:guava:jar:')]
+    require(len(guavas) == 1, 'one private Guava version required')
     jvm = set()
     for match in re.finditer(r'^\[[^\n]*\]\[class,load\] (\S+) source: (.+?)\s*$', stderr, re.M):
         if match[2].startswith('file:'):
@@ -326,7 +365,7 @@ def natural_origins(stdout, stderr, approved, early_failure=False, report=False)
         require((item['class'].replace('/', '.'), item['path']) in jvm, 'origin lacks JVM corroboration')
     for item in own:
         name = item['class']
-        coordinate = OWNER if name.startswith('org/apache/maven/plugins/checkstyle/') else ENGINE if name.startswith('com/puppycrawl/tools/checkstyle/') else langs[0] if name.startswith('org/apache/commons/lang3/') else None
+        coordinate = OWNER if name.startswith('org/apache/maven/plugins/checkstyle/') else ENGINE if name.startswith('com/puppycrawl/tools/checkstyle/') else langs[0] if name.startswith('org/apache/commons/lang3/') else 'com.google.guava:failureaccess:jar:1.0.1' if name.startswith('com/google/common/util/concurrent/internal/') else guavas[0] if name.startswith('com/google/common/') else None
         require(item['path'] in urls and (coordinate is None or item['path'] == approved[coordinate]['path']), 'natural class owner/version mismatch')
     return {'pluginLoader': identity, 'actualPrivateRealmUrls': urls, 'pluginRealmObservations': own,
             'otherLoaderObservations': [o for o in observations if o['loader'] != identity], 'absenceIsNotNonReachabilityEvidence': True}

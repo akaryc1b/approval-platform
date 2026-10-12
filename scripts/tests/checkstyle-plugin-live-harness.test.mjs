@@ -54,7 +54,7 @@ test('Checkstyle CI selection explicitly opts isolated children in without enabl
     [{ GITHUB_ACTIONS: 'true' }, true], [{ CHECKSTYLE_PLUGIN_COMPATIBILITY: 'true' }, true],
     [{ GITHUB_ACTIONS: 'true', CHECKSTYLE_PLUGIN_COMPATIBILITY: 'false' }, true]]) {
     const tests = []; const calls = [];
-    const receipt = { status: 'PASSED', stage: 'models', variant: 'candidate', scannerEvidence: false,
+    const receipt = { status: 'PASSED', stage: 'models', variant: 'candidate', transition: 'lang', scannerEvidence: false,
       vulnerableApiReachabilityClaim: false, coverageGaps: [], modelCount: 26,
       sourceHashes: Object.fromEntries(Array.from({ length: 29 }, (_, n) => [n, 'hash'])),
       baselineSourceHashes: { ...Object.fromEntries(Array.from({ length: 28 }, (_, n) => [n, 'hash'])),
@@ -67,10 +67,21 @@ test('Checkstyle CI selection explicitly opts isolated children in without enabl
     const context = vm.createContext({ assert, path, URL, fileURLToPath, process: { env: environment },
       console: { log() {}, error() {} }, tests,
       test(name, options, fn) { tests.push({ name, options, fn }); },
-      spawnSync(...args) { calls.push(args); return { status: 0, stdout: `CHECKSTYLE_LIVE_RESULT ${JSON.stringify(receipt)}\n`, stderr: '' }; },
+      spawnSync(...args) {
+        calls.push(args);
+        const isGuava = args[1].includes('--transition=guava');
+        const current = { ...receipt, transition: isGuava ? 'guava' : 'lang',
+          baselineSourceHashes: { ...receipt.baselineSourceHashes, 'pom.xml': isGuava
+            ? 'd55f730aa8490c60ddf8c3d76d062fd6c4706be4816adf8db8936df15941a6fb'
+            : receipt.baselineSourceHashes['pom.xml'] },
+          cachePreparation: { ...receipt.cachePreparation, artifacts: Object.fromEntries(
+            Array.from({ length: isGuava ? 63 : 60 }, (_, n) => [n, {}])) },
+        };
+        return { status: 0, stdout: `CHECKSTYLE_LIVE_RESULT ${JSON.stringify(current)}\n`, stderr: '' };
+      },
     });
     vm.runInContext(source, context, { timeout: 1000 });
-    assert.equal(tests.length, 2);
+    assert.equal(tests.length, 4);
     assert.equal(tests.every(item => item.options.skip === false), enabled);
     if (enabled) {
       vm.runInContext('tests[0].fn()', context, { timeout: 1000 });
@@ -78,6 +89,10 @@ test('Checkstyle CI selection explicitly opts isolated children in without enabl
       assert.equal(calls[0][0], '/usr/bin/python3');
       assert.equal(calls[0][2].env.CHECKSTYLE_PLUGIN_COMPATIBILITY, 'true');
       assert.equal(calls[0][2].env.GITHUB_ACTIONS, environment.GITHUB_ACTIONS);
+      assert.ok(calls[0][1].includes('--transition=lang'));
+      vm.runInContext('tests[2].fn()', context, { timeout: 1000 });
+      assert.equal(calls.length, 2);
+      assert.ok(calls[1][1].includes('--transition=guava'));
     } else assert.equal(calls.length, 0);
   }
 });
@@ -142,8 +157,9 @@ with tempfile.TemporaryDirectory(prefix='checkstyle-preparation-mock-') as direc
                                                 (True, True, False), (True, False, False), (False, False, True)]:
         run = Run.__new__(Run); run.sandbox, run.repository = sandbox, repository
         run.maven, run.offline, run.report, run.fixed = Path('/fixed/mvn'), offline, {}, {}
+        run.transition, run.spec = 'lang', s.transition_spec('lang')
         events = []; state = {'complete': initially_complete}
-        def artifacts(repository_, baseline=False, allow_missing=False):
+        def artifacts(repository_, baseline=False, allow_missing=False, transition='lang'):
             events.append(('hash', baseline, allow_missing))
             if corrupt: raise ValueError('artifact bytes differ')
             result = {c: {'sha256': h} for c, h in s.artifact_hashes(baseline).items()}
@@ -272,5 +288,147 @@ with tempfile.TemporaryDirectory(prefix='checkstyle-command-mock-') as directory
             kill.assert_called_once_with(43210, signal.SIGKILL)
             assert commands.results[0]['processGroupCleaned'] is True
             assert commands.results[0]['captureComplete'] is (not failing)
+`);
+});
+
+test('Checkstyle Guava named plan preserves all fifteen goals and rejects arbitrary transition loading', () => {
+  const plan = JSON.parse(python(String.raw`
+import runpy, subprocess, sys
+sys.path.insert(0, sys.argv[1])
+def blocked(*args, **kwargs):
+    raise AssertionError('plan attempted a process')
+subprocess.Popen = blocked
+sys.argv = ['run_checkstyle_live_compatibility.py', '--transition=guava']
+runpy.run_path(sys.path[0] + '/run_checkstyle_live_compatibility.py', run_name='__main__')
+`));
+  assert.equal(plan.execution, 'NOT_RUN');
+  assert.equal(plan.transition, 'guava');
+  assert.equal(plan.cases.length, 15);
+  assert.equal(plan.guavaMemberReferenceExpectation, 4);
+  assert.equal(plan.referenceSetSha256, 'e2c5e81005d7620b6fa48d4157f9e7413b05f9f8e07176c7e461ac9af2d2b833');
+  assert.equal(plan.ciPreparation.artifactCount, 63);
+  assert.deepEqual(plan.aggregateTimeoutSeconds, { models: 660, fixtures: 720 });
+  python(String.raw`
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import checkstyle_live_support as s
+for value in ('../other', '/tmp/module.py', 'guava.py', '', None):
+    try: s.load_contract(Path('/never-read'), value)
+    except ValueError: pass
+    else: raise AssertionError('arbitrary transition accepted')
+`);
+});
+
+test('Checkstyle Guava preparation changes exactly four pinned artifacts and retains Lang', () => {
+  python(String.raw`
+import re, sys
+import xml.etree.ElementTree as ET
+sys.path.insert(0, sys.argv[1])
+import checkstyle_live_support as s
+before, after = s.artifact_hashes(True, 'guava'), s.artifact_hashes(False, 'guava')
+assert len(before) == len(after) == 59 and len(before.keys() | after.keys()) == 63
+assert set(before) - set(after) == set(s.GUAVA_REPLACEMENTS)
+assert set(after) - set(before) == {row[0] for row in s.GUAVA_REPLACEMENTS.values()}
+assert all(re.fullmatch('[0-9a-f]{64}', value) for value in after.values())
+assert before[s.LANG] == after[s.LANG] == s.ARTIFACT_HASHES[s.LANG]
+assert {c: h for c, h in before.items() if c in after} == {c: h for c, h in after.items() if c in before}
+for baseline in (True, False):
+    project = ET.fromstring(s.preparation_xml(baseline, 'guava'))
+    dependencies = project.findall('m:dependencies/m:dependency', s.NS)
+    coordinates = [':'.join(dep.findtext('m:' + n, namespaces=s.NS) for n in ('groupId', 'artifactId', 'type', 'version')) for dep in dependencies]
+    assert len(coordinates) == (59 if baseline else 5)
+    assert len({':'.join(c.split(':')[:3]) for c in coordinates}) == len(coordinates)
+    expected = set(before) if baseline else (set(after) - set(before)) | set(s.REPORT_SKIN)
+    assert set(coordinates) == expected
+`);
+});
+
+test('Checkstyle Guava actual discovery origin requires the selected private JAR and corroborating JVM loads', () => {
+  python(String.raw`
+import sys
+sys.path.insert(0, sys.argv[1])
+import checkstyle_live_support as s
+def rejects(callback):
+    try: callback()
+    except ValueError: return
+    raise AssertionError('invalid Guava origin accepted')
+artifacts = {c: {'path': '/cache/' + c.split(':')[1] + '-' + c.split(':')[3] + '.jar', 'sha256': h}
+             for c, h in s.artifact_hashes(False, 'guava').items() if c not in s.CORE_IMPORTS}
+guava = 'com.google.guava:guava:jar:32.0.1-jre'
+names = [('org/apache/maven/plugins/checkstyle/CheckstyleViolationCheckMojo', s.OWNER),
+         ('com/puppycrawl/tools/checkstyle/utils/ModuleReflectionUtil', s.ENGINE),
+         ('com/google/common/reflect/ClassPath', guava), ('com/google/common/reflect/ClassPath$ClassInfo', guava),
+         ('com/google/common/collect/ImmutableSet', guava)]
+stderr = ''.join('CHECKSTYLE_ORIGIN\t' + name + '\tloader1\tClassRealm[plugin>org.apache.maven.plugins:maven-checkstyle-plugin:3.6.0]\tfile:' + artifacts[c]['path'] + '\n'
+    + '[0.5s][info][class,load] ' + name.replace('/', '.') + ' source: file:' + artifacts[c]['path'] + '\n' for name, c in names)
+stderr += ''.join('CHECKSTYLE_REALM_URL\tloader1\tfile:' + a['path'] + '\n' for a in artifacts.values())
+assert len(s.natural_origins('', stderr, artifacts, early_failure=True, guava_discovery=True)['pluginRealmObservations']) == 5
+rejects(lambda: s.natural_origins('', stderr.replace('guava-32.0.1-jre.jar', 'guava-31.0.1-jre.jar'), artifacts, early_failure=True, guava_discovery=True))
+rejects(lambda: s.natural_origins('', stderr.replace('com/google/common/reflect/ClassPath$ClassInfo', 'missing/ClassInfo'), artifacts, early_failure=True, guava_discovery=True))
+rejects(lambda: s.natural_origins('', stderr.replace('[0.5s][info][class,load]', 'NO_JVM'), artifacts, early_failure=True, guava_discovery=True))
+rejects(lambda: s.natural_origins('', stderr.replace('CHECKSTYLE_REALM_URL', 'NO_URL'), artifacts, early_failure=True, guava_discovery=True))
+`);
+});
+
+test('Checkstyle Lang live source is an exact bounded reversal of the accepted Guava source', () => {
+  python(String.raw`
+import runpy, subprocess, sys, tempfile
+from pathlib import Path
+from unittest.mock import patch
+sys.path.insert(0, sys.argv[1])
+import checkstyle_live_support as s
+Run = runpy.run_path(sys.path[0] + '/run_checkstyle_live_compatibility.py')['Run']
+with tempfile.TemporaryDirectory(prefix='checkstyle-history-mock-') as directory:
+    sandbox = Path(directory)
+    with patch.object(subprocess, 'Popen', side_effect=AssertionError('materialization attempted execution')):
+        run = Run(s.ROOT, sandbox, Path('/cache'), Path('/jdk'), Path('/maven/bin/mvn'), True, 'models', False, 'lang')
+        assert run.report['historicalLangMaterialized'] is True
+        assert run.source == sandbox / 'accepted-lang-source'
+        assert run.source_hashes['pom.xml'] == 'd55f730aa8490c60ddf8c3d76d062fd6c4706be4816adf8db8936df15941a6fb'
+        assert run.supplied_hashes['pom.xml'] == 'd95d582e6ccfc91c01780717c83054cd9b52aeffa43c934fbf568f550288cdd5'
+        assert len(run.source_hashes) == 29
+        run.containment()
+        (run.source / 'pom.xml').write_text('changed')
+        try: run.containment()
+        except ValueError: pass
+        else: raise AssertionError('historical materialization drift accepted')
+`);
+});
+
+test('Checkstyle Guava cold-cache preparation keeps both versions separate and validates before goals', () => {
+  python(String.raw`
+import runpy, sys, tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch
+sys.path.insert(0, sys.argv[1])
+import checkstyle_live_support as s
+Run = runpy.run_path(sys.path[0] + '/run_checkstyle_live_compatibility.py')['Run']
+with tempfile.TemporaryDirectory(prefix='checkstyle-guava-preparation-') as directory:
+    run = Run.__new__(Run); run.sandbox = Path(directory); run.repository = run.sandbox / 'cache'
+    run.maven, run.offline, run.report, run.fixed = Path('/fixed/mvn'), False, {}, {}
+    run.transition, run.spec = 'guava', s.transition_spec('guava')
+    events = []; state = {'complete': False}
+    def artifacts(repository, baseline=False, allow_missing=False, transition='lang'):
+        assert transition == 'guava'
+        events.append(('hash', baseline, allow_missing))
+        if not state['complete']:
+            assert allow_missing
+            return {}
+        return {c: {'sha256': h} for c, h in s.artifact_hashes(baseline, transition).items()}
+    def skin(repository, allow_missing=False):
+        events.append(('skin', allow_missing))
+        return dict(s.REPORT_SKIN) if state['complete'] else {}
+    def resolve(label, command, seconds, environment):
+        assert seconds == 120 and command[-2:] == [s.PREPARE_GOAL, '-DexcludeTransitive=true']
+        events.append(('resolve', label)); state['complete'] = True
+    run.run = Mock(side_effect=resolve)
+    with patch.dict(Run.prepare_artifacts.__globals__, {'cached_artifacts': artifacts, 'cached_report_skin': skin}):
+        run.prepare_artifacts()
+    assert run.report['cachePreparation']['status'] == 'VERIFIED'
+    assert len(run.report['cachePreparation']['artifacts']) == 63
+    assert run.report['cachePreparation']['resolutionCommandsRun'] == 2
+    assert events[:3] == [('hash', True, True), ('hash', False, True), ('skin', True)]
+    assert events[-3:] == [('hash', True, False), ('hash', False, False), ('skin', False)]
 `);
 });

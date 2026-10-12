@@ -38,6 +38,8 @@ import './compiler-plugin-osv-diagnostic.test.mjs';
 import './compiler-plugin-live-compatibility.test.mjs';
 import './checkstyle-plugin-baseline.test.mjs';
 import './checkstyle-plugin-graph-transition.test.mjs';
+import './checkstyle-guava-graph-transition.test.mjs';
+import './checkstyle-guava-osv-diagnostic.test.mjs';
 import './checkstyle-plugin-osv-diagnostic.test.mjs';
 import './checkstyle-plugin-live-compatibility.test.mjs';
 
