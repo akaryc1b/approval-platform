@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { CLEAN_PLUGIN_GRAPH, readCleanPluginReport } from './clean-plugin-graph-transition.mjs';
 import { readPreservedCleanSource } from './compiler-plugin-source-continuation.mjs';
+import { readPreservedCompilerSource } from './checkstyle-plugin-source-continuation.mjs';
 import { osvInputFromE2 } from './osv-scan-coverage.mjs';
 
 export const COMPILER_PLUGIN_GRAPH = '92f6b10a9fd199bbea69ce3a1bc743b77b00990b1e7ec4b1ca695407da7c91fe';
@@ -60,7 +61,7 @@ export function readCompilerPluginSourceWitness(manifest = readCompilerPluginMan
   }
   const changed = [];
   for (const row of witness.sourcePomFiles) {
-    bytes(row.path, row.candidateSha256);
+    readPreservedCompilerSource(row.path, row.candidateSha256);
     requireValue(execution.sourcePomHashes[row.path] === row.candidateSha256, 'Compiler source POM capture mismatch');
     if (row.candidateSha256 !== row.baselineSha256) changed.push(row.path);
   }

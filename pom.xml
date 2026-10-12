@@ -48,6 +48,7 @@
         <maven.surefire.version>3.5.5</maven.surefire.version>
         <maven.enforcer.version>3.5.0</maven.enforcer.version>
         <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
+        <maven.checkstyle.commons-lang3.version>3.18.0</maven.checkstyle.commons-lang3.version>
         <maven.release.version>3.3.1</maven.release.version>
         <maven.release.jgit.version>5.13.5.202508271544-r</maven.release.jgit.version>
         <maven.release.sshd.version>2.16.0</maven.release.sshd.version>
@@ -294,6 +295,13 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>${maven.checkstyle.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.commons</groupId>
+                        <artifactId>commons-lang3</artifactId>
+                        <version>${maven.checkstyle.commons-lang3.version}</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <id>checkstyle</id>

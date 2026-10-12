@@ -36,6 +36,10 @@ import './compiler-plugin-baseline.test.mjs';
 import './compiler-plugin-graph-transition.test.mjs';
 import './compiler-plugin-osv-diagnostic.test.mjs';
 import './compiler-plugin-live-compatibility.test.mjs';
+import './checkstyle-plugin-baseline.test.mjs';
+import './checkstyle-plugin-graph-transition.test.mjs';
+import './checkstyle-plugin-osv-diagnostic.test.mjs';
+import './checkstyle-plugin-live-compatibility.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(

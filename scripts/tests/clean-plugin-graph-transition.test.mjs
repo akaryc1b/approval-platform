@@ -162,6 +162,7 @@ test('Clean production reader rejects changed archived bytes and current POM byt
   const witness = readCleanPluginSourceWitness();
   const files = ['scripts/security/clean-plugin-graph-transition.mjs', 'scripts/security/release-plugin-graph-transition.mjs',
     'scripts/security/compiler-plugin-source-continuation.mjs',
+    'scripts/security/checkstyle-plugin-source-continuation.mjs',
     'docs/operations/compiler-plugin-evidence/candidate-root-pom.xml',
     'docs/operations/compiler-plugin-evidence/baseline-root-pom.xml',
     'scripts/security/site-dependency-plugin-graph-transition.mjs', 'scripts/security/build-plugin-jackson-graph-transition.mjs',

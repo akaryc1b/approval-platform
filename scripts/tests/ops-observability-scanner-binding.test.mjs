@@ -2,18 +2,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
-import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
+import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 
 // Synthetic scan envelope only. The production verifier checks all pinned lineage manifests.
-function lineageFixture() {
-  const e2 = JSON.parse(readFileSync(new URL('../../docs/operations/compiler-plugin-evidence/candidate-E2.json', import.meta.url)));
+function lineageFixture(plugin = 'checkstyle') {
+  const e2 = JSON.parse(readFileSync(new URL(`../../docs/operations/${plugin}-plugin-evidence/candidate-E2.json`, import.meta.url)));
   e2.commitSha = 'a'.repeat(40); const { contentSha256, ...payload } = e2; e2.contentSha256 = graphHash(payload);
   const projection = { maven: e2.maven, pnpm: e2.pnpm,
     githubActions: e2.githubActions.acceptedDependencyGraph.githubActions,
     limitations: e2.githubActions.acceptedDependencyGraph.limitations };
   return { e4: { repository: e2.repository, commitSha: e2.commitSha,
-    e2CurrentContentSha256: e2.contentSha256, e2GraphDigest: COMPILER_PLUGIN_GRAPH,
+    e2CurrentContentSha256: e2.contentSha256, e2GraphDigest: graphHash(projection),
     e2GraphTransition: verifyObservabilityGraph(e2, projection, BASE_GRAPH, e2.commitSha) } };
 }
 
@@ -30,7 +30,7 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   const logs = []; const downstream = new Error('DOWNSTREAM_BOUNDARY_REACHED'); let error; let calls = 0;
   const start = scannerBoundary.indexOf("test('E4 full scanner emits");
   assert.ok(start >= 0);
-  const context = { assert, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+  const context = { assert, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     process: { env: { GITHUB_ACTIONS: 'true' }, execPath: process.execPath }, S: 'scanner.mjs', root: '/fixture',
     console: { log: text => logs.push(text) },
     spawnSync: (command, args) => {
@@ -47,12 +47,14 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   return { error, downstream, calls, logs, stdout };
 }
 
-test('the full-scanner callback binds the current Compiler plugin graph instead of historical predecessors', () => {
+test('the full-scanner callback binds the current Checkstyle plugin graph instead of historical predecessors', () => {
   const r = assertScannerBinding(); assert.equal(r.error, r.downstream); assert.equal(r.calls, 2);
-  assert.ok(scannerBoundary.includes("import { COMPILER_PLUGIN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
+  assert.equal(lineageFixture().e4.e2GraphDigest, CHECKSTYLE_PLUGIN_GRAPH);
+  assert.ok(scannerBoundary.includes("import { CHECKSTYLE_PLUGIN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
   assert.deepEqual(r.logs, [r.stdout]);
 });
 for (const [name, alter] of [
+  ['pre-Checkstyle Compiler graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('compiler').e4); }],
   ['pre-Compiler Clean graph', e => { e.e2GraphDigest = CLEAN_PLUGIN_GRAPH; }],
   ['pre-Clean Release graph', e => { e.e2GraphDigest = RELEASE_PLUGIN_GRAPH; }],
   ['pre-Release Site graph', e => { e.e2GraphDigest = SITE_DEPENDENCY_PLUGIN_GRAPH; }],
@@ -78,4 +80,16 @@ for (const [name, alter] of [
 test('a failed scanner cannot reach downstream review even with a well-formed output fixture', () => {
   const r = assertScannerBinding(() => {}, 1);
   assert.ok(r.error); assert.notEqual(r.error, r.downstream); assert.equal(r.calls, 1);
+});
+
+test('natural transport boundary registers each Checkstyle and historical Compiler gate exactly once', () => {
+  const source = readFileSync(new URL('./m6-ai-transport-review-boundary.test.mjs', import.meta.url), 'utf8');
+  for (const plugin of ['checkstyle', 'compiler']) {
+    for (const gate of ['baseline', 'graph-transition', 'osv-diagnostic', 'live-compatibility']) {
+      const registration = `import './${plugin}-plugin-${gate}.test.mjs';`;
+      assert.equal(source.split(registration).length - 1, 1, registration);
+    }
+  }
+  for (const gate of ['baseline', 'live-compatibility'])
+    assert.equal(source.split(`import './clean-plugin-${gate}.test.mjs';`).length - 1, 1);
 });

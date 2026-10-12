@@ -6,6 +6,7 @@ import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBu
   SITE_DEPENDENCY_PLUGIN_GRAPH, readSiteDependencyPluginManifest, verifySiteDependencyPluginDelta,
   RELEASE_PLUGIN_GRAPH, readReleasePluginManifest, verifyReleasePluginDelta,
   COMPILER_PLUGIN_GRAPH, readCompilerPluginManifest, verifyCompilerPluginDelta,
+  CHECKSTYLE_PLUGIN_GRAPH, readCheckstylePluginManifest, verifyCheckstylePluginDelta,
   CLEAN_PLUGIN_GRAPH, readCleanPluginManifest, verifyCleanPluginDelta }
   from './observability-dependency-graph.mjs';
 import { verifyOsvCoverage, osvInputFromE2 } from './osv-scan-coverage.mjs';
@@ -103,7 +104,7 @@ function requireFreshFullEvidence(e4, expectedHead) {
   requireValue(total === e4.totalFindingCount, 'server remediation scanner finding count mismatch');
   const e2 = e4.e2CurrentEvidence;
   requireValue(e2?.commitSha === expectedHead && e2.contentSha256 === e4.e2CurrentContentSha256
-    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
+    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
   const transition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, expectedHead);
   requireValue(same(transition, requirePreservedGraph(e4, BASE_GRAPH, expectedHead)), 'server remediation graph receipt mismatch');
   return verifyOsvCoverage(e4.scanners.osv.coverage, e4.scanners.osv.findings, e2,
@@ -117,16 +118,18 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
   const coverage = requireFreshFullEvidence(e4, expectedCommitSha);
   let expectedInput = { packageCount: plan.expectedInputPackageCount, inputBytesSha256: plan.expectedInputBytesSha256 };
   let subsequentGraphTransition;
-  if ([BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH].includes(e4.e2GraphDigest)) {
+  if ([BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest)) {
     const manifest = readBuildPluginJacksonManifest();
     const current = acceptedE2GraphProjection(e4.e2CurrentEvidence);
-    const compilerManifest = e4.e2GraphDigest === COMPILER_PLUGIN_GRAPH ? readCompilerPluginManifest() : null;
-    const beforeCompiler = compilerManifest ? verifyCompilerPluginDelta(current, compilerManifest) : current;
-    const cleanManifest = [CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH].includes(e4.e2GraphDigest) ? readCleanPluginManifest() : null;
+    const checkstyleManifest = e4.e2GraphDigest === CHECKSTYLE_PLUGIN_GRAPH ? readCheckstylePluginManifest() : null;
+    const beforeCheckstyle = checkstyleManifest ? verifyCheckstylePluginDelta(current, checkstyleManifest) : current;
+    const compilerManifest = [COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest) ? readCompilerPluginManifest() : null;
+    const beforeCompiler = compilerManifest ? verifyCompilerPluginDelta(beforeCheckstyle, compilerManifest) : beforeCheckstyle;
+    const cleanManifest = [CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest) ? readCleanPluginManifest() : null;
     const beforeClean = cleanManifest ? verifyCleanPluginDelta(beforeCompiler, cleanManifest) : beforeCompiler;
-    const releaseManifest = [RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH].includes(e4.e2GraphDigest) ? readReleasePluginManifest() : null;
+    const releaseManifest = [RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest) ? readReleasePluginManifest() : null;
     const beforeRelease = releaseManifest ? verifyReleasePluginDelta(beforeClean, releaseManifest) : beforeClean;
-    const siteManifest = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH].includes(e4.e2GraphDigest)
+    const siteManifest = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH].includes(e4.e2GraphDigest)
       ? readSiteDependencyPluginManifest() : null;
     const priorPlugin = siteManifest ? verifySiteDependencyPluginDelta(beforeRelease, siteManifest) : beforeRelease;
     const preserved = verifyBuildPluginJacksonDelta(priorPlugin, manifest);
@@ -162,6 +165,13 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
         && hash(JSON.stringify(priorCompilerInput.scannerInput)) === expectedInput.inputBytesSha256
         && same(compilerManifest.osvInput.prior, expectedInput), 'server remediation prior Compiler OSV input lineage mismatch');
       expectedInput = compilerManifest.osvInput.current;
+    }
+    if (checkstyleManifest) {
+      const priorCheckstyleInput = osvInputFromE2(beforeCheckstyle);
+      requireValue(priorCheckstyleInput.packageCount === expectedInput.packageCount
+        && hash(JSON.stringify(priorCheckstyleInput.scannerInput)) === expectedInput.inputBytesSha256
+        && same(checkstyleManifest.osvInput.prior, expectedInput), 'server remediation prior Checkstyle OSV input lineage mismatch');
+      expectedInput = checkstyleManifest.osvInput.current;
     }
     subsequentGraphTransition = requirePreservedGraph(e4, BASE_GRAPH, expectedCommitSha);
   }

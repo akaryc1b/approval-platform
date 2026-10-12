@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { readPreservedCompilerSource } from './checkstyle-plugin-source-continuation.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const PRIOR_POM = 'e5637b8d5752474f9d1940f7b295ef0d3046bc6460391992f1936d4b306f40f2';
@@ -9,8 +10,9 @@ const dependency = '                    <dependencies>\n                        
 
 /** Return exact historical bytes only after reversing the two pinned Compiler additions. */
 export function readPreservedCleanSource(path, expected) {
-  const current = readFileSync(new URL(`../../${path}`, import.meta.url));
-  if (hash(current) === expected) return current;
+  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  if (hash(raw) === expected) return raw;
+  const current = path === 'pom.xml' ? readPreservedCompilerSource(path, CURRENT_POM) : raw;
   if (path !== 'pom.xml' || expected !== PRIOR_POM || hash(current) !== CURRENT_POM)
     throw new Error('Compiler continuation historical source byte digest mismatch');
   const baseline = readFileSync(new URL('../../docs/operations/compiler-plugin-evidence/baseline-root-pom.xml', import.meta.url));
