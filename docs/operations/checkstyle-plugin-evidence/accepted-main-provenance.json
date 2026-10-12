@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "APPROVAL_CHECKSTYLE_ACCEPTED_MAIN_RECOVERY_V1",
+  "sourceHead": "4d685762d2db10497abe7668d1009b7e1a056796",
+  "sourceTree": "f08f7160f69b93b29c881ee6b5f340611444d6dc",
+  "sourceRunId": "38037670972",
+  "sourceRunNumber": 1838,
+  "sourceArtifactId": "11665186288",
+  "sourceArchiveSha256": "0fd5057d057e55a3c66d139bc0b4b9e92a3315c5f60a522763f74a76315fc12a",
+  "sourceArchiveBytes": 1140887,
+  "extraction": "Fresh recovery of exact TAP comment chunks: strip the literal '# ' prefix, concatenate the JSON chunks, and retain one final newline. No receipt field was rewritten.",
+  "baselineE2": {
+    "path": "docs/operations/checkstyle-plugin-evidence/baseline-E2.json",
+    "rawSha256": "03216f55080f4cd48d44b8f65a5721fc79d8e7bd99c68b5fb3de1964ffc98308",
+    "contentSha256": "3cf330df4ace8afe354d806443809c8127dc466a032ac3eee30e3d1511834b47"
+  },
+  "compilerLineage": {
+    "path": "docs/operations/checkstyle-plugin-evidence/preserved-compiler-lineage.json",
+    "rawSha256": "d51c568fdcefdae6a20746bd2dbf3915fcbf5ebcd6193f5ac12c03df9d9db121",
+    "contentSha256": "a91d957fc10ea5f59f7d30efa57951b7f2b05268ca331bebc6f4b63dabd43707"
+  },
+  "candidateCaptureClaimed": false,
+  "compatibilityAcceptanceClaimed": false,
+  "scannerDispositionClaimed": false,
+  "releaseBlocked": true
+}

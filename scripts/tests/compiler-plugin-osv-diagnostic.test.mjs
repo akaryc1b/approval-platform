@@ -1,6 +1,62 @@
 import assert from 'node:assert/strict';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
-import { readCompilerDiagnostic, verifyCompilerDiagnostic, seal } from './fixtures/compiler-osv-diagnostic-verifier.mjs';
+import { pathToFileURL } from 'node:url';
+import { readCompilerDiagnostic, verifyCompilerDiagnostic, seal, sha } from './fixtures/compiler-osv-diagnostic-verifier.mjs';
+
+const baselinePom = readFileSync(new URL('../../docs/operations/compiler-plugin-evidence/candidate-root-pom.xml', import.meta.url));
+const currentPom = readFileSync(new URL('../../pom.xml', import.meta.url));
+const historicalPomHash = '1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a';
+
+async function sourceFixture(t, pom) {
+  const directory = mkdtempSync(path.join(tmpdir(), 'compiler-diagnostic-source-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const moduleDirectory = path.join(directory, 'scripts/security');
+  const evidenceDirectory = path.join(directory, 'docs/operations/compiler-plugin-evidence');
+  mkdirSync(moduleDirectory, { recursive: true });
+  mkdirSync(evidenceDirectory, { recursive: true });
+  const modulePath = path.join(moduleDirectory, 'checkstyle-plugin-source-continuation.mjs');
+  copyFileSync(new URL('../security/checkstyle-plugin-source-continuation.mjs', import.meta.url), modulePath);
+  writeFileSync(path.join(evidenceDirectory, 'candidate-root-pom.xml'), baselinePom);
+  const pomPath = path.join(directory, 'pom.xml');
+  writeFileSync(pomPath, pom);
+  const { readPreservedCompilerSource } = await import(pathToFileURL(modulePath).href);
+  return { directory, pomPath, readSource: readPreservedCompilerSource,
+    read: () => readPreservedCompilerSource('pom.xml', historicalPomHash) };
+}
+
+for (const [name, pom] of [['baseline', baselinePom], ['Checkstyle candidate', currentPom]]) {
+  test(`Compiler diagnostic source pin accepts the exact ${name} root`, async t => {
+    const fixture = await sourceFixture(t, pom);
+    assert.equal(sha(baselinePom), historicalPomHash);
+    assert.deepEqual(fixture.read(), baselinePom);
+  });
+  test(`Compiler diagnostic source pin rejects an extra edit to the ${name} root`, async t => {
+    const fixture = await sourceFixture(t, pom);
+    assert.deepEqual(fixture.read(), baselinePom);
+    writeFileSync(fixture.pomPath, Buffer.concat([pom, Buffer.from('\n')]));
+    assert.throws(fixture.read, /Checkstyle continuation historical source byte digest mismatch/);
+  });
+}
+
+test('Compiler diagnostic source pin rejects a wrong expected historical hash', async t => {
+  const fixture = await sourceFixture(t, currentPom);
+  assert.deepEqual(fixture.read(), baselinePom);
+  assert.throws(() => fixture.readSource('pom.xml', '0'.repeat(64)),
+    /Checkstyle continuation historical source byte digest mismatch/);
+});
+
+test('Compiler diagnostic source pin rejects changed bytes at a non-root path', async t => {
+  const fixture = await sourceFixture(t, currentPom);
+  const otherPath = path.join(fixture.directory, 'other.xml');
+  writeFileSync(otherPath, baselinePom);
+  assert.deepEqual(fixture.readSource('other.xml', historicalPomHash), baselinePom);
+  writeFileSync(otherPath, currentPom);
+  assert.throws(() => fixture.readSource('other.xml', historicalPomHash),
+    /Checkstyle continuation historical source byte digest mismatch/);
+});
 
 test('Compiler actual direct-API diagnostic binds all targets, complete findings, source bytes and independent provenance offline', () => {
   assert.deepEqual(verifyCompilerDiagnostic(readCompilerDiagnostic()), {

@@ -8,10 +8,11 @@ import { buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview
 import { buildGitleaksPublicCommitReviewSnapshot } from '../security/m6-pr-e-e3-review-gitleaks-public-commit.mjs';
 import { readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview }
   from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, readCompilerPluginCandidate, verifyObservabilityGraph, requirePreservedGraph }
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, readCompilerPluginCandidate, readCheckstylePluginCandidate, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 import test from 'node:test';
 import { syntheticCompilerPluginOsv } from './fixtures/compiler-plugin-fixture.mjs';
+import { syntheticCheckstylePluginOsv } from './fixtures/checkstyle-plugin-fixture.mjs';
 import { requireOsvReport, requireGitleaksReport, requireZizmorReport } from '../security/scanner-report-structure.mjs';
 import { normalizeSemgrepReport, DESIGNER_PROTOTYPE_TARGET } from '../security/semgrep-scan-coverage.mjs';
 import { verifyScannerCheckout, requireScannerCheckoutUnchanged } from '../security/m6-pr-e-e4-scan.mjs';
@@ -313,22 +314,22 @@ test('I3 and I4 fail closed on historical receipt and count tampering', () => {
 // subprocess/checkout claims are SYNTHETIC UNIT FIXTURES. Nothing is persisted
 // or presented as a current all-scanner E4 execution or admission result.
 export function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype = false, staleHead = false,
-  mutateEvidence = null, staleR4Receipt = false, publicCommitFixture = null } = {}) {
+  mutateEvidence = null, staleR4Receipt = false, publicCommitFixture = null, previousCompilerGraph = false } = {}) {
   const preparation = json('m6-pr-e-e3-r4-osv-preparation');
   const baseline = json('m6-pr-e-e4-scanner-baseline');
-  const expectedHead = publicCommitFixture?.head || readCompilerPluginCandidate().commitSha;
+  const expectedHead = publicCommitFixture?.head || readCheckstylePluginCandidate().commitSha;
   let e4 = syntheticE4(includePrototype);
   e4.commitSha = staleHead ? 'f'.repeat(40) : expectedHead;
-  e4.e2CurrentEvidence = readCompilerPluginCandidate();
-  if (publicCommitFixture) e4.e2CurrentEvidence = seal({ ...e4.e2CurrentEvidence, commitSha: expectedHead });
-  e4.scanners.osv = syntheticCompilerPluginOsv(e4.e2CurrentEvidence, preparation.osv);
+  e4.e2CurrentEvidence = previousCompilerGraph ? readCompilerPluginCandidate() : readCheckstylePluginCandidate();
+  if (publicCommitFixture || previousCompilerGraph) e4.e2CurrentEvidence = seal({ ...e4.e2CurrentEvidence, commitSha: expectedHead });
+  e4.scanners.osv = (previousCompilerGraph ? syntheticCompilerPluginOsv : syntheticCheckstylePluginOsv)(e4.e2CurrentEvidence, preparation.osv);
   if (staleHead) {
     e4.e2CurrentEvidence = seal({ ...e4.e2CurrentEvidence, commitSha: e4.commitSha });
     e4.scanners.osv.coverage = seal({ ...e4.scanners.osv.coverage, commitSha: e4.commitSha,
       e2CurrentContentSha256: e4.e2CurrentEvidence.contentSha256 });
   }
   e4.e2CurrentContentSha256 = e4.e2CurrentEvidence.contentSha256;
-  e4.e2GraphDigest = COMPILER_PLUGIN_GRAPH;
+  e4.e2GraphDigest = previousCompilerGraph ? COMPILER_PLUGIN_GRAPH : CHECKSTYLE_PLUGIN_GRAPH;
   e4.e2GraphTransition = verifyObservabilityGraph(e4.e2CurrentEvidence,
     acceptedE2GraphProjection(e4.e2CurrentEvidence), BASE_GRAPH, e4.commitSha);
   e4.checkout = { checkedOutSha: e4.commitSha, expectedHeadSha: e4.commitSha,
@@ -343,7 +344,8 @@ export function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype
     findingCount: 28, findings: [...e4.scanners.gitleaks.findings, gitleaksPlan.historicalFinding] };
   e4.totalFindingCount = Object.values(e4.scanners).reduce((count, scanner) => count + scanner.findingCount, 0);
   const sourceRef = `${gitleaksPlan.historicalSource.commitSha}:${gitleaksPlan.historicalSource.path}`;
-  const sourceResult = historicalGit('git', ['show', sourceRef], { encoding: 'utf8', cwd: fileURLToPath(new URL('../../', import.meta.url)) });
+  const sourceResult = historicalGit('git', ['show', sourceRef], { encoding: 'utf8', cwd: fileURLToPath(new URL('../../', import.meta.url)),
+    timeout: 10000, maxBuffer: 4 * 1024 * 1024 });
   assert.equal(sourceResult.status, 0, sourceResult.stderr);
   if (publicCommitFixture) e4 = publicCommitFixture.prepareEvidence(e4);
   if (mutateEvidence) mutateEvidence(e4);
@@ -362,7 +364,7 @@ export function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype
     readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview, buildGitleaksPublicCommitReviewSnapshot,
     buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview, gitleaksCaptureReviewFindings,
     expectedScannerHead: () => expectedHead,
-    SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+    SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     readServerDependencyRemediationPlan, verifyServerDependencyRemediation,
     buildScannerFindingIntake, applyReviewedFindingsWithIdentityTransitions,
     // Inject a stale handoff only after the genuine R4 verifier has produced it.
@@ -410,12 +412,18 @@ test('actual CI callback consumes one full scan, binds three exact-head blobs, a
   assert.equal(r.commands.filter(([command]) => command === process.execPath).length, 1);
   assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 4);
   const preparation = json('m6-pr-e-e3-r4-osv-preparation');
-  assert.deepEqual(r.e4.e2CurrentEvidence, readCompilerPluginCandidate());
+  assert.deepEqual(r.e4.e2CurrentEvidence, readCheckstylePluginCandidate());
+  assert.equal(r.e4.e2GraphDigest, CHECKSTYLE_PLUGIN_GRAPH);
+  assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, CHECKSTYLE_PLUGIN_GRAPH);
   assert.notDeepEqual(r.e4.scanners.osv, preparation.osv);
   assert.equal(preparation.allScannersCompleted, false);
-  assert.equal(r.e4.scanners.osv.coverage.inputPackageCount, 473);
-  assert.equal(r.e4.scanners.osv.coverage.reportedPackageCount, 473);
+  assert.equal(r.e4.scanners.osv.coverage.inputPackageCount, 472);
+  assert.equal(r.e4.scanners.osv.coverage.reportedPackageCount, 472);
   assert.equal(r.e4.scanners.osv.findingCount, 1);
+  assert.deepEqual(r.e4.scanners.osv.findings[0].package,
+    { name: 'org.apache.commons:commons-lang3', version: '3.18.0', ecosystem: 'Maven' });
+  assert.equal(r.e4.scanners.osv.coverage.targets.some(target => target.package.name === 'org.apache.commons:commons-lang3'
+    && target.package.version === '3.17.0'), false);
   assert.equal(r.e4.totalFindingCount, 31);
   const outputs = new Map();
   for (const stage of ['E3_I2_TRIAGE', 'E3_DESIGNER_PROTOTYPE_REMEDIATION',
@@ -443,10 +451,22 @@ test('actual CI callback consumes one full scan, binds three exact-head blobs, a
     && f.package.version === '3.1.5');
   assert.equal(pluginJackson.length, 0);
   assert.equal(r4.schemaVersion, 'APPROVAL_SERVER_DEPENDENCY_REMEDIATION_EVIDENCE_V2');
-  assert.equal(r4.subsequentGraphTransition.priorE2GraphDigest, CLEAN_PLUGIN_GRAPH);
+  assert.equal(r4.subsequentGraphTransition.priorE2GraphDigest, COMPILER_PLUGIN_GRAPH);
+  assert.equal(r4.subsequentGraphTransition.currentE2GraphDigest, CHECKSTYLE_PLUGIN_GRAPH);
   for (const finding of r.e4.scanners.osv.findings) {
     assert.equal(i4.decisions.find(f => f.findingId === finding.findingId).disposition, 'UNRESOLVED');
   }
+});
+test('actual CI callback rejects the previous Compiler graph with internally consistent E2, OSV and lineage', () => {
+  const r = runSyntheticCiCallback({ previousCompilerGraph: true });
+  assert.equal(r.e4.e2GraphDigest, COMPILER_PLUGIN_GRAPH);
+  assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, COMPILER_PLUGIN_GRAPH);
+  assert.equal(r.e4.e2GraphTransition.currentE2GraphDigest, COMPILER_PLUGIN_GRAPH);
+  assert.match(String(r.error), /AssertionError/);
+  assert.equal(r.error.actual, COMPILER_PLUGIN_GRAPH);
+  assert.equal(r.error.expected, CHECKSTYLE_PLUGIN_GRAPH);
+  assert.equal(r.commands.length, 1);
+  assert.deepEqual(r.logs, [r.fixtureOutput]);
 });
 for (const [name, options, expected] of [
   ['stale internally consistent scan Head', { staleHead: true }, /AssertionError/],

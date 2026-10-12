@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { acceptedE2GraphProjection } from '../../security/m6-pr-e-e2-generate-sbom.mjs';
 import { osvInputFromE2 } from '../../security/osv-scan-coverage.mjs';
 import { COMPILER_PLUGIN_GRAPH, readCompilerPluginManifest } from '../../security/compiler-plugin-graph-transition.mjs';
+import { readPreservedCompilerSource } from '../../security/checkstyle-plugin-source-continuation.mjs';
 
 export const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
@@ -35,7 +36,7 @@ export function readCompilerDiagnostic() {
   assert.equal(sha(originalE2), binding.originalQuery.sourceE2.rawSha256);
   for (const [path, expected] of Object.entries(binding.sourceHelpers))
     assert.equal(sha(readFileSync(new URL(path, root))), expected, 'current source helper bytes: ' + path);
-  assert.equal(sha(readFileSync(new URL('pom.xml', root))), binding.originalQuery.sourcePomSha256);
+  assert.equal(sha(readPreservedCompilerSource('pom.xml', binding.originalQuery.sourcePomSha256)), binding.originalQuery.sourcePomSha256);
   // The current Compiler source/graph witness checks all 28 POMs. Historical local
   // commit IDs remain data; portability does not depend on their Git object existence.
   assert.equal(readCompilerPluginManifest().observed.graphDigest, COMPILER_PLUGIN_GRAPH);

@@ -1,0 +1,403 @@
+{
+  "schemaVersion": 1,
+  "executionDate": "2026-10-12",
+  "status": "PASSED",
+  "executionScope": "Local offline compatibility verification with disposable fixtures",
+  "canonicalCiEvidence": false,
+  "scannerEvidence": false,
+  "newSecurityFindingsClaim": false,
+  "plugin": {
+    "groupId": "org.apache.maven.plugins",
+    "artifactId": "maven-checkstyle-plugin",
+    "version": "3.6.0",
+    "engineVersion": "9.3"
+  },
+  "models": {
+    "status": "PASSED",
+    "actualBaselineModelCount": 26,
+    "actualCandidateModelCount": 26,
+    "baselineConstruction": "Exact accepted root POM reversal plus unchanged source POMs and rules",
+    "fullPairContractVerified": true,
+    "baselineEffectiveModelSha256": "5e0cc2a5745292d7ba1250c66358087a97c716b2680f69572b2f7cc377bb6b0b",
+    "candidateEffectiveModelSha256": "4c709cffb1b95efcb43e411f6f557310dcc8bc5cad23f31767158c205a3a971b"
+  },
+  "mockedHarness": {
+    "testsPassed": 5,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "covers": [
+      "CI selection and explicit child opt-in",
+      "separate Lang-version preparation POMs",
+      "cold and warm cache ordering",
+      "changed cached bytes fail before resolution",
+      "CI-only missing cache-directory creation",
+      "offline local boundary",
+      "owned process-group cleanup"
+    ]
+  },
+  "goalCaseResults": [
+    {
+      "case": "passing",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 0,
+      "expectedNonzeroExit": false,
+      "errorCount": 0,
+      "expectedRule": null
+    },
+    {
+      "case": "unchanged-cache",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 0,
+      "expectedNonzeroExit": false,
+      "errorCount": 0,
+      "expectedRule": null
+    },
+    {
+      "case": "same-timestamp-cache",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 0,
+      "expectedNonzeroExit": false,
+      "errorCount": 0,
+      "expectedRule": null
+    },
+    {
+      "case": "changed-main",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 1,
+      "expectedNonzeroExit": true,
+      "errorCount": 1,
+      "expectedRule": "NewlineAtEndOfFile"
+    },
+    {
+      "case": "restored-main",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 0,
+      "expectedNonzeroExit": false,
+      "errorCount": 0,
+      "expectedRule": null
+    },
+    {
+      "case": "deleted-main",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 0,
+      "expectedNonzeroExit": false,
+      "errorCount": 0,
+      "expectedRule": null
+    },
+    {
+      "case": "missing-newline",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 1,
+      "expectedNonzeroExit": true,
+      "errorCount": 1,
+      "expectedRule": "NewlineAtEndOfFile"
+    },
+    {
+      "case": "tabs",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 1,
+      "expectedNonzeroExit": true,
+      "errorCount": 1,
+      "expectedRule": "FileTabCharacter"
+    },
+    {
+      "case": "wildcard-import",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 1,
+      "expectedNonzeroExit": true,
+      "errorCount": 1,
+      "expectedRule": "AvoidStarImport"
+    },
+    {
+      "case": "unused-import",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 1,
+      "expectedNonzeroExit": true,
+      "errorCount": 1,
+      "expectedRule": "UnusedImports"
+    },
+    {
+      "case": "illegal-import",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 1,
+      "expectedNonzeroExit": true,
+      "errorCount": 1,
+      "expectedRule": "IllegalImport"
+    },
+    {
+      "case": "test-source-violation",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 1,
+      "expectedNonzeroExit": true,
+      "errorCount": 1,
+      "expectedRule": "FileTabCharacter"
+    },
+    {
+      "case": "invalid-configuration",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 1,
+      "expectedNonzeroExit": true,
+      "invalidConfigurationDetected": true
+    },
+    {
+      "case": "report-passing",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 0,
+      "expectedNonzeroExit": false,
+      "errorCount": 0,
+      "expectedRule": null,
+      "htmlSummary": [
+        "2",
+        "0",
+        "0",
+        "0"
+      ]
+    },
+    {
+      "case": "report-violation",
+      "baselineStatus": "PASSED",
+      "candidateStatus": "PASSED",
+      "exitStatusForBoth": 0,
+      "expectedNonzeroExit": false,
+      "errorCount": 1,
+      "expectedRule": "FileTabCharacter",
+      "htmlSummary": [
+        "2",
+        "0",
+        "0",
+        "1"
+      ]
+    }
+  ],
+  "variants": {
+    "baseline": {
+      "commonsLangVersion": "3.17.0",
+      "goalCasesPassed": 15,
+      "apiReplay": {
+        "status": "PASSED",
+        "evidenceKind": "observed-artifact URLClassLoader replay",
+        "langMemberReferences": 58,
+        "referenceSetSha256": "d205262d8477778809dc6c3b8eea2a0edb047ca26223ae71fd19aa0677fe0d21",
+        "classFilesInspected": 10296,
+        "behaviorAssertionCount": 24,
+        "behaviorContractSha256": "e14a868c6c068cec139eab697552c7ca59eda7ee5796a2234c748ccb113c50e3",
+        "naturalGoalReachabilityClaim": false
+      },
+      "negativeControls": {
+        "missing-lang": {
+          "status": "REJECTED",
+          "expectedCause": "54 observed private artifacts"
+        },
+        "wrong-lang": {
+          "status": "REJECTED",
+          "expectedCause": "only selected Lang variant"
+        },
+        "changed-pin": {
+          "status": "REJECTED",
+          "expectedCause": "actual observed bytes commons-lang3-"
+        }
+      },
+      "cacheBehavior": {
+        "sameTimestampContentChangeWasCached": true,
+        "changedTimestampRecheckedAndFailed": true,
+        "restoredSourceRecheckedAndPassed": true,
+        "deletedFileNotReported": true
+      }
+    },
+    "candidate": {
+      "commonsLangVersion": "3.18.0",
+      "goalCasesPassed": 15,
+      "apiReplay": {
+        "status": "PASSED",
+        "evidenceKind": "observed-artifact URLClassLoader replay",
+        "langMemberReferences": 58,
+        "referenceSetSha256": "d205262d8477778809dc6c3b8eea2a0edb047ca26223ae71fd19aa0677fe0d21",
+        "classFilesInspected": 10296,
+        "behaviorAssertionCount": 24,
+        "behaviorContractSha256": "e14a868c6c068cec139eab697552c7ca59eda7ee5796a2234c748ccb113c50e3",
+        "naturalGoalReachabilityClaim": false
+      },
+      "negativeControls": {
+        "missing-lang": {
+          "status": "REJECTED",
+          "expectedCause": "54 observed private artifacts"
+        },
+        "wrong-lang": {
+          "status": "REJECTED",
+          "expectedCause": "only selected Lang variant"
+        },
+        "changed-pin": {
+          "status": "REJECTED",
+          "expectedCause": "actual observed bytes commons-lang3-"
+        }
+      },
+      "cacheBehavior": {
+        "sameTimestampContentChangeWasCached": true,
+        "changedTimestampRecheckedAndFailed": true,
+        "restoredSourceRecheckedAndPassed": true,
+        "deletedFileNotReported": true
+      }
+    }
+  },
+  "originVerification": {
+    "privateRealmArtifactsPerGoal": 54,
+    "actualForeignImports": [
+      "< maven.api"
+    ],
+    "passiveNaturalClassOriginsVerified": true,
+    "independentJvmClassLoadOutputChecked": true,
+    "replayPreservesObservedArtifactOrder": true,
+    "replayScope": "Separate observed-artifact URLClassLoader replay; forced probes do not establish natural method reachability"
+  },
+  "preparation": {
+    "executedMode": "offline-existing-cache",
+    "resolutionCommandsRun": 0,
+    "ownerUnionArtifactsVerified": 60,
+    "reportResourcesVerified": 1,
+    "ciNetworkPreparationExecuted": false,
+    "ciNetworkPreparationMockedOnly": true
+  },
+  "hashBindings": {
+    "serializationForCanonicalMapHashes": "UTF-8 JSON, sorted keys, ensure_ascii=true, separators comma and colon, no trailing newline",
+    "harnessSourceSha256": {
+      "scripts/tests/fixtures/run_checkstyle_live_compatibility.py": "4a80d698fecd7d987e32f1c13167d829f86a028ed5a202da8935e8e71ed421bd",
+      "scripts/tests/fixtures/checkstyle_live_support.py": "655a5f314dd9128dd2a568f2f06dcce4971e760a04edac6b93eb39b7cb062592",
+      "scripts/tests/checkstyle-plugin-live-harness.test.mjs": "98c292ac777891c69070911ac35cb924c0745010be15c90d35ceb29cad3a7f81",
+      "scripts/tests/checkstyle-plugin-live-compatibility.test.mjs": "24a3d485d7bed830d64305b6df0366a0b58efbb3d25b82f8bf5c5a570ccb666e",
+      "scripts/tests/fixtures/CheckstyleRealmObserver.java": "a42cd718ec5b4a25509f64e38c1a0a1689fa3fd78edd24a90db59a4a5239c88b",
+      "scripts/tests/fixtures/CheckstyleLangProbe.java": "2a476a6dacd4bebc2802e8d1736bdc0f569d5da3c3cde577f92cc5f34e0fe414"
+    },
+    "contractSourceSha256": {
+      "scripts/ci/checkstyle_plugin_contract.py": "d5d1927221ae93a27dc07ace72cc8d48b2e0af1b9cae55ee2c6d34434902c0cf",
+      "scripts/ci/verify-release-plugin-baseline.py": "2fb1c9b8552c0ce913842550e2a3bf9c8f890ccda7fdac11bcebb618284e9e28",
+      "scripts/ci/compiler_plugin_contract.py": "03f19ef2c91bebc41ef52e4c5822e2287173452f7545daec34048a12140344c1",
+      "scripts/ci/clean_plugin_contract.py": "b48a8ad2d3baf4d8da714bf6017dcbdf6bbd19eed500576a17fdf08b43eaa75e",
+      "docs/operations/compiler-plugin-evidence/source-witness.json": "24fef7f9bccdc52e59d9f22c0048e1d4a306a1e07c79d0294c271190538b125a"
+    },
+    "sourceInputs": {
+      "count": 29,
+      "canonicalMapSha256": "69749531002782af3958923dc0e35132f00a1da4e4e2bac87dbd67a09cbf9f40",
+      "rootPomSha256": "d55f730aa8490c60ddf8c3d76d062fd6c4706be4816adf8db8936df15941a6fb",
+      "checkstyleRulesSha256": "da9bd87aaf229d4cfd25217910fe806785d3631ed3383748582f5d58ddf870c0"
+    },
+    "baselineSourceInputs": {
+      "count": 29,
+      "canonicalMapSha256": "acedd6112c285cd1a20c06593510e1f638adb404f4108218c14dea3d84711efa",
+      "rootPomSha256": "1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a"
+    },
+    "toolchain": {
+      "maven": "3.9.16",
+      "javaMajor": 21,
+      "launcherSha256": "f9381d0cb98abaaf9592dae421eddc497e84ed9bfb723b84c111d1350863c3a2",
+      "javaSha256": "2a207f5e7d075afa01d97f8048389a64432a44c4a5af0f5e77d6e286ec5f401d",
+      "javacSha256": "55859b80e7a9c4c4736be19ad3addeb35112ca6d17a30c4e0e116afc0a499bdb",
+      "loggingSha256": "42140f6ec135827bec255a2ebdfa11211387402d13296792ff40e56a96ceddf8"
+    },
+    "ownerArtifactSha256": {
+      "com.github.cliftonlabs:json-simple:jar:3.0.2": "fda65a9ad0e1ac0c88987106e89aa4d8b2a2495e7e042371efa83813f65b7295",
+      "com.github.luben:zstd-jni:jar:1.5.5-11": "d75b2ced6059f81ad23e021c554259b906b6c4f2991cb772409827569ead4c1a",
+      "com.google.code.findbugs:jsr305:jar:3.0.2": "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7",
+      "com.google.errorprone:error_prone_annotations:jar:2.7.1": "cd5257c08a246cf8628817ae71cb822be192ef91f6881ca4a3fcff4f1de1cff3",
+      "com.google.guava:failureaccess:jar:1.0.1": "a171ee4c734dd2da837e4b16be9df4661afab72a41adaf31eb84dfdaf936ca26",
+      "com.google.guava:guava:jar:31.0.1-jre": "d5be94d65e87bd219fb3193ad1517baa55a3b88fc91d21cf735826ab5af087b9",
+      "com.google.guava:listenablefuture:jar:9999.0-empty-to-avoid-conflict-with-guava": "b372a037d4230aa57fbeffdef30fd6123f9c0c2db85d0aced00c91b974f33f99",
+      "com.google.j2objc:j2objc-annotations:jar:1.3": "21af30c92267bd6122c0e0b4d20cccb6641a37eaf956c6540ec471d584e64a7b",
+      "com.puppycrawl.tools:checkstyle:jar:9.3": "0463e304980f5460b964f481ccc25a10fb253b60100c19e50fc992892895977f",
+      "commons-beanutils:commons-beanutils:jar:1.9.4": "7d938c81789028045c08c065e94be75fc280527620d5bd62b519d5838532368a",
+      "commons-codec:commons-codec:jar:1.16.1": "ec87bfb55f22cbd1b21e2190eeda28b2b312ed2a431ee49fbdcc01812d04a5e4",
+      "commons-collections:commons-collections:jar:3.2.2": "eeeae917917144a68a741d4c0dff66aa5c5c5fd85593ff217bced3fc8ca783b8",
+      "commons-io:commons-io:jar:2.17.0": "4aa4ca48f3dfd30b78220b7881d8cb93eac4093ec94361b6befa9487998a550b",
+      "commons-logging:commons-logging:jar:1.2": "daddea1ea0be0f56978ab3006b8ac92834afeefbd9b7e4e6316fca57df0fa636",
+      "info.picocli:picocli:jar:4.6.2": "4754d96eaf5314f35a287da5c67848b285067868fca6d1f5121a74f67f065b61",
+      "javax.activation:javax.activation-api:jar:1.2.0": "43fdef0b5b6ceb31b0424b208b930c74ab58fac2ceeb7b3f6fd3aeb8b5ca4393",
+      "javax.inject:javax.inject:jar:1": "91c77044a50c481636c32d916fd89c9118a72195390452c81065080f957de7ff",
+      "javax.xml.bind:jaxb-api:jar:2.3.1": "88b955a0df57880a26a74708bc34f74dcaf8ebf4e78843a28b50eae945732b06",
+      "net.sf.saxon:Saxon-HE:jar:10.6": "6d08df82e4ed86b6abb1a02c7b74a268fcfc5e004e83bb4ff006ec3a509bd356",
+      "org.antlr:antlr4-runtime:jar:4.9.3": "131a6594969bc4f321d652ea2a33bc0e378ca312685ef87791b2c60b29d01ea5",
+      "org.apache.commons:commons-compress:jar:1.26.1": "27bb5d40f37c3bb7205b4a0540247df057715e9f6cbbd97d626ab8b50318bb04",
+      "org.apache.commons:commons-digester3:jar:3.2": "1c150e3d2df4b4237b47e28fea2079fb0da324578d5cca6a5fed2e37a62082ec",
+      "org.apache.commons:commons-lang3:jar:3.17.0": "6ee731df5c8e5a2976a1ca023b6bb320ea8d3539fbe64c8a1d5cb765127c33b4",
+      "org.apache.commons:commons-lang3:jar:3.18.0": "4eeeae8d20c078abb64b015ec158add383ac581571cddc45c68f0c9ae0230720",
+      "org.apache.commons:commons-text:jar:1.12.0": "de023257ff166044a56bd1aa9124e843cd05dac5806cc705a9311f3556d5a15f",
+      "org.apache.maven.doxia:doxia-core:jar:2.0.0": "939183cf5ced6741745b2475a4adf78ca85885ee0dad6dae28dd3f25bd447ff3",
+      "org.apache.maven.doxia:doxia-integration-tools:jar:2.0.0": "4aee72f9b30b507964c2f52b63f70e7b41fb9d957359cb5dc13c428abb4b6189",
+      "org.apache.maven.doxia:doxia-module-apt:jar:2.0.0": "f4a846c448ca85358279184a310f6ee3f46fa39688f74a72961c1bfe222f28a6",
+      "org.apache.maven.doxia:doxia-module-xdoc:jar:2.0.0": "7956aca14f8adbc48bac86b218701dd44cc990063a69edbfca363b105994a474",
+      "org.apache.maven.doxia:doxia-module-xhtml5:jar:2.0.0": "c91557679a0eb9fde3175055628ceb7b8fd5ab6d308340770d236fb06265dc26",
+      "org.apache.maven.doxia:doxia-sink-api:jar:2.0.0": "fba33eaee3b01547bcd14b05ebc37f7dacef1819ad9ee7a5b27899afd3472cf4",
+      "org.apache.maven.doxia:doxia-site-model:jar:2.0.0": "f6ec9ef75a41d1b826e5ecf02d92c5de90a6bc70ea93d5340988703223bf2205",
+      "org.apache.maven.doxia:doxia-site-renderer:jar:2.0.0": "6cdee370194f4b9f742d12ef46528042f480d9bdf3de832de2792e1ae9ffc68d",
+      "org.apache.maven.doxia:doxia-skin-model:jar:2.0.0": "3ced0d90353f49e8eb1458f54664b93ec117d79b9789a576da41e2f6f99723e0",
+      "org.apache.maven.plugins:maven-checkstyle-plugin:jar:3.6.0": "2e88e24b0313e32ac9cc2a0466f569c74988413dfdd87c6347a3ac9d4c570db1",
+      "org.apache.maven.reporting:maven-reporting-api:jar:4.0.0": "cb2cbde3c9c7288f7398a250dcf3c90cf92714cff301f22b298e1091b5def33c",
+      "org.apache.maven.reporting:maven-reporting-impl:jar:4.0.0": "e9e70fdb26ff8b1f15435e3a68866a25c85b1694007e0fbdfe84e48e946fe463",
+      "org.apache.maven.resolver:maven-resolver-api:jar:1.4.1": "33dc67306cc95da14e5444e8b494d967924abf1d01bae1894676164cbd3f6112",
+      "org.apache.maven.shared:maven-shared-utils:jar:3.4.2": "b613357e1bad4dfc1dead801691c9460f9585fe7c6b466bc25186212d7d18487",
+      "org.apache.maven:maven-archiver:jar:3.6.2": "1f895a587df4844d9b7565e8e9a6352afe1d55532458a0dbeb746bc1d02e9216",
+      "org.apache.velocity.tools:velocity-tools-generic:jar:3.1": "8258cfdcaa16127f35ffe610a3fa4f76b7ebe51b88922c73c4ee39ce8f378ce5",
+      "org.apache.velocity:velocity-engine-core:jar:2.4": "1bf78c2ade46f209bf93ebe72ed2af5b989ca7a1de0a015fc1b92a62f56b6549",
+      "org.checkerframework:checker-qual:jar:3.12.0": "ff10785ac2a357ec5de9c293cb982a2cbb605c0309ea4cc1cb9b9bc6dbe7f3cb",
+      "org.codehaus.plexus:plexus-archiver:jar:4.9.2": "a837bd7d73291564dc8e8c826de0fede75896527a35bdcddb77b0545ee656a4c",
+      "org.codehaus.plexus:plexus-classworlds:jar:2.6.0": "52f77c5ec49f787c9c417ebed5d6efd9922f44a202f217376e4f94c0d74f3549",
+      "org.codehaus.plexus:plexus-component-annotations:jar:2.2.0": "50edb93c73786e62822b4fe1336e22880fdf147191373cf5c911370e16748fcf",
+      "org.codehaus.plexus:plexus-i18n:jar:1.0-beta-10": "b87f25b512ffafcafbf4a05ab943812e9c6915291370c6b46016eb3836886c41",
+      "org.codehaus.plexus:plexus-interpolation:jar:1.27": "3fb4fb6143fdf964024c3cb738551524b9ea84e5c211cd660c559ad0703e5230",
+      "org.codehaus.plexus:plexus-io:jar:3.4.2": "6ba7fb0db6bfa348c248df3f983ae31318e9c14f35a86a932af5ffd7450aa62a",
+      "org.codehaus.plexus:plexus-resources:jar:1.3.0": "827baaa0215caedcdca59d091f04480566f7a43996183b9f9871fecff7abebea",
+      "org.codehaus.plexus:plexus-utils:jar:4.0.1": "96b9cc44439191d2d0635974e2d44e768736b4fb2abcb65f94cd95e41912fa8b",
+      "org.codehaus.plexus:plexus-velocity:jar:2.2.0": "3e7e902f492c973cf210ddb8267843a3b65e83f5067467e2f4d9af0051f6b8b9",
+      "org.codehaus.plexus:plexus-xml:jar:3.0.1": "c1a510a87a62bd2d74ac1472dd31c3f9e9b0b8b8568f37d77c0f135415bebd05",
+      "org.eclipse.sisu:org.eclipse.sisu.inject:jar:0.9.0.M3": "15335c4dcf082f599fb8eddcfb58d6a7e9a9c97de2883c257089a479b9b24522",
+      "org.eclipse.sisu:org.eclipse.sisu.plexus:jar:0.9.0.M3": "c99674d3773e26154885661711f0b6d63aa5008f5cc99227a236756d4ad9de5e",
+      "org.iq80.snappy:snappy:jar:0.4": "46a0c87d504ce9d6063e1ff6e4d20738feb49d8abf85b5071a7d18df4f11bac9",
+      "org.javassist:javassist:jar:3.28.0-GA": "57d0a9e9286f82f4eaa851125186997f811befce0e2060ff0a15a77f5a9dd9a7",
+      "org.reflections:reflections:jar:0.10.2": "938a2d08fe54050d7610b944d8ddc3a09355710d9e6be0aac838dbc04e9a2825",
+      "org.slf4j:slf4j-api:jar:1.7.36": "d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0",
+      "org.tukaani:xz:jar:1.9": "211b306cfc44f8f96df3a0a3ddaf75ba8c5289eed77d60d72f889bb855f535e5"
+    },
+    "reportResourceSha256": {
+      "org.apache.maven.skins:maven-fluido-skin:jar:2.0.0-M9": "b3bd3ed2ced9ecd1c88ac58295d6c91ab3967ffcf8bbae3d4f629f2e61584e05"
+    },
+    "retainedReceiptSha256": {
+      "models": "dc53833d0b2b4a375f72f946d96aaaeee232d262e4aa9577ab9522b919a6cc8f",
+      "baseline-fixtures": "269de25966181069c442df1dd8d71e769d45c6d1758f2a2d86c7ec8f7d1a6d61",
+      "candidate-fixtures": "537ba9bbd72c482b38808684bd93225e141004c880450f70436f4a52c13c57f4"
+    }
+  },
+  "retainedFailures": {
+    "liveAttemptsFailed": 2,
+    "mockAttemptsFailed": 1,
+    "causes": [
+      {
+        "kind": "live",
+        "count": 1,
+        "cause": "Offline cache lacked the official Fluido report skin; exact resource was provisioned before retry"
+      },
+      {
+        "kind": "live",
+        "count": 1,
+        "cause": "Probe supplied an immutable Velocity context map; corrected to a mutable map with identical assertions"
+      },
+      {
+        "kind": "mock",
+        "count": 1,
+        "cause": "Isolated mock VM lacked the URL builtin; supplied that builtin without changing assertions"
+      }
+    ],
+    "originalFailureEvidenceRetained": true
+  }
+}
