@@ -9,6 +9,7 @@ from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
+from runpy import run_path
 import re
 import shutil
 import signal
@@ -23,6 +24,8 @@ from checkstyle_live_support import (HERE, ROOT, NS, CASES, GOAL, REPORT_GOAL, M
     Commands, cached_artifacts, cached_report_skin, digest, execution_mode, inside, isolated_env, load_contract,
     logging_import, maven_command, natural_origins, parent_xml, preparation_command, preparation_xml, prepare_repository,
     realm_artifacts, realm_imports, require, source_inputs, transition_spec)
+
+BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
 
 GOOD = 'package fixture;\npublic class Good { String value = "café"; }\n'
 TEST_GOOD = 'package fixture;\npublic class TestGood { int value = 1; }\n'
@@ -67,6 +70,11 @@ class Run:
         self.source, self.sandbox, self.repository = source, sandbox, repository
         self.jdk, self.maven, self.offline, self.stage, self.baseline = jdk, maven, offline, stage, baseline
         self.transition, self.spec = transition, transition_spec(transition)
+        self.boot_source_projection = None
+        if BOOT['is_boot_source'](source):
+            retained = inside(sandbox / 'accepted-boot-predecessor', sandbox)
+            self.boot_source_projection = BOOT['materialize_retained_source'](source, retained)
+            source = retained; self.source = source
         self.fixed, self.observer_hash = {}, None
         self.supplied_source, self.supplied_hashes = source, {}
         contract_inputs = CONTRACT_INPUTS
@@ -104,6 +112,8 @@ class Run:
         self.report = {'status': 'RUNNING', 'stage': stage, 'variant': 'baseline' if baseline else 'candidate',
             'offline': offline, 'sandbox': str(sandbox), 'transition': transition, 'sourceHashes': self.source_hashes,
             'suppliedSourceHashes': self.supplied_hashes, 'historicalLangMaterialized': bool(self.supplied_hashes),
+            'bootSourceProjection': self.boot_source_projection,
+            'historicalBootMaterialized': bool(self.boot_source_projection),
             'harnessSourceHashes': self.harness_hashes, 'contractSourceHashes': self.contract_hashes,
             'commands': self.commands.results, 'cases': {}, 'coverageGaps': [],
             'scannerEvidence': False, 'canonicalCiEvidence': False, 'vulnerableApiReachabilityClaim': False}
@@ -113,6 +123,8 @@ class Run:
         inside(file, self.sandbox).write_bytes(data); self.fixed[file] = data
 
     def containment(self):
+        if self.boot_source_projection:
+            BOOT['verify_projection'](self.boot_source_projection)
         require(not self.sandbox.is_symlink() and self.identity == (self.sandbox.stat().st_dev, self.sandbox.stat().st_ino), 'sandbox identity drift')
         require(all(digest(self.source / p) == h for p, h in self.source_hashes.items()), 'source drift')
         require(all(digest(self.supplied_source / p) == h for p, h in self.supplied_hashes.items()), 'supplied source drift')

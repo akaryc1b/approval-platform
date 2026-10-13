@@ -8,6 +8,7 @@ import { readCompilerDiagnostic, verifyCompilerDiagnostic, seal, sha } from './f
 
 const baselinePom = readFileSync(new URL('../../docs/operations/compiler-plugin-evidence/candidate-root-pom.xml', import.meta.url));
 const checkstylePom = readFileSync(new URL('../../docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml', import.meta.url));
+const guavaPom = readFileSync(new URL('../../docs/operations/checkstyle-guava-evidence/candidate-root-pom.xml', import.meta.url));
 const currentPom = readFileSync(new URL('../../pom.xml', import.meta.url));
 const historicalPomHash = '1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a';
 
@@ -24,6 +25,11 @@ async function sourceFixture(t, pom) {
   copyFileSync(new URL('../security/checkstyle-plugin-source-continuation.mjs', import.meta.url), modulePath);
   copyFileSync(new URL('../security/checkstyle-guava-source-continuation.mjs', import.meta.url),
     path.join(moduleDirectory, 'checkstyle-guava-source-continuation.mjs'));
+  copyFileSync(new URL('../security/boot-http-source-continuation.mjs', import.meta.url),
+    path.join(moduleDirectory, 'boot-http-source-continuation.mjs'));
+  const guavaEvidenceDirectory = path.join(directory, 'docs/operations/checkstyle-guava-evidence');
+  mkdirSync(guavaEvidenceDirectory, { recursive: true });
+  writeFileSync(path.join(guavaEvidenceDirectory, 'candidate-root-pom.xml'), guavaPom);
   writeFileSync(path.join(evidenceDirectory, 'candidate-root-pom.xml'), baselinePom);
   writeFileSync(path.join(checkstyleEvidenceDirectory, 'candidate-root-pom.xml'), checkstylePom);
   const pomPath = path.join(directory, 'pom.xml');
@@ -33,7 +39,7 @@ async function sourceFixture(t, pom) {
     read: () => readPreservedCompilerSource('pom.xml', historicalPomHash) };
 }
 
-for (const [name, pom] of [['baseline', baselinePom], ['accepted Checkstyle Lang', checkstylePom], ['Checkstyle Guava candidate', currentPom]]) {
+for (const [name, pom] of [['baseline', baselinePom], ['accepted Checkstyle Lang', checkstylePom], ['accepted Checkstyle Guava', guavaPom], ['Boot HTTP candidate', currentPom]]) {
   test(`Compiler diagnostic source pin accepts the exact ${name} root`, async t => {
     const fixture = await sourceFixture(t, pom);
     assert.equal(sha(baselinePom), historicalPomHash);
@@ -43,7 +49,7 @@ for (const [name, pom] of [['baseline', baselinePom], ['accepted Checkstyle Lang
     const fixture = await sourceFixture(t, pom);
     assert.deepEqual(fixture.read(), baselinePom);
     writeFileSync(fixture.pomPath, Buffer.concat([pom, Buffer.from('\n')]));
-    assert.throws(fixture.read, /Checkstyle (?:Guava )?continuation historical source byte digest mismatch/);
+    assert.throws(fixture.read, /(?:Checkstyle (?:Guava )?|Boot HTTP )continuation historical source byte digest mismatch/);
   });
 }
 

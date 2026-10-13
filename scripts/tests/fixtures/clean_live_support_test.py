@@ -3,6 +3,7 @@ import copy
 import io
 import json
 import os
+from runpy import run_path
 from pathlib import Path
 import sys
 import tempfile
@@ -25,6 +26,15 @@ def no_execution(event, args):
 
 sys.addaudithook(no_execution)
 
+# The unchanged historical Release/Clean gate sees the exact retained Guava
+# source. The outer adapter separately verifies every supplied current input.
+BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
+retained_directory = tempfile.TemporaryDirectory(prefix='clean-boot-retained-')
+unittest.addModuleCleanup(retained_directory.cleanup)
+boot_projection = BOOT['materialize_retained_source'](ROOT, Path(retained_directory.name) / 'accepted-guava')
+RETAINED_ROOT = Path(boot_projection['retainedSourceRoot'])
+unittest.addModuleCleanup(BOOT['verify_projection'], boot_projection)
+
 
 class PureContracts(unittest.TestCase):
     def setUp(self):
@@ -38,8 +48,8 @@ class PureContracts(unittest.TestCase):
         return maven_command(self.maven, self.sandbox, self.repo, offline, stage,
                              self.project if project is None else project, flags)
 
-    def test_current_strict_source_and_complete_parent_serialization(self):
-        projects, hashes = source_gate(ROOT)
+    def test_retained_strict_source_and_complete_parent_serialization(self):
+        projects, hashes = source_gate(RETAINED_ROOT)
         self.assertEqual(len(projects), 26)
         self.assertEqual(len(hashes), 28)
         original = projects[0][1]
@@ -60,14 +70,14 @@ class PureContracts(unittest.TestCase):
         self.assertNotIn('<executions', xml)
 
     def test_parent_rejects_clean_configuration(self):
-        project = copy.deepcopy(source_gate(ROOT)[0][0][1])
+        project = copy.deepcopy(source_gate(RETAINED_ROOT)[0][0][1])
         selected = next(p for p in project.findall('m:build/m:pluginManagement/m:plugins/m:plugin', NS) if CONTRACT['targeted'](p))
         ET.SubElement(selected, PREFIX + 'configuration')
         with self.assertRaises(ValueError):
             extracted_parent(project)
 
     def test_parent_rejects_pin_drift(self):
-        project = copy.deepcopy(source_gate(ROOT)[0][0][1])
+        project = copy.deepcopy(source_gate(RETAINED_ROOT)[0][0][1])
         project.find('m:properties/m:maven.clean.commons-io.version', NS).text = '2.6'
         with self.assertRaises(ValueError):
             extracted_parent(project)

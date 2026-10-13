@@ -7,13 +7,17 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { readPreservedCheckstyleSource } from '../security/checkstyle-guava-source-continuation.mjs';
 
+import { retainedBootSource } from './fixtures/boot-http-retained-source.mjs';
+
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const retainedView = retainedBootSource(root);
+const retainedRoot = retainedView.directory;
 for (const transition of ['lang', 'guava']) test.describe(`Checkstyle ${transition} source/model contract`, () => {
 const checker = path.join(root, 'scripts/ci/verify-checkstyle-plugin-baseline.py');
 const contract = path.join(root, `scripts/ci/checkstyle_${transition === 'lang' ? 'plugin' : 'guava'}_contract.py`);
 const source = transition === 'lang'
   ? readPreservedCheckstyleSource('pom.xml', 'd55f730aa8490c60ddf8c3d76d062fd6c4706be4816adf8db8936df15941a6fb').toString('utf8')
-  : readFileSync(path.join(root, 'pom.xml'), 'utf8');
+  : readFileSync(path.join(retainedRoot, 'pom.xml'), 'utf8');
 const poms = JSON.parse(readFileSync(path.join(root, 'docs/operations/compiler-plugin-evidence/source-witness.json'))).sourcePomFiles.map(row => row.path);
 assert.equal(poms.length, 28);
 const pattern = /<plugin>\s*<groupId>org\.apache\.maven\.plugins<\/groupId>\s*<artifactId>maven-checkstyle-plugin<\/artifactId>[\s\S]*?<\/plugin>/;
@@ -130,7 +134,7 @@ for label, file, base in [('before', prior, '/fixture/baseline'), ('after', curr
     result[label] = raw
 print(json.dumps(result))
 `;
-const generated = invoke(['-c', generate, contract, root, transition]);
+const generated = invoke(['-c', generate, contract, retainedRoot, transition]);
 assert.equal(generated.status, 0, generated.stderr);
 const models = JSON.parse(generated.stdout);
 function compareModels(t, after = models.after, before = models.before) {
@@ -191,7 +195,7 @@ if (transition === 'guava') {
     }
   });
   test('Guava reversal returns byte-exact accepted Lang source and retains the original contract', () => {
-    const result = invoke(['-c', 'import runpy,sys; from pathlib import Path; c=runpy.run_path(sys.argv[1]); root=Path(sys.argv[2]); assert c["reverse_source"]((root/"pom.xml").read_bytes()) == (root/"docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml").read_bytes(); assert c["before_checkstyle"](c["ET"].parse(root/"pom.xml").getroot()) is not None', contract, root]);
+    const result = invoke(['-c', 'import runpy,sys; from pathlib import Path; c=runpy.run_path(sys.argv[1]); root=Path(sys.argv[2]); assert c["reverse_source"]((root/"pom.xml").read_bytes()) == (root/"docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml").read_bytes(); assert c["before_checkstyle"](c["ET"].parse(root/"pom.xml").getroot()) is not None', contract, retainedRoot]);
     assert.equal(result.status, 0, result.stderr);
   });
 }

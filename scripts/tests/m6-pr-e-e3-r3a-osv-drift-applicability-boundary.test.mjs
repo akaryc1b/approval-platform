@@ -1,3 +1,4 @@
+import { BOOT_HTTP_GRAPH } from '../security/boot-http-graph-transition.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -272,7 +273,27 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
   assert.ok(match, 'R3A canonical review evidence must be retained');
   const resultEvidence = JSON.parse(match[1]);
   assert.match(resultEvidence.commitSha, /^[0-9a-f]{40}$/);
-  assert.equal(resultEvidence.schemaVersion, 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V2');
+  const bootHttp = resultEvidence.currentE2GraphDigest === BOOT_HTTP_GRAPH;
+  assert.equal(resultEvidence.schemaVersion, bootHttp
+    ? 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V3' : 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V2');
+  const { contentSha256, ...payload } = resultEvidence;
+  assert.equal(contentSha256, sha256(canonical(payload)));
+  assert.equal(resultEvidence.currentGraphTransition.currentE2GraphDigest, resultEvidence.currentE2GraphDigest);
+  if (bootHttp) {
+    assert.deepEqual(resultEvidence.historicalHttpcoreReview, contract.findings[1]);
+    const observed = resultEvidence.currentHttpcoreObservation;
+    assert.deepEqual(observed.package, { ecosystem: 'Maven', name: 'org.apache.httpcomponents.core5:httpcore5', version: '5.4.3' });
+    assert.equal(observed.historicalFindingId, contract.findings[1].findingId);
+    assert.deepEqual(observed.requiredCoResolvedComponents, ['org.apache.httpcomponents.client5:httpclient5:5.6.3',
+      'org.apache.httpcomponents.core5:httpcore5-h2:5.4.3', 'org.springframework.boot:spring-boot-buildpack-platform:4.0.8']);
+    assert.match(observed.pluginReportSha256, /^[0-9a-f]{64}$/);
+    for (const key of ['currentFindingPresenceClaimed', 'currentFindingAbsenceClaimed', 'dispositionTransferred', 'remoteBuildResponsePathProvenUnreachable'])
+      assert.equal(observed[key], false);
+    assert.equal(resultEvidence.findings[0].evidence.pluginResolutionPaths, undefined);
+  } else {
+    assert.equal(resultEvidence.currentHttpcoreObservation, undefined);
+    assert.equal(resultEvidence.historicalHttpcoreReview, undefined);
+  }
   assert.deepEqual(resultEvidence.historicalReview.findings, contract.findings);
   assert.deepEqual(resultEvidence.historicalReview.decision, contract.decision);
   assert.equal(resultEvidence.currentTomcatObservation.package.version, '11.0.26');
@@ -292,7 +313,7 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
     [],
   );
   assert.deepEqual(
-    resultEvidence.findings[0].evidence.pluginResolutionPaths
+    (bootHttp ? resultEvidence.currentHttpcoreObservation : resultEvidence.findings[0].evidence).pluginResolutionPaths
       .map((item) => item.pluginOwner),
     ['org.springframework.boot:spring-boot-maven-plugin:4.0.8'],
   );

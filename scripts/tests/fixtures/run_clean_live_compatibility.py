@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from runpy import run_path
 import re
 import shutil
 import signal
@@ -23,6 +24,8 @@ from clean_live_support import (CONTRACT, RELEASE, ROOT, HERE, NS, CLEAN_GOAL, M
 from clean_live_support import (execution_mode, write_failure_receipt, verify_logging_channels,
                                 require_separate_class_channel, API_ASSERTION_LABELS)
 
+BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
+
 CASES = ['defaults', 'defaults-repeat', 'separate-outputs', 'filesets', 'skip', 'exclude-defaults',
          'nested-symlinks', 'root-symlink-characterization', 'explicit-follow-characterization',
          'missing-fileset', 'regular-file-base', 'invalid-fast-mode', 'permission-true', 'permission-false']
@@ -32,6 +35,11 @@ class FixtureRun:
     def __init__(self, sandbox, source, repository, maven, jdk, offline, stage):
         self.sandbox, self.source, self.repository = sandbox, source, repository
         self.maven, self.jdk, self.offline = maven, jdk, offline
+        self.boot_source_projection = None
+        if BOOT['is_boot_source'](source):
+            retained = inside(sandbox / 'accepted-boot-predecessor', sandbox)
+            self.boot_source_projection = BOOT['materialize_retained_source'](source, retained)
+            source = retained; self.source = source
         self.projects, self.source_hashes = source_gate(source)
         self.parent_xml = extracted_parent(self.projects[0][1])
         self.poms, self.realm = {}, None
@@ -42,6 +50,8 @@ class FixtureRun:
                        'cases': {name: {'status': 'NOT_RUN'} for name in CASES} if stage == 'fixtures' else {},
                        'commands': self.commands.results, 'coverageGaps': [],
                        'scannerEvidence': False, 'vulnerableApiReachabilityClaim': False}
+        self.report['bootSourceProjection'] = self.boot_source_projection
+        self.report['historicalBootMaterialized'] = bool(self.boot_source_projection)
         self.report['harnessSourceHashes'] = {file.name: digest(file) for file in [
             HERE / 'run_clean_live_compatibility.py', HERE / 'clean_live_support.py',
             HERE / 'CleanRealmObserver.java', HERE / 'CleanSharedIoProbe.java']}
@@ -55,6 +65,8 @@ class FixtureRun:
         self.poms[file] = xml
 
     def containment(self):
+        if self.boot_source_projection:
+            BOOT['verify_projection'](self.boot_source_projection)
         require(self.identity == (self.sandbox.stat().st_dev, self.sandbox.stat().st_ino)
                 and not self.sandbox.is_symlink(), 'sandbox identity changed')
         require(source_gate(self.source)[1] == self.source_hashes, 'current source POMs changed during live test')
@@ -115,7 +127,7 @@ class FixtureRun:
         self.containment()
         self.report.update(status='PASSED', effectiveModelSha256=digest(file), modelCount=26,
                            retainedGates='Clean and original Release/Site/Dependency/Boot checks passed',
-                           baselineModelComparison='Not repeated here; this gate checks current actual models')
+                           baselineModelComparison='Retained predecessor source verified through explicit Boot projection; current Boot models have a separate paired gate' if self.boot_source_projection else 'Not repeated here; this gate checks current actual models')
 
     def compile_observer(self):
         status, _, _ = self.commands.run('compile-observer', [str(self.jdk / 'bin/javac'), '-J-Xmx96m',

@@ -34,7 +34,7 @@ function live(stage, timeout) {
   return receipt;
 }
 
-test('CI verifies actual inherited Clean and retained pins across all 26 current effective models', {
+test('CI verifies actual inherited Clean and retained pins across all 26 explicitly retained predecessor effective models', {
   skip, timeout: 390000,
 }, () => {
   const receipt = live('models', 380000);
