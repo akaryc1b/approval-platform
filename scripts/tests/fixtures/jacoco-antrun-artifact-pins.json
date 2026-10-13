@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "owners": {
+    "antrun": {
+      "baseline": [
+        "org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+        "org.codehaus.plexus:plexus-utils:jar:3.4.1",
+        "org.apache.ant:ant:jar:1.10.12",
+        "org.apache.ant:ant-launcher:jar:1.10.12"
+      ],
+      "candidate": [
+        "org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+        "org.codehaus.plexus:plexus-utils:jar:3.6.1",
+        "org.apache.ant:ant:jar:1.10.12",
+        "org.apache.ant:ant-launcher:jar:1.10.12"
+      ]
+    },
+    "jacoco": {
+      "baseline": [
+        "org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+        "org.codehaus.plexus:plexus-utils:jar:3.0.24",
+        "org.apache.maven.shared:file-management:jar:3.2.0",
+        "org.slf4j:slf4j-api:jar:1.7.36",
+        "commons-io:commons-io:jar:2.19.0",
+        "org.apache.maven.reporting:maven-reporting-api:jar:3.0",
+        "org.apache.maven.doxia:doxia-sink-api:jar:1.0",
+        "org.jacoco:org.jacoco.agent:jar:runtime:0.8.15",
+        "org.jacoco:org.jacoco.core:jar:0.8.15",
+        "org.ow2.asm:asm:jar:9.10.1",
+        "org.ow2.asm:asm-commons:jar:9.10.1",
+        "org.ow2.asm:asm-tree:jar:9.10.1",
+        "org.jacoco:org.jacoco.report:jar:0.8.15"
+      ],
+      "candidate": [
+        "org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+        "org.codehaus.plexus:plexus-utils:jar:3.6.1",
+        "org.apache.maven.shared:file-management:jar:3.2.0",
+        "org.slf4j:slf4j-api:jar:1.7.36",
+        "commons-io:commons-io:jar:2.19.0",
+        "org.apache.maven.reporting:maven-reporting-api:jar:3.0",
+        "org.apache.maven.doxia:doxia-sink-api:jar:1.0",
+        "org.jacoco:org.jacoco.agent:jar:runtime:0.8.15",
+        "org.jacoco:org.jacoco.core:jar:0.8.15",
+        "org.ow2.asm:asm:jar:9.10.1",
+        "org.ow2.asm:asm-commons:jar:9.10.1",
+        "org.ow2.asm:asm-tree:jar:9.10.1",
+        "org.jacoco:org.jacoco.report:jar:0.8.15"
+      ]
+    }
+  },
+  "artifactHashes": {
+    "commons-io:commons-io:jar:2.19.0": "824268919b4b62f9f40f08c54381de5993b078f58667e332d17348ae019d72b9",
+    "org.apache.ant:ant-launcher:jar:1.10.12": "42a7ca7e7bb777fe7ee75a5ed4cc529c766bc43486367fdaad0ab4a32ee9c249",
+    "org.apache.ant:ant:jar:1.10.12": "5c6a438c3ebe7a306eba452b09fa307b0e60314926177920bca896c4a504eaf6",
+    "org.apache.maven.doxia:doxia-sink-api:jar:1.0": "1cd68e9b4cf427a2b6b9a943a9bef6da879d25702334ea5addb0d153bb8f8911",
+    "org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0": "8ae8f570b8f4ea46fa7f3df27f22ce4c6b6c1f387a6eaeefae6c896aebae1455",
+    "org.apache.maven.reporting:maven-reporting-api:jar:3.0": "498949e5576b022559d1622e534c18e052f94dec883924b67e0a4e8676c07b17",
+    "org.apache.maven.shared:file-management:jar:3.2.0": "32ac469785dd1547ac71437e4c3916c4a56a3d69303cb08d789ecdd0bfd1d6de",
+    "org.codehaus.plexus:plexus-utils:jar:3.0.24": "83ee748b12d06afb0ad4050a591132b3e8025fbb1990f1ed002e8b73293e69b4",
+    "org.codehaus.plexus:plexus-utils:jar:3.4.1": "52d85e04b3918722af11d12855b4a8257df96a0e76c8f4e3852e6faa851f357b",
+    "org.codehaus.plexus:plexus-utils:jar:3.6.1": "05a63effd67e2d6b9d610cc82e2bd7473289d34802e57a529b28110f28af5679",
+    "org.jacoco:jacoco-maven-plugin:jar:0.8.15": "f1b5a734742f99573f99c0af214f63c28156ef47f7467e434a7a1b723cdba9b2",
+    "org.jacoco:org.jacoco.agent:jar:runtime:0.8.15": "fb5b0036a0899ea97edfa0fc2c7985b55f3f7c5695028163e5e60d4f3cf6075d",
+    "org.jacoco:org.jacoco.core:jar:0.8.15": "ade1e0fdb4cd80d8537b57c6edb70a1360c47fdc518c20c65314517479bc4d0d",
+    "org.jacoco:org.jacoco.report:jar:0.8.15": "66a79e36edc77a1ebf6689e76a976e12ab4f1af515cbd09555840fba775714f4",
+    "org.ow2.asm:asm-commons:jar:9.10.1": "6d0abefb7cbf972ea16edb37ec14835372505063a45f976ab7ea889ed9497895",
+    "org.ow2.asm:asm-tree:jar:9.10.1": "3dfb0d5b6a106cd40b5b250e39935fbf2f927f4477546a5369a3ac609cf0506b",
+    "org.ow2.asm:asm:jar:9.10.1": "ed825d10ab1399c8c0cb669e688cf0c8c82629b4c8399b58352b68e92ca10fcb",
+    "org.slf4j:slf4j-api:jar:1.7.36": "d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0"
+  }
+}

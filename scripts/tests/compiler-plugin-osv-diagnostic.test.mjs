@@ -30,6 +30,12 @@ async function sourceFixture(t, pom) {
     path.join(moduleDirectory, 'boot-http-source-continuation.mjs'));
   copyFileSync(new URL('../security/boot-utilities-source-continuation.mjs', import.meta.url),
     path.join(moduleDirectory, 'boot-utilities-source-continuation.mjs'));
+  copyFileSync(new URL('../security/jacoco-antrun-source-continuation.mjs', import.meta.url),
+    path.join(moduleDirectory, 'jacoco-antrun-source-continuation.mjs'));
+  const utilitiesEvidenceDirectory = path.join(directory, 'docs/operations/boot-utilities-plugin-evidence');
+  mkdirSync(utilitiesEvidenceDirectory, { recursive: true });
+  copyFileSync(new URL('../../docs/operations/boot-utilities-plugin-evidence/candidate-root-pom.xml', import.meta.url),
+    path.join(utilitiesEvidenceDirectory, 'candidate-root-pom.xml'));
   const httpEvidenceDirectory = path.join(directory, 'docs/operations/boot-http-plugin-evidence');
   mkdirSync(httpEvidenceDirectory, { recursive: true });
   writeFileSync(path.join(httpEvidenceDirectory, 'candidate-root-pom.xml'), httpPom);
@@ -55,7 +61,7 @@ for (const [name, pom] of [['baseline', baselinePom], ['accepted Checkstyle Lang
     const fixture = await sourceFixture(t, pom);
     assert.deepEqual(fixture.read(), baselinePom);
     writeFileSync(fixture.pomPath, Buffer.concat([pom, Buffer.from('\n')]));
-    assert.throws(fixture.read, /(?:Checkstyle (?:Guava )?|Boot HTTP |Boot utilities )continuation historical source byte digest mismatch/);
+    assert.throws(fixture.read, /(?:Checkstyle (?:Guava )?|Boot HTTP |Boot utilities |JaCoCo\/AntRun )continuation historical source byte digest mismatch/);
   });
 }
 

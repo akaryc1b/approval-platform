@@ -380,12 +380,16 @@ sys.path.insert(0, sys.argv[1])
 import checkstyle_live_support as s
 Run = runpy.run_path(sys.path[0] + '/run_checkstyle_live_compatibility.py')['Run']
 utilities = runpy.run_path(str(s.ROOT / 'scripts/ci/boot_utilities_contract.py'))
+pair = runpy.run_path(str(s.ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
 with tempfile.TemporaryDirectory(prefix='checkstyle-history-mock-') as directory:
     sandbox = Path(directory); source = sandbox / 'supplied-source'; source.mkdir()
-    for name in set(utilities['source_inventory'](s.ROOT)) | set(utilities['HISTORICAL_FILES']):
+    pair_view = pair['materialize_retained_source'](s.ROOT, sandbox / 'accepted-source-witness')
+    for name in pair_view['suppliedSourceHashes']:
         target = source / name; target.parent.mkdir(parents=True, exist_ok=True); shutil.copyfile(s.ROOT / name, target)
     with patch.object(subprocess, 'Popen', side_effect=AssertionError('materialization attempted execution')):
         run = Run(source, sandbox, Path('/cache'), Path('/jdk'), Path('/maven/bin/mvn'), True, 'models', False, 'lang')
+        assert run.pair_source_projection['suppliedRootPomSha256'] == 'd36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c'
+        assert run.pair_source_projection['retainedRootPomSha256'] == '2f22ec8cae77cdfb519b81a8e48417fc75632416bcf28989f589f33d39261579'
         assert run.report['historicalUtilitiesMaterialized'] is True
         assert run.utilities_source_projection['suppliedRootPomSha256'] == '2f22ec8cae77cdfb519b81a8e48417fc75632416bcf28989f589f33d39261579'
         assert run.utilities_source_projection['retainedRootPomSha256'] == 'dd3d2a854fd32d53efc2ccbe0efc1c217af46a7824de89c4c30f5bf29249e3c1'
@@ -398,7 +402,8 @@ with tempfile.TemporaryDirectory(prefix='checkstyle-history-mock-') as directory
         assert run.supplied_hashes['pom.xml'] == 'd95d582e6ccfc91c01780717c83054cd9b52aeffa43c934fbf568f550288cdd5'
         assert len(run.source_hashes) == 29
         run.containment()
-        for file in [source / 'pom.xml', Path(run.utilities_source_projection['retainedSourceRoot']) / 'pom.xml']:
+        for file in [source / 'pom.xml', Path(run.pair_source_projection['retainedSourceRoot']) / 'pom.xml',
+                     Path(run.utilities_source_projection['retainedSourceRoot']) / 'pom.xml']:
             before = file.read_bytes(); file.write_bytes(before + b'\n')
             try:
                 try: run.containment()

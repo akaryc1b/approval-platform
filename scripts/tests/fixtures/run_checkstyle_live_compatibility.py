@@ -27,6 +27,7 @@ from checkstyle_live_support import (HERE, ROOT, NS, CASES, GOAL, REPORT_GOAL, M
 
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
 UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
+PAIR = run_path(str(ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
 
 GOOD = 'package fixture;\npublic class Good { String value = "café"; }\n'
 TEST_GOOD = 'package fixture;\npublic class TestGood { int value = 1; }\n'
@@ -71,6 +72,11 @@ class Run:
         self.source, self.sandbox, self.repository = source, sandbox, repository
         self.jdk, self.maven, self.offline, self.stage, self.baseline = jdk, maven, offline, stage, baseline
         self.transition, self.spec = transition, transition_spec(transition)
+        self.pair_source_projection = None
+        if PAIR['is_pair_source'](source):
+            retained = inside(sandbox / 'accepted-pair-predecessor', sandbox)
+            self.pair_source_projection = PAIR['materialize_retained_source'](source, retained)
+            source = retained; self.source = source
         self.utilities_source_projection = None
         if UTILITIES['is_utilities_source'](source):
             retained = inside(sandbox / 'accepted-utilities-predecessor', sandbox)
@@ -118,6 +124,7 @@ class Run:
         self.report = {'status': 'RUNNING', 'stage': stage, 'variant': 'baseline' if baseline else 'candidate',
             'offline': offline, 'sandbox': str(sandbox), 'transition': transition, 'sourceHashes': self.source_hashes,
             'suppliedSourceHashes': self.supplied_hashes, 'historicalLangMaterialized': bool(self.supplied_hashes),
+            'pairSourceProjection': self.pair_source_projection,
             'utilitiesSourceProjection': self.utilities_source_projection,
             'historicalUtilitiesMaterialized': bool(self.utilities_source_projection),
             'bootSourceProjection': self.boot_source_projection,
@@ -131,6 +138,8 @@ class Run:
         inside(file, self.sandbox).write_bytes(data); self.fixed[file] = data
 
     def containment(self):
+        if self.pair_source_projection:
+            PAIR['verify_projection'](self.pair_source_projection)
         if self.utilities_source_projection:
             UTILITIES['verify_projection'](self.utilities_source_projection)
         if self.boot_source_projection:

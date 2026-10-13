@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { retainedBootUtilitiesSource } from './boot-utilities-retained-source.mjs';
+import { retainedJacocoAntRunSource } from './jacoco-antrun-retained-source.mjs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -13,6 +14,9 @@ export function retainedBootSource(source) {
   source = path.resolve(source);
   if (views.has(source)) return views.get(source);
   const supplied = source;
+  const rootBytes = readFileSync(path.join(source, 'pom.xml'));
+  if (rootBytes.includes(Buffer.from('<artifactId>maven-antrun-plugin</artifactId>')))
+    source = retainedJacocoAntRunSource(source).directory;
   if (createHash('sha256').update(readFileSync(path.join(source, 'pom.xml'))).digest('hex')
       === '2f22ec8cae77cdfb519b81a8e48417fc75632416bcf28989f589f33d39261579') {
     source = retainedBootUtilitiesSource(source).directory;

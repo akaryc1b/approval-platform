@@ -30,9 +30,14 @@ sys.addaudithook(no_execution)
 # source. The outer adapter separately verifies every supplied current input.
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
 UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
+PAIR = run_path(str(ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
 retained_directory = tempfile.TemporaryDirectory(prefix='clean-boot-retained-')
 unittest.addModuleCleanup(retained_directory.cleanup)
 source = ROOT
+if PAIR['is_pair_source'](source):
+    pair_projection = PAIR['materialize_retained_source'](source, Path(retained_directory.name) / 'accepted-utilities')
+    source = Path(pair_projection['retainedSourceRoot'])
+    unittest.addModuleCleanup(PAIR['verify_projection'], pair_projection)
 if UTILITIES['is_utilities_source'](source):
     utility_projection = UTILITIES['materialize_retained_source'](source, Path(retained_directory.name) / 'accepted-http')
     source = Path(utility_projection['retainedSourceRoot'])

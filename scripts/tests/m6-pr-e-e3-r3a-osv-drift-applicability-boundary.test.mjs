@@ -1,3 +1,4 @@
+import { JACOCO_ANTRUN_GRAPH } from '../security/jacoco-antrun-graph-transition.mjs';
 import { BOOT_UTILITIES_GRAPH } from '../security/boot-utilities-graph-transition.mjs';
 import { BOOT_HTTP_GRAPH } from '../security/boot-http-graph-transition.mjs';
 import assert from 'node:assert/strict';
@@ -274,7 +275,7 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
   assert.ok(match, 'R3A canonical review evidence must be retained');
   const resultEvidence = JSON.parse(match[1]);
   assert.match(resultEvidence.commitSha, /^[0-9a-f]{40}$/);
-  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(resultEvidence.currentE2GraphDigest);
+  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH].includes(resultEvidence.currentE2GraphDigest);
   assert.equal(resultEvidence.schemaVersion, bootHttp
     ? 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V3' : 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V2');
   const { contentSha256, ...payload } = resultEvidence;

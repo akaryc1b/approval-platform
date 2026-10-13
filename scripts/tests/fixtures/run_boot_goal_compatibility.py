@@ -16,6 +16,7 @@ from checkstyle_live_support import Commands, digest, isolated_env, NS, P, requi
 from run_boot_http_compatibility import check_seal, realm, ROOT, HERE, install_deadline, ignore_terminal_signals, restore_signals
 sys.path.insert(0, str(ROOT / 'scripts/ci'))
 import boot_utilities_contract as utilities_contract
+import jacoco_antrun_contract as pair_contract
 
 MAIN = 'public class BootGoalFixture { public static void main(String[] args) { System.out.println("BOOT_GOAL_MAIN_OK"); } }\n'
 BOOT = 'org.springframework.boot:spring-boot-maven-plugin:4.0.8:'
@@ -106,9 +107,13 @@ def utility_origin_observations(stdout, stderr, artifacts, maven, input_hashes):
 def fixture_pom(variant, profile='http'):
     require(profile in ('http', 'utilities') and variant in ('baseline', 'candidate'), 'fixed Boot fixture profile required')
     current = utilities_contract.is_utilities_source(ROOT)
-    utilities_contract.source_inventory(ROOT, current=current)
-    require(profile == 'http' or current, 'utility profile requires exact current utility source')
     raw = (ROOT / 'pom.xml').read_bytes()
+    if pair_contract.is_pair_source(ROOT):
+        pair_contract.verify_source(ROOT)
+        raw = pair_contract.reverse_source(raw)
+    else:
+        utilities_contract.source_inventory(ROOT, current=current)
+    require(profile == 'http' or current, 'utility profile requires exact current utility source')
     if current and (profile == 'http' or variant == 'baseline'):
         raw = utilities_contract.reverse_source(raw)
     source = ET.fromstring(raw)

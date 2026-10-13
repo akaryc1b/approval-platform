@@ -5,6 +5,7 @@ import { BOOT_HTTP_GRAPH, readBootHttpReport, readBootHttpSourceWitness }
   from './boot-http-graph-transition.mjs';
 import { parseCheckstylePluginOwners, verifyCheckstyleCaptureProvenance } from './checkstyle-plugin-graph-transition.mjs';
 import { readPreservedBootHttpSource } from './boot-utilities-source-continuation.mjs';
+import { readPreservedBootUtilitiesSource } from './jacoco-antrun-source-continuation.mjs';
 import { osvInputFromE2 } from './osv-scan-coverage.mjs';
 
 export const BOOT_UTILITIES_GRAPH = '454934f756eb08a49bc6d74435f12064df6c74286cad358558b0e73dda78c9ca';
@@ -106,7 +107,9 @@ export function readBootUtilitiesSourceWitness(manifest = readBootUtilitiesManif
     && execution.sourcePomSha256 === witness.rootPom.rawSha256, 'capture report/E2/source mismatch');
   requireValue(same(witness.generatorSources, historical.generatorSources)
     && same(execution.generatorSources, historical.generatorSources), 'unchanged generator closure mismatch');
-  for (const [path, expected] of Object.entries(execution.captureInputs)) bytes(path, expected);
+  for (const [path, expected] of Object.entries(execution.captureInputs)) {
+    if (path === 'pom.xml') readPreservedBootUtilitiesSource(path, expected); else bytes(path, expected);
+  }
   for (const [path, expected] of Object.entries(witness.generatorSources))
     requireValue(execution.captureInputs[path] === expected, 'generator capture binding mismatch');
   requireValue(same(witness.sourcePomFiles.map(row => row.path).sort(), historical.sourcePomFiles.map(row => row.path).sort())
@@ -114,7 +117,7 @@ export function readBootUtilitiesSourceWitness(manifest = readBootUtilitiesManif
   'source POM membership drift');
   const changed = [];
   for (const row of witness.sourcePomFiles) {
-    bytes(row.path, row.candidateSha256);
+    readPreservedBootUtilitiesSource(row.path, row.candidateSha256);
     requireValue(execution.sourcePomHashes[row.path] === row.candidateSha256
       && historical.sourcePomFiles.find(prior => prior.path === row.path).candidateSha256 === row.baselineSha256,
     'source POM baseline/capture mismatch');
