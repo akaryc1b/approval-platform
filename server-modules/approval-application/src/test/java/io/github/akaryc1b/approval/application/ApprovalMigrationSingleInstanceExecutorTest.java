@@ -76,6 +76,27 @@ class ApprovalMigrationSingleInstanceExecutorTest {
     }
 
     @Test
+    void persistsDurableUnknownOnceForWrappedMigrationNullPointerException() {
+        assertUnknownWithoutRetry(
+            new ProcessInstanceMigrationPort.AmbiguousMigrationDispatchException(
+                "ENGINE_CALL_INCOMPLETE",
+                "engine migration call did not provide an authoritative response",
+                true,
+                new NullPointerException("synthetic migration failure")
+            ),
+            "ENGINE_CALL_INCOMPLETE"
+        );
+    }
+
+    @Test
+    void persistsDurableUnknownOnceForUnexpectedEnginePortNullPointerException() {
+        assertUnknownWithoutRetry(
+            new NullPointerException("synthetic unexpected engine port failure"),
+            "ENGINE_PORT_UNEXPECTED"
+        );
+    }
+
+    @Test
     void recordsUnknownOnlyAfterDurableFinalization() {
         RecordingStore store = new RecordingStore();
         List<Event> events = new ArrayList<>();
@@ -206,6 +227,42 @@ class ApprovalMigrationSingleInstanceExecutorTest {
         assertThrows(IllegalStateException.class, () -> disabledExecution.runOnce(request()));
         assertThrows(IllegalStateException.class, () -> disabledWorker.runOnce(request()));
         assertTrue(store.order.isEmpty());
+    }
+
+    private static void assertUnknownWithoutRetry(RuntimeException failure, String stableCode) {
+        RecordingStore store = new RecordingStore();
+        List<Event> events = new ArrayList<>();
+        int[] calls = {0};
+        ProcessInstanceMigrationPort engine = command -> {
+            assertFalse(store.transactionOpen);
+            calls[0]++;
+            store.order.add("engine");
+            throw failure;
+        };
+        ApprovalMigrationSingleInstanceExecutor executor = executor(store, engine, event -> {
+            assertEquals(1, store.finalizeCalls);
+            assertFalse(store.transactionOpen);
+            events.add(event);
+        });
+
+        var result = executor.execute(request());
+
+        assertEquals(1, calls[0]);
+        assertEquals(1, store.finalizeCalls);
+        assertEquals(List.of("prepare", "engine", "finalize"), store.order);
+        assertEquals(AttemptStatus.UNKNOWN, result.attempt().status());
+        assertEquals(EngineOutcome.UNKNOWN, result.attempt().engineOutcome());
+        assertEquals(FailureClass.ENGINE_OUTCOME_UNKNOWN, result.attempt().failureClass());
+        assertEquals("AMBIGUOUS_UNKNOWN", result.disposition());
+        assertEquals(
+            ApprovalMigrationEngineExecutionStore.FinalDisposition.AMBIGUOUS_UNKNOWN,
+            store.finalizeRequest.disposition()
+        );
+        assertEquals(stableCode, store.finalizeRequest.stableCode());
+        assertTrue(store.finalizeRequest.engineCallAttempted());
+        assertFalse(store.finalizeRequest.engineCallReturned());
+        assertTrue(store.finalizeRequest.engineCallMayHaveOccurred());
+        assertEquals(List.of(Event.UNKNOWN_ENTERED), events);
     }
 
     private static ApprovalMigrationSingleInstanceExecutor executor(

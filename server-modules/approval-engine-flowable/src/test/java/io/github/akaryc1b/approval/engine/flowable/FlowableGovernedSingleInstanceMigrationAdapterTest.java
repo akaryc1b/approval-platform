@@ -1,10 +1,13 @@
 package io.github.akaryc1b.approval.engine.flowable;
 
+import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort.AmbiguousMigrationDispatchException;
 import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort.DispatchDisposition;
 import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort.MigrationCommand;
 import io.github.akaryc1b.approval.engine.ProcessInstanceMigrationPort.MigrationDispatchResult;
 import org.flowable.engine.ProcessEngine;
 import org.flowable.engine.ProcessEngineConfiguration;
+import org.flowable.engine.ProcessMigrationService;
+import org.flowable.engine.migration.ProcessInstanceMigrationBuilder;
 import org.flowable.engine.repository.Deployment;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
@@ -12,11 +15,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FlowableGovernedSingleInstanceMigrationAdapterTest {
@@ -66,6 +73,62 @@ class FlowableGovernedSingleInstanceMigrationAdapterTest {
         assertEquals(List.of("review"), result.preDispatchSnapshot().activeActivityIds());
         assertEquals(target.getId(), engine.getRuntimeService().createProcessInstanceQuery()
             .processInstanceId(instance.getId()).singleResult().getProcessDefinitionId());
+    }
+
+    @Test
+    void treatsMigrationNullPointerExceptionAsAmbiguousWithoutRetry() {
+        ProcessDefinition source = deploy("d3-npe-source.bpmn20.xml", simpleXml("d3Npe", "review"));
+        ProcessInstance instance = engine.getRuntimeService().startProcessInstanceById(source.getId());
+        ProcessDefinition target = deploy("d3-npe-target.bpmn20.xml", simpleXml("d3Npe", "review"));
+        NullPointerException failure = new NullPointerException("synthetic migration failure");
+        int[] migrationCalls = {0};
+        ProcessInstanceMigrationBuilder delegate = engine.getProcessMigrationService()
+            .createProcessInstanceMigrationBuilder();
+        ProcessInstanceMigrationBuilder builder = (ProcessInstanceMigrationBuilder) Proxy.newProxyInstance(
+            ProcessInstanceMigrationBuilder.class.getClassLoader(),
+            new Class<?>[]{ProcessInstanceMigrationBuilder.class},
+            (proxy, method, arguments) -> {
+                // Inject at the public call boundary, without reproducing a concurrent engine race.
+                if (method.getName().equals("migrate")) {
+                    migrationCalls[0]++;
+                    assertEquals(instance.getId(), arguments[0]);
+                    throw failure;
+                }
+                try {
+                    Object result = method.invoke(delegate, arguments);
+                    return result == delegate ? proxy : result;
+                } catch (InvocationTargetException exception) {
+                    throw exception.getCause();
+                }
+            }
+        );
+        ProcessMigrationService migrationService = (ProcessMigrationService) Proxy.newProxyInstance(
+            ProcessMigrationService.class.getClassLoader(),
+            new Class<?>[]{ProcessMigrationService.class},
+            (proxy, method, arguments) -> {
+                if (method.getName().equals("createProcessInstanceMigrationBuilder")) {
+                    return builder;
+                }
+                throw new AssertionError("unexpected migration service call: " + method.getName());
+            }
+        );
+        FlowableProcessInstanceMigrationAdapter failingAdapter = new FlowableProcessInstanceMigrationAdapter(
+            engine.getRepositoryService(),
+            engine.getRuntimeService(),
+            engine.getTaskService(),
+            engine.getManagementService(),
+            migrationService
+        );
+
+        AmbiguousMigrationDispatchException error = assertThrows(
+            AmbiguousMigrationDispatchException.class,
+            () -> failingAdapter.migrateOne(command(instance, source, target))
+        );
+
+        assertEquals("ENGINE_CALL_INCOMPLETE", error.stableCode());
+        assertTrue(error.engineCallMayHaveOccurred());
+        assertSame(failure, error.getCause());
+        assertEquals(1, migrationCalls[0]);
     }
 
     @Test
