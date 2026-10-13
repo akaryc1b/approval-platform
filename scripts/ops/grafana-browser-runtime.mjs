@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BrowserPipe, panelReadExpression, assertNavigation, stopProcess } from './grafana-browser-driver.mjs';
+import { BrowserPipe, panelReadExpression, waitForPanelQueries, assertPanelQueriesSettled, assertNavigation, stopProcess } from './grafana-browser-driver.mjs';
 import { createStartupEvidenceCapture } from './grafana-browser-startup-evidence.mjs';
 
 export const dashboardFiles = ['approval-operations.json', 'approval-engine-jobs.json'];
@@ -154,14 +154,22 @@ export async function runGrafanaBrowser({ directory, repositoryRoot, grafanaHome
       return panel?.visible && panel;
     }, 'panel-' + title);
     phase = 'overview-render'; await browser.navigate(dashboardUrl('approval-operations'));
-    for (const panel of imported[0].panels.filter(p => p.type !== 'row')) await seePanel(panel.title);
+    const overviewTitles = imported[0].panels.filter(p => p.type !== 'row').map(p => p.title);
+    for (const title of overviewTitles) await waitForPanelQueries(browser, wait, [title], { scroll: true });
     const screenshots = [];
     const screenshot = async name => {
+      if (name === 'overview') assert.ok(performance.now() < deadline && !abort.signal.aborted, 'GRAFANA_BROWSER_DEADLINE:overview-capture');
       const { data } = await browser.call('Page.captureScreenshot', { format: 'jpeg', quality: 50, clip: { x: 0, y: 0, width: 1440, height: 1000, scale: 1 } });
+      if (name === 'overview') {
+        assert.ok(performance.now() < deadline && !abort.signal.aborted, 'GRAFANA_BROWSER_DEADLINE:overview-capture');
+        await assertPanelQueriesSettled(browser, overviewTitles);
+        assert.ok(performance.now() < deadline && !abort.signal.aborted, 'GRAFANA_BROWSER_DEADLINE:overview-capture');
+      }
       const bytes = Buffer.from(data, 'base64'); assert.ok(bytes.length > 5000 && bytes.length <= 150000, 'GRAFANA_BROWSER_SCREENSHOT_LIMIT');
       screenshots.push({ name, bytes: bytes.length, sha256: sha256(bytes), base64: data });
     };
-    await seePanel('服务状态'); await screenshot('overview');
+    await seePanel('服务状态');
+    await waitForPanelQueries(browser, wait, overviewTitles); await screenshot('overview');
     async function clickDashboard(destination) {
       await wait(() => browser.evaluate(`(() => { const a=[...document.querySelectorAll('a')].find(a=>new URL(a.href).pathname==='/d/${destination}');
         if(!a) return false; a.scrollIntoView({block:'center'}); a.click(); return true; })()`), 'link-' + destination);

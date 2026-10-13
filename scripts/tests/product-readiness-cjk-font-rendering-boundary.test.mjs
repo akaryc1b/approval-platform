@@ -20,6 +20,7 @@ const fontRuntime = text(
 const browserSpec = text(
   'apps/web/overlay/playground/__tests__/e2e/product-readiness-quick-start-ready.spec.ts',
 );
+const fontEvidence = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-cjk-fonts.ts');
 
 test('Vben and Element Plus use an explicit Simplified Chinese fallback stack', () => {
   for (const marker of [
@@ -62,12 +63,14 @@ test('Quick Start prepares a bounded Linux CJK runtime without a font binary or 
 });
 
 test('real PC and H5 browser evidence rejects identical tofu glyphs', () => {
-  assert.match(browserSpec, /审批任务采购付款工作台/u);
-  assert.match(browserSpec, /document\.fonts\.ready/u);
-  assert.match(browserSpec, /getImageData/u);
-  assert.match(browserSpec, /uniqueGlyphHashes/u);
-  assert.match(browserSpec, /toBeGreaterThanOrEqual\(6\)/u);
-  assert.match(browserSpec, /cjkGlyphsRendered:\s*true/u);
-  assert.match(browserSpec, /computedFontFamily/u);
+  assert.match(browserSpec, /collectCjkFontEvidence/u);
+  assert.match(fontEvidence, /审批任务采购付款工作台/u);
+  assert.match(fontEvidence, /document\.fonts\.ready/u);
+  assert.match(fontEvidence, /getImageData/u);
+  assert.match(fontEvidence, /uniqueGlyphHashes/u);
+  assert.match(fontEvidence, /\.size < 6/u);
+  assert.match(fontEvidence, /cjkGlyphsRendered:\s*true/u);
+  assert.match(fontEvidence, /computedFontFamily/u);
+  assert.match(fontEvidence, /CSS\.getPlatformFontsForNode/u);
   assert.doesNotMatch(browserSpec, /waitForTimeout/u);
 });

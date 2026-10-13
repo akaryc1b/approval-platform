@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import { testCaptureBudget } from './product-readiness-capture-budget';
+import { collectCjkFontEvidence } from './product-readiness-cjk-fonts';
 import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
 import type { CapturePhase } from './product-readiness-capture';
 
@@ -170,11 +171,13 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
   const screenshots: unknown[] = [];
   const capture = async (page: typeof pc, file: string, phase: CapturePhase, readiness?: Awaited<ReturnType<typeof readySurface>>, captureBudget = budget, assertCurrent?: () => Promise<void>) => {
     failures.forEach(observer => observer.assert());
+    const font = await collectCjkFontEvidence(page, phase === 'IMMEDIATE_ACKNOWLEDGED_RESULT' ? 'acknowledged' : 'list', captureBudget);
     await captureScreenshot(page, captureBudget, resolve(evidenceDirectory, file), { readiness, assertCurrent: async () => {
       failures.forEach(observer => observer.assert());
       if (assertCurrent) await assertCurrent();
+      await font.assertCurrent();
     } });
-    screenshots.push({ ...screenshotEvidence(file), phase, ...(readiness ? { readiness } : { successMessage: '审批已同意' }) });
+    screenshots.push({ ...screenshotEvidence(file), phase, font: font.evidence, ...(readiness ? { readiness } : { successMessage: '审批已同意' }) });
   };
   let processInstanceId: string | undefined;
 
