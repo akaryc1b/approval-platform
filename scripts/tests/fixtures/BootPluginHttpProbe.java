@@ -28,6 +28,37 @@ public final class BootPluginHttpProbe {
     private static final Map<String, String[]> ARTIFACTS = new HashMap<>();
     private static final Set<String> USES = new TreeSet<>();
     private static final Map<String, Set<String>> CONSUMERS = new HashMap<>();
+    private static final Set<String> FAILURE_STAGES = Set.of("manifest", "bindings", "linkage", "http", "unix",
+            "tls-trusted", "tls-hostname", "tls-untrusted");
+    private static final Set<String> FAILURE_ASSERTIONS = Set.of("setup", "bindings", "symbolic-linkage", "factory",
+            "get-uri", "empty-post", "request-header", "post-body", "put-body", "head-header", "head-empty-response",
+            "delete", "gzip-decoding", "chunked-response", "docker-json-error", "connection-reuse", "reuse-body",
+            "partial-read", "after-close", "complete", "tls-trusted", "tls-repeated", "tls-rejection", "client-close");
+    private static final Set<String> FAILURE_CLASSES = Set.of("java.lang.AssertionError", "java.lang.NullPointerException",
+            "java.lang.IllegalArgumentException", "java.lang.IllegalStateException", "java.lang.SecurityException",
+            "java.lang.UnsupportedOperationException", "java.lang.ClassNotFoundException", "java.lang.NoSuchFieldException",
+            "java.lang.NoSuchMethodException", "java.lang.IllegalAccessException", "java.lang.NoClassDefFoundError",
+            "java.lang.NoSuchMethodError", "java.lang.NoSuchFieldError", "java.lang.ExceptionInInitializerError",
+            "java.lang.reflect.InaccessibleObjectException", "java.lang.reflect.InvocationTargetException",
+            "java.io.IOException", "java.io.EOFException", "java.net.ConnectException", "java.net.SocketException",
+            "java.net.SocketTimeoutException", "javax.net.ssl.SSLException", "javax.net.ssl.SSLHandshakeException",
+            "javax.net.ssl.SSLPeerUnverifiedException", "java.security.cert.CertificateException",
+            "org.springframework.boot.buildpack.platform.docker.transport.DockerConnectionException",
+            "org.springframework.boot.buildpack.platform.docker.transport.DockerEngineException");
+    private static String failureStage = "manifest", failureAssertion = "setup";
+
+    // Only fixed labels and allowlisted types leave this diagnostic boundary.
+    // Never include exception messages, stack frames, endpoint values or paths.
+    private static void failureWitness(Throwable failure) {
+        StringBuilder classes = new StringBuilder();
+        for (int count = 0; failure != null && count < 8; count++, failure = failure.getCause()) {
+            if (count > 0) classes.append(',');
+            String name = failure.getClass().getName();
+            classes.append(FAILURE_CLASSES.contains(name) ? name : "OTHER");
+        }
+        System.out.println("BOOT_HTTP_FAILURE\t" + (FAILURE_STAGES.contains(failureStage) ? failureStage : "unknown")
+                + "\t" + (FAILURE_ASSERTIONS.contains(failureAssertion) ? failureAssertion : "unknown") + "\t" + classes);
+    }
 
     private static void check(boolean condition, String name) {
         if (!condition) throw new AssertionError(name);
@@ -259,9 +290,14 @@ public final class BootPluginHttpProbe {
     // HttpTransport does not expose a client close method. Close its actual owned
     // client after each fixture case; do not alter its configuration or behavior.
     private static void close(HttpTransport transport) throws Exception {
-        Field field = transport.getClass().getSuperclass().getDeclaredField("client");
-        field.setAccessible(true);
-        ((AutoCloseable) field.get(transport)).close();
+        try {
+            Field field = transport.getClass().getSuperclass().getDeclaredField("client");
+            field.setAccessible(true);
+            ((AutoCloseable) field.get(transport)).close();
+        } catch (Exception | Error failure) {
+            failureAssertion = "client-close";
+            throw failure;
+        }
     }
 
     private static String body(HttpTransport.Response response) throws Exception {
@@ -276,23 +312,42 @@ public final class BootPluginHttpProbe {
 
     private static URI uri(String path) { return URI.create("/" + path); }
 
+    static boolean headResponseHasNoEntity(HttpTransport.Response response) throws Exception {
+        // Boot 4.0.8 getContent() dereferences the entity, which Apache leaves
+        // absent for HEAD. Inspect the actual response without reading a body.
+        Field field = response.getClass().getDeclaredField("response");
+        field.setAccessible(true);
+        var actual = (org.apache.hc.core5.http.ClassicHttpResponse) field.get(response);
+        return actual.getEntity() == null;
+    }
+
     private static void ordinary(HttpTransport transport, String label) throws Exception {
         try {
+            failureAssertion = "get-uri";
             check(body(transport.get(uri("get?value=caf%C3%A9"))).equals("GET /get?value=caf%C3%A9"), label + " GET URI");
+            failureAssertion = "empty-post";
             check(body(transport.post(uri("post"))).equals("POST /post"), label + " empty POST");
+            failureAssertion = "request-header";
             check(body(transport.post(uri("auth"), "fixture-only-noncredential")).equals("fixture-only-noncredential"), label + " request header");
+            failureAssertion = "post-body";
             check(body(transport.post(uri("body"), "application/json", out -> out.write("{\"value\":\"café\"}".getBytes(StandardCharsets.UTF_8))))
                     .equals("POST|application/json|{\"value\":\"café\"}"), label + " POST body");
+            failureAssertion = "put-body";
             check(body(transport.put(uri("body"), "text/plain", out -> out.write("put café".getBytes(StandardCharsets.UTF_8))))
                     .equals("PUT|text/plain|put café"), label + " PUT body");
+            failureAssertion = "head-header";
             try (HttpTransport.Response response = transport.head(uri("head"))) {
                 check(response.getHeader("X-Fixture").getValue().equals("head"), label + " HEAD header");
-                InputStream input = response.getContent();
-                check(input == null || input.read() == -1, label + " HEAD empty response");
+                failureAssertion = "head-empty-response";
+                check(headResponseHasNoEntity(response), label + " HEAD empty response");
             }
+            failureAssertion = "delete";
             check(body(transport.delete(uri("delete"))).equals("DELETE /delete"), label + " DELETE");
+            failureAssertion = "gzip-decoding";
             check(body(transport.get(uri("gzip"))).equals("compressed café"), label + " gzip decoding");
+            failureAssertion = "chunked-response";
             check(body(transport.get(uri("stream"))).equals("one\ntwo\nthree\n"), label + " chunked response stream");
+            failureAssertion = "docker-json-error";
             boolean rejected = false;
             try (HttpTransport.Response ignored = transport.get(uri("error"))) {
                 throw new AssertionError("404 was accepted");
@@ -304,22 +359,28 @@ public final class BootPluginHttpProbe {
             check(rejected, label + " ordinary error rejected");
             String connection = null;
             for (int i = 0; i < 3; i++) {
+                failureAssertion = "connection-reuse";
                 try (HttpTransport.Response response = transport.get(uri("reuse"))) {
                     String current = response.getHeader("X-Connection").getValue();
                     check(connection == null || connection.equals(current), label + " connection reused " + i);
                     connection = current;
+                    failureAssertion = "reuse-body";
                     check(new String(response.getContent().readNBytes(100), StandardCharsets.UTF_8).equals("GET /reuse"), label + " reuse body " + i);
                 }
             }
+            failureAssertion = "partial-read";
             try (HttpTransport.Response response = transport.get(uri("partial"))) {
                 check(response.getContent().read() == 'x', label + " partial read");
             }
+            failureAssertion = "after-close";
             check(body(transport.get(uri("after-close"))).equals("GET /after-close"), label + " usable after response close");
+            failureAssertion = "complete";
             check(true, label + " complete");
         } finally { close(transport); }
     }
 
     private static void tlsRejected(HttpTransport transport, boolean hostname) throws Exception {
+        failureAssertion = "tls-rejection";
         try {
             try (HttpTransport.Response ignored = transport.get(uri("tls"))) {
                 throw new AssertionError("invalid TLS peer accepted");
@@ -339,6 +400,15 @@ public final class BootPluginHttpProbe {
     }
 
     public static void main(String[] args) throws Exception {
+        try {
+            probe(args);
+        } catch (Exception | Error failure) {
+            failureWitness(failure);
+            throw failure;
+        }
+    }
+
+    private static void probe(String[] args) throws Exception {
         check(args.length == 2 || (args.length == 3 && Set.of("missing-member", "linkage-only").contains(args[2])), "fixture and identity manifests required");
         Properties fixture = new Properties();
         try (InputStream input = Files.newInputStream(Path.of(args[0]))) { fixture.load(input); }
@@ -350,23 +420,32 @@ public final class BootPluginHttpProbe {
         check(System.getenv("DOCKER_CONFIG").equals(fixture.getProperty("docker")), "fixture-owned Docker configuration");
         for (String name : new String[] {"DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_CERT_PATH", "DOCKER_TLS_VERIFY"})
             check(System.getenv(name) == null, "ambient Docker setting absent " + name);
+        failureStage = "bindings"; failureAssertion = "bindings";
         bindings();
+        failureStage = "linkage"; failureAssertion = "symbolic-linkage";
         symbolicLinkage(args.length == 3 && args[2].equals("missing-member"));
         if (args.length == 3 && args[2].equals("linkage-only")) {
             System.out.println("BOOT_HTTP_LINKAGE_COMPLETE diagnostic only; no HTTP, TLS or Unix transport executed");
             return;
         }
         check(args.length == 2, "negative linkage control must fail before transport");
+        failureStage = "http"; failureAssertion = "factory";
         ordinary(transport("http://127.0.0.1:" + fixture.getProperty("http"), false, null, "RemoteHttpClientTransport"), "HTTP");
+        failureStage = "unix"; failureAssertion = "factory";
         ordinary(transport("unix://" + fixture.getProperty("unix"), false, null, "LocalHttpClientTransport"), "Unix");
+        failureStage = "tls-trusted"; failureAssertion = "factory";
         HttpTransport trusted = transport("https://localhost:" + fixture.getProperty("tls"), true,
                 fixture.getProperty("trusted"), "RemoteHttpClientTransport");
         try {
+            failureAssertion = "tls-trusted";
             check(body(trusted.get(uri("tls"))).equals("GET /tls"), "TLS trusted localhost");
+            failureAssertion = "tls-repeated";
             check(body(trusted.get(uri("tls"))).equals("GET /tls"), "TLS repeated request");
         } finally { close(trusted); }
+        failureStage = "tls-hostname"; failureAssertion = "factory";
         tlsRejected(transport("https://127.0.0.1:" + fixture.getProperty("tls"), true,
                 fixture.getProperty("trusted"), "RemoteHttpClientTransport"), true);
+        failureStage = "tls-untrusted"; failureAssertion = "factory";
         tlsRejected(transport("https://localhost:" + fixture.getProperty("tls"), true,
                 fixture.getProperty("untrusted"), "RemoteHttpClientTransport"), false);
         System.out.println("BOOT_HTTP_COMPLETE ordinary HTTP, TLS and Linux Unix compatibility; no Docker build or vulnerability reproduction");

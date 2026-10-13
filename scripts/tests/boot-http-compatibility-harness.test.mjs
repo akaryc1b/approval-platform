@@ -168,7 +168,57 @@ for changed in (coordinates + ['extra:artifact:jar:1'], [value.replace('3.1.7', 
 });
 
 // Append to the existing Boot harness after review. These fixtures are synthetic.
-import { assertBootLiveReceipt } from './boot-http-plugin-live-compatibility.test.mjs';
+import { assertBootLiveReceipt, emitBootAdapterOutput } from './boot-http-plugin-live-compatibility.test.mjs';
+
+test('Boot HTTP failure witness retains only bounded allowlisted diagnostic fields', () => {
+  python(String.raw`
+import http.server, runpy, socket, ssl, subprocess, sys
+def blocked(*args, **kwargs): raise AssertionError('diagnostic mock launched a process/socket')
+subprocess.Popen = socket.socket = blocked
+s = runpy.run_path(sys.argv[1] + '/run_boot_http_compatibility.py')
+marker = 'BOOT_HTTP_FAILURE\thttp\thead-empty-response\tjava.lang.NullPointerException'
+expected = {'markerStatus': 'RECORDED', 'stage': 'http', 'assertion': 'head-empty-response',
+            'exceptionClasses': ['java.lang.NullPointerException']}
+assert s['probe_failure']('unretained arbitrary text\n' + marker + '\n') == expected
+assert s['probe_failure']('exception message containing private data') == {'markerStatus': 'ABSENT'}
+for value in (marker + '\n' + marker, marker + '\tprivate-value', marker.replace('http\t', 'private-endpoint\t'),
+              marker.replace('head-empty-response', '/private/path'), marker.replace('java.lang.NullPointerException', 'private.Token'),
+              marker + ',OTHER' * 8, marker + 'x' * 1024):
+    assert s['probe_failure'](value) == {'markerStatus': 'INVALID'}, value
+chain = 'BOOT_HTTP_FAILURE\ttls-hostname\ttls-rejection\t' + ','.join([
+    'org.springframework.boot.buildpack.platform.docker.transport.DockerConnectionException',
+    'javax.net.ssl.SSLHandshakeException', 'OTHER'])
+assert s['probe_failure'](chain)['exceptionClasses'][-1] == 'OTHER'
+`);
+});
+
+test('Boot adapter serializes labelled channels on one stream without changing producer bytes', async () => {
+  const writes = [];
+  let finishStdout;
+  const stream = {
+    write(text, callback) {
+      writes.push(text);
+      if (text.startsWith('BOOT_ADAPTER_CHANNEL stdout\n')) finishStdout = callback;
+      else callback();
+    },
+  };
+  const stdout = '  BOOT_HTTP_RESULT ' + JSON.stringify({ status: 'FAILED', retained: 'x'.repeat(128 * 1024) }) + '\n';
+  const stderr = 'Traceback: synthetic stderr\n';
+  const emission = emitBootAdapterOutput({ stdout, stderr }, stream);
+  assert.deepEqual(writes, ['BOOT_ADAPTER_CHANNEL stdout\n' + stdout]);
+  finishStdout();
+  await emission;
+  assert.deepEqual(writes, ['BOOT_ADAPTER_CHANNEL stdout\n' + stdout, 'BOOT_ADAPTER_CHANNEL stderr\n' + stderr]);
+  writes.length = 0;
+  await emitBootAdapterOutput({ stdout: '', stderr: 'last line' }, stream);
+  assert.deepEqual(writes, ['BOOT_ADAPTER_CHANNEL stderr\nlast line\n']);
+  await assert.rejects(emitBootAdapterOutput({ stdout: 'failed', stderr }, {
+    write(text, callback) {
+      assert.ok(text.startsWith('BOOT_ADAPTER_CHANNEL stdout\n'), 'stderr written after failed stdout write');
+      callback(new Error('synthetic write failure'));
+    },
+  }), /synthetic write failure/);
+});
 
 test('Boot portable adapter plan and absent opt-in start no process or socket', () => {
   const plan = JSON.parse(python(String.raw`

@@ -36,6 +36,41 @@ PLAN = {'execution': 'NOT_RUN', 'explicitOptIn': 'BOOT_HTTP_COMPATIBILITY=true',
         'cleanup': 'Close actual clients/responses; stop and close servers; kill/reap owned command groups; remove TLS directory in finally',
         'claimsExcluded': ['Docker build-image', 'Windows named pipes', 'security fix reproduction', 'scanner clearance', 'canonical CI']}
 TERMINAL_SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+FAILURE_STAGES = frozenset(('manifest', 'bindings', 'linkage', 'http', 'unix',
+                            'tls-trusted', 'tls-hostname', 'tls-untrusted', 'unknown'))
+FAILURE_ASSERTIONS = frozenset(('setup', 'bindings', 'symbolic-linkage', 'factory', 'get-uri', 'empty-post',
+    'request-header', 'post-body', 'put-body', 'head-header', 'head-empty-response', 'delete', 'gzip-decoding',
+    'chunked-response', 'docker-json-error', 'connection-reuse', 'reuse-body', 'partial-read', 'after-close',
+    'complete', 'tls-trusted', 'tls-repeated', 'tls-rejection', 'client-close', 'unknown'))
+FAILURE_CLASSES = frozenset(('OTHER', 'java.lang.AssertionError', 'java.lang.NullPointerException',
+    'java.lang.IllegalArgumentException', 'java.lang.IllegalStateException', 'java.lang.SecurityException',
+    'java.lang.UnsupportedOperationException', 'java.lang.ClassNotFoundException', 'java.lang.NoSuchFieldException',
+    'java.lang.NoSuchMethodException', 'java.lang.IllegalAccessException', 'java.lang.NoClassDefFoundError',
+    'java.lang.NoSuchMethodError', 'java.lang.NoSuchFieldError', 'java.lang.ExceptionInInitializerError',
+    'java.lang.reflect.InaccessibleObjectException', 'java.lang.reflect.InvocationTargetException',
+    'java.io.IOException', 'java.io.EOFException', 'java.net.ConnectException', 'java.net.SocketException',
+    'java.net.SocketTimeoutException', 'javax.net.ssl.SSLException', 'javax.net.ssl.SSLHandshakeException',
+    'javax.net.ssl.SSLPeerUnverifiedException', 'java.security.cert.CertificateException',
+    'org.springframework.boot.buildpack.platform.docker.transport.DockerConnectionException',
+    'org.springframework.boot.buildpack.platform.docker.transport.DockerEngineException'))
+
+
+def probe_failure(stdout):
+    """Keep bounded fixed diagnostic fields, never arbitrary subprocess output."""
+    lines = [line for line in stdout.splitlines() if line.startswith('BOOT_HTTP_FAILURE\t')]
+    if not lines:
+        return {'markerStatus': 'ABSENT'}
+    if len(lines) != 1 or len(lines[0]) > 1024:
+        return {'markerStatus': 'INVALID'}
+    fields = lines[0].split('\t')
+    if len(fields) != 4:
+        return {'markerStatus': 'INVALID'}
+    _, stage, assertion, chain = fields
+    classes = chain.split(',')
+    if stage not in FAILURE_STAGES or assertion not in FAILURE_ASSERTIONS or not 1 <= len(classes) <= 8 \
+            or not all(name in FAILURE_CLASSES for name in classes):
+        return {'markerStatus': 'INVALID'}
+    return {'markerStatus': 'RECORDED', 'stage': stage, 'assertion': assertion, 'exceptionClasses': classes}
 
 
 def ignore_terminal_signals():
@@ -290,6 +325,9 @@ def execute(seal, linkage_only=False):
     def run(label, command, seconds, expected=0):
         check_seal(seal)
         status, stdout, stderr = commands.run(label, command, seconds)
+        if status != expected:
+            result['failedCommand'] = {'case': label, 'exitStatus': status,
+                                       'probeFailure': probe_failure(stdout)}
         require(status == expected, 'unexpected command status: ' + label)
         check_seal(seal)
         return stdout, stderr

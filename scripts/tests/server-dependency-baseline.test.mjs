@@ -11,9 +11,10 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const checker = path.join(root, 'scripts/ci/verify-server-dependency-baseline.py');
 const source = readFileSync(path.join(root, 'pom.xml'), 'utf8');
 const host = readFileSync(path.join(root, 'integrations/host-sdk/pom.xml'), 'utf8');
-const run = directory => spawnSync('python3', [checker, `--root=${directory}`], { encoding: 'utf8' });
+const run = directory => spawnSync('python3', ['-I', '-S', '-B', checker, `--root=${directory}`], { encoding: 'utf8' });
 const pluginDependency = name => {
   const patterns = {
+    'httpclient5': /                        <dependency>\s*<groupId>org\.apache\.httpcomponents\.client5<\/groupId>\s*<artifactId>httpclient5<\/artifactId>[\s\S]*?<\/dependency>\n/,
     'jackson-core': /                        <dependency>\s*<groupId>tools\.jackson\.core<\/groupId>\s*<artifactId>jackson-core<\/artifactId>[\s\S]*?<\/dependency>\n/,
     'jackson-databind': /                        <dependency>\s*<groupId>tools\.jackson\.core<\/groupId>\s*<artifactId>jackson-databind<\/artifactId>[\s\S]*?<\/dependency>\n/
   };
@@ -47,6 +48,19 @@ for (const [name, mutate] of [
   ['plugin Jackson downgrade', pom => pom.replace(pluginDependency('jackson-databind'), entry => entry.replace('${jackson3-bom.version}', '3.1.5'))],
   ['duplicate plugin Jackson', pom => pom.replace(pluginDependency('jackson-core'), entry => entry + entry)],
   ['plugin Jackson test scope', pom => pom.replace(pluginDependency('jackson-core'), entry => entry.replace('</dependency>', '<scope>test</scope></dependency>'))],
+  ['missing plugin HTTP Client', pom => pom.replace(pluginDependency('httpclient5'), '')],
+  ['plugin HTTP Client version change', pom => pom.replace(pluginDependency('httpclient5'), entry => entry.replace('5.6.3', '5.6.2'))],
+  ['duplicate plugin HTTP Client', pom => pom.replace(pluginDependency('httpclient5'), entry => entry + entry)],
+  ['plugin HTTP Client wrong group', pom => pom.replace(pluginDependency('httpclient5'), entry => entry.replace('org.apache.httpcomponents.client5', 'unexpected.group'))],
+  ['extra plugin HTTP Core pin', pom => pom.replace(pluginDependency('httpclient5'), entry => entry + entry.replace('org.apache.httpcomponents.client5', 'org.apache.httpcomponents.core5').replace('httpclient5', 'httpcore5').replace('5.6.3', '5.4.3'))],
+  ['extra unrelated plugin dependency', pom => pom.replace(pluginDependency('httpclient5'), entry => entry + entry.replace('org.apache.httpcomponents.client5', 'unexpected.group').replace('httpclient5', 'unexpected-artifact'))],
+  ...[
+    ['type', '<type>pom</type>'],
+    ['classifier', '<classifier>tests</classifier>'],
+    ['test scope', '<scope>test</scope>'],
+    ['optional flag', '<optional>true</optional>'],
+    ['exclusions', '<exclusions><exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId></exclusion></exclusions>'],
+  ].map(([name, semantics]) => [`plugin HTTP Client ${name}`, pom => pom.replace(pluginDependency('httpclient5'), entry => entry.replace('</dependency>', semantics + '</dependency>'))]),
   ['pgjdbc downgrade', pom => pom.replace('<version>42.7.13</version>', '<version>42.7.9</version>')],
   ['Java change', pom => pom.replace('<java.version>21</java.version>', '<java.version>17</java.version>')],
   ['Flowable change', pom => pom.replace('<flowable.version>8.0.0</flowable.version>', '<flowable.version>7.2.0</flowable.version>')],
@@ -83,6 +97,7 @@ const effectiveVersions = [
   ['io.opentelemetry:opentelemetry-exporter-otlp', '1.62.0'],
   ...['core', 'el', 'websocket'].map(name => [`org.apache.tomcat.embed:tomcat-embed-${name}`, '11.0.26']),
 ];
+const effectiveHttpClient = '<dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId><version>5.6.3</version></dependency>';
 function effectiveFixture(versions = effectiveVersions, pluginVersion = '4.0.8') {
   return `<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
     <dependencyManagement><dependencies>${versions.map(([id, version]) => {
@@ -90,7 +105,7 @@ function effectiveFixture(versions = effectiveVersions, pluginVersion = '4.0.8')
       return `<dependency><groupId>${group}</groupId><artifactId>${name}</artifactId><version>${version}</version></dependency>`;
     }).join('')}</dependencies></dependencyManagement><build><pluginManagement><plugins><plugin>
     <groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><version>${pluginVersion}</version>
-    <dependencies>${['jackson-core', 'jackson-databind'].map(name => `<dependency><groupId>tools.jackson.core</groupId><artifactId>${name}</artifactId><version>3.1.7</version></dependency>`).join('')}</dependencies>
+    <dependencies>${effectiveHttpClient}${['jackson-core', 'jackson-databind'].map(name => `<dependency><groupId>tools.jackson.core</groupId><artifactId>${name}</artifactId><version>3.1.7</version></dependency>`).join('')}</dependencies>
     </plugin></plugins></pluginManagement></build></project>`;
 }
 function checkEffective(t, xml) {
@@ -98,7 +113,7 @@ function checkEffective(t, xml) {
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const file = path.join(directory, 'synthetic.xml');
   writeFileSync(file, xml);
-  return spawnSync('python3', [checker, `--root=${root}`, `--effective-pom=${file}`], { encoding: 'utf8' });
+  return spawnSync('python3', ['-I', '-S', '-B', checker, `--root=${root}`, `--effective-pom=${file}`], { encoding: 'utf8' });
 }
 test('effective-POM checker accepts a complete synthetic baseline', t => {
   const result = checkEffective(t, effectiveFixture());
@@ -144,7 +159,7 @@ test('effective-POM checker rejects stale, missing and duplicate plugin dependen
     plugin.replace(dependency, dependency.replace('3.1.7', '3.1.5'))]) {
     const result = checkEffective(t, prefix + changed);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Boot plugin Jackson dependency realm drift/);
+    assert.match(result.stderr, /Boot plugin dependency realm drift/);
   }
 });
 test('effective-POM checker catches a module-local override of inherited plugin dependencies', t => {
@@ -154,8 +169,44 @@ test('effective-POM checker catches a module-local override of inherited plugin 
   const changed = xml.replace('</build>', `<plugins>${managed.replaceAll('3.1.7', '3.1.5')}</plugins></build>`);
   const result = checkEffective(t, changed);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Boot plugin Jackson dependency realm drift/);
+  assert.match(result.stderr, /Boot plugin dependency realm drift/);
 });
+
+for (const placement of ['managed', 'module-local']) {
+  function placePlugin(xml, plugin) {
+    return placement === 'managed'
+      ? xml.replace(/<plugin>[\s\S]*?<\/plugin>/, plugin)
+      : xml.replace('</build>', `<plugins>${plugin}</plugins></build>`);
+  }
+  test(`effective-POM checker accepts the exact ${placement} private realm with Maven default semantics`, t => {
+    const xml = effectiveFixture();
+    const plugin = xml.match(/<plugin>[\s\S]*?<\/plugin>/)[0]
+      .replaceAll('</dependency>', '<type>jar</type><scope>compile</scope><optional>false</optional></dependency>');
+    const result = checkEffective(t, placePlugin(xml, plugin));
+    assert.equal(result.status, 0, result.stderr);
+  });
+  for (const [name, replacement] of [
+    ['missing HTTP Client', ''],
+    ['changed HTTP Client version', effectiveHttpClient.replace('5.6.3', '5.6.2')],
+    ['duplicate HTTP Client', effectiveHttpClient + effectiveHttpClient],
+    ['HTTP Client wrong group', effectiveHttpClient.replace('org.apache.httpcomponents.client5', 'unexpected.group')],
+    ['extra HTTP Core pin', effectiveHttpClient + effectiveHttpClient.replace('org.apache.httpcomponents.client5', 'org.apache.httpcomponents.core5').replace('httpclient5', 'httpcore5').replace('5.6.3', '5.4.3')],
+    ['extra unrelated coordinate', effectiveHttpClient + effectiveHttpClient.replace('org.apache.httpcomponents.client5', 'unexpected.group').replace('httpclient5', 'unexpected-artifact')],
+    ['HTTP Client type', effectiveHttpClient.replace('</dependency>', '<type>pom</type></dependency>')],
+    ['HTTP Client classifier', effectiveHttpClient.replace('</dependency>', '<classifier>tests</classifier></dependency>')],
+    ['HTTP Client test scope', effectiveHttpClient.replace('</dependency>', '<scope>test</scope></dependency>')],
+    ['HTTP Client optional flag', effectiveHttpClient.replace('</dependency>', '<optional>true</optional></dependency>')],
+    ['HTTP Client exclusions', effectiveHttpClient.replace('</dependency>', '<exclusions/></dependency>')],
+  ]) test(`effective-POM checker rejects ${placement} ${name}`, t => {
+    const xml = effectiveFixture();
+    const managed = xml.match(/<plugin>[\s\S]*?<\/plugin>/)[0];
+    const changed = managed.replace(effectiveHttpClient, replacement);
+    assert.notEqual(changed, managed, 'mutation must change the plugin dependency realm');
+    const result = checkEffective(t, placePlugin(xml, changed));
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Boot plugin dependency (realm|semantics) drift/);
+  });
+}
 
 // CI inspects real Maven model output; synthetic fixtures above are never used here.
 test('CI verifies actual Maven effective dependency management', {

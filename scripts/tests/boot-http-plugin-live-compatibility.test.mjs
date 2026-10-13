@@ -46,6 +46,16 @@ async function runAdapter(command, args, options) {
   });
 }
 
+export async function emitBootAdapterOutput(result, stream = process.stdout) {
+  // Serialize the outer log through one pipe. Label the original channels and
+  // preserve their bytes; result.stdout/result.stderr remain separate internally.
+  for (const name of ['stdout', 'stderr']) {
+    if (!result[name]) continue;
+    const output = `BOOT_ADAPTER_CHANNEL ${name}\n` + result[name] + (result[name].endsWith('\n') ? '' : '\n');
+    await new Promise((resolve, reject) => stream.write(output, error => error ? reject(error) : resolve()));
+  }
+}
+
 async function live() {
   const repository = process.env.M6_PR_E_E2_MAVEN_REPOSITORY;
   const evidence = process.env.BOOT_HTTP_EVIDENCE_DIRECTORY;
@@ -55,8 +65,7 @@ async function live() {
     ...(evidence ? [`--evidence-directory=${evidence}`] : [])], {
     cwd: root, env: { ...process.env, BOOT_HTTP_COMPATIBILITY: 'true' }, stdio: ['ignore', 'pipe', 'pipe'],
   });
-  if (result.stdout) console.log(result.stdout.trim());
-  if (result.stderr) console.error(result.stderr.trim());
+  await emitBootAdapterOutput(result);
   assert.equal(result.failure, undefined, result.failure);
   assert.equal(result.status, 0, `Boot compatibility: status=${result.status}; signal=${result.signal}`);
   const lines = result.stdout.split('\n').filter(line => line.startsWith('BOOT_LIVE_RESULT '));
