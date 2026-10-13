@@ -5,6 +5,74 @@ const cjkFamilies = /^(Noto Sans CJK|Noto Sans SC|Source Han Sans|PingFang SC|Hi
 export type CjkSurface = 'list' | 'acknowledged';
 interface PlatformFont { familyName: string; glyphCount: number }
 
+/** Wait only for the current toast's entrance, never the destination or drawer. */
+export function settleCjkAcknowledgment(input: { timeout: number }) {
+  if (!Number.isFinite(input.timeout) || input.timeout <= 0) throw new Error('CJK_SURFACE_SETTLEMENT_EXPIRED');
+  const label = '审批已同意';
+  let text: Node | undefined;
+  for (const root of document.querySelectorAll('.el-message--success, uni-toast')) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node; (node = walker.nextNode());) {
+      if (node.textContent?.replace(/\s/gu, '') === label) {
+        if (text) throw new Error('CJK_SURFACE_LABEL_REQUIRED');
+        text = node;
+      }
+    }
+  }
+  const target = text?.parentElement;
+  if (!text || !target) throw new Error('CJK_SURFACE_LABEL_REQUIRED');
+  const originalText = text;
+  const range = document.createRange();
+  range.selectNodeContents(originalText);
+  const deadline = performance.now() + input.timeout;
+  return new Promise<void>((resolve, reject) => {
+    let frame = 0, stableFrames = 0, previousGeometry = '', finished = false;
+    const finish = (error?: Error) => {
+      if (finished) return;
+      finished = true;
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      removeEventListener('pagehide', navigated);
+      if (error) reject(error); else resolve();
+    };
+    const navigated = () => finish(new Error('CJK_SURFACE_CHANGED'));
+    const timer = setTimeout(() => finish(new Error('CJK_SURFACE_SETTLEMENT_EXPIRED')), input.timeout);
+    addEventListener('pagehide', navigated, { once: true });
+    const tick = () => {
+      try {
+        if (performance.now() >= deadline) throw new Error('CJK_SURFACE_SETTLEMENT_EXPIRED');
+        if (!originalText.isConnected || originalText.parentElement !== target
+          || originalText.textContent?.replace(/\s/gu, '') !== label) throw new Error('CJK_SURFACE_CHANGED');
+        const ancestors: Element[] = [];
+        for (let node: Element | null = target; node; node = node.parentElement) ancestors.push(node);
+        // An endless or unknown active animation is not a settled acknowledgment.
+        const pending = ancestors.flatMap(node => node.getAnimations())
+          .some(animation => animation.pending || animation.playState !== 'finished');
+        const visible = ancestors.every(node => {
+          const style = getComputedStyle(node);
+          return style.display !== 'none' && style.visibility === 'visible' && Number(style.opacity) >= 0.999;
+        });
+        const bounds = range.getBoundingClientRect();
+        const inside = bounds.width > 0 && bounds.height > 0 && bounds.left >= 0 && bounds.top >= 0
+          && bounds.right <= innerWidth && bounds.bottom <= innerHeight;
+        const geometry = JSON.stringify([bounds.x, bounds.y, bounds.width, bounds.height]);
+        if (!pending && visible && inside) {
+          stableFrames = geometry === previousGeometry ? stableFrames + 1 : 0;
+          previousGeometry = geometry;
+          if (stableFrames >= 2) { finish(); return; }
+        } else {
+          stableFrames = 0;
+          previousGeometry = '';
+        }
+        frame = requestAnimationFrame(tick);
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error('CJK_SURFACE_CHANGED'));
+      }
+    };
+    frame = requestAnimationFrame(tick);
+  });
+}
+
 /** Serialized into the existing page. Inspect real control text, not a synthetic DOM probe. */
 export function inspectCjkSurface(surface: CjkSurface) {
   const label = surface === 'list' ? '待我处理' : '审批已同意';
@@ -98,6 +166,9 @@ export function assertCjkFontEvidence(evidence: ReturnType<typeof inspectCjkSurf
 /** Selected system-Chromium routes only; other browser matrix contracts stay independent. */
 export async function collectCjkFontEvidence(page: Page, surface: CjkSurface, budget: CaptureBudget, requireExplicitStack = false) {
   await budget.run(() => page.evaluate(async () => { await document.fonts.ready; }));
+  if (surface === 'acknowledged') {
+    await budget.run(timeout => page.evaluate(settleCjkAcknowledgment, { timeout }));
+  }
   const observed = await budget.run(() => page.evaluate(inspectCjkSurface, surface));
   const session = await budget.run(() => page.context().newCDPSession(page));
   let fonts: PlatformFont[];

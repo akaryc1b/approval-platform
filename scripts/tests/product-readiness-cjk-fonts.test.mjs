@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
-import { inspectCjkSurface, assertCjkFontEvidence, collectCjkFontEvidence } from '../../apps/web/overlay/playground/__tests__/e2e/product-readiness-cjk-fonts.ts';
+import { inspectCjkSurface, assertCjkFontEvidence, collectCjkFontEvidence, settleCjkAcknowledgment } from '../../apps/web/overlay/playground/__tests__/e2e/product-readiness-cjk-fonts.ts';
 import { captureBudget } from '../../apps/web/overlay/playground/__tests__/e2e/product-readiness-capture-budget.ts';
 import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.mjs';
 
@@ -15,6 +15,7 @@ function fixture({ label = '待我处理 1', raster = 'glyphs', status = 'loaded
   const bounds = { x, y, left: x, top: y, right: x + 40, bottom: y + 20, width: 40, height: 20 };
   const root = { tagName: 'DIV', parentElement: null, getBoundingClientRect: () => bounds };
   const target = { tagName: 'SPAN', parentElement: root, getBoundingClientRect: () => bounds };
+  const textNode = { textContent: label, parentElement: target, isConnected: true };
   root.children = [target];
   let character;
   const canvasContext = { clearRect() {}, fillText(value) { character = value; }, getImageData() {
@@ -27,12 +28,90 @@ function fixture({ label = '待我处理 1', raster = 'glyphs', status = 'loaded
   } };
   const document = { fonts: { status, ready: Promise.resolve() }, documentElement: root,
     querySelectorAll: () => [root], createElement: () => ({ getContext: () => canvasContext }),
-    createTreeWalker() { let read = false; return { nextNode() { if (read) return null; read = true; return { textContent: label, parentElement: target }; } }; },
+    createTreeWalker() { let read = false; return { nextNode() { if (read) return null; read = true; return textNode; } }; },
     createRange: () => ({ selectNodeContents() {}, getBoundingClientRect: () => bounds }) };
   const globals = { document, NodeFilter: { SHOW_TEXT: 4 }, getComputedStyle: () => style, innerWidth: 390, innerHeight: 844 };
   const inspect = (surface = 'list') => runInNewContext(`(${inspectCjkSurface.toString()})(${JSON.stringify(surface)})`, globals);
-  return { document, style, bounds, inspect, globals };
+  return { document, style, bounds, inspect, globals, root, target, textNode, setRaster(value) { raster = value; } };
 }
+
+function settlementFixture() {
+  const f = fixture({ label: '审批已同意' });
+  let now = 0, sequence = 0, outcome;
+  const frames = new Map(), timers = new Map(), listeners = new Map();
+  const animation = { pending: false, playState: 'finished', effect: { getComputedTiming: () => ({ endTime: 300 }) } };
+  f.target.getAnimations = () => [];
+  f.root.getAnimations = () => [animation];
+  const globals = { ...f.globals, performance: { now: () => now },
+    requestAnimationFrame: fn => { const id = ++sequence; frames.set(id, fn); return id; },
+    cancelAnimationFrame: id => frames.delete(id),
+    setTimeout: (fn, timeout) => { const id = ++sequence; timers.set(id, { fn, at: now + timeout }); return id; },
+    clearTimeout: id => timers.delete(id),
+    addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name),
+  };
+  return { ...f, animation, frames, timers, listeners,
+    start(timeout = 200) {
+      const result = runInNewContext(`(${settleCjkAcknowledgment.toString()})({timeout:${timeout}})`, globals);
+      result.then(() => { outcome = 'passed'; }, error => { outcome = error.message; });
+      return result;
+    },
+    async frame(y = f.bounds.y, advance = 16) {
+      f.bounds.y = f.bounds.top = y; f.bounds.bottom = y + f.bounds.height;
+      now += advance;
+      const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => fn());
+      for (const [id, timer] of [...timers]) if (timer.at <= now) { timers.delete(id); timer.fn(); }
+      await Promise.resolve();
+      return outcome;
+    },
+  };
+}
+
+test('acknowledgment waits for its finite entrance and natural geometry before binding a witness', async () => {
+  const f = settlementFixture(), result = f.start();
+  f.animation.playState = 'running';
+  assert.equal(await f.frame(-5.154985427856445), undefined);
+  assert.equal(await f.frame(2.3293838500976562), undefined);
+  assert.equal(await f.frame(20), undefined);
+  f.animation.playState = 'finished';
+  assert.equal(await f.frame(20), undefined);
+  assert.equal(await f.frame(20), undefined);
+  assert.equal(await f.frame(20), 'passed');
+  await result;
+  assert.equal(f.frames.size + f.timers.size + f.listeners.size, 0);
+});
+test('acknowledgment settlement rejects disappearance, changed text and navigation', async () => {
+  for (const change of [f => { f.textNode.isConnected = false; }, f => { f.textNode.textContent = '审批已拒绝'; }, f => f.listeners.get('pagehide')()]) {
+    const f = settlementFixture(), result = f.start();
+    await f.frame(); change(f); await f.frame();
+    await assert.rejects(result, /CJK_SURFACE_CHANGED/);
+    assert.equal(f.frames.size + f.timers.size + f.listeners.size, 0);
+  }
+});
+test('never-settling, paused, infinite, unknown, clipped and invisible acknowledgments expire within the budget', async () => {
+  for (const mode of ['running', 'paused', 'infinite', 'unknown', 'geometry', 'clipped', 'invisible']) {
+    const f = settlementFixture(), result = f.start(100);
+    if (mode === 'running' || mode === 'paused') f.animation.playState = mode;
+    if (mode === 'infinite' || mode === 'unknown') {
+      f.animation.playState = 'running';
+      f.animation.effect.getComputedTiming = () => ({ endTime: mode === 'infinite' ? Infinity : undefined });
+    }
+    if (mode === 'invisible') f.style.opacity = '0';
+    for (let i = 0; i < 7; i++) await f.frame(mode === 'geometry' ? 10 + i : mode === 'clipped' ? -5 : 10);
+    await assert.rejects(result, /CJK_SURFACE_SETTLEMENT_EXPIRED/);
+    assert.equal(f.frames.size + f.timers.size + f.listeners.size, 0);
+  }
+});
+test('each new entrance movement invalidates earlier stable frames and settlement never edits animation state', async () => {
+  const f = settlementFixture(), result = f.start();
+  await f.frame(10); await f.frame(10);
+  f.animation.pending = true; await f.frame(10);
+  assert.equal(f.animation.pending, true);
+  f.animation.pending = false;
+  assert.equal(await f.frame(20), undefined);
+  assert.equal(await f.frame(20), undefined);
+  assert.equal(await f.frame(20), 'passed');
+  await result;
+});
 
 test('actual visible list and acknowledgment labels use their own computed font and nonempty distinct glyphs', () => {
   for (const [surface, label] of [['list', '待我处理 1'], ['acknowledged', '审批已同意']]) {
@@ -71,7 +150,7 @@ test('CSS family declarations and canvas glyphs cannot substitute for actual res
 });
 
 function browserFixture(options = {}) {
-  const f = fixture(options), calls = []; let detached = false;
+  const f = fixture(options), calls = [], evaluations = []; let detached = false;
   const session = { async send(method, params) {
     calls.push({ method, params });
     if (method === 'DOM.getDocument') return { root: { nodeId: 1 } };
@@ -85,11 +164,21 @@ function browserFixture(options = {}) {
   }, async detach() { detached = true; if (options.stallDetach) await new Promise(() => {}); } };
   const page = { context: () => ({ newCDPSession: async target => { assert.equal(target, page); return session; } }),
     async evaluate(fn, arg) {
+      evaluations.push(fn.name);
       if (fn === inspectCjkSurface) return f.inspect(arg);
       await f.document.fonts.ready;
     } };
-  return { ...f, calls, page, detached: () => detached };
+  return { ...f, calls, evaluations, page, detached: () => detached };
 }
+test('only the acknowledged capture settles its current toast before font inspection and keeps later equality strict', async () => {
+  const f = browserFixture({ label: '审批已同意', fonts: [{ ...families[0], glyphCount: 5 }] });
+  const result = await collectCjkFontEvidence(f.page, 'acknowledged', captureBudget(1000));
+  assert.ok(f.evaluations.indexOf('settleCjkAcknowledgment') < f.evaluations.indexOf('inspectCjkSurface'));
+  f.bounds.y += 1;
+  await assert.rejects(result.assertCurrent(), /SURFACE_CHANGED/);
+  const list = browserFixture(); await collectCjkFontEvidence(list.page, 'list', captureBudget(1000));
+  assert.equal(list.evaluations.includes('settleCjkAcknowledgment'), false);
+});
 test('Chromium evidence resolves the exact inspected control and rechecks its witness around capture', async () => {
   const f = browserFixture(), result = await collectCjkFontEvidence(f.page, 'list', captureBudget(1000));
   assert.equal(result.evidence.cjkGlyphsRendered, true);
@@ -103,6 +192,13 @@ test('Chromium evidence resolves the exact inspected control and rechecks its wi
   f.bounds.x -= 1;
   f.style.fontWeight = '700';
   await assert.rejects(result.assertCurrent(), /SURFACE_CHANGED/);
+});
+test('frozen witnesses reject real text, font and glyph changes after initial readiness', async () => {
+  for (const change of [f => { f.textNode.textContent = '审批已拒绝'; }, f => { f.style.fontFamily = 'Arial'; }, f => f.setRaster('tofu')]) {
+    const f = browserFixture(), result = await collectCjkFontEvidence(f.page, 'list', captureBudget(1000));
+    change(f);
+    await assert.rejects(result.assertCurrent(), /SURFACE_CHANGED|SURFACE_LABEL_REQUIRED/);
+  }
 });
 test('stalled CDP cleanup consumes the same deadline and never hides the original font failure', async () => {
   const clean = browserFixture({ stallDetach: true });

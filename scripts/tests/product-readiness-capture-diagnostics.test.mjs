@@ -31,6 +31,24 @@ function projected(lines) {
 }
 const annotated = phase => ({ annotations: [{ type: 'capture-failure-phase-v1', description: phase }] });
 
+await test('fixed CJK failures produce closed diagnostics without revealing arbitrary text or geometry', () => {
+  const cases = { CJK_FONT_UNRESOLVED: 'FONT', CJK_CANVAS_REQUIRED: 'FONT',
+    CJK_NONEMPTY_GLYPHS_REQUIRED: 'FONT', CJK_DISTINCT_GLYPHS_REQUIRED: 'FONT',
+    CJK_PLATFORM_FONT_REQUIRED: 'FONT', CJK_EXPLICIT_FONT_STACK_REQUIRED: 'FONT',
+    CJK_SURFACE_LABEL_REQUIRED: 'SURFACE', CJK_PLATFORM_NODE_REQUIRED: 'SURFACE',
+    CJK_SURFACE_TEXT_INVISIBLE: 'OPACITY', CJK_SURFACE_CHANGED: 'WITNESS', CJK_SURFACE_SETTLEMENT_EXPIRED: 'TRANSITION' };
+  for (const [message, expected] of Object.entries(cases)) {
+    const lines = captureReporter(reporter => reporter.onTestEnd(annotated('PC_FONT'), {
+      status: 'failed', errors: [{ message: `Error: page.evaluate: Error: ${message}\n    at ${hostile}:1:2` }],
+    }));
+    assert.deepEqual(lines, [`BROWSER_FAILURE_V1 phase=PC_FONT category=FAILED reason=${expected}`]);
+    assert.equal(projected(lines), `${lines[0]}\n`);
+    for (const invalid of [`${message} ${hostile}`, `${message}: y=2.329`, `prefix ${message}`, `${message}\n${hostile}`]) {
+      assert.equal(captureFailureReason([{ message: invalid }]), 'UNKNOWN');
+    }
+  }
+});
+
 await test('closed reporter vocabularies are immutable and every emitted phase/category survives safe projection', () => {
   assert.equal(Object.isFrozen(captureFailurePhases), true);
   assert.equal(Object.isFrozen(browserFailureCategories), true);
