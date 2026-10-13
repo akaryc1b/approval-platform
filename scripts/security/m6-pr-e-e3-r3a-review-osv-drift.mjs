@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { acceptedE2GraphProjection, generateEvidence as generateE2Evidence }
   from './m6-pr-e-e2-generate-sbom.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, verifyBootHttpDelta, verifyCheckstyleGuavaDelta, verifyCheckstylePluginDelta, verifyCompilerPluginDelta, verifyCleanPluginDelta, verifyReleasePluginDelta, verifySiteDependencyPluginDelta, verifyBuildPluginJacksonDelta, verifyObservabilityGraph }
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, verifyBootUtilitiesDelta, verifyBootHttpDelta, verifyCheckstyleGuavaDelta, verifyCheckstylePluginDelta, verifyCompilerPluginDelta, verifyCleanPluginDelta, verifyReleasePluginDelta, verifySiteDependencyPluginDelta, verifyBuildPluginJacksonDelta, verifyObservabilityGraph }
   from './observability-dependency-graph.mjs';
 import { verifyScannerCheckout, requireScannerCheckoutUnchanged } from './m6-pr-e-e4-scan.mjs';
 
@@ -461,18 +461,19 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
   const graphTransition = verifyObservabilityGraph(currentE2, acceptedE2GraphProjection(currentE2), BASE_GRAPH, commitSha);
   if (typeof pluginReport !== 'string') throw new Error('R3A raw current plugin report required');
   const pluginReportSha256 = sha256(pluginReport), pluginGroups = parseResolvedPluginReport(pluginReport);
-  const subsequentPluginGraph = [BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH]
+  const subsequentPluginGraph = [BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH]
     .includes(graphTransition.currentE2GraphDigest);
   if (subsequentPluginGraph) {
     const current = acceptedE2GraphProjection(currentE2);
-    const beforeBoot = graphTransition.currentE2GraphDigest === BOOT_HTTP_GRAPH ? verifyBootHttpDelta(current) : current;
-    const beforeGuava = [CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyCheckstyleGuavaDelta(beforeBoot) : beforeBoot;
-    const beforeCheckstyle = [CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyCheckstylePluginDelta(beforeGuava) : beforeGuava;
-    const beforeCompiler = [COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyCompilerPluginDelta(beforeCheckstyle) : beforeCheckstyle;
-    const beforeClean = [CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyCleanPluginDelta(beforeCompiler) : beforeCompiler;
-    const beforeRelease = [RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(graphTransition.currentE2GraphDigest)
+    const beforeUtilities = graphTransition.currentE2GraphDigest === BOOT_UTILITIES_GRAPH ? verifyBootUtilitiesDelta(current) : current;
+    const beforeBoot = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyBootHttpDelta(beforeUtilities) : beforeUtilities;
+    const beforeGuava = [CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyCheckstyleGuavaDelta(beforeBoot) : beforeBoot;
+    const beforeCheckstyle = [CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyCheckstylePluginDelta(beforeGuava) : beforeGuava;
+    const beforeCompiler = [COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyCompilerPluginDelta(beforeCheckstyle) : beforeCheckstyle;
+    const beforeClean = [CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyCleanPluginDelta(beforeCompiler) : beforeCompiler;
+    const beforeRelease = [RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(graphTransition.currentE2GraphDigest)
       ? verifyReleasePluginDelta(beforeClean) : beforeClean;
-    const prior = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(graphTransition.currentE2GraphDigest)
+    const prior = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(graphTransition.currentE2GraphDigest)
       ? verifySiteDependencyPluginDelta(beforeRelease) : beforeRelease;
     verifyBuildPluginJacksonDelta(prior);
   }
@@ -510,7 +511,7 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
     || jarEvidence.vulnerableCloudMembershipEntryCount !== 0
     || canonical(jarEvidence.vulnerableCloudMembershipEntries) !== '[]') throw new Error('R3A exact current Tomcat JAR/cloud evidence mismatch');
   if (!Array.isArray(sourceMatches) || sourceMatches.length) throw new Error('R3A current Tomcat source/config drift');
-  const bootHttp = graphTransition.currentE2GraphDigest === BOOT_HTTP_GRAPH;
+  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(graphTransition.currentE2GraphDigest);
   const observedHttpcore = bootHttp ? { ...httpcore, version: '5.4.3', requiredCoResolvedComponents: [
     'org.apache.httpcomponents.client5:httpclient5:5.6.3',
     'org.apache.httpcomponents.core5:httpcore5-h2:5.4.3',

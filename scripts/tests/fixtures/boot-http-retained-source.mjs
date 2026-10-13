@@ -1,6 +1,8 @@
 // Current Boot source is verified before historical tests consume its exact predecessor.
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { retainedBootUtilitiesSource } from './boot-utilities-retained-source.mjs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -10,6 +12,11 @@ const views = new Map();
 export function retainedBootSource(source) {
   source = path.resolve(source);
   if (views.has(source)) return views.get(source);
+  const supplied = source;
+  if (createHash('sha256').update(readFileSync(path.join(source, 'pom.xml'))).digest('hex')
+      === '2f22ec8cae77cdfb519b81a8e48417fc75632416bcf28989f589f33d39261579') {
+    source = retainedBootUtilitiesSource(source).directory;
+  }
   const temporary = mkdtempSync(path.join(tmpdir(), 'boot-http-history-'));
   const directory = path.join(temporary, 'accepted-guava');
   after(() => rmSync(temporary, { recursive: true, force: true }));
@@ -25,6 +32,6 @@ export function retainedBootSource(source) {
   assert.equal(projection.retainedRootPomSha256, 'd95d582e6ccfc91c01780717c83054cd9b52aeffa43c934fbf568f550288cdd5');
   assert.equal(projection.retainedSourceRoot, directory);
   const view = { directory, projection };
-  views.set(source, view);
+  views.set(supplied, view);
   return view;
 }

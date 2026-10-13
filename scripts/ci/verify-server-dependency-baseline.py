@@ -21,6 +21,10 @@ PINS = {
 }
 TOMCAT = ["tomcat-embed-core", "tomcat-embed-el", "tomcat-embed-websocket"]
 PLUGIN_JACKSON = ["jackson-core", "jackson-databind"]
+PLUGIN_UTILITIES = [
+    ("org.codehaus.plexus:plexus-utils", "3.6.1"),
+    ("org.apache.commons:commons-lang3", "3.18.0"),
+]
 
 
 def require(condition, message):
@@ -49,12 +53,17 @@ def management(project):
 def verify_plugin_dependencies(plugin, jackson_version):
     dependencies = plugin.findall("m:dependencies/m:dependency", NS)
     # Project BOMs do not manage this private realm. Keep the complete reviewed
-    # dependency list exact, including the bounded HTTP Client override.
-    expected = [(f"tools.jackson.core:{name}", jackson_version) for name in PLUGIN_JACKSON]
-    expected.append(("org.apache.httpcomponents.client5:httpclient5", "5.6.3"))
+    # list and order exact, including the bounded HTTP and utility overrides.
+    expected = [("org.apache.httpcomponents.client5:httpclient5", "5.6.3"), *PLUGIN_UTILITIES]
+    expected.extend((f"tools.jackson.core:{name}", jackson_version) for name in PLUGIN_JACKSON)
     actual = [(coordinate(item), value(item, "version")) for item in dependencies]
-    require(sorted(actual) == sorted(expected), "Boot plugin dependency realm drift")
+    require(actual == expected, "Boot plugin dependency realm drift")
     for item in dependencies:
+        fields = [child.tag.removeprefix("{" + NS["m"] + "}") for child in item]
+        require(not item.attrib and len(fields) == len(set(fields))
+                and set(fields) <= {"groupId", "artifactId", "version", "type", "classifier", "scope", "optional"}
+                and all(not child.attrib and not list(child) for child in item),
+                "Boot plugin dependency semantics drift")
         require(value(item, "type") in ("", "jar") and not value(item, "classifier")
                 and value(item, "scope") in ("", "compile")
                 and value(item, "optional") in ("", "false")
@@ -62,8 +71,15 @@ def verify_plugin_dependencies(plugin, jackson_version):
                 "Boot plugin dependency semantics drift")
 
 
+def verify_utility_boundary(project):
+    private = {name for name, _ in PLUGIN_UTILITIES}
+    require(not any(coordinate(item) in private for item in project.findall("m:dependencies/m:dependency", NS)),
+            "Boot private utility escaped into direct application dependencies")
+
+
 def verify_source(root):
     project = ET.parse(root / "pom.xml").getroot()
+    verify_utility_boundary(project)
     require(project.find("m:parent", NS) is None, "Boot must remain an imported BOM")
     properties = project.find("m:properties", NS)
     for name, expected in PINS.items():
@@ -121,6 +137,7 @@ def verify_effective(path):
     }
     required.update({f"org.apache.tomcat.embed:{name}": "11.0.26" for name in TOMCAT})
     for project in projects:
+        verify_utility_boundary(project)
         _, by_id = management(project)
         for name, expected in required.items():
             require(name in by_id and value(by_id[name], "version") == expected,

@@ -259,6 +259,16 @@
                             <version>5.6.3</version>
                         </dependency>
                         <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>3.6.1</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.18.0</version>
+                        </dependency>
+                        <dependency>
                             <groupId>tools.jackson.core</groupId>
                             <artifactId>jackson-core</artifactId>
                             <version>${jackson3-bom.version}</version>

@@ -56,14 +56,17 @@ export async function emitBootAdapterOutput(result, stream = process.stdout) {
   }
 }
 
-async function live() {
+export async function liveBootProfile(profile = 'http') {
+  assert.ok(['http', 'utilities'].includes(profile));
   const repository = process.env.M6_PR_E_E2_MAVEN_REPOSITORY;
   const evidence = process.env.BOOT_HTTP_EVIDENCE_DIRECTORY;
   const result = await runAdapter('/usr/bin/python3', ['-I', '-S', '-B',
     path.join(root, 'scripts/tests/fixtures/run_boot_live_compatibility.py'), '--execute',
+    ...(profile === 'utilities' ? ['--profile=utilities'] : []),
     ...(repository ? [`--repository=${repository}`] : []),
     ...(evidence ? [`--evidence-directory=${evidence}`] : [])], {
-    cwd: root, env: { ...process.env, BOOT_HTTP_COMPATIBILITY: 'true' }, stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: root, env: { ...process.env, BOOT_HTTP_COMPATIBILITY: 'true',
+      ...(profile === 'utilities' ? { BOOT_UTILITIES_COMPATIBILITY: 'true' } : {}) }, stdio: ['ignore', 'pipe', 'pipe'],
   });
   await emitBootAdapterOutput(result);
   assert.equal(result.failure, undefined, result.failure);
@@ -71,10 +74,12 @@ async function live() {
   const lines = result.stdout.split('\n').filter(line => line.startsWith('BOOT_LIVE_RESULT '));
   assert.equal(lines.length, 1);
   const receipt = JSON.parse(lines[0].slice('BOOT_LIVE_RESULT '.length));
-  return assertBootLiveReceipt(receipt);
+  return assertBootLiveReceipt(receipt, { profile });
 }
 
-export function assertBootLiveReceipt(receipt, { ci = process.env.GITHUB_ACTIONS === 'true' } = {}) {
+export function assertBootLiveReceipt(receipt, { ci = process.env.GITHUB_ACTIONS === 'true', profile = 'http' } = {}) {
+  assert.ok(['http', 'utilities'].includes(profile));
+  if (profile === 'utilities') assert.equal(receipt.profile, 'utilities');
   const variants = ['baseline', 'candidate'];
   const transports = ['http', 'tls', 'unix'];
   const mojoNames = ['help', 'repackage'];
@@ -84,12 +89,12 @@ export function assertBootLiveReceipt(receipt, { ci = process.env.GITHUB_ACTIONS
   assert.deepEqual(receipt.coverageGaps, []);
   assert.equal(receipt.cachePreparation.status, 'VERIFIED');
   assert.equal(receipt.cachePreparation.acceptanceGoal, false);
-  assert.equal(Object.keys(receipt.cachePreparation.artifacts).length, 42);
+  assert.equal(Object.keys(receipt.cachePreparation.artifacts).length, profile === 'utilities' ? 41 : 42);
   assert.equal(receipt.cachePreparation.resolutionCommandsRun, ci ? 2 : 0);
   assert.equal(receipt.cachePreparation.mode, ci
     ? 'ci-central-plugin-resolution' : 'offline-existing-cache');
   keys(receipt.ownerReports, variants);
-  keys(receipt.stages, ['goals', 'transport']);
+  keys(receipt.stages, profile === 'utilities' ? ['goals', 'transport', 'utilities'] : ['goals', 'transport']);
   for (const owner of Object.values(receipt.ownerReports)) {
     assert.equal(owner.freshOfflineCapture, true);
     assert.equal(owner.orderedCoordinates.length, 39);
@@ -153,8 +158,8 @@ export function assertBootLiveReceipt(receipt, { ci = process.env.GITHUB_ACTIONS
     }
     keys(result.naturalRealmComparison, mojoNames);
     for (const comparison of Object.values(result.naturalRealmComparison)) {
-      assert.equal(comparison.membershipChangedOnlyByHttpTrio, true);
-      assert.equal(comparison.nonHttpOrderEqual, true);
+      assert.equal(comparison[profile === 'utilities' ? 'membershipChangedOnlyByUtilityPair' : 'membershipChangedOnlyByHttpTrio'], true);
+      assert.equal(comparison[profile === 'utilities' ? 'nonUtilityOrderEqual' : 'nonHttpOrderEqual'], true);
     }
     // Maven's private goal realm is distinct from the 39-JAR owner report.
     // Preserve its actual order; no synthetic complete-order assertion is made.
@@ -163,5 +168,5 @@ export function assertBootLiveReceipt(receipt, { ci = process.env.GITHUB_ACTIONS
 }
 
 test('reviewed Boot full HTTP/TLS/Unix, linkage/Jackson and separate real help/repackage smoke', { skip, timeout: 1250000 }, async () => {
-  await live();
+  await liveBootProfile();
 });

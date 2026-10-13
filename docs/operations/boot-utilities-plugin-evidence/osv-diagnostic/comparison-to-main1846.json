@@ -1,0 +1,92 @@
+{
+  "addedFindings": [],
+  "allNormalizedFieldsCompared": true,
+  "baselineE4BytesSha256": "db43cf92e2c7c61b58240c9a3f4f07d7ade8ebcbaa73fde72618faf584902a44",
+  "baselineNormalizedCanonicalSha256": "eebfd60d33cbd83a7db8ea5caae2e4d50e9a9b4c0a227a97e7b697917b88f762",
+  "baselineSourceHead": "d38f57a82b13058d0e09839bdfb9a2ddf99d4508",
+  "baselineSourceRunNumber": 1846,
+  "changedRetainedFindings": [],
+  "comparison": {
+    "added": 0,
+    "changed": 0,
+    "current": 14,
+    "prior": 16,
+    "removed": 2,
+    "unchanged": 14
+  },
+  "currentNormalizedCanonicalSha256": "f3469c82c766141527d148f5bc3cb8f7fc2a75951f888753f5277310ff951764",
+  "rawAdvisoryMetadataComparisonAvailable": false,
+  "releaseBlocked": true,
+  "removedFindings": [
+    {
+      "aliases": [
+        "CVE-2025-67030"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.codehaus.plexus:plexus-utils:jar:3.5.1"
+      ],
+      "findingId": "c5597a14d04fcdc486119f0f160eca2668e518c8973bc07693639cbe8325d3c8",
+      "fixedVersions": [
+        "3.6.1",
+        "4.0.3"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.codehaus.plexus:plexus-utils",
+        "version": "3.5.1"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-6fmv-xxpf-w3cw",
+      "upstreamSeverity": []
+    },
+    {
+      "aliases": [
+        "CVE-2025-48924"
+      ],
+      "componentRefs": [
+        "maven-plugin:org.apache.commons:commons-lang3:jar:3.16.0"
+      ],
+      "findingId": "c9290ef39e54e8600014f7ca4beb61b6adf1a7f73caafdd5cb0be770cc3dc156",
+      "fixedVersions": [
+        "3.18.0"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.apache.commons:commons-lang3",
+        "version": "3.16.0"
+      },
+      "scopes": [
+        "build-plugin"
+      ],
+      "sourceClass": "E4_OSV_SCANNER",
+      "upstreamFindingId": "GHSA-j288-q9x7-2f5v",
+      "upstreamSeverity": [
+        {
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+          "type": "CVSS_V3"
+        }
+      ]
+    }
+  ],
+  "reviewDispositionTransferred": false,
+  "schemaVersion": "BOOT_UTILITIES_OSV_COMPLETE_NORMALIZED_COMPARISON_V1",
+  "unchangedRetainedFindingIds": [
+    "1584c1a266be132c5d9919683ca4e8ceba78504490b507c621789e182aac52ef",
+    "16f811af186ed7c784deae29e2a0b8495045121c72f7397c7cf477bdc442b928",
+    "2a51e87b26d0980da65d8468e9e83e771e8c2fe5f919c7372e900a5603c4a6af",
+    "4aa76bdebc8551788b20d9bac4519c231012bee5be6277fd3f3f24f64ff073ca",
+    "4f17df58d4cc0ea34be7302cd3dd7bf60153e39323996540c6c7af51fe21119e",
+    "5e63544c0ea7c20e2d9b793649021cdfc3cfbaf5253dc618b7dd04824bd1118f",
+    "7eeb4b05e0cc7191b7a76b59d3ae5a9ac883bea2f24b1410066ee02a86763def",
+    "8419f0d874794fc97d2c94877e9c5aa5bdd86f8ac76e6de9d4a82a07daee18ea",
+    "b2fcf4ce44c7cae1d7a6eb32fd02460d7e17f6ca533dbdbfb2fee943ee989043",
+    "beb6e52da833af4fa8fe16ea494ac7caa4b7c437512a401bffb3910dedcb0de0",
+    "e8495e74597c5bddbafdde30029187931fa49316b60d4981df839ec8e49605ee",
+    "ece287db3a3aebfbd3371bc02ce2d44b4070048b933bbeaa19312507e3302c3e",
+    "ef8c6012565dac2cf90df4b927a9f1b6ab965095e54c12925c17cc837eeb1ad7",
+    "fce31ce12ad398147c01f2908fe8ffeb88de7de2180ac27de0452ecefa0d969c"
+  ]
+}

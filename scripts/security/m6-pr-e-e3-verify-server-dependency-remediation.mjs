@@ -9,6 +9,7 @@ import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBu
   CHECKSTYLE_PLUGIN_GRAPH, readCheckstylePluginManifest, verifyCheckstylePluginDelta,
   CHECKSTYLE_GUAVA_GRAPH, readCheckstyleGuavaManifest, verifyCheckstyleGuavaDelta,
   BOOT_HTTP_GRAPH, readBootHttpManifest, verifyBootHttpDelta,
+  BOOT_UTILITIES_GRAPH, readBootUtilitiesManifest, verifyBootUtilitiesDelta,
   CLEAN_PLUGIN_GRAPH, readCleanPluginManifest, verifyCleanPluginDelta }
   from './observability-dependency-graph.mjs';
 import { verifyOsvCoverage, osvInputFromE2 } from './osv-scan-coverage.mjs';
@@ -106,7 +107,7 @@ function requireFreshFullEvidence(e4, expectedHead) {
   requireValue(total === e4.totalFindingCount, 'server remediation scanner finding count mismatch');
   const e2 = e4.e2CurrentEvidence;
   requireValue(e2?.commitSha === expectedHead && e2.contentSha256 === e4.e2CurrentContentSha256
-    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
+    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
   const transition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, expectedHead);
   requireValue(same(transition, requirePreservedGraph(e4, BASE_GRAPH, expectedHead)), 'server remediation graph receipt mismatch');
   return verifyOsvCoverage(e4.scanners.osv.coverage, e4.scanners.osv.findings, e2,
@@ -120,22 +121,24 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
   const coverage = requireFreshFullEvidence(e4, expectedCommitSha);
   let expectedInput = { packageCount: plan.expectedInputPackageCount, inputBytesSha256: plan.expectedInputBytesSha256 };
   let subsequentGraphTransition;
-  if ([BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(e4.e2GraphDigest)) {
+  if ([BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(e4.e2GraphDigest)) {
     const manifest = readBuildPluginJacksonManifest();
     const current = acceptedE2GraphProjection(e4.e2CurrentEvidence);
-    const bootManifest = e4.e2GraphDigest === BOOT_HTTP_GRAPH ? readBootHttpManifest() : null;
-    const beforeBoot = bootManifest ? verifyBootHttpDelta(current, bootManifest) : current;
-    const guavaManifest = [CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(e4.e2GraphDigest) ? readCheckstyleGuavaManifest() : null;
+    const utilitiesManifest = e4.e2GraphDigest === BOOT_UTILITIES_GRAPH ? readBootUtilitiesManifest() : null;
+    const beforeUtilities = utilitiesManifest ? verifyBootUtilitiesDelta(current, utilitiesManifest) : current;
+    const bootManifest = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(e4.e2GraphDigest) ? readBootHttpManifest() : null;
+    const beforeBoot = bootManifest ? verifyBootHttpDelta(beforeUtilities, bootManifest) : beforeUtilities;
+    const guavaManifest = [CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(e4.e2GraphDigest) ? readCheckstyleGuavaManifest() : null;
     const beforeGuava = guavaManifest ? verifyCheckstyleGuavaDelta(beforeBoot, guavaManifest) : beforeBoot;
-    const checkstyleManifest = [CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(e4.e2GraphDigest) ? readCheckstylePluginManifest() : null;
+    const checkstyleManifest = [CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(e4.e2GraphDigest) ? readCheckstylePluginManifest() : null;
     const beforeCheckstyle = checkstyleManifest ? verifyCheckstylePluginDelta(beforeGuava, checkstyleManifest) : beforeGuava;
-    const compilerManifest = [COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(e4.e2GraphDigest) ? readCompilerPluginManifest() : null;
+    const compilerManifest = [COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(e4.e2GraphDigest) ? readCompilerPluginManifest() : null;
     const beforeCompiler = compilerManifest ? verifyCompilerPluginDelta(beforeCheckstyle, compilerManifest) : beforeCheckstyle;
-    const cleanManifest = [CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(e4.e2GraphDigest) ? readCleanPluginManifest() : null;
+    const cleanManifest = [CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(e4.e2GraphDigest) ? readCleanPluginManifest() : null;
     const beforeClean = cleanManifest ? verifyCleanPluginDelta(beforeCompiler, cleanManifest) : beforeCompiler;
-    const releaseManifest = [RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(e4.e2GraphDigest) ? readReleasePluginManifest() : null;
+    const releaseManifest = [RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(e4.e2GraphDigest) ? readReleasePluginManifest() : null;
     const beforeRelease = releaseManifest ? verifyReleasePluginDelta(beforeClean, releaseManifest) : beforeClean;
-    const siteManifest = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH].includes(e4.e2GraphDigest)
+    const siteManifest = [SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH].includes(e4.e2GraphDigest)
       ? readSiteDependencyPluginManifest() : null;
     const priorPlugin = siteManifest ? verifySiteDependencyPluginDelta(beforeRelease, siteManifest) : beforeRelease;
     const preserved = verifyBuildPluginJacksonDelta(priorPlugin, manifest);
@@ -192,6 +195,13 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
         && hash(JSON.stringify(priorBootInput.scannerInput)) === expectedInput.inputBytesSha256
         && same(bootManifest.osvInput.prior, expectedInput), 'server remediation prior Boot HTTP OSV input lineage mismatch');
       expectedInput = bootManifest.osvInput.current;
+    }
+    if (utilitiesManifest) {
+      const priorUtilitiesInput = osvInputFromE2(beforeUtilities);
+      requireValue(priorUtilitiesInput.packageCount === expectedInput.packageCount
+        && hash(JSON.stringify(priorUtilitiesInput.scannerInput)) === expectedInput.inputBytesSha256
+        && same(utilitiesManifest.osvInput.prior, expectedInput), 'server remediation prior Boot utilities OSV input lineage mismatch');
+      expectedInput = utilitiesManifest.osvInput.current;
     }
     subsequentGraphTransition = requirePreservedGraph(e4, BASE_GRAPH, expectedCommitSha);
   }

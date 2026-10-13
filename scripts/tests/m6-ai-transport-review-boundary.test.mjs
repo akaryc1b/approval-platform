@@ -48,6 +48,11 @@ import './boot-http-compatibility-harness.test.mjs';
 import './checkstyle-plugin-osv-diagnostic.test.mjs';
 import './checkstyle-plugin-live-compatibility.test.mjs';
 import './boot-http-plugin-live-compatibility.test.mjs';
+import './boot-utilities-source-baseline.test.mjs';
+import './boot-utilities-graph-transition.test.mjs';
+import './boot-utilities-plugin-osv-diagnostic.test.mjs';
+import './boot-utilities-model-live-compatibility.test.mjs';
+import './boot-utilities-plugin-live-compatibility.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(

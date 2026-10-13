@@ -27,6 +27,7 @@ ROOT = HERE.parents[2]
 CONTRACT = run_path(str(ROOT / 'scripts/ci/compiler_plugin_contract.py'))
 RELEASE = run_path(str(ROOT / 'scripts/ci/verify-release-plugin-baseline.py'))
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
+UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
 NS = CONTRACT['NS']; P = CONTRACT['P']
 HASHES = json.loads((HERE / 'compiler-artifact-hashes.json').read_text())
 OWNER = 'org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0'
@@ -37,6 +38,11 @@ class Run:
     def __init__(self, source, sandbox, repository, jdk, maven, offline):
         self.source, self.sandbox, self.repository = source, sandbox, repository
         self.jdk, self.maven, self.offline = jdk, maven, offline
+        self.utilities_source_projection = None
+        if UTILITIES['is_utilities_source'](source):
+            retained = inside(sandbox / 'accepted-utilities-predecessor', sandbox)
+            self.utilities_source_projection = UTILITIES['materialize_retained_source'](source, retained)
+            source = retained; self.source = source
         self.boot_source_projection = None
         if BOOT['is_boot_source'](source):
             retained = inside(sandbox / 'accepted-boot-predecessor', sandbox)
@@ -62,6 +68,8 @@ class Run:
             'contractSourceHashes': self.contract_hashes,
             'cases': {}, 'commands': self.commands.results, 'scannerEvidence': False,
             'vulnerableApiReachabilityClaim': False, 'canonicalCiEvidence': False}
+        self.report['utilitiesSourceProjection'] = self.utilities_source_projection
+        self.report['historicalUtilitiesMaterialized'] = bool(self.utilities_source_projection)
         self.report['bootSourceProjection'] = self.boot_source_projection
         self.report['historicalBootMaterialized'] = bool(self.boot_source_projection)
         self.parent()
@@ -71,6 +79,8 @@ class Run:
         self.poms[file] = text
 
     def containment(self):
+        if self.utilities_source_projection:
+            UTILITIES['verify_projection'](self.utilities_source_projection)
         if self.boot_source_projection:
             BOOT['verify_projection'](self.boot_source_projection)
         require(not self.sandbox.is_symlink() and (self.sandbox.stat().st_dev, self.sandbox.stat().st_ino) == self.identity, 'sandbox identity drift')
