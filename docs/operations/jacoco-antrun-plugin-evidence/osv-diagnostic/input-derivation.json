@@ -1,0 +1,92 @@
+{
+  "addedTargets": [],
+  "baseline": {
+    "allBootUtilitiesAndMain1852NormalizedFieldsIdentical": true,
+    "bootUtilitiesFindings": {
+      "path": "docs/operations/boot-utilities-plugin-evidence/osv-diagnostic/normalized-osv-findings.json",
+      "rawSha256": "48d4f275b9d599613ec7f3cd83b70092322ef54c68e224d8c49df1c63f8d2f2f"
+    },
+    "e2": {
+      "contentSha256": "64ad618e8a39c8884b8e5c1f6a9143b2a755f2907eda7fd4c46450c7673daf3d",
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/baseline-E2.json",
+      "rawSha256": "eeeca76f233917124ff0935efb87ddd43fd32d9539ba36b07bf6c3c5324ab9cc"
+    },
+    "e4BytesSha256": "8094d75257b650c205cd45e6629268984c79e4f2d4609c6759ed59b0ce879529",
+    "head": "e653583e5a012e502271b1cf7b4255cc95cf9d63",
+    "normalizedFindingsPath": "baseline-normalized-osv-findings.json",
+    "normalizedFindingsRawSha256": "8e14a2938d63eee0abe8a195e4ed93990cb332ccf0642daf103d63c4d9fec4cf",
+    "runNumber": 1852
+  },
+  "candidateGraphDigest": "a338fa7e74474131fbd72f610f1be26cd7b676a46597aef5b04f5ef87a1dad92",
+  "canonicalE4": false,
+  "changedRetainedAttribution": [],
+  "classification": "DIRTY_PRECOMMIT_DIRECT_OFFICIAL_API_DIAGNOSTIC",
+  "equivalentScannerInputBytesSha256": "908d9c25b66f75403a9ad2ef569c1e36c88ae429f7d106e02d344030324e78f8",
+  "exactFinalCandidateEvidence": false,
+  "exactQueryBytes": 46638,
+  "exactQueryBytesSha256": "710b92c64abfdd07426e592e2a7345a42c8fa7a26c2f9c4369b62db03c22168b",
+  "graphAdmitted": false,
+  "inputPackageCount": 469,
+  "inputTargetCanonicalSha256": "6d2034f7de48f7bca0e307c1d1907668d38a9745841fac427c5aca99b03aa881",
+  "jacocoAntrunManifest": {
+    "contentSha256": "3dd6e8189df8d3c201a4583a6fd7f38aba9c8e8521f85064a33acdefb01eca9b",
+    "path": "docs/operations/jacoco-antrun-plugin-transition.json",
+    "rawSha256": "6358651dc32375032f62f8c3f5197ad3849e4d1a1014911dd18ae4ed9993433a"
+  },
+  "privateLocalGitObjectsRequiredByCi": false,
+  "queryCompletedAt": "2026-10-13T18:24:53.885039+00:00",
+  "queryExecutedOnCommittedCandidateClaimed": false,
+  "queryStartedAt": "2026-10-13T18:23:55.915668+00:00",
+  "referenceSourceHelpers": {
+    "scripts/security/m6-pr-e-e2-generate-sbom.mjs": "a974b4c07eaf40c6c440415af11d50f8f5da22ec33c7789080de042b3b46dc7f",
+    "scripts/security/m6-pr-e-e4-scan.mjs": "04d601d05b22a50b8d6bf2888e480ffd1ed9be88ab55bd99b3c094d5e70b0873",
+    "scripts/security/osv-scan-coverage.mjs": "0053f5d507cfb7f9d742fbad84555944c3a4b9c56b376136f41c035f737d1cad"
+  },
+  "releaseBlocked": true,
+  "removedTargets": [
+    {
+      "componentRefs": [
+        "maven-plugin:org.codehaus.plexus:plexus-utils:jar:3.0.24"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.codehaus.plexus:plexus-utils",
+        "version": "3.0.24"
+      },
+      "scopes": [
+        "build-plugin"
+      ]
+    },
+    {
+      "componentRefs": [
+        "maven-plugin:org.codehaus.plexus:plexus-utils:jar:3.4.1"
+      ],
+      "package": {
+        "ecosystem": "Maven",
+        "name": "org.codehaus.plexus:plexus-utils",
+        "version": "3.4.1"
+      },
+      "scopes": [
+        "build-plugin"
+      ]
+    }
+  ],
+  "reviewDispositionTransferred": false,
+  "scannerCliExecuted": false,
+  "schemaVersion": "JACOCO_ANTRUN_OSV_DIAGNOSTIC_INPUT_BINDING_V1",
+  "sourceBaseHead": "e653583e5a012e502271b1cf7b4255cc95cf9d63",
+  "sourceBaseTree": "ace937abdc61e24534215d686ba96c7e8978cdb6",
+  "sourceE2": {
+    "contentSha256": "57604a89d4e38ecdb98bbcefa96bf21c695edcaaf0fedfca7995e65e9ba72df8",
+    "path": "docs/operations/jacoco-antrun-plugin-evidence/candidate-E2.json",
+    "rawSha256": "8f96a810b8126834d6e974866f18e7fbee1c332ea8865284067093818866513d"
+  },
+  "sourcePom": {
+    "path": "docs/operations/jacoco-antrun-plugin-evidence/candidate-root-pom.xml",
+    "rawSha256": "d36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c"
+  },
+  "tupleCountsByEcosystem": {
+    "Maven": 468,
+    "npm": 1
+  }
+}

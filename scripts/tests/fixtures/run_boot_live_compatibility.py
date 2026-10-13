@@ -209,9 +209,11 @@ def execute_bounded(args, deadline):
     put(sandbox / 'empty-toolchains.xml', '<toolchains/>\n')
     for variant in ('baseline', 'candidate'):
         put(sandbox / (variant + '-pom.xml'), project_text(variant, profile))
-    source_inventory = goals.utilities_contract.source_inventory(ROOT, current=goals.utilities_contract.is_utilities_source(ROOT))
+    source_inventory = (goals.pair_contract.verify_source(ROOT) if goals.pair_contract.is_pair_source(ROOT)
+                        else goals.utilities_contract.source_inventory(ROOT, current=goals.utilities_contract.is_utilities_source(ROOT)))
     source_hashes = hashes([*http.SOURCES, *utilities.sources(), HERE / 'run_boot_goal_compatibility.py', Path(__file__).resolve(), PINS,
                             UTILITY_PINS, ROOT / 'scripts/ci/boot_utilities_contract.py', ROOT / goals.utilities_contract.WITNESS,
+                            ROOT / 'scripts/ci/jacoco_antrun_contract.py',
                             *(ROOT / name for name in source_inventory),
                             ROOT / 'pom.xml', ROOT / 'scripts/tests/boot-http-plugin-live-compatibility.test.mjs',
                             ROOT / 'scripts/tests/boot-http-compatibility-harness.test.mjs',

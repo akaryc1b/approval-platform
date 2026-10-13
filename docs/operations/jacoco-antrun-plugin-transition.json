@@ -1,0 +1,142 @@
+{
+  "addedPluginCoordinateCount": 0,
+  "addedPluginCoordinates": [],
+  "base": {
+    "bootUtilitiesLineage": {
+      "contentSha256": "a06daa5522bf445be8a730d3c11a5793c4cb1244aef8ca1771247d10cdb5ec25",
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/preserved-boot-utilities-lineage.json",
+      "rawSha256": "a176d2474684b6bebb9677984a1225028b14d5583b49cd29a7d927fe7c7dfac7"
+    },
+    "e2": {
+      "contentSha256": "64ad618e8a39c8884b8e5c1f6a9143b2a755f2907eda7fd4c46450c7673daf3d",
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/baseline-E2.json",
+      "rawSha256": "eeeca76f233917124ff0935efb87ddd43fd32d9539ba36b07bf6c3c5324ab9cc"
+    },
+    "graphDigest": "454934f756eb08a49bc6d74435f12064df6c74286cad358558b0e73dda78c9ca",
+    "sourceHead": "e653583e5a012e502271b1cf7b4255cc95cf9d63",
+    "sourceRunId": "38434571295",
+    "sourceRunNumber": 1852,
+    "sourceTree": "ace937abdc61e24534215d686ba96c7e8978cdb6"
+  },
+  "capture": {
+    "e2": {
+      "contentSha256": "57604a89d4e38ecdb98bbcefa96bf21c695edcaaf0fedfca7995e65e9ba72df8",
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/candidate-E2.json",
+      "rawSha256": "8f96a810b8126834d6e974866f18e7fbee1c332ea8865284067093818866513d"
+    },
+    "exactHeadEvidence": false,
+    "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+    "pluginReport": {
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/plugin-owner-report.txt",
+      "rawSha256": "3c3dfbf8460f8cdead51a397447a06e21c979411f3c3dc8d109d0bd1e67769a6"
+    },
+    "sourceBaseHead": "e653583e5a012e502271b1cf7b4255cc95cf9d63",
+    "sourceBaseTree": "ace937abdc61e24534215d686ba96c7e8978cdb6",
+    "sourcePom": {
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/candidate-root-pom.xml",
+      "rawSha256": "d36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c"
+    },
+    "sourceWitness": {
+      "contentSha256": "e7bbb9e1c69444df17d26ab6bca600bfe16d60154997139c3b0292ff75e87bab",
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/source-witness.json",
+      "rawSha256": "56e5701e73c25262887edcf73663cf9f7eff870a34891927107dfeceec174971"
+    },
+    "sourceWorktreeClean": false
+  },
+  "contentSha256": "3dd6e8189df8d3c201a4583a6fd7f38aba9c8e8521f85064a33acdefb01eca9b",
+  "currentOwnerInventorySha256": "be666d4d21d0cb80039d08e88103c085e17ebadb0a3a02023630fa514cdabd13",
+  "exceptions": [],
+  "findingDisposition": "UNRESOLVED_UNTIL_FRESH_COMPLETE_SCANNER_AND_EXPLICIT_FINDING_REVIEW",
+  "findingReviewRequired": true,
+  "importedBomChangeCount": 0,
+  "inventory": {
+    "componentCount": 237,
+    "edgeCount": 345,
+    "importedBomCount": 6,
+    "reactorRootCount": 26,
+    "resolvedPluginCoordinateCount": 266
+  },
+  "licenseChangeCount": 0,
+  "observed": {
+    "graphDigest": "a338fa7e74474131fbd72f610f1be26cd7b676a46597aef5b04f5ef87a1dad92"
+  },
+  "osvInput": {
+    "current": {
+      "inputBytesSha256": "908d9c25b66f75403a9ad2ef569c1e36c88ae429f7d106e02d344030324e78f8",
+      "packageCount": 469
+    },
+    "prior": {
+      "inputBytesSha256": "e3f74edd3700b42f8979cea19c964d90ae459eaea68a9f7c9c81601cbb4b0dc1",
+      "packageCount": 471
+    }
+  },
+  "ownerCount": 17,
+  "pluginOwnerChanges": [
+    {
+      "after": [
+        "org.apache.ant:ant-launcher:jar:1.10.12",
+        "org.apache.ant:ant:jar:1.10.12",
+        "org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+        "org.codehaus.plexus:plexus-utils:jar:3.6.1"
+      ],
+      "before": [
+        "org.apache.ant:ant-launcher:jar:1.10.12",
+        "org.apache.ant:ant:jar:1.10.12",
+        "org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0",
+        "org.codehaus.plexus:plexus-utils:jar:3.4.1"
+      ],
+      "owner": "org.apache.maven.plugins:maven-antrun-plugin:jar:3.1.0"
+    },
+    {
+      "after": [
+        "commons-io:commons-io:jar:2.19.0",
+        "org.apache.maven.doxia:doxia-sink-api:jar:1.0",
+        "org.apache.maven.reporting:maven-reporting-api:jar:3.0",
+        "org.apache.maven.shared:file-management:jar:3.2.0",
+        "org.codehaus.plexus:plexus-utils:jar:3.6.1",
+        "org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+        "org.jacoco:org.jacoco.agent:jar:runtime:0.8.15",
+        "org.jacoco:org.jacoco.core:jar:0.8.15",
+        "org.jacoco:org.jacoco.report:jar:0.8.15",
+        "org.ow2.asm:asm-commons:jar:9.10.1",
+        "org.ow2.asm:asm-tree:jar:9.10.1",
+        "org.ow2.asm:asm:jar:9.10.1",
+        "org.slf4j:slf4j-api:jar:1.7.36"
+      ],
+      "before": [
+        "commons-io:commons-io:jar:2.19.0",
+        "org.apache.maven.doxia:doxia-sink-api:jar:1.0",
+        "org.apache.maven.reporting:maven-reporting-api:jar:3.0",
+        "org.apache.maven.shared:file-management:jar:3.2.0",
+        "org.codehaus.plexus:plexus-utils:jar:3.0.24",
+        "org.jacoco:jacoco-maven-plugin:jar:0.8.15",
+        "org.jacoco:org.jacoco.agent:jar:runtime:0.8.15",
+        "org.jacoco:org.jacoco.core:jar:0.8.15",
+        "org.jacoco:org.jacoco.report:jar:0.8.15",
+        "org.ow2.asm:asm-commons:jar:9.10.1",
+        "org.ow2.asm:asm-tree:jar:9.10.1",
+        "org.ow2.asm:asm:jar:9.10.1",
+        "org.slf4j:slf4j-api:jar:1.7.36"
+      ],
+      "owner": "org.jacoco:jacoco-maven-plugin:jar:0.8.15"
+    }
+  ],
+  "pluginResolutionHashChange": {
+    "from": "499ac20c5ef58a32175399a6e48f6d5f6629a1d4582ba196de9a081ee8fdd98b",
+    "to": "3c3dfbf8460f8cdead51a397447a06e21c979411f3c3dc8d109d0bd1e67769a6"
+  },
+  "previousOwnerInventorySha256": "681a11eff0b240cb5070701b812a19bf01929692413880468c9afb81d49b4214",
+  "releaseBlocked": true,
+  "removedPluginCoordinateCount": 2,
+  "removedPluginCoordinates": [
+    "org.codehaus.plexus:plexus-utils:jar:3.0.24",
+    "org.codehaus.plexus:plexus-utils:jar:3.4.1"
+  ],
+  "repository": "akaryc1b/approval-platform",
+  "runtimeComponentChangeCount": 0,
+  "runtimeEdgeChangeCount": 0,
+  "schemaVersion": "APPROVAL_JACOCO_ANTRUN_GRAPH_TRANSITION_V1",
+  "scopeChangeCount": 0,
+  "suppressions": [],
+  "unchangedOtherPluginOwnerCount": 15
+}

@@ -5,11 +5,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { after } from 'node:test';
+import { retainedJacocoAntRunSource } from './jacoco-antrun-retained-source.mjs';
 
 const views = new Map();
 export function retainedBootUtilitiesSource(source) {
   source = path.resolve(source);
   if (views.has(source)) return views.get(source);
+  const supplied = source;
+  source = retainedJacocoAntRunSource(source).directory;
   const temporary = mkdtempSync(path.join(tmpdir(), 'boot-utilities-history-'));
   const directory = path.join(temporary, 'accepted-http');
   after(() => rmSync(temporary, { recursive: true, force: true }));
@@ -25,6 +28,6 @@ export function retainedBootUtilitiesSource(source) {
   assert.equal(projection.retainedRootPomSha256, 'dd3d2a854fd32d53efc2ccbe0efc1c217af46a7824de89c4c30f5bf29249e3c1');
   assert.equal(projection.retainedSourceRoot, directory);
   const view = { directory, projection };
-  views.set(source, view);
+  views.set(supplied, view);
   return view;
 }

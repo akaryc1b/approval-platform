@@ -112,6 +112,7 @@ test('the real upgrade manifest cannot be edited or supplemented without failing
     'security/checkstyle-guava-graph-transition.mjs', 'security/checkstyle-guava-source-continuation.mjs',
     'security/boot-http-graph-transition.mjs', 'security/boot-http-source-continuation.mjs',
     'security/boot-utilities-graph-transition.mjs', 'security/boot-utilities-source-continuation.mjs',
+    'security/jacoco-antrun-graph-transition.mjs', 'security/jacoco-antrun-source-continuation.mjs',
     'security/osv-scan-coverage.mjs', 'security/scanner-report-structure.mjs',
     'security/maven-workflow-transition.mjs', 'security/hygiene-java21-workflow-transition.mjs', 'ci/maven-toolchain.mjs']) {
     writeFileSync(resolve(directory, `scripts/${file}`), readFileSync(new URL(`../${file}`, import.meta.url)));

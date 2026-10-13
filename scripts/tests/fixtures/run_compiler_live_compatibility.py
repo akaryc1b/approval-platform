@@ -28,6 +28,7 @@ CONTRACT = run_path(str(ROOT / 'scripts/ci/compiler_plugin_contract.py'))
 RELEASE = run_path(str(ROOT / 'scripts/ci/verify-release-plugin-baseline.py'))
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
 UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
+PAIR = run_path(str(ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
 NS = CONTRACT['NS']; P = CONTRACT['P']
 HASHES = json.loads((HERE / 'compiler-artifact-hashes.json').read_text())
 OWNER = 'org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0'
@@ -38,6 +39,11 @@ class Run:
     def __init__(self, source, sandbox, repository, jdk, maven, offline):
         self.source, self.sandbox, self.repository = source, sandbox, repository
         self.jdk, self.maven, self.offline = jdk, maven, offline
+        self.pair_source_projection = None
+        if PAIR['is_pair_source'](source):
+            retained = inside(sandbox / 'accepted-pair-predecessor', sandbox)
+            self.pair_source_projection = PAIR['materialize_retained_source'](source, retained)
+            source = retained; self.source = source
         self.utilities_source_projection = None
         if UTILITIES['is_utilities_source'](source):
             retained = inside(sandbox / 'accepted-utilities-predecessor', sandbox)
@@ -68,6 +74,7 @@ class Run:
             'contractSourceHashes': self.contract_hashes,
             'cases': {}, 'commands': self.commands.results, 'scannerEvidence': False,
             'vulnerableApiReachabilityClaim': False, 'canonicalCiEvidence': False}
+        self.report['pairSourceProjection'] = self.pair_source_projection
         self.report['utilitiesSourceProjection'] = self.utilities_source_projection
         self.report['historicalUtilitiesMaterialized'] = bool(self.utilities_source_projection)
         self.report['bootSourceProjection'] = self.boot_source_projection
@@ -79,6 +86,8 @@ class Run:
         self.poms[file] = text
 
     def containment(self):
+        if self.pair_source_projection:
+            PAIR['verify_projection'](self.pair_source_projection)
         if self.utilities_source_projection:
             UTILITIES['verify_projection'](self.utilities_source_projection)
         if self.boot_source_projection:

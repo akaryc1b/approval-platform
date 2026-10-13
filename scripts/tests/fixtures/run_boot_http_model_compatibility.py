@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Paired actual current-Boot/retained-Guava effective models; plan by default."""
+"""Fixed Boot or JaCoCo/AntRun paired effective models; plan by default."""
 import argparse
 import json
 import os
@@ -18,14 +18,23 @@ from run_boot_live_compatibility import hashes, tree_files, python_origins, runt
 
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
 UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
+PAIR = run_path(str(ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
 TOTAL_SECONDS = 660
+SCHEMAS = {'http': 'BOOT_HTTP_ACTUAL_MODELS_V1', 'utilities': 'BOOT_UTILITIES_ACTUAL_MODELS_V1',
+           'jacoco-antrun': 'JACOCO_ANTRUN_ACTUAL_MODELS_V1'}
+MARKERS = {'http': 'BOOT_HTTP_MODELS_RESULT ', 'utilities': 'BOOT_UTILITIES_MODELS_RESULT ',
+           'jacoco-antrun': 'JACOCO_ANTRUN_MODELS_RESULT '}
 
 
 class ModelRun:
     def __init__(self, source, sandbox, repository, jdk, maven, offline, profile='http'):
-        require(profile in ('http', 'utilities'), 'Named Boot model profile required')
+        require(profile in SCHEMAS, 'Named model profile required')
         self.profile = profile
-        self.contract = BOOT if profile == 'http' else UTILITIES
+        self.contract = {'http': BOOT, 'utilities': UTILITIES, 'jacoco-antrun': PAIR}[profile]
+        self.pair_source_projection = None
+        if profile != 'jacoco-antrun' and PAIR['is_pair_source'](source):
+            self.pair_source_projection = PAIR['materialize_retained_source'](source, sandbox / 'accepted-pair-source')
+            source = Path(self.pair_source_projection['retainedSourceRoot'])
         self.utilities_source_projection = None
         if profile == 'http' and UTILITIES['is_utilities_source'](source):
             self.utilities_source_projection = UTILITIES['materialize_retained_source'](source, sandbox / 'accepted-http-source')
@@ -34,7 +43,7 @@ class ModelRun:
         self.jdk, self.maven, self.offline = jdk, maven, offline
         self.source_hashes = self.contract['source_inventory'](source)
         self.projection = self.contract['materialize_retained_source'](source,
-            sandbox / ('accepted-guava' if profile == 'http' else 'accepted-http'))
+            sandbox / {'http': 'accepted-guava', 'utilities': 'accepted-http', 'jacoco-antrun': 'accepted-utilities'}[profile])
         self.retained = Path(self.projection['retainedSourceRoot'])
         for name in ('home', 'tmp'):
             inside(sandbox / name, sandbox).mkdir()
@@ -48,21 +57,27 @@ class ModelRun:
             HERE / 'run_boot_live_compatibility.py', HERE / 'run_boot_http_compatibility.py',
             HERE / 'run_boot_goal_compatibility.py', ROOT / 'scripts/ci/boot_http_contract.py',
             ROOT / 'scripts/ci/maven-toolchain.mjs', ROOT / 'scripts/ci/boot_utilities_contract.py',
+            ROOT / 'scripts/ci/jacoco_antrun_contract.py',
             ROOT / 'scripts/tests/boot-http-model-live-compatibility.test.mjs',
-            ROOT / 'scripts/tests/boot-utilities-model-live-compatibility.test.mjs'])
+            ROOT / 'scripts/tests/boot-utilities-model-live-compatibility.test.mjs',
+            ROOT / 'scripts/tests/jacoco-antrun-model-live-compatibility.test.mjs'])
         self.python_origins, imported = python_origins()
         self.runtime_hashes = hashes([*runtime_files(jdk, maven, imported), Path('/usr/bin/timeout')])
         self.cache_before = self.cache_inventory()
         self.cache_previous = self.cache_before
         self.cache_snapshots = []
         environment = isolated_env(jdk, sandbox)
+        if profile == 'jacoco-antrun':
+            environment.pop('HOME', None)
         environment.update(LC_ALL='C.UTF-8', TZ='UTC')
         self.commands = Commands(sandbox, environment, TOTAL_SECONDS)
-        self.report = {'schemaVersion': 'BOOT_HTTP_ACTUAL_MODELS_V1' if profile == 'http' else 'BOOT_UTILITIES_ACTUAL_MODELS_V1',
+        self.report = {'schemaVersion': SCHEMAS[profile],
             'dependencyProfile': profile, 'status': 'RUNNING',
+            'historicalPairSourceProjection': self.pair_source_projection,
             'historicalUtilitiesSourceProjection': self.utilities_source_projection,
             'sandbox': str(sandbox), 'offline': offline, 'sourcePomCount': 28,
-            'sourceHashes': self.source_hashes, 'bootSourceProjection': self.projection,
+            'sourceHashes': self.source_hashes,
+            ('pairSourceProjection' if profile == 'jacoco-antrun' else 'bootSourceProjection'): self.projection,
             'executionInputHashes': self.inputs, 'runtimeHashes': self.runtime_hashes,
             'pythonOrigins': self.python_origins, 'invokedPython': str(Path(sys.executable).resolve()),
             'cacheInputsBefore': self.write_cache_manifest('before', self.cache_before), 'cacheSnapshots': self.cache_snapshots,
@@ -71,8 +86,9 @@ class ModelRun:
             'canonicalCiEvidence': False, 'scannerEvidence': False, 'transportCompatibilityClaimed': False,
             'aggregateTimeoutSeconds': TOTAL_SECONDS, 'modelCommandTimeoutSeconds': 300, 'cleanupGraceSeconds': 15,
             'scope': ('Exactly two native help:effective-pom invocations over all26 default-profile reactor projects. '
-                      + ('Retained Boot HTTP and Guava sources are paired' if profile == 'http'
-                         else 'Current Boot utility source and exact retained HTTP predecessor are paired')
+                      + {'http': 'Retained Boot HTTP and Guava sources are paired',
+                         'utilities': 'Accepted Boot utility source and exact retained HTTP predecessor are paired',
+                         'jacoco-antrun': 'Current JaCoCo/AntRun source and exact accepted utilities source are paired'}[profile]
                       + '; overlays remain source-bound only.')}
 
     def write_cache_manifest(self, label, data):
@@ -97,6 +113,8 @@ class ModelRun:
         self.cache_previous = current
 
     def containment(self):
+        if self.pair_source_projection:
+            PAIR['verify_projection'](self.pair_source_projection)
         if self.utilities_source_projection:
             UTILITIES['verify_projection'](self.utilities_source_projection)
         self.contract['verify_projection'](self.projection)
@@ -128,7 +146,8 @@ class ModelRun:
         return stdout, stderr
 
     def execute(self):
-        stdout, stderr = self.run('boot-model-maven-version', [str(self.maven), '--version'], 30)
+        prefix = 'jacoco-antrun' if self.profile == 'jacoco-antrun' else 'boot'
+        stdout, stderr = self.run(prefix + '-model-maven-version', [str(self.maven), '--version'], 30)
         require('Apache Maven 3.9.16' in stdout + stderr and 'Java version: 21.' in stdout + stderr,
                 'Actual Maven3.9.16/JDK21 required')
         self.report['toolchain'] = {'maven': '3.9.16', 'javaMajor': 21}
@@ -139,7 +158,7 @@ class ModelRun:
             # Explicit empty user/global toolchains complement the accepted helper's empty settings.
             command[1:1] = ['--strict-checksums', '-t', str(self.sandbox / 'empty-toolchains.xml'),
                             '-gt', str(self.sandbox / 'empty-toolchains.xml')]
-            self.run('boot-' + label + '-effective-models', command, 300)
+            self.run(prefix + '-' + label + '-effective-models', command, 300)
             require(output.is_file() and output.stat().st_size <= 16 * 1024 * 1024, 'Bounded actual model output required')
         comparison = self.contract['verify_effective'](self.source, self.sandbox / 'candidate-effective-pom.xml',
                                              self.sandbox / 'baseline-effective-pom.xml', self.retained)
@@ -150,9 +169,15 @@ class ModelRun:
         self.report.update(pythonOriginsAfter=origins_after, runtimeInputsStable=True,
             cacheExistingJarPomBytesStable=True, cacheInputsAfter=self.write_cache_manifest('after', self.cache_previous),
             cacheAddedJarPomPaths=sorted(set(self.cache_previous) - set(self.cache_before)))
+        if self.profile == 'jacoco-antrun':
+            self.report.update(activeJacocoModelCount=comparison['activeJacocoModelCount'],
+                managedAntRunModelCount=comparison['managedAntRunModelCount'],
+                antRunExecutionCount=comparison['antRunExecutionCount'])
+        else:
+            self.report.update(managedBootModelCount=comparison['managedBootModelCount'],
+                activeBootModelCount=comparison['activeBootModelCount'], modelChanges=comparison['models'])
         self.report.update(status='PASSED', actualDefaultProfileModelEvidence=True,
-            modelCount=comparison['modelCount'], managedBootModelCount=comparison['managedBootModelCount'],
-            activeBootModelCount=comparison['activeBootModelCount'], modelChanges=comparison['models'],
+            modelCount=comparison['modelCount'],
             allOtherModelFieldsUnchanged=comparison['allOtherModelFieldsUnchanged'],
             effectiveModelSha256=digest(self.sandbox / 'candidate-effective-pom.xml'),
             baselineEffectiveModelSha256=digest(self.sandbox / 'baseline-effective-pom.xml'),
@@ -162,7 +187,7 @@ class ModelRun:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--execute', action='store_true')
-    parser.add_argument('--profile', choices=('http', 'utilities'), default='http')
+    parser.add_argument('--profile', choices=tuple(SCHEMAS), default='http')
     parser.add_argument('--source', type=Path, default=ROOT)
     parser.add_argument('--repository', type=Path)
     parser.add_argument('--evidence-directory', type=Path)
@@ -173,7 +198,8 @@ def main():
             'modelCommandTimeoutSeconds': 300, 'outerTimeoutSeconds': 675, 'cleanupGraceSeconds': 15, 'localAlwaysOffline': True,
             'explicitOptInRequired': True, 'lifecycle': False, 'scannerEvidence': False}))
         return 0
-    opt_in = 'BOOT_HTTP_MODEL_COMPATIBILITY' if args.profile == 'http' else 'BOOT_UTILITIES_MODEL_COMPATIBILITY'
+    opt_in = {'http': 'BOOT_HTTP_MODEL_COMPATIBILITY', 'utilities': 'BOOT_UTILITIES_MODEL_COMPATIBILITY',
+              'jacoco-antrun': 'JACOCO_ANTRUN_MODEL_COMPATIBILITY'}[args.profile]
     require(os.environ.get(opt_in) == 'true', 'Explicit reviewed model opt-in required')
     ci = os.environ.get('GITHUB_ACTIONS') == 'true'
     require(ci or args.repository is not None, 'Local model execution requires explicit offline cache')
@@ -195,7 +221,7 @@ def main():
         run.execute()
         receipt = run.report
     except BaseException as exc:
-        receipt = run.report if run else {'schemaVersion': 'BOOT_HTTP_ACTUAL_MODELS_V1' if args.profile == 'http' else 'BOOT_UTILITIES_ACTUAL_MODELS_V1',
+        receipt = run.report if run else {'schemaVersion': SCHEMAS[args.profile],
                                          'dependencyProfile': args.profile, 'sandbox': str(sandbox)}
         receipt.update(status='FAILED', errorType=type(exc).__name__, error=str(exc), canonicalCiEvidence=False)
     finally:
@@ -203,7 +229,7 @@ def main():
     try:
         receipt['evidenceRetained'] = True
         inside(sandbox / 'result.json', sandbox).write_text(json.dumps(receipt, indent=2) + '\n')
-        marker = 'BOOT_HTTP_MODELS_RESULT ' if args.profile == 'http' else 'BOOT_UTILITIES_MODELS_RESULT '
+        marker = MARKERS[args.profile]
         print(marker + json.dumps(receipt), flush=True)
         return 0 if receipt['status'] == 'PASSED' else 1
     finally:

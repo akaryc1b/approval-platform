@@ -7,8 +7,9 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { retainedBootUtilitiesSource } from './fixtures/boot-utilities-retained-source.mjs';
+import { retainedJacocoAntRunSource } from './fixtures/jacoco-antrun-retained-source.mjs';
 
-const root = fileURLToPath(new URL('../../', import.meta.url));
+const root = retainedJacocoAntRunSource(fileURLToPath(new URL('../../', import.meta.url))).directory;
 const adapter = path.join(root, 'scripts/ci/boot_utilities_contract.py');
 const retained = retainedBootUtilitiesSource(root);
 const raw = readFileSync(path.join(root, 'pom.xml'), 'utf8');
