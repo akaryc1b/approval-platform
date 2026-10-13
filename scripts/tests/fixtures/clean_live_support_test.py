@@ -29,9 +29,15 @@ sys.addaudithook(no_execution)
 # The unchanged historical Release/Clean gate sees the exact retained Guava
 # source. The outer adapter separately verifies every supplied current input.
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
+UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
 retained_directory = tempfile.TemporaryDirectory(prefix='clean-boot-retained-')
 unittest.addModuleCleanup(retained_directory.cleanup)
-boot_projection = BOOT['materialize_retained_source'](ROOT, Path(retained_directory.name) / 'accepted-guava')
+source = ROOT
+if UTILITIES['is_utilities_source'](source):
+    utility_projection = UTILITIES['materialize_retained_source'](source, Path(retained_directory.name) / 'accepted-http')
+    source = Path(utility_projection['retainedSourceRoot'])
+    unittest.addModuleCleanup(UTILITIES['verify_projection'], utility_projection)
+boot_projection = BOOT['materialize_retained_source'](source, Path(retained_directory.name) / 'accepted-guava')
 RETAINED_ROOT = Path(boot_projection['retainedSourceRoot'])
 unittest.addModuleCleanup(BOOT['verify_projection'], boot_projection)
 

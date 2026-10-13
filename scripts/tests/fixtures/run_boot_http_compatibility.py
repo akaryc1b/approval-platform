@@ -91,10 +91,12 @@ def install_deadline(seconds):
     return previous
 
 
-def realm(path, variant):
+def realm(path, variant, profile='http'):
+    require(profile in ('http', 'utilities') and variant in ('baseline', 'candidate'), 'fixed Boot compatibility profile required')
     require(path.is_file() and not path.is_symlink() and path.stat().st_size < 262144, 'bounded realm manifest required')
     data = json.loads(path.read_text())
-    require(data['schemaVersion'] == 'BOOT_HTTP_RESOLVED_REALM_V1' and data['owner'] == OWNER, 'actual Boot realm required')
+    schema = 'BOOT_UTILITIES_RESOLVED_REALM_V1' if profile == 'utilities' else 'BOOT_HTTP_RESOLVED_REALM_V1'
+    require(data['schemaVersion'] == schema and data['owner'] == OWNER, 'actual Boot realm required')
     report = data['sourceOwnerReport']; report_path = Path(report['path'])
     require(report_path.is_file() and digest(report_path) == report['sha256'], 'source owner report drift')
     artifacts = data['artifacts'] + data.get('importedArtifacts', [])
@@ -109,13 +111,17 @@ def realm(path, variant):
         require(re.fullmatch('[0-9a-f]{64}', artifact['sha256']) and digest(jar) == artifact['sha256'], 'JAR bytes drift')
         require(coordinate not in coordinates and fields[1] not in names and str(jar.resolve()) not in paths, 'duplicate JAR identity')
         coordinates.add(coordinate); names.add(fields[1]); paths.add(str(jar.resolve()))
-    client, core = PLAN['variants'][variant]
+    client, core = PLAN['variants']['candidate' if profile == 'utilities' else variant]
     expected = {OWNER, 'org.springframework.boot:spring-boot-buildpack-platform:jar:4.0.8',
                 'org.apache.httpcomponents.client5:httpclient5:jar:' + client,
                 'org.apache.httpcomponents.core5:httpcore5:jar:' + core,
                 'org.apache.httpcomponents.core5:httpcore5-h2:jar:' + core,
                 'tools.jackson.core:jackson-core:jar:3.1.7', 'tools.jackson.core:jackson-databind:jar:3.1.7'}
     require(expected <= coordinates, 'expected Boot/Jackson/HTTP versions absent')
+    if profile == 'utilities':
+        utils, lang = ('3.5.1', '3.16.0') if variant == 'baseline' else ('3.6.1', '3.18.0')
+        require({'org.codehaus.plexus:plexus-utils:jar:' + utils, 'org.apache.commons:commons-lang3:jar:' + lang} <= coordinates,
+                'expected exact Boot utility versions absent')
     return artifacts
 
 
@@ -301,13 +307,15 @@ def execute(seal, linkage_only=False):
     require(os.environ.get('BOOT_HTTP_COMPATIBILITY') == 'true', 'explicit reviewed execution opt-in required')
     check_seal(seal)
     config = seal['config']; jdk = Path(config['jdk']).resolve(); output = Path(config['output']).resolve()
+    profile = config.get('profile', 'http')
+    require(profile in ('http', 'utilities'), 'fixed Boot compatibility profile required')
     require(not output.exists(), 'fresh output directory required')
     require(sys.platform == 'linux', 'this fixture is Linux-only')
     require(all(str(jdk / item) in seal['runtimeHashes'] for item in ('bin/java', 'bin/javac', 'lib/modules', 'conf/security/java.security')), 'JDK runtime not fully bound')
     require('/usr/bin/openssl' in seal['runtimeHashes'] and str(Path(sys.executable).resolve()) in seal['runtimeHashes'], 'fixture runtime not bound')
     manifests = {variant: Path(config[variant + 'Realm']).resolve() for variant in ('baseline', 'candidate')}
     require(all(str(path) in seal['inputHashes'] for path in manifests.values()), 'realm input not sealed')
-    artifacts = {variant: realm(path, variant) for variant, path in manifests.items()}
+    artifacts = {variant: realm(path, variant, profile) for variant, path in manifests.items()}
     output.mkdir(parents=True)
     for name in ('home', 'tmp', 'classes', 'docker'):
         (output / name).mkdir()
@@ -316,7 +324,7 @@ def execute(seal, linkage_only=False):
     environment['DOCKER_CONFIG'] = str(output / 'docker')
     environment['OPENSSL_CONF'] = '/dev/null'
     commands = Commands(output, environment, 240)
-    result = {'status': 'RUNNING', 'plan': PLAN, 'linkageOnly': linkage_only,
+    result = {'status': 'RUNNING', 'plan': PLAN, 'profile': profile, 'linkageOnly': linkage_only,
               'scope': 'Static linkage and Jackson diagnostic only' if linkage_only else 'Full ordinary HTTP/TLS/Unix transport, static linkage and Jackson',
               'sourceHashes': seal['sourceHashes'], 'runtimeHashes': seal['runtimeHashes'],
               'inputHashes': seal['inputHashes'], 'commands': commands.results, 'variants': {},
@@ -357,7 +365,7 @@ def execute(seal, linkage_only=False):
         require(len(result['compiledClasses']) == 2, 'only two probe classes expected')
         for variant in ('baseline', 'candidate'):
             require(all(digest(output / path) == expected for path, expected in result['compiledClasses'].items()), 'compiled class drift')
-            realm(manifests[variant], variant)
+            realm(manifests[variant], variant, profile)
             identity = output / (variant + '-identities.tsv')
             identity.write_text(''.join(item['coordinate'].split(':')[1] + '\t' + item['path'] + '\t' + item['sha256'] + '\n'
                                         for item in artifacts[variant]))

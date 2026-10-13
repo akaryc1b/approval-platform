@@ -25,6 +25,7 @@ from clean_live_support import (execution_mode, write_failure_receipt, verify_lo
                                 require_separate_class_channel, API_ASSERTION_LABELS)
 
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
+UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
 
 CASES = ['defaults', 'defaults-repeat', 'separate-outputs', 'filesets', 'skip', 'exclude-defaults',
          'nested-symlinks', 'root-symlink-characterization', 'explicit-follow-characterization',
@@ -35,6 +36,11 @@ class FixtureRun:
     def __init__(self, sandbox, source, repository, maven, jdk, offline, stage):
         self.sandbox, self.source, self.repository = sandbox, source, repository
         self.maven, self.jdk, self.offline = maven, jdk, offline
+        self.utilities_source_projection = None
+        if UTILITIES['is_utilities_source'](source):
+            retained = inside(sandbox / 'accepted-utilities-predecessor', sandbox)
+            self.utilities_source_projection = UTILITIES['materialize_retained_source'](source, retained)
+            source = retained; self.source = source
         self.boot_source_projection = None
         if BOOT['is_boot_source'](source):
             retained = inside(sandbox / 'accepted-boot-predecessor', sandbox)
@@ -50,6 +56,8 @@ class FixtureRun:
                        'cases': {name: {'status': 'NOT_RUN'} for name in CASES} if stage == 'fixtures' else {},
                        'commands': self.commands.results, 'coverageGaps': [],
                        'scannerEvidence': False, 'vulnerableApiReachabilityClaim': False}
+        self.report['utilitiesSourceProjection'] = self.utilities_source_projection
+        self.report['historicalUtilitiesMaterialized'] = bool(self.utilities_source_projection)
         self.report['bootSourceProjection'] = self.boot_source_projection
         self.report['historicalBootMaterialized'] = bool(self.boot_source_projection)
         self.report['harnessSourceHashes'] = {file.name: digest(file) for file in [
@@ -65,6 +73,8 @@ class FixtureRun:
         self.poms[file] = xml
 
     def containment(self):
+        if self.utilities_source_projection:
+            UTILITIES['verify_projection'](self.utilities_source_projection)
         if self.boot_source_projection:
             BOOT['verify_projection'](self.boot_source_projection)
         require(self.identity == (self.sandbox.stat().st_dev, self.sandbox.stat().st_ino)

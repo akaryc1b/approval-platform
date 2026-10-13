@@ -26,6 +26,7 @@ from checkstyle_live_support import (HERE, ROOT, NS, CASES, GOAL, REPORT_GOAL, M
     realm_artifacts, realm_imports, require, source_inputs, transition_spec)
 
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
+UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
 
 GOOD = 'package fixture;\npublic class Good { String value = "café"; }\n'
 TEST_GOOD = 'package fixture;\npublic class TestGood { int value = 1; }\n'
@@ -70,6 +71,11 @@ class Run:
         self.source, self.sandbox, self.repository = source, sandbox, repository
         self.jdk, self.maven, self.offline, self.stage, self.baseline = jdk, maven, offline, stage, baseline
         self.transition, self.spec = transition, transition_spec(transition)
+        self.utilities_source_projection = None
+        if UTILITIES['is_utilities_source'](source):
+            retained = inside(sandbox / 'accepted-utilities-predecessor', sandbox)
+            self.utilities_source_projection = UTILITIES['materialize_retained_source'](source, retained)
+            source = retained; self.source = source
         self.boot_source_projection = None
         if BOOT['is_boot_source'](source):
             retained = inside(sandbox / 'accepted-boot-predecessor', sandbox)
@@ -112,6 +118,8 @@ class Run:
         self.report = {'status': 'RUNNING', 'stage': stage, 'variant': 'baseline' if baseline else 'candidate',
             'offline': offline, 'sandbox': str(sandbox), 'transition': transition, 'sourceHashes': self.source_hashes,
             'suppliedSourceHashes': self.supplied_hashes, 'historicalLangMaterialized': bool(self.supplied_hashes),
+            'utilitiesSourceProjection': self.utilities_source_projection,
+            'historicalUtilitiesMaterialized': bool(self.utilities_source_projection),
             'bootSourceProjection': self.boot_source_projection,
             'historicalBootMaterialized': bool(self.boot_source_projection),
             'harnessSourceHashes': self.harness_hashes, 'contractSourceHashes': self.contract_hashes,
@@ -123,6 +131,8 @@ class Run:
         inside(file, self.sandbox).write_bytes(data); self.fixed[file] = data
 
     def containment(self):
+        if self.utilities_source_projection:
+            UTILITIES['verify_projection'](self.utilities_source_projection)
         if self.boot_source_projection:
             BOOT['verify_projection'](self.boot_source_projection)
         require(not self.sandbox.is_symlink() and self.identity == (self.sandbox.stat().st_dev, self.sandbox.stat().st_ino), 'sandbox identity drift')

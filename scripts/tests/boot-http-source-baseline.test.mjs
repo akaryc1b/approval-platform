@@ -7,8 +7,11 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { retainedBootSource } from './fixtures/boot-http-retained-source.mjs';
+import { retainedBootUtilitiesSource } from './fixtures/boot-utilities-retained-source.mjs';
 
-const root = fileURLToPath(new URL('../../', import.meta.url));
+const suppliedRoot = fileURLToPath(new URL('../../', import.meta.url));
+// The current utility source has its own strict guards. Preserve this HTTP transition's exact source view.
+const root = retainedBootUtilitiesSource(suppliedRoot).directory;
 const adapter = path.join(root, 'scripts/ci/boot_http_contract.py');
 const retained = retainedBootSource(root);
 const raw = readFileSync(path.join(root, 'pom.xml'), 'utf8');

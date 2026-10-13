@@ -17,15 +17,24 @@ from run_boot_http_compatibility import install_deadline, ignore_terminal_signal
 from run_boot_live_compatibility import hashes, tree_files, python_origins, runtime_files
 
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
+UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
 TOTAL_SECONDS = 660
 
 
 class ModelRun:
-    def __init__(self, source, sandbox, repository, jdk, maven, offline):
+    def __init__(self, source, sandbox, repository, jdk, maven, offline, profile='http'):
+        require(profile in ('http', 'utilities'), 'Named Boot model profile required')
+        self.profile = profile
+        self.contract = BOOT if profile == 'http' else UTILITIES
+        self.utilities_source_projection = None
+        if profile == 'http' and UTILITIES['is_utilities_source'](source):
+            self.utilities_source_projection = UTILITIES['materialize_retained_source'](source, sandbox / 'accepted-http-source')
+            source = Path(self.utilities_source_projection['retainedSourceRoot'])
         self.source, self.sandbox, self.repository = source, sandbox, repository
         self.jdk, self.maven, self.offline = jdk, maven, offline
-        self.source_hashes = BOOT['source_inventory'](source)
-        self.projection = BOOT['materialize_retained_source'](source, sandbox / 'accepted-guava')
+        self.source_hashes = self.contract['source_inventory'](source)
+        self.projection = self.contract['materialize_retained_source'](source,
+            sandbox / ('accepted-guava' if profile == 'http' else 'accepted-http'))
         self.retained = Path(self.projection['retainedSourceRoot'])
         for name in ('home', 'tmp'):
             inside(sandbox / name, sandbox).mkdir()
@@ -38,7 +47,9 @@ class ModelRun:
         self.inputs = hashes([Path(__file__).resolve(), HERE / 'checkstyle_live_support.py',
             HERE / 'run_boot_live_compatibility.py', HERE / 'run_boot_http_compatibility.py',
             HERE / 'run_boot_goal_compatibility.py', ROOT / 'scripts/ci/boot_http_contract.py',
-            ROOT / 'scripts/ci/maven-toolchain.mjs', ROOT / 'scripts/tests/boot-http-model-live-compatibility.test.mjs'])
+            ROOT / 'scripts/ci/maven-toolchain.mjs', ROOT / 'scripts/ci/boot_utilities_contract.py',
+            ROOT / 'scripts/tests/boot-http-model-live-compatibility.test.mjs',
+            ROOT / 'scripts/tests/boot-utilities-model-live-compatibility.test.mjs'])
         self.python_origins, imported = python_origins()
         self.runtime_hashes = hashes([*runtime_files(jdk, maven, imported), Path('/usr/bin/timeout')])
         self.cache_before = self.cache_inventory()
@@ -47,7 +58,9 @@ class ModelRun:
         environment = isolated_env(jdk, sandbox)
         environment.update(LC_ALL='C.UTF-8', TZ='UTC')
         self.commands = Commands(sandbox, environment, TOTAL_SECONDS)
-        self.report = {'schemaVersion': 'BOOT_HTTP_ACTUAL_MODELS_V1', 'status': 'RUNNING',
+        self.report = {'schemaVersion': 'BOOT_HTTP_ACTUAL_MODELS_V1' if profile == 'http' else 'BOOT_UTILITIES_ACTUAL_MODELS_V1',
+            'dependencyProfile': profile, 'status': 'RUNNING',
+            'historicalUtilitiesSourceProjection': self.utilities_source_projection,
             'sandbox': str(sandbox), 'offline': offline, 'sourcePomCount': 28,
             'sourceHashes': self.source_hashes, 'bootSourceProjection': self.projection,
             'executionInputHashes': self.inputs, 'runtimeHashes': self.runtime_hashes,
@@ -57,7 +70,10 @@ class ModelRun:
             'actualModelSourceRoots': {'baseline': str(self.retained), 'candidate': str(source)},
             'canonicalCiEvidence': False, 'scannerEvidence': False, 'transportCompatibilityClaimed': False,
             'aggregateTimeoutSeconds': TOTAL_SECONDS, 'modelCommandTimeoutSeconds': 300, 'cleanupGraceSeconds': 15,
-            'scope': 'Exactly two native help:effective-pom invocations over all26 default-profile reactor projects. Current Boot source and exact retained Guava predecessor are paired; overlays remain source-bound only.'}
+            'scope': ('Exactly two native help:effective-pom invocations over all26 default-profile reactor projects. '
+                      + ('Retained Boot HTTP and Guava sources are paired' if profile == 'http'
+                         else 'Current Boot utility source and exact retained HTTP predecessor are paired')
+                      + '; overlays remain source-bound only.')}
 
     def write_cache_manifest(self, label, data):
         file = self.sandbox / ('cache-' + label + '.json')
@@ -81,8 +97,10 @@ class ModelRun:
         self.cache_previous = current
 
     def containment(self):
-        BOOT['verify_projection'](self.projection)
-        require(BOOT['source_inventory'](self.source) == self.source_hashes, 'Current Boot source changed')
+        if self.utilities_source_projection:
+            UTILITIES['verify_projection'](self.utilities_source_projection)
+        self.contract['verify_projection'](self.projection)
+        require(self.contract['source_inventory'](self.source) == self.source_hashes, 'Selected Boot model source changed')
         for inputs in (self.inputs, self.runtime_hashes):
             require(all(Path(file).is_file() and digest(Path(file)) == expected for file, expected in inputs.items()),
                     'Model execution source/runtime input changed')
@@ -123,7 +141,7 @@ class ModelRun:
                             '-gt', str(self.sandbox / 'empty-toolchains.xml')]
             self.run('boot-' + label + '-effective-models', command, 300)
             require(output.is_file() and output.stat().st_size <= 16 * 1024 * 1024, 'Bounded actual model output required')
-        comparison = BOOT['verify_effective'](self.source, self.sandbox / 'candidate-effective-pom.xml',
+        comparison = self.contract['verify_effective'](self.source, self.sandbox / 'candidate-effective-pom.xml',
                                              self.sandbox / 'baseline-effective-pom.xml', self.retained)
         self.containment()
         origins_after, imported_after = python_origins()
@@ -144,17 +162,19 @@ class ModelRun:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--execute', action='store_true')
+    parser.add_argument('--profile', choices=('http', 'utilities'), default='http')
     parser.add_argument('--source', type=Path, default=ROOT)
     parser.add_argument('--repository', type=Path)
     parser.add_argument('--evidence-directory', type=Path)
     args = parser.parse_args()
     if not args.execute:
-        print(json.dumps({'execution': 'NOT_RUN', 'goal': MODEL_GOAL, 'actualModelCommands': 2,
+        print(json.dumps({'execution': 'NOT_RUN', 'dependencyProfile': args.profile, 'goal': MODEL_GOAL, 'actualModelCommands': 2,
             'modelCountPerCommand': 26, 'aggregateTimeoutSeconds': TOTAL_SECONDS,
             'modelCommandTimeoutSeconds': 300, 'outerTimeoutSeconds': 675, 'cleanupGraceSeconds': 15, 'localAlwaysOffline': True,
             'explicitOptInRequired': True, 'lifecycle': False, 'scannerEvidence': False}))
         return 0
-    require(os.environ.get('BOOT_HTTP_MODEL_COMPATIBILITY') == 'true', 'Explicit reviewed model opt-in required')
+    opt_in = 'BOOT_HTTP_MODEL_COMPATIBILITY' if args.profile == 'http' else 'BOOT_UTILITIES_MODEL_COMPATIBILITY'
+    require(os.environ.get(opt_in) == 'true', 'Explicit reviewed model opt-in required')
     ci = os.environ.get('GITHUB_ACTIONS') == 'true'
     require(ci or args.repository is not None, 'Local model execution requires explicit offline cache')
     require(os.name == 'posix', 'POSIX model process-group control required')
@@ -171,18 +191,20 @@ def main():
     previous_handlers = install_deadline(TOTAL_SECONDS)
     run = None
     try:
-        run = ModelRun(source, sandbox, repository, jdk, Path(executable).resolve(), not ci)
+        run = ModelRun(source, sandbox, repository, jdk, Path(executable).resolve(), not ci, args.profile)
         run.execute()
         receipt = run.report
     except BaseException as exc:
-        receipt = run.report if run else {'schemaVersion': 'BOOT_HTTP_ACTUAL_MODELS_V1', 'sandbox': str(sandbox)}
+        receipt = run.report if run else {'schemaVersion': 'BOOT_HTTP_ACTUAL_MODELS_V1' if args.profile == 'http' else 'BOOT_UTILITIES_ACTUAL_MODELS_V1',
+                                         'dependencyProfile': args.profile, 'sandbox': str(sandbox)}
         receipt.update(status='FAILED', errorType=type(exc).__name__, error=str(exc), canonicalCiEvidence=False)
     finally:
         ignore_terminal_signals(); signal.alarm(0)
     try:
         receipt['evidenceRetained'] = True
         inside(sandbox / 'result.json', sandbox).write_text(json.dumps(receipt, indent=2) + '\n')
-        print('BOOT_HTTP_MODELS_RESULT ' + json.dumps(receipt), flush=True)
+        marker = 'BOOT_HTTP_MODELS_RESULT ' if args.profile == 'http' else 'BOOT_UTILITIES_MODELS_RESULT '
+        print(marker + json.dumps(receipt), flush=True)
         return 0 if receipt['status'] == 'PASSED' else 1
     finally:
         restore_signals(previous_handlers)

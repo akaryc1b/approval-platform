@@ -56,6 +56,14 @@ export { BOOT_HTTP_GRAPH, readBootHttpManifest, readBootHttpCandidate,
   readBootHttpPreservedGuavaLineage, verifyBootHttpDelta, verifyBootHttpOwnerDelta }
   from './boot-http-graph-transition.mjs';
 
+import { BOOT_UTILITIES_GRAPH, BOOT_UTILITIES_MANIFEST_SHA256, readBootUtilitiesManifest,
+  readBootUtilitiesBaseline, readBootUtilitiesPreservedBootHttpLineage,
+  verifyBootUtilitiesDelta, verifyBootUtilitiesCurrentEvidence } from './boot-utilities-graph-transition.mjs';
+export { BOOT_UTILITIES_GRAPH, readBootUtilitiesManifest, readBootUtilitiesCandidate,
+  readBootUtilitiesBaseline, readBootUtilitiesSourceWitness, readBootUtilitiesReport,
+  readBootUtilitiesPreservedBootHttpLineage, verifyBootUtilitiesDelta, verifyBootUtilitiesOwnerDelta }
+  from './boot-utilities-graph-transition.mjs';
+
 export const BASE_GRAPH = '2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94';
 export const OBSERVABILITY_GRAPH = '27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37';
 export const OBSERVABILITY_OTEL_GRAPH = '390773d2aa746a2203eec870e5dd0a8f97f81e91913bb016c9ef95b749c0e7b3';
@@ -387,6 +395,27 @@ function bootHttpReceipt(identity) {
   return { ...payload, contentSha256: graphHash(payload) };
 }
 
+function bootUtilitiesReceipt(identity) {
+  const manifest = readBootUtilitiesManifest(), preserved = readBootUtilitiesPreservedBootHttpLineage(manifest);
+  requireValue(canonicalGraph(preserved) === canonicalGraph(bootHttpReceipt({
+    commitSha: manifest.base.sourceHead, contentSha256: manifest.base.e2.contentSha256,
+  })), 'Boot utilities preserved accepted main HTTP receipt mismatch');
+  const payload = {
+    schemaVersion: 'APPROVAL_BOOT_UTILITIES_GRAPH_LINEAGE_V1',
+    repository: REPOSITORY, commitSha: identity.commitSha, sourceE2ContentSha256: identity.contentSha256,
+    baseE2GraphDigest: BASE_GRAPH, priorE2GraphDigest: BOOT_HTTP_GRAPH,
+    currentE2GraphDigest: BOOT_UTILITIES_GRAPH, manifestSha256: BOOT_UTILITIES_MANIFEST_SHA256,
+    sourceWitnessSha256: manifest.capture.sourceWitness.rawSha256,
+    preservedBootHttpLineage: preserved, archivalCandidate: manifest.capture,
+    addedPluginCoordinateCount: manifest.addedPluginCoordinateCount,
+    removedPluginCoordinateCount: manifest.removedPluginCoordinateCount,
+    unchangedOtherPluginOwnerCount: 16, runtimeComponentChangeCount: 0, runtimeEdgeChangeCount: 0,
+    importedBomChangeCount: 0, scopeChangeCount: 0, licenseChangeCount: 0,
+    inventory: manifest.inventory, findingReviewRequired: true, releaseBlocked: true,
+  };
+  return { ...payload, contentSha256: graphHash(payload) };
+}
+
 /** Graph admission is not finding disposition or production authorization. */
 export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, expectedCommitSha) {
   requireValue(e2.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(e2.commitSha || ''),
@@ -403,6 +432,14 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, exp
   }), 'E2 graph projection mismatch');
   const digest = graphHash(projection);
   requireValue(expectedBaseDigest === BASE_GRAPH, 'unrecognized dependency graph baseline');
+  if (digest === BOOT_UTILITIES_GRAPH) {
+    requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e2.commitSha === expectedCommitSha, 'Boot utilities E2 requires current verified head and schema');
+    verifyBootUtilitiesCurrentEvidence(e2);
+    const previous = verifyBootUtilitiesDelta(projection), baseline = readBootUtilitiesBaseline();
+    verifyObservabilityGraph(baseline, previous, BASE_GRAPH, baseline.commitSha);
+    return bootUtilitiesReceipt(e2);
+  }
   if (digest === BOOT_HTTP_GRAPH) {
     requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
       && e2.commitSha === expectedCommitSha, 'Boot HTTP E2 requires current verified head and schema');
@@ -463,6 +500,14 @@ export function requirePreservedGraph(e4, historicalGraph, expectedCommitSha) {
   if (e4.e2GraphDigest === historicalGraph) {
     requireValue(e4.e2GraphTransition === undefined, 'unexpected dependency graph lineage');
     return null;
+  }
+  if (e4.e2GraphDigest === BOOT_UTILITIES_GRAPH) {
+    requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e4.commitSha === expectedCommitSha && /^[0-9a-f]{64}$/.test(e4.e2CurrentContentSha256 || ''),
+    'Boot utilities receipt requires current verified head and E2 identity');
+    const expected = bootUtilitiesReceipt({ commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 });
+    requireValue(canonicalGraph(e4.e2GraphTransition) === canonicalGraph(expected), 'Boot utilities E2 graph lineage mismatch');
+    return expected;
   }
   if (e4.e2GraphDigest === BOOT_HTTP_GRAPH) {
     requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')

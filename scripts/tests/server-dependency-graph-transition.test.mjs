@@ -229,6 +229,7 @@ test('production entrypoint rejects edited manifest, source witness or archival 
     'scripts/security/compiler-plugin-graph-transition.mjs', 'scripts/security/compiler-plugin-source-continuation.mjs',
     'scripts/security/checkstyle-guava-graph-transition.mjs', 'scripts/security/checkstyle-guava-source-continuation.mjs',
     'scripts/security/boot-http-graph-transition.mjs', 'scripts/security/boot-http-source-continuation.mjs',
+    'scripts/security/boot-utilities-graph-transition.mjs', 'scripts/security/boot-utilities-source-continuation.mjs',
     'scripts/security/checkstyle-plugin-graph-transition.mjs', 'scripts/security/checkstyle-plugin-source-continuation.mjs',
     'scripts/security/osv-scan-coverage.mjs', 'scripts/security/scanner-report-structure.mjs',
     'scripts/security/clean-plugin-graph-transition.mjs', 'scripts/security/m6-pr-e-e2-generate-sbom.mjs',

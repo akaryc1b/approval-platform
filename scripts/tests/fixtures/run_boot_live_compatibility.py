@@ -17,10 +17,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from checkstyle_live_support import Commands, CENTRAL_SETTINGS, NS, P, cached_files, digest, isolated_env, prepare_repository, require
 import run_boot_http_compatibility as http
 import run_boot_goal_compatibility as goals
+import run_boot_utilities_compatibility as utilities
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 PINS = HERE / 'boot-http-artifact-pins.json'
+UTILITY_PINS = HERE / 'boot-utilities-artifact-pins.json'
 RESOLVE = 'org.apache.maven.plugins:maven-dependency-plugin:3.11.0:resolve-plugins'
 SETTINGS = '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"/>\n'
 PLAN = {'execution': 'NOT_RUN', 'explicitOptIn': 'BOOT_HTTP_COMPATIBILITY=true',
@@ -33,23 +35,34 @@ PLAN = {'execution': 'NOT_RUN', 'explicitOptIn': 'BOOT_HTTP_COMPATIBILITY=true',
         'unixFailureIsFatal': True, 'scannerEvidence': False}
 
 
-def read_pins(path=None):
-    data = json.loads((path or PINS).read_text())
-    require(data['schemaVersion'] == 'BOOT_HTTP_PORTABLE_PINS_V1' and data['owner'] == http.OWNER, 'portable pins required')
+def profile_plan(profile='http'):
+    require(profile in ('http', 'utilities'), 'fixed Boot compatibility profile required')
+    if profile == 'http':
+        return PLAN
+    return dict(PLAN, explicitOptIn='BOOT_HTTP_COMPATIBILITY=true and BOOT_UTILITIES_COMPATIBILITY=true',
+                profile='utilities', artifactUnionCount=41,
+                requiredStages=[*PLAN['requiredStages'], 'actual Boot utilities consumers and 31-member linkage'])
+
+
+def read_pins(path=None, profile='http'):
+    require(profile in ('http', 'utilities'), 'fixed Boot compatibility profile required')
+    data = json.loads((path or (UTILITY_PINS if profile == 'utilities' else PINS)).read_text())
+    schema = 'BOOT_UTILITIES_PORTABLE_PINS_V1' if profile == 'utilities' else 'BOOT_HTTP_PORTABLE_PINS_V1'
+    require(data['schemaVersion'] == schema and data['owner'] == http.OWNER, 'portable pins required')
     hashes = data['artifactHashes']
     require(set(data['variants']) == {'baseline', 'candidate'}, 'exact pin variants required')
-    require(len(hashes) == 42 and all(re.fullmatch('[0-9a-f]{64}', value) for value in hashes.values()), '42 valid artifact pins required')
+    require(len(hashes) == (41 if profile == 'utilities' else 42) and all(re.fullmatch('[0-9a-f]{64}', value) for value in hashes.values()), 'exact valid artifact pins required')
     require(all(re.fullmatch(r'[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+:jar:[A-Za-z0-9_.-]+', key) for key in hashes), 'plain portable JAR coordinates required')
     for variant in ('baseline', 'candidate'):
         coordinates = data['variants'][variant]
         require(len(coordinates) == len(set(coordinates)) == 39 and set(coordinates) <= hashes.keys(), '39 ordered distinct coordinates required')
     require(set(sum(data['variants'].values(), [])) == set(hashes), 'pin union differs')
-    goals.compare_realms(data['variants']['baseline'], data['variants']['candidate'])
+    goals.compare_realms(data['variants']['baseline'], data['variants']['candidate'], profile)
     return data
 
 
-def project_text(variant):
-    project = ET.fromstring(goals.fixture_pom(variant))
+def project_text(variant, profile='http'):
+    project = ET.fromstring(goals.fixture_pom(variant, profile))
     # A POM project avoids resolving default compile/resource/test plugins.
     project.find('m:packaging', NS).text = 'pom'
     plugins = project.find('m:build/m:plugins', NS)
@@ -168,6 +181,10 @@ def execute(args):
 
 def execute_bounded(args, deadline):
     require(sys.platform == 'linux', 'full Linux HTTP/TLS/Unix fixtures required')
+    profile = getattr(args, 'profile', 'http')
+    require(profile in ('http', 'utilities'), 'fixed Boot compatibility profile required')
+    if profile == 'utilities':
+        require(os.environ.get('BOOT_UTILITIES_COMPATIBILITY') == 'true', 'explicit utility profile opt-in required')
     ci = os.environ.get('GITHUB_ACTIONS') == 'true'
     require(ci or args.repository is not None, 'local execution requires explicit existing repository')
     repository = (args.repository or Path.home() / '.m2/repository').resolve()
@@ -191,10 +208,15 @@ def execute_bounded(args, deadline):
     put(sandbox / 'empty-settings.xml', SETTINGS)
     put(sandbox / 'empty-toolchains.xml', '<toolchains/>\n')
     for variant in ('baseline', 'candidate'):
-        put(sandbox / (variant + '-pom.xml'), project_text(variant))
-    source_hashes = hashes([*http.SOURCES, HERE / 'run_boot_goal_compatibility.py', Path(__file__).resolve(), PINS,
+        put(sandbox / (variant + '-pom.xml'), project_text(variant, profile))
+    source_inventory = goals.utilities_contract.source_inventory(ROOT, current=goals.utilities_contract.is_utilities_source(ROOT))
+    source_hashes = hashes([*http.SOURCES, *utilities.sources(), HERE / 'run_boot_goal_compatibility.py', Path(__file__).resolve(), PINS,
+                            UTILITY_PINS, ROOT / 'scripts/ci/boot_utilities_contract.py', ROOT / goals.utilities_contract.WITNESS,
+                            *(ROOT / name for name in source_inventory),
                             ROOT / 'pom.xml', ROOT / 'scripts/tests/boot-http-plugin-live-compatibility.test.mjs',
-                            ROOT / 'scripts/tests/boot-http-compatibility-harness.test.mjs'])
+                            ROOT / 'scripts/tests/boot-http-compatibility-harness.test.mjs',
+                            ROOT / 'scripts/tests/boot-utilities-plugin-live-compatibility.test.mjs',
+                            ROOT / 'scripts/tests/boot-utilities-compatibility-harness.test.mjs'])
     origins, imported_files = python_origins()
     runtime_hashes = hashes(runtime_files(jdk, maven, imported_files))
     put(sandbox / 'python-origins.json', json.dumps(origins, indent=2) + '\n')
@@ -203,7 +225,7 @@ def execute_bounded(args, deadline):
         MAVEN_OPTS='-Xmx384m -XX:MaxMetaspaceSize=192m -Duser.home=' + str(sandbox / 'home')
                    + ' -Djava.io.tmpdir=' + str(sandbox / 'tmp'))
     commands = Commands(sandbox, environment, 1200)
-    receipt = {'status': 'RUNNING', 'sandbox': str(sandbox), 'commands': commands.results,
+    receipt = {'status': 'RUNNING', 'profile': profile, 'sandbox': str(sandbox), 'commands': commands.results,
         'cachePreparation': {'mode': 'ci-central-plugin-resolution' if ci else 'offline-existing-cache',
                              'status': 'RUNNING', 'acceptanceGoal': False, 'resolutionCommandsRun': 0},
         'sourceHashes': source_hashes, 'runtimeHashes': runtime_hashes, 'pythonOrigins': origins,
@@ -234,7 +256,7 @@ def execute_bounded(args, deadline):
     def stage_deadline(seconds):
         return bounded_deadline(deadline, original_deadlines[0], seconds)
     try:
-        pins = read_pins()
+        pins = read_pins(profile=profile)
         # Fail on present-but-wrong bytes before any network preparation.
         cached_files(repository, pins['artifactHashes'], allow_missing=ci)
         version = ''.join(run('maven-version', [str(maven), '--version'], 15))
@@ -255,7 +277,7 @@ def execute_bounded(args, deadline):
             run('owners-' + variant, resolve_command(maven, sandbox, repository, variant, report, False), 120)
             observed = owner_coordinates(report, pins['variants'][variant])
             fixed[str(report)] = digest(report)
-            manifest = {'schemaVersion': 'BOOT_HTTP_RESOLVED_REALM_V1', 'owner': http.OWNER,
+            manifest = {'schemaVersion': 'BOOT_UTILITIES_RESOLVED_REALM_V1' if profile == 'utilities' else 'BOOT_HTTP_RESOLVED_REALM_V1', 'owner': http.OWNER,
                 'sourceOwnerReport': {'path': str(report), 'sha256': digest(report)},
                 'artifacts': [{'coordinate': item, **cached[item]} for item in observed], 'importedArtifacts': []}
             put(sandbox / (variant + '-realm.json'), json.dumps(manifest, indent=2) + '\n')
@@ -264,10 +286,13 @@ def execute_bounded(args, deadline):
         # Bind every potentially loaded cache JAR/POM after preparation. This also
         # covers Dependency/JAR-plugin tooling without inventing Boot-realm pins.
         input_hashes = fixed | cache_seal
-        for stage, driver in [('transport', http), ('goals', goals)]:
+        stages = [('transport', http), ('goals', goals)]
+        if profile == 'utilities':
+            stages.append(('utilities', utilities))
+        for stage, driver in stages:
             seal = {'schemaVersion': 'BOOT_HTTP_EXECUTION_SEAL_V1', 'sourceHashes': source_hashes,
                 'runtimeHashes': runtime_hashes, 'inputHashes': input_hashes,
-                'config': {'jdk': str(jdk), 'maven': str(maven), 'repository': str(repository),
+                'config': {'jdk': str(jdk), 'maven': str(maven), 'repository': str(repository), 'profile': profile,
                     'output': str(sandbox / stage),
                     **{variant + 'Realm': str(sandbox / (variant + '-realm.json')) for variant in ('baseline', 'candidate')}}}
             seal_file = sandbox / (stage + '-seal.json')
@@ -305,8 +330,9 @@ if __name__ == '__main__':
     parser.add_argument('--execute', action='store_true')
     parser.add_argument('--repository', type=Path)
     parser.add_argument('--evidence-directory', type=Path)
+    parser.add_argument('--profile', choices=('http', 'utilities'), default='http')
     args = parser.parse_args()
     if args.execute:
         execute(args)
     else:
-        print(json.dumps(PLAN, indent=2))
+        print(json.dumps(profile_plan(args.profile), indent=2))

@@ -15,6 +15,8 @@ const run = directory => spawnSync('python3', ['-I', '-S', '-B', checker, `--roo
 const pluginDependency = name => {
   const patterns = {
     'httpclient5': /                        <dependency>\s*<groupId>org\.apache\.httpcomponents\.client5<\/groupId>\s*<artifactId>httpclient5<\/artifactId>[\s\S]*?<\/dependency>\n/,
+    'plexus-utils': /                        <dependency>\s*<groupId>org\.codehaus\.plexus<\/groupId>\s*<artifactId>plexus-utils<\/artifactId>\s*<version>3\.6\.1<\/version>[\s\S]*?<\/dependency>\n/,
+    'commons-lang3': /                        <dependency>\s*<groupId>org\.apache\.commons<\/groupId>\s*<artifactId>commons-lang3<\/artifactId>\s*<version>3\.18\.0<\/version>[\s\S]*?<\/dependency>\n/,
     'jackson-core': /                        <dependency>\s*<groupId>tools\.jackson\.core<\/groupId>\s*<artifactId>jackson-core<\/artifactId>[\s\S]*?<\/dependency>\n/,
     'jackson-databind': /                        <dependency>\s*<groupId>tools\.jackson\.core<\/groupId>\s*<artifactId>jackson-databind<\/artifactId>[\s\S]*?<\/dependency>\n/
   };
@@ -54,6 +56,19 @@ for (const [name, mutate] of [
   ['plugin HTTP Client wrong group', pom => pom.replace(pluginDependency('httpclient5'), entry => entry.replace('org.apache.httpcomponents.client5', 'unexpected.group'))],
   ['extra plugin HTTP Core pin', pom => pom.replace(pluginDependency('httpclient5'), entry => entry + entry.replace('org.apache.httpcomponents.client5', 'org.apache.httpcomponents.core5').replace('httpclient5', 'httpcore5').replace('5.6.3', '5.4.3'))],
   ['extra unrelated plugin dependency', pom => pom.replace(pluginDependency('httpclient5'), entry => entry + entry.replace('org.apache.httpcomponents.client5', 'unexpected.group').replace('httpclient5', 'unexpected-artifact'))],
+  ...[['plexus-utils', '3.6.1', '3.5.1'], ['commons-lang3', '3.18.0', '3.16.0']].flatMap(([artifact, current, prior]) => [
+    [`missing private ${artifact}`, pom => pom.replace(pluginDependency(artifact), '')],
+    [`old private ${artifact}`, pom => pom.replace(pluginDependency(artifact), entry => entry.replace(current, prior))],
+    [`duplicate private ${artifact}`, pom => pom.replace(pluginDependency(artifact), entry => entry + entry)],
+    [`private ${artifact} test scope`, pom => pom.replace(pluginDependency(artifact), entry => entry.replace('</dependency>', '<scope>test</scope></dependency>'))],
+    [`private ${artifact} duplicate version`, pom => pom.replace(pluginDependency(artifact), entry => entry.replace('</dependency>', `<version>${current}</version></dependency>`))],
+    [`private ${artifact} runtime escape`, pom => pom.replace('</project>', `<dependencies>${pom.match(pluginDependency(artifact))[0]}</dependencies></project>`)],
+  ]),
+  ['private utility order drift', pom => {
+    const plexus = pom.match(pluginDependency('plexus-utils'))[0];
+    const lang = pom.match(pluginDependency('commons-lang3'))[0];
+    return pom.replace(plexus + lang, lang + plexus);
+  }],
   ...[
     ['type', '<type>pom</type>'],
     ['classifier', '<classifier>tests</classifier>'],
@@ -98,6 +113,13 @@ const effectiveVersions = [
   ...['core', 'el', 'websocket'].map(name => [`org.apache.tomcat.embed:tomcat-embed-${name}`, '11.0.26']),
 ];
 const effectiveHttpClient = '<dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId><version>5.6.3</version></dependency>';
+const effectiveUtilities = [
+  ['org.codehaus.plexus', 'plexus-utils', '3.6.1', '3.5.1'],
+  ['org.apache.commons', 'commons-lang3', '3.18.0', '3.16.0'],
+].map(([group, artifact, version, prior]) => ({
+  artifact, version, prior,
+  xml: `<dependency><groupId>${group}</groupId><artifactId>${artifact}</artifactId><version>${version}</version></dependency>`,
+}));
 function effectiveFixture(versions = effectiveVersions, pluginVersion = '4.0.8') {
   return `<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
     <dependencyManagement><dependencies>${versions.map(([id, version]) => {
@@ -105,7 +127,7 @@ function effectiveFixture(versions = effectiveVersions, pluginVersion = '4.0.8')
       return `<dependency><groupId>${group}</groupId><artifactId>${name}</artifactId><version>${version}</version></dependency>`;
     }).join('')}</dependencies></dependencyManagement><build><pluginManagement><plugins><plugin>
     <groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><version>${pluginVersion}</version>
-    <dependencies>${effectiveHttpClient}${['jackson-core', 'jackson-databind'].map(name => `<dependency><groupId>tools.jackson.core</groupId><artifactId>${name}</artifactId><version>3.1.7</version></dependency>`).join('')}</dependencies>
+    <dependencies>${effectiveHttpClient}${effectiveUtilities.map(item => item.xml).join('')}${['jackson-core', 'jackson-databind'].map(name => `<dependency><groupId>tools.jackson.core</groupId><artifactId>${name}</artifactId><version>3.1.7</version></dependency>`).join('')}</dependencies>
     </plugin></plugins></pluginManagement></build></project>`;
 }
 function checkEffective(t, xml) {
@@ -185,6 +207,36 @@ for (const placement of ['managed', 'module-local']) {
     const result = checkEffective(t, placePlugin(xml, plugin));
     assert.equal(result.status, 0, result.stderr);
   });
+  for (const utility of effectiveUtilities) {
+    for (const [name, replacement] of [
+      ['missing', ''],
+      ['old version', utility.xml.replace(utility.version, utility.prior)],
+      ['duplicate', utility.xml + utility.xml],
+      ['test scope', utility.xml.replace('</dependency>', '<scope>test</scope></dependency>')],
+      ['classifier', utility.xml.replace('</dependency>', '<classifier>tests</classifier></dependency>')],
+      ['optional', utility.xml.replace('</dependency>', '<optional>true</optional></dependency>')],
+      ['unknown field', utility.xml.replace('</dependency>', '<unreviewed>true</unreviewed></dependency>')],
+      ['duplicate scope', utility.xml.replace('</dependency>', '<scope>compile</scope><scope>test</scope></dependency>')],
+    ]) test(`effective-POM checker rejects ${placement} ${utility.artifact} ${name}`, t => {
+      const xml = effectiveFixture();
+      const managed = xml.match(/<plugin>[\s\S]*?<\/plugin>/)[0];
+      const changed = managed.replace(utility.xml, replacement);
+      assert.notEqual(changed, managed);
+      const result = checkEffective(t, placePlugin(xml, changed));
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /Boot plugin dependency (realm|semantics) drift/);
+    });
+  }
+  test(`effective-POM checker rejects ${placement} private utility order drift`, t => {
+    const xml = effectiveFixture();
+    const managed = xml.match(/<plugin>[\s\S]*?<\/plugin>/)[0];
+    const changed = managed.replace(effectiveUtilities.map(item => item.xml).join(''),
+      [...effectiveUtilities].reverse().map(item => item.xml).join(''));
+    assert.notEqual(changed, managed);
+    const result = checkEffective(t, placePlugin(xml, changed));
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Boot plugin dependency realm drift/);
+  });
   for (const [name, replacement] of [
     ['missing HTTP Client', ''],
     ['changed HTTP Client version', effectiveHttpClient.replace('5.6.3', '5.6.2')],
@@ -207,6 +259,13 @@ for (const placement of ['managed', 'module-local']) {
     assert.match(result.stderr, /Boot plugin dependency (realm|semantics) drift/);
   });
 }
+
+for (const utility of effectiveUtilities) test(`effective-POM checker rejects direct application ${utility.artifact} escape`, t => {
+  const result = checkEffective(t, effectiveFixture().replace('</project>',
+    `<dependencies>${utility.xml}</dependencies></project>`));
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Boot private utility escaped/);
+});
 
 // CI inspects real Maven model output; synthetic fixtures above are never used here.
 test('CI verifies actual Maven effective dependency management', {
