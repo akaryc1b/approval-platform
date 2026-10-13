@@ -8,12 +8,13 @@ import { buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview
 import { buildGitleaksPublicCommitReviewSnapshot } from '../security/m6-pr-e-e3-review-gitleaks-public-commit.mjs';
 import { readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview }
   from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
-import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, readCheckstyleGuavaCandidate, readCompilerPluginCandidate, readCheckstylePluginCandidate, verifyObservabilityGraph, requirePreservedGraph }
+import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, readBootHttpCandidate, readCheckstyleGuavaCandidate, readCompilerPluginCandidate, readCheckstylePluginCandidate, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 import test from 'node:test';
 import { syntheticCompilerPluginOsv } from './fixtures/compiler-plugin-fixture.mjs';
 import { syntheticCheckstylePluginOsv } from './fixtures/checkstyle-plugin-fixture.mjs';
 import { syntheticCheckstyleGuavaOsv } from './fixtures/checkstyle-guava-fixture.mjs';
+import { syntheticBootHttpOsv } from './fixtures/boot-http-fixture.mjs';
 import { requireOsvReport, requireGitleaksReport, requireZizmorReport } from '../security/scanner-report-structure.mjs';
 import { normalizeSemgrepReport, DESIGNER_PROTOTYPE_TARGET } from '../security/semgrep-scan-coverage.mjs';
 import { verifyScannerCheckout, requireScannerCheckoutUnchanged } from '../security/m6-pr-e-e4-scan.mjs';
@@ -314,25 +315,48 @@ test('I3 and I4 fail closed on historical receipt and count tampering', () => {
 // OSV and all other scanners, including their finding/absence assertions, and
 // subprocess/checkout claims are SYNTHETIC UNIT FIXTURES. Nothing is persisted
 // or presented as a current all-scanner E4 execution or admission result.
+// Cache only immutable synthetic input construction by exact graph and head.
+// Every caller receives independent objects. Actual callback/consumer validators,
+// current Git answers, source reads, dynamic overrides and historical reads remain
+// live for every invocation. Only the prevalidated fixture input is retained;
+// the actual callback and downstream verification still run on every copy.
+const retainedSyntheticCandidates = new Map();
+const retainedSyntheticGraphs = new Map();
+const syntheticGraphReaders = { boot: readBootHttpCandidate, guava: readCheckstyleGuavaCandidate,
+  checkstyle: readCheckstylePluginCandidate, compiler: readCompilerPluginCandidate };
+const syntheticOsvBuilders = { boot: syntheticBootHttpOsv, guava: syntheticCheckstyleGuavaOsv,
+  checkstyle: syntheticCheckstylePluginOsv, compiler: syntheticCompilerPluginOsv };
+const syntheticGraphDigests = { boot: BOOT_HTTP_GRAPH, guava: CHECKSTYLE_GUAVA_GRAPH,
+  checkstyle: CHECKSTYLE_PLUGIN_GRAPH, compiler: COMPILER_PLUGIN_GRAPH };
+function retainedSyntheticCandidate(graph) {
+  if (!retainedSyntheticCandidates.has(graph)) retainedSyntheticCandidates.set(graph, syntheticGraphReaders[graph]());
+  return structuredClone(retainedSyntheticCandidates.get(graph));
+}
+function syntheticCallbackGraph(graph, commitSha) {
+  const key = `${graph}\0${commitSha}`;
+  if (!retainedSyntheticGraphs.has(key)) {
+    const e2 = seal({ ...retainedSyntheticCandidate(graph), commitSha });
+    const osv = syntheticOsvBuilders[graph](e2, json('m6-pr-e-e3-r4-osv-preparation').osv);
+    const lineage = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, commitSha);
+    retainedSyntheticGraphs.set(key, { e2, osv, lineage, digest: syntheticGraphDigests[graph] });
+  }
+  return structuredClone(retainedSyntheticGraphs.get(key));
+}
+
 export function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype = false, staleHead = false,
-  mutateEvidence = null, staleR4Receipt = false, publicCommitFixture = null, previousCompilerGraph = false, previousCheckstyleGraph = false } = {}) {
+  mutateEvidence = null, staleR4Receipt = false, publicCommitFixture = null, previousCompilerGraph = false, previousCheckstyleGraph = false, previousGuavaGraph = false } = {}) {
   const preparation = json('m6-pr-e-e3-r4-osv-preparation');
   const baseline = json('m6-pr-e-e4-scanner-baseline');
-  const expectedHead = publicCommitFixture?.head || readCheckstyleGuavaCandidate().commitSha;
+  const expectedHead = publicCommitFixture?.head || retainedSyntheticCandidate('boot').commitSha;
   let e4 = syntheticE4(includePrototype);
   e4.commitSha = staleHead ? 'f'.repeat(40) : expectedHead;
-  e4.e2CurrentEvidence = previousCompilerGraph ? readCompilerPluginCandidate() : previousCheckstyleGraph ? readCheckstylePluginCandidate() : readCheckstyleGuavaCandidate();
-  if (publicCommitFixture || previousCompilerGraph || previousCheckstyleGraph) e4.e2CurrentEvidence = seal({ ...e4.e2CurrentEvidence, commitSha: expectedHead });
-  e4.scanners.osv = (previousCompilerGraph ? syntheticCompilerPluginOsv : previousCheckstyleGraph ? syntheticCheckstylePluginOsv : syntheticCheckstyleGuavaOsv)(e4.e2CurrentEvidence, preparation.osv);
-  if (staleHead) {
-    e4.e2CurrentEvidence = seal({ ...e4.e2CurrentEvidence, commitSha: e4.commitSha });
-    e4.scanners.osv.coverage = seal({ ...e4.scanners.osv.coverage, commitSha: e4.commitSha,
-      e2CurrentContentSha256: e4.e2CurrentEvidence.contentSha256 });
-  }
+  const graph = previousCompilerGraph ? 'compiler' : previousCheckstyleGraph ? 'checkstyle' : previousGuavaGraph ? 'guava' : 'boot';
+  const fixture = syntheticCallbackGraph(graph, e4.commitSha);
+  e4.e2CurrentEvidence = fixture.e2;
+  e4.scanners.osv = fixture.osv;
   e4.e2CurrentContentSha256 = e4.e2CurrentEvidence.contentSha256;
-  e4.e2GraphDigest = previousCompilerGraph ? COMPILER_PLUGIN_GRAPH : previousCheckstyleGraph ? CHECKSTYLE_PLUGIN_GRAPH : CHECKSTYLE_GUAVA_GRAPH;
-  e4.e2GraphTransition = verifyObservabilityGraph(e4.e2CurrentEvidence,
-    acceptedE2GraphProjection(e4.e2CurrentEvidence), BASE_GRAPH, e4.commitSha);
+  e4.e2GraphDigest = fixture.digest;
+  e4.e2GraphTransition = fixture.lineage;
   e4.checkout = { checkedOutSha: e4.commitSha, expectedHeadSha: e4.commitSha,
     checkedOutTreeSha: preparation.treeSha, expectedHeadTreeSha: preparation.treeSha,
     exactTreeMatches: true, trackedWorktreeClean: true };
@@ -365,7 +389,7 @@ export function runSyntheticCiCallback({ wrongHeadBlob = false, includePrototype
     readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview, buildGitleaksPublicCommitReviewSnapshot,
     buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview, gitleaksCaptureReviewFindings,
     expectedScannerHead: () => expectedHead,
-    SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+    SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     readServerDependencyRemediationPlan, verifyServerDependencyRemediation,
     buildScannerFindingIntake, applyReviewedFindingsWithIdentityTransitions,
     // Inject a stale handoff only after the genuine R4 verifier has produced it.
@@ -413,18 +437,20 @@ test('actual CI callback consumes one full scan, binds three exact-head blobs, a
   assert.equal(r.commands.filter(([command]) => command === process.execPath).length, 1);
   assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 4);
   const preparation = json('m6-pr-e-e3-r4-osv-preparation');
-  assert.deepEqual(r.e4.e2CurrentEvidence, readCheckstyleGuavaCandidate());
-  assert.equal(r.e4.e2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
-  assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
+  assert.deepEqual(r.e4.e2CurrentEvidence, readBootHttpCandidate());
+  assert.equal(r.e4.e2GraphDigest, BOOT_HTTP_GRAPH);
+  assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, BOOT_HTTP_GRAPH);
   assert.notDeepEqual(r.e4.scanners.osv, preparation.osv);
   assert.equal(preparation.allScannersCompleted, false);
   assert.equal(r.e4.scanners.osv.coverage.inputPackageCount, 472);
   assert.equal(r.e4.scanners.osv.coverage.reportedPackageCount, 472);
   assert.equal(r.e4.scanners.osv.findingCount, 1);
   assert.deepEqual(r.e4.scanners.osv.findings[0].package,
-    { name: 'com.google.guava:guava', version: '32.0.1-jre', ecosystem: 'Maven' });
+    { name: 'org.apache.httpcomponents.core5:httpcore5', version: '5.4.3', ecosystem: 'Maven' });
   assert.equal(r.e4.scanners.osv.coverage.targets.some(target => target.package.name === 'com.google.guava:guava'
     && target.package.version === '31.0.1-jre'), false);
+  assert.equal(r.e4.scanners.osv.coverage.targets.some(target => target.package.name === 'org.apache.httpcomponents.core5:httpcore5'
+    && target.package.version === '5.3.6'), false);
   assert.equal(r.e4.totalFindingCount, 31);
   const outputs = new Map();
   for (const stage of ['E3_I2_TRIAGE', 'E3_DESIGNER_PROTOTYPE_REMEDIATION',
@@ -452,11 +478,20 @@ test('actual CI callback consumes one full scan, binds three exact-head blobs, a
     && f.package.version === '3.1.5');
   assert.equal(pluginJackson.length, 0);
   assert.equal(r4.schemaVersion, 'APPROVAL_SERVER_DEPENDENCY_REMEDIATION_EVIDENCE_V2');
-  assert.equal(r4.subsequentGraphTransition.priorE2GraphDigest, CHECKSTYLE_PLUGIN_GRAPH);
-  assert.equal(r4.subsequentGraphTransition.currentE2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
+  assert.equal(r4.subsequentGraphTransition.priorE2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
+  assert.equal(r4.subsequentGraphTransition.currentE2GraphDigest, BOOT_HTTP_GRAPH);
   for (const finding of r.e4.scanners.osv.findings) {
     assert.equal(i4.decisions.find(f => f.findingId === finding.findingId).disposition, 'UNRESOLVED');
   }
+});
+test('actual CI callback rejects the previous Guava graph with internally consistent E2, OSV and lineage', () => {
+  const r = runSyntheticCiCallback({ previousGuavaGraph: true });
+  assert.equal(r.e4.e2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
+  assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
+  assert.equal(r.e4.e2GraphTransition.currentE2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
+  assert.match(String(r.error), /AssertionError/);
+  assert.equal(r.error.actual, CHECKSTYLE_GUAVA_GRAPH); assert.equal(r.error.expected, BOOT_HTTP_GRAPH);
+  assert.equal(r.commands.length, 1); assert.deepEqual(r.logs, [r.fixtureOutput]);
 });
 test('actual CI callback rejects the previous Checkstyle graph with internally consistent E2, OSV and lineage', () => {
   const r = runSyntheticCiCallback({ previousCheckstyleGraph: true });
@@ -464,7 +499,7 @@ test('actual CI callback rejects the previous Checkstyle graph with internally c
   assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, CHECKSTYLE_PLUGIN_GRAPH);
   assert.equal(r.e4.e2GraphTransition.currentE2GraphDigest, CHECKSTYLE_PLUGIN_GRAPH);
   assert.match(String(r.error), /AssertionError/);
-  assert.equal(r.error.actual, CHECKSTYLE_PLUGIN_GRAPH); assert.equal(r.error.expected, CHECKSTYLE_GUAVA_GRAPH);
+  assert.equal(r.error.actual, CHECKSTYLE_PLUGIN_GRAPH); assert.equal(r.error.expected, BOOT_HTTP_GRAPH);
   assert.equal(r.commands.length, 1); assert.deepEqual(r.logs, [r.fixtureOutput]);
 });
 test('actual CI callback rejects the previous Compiler graph with internally consistent E2, OSV and lineage', () => {
@@ -474,7 +509,7 @@ test('actual CI callback rejects the previous Compiler graph with internally con
   assert.equal(r.e4.e2GraphTransition.currentE2GraphDigest, COMPILER_PLUGIN_GRAPH);
   assert.match(String(r.error), /AssertionError/);
   assert.equal(r.error.actual, COMPILER_PLUGIN_GRAPH);
-  assert.equal(r.error.expected, CHECKSTYLE_GUAVA_GRAPH);
+  assert.equal(r.error.expected, BOOT_HTTP_GRAPH);
   assert.equal(r.commands.length, 1);
   assert.deepEqual(r.logs, [r.fixtureOutput]);
 });

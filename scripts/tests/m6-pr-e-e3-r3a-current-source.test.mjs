@@ -1,3 +1,4 @@
+import { BOOT_HTTP_GRAPH, readBootHttpCandidate, readBootHttpReport } from '../security/observability-dependency-graph.mjs';
 import { COMPILER_PLUGIN_GRAPH, readCompilerPluginCandidate, readCompilerPluginReport } from '../security/observability-dependency-graph.mjs';
 import { CHECKSTYLE_GUAVA_GRAPH, readCheckstyleGuavaCandidate, readCheckstyleGuavaReport } from '../security/observability-dependency-graph.mjs';
 import { CLEAN_PLUGIN_GRAPH, readCleanPluginCandidate, readCleanPluginReport } from '../security/observability-dependency-graph.mjs';
@@ -274,4 +275,32 @@ for (const [name, mutate] of [
   ['dirty checkout', x => { x.checkout.trackedWorktreeClean = false; }],
 ]) test(`R3A Compiler descendant rejects ${name}`, () => {
   const input = compilerDescendantFixture(); mutate(input); assert.throws(() => evaluateCurrentEvidence(input));
+});
+
+test('R3A Boot replacement reports actual new owner paths and retains historical HTTP disposition separately', () => {
+  const input = fixture(), current = readBootHttpCandidate();
+  input.currentE2 = current; input.commitSha = current.commitSha; input.pluginReport = readBootHttpReport();
+  input.checkout.expectedHeadSha = current.commitSha; input.checkout.checkedOutSha = current.commitSha;
+  const before = canonical(input), result = evaluateCurrentEvidence(input);
+  assert.equal(result.schemaVersion, 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V3');
+  assert.equal(result.currentE2GraphDigest, BOOT_HTTP_GRAPH);
+  assert.deepEqual(result.historicalReview.findings, contract.findings);
+  assert.deepEqual(result.historicalReview.decision, contract.decision);
+  assert.deepEqual(result.historicalHttpcoreReview, contract.findings[1]);
+  assert.equal(result.findings[0].package.version, '5.3.6');
+  assert.equal(result.findings[0].disposition, 'UNRESOLVED');
+  assert.equal(result.findings[0].evidence.pluginResolutionPaths, undefined);
+  const observed = result.currentHttpcoreObservation;
+  assert.equal(observed.package.version, '5.4.3');
+  assert.equal(observed.pluginResolutionPaths.length, 1);
+  assert.equal(observed.pluginResolutionPaths[0].pluginOwner, 'org.springframework.boot:spring-boot-maven-plugin:4.0.8');
+  assert.equal(observed.pluginReportSha256, current.maven.pluginResolutionSha256);
+  assert.deepEqual(observed.requiredCoResolvedComponents, ['org.apache.httpcomponents.client5:httpclient5:5.6.3',
+    'org.apache.httpcomponents.core5:httpcore5-h2:5.4.3', 'org.springframework.boot:spring-boot-buildpack-platform:4.0.8']);
+  for (const key of ['currentFindingPresenceClaimed', 'currentFindingAbsenceClaimed', 'dispositionTransferred', 'remoteBuildResponsePathProvenUnreachable'])
+    assert.equal(observed[key], false);
+  assert.equal(result.decision.currentOsvTotalsClaimed, false); assert.equal(result.decision.releaseBlocked, true);
+  assert.equal(canonical(input), before);
+  input.pluginReport = readCheckstyleGuavaReport();
+  assert.throws(() => evaluateCurrentEvidence(input), /Maven graph\/plugin evidence mismatch/);
 });

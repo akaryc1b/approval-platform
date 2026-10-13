@@ -6,14 +6,18 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+import { retainedBootSource } from './fixtures/boot-http-retained-source.mjs';
+
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const retainedView = retainedBootSource(root);
+const retainedRoot = retainedView.directory;
 const checker = path.join(root, 'scripts/ci/verify-compiler-plugin-baseline.py');
-const source = readFileSync(path.join(root, 'pom.xml'), 'utf8');
+const source = readFileSync(path.join(retainedRoot, 'pom.xml'), 'utf8');
 const list = spawnSync('git', ['ls-files', '--', 'pom.xml', '**/pom.xml'], { cwd: root, encoding: 'utf8' });
 assert.equal(list.status, 0); const poms = list.stdout.trim().split('\n'); assert.equal(poms.length, 28);
 const pattern = /<plugin>\s*<groupId>org\.apache\.maven\.plugins<\/groupId>\s*<artifactId>maven-compiler-plugin<\/artifactId>[\s\S]*?<\/plugin>/;
 const plugin = source.match(pattern)[0], dependency = plugin.match(/<dependency>[\s\S]*?<\/dependency>/)[0];
-const check = directory => spawnSync('python3', ['-B', checker, `--root=${directory}`], { encoding: 'utf8' });
+const check = directory => spawnSync('python3', ['-B', checker, `--root=${directory === root ? retainedRoot : directory}`], { encoding: 'utf8' });
 test('Compiler addition preserves all source Release/Clean gates and independent overlays', () => {
   const result = check(root); assert.equal(result.status, 0, result.stderr);
 });

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { readPreservedGuavaSource } from './boot-http-source-continuation.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const PRIOR_POM = 'd55f730aa8490c60ddf8c3d76d062fd6c4706be4816adf8db8936df15941a6fb';
@@ -12,8 +13,9 @@ export function readPreservedCheckstyleSource(path, expected) {
   if (typeof path !== 'string' || !/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') || path.includes('\\')
       || path.split('/').some(part => !part || part === '.' || part === '..'))
     throw new Error('Checkstyle Guava continuation requires a safe relative source path');
-  const current = readFileSync(new URL(`../../${path}`, import.meta.url));
-  if (hash(current) === expected) return current;
+  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  if (hash(raw) === expected) return raw;
+  const current = path === 'pom.xml' ? readPreservedGuavaSource(path, CURRENT_POM) : raw;
   if (path !== 'pom.xml' || expected !== PRIOR_POM || hash(current) !== CURRENT_POM)
     throw new Error('Checkstyle Guava continuation historical source byte digest mismatch');
   let reversed = current.toString('utf8');

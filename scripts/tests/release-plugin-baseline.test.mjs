@@ -7,16 +7,20 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { requirePinnedMaven } from '../ci/maven-toolchain.mjs';
 
+import { retainedBootSource } from './fixtures/boot-http-retained-source.mjs';
+
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const retainedView = retainedBootSource(root);
+const retainedRoot = retainedView.directory;
 const checker = path.join(root, 'scripts/ci/verify-release-plugin-baseline.py');
-const source = readFileSync(path.join(root, 'pom.xml'), 'utf8');
+const source = readFileSync(path.join(retainedRoot, 'pom.xml'), 'utf8');
 const inventory = spawnSync('git', ['ls-files', '-z', '--', 'pom.xml', '**/pom.xml'], { cwd: root, encoding: 'utf8' });
 assert.equal(inventory.status, 0, 'source POM inventory must be available');
 const sourcePoms = inventory.stdout.split('\0').filter(Boolean);
 const releasePlugin = source.match(/<plugin>\s*<groupId>org\.apache\.maven\.plugins<\/groupId>\s*<artifactId>maven-release-plugin<\/artifactId>[\s\S]*?<\/plugin>/)?.[0];
 assert.ok(releasePlugin, 'managed Release source declaration must be available');
 const mavenEnabled = process.env.GITHUB_ACTIONS === 'true' || process.env.RELEASE_PLUGIN_COMPATIBILITY === 'true';
-const check = (directory = root, options = []) => spawnSync('python3', [checker, `--root=${directory}`, ...options], {
+const check = (directory = root, options = []) => spawnSync('python3', [checker, `--root=${directory === root ? retainedRoot : directory}`, ...options], {
   encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
 });
 function temporary(t, prefix) {
@@ -142,7 +146,7 @@ for _, source in projects:
             for key, value in pins.items(): item.text = item.text.replace(chr(36) + '{' + key + '}', value)
 E.register_namespace('', c.NS['m'])
 print(E.tostring(models, encoding='unicode'))
-`, checker, root], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+`, checker, retainedRoot], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
   assert.equal(generated.status, 0, generated.stderr);
   return generated.stdout;
 }
@@ -265,7 +269,7 @@ for (const [name, replacement] of [
   rejected(descriptorFixture(t, descriptor, realm.replace(...replacement)));
 });
 
-function maven(args, cwd = root, timeout = 240000) {
+function maven(args, cwd = retainedRoot, timeout = 240000) {
   const goals = args.filter(arg => !arg.startsWith('-'));
   assert.equal(goals.length, 1, 'Compatibility must invoke exactly one read-only goal');
   assert.ok(['org.apache.maven.plugins:maven-help-plugin:3.5.1:effective-pom',
@@ -275,7 +279,7 @@ function maven(args, cwd = root, timeout = 240000) {
   // Compatibility invokes only help/effective-pom. Local MAVEN_ARGS can enforce
   // offline/cache use; CI may resolve official artifacts. No SCM or publication occurs.
   const result = spawnSync('mvn', ['-B', '-ntp', '-Dstyle.color=never',
-    ...(repository ? [`-Dmaven.repo.local=${repository}`] : []), ...args], {
+    ...(repository ? [`-Dmaven.repo.local=${repository}`] : []), '-f', path.join(cwd, 'pom.xml'), ...args], {
     cwd, encoding: 'utf8', timeout, maxBuffer: 16 * 1024 * 1024,
   });
   assert.equal(result.status, 0, `${result.error ?? ''}\n${result.stdout}\n${result.stderr}`);
@@ -305,10 +309,11 @@ function verifyActualRealm(t, log) {
   console.log(result.stdout.trim());
 }
 
-test('CI verifies actual inherited Release pin and retained pins in all 26 effective POMs', {
+test('CI verifies Release and retained pins in all 26 exact predecessor effective POMs', {
   skip: !mavenEnabled, timeout: 300000,
 }, t => {
   requireToolchain();
+  console.log('RELEASE_BOOT_SOURCE_PROJECTION ' + JSON.stringify(retainedView.projection));
   const file = path.join(temporary(t, 'release-real-models-'), 'effective-pom.xml');
   maven(['org.apache.maven.plugins:maven-help-plugin:3.5.1:effective-pom', `-Doutput=${file}`]);
   const result = check(root, [`--effective-pom=${file}`]);

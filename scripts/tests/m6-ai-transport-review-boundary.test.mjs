@@ -40,8 +40,14 @@ import './checkstyle-plugin-baseline.test.mjs';
 import './checkstyle-plugin-graph-transition.test.mjs';
 import './checkstyle-guava-graph-transition.test.mjs';
 import './checkstyle-guava-osv-diagnostic.test.mjs';
+import './boot-http-source-baseline.test.mjs';
+import './boot-http-model-live-compatibility.test.mjs';
+import './boot-http-graph-transition.test.mjs';
+import './boot-http-plugin-osv-diagnostic.test.mjs';
+import './boot-http-compatibility-harness.test.mjs';
 import './checkstyle-plugin-osv-diagnostic.test.mjs';
 import './checkstyle-plugin-live-compatibility.test.mjs';
+import './boot-http-plugin-live-compatibility.test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const spiRoot = path.join(

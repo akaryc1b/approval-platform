@@ -46,17 +46,20 @@ def management(project):
     return entries, primary
 
 
-def verify_plugin_jackson(plugin, version):
+def verify_plugin_dependencies(plugin, jackson_version):
     dependencies = plugin.findall("m:dependencies/m:dependency", NS)
-    expected = [(f"tools.jackson.core:{name}", version) for name in PLUGIN_JACKSON]
+    # Project BOMs do not manage this private realm. Keep the complete reviewed
+    # dependency list exact, including the bounded HTTP Client override.
+    expected = [(f"tools.jackson.core:{name}", jackson_version) for name in PLUGIN_JACKSON]
+    expected.append(("org.apache.httpcomponents.client5:httpclient5", "5.6.3"))
     actual = [(coordinate(item), value(item, "version")) for item in dependencies]
-    require(sorted(actual) == sorted(expected), "Boot plugin Jackson dependency realm drift")
+    require(sorted(actual) == sorted(expected), "Boot plugin dependency realm drift")
     for item in dependencies:
         require(value(item, "type") in ("", "jar") and not value(item, "classifier")
                 and value(item, "scope") in ("", "compile")
                 and value(item, "optional") in ("", "false")
                 and item.find("m:exclusions", NS) is None,
-                "Boot plugin Jackson dependency semantics drift")
+                "Boot plugin dependency semantics drift")
 
 
 def verify_source(root):
@@ -89,7 +92,7 @@ def verify_source(root):
     boot_plugins = [p for p in plugins if coordinate(p) == "org.springframework.boot:spring-boot-maven-plugin"]
     require(len(boot_plugins) == 1 and value(boot_plugins[0], "version") == "${spring-boot.version}",
             "Boot Maven plugin must track the Boot BOM")
-    verify_plugin_jackson(boot_plugins[0], "${jackson3-bom.version}")
+    verify_plugin_dependencies(boot_plugins[0], "${jackson3-bom.version}")
     host = ET.parse(root / "integrations/host-sdk/pom.xml").getroot()
     require(host.findtext("m:properties/m:java.version", namespaces=NS) == "17", "host SDK bytecode pin drift")
 
@@ -134,14 +137,14 @@ def verify_effective(path):
         plugins = project.findall("m:build/m:pluginManagement/m:plugins/m:plugin", NS)
         boot = [p for p in plugins if coordinate(p) == "org.springframework.boot:spring-boot-maven-plugin"]
         require(len(boot) == 1 and value(boot[0], "version") == "4.0.8", "effective Boot plugin drift")
-        verify_plugin_jackson(boot[0], "3.1.7")
+        verify_plugin_dependencies(boot[0], "3.1.7")
         # Check active modules as well as inherited pluginManagement: a child override
         # must not silently restore a vulnerable or mixed plugin class realm.
         active = project.findall("m:build/m:plugins/m:plugin", NS)
         for plugin in active:
             if coordinate(plugin) == "org.springframework.boot:spring-boot-maven-plugin":
                 require(value(plugin, "version") == "4.0.8", "active Boot plugin drift")
-                verify_plugin_jackson(plugin, "3.1.7")
+                verify_plugin_dependencies(plugin, "3.1.7")
 
 
 def main():

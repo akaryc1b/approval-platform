@@ -164,6 +164,8 @@ test('Clean production reader rejects changed archived bytes and current POM byt
     'scripts/security/compiler-plugin-source-continuation.mjs',
     'scripts/security/checkstyle-plugin-source-continuation.mjs',
     'scripts/security/checkstyle-guava-source-continuation.mjs',
+    'scripts/security/boot-http-source-continuation.mjs',
+    'docs/operations/checkstyle-guava-evidence/candidate-root-pom.xml',
     'docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml',
     'docs/operations/compiler-plugin-evidence/candidate-root-pom.xml',
     'docs/operations/compiler-plugin-evidence/baseline-root-pom.xml',

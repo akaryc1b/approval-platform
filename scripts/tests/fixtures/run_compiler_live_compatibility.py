@@ -26,6 +26,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 CONTRACT = run_path(str(ROOT / 'scripts/ci/compiler_plugin_contract.py'))
 RELEASE = run_path(str(ROOT / 'scripts/ci/verify-release-plugin-baseline.py'))
+BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
 NS = CONTRACT['NS']; P = CONTRACT['P']
 HASHES = json.loads((HERE / 'compiler-artifact-hashes.json').read_text())
 OWNER = 'org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0'
@@ -36,6 +37,11 @@ class Run:
     def __init__(self, source, sandbox, repository, jdk, maven, offline):
         self.source, self.sandbox, self.repository = source, sandbox, repository
         self.jdk, self.maven, self.offline = jdk, maven, offline
+        self.boot_source_projection = None
+        if BOOT['is_boot_source'](source):
+            retained = inside(sandbox / 'accepted-boot-predecessor', sandbox)
+            self.boot_source_projection = BOOT['materialize_retained_source'](source, retained)
+            source = retained; self.source = source
         self.projects = RELEASE['verify_source'](source)
         self.source_hashes = {str(p.relative_to(source)): digest(p) for p, _ in self.projects}
         for version in (5, 6):
@@ -56,6 +62,8 @@ class Run:
             'contractSourceHashes': self.contract_hashes,
             'cases': {}, 'commands': self.commands.results, 'scannerEvidence': False,
             'vulnerableApiReachabilityClaim': False, 'canonicalCiEvidence': False}
+        self.report['bootSourceProjection'] = self.boot_source_projection
+        self.report['historicalBootMaterialized'] = bool(self.boot_source_projection)
         self.parent()
 
     def write_pom(self, file, text):
@@ -63,6 +71,8 @@ class Run:
         self.poms[file] = text
 
     def containment(self):
+        if self.boot_source_projection:
+            BOOT['verify_projection'](self.boot_source_projection)
         require(not self.sandbox.is_symlink() and (self.sandbox.stat().st_dev, self.sandbox.stat().st_ino) == self.identity, 'sandbox identity drift')
         require(all(digest(self.source / p) == h for p, h in self.source_hashes.items()), 'source POM drift')
         require(all(digest(HERE / p) == h for p, h in self.harness.items()), 'harness drift')

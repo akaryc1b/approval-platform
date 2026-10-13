@@ -384,6 +384,9 @@ with tempfile.TemporaryDirectory(prefix='checkstyle-history-mock-') as directory
     with patch.object(subprocess, 'Popen', side_effect=AssertionError('materialization attempted execution')):
         run = Run(s.ROOT, sandbox, Path('/cache'), Path('/jdk'), Path('/maven/bin/mvn'), True, 'models', False, 'lang')
         assert run.report['historicalLangMaterialized'] is True
+        assert run.report['historicalBootMaterialized'] is True
+        assert run.boot_source_projection['suppliedRootPomSha256'] == 'dd3d2a854fd32d53efc2ccbe0efc1c217af46a7824de89c4c30f5bf29249e3c1'
+        assert run.boot_source_projection['retainedRootPomSha256'] == 'd95d582e6ccfc91c01780717c83054cd9b52aeffa43c934fbf568f550288cdd5'
         assert run.source == sandbox / 'accepted-lang-source'
         assert run.source_hashes['pom.xml'] == 'd55f730aa8490c60ddf8c3d76d062fd6c4706be4816adf8db8936df15941a6fb'
         assert run.supplied_hashes['pom.xml'] == 'd95d582e6ccfc91c01780717c83054cd9b52aeffa43c934fbf568f550288cdd5'

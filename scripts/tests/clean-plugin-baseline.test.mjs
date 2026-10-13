@@ -7,10 +7,14 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 // STATIC/SYNTHETIC CONTRACT TESTS ONLY. No Maven, Java, scanner or network work.
+import { retainedBootSource } from './fixtures/boot-http-retained-source.mjs';
+
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const retainedView = retainedBootSource(root);
+const retainedRoot = retainedView.directory;
 const checker = path.join(root, 'scripts/ci/verify-clean-plugin-baseline.py');
 const releaseChecker = path.join(root, 'scripts/ci/verify-release-plugin-baseline.py');
-const source = readFileSync(path.join(root, 'pom.xml'), 'utf8');
+const source = readFileSync(path.join(retainedRoot, 'pom.xml'), 'utf8');
 const inventory = spawnSync('git', ['ls-files', '-z', '--', 'pom.xml', '**/pom.xml'], { cwd: root, encoding: 'utf8' });
 assert.equal(inventory.status, 0, inventory.stderr);
 const sourcePoms = inventory.stdout.split('\0').filter(Boolean);
@@ -22,7 +26,7 @@ assert.ok(clean, 'candidate Clean source declaration must exist');
 const io = clean.match(/<dependency>[\s\S]*?<\/dependency>/)[0];
 const execution = '<executions><execution><id>default-clean</id><phase>clean</phase><goals><goal>clean</goal></goals></execution></executions>';
 const python = (args, options = {}) => spawnSync('python3', ['-B', ...args], { encoding: 'utf8', ...options });
-const check = (directory = root, options = [], script = checker) => python([script, `--root=${directory}`, ...options]);
+const check = (directory = root, options = [], script = checker) => python([script, `--root=${directory === root ? retainedRoot : directory}`, ...options]);
 function temporary(t, prefix) {
   const directory = mkdtempSync(path.join(tmpdir(), prefix));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -183,7 +187,7 @@ for _, source in projects:
         if item.text:
             for key, value in pins.items(): item.text = item.text.replace(chr(36)+'{'+key+'}', value)
 E.register_namespace('', ns['m']); print(E.tostring(models, encoding='unicode'))
-`, releaseChecker, root]);
+`, releaseChecker, retainedRoot]);
 assert.equal(generated.status, 0, generated.stderr);
 const effective = generated.stdout;
 const managedClean = effective.match(cleanPattern)[0];
@@ -223,7 +227,7 @@ function compareModels(t, candidate, prior = baseline) {
     '--baseline-root=/synthetic/baseline']);
 }
 test('all26 paired model comparison reverses only exact Clean additions and checkout paths', t => {
-  const candidate = effective.replace('<build>', `<build><directory>${root.replace(/\/$/, '')}/target</directory>`);
+  const candidate = effective.replace('<build>', `<build><directory>${retainedRoot.replace(/\/$/, '')}/target</directory>`);
   const prior = baseline.replace('<build>', '<build><directory>/synthetic/baseline/target</directory>');
   const result = compareModels(t, candidate, prior);
   assert.equal(result.status, 0, result.stderr);

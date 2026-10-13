@@ -4,6 +4,7 @@ import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { CHECKSTYLE_PLUGIN_GRAPH, parseCheckstylePluginOwners, readCheckstylePluginReport,
   readCheckstylePluginSourceWitness, verifyCheckstyleCaptureProvenance } from './checkstyle-plugin-graph-transition.mjs';
 import { readPreservedCheckstyleSource } from './checkstyle-guava-source-continuation.mjs';
+import { readPreservedGuavaSource } from './boot-http-source-continuation.mjs';
 import { osvInputFromE2 } from './osv-scan-coverage.mjs';
 
 export const CHECKSTYLE_GUAVA_GRAPH = 'b49dc95d7b88cc0c30fd8e3f81fc184204c9e94c5aa741ec12a4e68a9ee28a28';
@@ -108,7 +109,7 @@ export function readCheckstyleGuavaSourceWitness(manifest = readCheckstyleGuavaM
     && execution.sourcePomSha256 === witness.rootPom.rawSha256, 'capture report/E2/source mismatch');
   requireValue(same(witness.generatorSources, historical.generatorSources)
     && same(execution.generatorSources, historical.generatorSources), 'unchanged generator closure mismatch');
-  for (const [path, expected] of Object.entries(execution.captureInputs)) bytes(path, expected);
+  for (const [path, expected] of Object.entries(execution.captureInputs)) readPreservedGuavaSource(path, expected);
   for (const [path, expected] of Object.entries(witness.generatorSources))
     requireValue(execution.captureInputs[path] === expected, 'generator capture binding mismatch');
   requireValue(same(witness.sourcePomFiles.map(row => row.path).sort(), historical.sourcePomFiles.map(row => row.path).sort())
@@ -116,7 +117,7 @@ export function readCheckstyleGuavaSourceWitness(manifest = readCheckstyleGuavaM
   'source POM membership drift');
   const changed = [];
   for (const row of witness.sourcePomFiles) {
-    bytes(row.path, row.candidateSha256);
+    readPreservedGuavaSource(row.path, row.candidateSha256);
     requireValue(execution.sourcePomHashes[row.path] === row.candidateSha256
       && historical.sourcePomFiles.find(prior => prior.path === row.path).candidateSha256 === row.baselineSha256,
     'source POM baseline/capture mismatch');
