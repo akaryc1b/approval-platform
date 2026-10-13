@@ -47,6 +47,12 @@ const exactReasons = Object.freeze({
   'Capture receipt path already exists': 'RECEIPT_PUBLICATION',
   'Capture receipt writer must finish synchronously without a return value': 'RECEIPT_PUBLICATION',
   'Capture receipt was not published': 'RECEIPT_PUBLICATION',
+  CJK_FONT_UNRESOLVED: 'FONT', CJK_CANVAS_REQUIRED: 'FONT',
+  CJK_NONEMPTY_GLYPHS_REQUIRED: 'FONT', CJK_DISTINCT_GLYPHS_REQUIRED: 'FONT',
+  CJK_PLATFORM_FONT_REQUIRED: 'FONT', CJK_EXPLICIT_FONT_STACK_REQUIRED: 'FONT',
+  CJK_SURFACE_LABEL_REQUIRED: 'SURFACE', CJK_PLATFORM_NODE_REQUIRED: 'SURFACE',
+  CJK_SURFACE_TEXT_INVISIBLE: 'OPACITY', CJK_SURFACE_CHANGED: 'WITNESS',
+  CJK_SURFACE_SETTLEMENT_EXPIRED: 'TRANSITION',
 } as const);
 export const browserFailureReasons = Object.freeze([
   'UNKNOWN', ...new Set([...Object.values(readinessReasons), ...Object.values(exactReasons)]),

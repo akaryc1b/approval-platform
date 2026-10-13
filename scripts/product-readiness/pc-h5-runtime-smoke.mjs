@@ -15,6 +15,7 @@ import {
 import { relative, resolve, sep } from 'node:path';
 
 import { shouldRunInCi } from './pc-h5-runtime/ci-scope.mjs';
+import { ensureCjkFontRuntime } from './quick-start/cjk-fonts.mjs';
 import {
   chromeExecutable,
   java21Environment,
@@ -318,6 +319,7 @@ async function executeSmoke() {
   const managed = [];
   let ciEvidenceRetained = process.env.GITHUB_ACTIONS !== 'true';
   try {
+    ensureCjkFontRuntime();
     runPnpmChecked('Install generated Vben workspace', ['web:install']);
     runPnpmChecked('Install generated UniApp workspace', ['mobile:install']);
 

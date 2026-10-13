@@ -172,14 +172,15 @@ export async function stopProcess(child, { observe } = {}) {
 
 // v13.2.2 PanelChrome renders Panels.Panel.title(title) as data-testid.
 // Its accessible name is aria-labelledby, not the legacy containerByTitle aria-label.
-export function panelReadExpression(title) {
+export function panelReadExpression(title, { scroll = true } = {}) {
   return `(() => {
     const panels = document.querySelectorAll('[data-testid=' + JSON.stringify(${JSON.stringify('data-testid Panel header ' + title)}) + ']');
     if (panels.length !== 1) return null;
     const panel = panels[0];
-    panel.scrollIntoView({block:'center'});
+    if (${JSON.stringify(scroll)}) panel.scrollIntoView({block:'center'});
+    const error = !!panel.querySelector('[data-testid="data-testid Panel status error"]');
     const content = panel.querySelector('[data-testid="data-testid panel content"]');
-    if (!content) return null;
+    if (!content) return {visible:false, settled:false, error};
     const rect = content.getBoundingClientRect();
     const text = content.innerText.trim();
     // A missing health sample must not inherit Grafana's default healthy-green color.
@@ -196,10 +197,36 @@ export function panelReadExpression(title) {
     }
     const unknownColorInvalid = statusPanel && text.split(/\\s+/u).includes('未知')
       && (unknownColors.length === 0 || unknownColors.some(color => color !== 'rgb(107, 114, 128)'));
-    return {text, visible:rect.width>0 && rect.height>0, unknownColors,
-      canvas:!!content.querySelector('canvas'),
-      error:!!panel.querySelector('[data-testid="data-testid Panel status error"]') || unknownColorInvalid};
+    const canvas = !!content.querySelector('canvas');
+    // v13.2.2 uses Scenes 8.13.5: VizPanel waits for isDataReadyToDisplay before
+    // mounting the real plugin. Blank chrome and loading-plugin are not results.
+    const plugin = panel.closest('[data-plugin-id]')?.getAttribute('data-plugin-id');
+    // LoadingBar is in the DOM immediately; only its animation is delayed.
+    const pending = !!panel.querySelector('[aria-label="Panel loading bar"], [data-testid="panel-streaming"], [data-testid="panel-cancel-query"]');
+    const settled = ['stat','timeseries','table'].includes(plugin) && !pending && !!(text || canvas);
+    return {text, visible:rect.width>0 && rect.height>0, unknownColors, canvas, settled,
+      error:error || unknownColorInvalid};
   })()`;
+}
+
+async function readPanelQueries(browser, titles, { scroll = false } = {}) {
+  assert.ok(titles.length > 0, 'GRAFANA_BROWSER_QUERY_PANELS_REQUIRED');
+  const expression = '[' + titles.map(title => panelReadExpression(title, { scroll })).join(',') + ']';
+  const panels = await browser.evaluate(expression);
+  for (const [index, panel] of panels.entries()) {
+    assert.ok(!panel?.error, 'GRAFANA_BROWSER_PANEL_ERROR:' + titles[index]);
+  }
+  return panels.length === titles.length && panels.every(panel => panel?.visible && panel.settled) && panels;
+}
+
+/** Reuses the caller's shared deadline. No data is a valid completed query result. */
+export async function waitForPanelQueries(browser, wait, titles, options) {
+  return wait(() => readPanelQueries(browser, titles, options), 'panel-queries');
+}
+
+/** One immediate sample: discard captured bytes if refresh restarted during capture. */
+export async function assertPanelQueriesSettled(browser, titles) {
+  assert.ok(await readPanelQueries(browser, titles), 'GRAFANA_BROWSER_CAPTURE_QUERIES_UNSETTLED');
 }
 
 export function assertNavigation(url, destination, expected) {
