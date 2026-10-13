@@ -23,6 +23,28 @@ const pluginDependency = name => {
   assert.ok(Object.hasOwn(patterns, name), 'plugin dependency fixture must use a fixed artifact');
   return patterns[name];
 };
+// Match the plugin owner before selecting a private dependency: other plugin
+// realms may intentionally contain the same coordinate and version.
+const bootPlugin = pom => {
+  const matches = [...pom.matchAll(/<plugin>\s*<groupId>org\.springframework\.boot<\/groupId>\s*<artifactId>spring-boot-maven-plugin<\/artifactId>[\s\S]*?<\/plugin>/g)];
+  assert.equal(matches.length, 1, 'fixture must have exactly one Boot plugin owner');
+  return matches[0][0];
+};
+const mutateBootPlugin = (pom, mutate) => {
+  const before = bootPlugin(pom);
+  const after = mutate(before);
+  assert.notEqual(after, before, 'mutation must change the Boot plugin owner');
+  return pom.replace(before, () => after);
+};
+const bootDependency = (pom, name) => {
+  const matches = [...bootPlugin(pom).matchAll(new RegExp(pluginDependency(name), 'g'))];
+  assert.equal(matches.length, 1, `Boot fixture must have exactly one ${name} dependency`);
+  return matches[0][0];
+};
+const mutateBootDependency = (pom, name, replacement) => {
+  const entry = bootDependency(pom, name);
+  return mutateBootPlugin(pom, plugin => plugin.replace(entry, replacement));
+};
 const dependency = (group, name) => new RegExp(`            <dependency>\\s*<groupId>${group.replaceAll('.', '\\.')}<\\/groupId>\\s*<artifactId>${name}<\\/artifactId>[\\s\\S]*?<\\/dependency>\\n`);
 
 // This is a source contract, not a reconstructed Maven graph or a vulnerability disposition.
@@ -45,37 +67,37 @@ for (const [name, mutate] of [
   ['missing Tomcat websocket', pom => pom.replace(dependency('org.apache.tomcat.embed', 'tomcat-embed-websocket'), '')],
   ['mixed Tomcat family', pom => pom.replace('<version>${tomcat-embed.version}</version>', '<version>11.0.24</version>')],
   ['duplicate Tomcat core', pom => pom.replace(dependency('org.apache.tomcat.embed', 'tomcat-embed-core'), entry => entry + entry)],
-  ['independent Boot plugin', pom => pom.replace('<artifactId>spring-boot-maven-plugin</artifactId>\n                    <version>${spring-boot.version}</version>', '<artifactId>spring-boot-maven-plugin</artifactId>\n                    <version>4.0.2</version>')],
-  ['missing plugin Jackson core', pom => pom.replace(pluginDependency('jackson-core'), '')],
-  ['plugin Jackson downgrade', pom => pom.replace(pluginDependency('jackson-databind'), entry => entry.replace('${jackson3-bom.version}', '3.1.5'))],
-  ['duplicate plugin Jackson', pom => pom.replace(pluginDependency('jackson-core'), entry => entry + entry)],
-  ['plugin Jackson test scope', pom => pom.replace(pluginDependency('jackson-core'), entry => entry.replace('</dependency>', '<scope>test</scope></dependency>'))],
-  ['missing plugin HTTP Client', pom => pom.replace(pluginDependency('httpclient5'), '')],
-  ['plugin HTTP Client version change', pom => pom.replace(pluginDependency('httpclient5'), entry => entry.replace('5.6.3', '5.6.2'))],
-  ['duplicate plugin HTTP Client', pom => pom.replace(pluginDependency('httpclient5'), entry => entry + entry)],
-  ['plugin HTTP Client wrong group', pom => pom.replace(pluginDependency('httpclient5'), entry => entry.replace('org.apache.httpcomponents.client5', 'unexpected.group'))],
-  ['extra plugin HTTP Core pin', pom => pom.replace(pluginDependency('httpclient5'), entry => entry + entry.replace('org.apache.httpcomponents.client5', 'org.apache.httpcomponents.core5').replace('httpclient5', 'httpcore5').replace('5.6.3', '5.4.3'))],
-  ['extra unrelated plugin dependency', pom => pom.replace(pluginDependency('httpclient5'), entry => entry + entry.replace('org.apache.httpcomponents.client5', 'unexpected.group').replace('httpclient5', 'unexpected-artifact'))],
+  ['independent Boot plugin', pom => mutateBootPlugin(pom, plugin => plugin.replace('<artifactId>spring-boot-maven-plugin</artifactId>\n                    <version>${spring-boot.version}</version>', '<artifactId>spring-boot-maven-plugin</artifactId>\n                    <version>4.0.2</version>'))],
+  ['missing plugin Jackson core', pom => mutateBootDependency(pom, 'jackson-core', '')],
+  ['plugin Jackson downgrade', pom => mutateBootDependency(pom, 'jackson-databind', entry => entry.replace('${jackson3-bom.version}', '3.1.5'))],
+  ['duplicate plugin Jackson', pom => mutateBootDependency(pom, 'jackson-core', entry => entry + entry)],
+  ['plugin Jackson test scope', pom => mutateBootDependency(pom, 'jackson-core', entry => entry.replace('</dependency>', '<scope>test</scope></dependency>'))],
+  ['missing plugin HTTP Client', pom => mutateBootDependency(pom, 'httpclient5', '')],
+  ['plugin HTTP Client version change', pom => mutateBootDependency(pom, 'httpclient5', entry => entry.replace('5.6.3', '5.6.2'))],
+  ['duplicate plugin HTTP Client', pom => mutateBootDependency(pom, 'httpclient5', entry => entry + entry)],
+  ['plugin HTTP Client wrong group', pom => mutateBootDependency(pom, 'httpclient5', entry => entry.replace('org.apache.httpcomponents.client5', 'unexpected.group'))],
+  ['extra plugin HTTP Core pin', pom => mutateBootDependency(pom, 'httpclient5', entry => entry + entry.replace('org.apache.httpcomponents.client5', 'org.apache.httpcomponents.core5').replace('httpclient5', 'httpcore5').replace('5.6.3', '5.4.3'))],
+  ['extra unrelated plugin dependency', pom => mutateBootDependency(pom, 'httpclient5', entry => entry + entry.replace('org.apache.httpcomponents.client5', 'unexpected.group').replace('httpclient5', 'unexpected-artifact'))],
   ...[['plexus-utils', '3.6.1', '3.5.1'], ['commons-lang3', '3.18.0', '3.16.0']].flatMap(([artifact, current, prior]) => [
-    [`missing private ${artifact}`, pom => pom.replace(pluginDependency(artifact), '')],
-    [`old private ${artifact}`, pom => pom.replace(pluginDependency(artifact), entry => entry.replace(current, prior))],
-    [`duplicate private ${artifact}`, pom => pom.replace(pluginDependency(artifact), entry => entry + entry)],
-    [`private ${artifact} test scope`, pom => pom.replace(pluginDependency(artifact), entry => entry.replace('</dependency>', '<scope>test</scope></dependency>'))],
-    [`private ${artifact} duplicate version`, pom => pom.replace(pluginDependency(artifact), entry => entry.replace('</dependency>', `<version>${current}</version></dependency>`))],
-    [`private ${artifact} runtime escape`, pom => pom.replace('</project>', `<dependencies>${pom.match(pluginDependency(artifact))[0]}</dependencies></project>`)],
+    [`missing private ${artifact}`, pom => mutateBootDependency(pom, artifact, '')],
+    [`old private ${artifact}`, pom => mutateBootDependency(pom, artifact, entry => entry.replace(current, prior))],
+    [`duplicate private ${artifact}`, pom => mutateBootDependency(pom, artifact, entry => entry + entry)],
+    [`private ${artifact} test scope`, pom => mutateBootDependency(pom, artifact, entry => entry.replace('</dependency>', '<scope>test</scope></dependency>'))],
+    [`private ${artifact} duplicate version`, pom => mutateBootDependency(pom, artifact, entry => entry.replace('</dependency>', `<version>${current}</version></dependency>`))],
+    [`private ${artifact} runtime escape`, pom => pom.replace('</project>', `<dependencies>${bootDependency(pom, artifact)}</dependencies></project>`)],
   ]),
-  ['private utility order drift', pom => {
-    const plexus = pom.match(pluginDependency('plexus-utils'))[0];
-    const lang = pom.match(pluginDependency('commons-lang3'))[0];
-    return pom.replace(plexus + lang, lang + plexus);
-  }],
+  ['private utility order drift', pom => mutateBootPlugin(pom, plugin => {
+    const plexus = bootDependency(pom, 'plexus-utils');
+    const lang = bootDependency(pom, 'commons-lang3');
+    return plugin.replace(plexus + lang, lang + plexus);
+  })],
   ...[
     ['type', '<type>pom</type>'],
     ['classifier', '<classifier>tests</classifier>'],
     ['test scope', '<scope>test</scope>'],
     ['optional flag', '<optional>true</optional>'],
     ['exclusions', '<exclusions><exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId></exclusion></exclusions>'],
-  ].map(([name, semantics]) => [`plugin HTTP Client ${name}`, pom => pom.replace(pluginDependency('httpclient5'), entry => entry.replace('</dependency>', semantics + '</dependency>'))]),
+  ].map(([name, semantics]) => [`plugin HTTP Client ${name}`, pom => mutateBootDependency(pom, 'httpclient5', entry => entry.replace('</dependency>', semantics + '</dependency>'))]),
   ['pgjdbc downgrade', pom => pom.replace('<version>42.7.13</version>', '<version>42.7.9</version>')],
   ['Java change', pom => pom.replace('<java.version>21</java.version>', '<java.version>17</java.version>')],
   ['Flowable change', pom => pom.replace('<flowable.version>8.0.0</flowable.version>', '<flowable.version>7.2.0</flowable.version>')],
@@ -90,6 +112,46 @@ for (const [name, mutate] of [
   const result = run(directory);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /ValueError:/);
+});
+
+test('Boot dependency mutation requires exactly one owner and one private dependency', () => {
+  const boot = bootPlugin(source);
+  for (const pom of [source.replace(boot, ''), source.replace(boot, boot + boot)]) {
+    assert.throws(() => mutateBootDependency(pom, 'plexus-utils', ''), /exactly one Boot plugin owner/);
+  }
+  const entry = bootDependency(source, 'plexus-utils');
+  for (const replacement of ['', entry + entry]) {
+    const pom = mutateBootPlugin(source, plugin => plugin.replace(entry, replacement));
+    assert.throws(() => mutateBootDependency(pom, 'plexus-utils', ''), /exactly one plexus-utils dependency/);
+  }
+});
+
+test('Boot dependency mutations preserve all unrelated plugin owners', () => {
+  const entry = bootDependency(source, 'plexus-utils');
+  for (const replacement of ['', entry.replace('3.6.1', '3.5.1'), entry + entry,
+    entry.replace('</dependency>', '<scope>test</scope></dependency>'),
+    entry.replace('</dependency>', '<version>3.6.1</version></dependency>')]) {
+    const changed = mutateBootDependency(source, 'plexus-utils', replacement);
+    assert.equal(changed.replace(bootPlugin(changed), ''), source.replace(bootPlugin(source), ''),
+      'every byte outside the Boot owner, including AntRun and JaCoCo, must remain unchanged');
+    assert.equal(bootPlugin(changed), bootPlugin(source).replace(entry, replacement));
+  }
+});
+
+test('source contract leaves unrelated AntRun dependency changes to their owner contract', t => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'server-dependency-owner-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(path.join(directory, 'integrations/host-sdk'), { recursive: true });
+  writeFileSync(path.join(directory, 'integrations/host-sdk/pom.xml'), host);
+  const owners = [...source.matchAll(/<plugin>\s*<groupId>org\.apache\.maven\.plugins<\/groupId>\s*<artifactId>maven-antrun-plugin<\/artifactId>[\s\S]*?<\/plugin>/g)];
+  assert.equal(owners.length, 1, 'fixture must have exactly one AntRun plugin owner');
+  const antRun = owners[0][0];
+  const changed = source.replace(antRun, antRun.replace('<version>3.6.1</version>', '<version>3.5.1</version>'));
+  assert.notEqual(changed, source);
+  assert.equal(bootPlugin(changed), bootPlugin(source));
+  writeFileSync(path.join(directory, 'pom.xml'), changed);
+  const result = run(directory);
+  assert.equal(result.status, 0, result.stderr);
 });
 
 // Deliberately minimal synthetic XML tests the checker only. It is never saved as Maven evidence.
