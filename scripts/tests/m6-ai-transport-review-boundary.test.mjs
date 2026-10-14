@@ -51,6 +51,7 @@ import './boot-http-plugin-live-compatibility.test.mjs';
 import './boot-utilities-source-baseline.test.mjs';
 import './jacoco-antrun-source-baseline.test.mjs';
 import './jacoco-antrun-graph-transition.test.mjs';
+import './jacoco-antrun-manifest-reuse-boundary.test.mjs';
 import './jacoco-antrun-plugin-osv-diagnostic.test.mjs';
 import './jacoco-antrun-compatibility-harness.test.mjs';
 import './jacoco-antrun-plugin-live-compatibility.test.mjs';

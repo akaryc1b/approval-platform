@@ -464,8 +464,9 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, exp
   if (digest === JACOCO_ANTRUN_GRAPH) {
     requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
       && e2.commitSha === expectedCommitSha, 'JaCoCo/AntRun E2 requires current verified head and schema');
-    verifyJacocoAntrunCurrentEvidence(e2);
-    const previous = verifyJacocoAntrunDelta(projection), baseline = readJacocoAntrunBaseline();
+    const manifest = readJacocoAntrunManifest();
+    verifyJacocoAntrunCurrentEvidence(e2, manifest);
+    const previous = verifyJacocoAntrunDelta(projection, manifest), baseline = readJacocoAntrunBaseline(manifest);
     verifyObservabilityGraph(baseline, previous, BASE_GRAPH, baseline.commitSha);
     return jacocoAntrunReceipt(e2);
   }
