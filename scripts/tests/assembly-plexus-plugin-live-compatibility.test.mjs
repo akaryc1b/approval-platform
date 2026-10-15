@@ -19,10 +19,11 @@ test('real offline Assembly 3.7.1 / Plexus 4.0.0 and 4.0.3 six-pair compatibilit
   assert.equal(parsed.length, 1);
   const summary = JSON.parse(parsed[0].slice('ASSEMBLY_PLEXUS_RESULT '.length));
   const receipt = JSON.parse(readFileSync(summary.path, 'utf8'));
+  let portable;
   if (ci) {
     const rows = run.stdout.split('\n').filter(line => line.startsWith('ASSEMBLY_PLEXUS_PORTABLE_RESULT '));
     assert.equal(rows.length, 1);
-    const portable = JSON.parse(readFileSync(JSON.parse(rows[0].slice('ASSEMBLY_PLEXUS_PORTABLE_RESULT '.length)).path, 'utf8'));
+    portable = JSON.parse(readFileSync(JSON.parse(rows[0].slice('ASSEMBLY_PLEXUS_PORTABLE_RESULT '.length)).path, 'utf8'));
     assert.equal(portable.status, 'PASSED'); assert.ok(portable.resolutionCommandsRun <= 2);
     assert.equal(portable.existingArtifactHashesUnchanged, true);
   }
@@ -42,4 +43,13 @@ test('real offline Assembly 3.7.1 / Plexus 4.0.0 and 4.0.3 six-pair compatibilit
     assert.equal(delta.removedRegularFiles.length, 8); assert.equal(delta.explicitFalseUnchanged, true);
     assert.equal(delta.retainedFilesEqual, true); assert.equal(delta.allOtherMetadataEqual, true);
   }
+  // Retain both full validated receipts in the uploaded log, with no partial success output.
+  const records = [['ASSEMBLY_PLEXUS_RESULT', receipt]];
+  if (portable) records.push(['ASSEMBLY_PLEXUS_PORTABLE_RESULT', portable]);
+  const lines = records.map(([marker, result]) => {
+    const json = JSON.stringify(result);
+    assert.ok(Buffer.byteLength(json, 'utf8') <= 8 * 1024 * 1024, `${marker} receipt exceeds 8 MiB`);
+    return marker + ' ' + json;
+  });
+  for (const line of lines) console.log(line);
 });

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import './assembly-plexus-receipt-retention.test.mjs';
 
 const harness = fileURLToPath(new URL('./fixtures/assembly-plexus-compatibility.py', import.meta.url));
 function python(body) {
