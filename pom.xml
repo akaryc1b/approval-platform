@@ -46,7 +46,7 @@
         <maven.compiler.version>3.14.0</maven.compiler.version>
         <maven.compiler.commons-io.version>2.20.0</maven.compiler.commons-io.version>
         <maven.surefire.version>3.5.5</maven.surefire.version>
-        <maven.enforcer.version>3.5.0</maven.enforcer.version>
+        <maven.enforcer.version>3.6.3</maven.enforcer.version>
         <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
         <maven.checkstyle.commons-lang3.version>3.18.0</maven.checkstyle.commons-lang3.version>
         <maven.checkstyle.guava.version>32.0.1-jre</maven.checkstyle.guava.version>
