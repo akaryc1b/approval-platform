@@ -65,7 +65,18 @@ def is_pair_source(root):
     return b'<artifactId>maven-antrun-plugin</artifactId>' in (root / 'pom.xml').read_bytes()
 
 
+def assembly_contract():
+    return run_path(str(Path(__file__).with_name('assembly_plexus_contract.py')))
+
+
+def before_assembly(raw):
+    if b'<artifactId>maven-assembly-plugin</artifactId>' in raw:
+        return assembly_contract()['reverse_source'](raw)
+    return raw
+
+
 def reverse_source(raw):
+    raw = before_assembly(raw)
     require(hashlib.sha256(raw).hexdigest() == CURRENT_POM, 'Pair exact candidate source bytes changed')
     text = raw.decode('utf8')
     require(text.count(ANTRUN_ADDITION) == 1 and text.count(JACOCO_ADDITION) == 1,
@@ -88,11 +99,17 @@ def source_inventory(root):
     rows = json.loads((root / old['WITNESS']).read_text())['sourcePomFiles']
     require(len(rows) == 28 and len({row['path'] for row in rows}) == 28, 'Pair requires exact 28-POM inventory')
     result = {}
+    supplied_pom = (root / 'pom.xml').read_bytes()
+    current_pom = CURRENT_POM
+    if b'<artifactId>maven-assembly-plugin</artifactId>' in supplied_pom:
+        contract = assembly_contract()
+        contract['verify_source'](root)
+        current_pom = contract['CURRENT_POM']
     for row in rows:
         name = row['path']
         require(not name.startswith('/') and all(part not in ('', '.', '..') for part in name.split('/')),
                 'Pair unsafe source member')
-        expected = CURRENT_POM if name == 'pom.xml' else row['candidateSha256']
+        expected = current_pom if name == 'pom.xml' else row['candidateSha256']
         checked(root, name, expected)
         result[name] = expected
     checked(root, old['RULES'], old['RULES_SHA']); result[old['RULES']] = old['RULES_SHA']
@@ -125,7 +142,7 @@ def materialize_retained_source(source, destination):
     result = {'schemaVersion': 'JACOCO_ANTRUN_RETAINED_SOURCE_VIEW_V1',
               'suppliedSourceRoot': str(source), 'retainedSourceRoot': str(destination),
               'suppliedSourceHashes': supplied, 'retainedSourceHashes': retained,
-              'suppliedRootPomSha256': CURRENT_POM, 'retainedRootPomSha256': PRIOR_POM,
+              'suppliedRootPomSha256': supplied['pom.xml'], 'retainedRootPomSha256': PRIOR_POM,
               'adapterSha256': digest(Path(__file__)),
               'scope': 'Exact two private plugin additions reversed for unchanged accepted utilities contracts. No current pair compatibility claim.'}
     verify_projection(result)
@@ -135,10 +152,12 @@ def materialize_retained_source(source, destination):
 
 def verify_projection(projection):
     require(projection['schemaVersion'] == 'JACOCO_ANTRUN_RETAINED_SOURCE_VIEW_V1'
-            and projection['suppliedRootPomSha256'] == CURRENT_POM
+            and projection['suppliedRootPomSha256'] == projection['suppliedSourceHashes'].get('pom.xml')
             and projection['retainedRootPomSha256'] == PRIOR_POM
             and digest(Path(__file__)) == projection['adapterSha256'], 'Pair projection identity changed')
     source, retained = (Path(projection[key]).resolve() for key in ('suppliedSourceRoot', 'retainedSourceRoot'))
+    require(hashlib.sha256(before_assembly((source / 'pom.xml').read_bytes())).hexdigest() == CURRENT_POM,
+            'Pair projection accepted predecessor changed')
     require(set(projection['suppliedSourceHashes']) == set(projection['retainedSourceHashes']),
             'Pair projection inventory membership changed')
     for root, key in [(source, 'suppliedSourceHashes'), (retained, 'retainedSourceHashes')]:

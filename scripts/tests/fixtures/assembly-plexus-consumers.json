@@ -1,0 +1,2101 @@
+{
+  "consumerDefinition": "Classes outside plexus-utils referencing another org/codehaus/plexus/util/ type in CONSTANT_Class entries or JVM type descriptors/signatures. Own-class entries are excluded. Includes the separate plexus-xml jar. Static references do not prove execution.",
+  "consumerCount": 55,
+  "consumerCountsByJar": {
+    "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1": 12,
+    "org.apache.maven.shared:maven-filtering:jar:3.3.2": 3,
+    "org.codehaus.plexus:plexus-archiver:jar:4.9.2": 13,
+    "org.codehaus.plexus:plexus-io:jar:3.4.2": 3,
+    "org.codehaus.plexus:plexus-xml:jar:3.0.0": 20,
+    "org.sonatype.plexus:plexus-build-api:jar:0.0.7": 4
+  },
+  "directAssemblyConsumerCount": 12,
+  "consumers": [
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/archive/DefaultAssemblyArchiver.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/StringUtils",
+        "org/codehaus/plexus/util/xml/Xpp3Dom",
+        "org/codehaus/plexus/util/xml/Xpp3DomBuilder",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParserException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "isNotBlank",
+          "descriptor": "(Ljava/lang/String;)Z"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "trim",
+          "descriptor": "(Ljava/lang/String;)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3DomBuilder",
+          "name": "build",
+          "descriptor": "(Ljava/io/Reader;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/archive/task/AddArtifactTask.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/FileUtils",
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "join",
+          "descriptor": "([Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/FileUtils",
+          "name": "copyFile",
+          "descriptor": "(Ljava/io/File;Ljava/io/File;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/artifact/DefaultDependencyResolver.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "join",
+          "descriptor": "(Ljava/util/Iterator;Ljava/lang/String;)Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/Xpp3Dom",
+        "org/codehaus/plexus/util/xml/Xpp3DomBuilder",
+        "org/codehaus/plexus/util/xml/Xpp3DomWriter",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParserException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3DomBuilder",
+          "name": "build",
+          "descriptor": "(Ljava/io/Reader;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getChild",
+          "descriptor": "(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getChildren",
+          "descriptor": "()[Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getValue",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "addChild",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3DomWriter",
+          "name": "write",
+          "descriptor": "(Ljava/io/Writer;Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParserException",
+          "name": "getMessage",
+          "descriptor": "()Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/io/DefaultAssemblyReader.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/DirectoryScanner",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParserException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "<init>",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setBasedir",
+          "descriptor": "(Ljava/io/File;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setIncludes",
+          "descriptor": "([Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "addDefaultExcludes",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "scan",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "getIncludedFiles",
+          "descriptor": "()[Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/ReaderFactory",
+        "org/codehaus/plexus/util/xml/XmlStreamReader",
+        "org/codehaus/plexus/util/xml/Xpp3Dom",
+        "org/codehaus/plexus/util/xml/Xpp3DomBuilder",
+        "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+        "org/codehaus/plexus/util/xml/pull/MXParser",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParserException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getName",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParserException",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Ljava/lang/Throwable;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "next",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "TYPES",
+          "descriptor": "[Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getEventType",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getInputEncoding",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+          "name": "defaultEntityReplacementMap",
+          "descriptor": "Lorg/codehaus/plexus/util/xml/pull/EntityReplacementMap;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/MXParser",
+          "name": "<init>",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/pull/EntityReplacementMap;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/MXParser",
+          "name": "<init>",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "setInput",
+          "descriptor": "(Ljava/io/Reader;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/ReaderFactory",
+          "name": "newXmlReader",
+          "descriptor": "(Ljava/io/InputStream;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeCount",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeName",
+          "descriptor": "(I)Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeValue",
+          "descriptor": "(I)Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "nextTag",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "nextText",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3DomBuilder",
+          "name": "build",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Z)Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/Xpp3Dom",
+        "org/codehaus/plexus/util/xml/pull/MXSerializer",
+        "org/codehaus/plexus/util/xml/pull/XmlSerializer"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/MXSerializer",
+          "name": "<init>",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "setProperty",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "setOutput",
+          "descriptor": "(Ljava/io/Writer;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "startDocument",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/Boolean;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "endDocument",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "setOutput",
+          "descriptor": "(Ljava/io/OutputStream;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "comment",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "setPrefix",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "startTag",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "attribute",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "text",
+          "descriptor": "(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "endTag",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "writeToSerializer",
+          "descriptor": "(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/ReaderFactory",
+        "org/codehaus/plexus/util/xml/XmlStreamReader",
+        "org/codehaus/plexus/util/xml/Xpp3Dom",
+        "org/codehaus/plexus/util/xml/Xpp3DomBuilder",
+        "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+        "org/codehaus/plexus/util/xml/pull/MXParser",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParserException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getName",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParserException",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Ljava/lang/Throwable;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "next",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "TYPES",
+          "descriptor": "[Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getEventType",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getInputEncoding",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+          "name": "defaultEntityReplacementMap",
+          "descriptor": "Lorg/codehaus/plexus/util/xml/pull/EntityReplacementMap;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/MXParser",
+          "name": "<init>",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/pull/EntityReplacementMap;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/MXParser",
+          "name": "<init>",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "setInput",
+          "descriptor": "(Ljava/io/Reader;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/ReaderFactory",
+          "name": "newXmlReader",
+          "descriptor": "(Ljava/io/InputStream;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeCount",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeName",
+          "descriptor": "(I)Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeValue",
+          "descriptor": "(I)Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "nextTag",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "nextText",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3DomBuilder",
+          "name": "build",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Z)Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/Xpp3Dom",
+        "org/codehaus/plexus/util/xml/pull/MXSerializer",
+        "org/codehaus/plexus/util/xml/pull/XmlSerializer"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/MXSerializer",
+          "name": "<init>",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "setProperty",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "setOutput",
+          "descriptor": "(Ljava/io/Writer;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "startDocument",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/Boolean;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "endDocument",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "setOutput",
+          "descriptor": "(Ljava/io/OutputStream;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "comment",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "setPrefix",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "startTag",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "attribute",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "endTag",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "text",
+          "descriptor": "(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "writeToSerializer",
+          "descriptor": "(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/mojos/AbstractAssemblyMojo.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/cli/CommandLineUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/cli/CommandLineUtils",
+          "name": "getSystemEnvVars",
+          "descriptor": "(Z)Ljava/util/Properties;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/mojos/SingleAssemblyMojo.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/Xpp3Dom"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getChild",
+          "descriptor": "(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1",
+      "classEntry": "org/apache/maven/plugins/assembly/utils/AssemblyFormatUtils.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/Os",
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "join",
+          "descriptor": "(Ljava/util/Iterator;Ljava/lang/String;)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "replace",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/Os",
+          "name": "isFamily",
+          "descriptor": "(Ljava/lang/String;)Z"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.shared:maven-filtering:jar:3.3.2",
+      "classEntry": "org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering$1.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/DirectoryScanner"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "<init>",
+          "descriptor": "()V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.shared:maven-filtering:jar:3.3.2",
+      "classEntry": "org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/DirectoryScanner",
+        "org/codehaus/plexus/util/Scanner"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setBasedir",
+          "descriptor": "(Ljava/io/File;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "scan",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "getIncludedFiles",
+          "descriptor": "()[Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/Scanner",
+          "name": "scan",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/Scanner",
+          "name": "getIncludedFiles",
+          "descriptor": "()[Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/Scanner",
+          "name": "setIncludes",
+          "descriptor": "([Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/Scanner",
+          "name": "setExcludes",
+          "descriptor": "([Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/Scanner",
+          "name": "addDefaultExcludes",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/Scanner",
+          "name": "getIncludedDirectories",
+          "descriptor": "()[Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.maven.shared:maven-filtering:jar:3.3.2",
+      "classEntry": "org/apache/maven/shared/filtering/FilteringUtils.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/io/CachingOutputStream",
+        "org/codehaus/plexus/util/io/CachingWriter"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/io/CachingOutputStream",
+          "name": "<init>",
+          "descriptor": "(Ljava/nio/file/Path;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/io/CachingWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/nio/file/Path;Ljava/nio/charset/Charset;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/AbstractUnArchiver.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/FileUtils",
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/FileUtils",
+          "name": "resolveFile",
+          "descriptor": "(Ljava/io/File;Ljava/lang/String;)Ljava/io/File;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "isEmpty",
+          "descriptor": "(Ljava/lang/String;)Z"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/DotDirectiveArchiveFinalizer.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/FileUtils",
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/FileUtils",
+          "name": "getFiles",
+          "descriptor": "(Ljava/io/File;Ljava/lang/String;Ljava/lang/String;)Ljava/util/List;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "split",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/diags/TrackingArchiver$Addition.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "join",
+          "descriptor": "([Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/filters/JarSecurityFileFilter.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/SelectorUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/SelectorUtils",
+          "name": "match",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)Z"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/filters/JarSecurityFileSelector.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/SelectorUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/SelectorUtils",
+          "name": "match",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)Z"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/jar/JarToolModularJarArchiver.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/IOUtil"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/IOUtil",
+          "name": "copy",
+          "descriptor": "(Ljava/io/InputStream;Ljava/io/OutputStream;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/jar/JdkManifestFactory.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/PropertyUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/PropertyUtils",
+          "name": "loadProperties",
+          "descriptor": "(Ljava/io/InputStream;)Ljava/util/Properties;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/manager/DefaultArchiverManager.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "split",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/tar/TarArchiver.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/IOUtil",
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "replace",
+          "descriptor": "(Ljava/lang/String;CC)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/IOUtil",
+          "name": "close",
+          "descriptor": "(Ljava/io/OutputStream;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/IOUtil",
+          "name": "close",
+          "descriptor": "(Ljava/io/InputStream;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/util/ArchiveEntryUtils.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/Os"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/Os",
+          "name": "isFamily",
+          "descriptor": "(Ljava/lang/String;)Z"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/util/FilePermissionUtils.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "isBlank",
+          "descriptor": "(Ljava/lang/String;)Z"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/util/Streams.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/IOUtil"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/IOUtil",
+          "name": "close",
+          "descriptor": "(Ljava/io/OutputStream;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/IOUtil",
+          "name": "close",
+          "descriptor": "(Ljava/io/InputStream;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-archiver:jar:4.9.2",
+      "classEntry": "org/codehaus/plexus/archiver/zip/AbstractZipArchiver.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/FileUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/FileUtils",
+          "name": "createTempFile",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/io/File;)Ljava/io/File;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/FileUtils",
+          "name": "rename",
+          "descriptor": "(Ljava/io/File;Ljava/io/File;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-io:jar:3.4.2",
+      "classEntry": "org/codehaus/plexus/components/io/attributes/PlexusIoResourceAttributeUtils.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/FileUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/FileUtils",
+          "name": "getFileAndDirectoryNames",
+          "descriptor": "(Ljava/io/File;Ljava/lang/String;Ljava/lang/String;ZZZZ)Ljava/util/List;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-io:jar:3.4.2",
+      "classEntry": "org/codehaus/plexus/components/io/fileselectors/IncludeExcludeFileSelector.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/FileUtils",
+        "org/codehaus/plexus/util/MatchPatterns",
+        "org/codehaus/plexus/util/SelectorUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/MatchPatterns",
+          "name": "matches",
+          "descriptor": "(Ljava/lang/String;Z)Z"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/MatchPatterns",
+          "name": "from",
+          "descriptor": "([Ljava/lang/String;)Lorg/codehaus/plexus/util/MatchPatterns;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/FileUtils",
+          "name": "getDefaultExcludes",
+          "descriptor": "()[Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/SelectorUtils",
+          "name": "matchPath",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Z)Z"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-io:jar:3.4.2",
+      "classEntry": "org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/DirectoryScanner",
+        "org/codehaus/plexus/util/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/StringUtils",
+          "name": "replace",
+          "descriptor": "(Ljava/lang/String;CC)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "<init>",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setBasedir",
+          "descriptor": "(Ljava/io/File;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setIncludes",
+          "descriptor": "([Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setExcludes",
+          "descriptor": "([Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "addDefaultExcludes",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setCaseSensitive",
+          "descriptor": "(Z)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setFollowSymlinks",
+          "descriptor": "(Z)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setFilenameComparator",
+          "descriptor": "(Ljava/util/Comparator;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "scan",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "getIncludedDirectories",
+          "descriptor": "()[Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "getIncludedFiles",
+          "descriptor": "()[Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/CompactXMLWriter.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/PrintWriter;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/Writer;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/StringUtils",
+        "org/codehaus/plexus/util/xml/XMLWriter"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/StringUtils",
+          "name": "unifyLineSeparators",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/ReaderFactory.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/XmlStreamReader"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/InputStream;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/File;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/net/URL;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/SerializerXMLWriter.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/XMLWriter",
+        "org/codehaus/plexus/util/xml/pull/XmlSerializer"
+      ],
+      "memberReferences": [
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "startTag",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "attribute",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "text",
+          "descriptor": "(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "cdsect",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlSerializer",
+          "name": "endTag",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/WriterFactory.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/XmlStreamWriter"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/OutputStream;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/File;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/XmlReader.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/XmlStreamReaderException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamReaderException",
+          "name": "getInputStream",
+          "descriptor": "()Ljava/io/InputStream;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamReaderException",
+          "name": "getXmlEncoding",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamReaderException",
+          "name": "getContentTypeEncoding",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamReaderException",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/io/InputStream;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlStreamReaderException",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/io/InputStream;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/XmlStreamReader.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/XmlReader",
+        "org/codehaus/plexus/util/xml/XmlStreamReaderException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/File;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/InputStream;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/InputStream;Z)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/net/URL;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/net/URLConnection;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/InputStream;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/InputStream;Ljava/lang/String;ZLjava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/InputStream;Ljava/lang/String;Z)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/XmlStreamReaderException.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/XmlReaderException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReaderException",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/io/InputStream;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReaderException",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/io/InputStream;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/XmlStreamWriter.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/XmlReader"
+      ],
+      "memberReferences": [
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "ENCODING_PATTERN",
+          "descriptor": "Ljava/util/regex/Pattern;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/XmlUtil.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+        "org/codehaus/plexus/util/xml/ReaderFactory",
+        "org/codehaus/plexus/util/xml/StringUtils",
+        "org/codehaus/plexus/util/xml/XmlStreamReader",
+        "org/codehaus/plexus/util/xml/pull/MXParser",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParserException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/ReaderFactory",
+          "name": "newXmlReader",
+          "descriptor": "(Ljava/io/File;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/MXParser",
+          "name": "<init>",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "setInput",
+          "descriptor": "(Ljava/io/Reader;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "nextToken",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/Writer;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/StringUtils",
+          "name": "repeat",
+          "descriptor": "(Ljava/lang/String;I)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "setLineIndenter",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "setLineSeparator",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParserException",
+          "name": "getMessage",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/ReaderFactory",
+          "name": "newXmlReader",
+          "descriptor": "(Ljava/io/InputStream;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getEventType",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "getLineIndenter",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "writeText",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getName",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "startElement",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeCount",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeName",
+          "descriptor": "(I)Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeValue",
+          "descriptor": "(I)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "addAttribute",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getText",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/StringUtils",
+          "name": "removeDuplicateWhitespace",
+          "descriptor": "(Ljava/lang/String;)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "endElement",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "getLineSeparator",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "writeMarkup",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "getDepth",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "endOfLine",
+          "descriptor": "()V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/XmlWriterUtil.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/StringUtils",
+        "org/codehaus/plexus/util/xml/XMLWriter"
+      ],
+      "memberReferences": [
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/XMLWriter",
+          "name": "writeMarkup",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/StringUtils",
+          "name": "repeat",
+          "descriptor": "(Ljava/lang/String;I)Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/XMLWriter",
+          "name": "writeText",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/StringUtils",
+          "name": "split",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/Xpp3Dom.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+        "org/codehaus/plexus/util/xml/SerializerXMLWriter",
+        "org/codehaus/plexus/util/xml/StringUtils",
+        "org/codehaus/plexus/util/xml/XMLWriter",
+        "org/codehaus/plexus/util/xml/Xpp3DomWriter",
+        "org/codehaus/plexus/util/xml/pull/XmlSerializer"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/StringUtils",
+          "name": "isEmpty",
+          "descriptor": "(Ljava/lang/String;)Z"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/SerializerXMLWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3DomWriter",
+          "name": "write",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/XMLWriter;Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/SerializerXMLWriter",
+          "name": "getExceptions",
+          "descriptor": "()Ljava/util/List;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/Writer;Ljava/lang/String;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3DomWriter",
+          "name": "write",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/XMLWriter;Lorg/codehaus/plexus/util/xml/Xpp3Dom;Z)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/Xpp3DomBuilder$InputLocationBuilder.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/Xpp3DomBuilder",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParser"
+      ],
+      "memberReferences": []
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/Xpp3DomBuilder.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/Xpp3Dom",
+        "org/codehaus/plexus/util/xml/Xpp3DomBuilder$InputLocationBuilder",
+        "org/codehaus/plexus/util/xml/pull/MXParser",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParserException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/MXParser",
+          "name": "<init>",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "setInput",
+          "descriptor": "(Ljava/io/InputStream;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "setInput",
+          "descriptor": "(Ljava/io/Reader;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getEventType",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getName",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3DomBuilder$InputLocationBuilder",
+          "name": "toInputLocation",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;)Ljava/lang/Object;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "setInputLocation",
+          "descriptor": "(Ljava/lang/Object;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "addChild",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "isEmptyElementTag",
+          "descriptor": "()Z"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeCount",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeName",
+          "descriptor": "(I)Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getAttributeValue",
+          "descriptor": "(I)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "setAttribute",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getText",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getChildCount",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "setValue",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "next",
+          "descriptor": "()I"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/Xpp3DomUtils.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/SerializerXMLWriter",
+        "org/codehaus/plexus/util/xml/XMLWriter",
+        "org/codehaus/plexus/util/xml/Xpp3Dom",
+        "org/codehaus/plexus/util/xml/Xpp3DomWriter",
+        "org/codehaus/plexus/util/xml/pull/XmlSerializer"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/SerializerXMLWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3DomWriter",
+          "name": "write",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/XMLWriter;Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/SerializerXMLWriter",
+          "name": "getExceptions",
+          "descriptor": "()Ljava/util/List;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getAttribute",
+          "descriptor": "(Ljava/lang/String;)Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getAttributeNames",
+          "descriptor": "()[Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "setAttribute",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getChildren",
+          "descriptor": "()[Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getName",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getChild",
+          "descriptor": "(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "<init>",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "addChild",
+          "descriptor": "(Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/Xpp3DomWriter.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+        "org/codehaus/plexus/util/xml/XMLWriter",
+        "org/codehaus/plexus/util/xml/Xpp3Dom"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/Writer;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/PrettyPrintXMLWriter",
+          "name": "<init>",
+          "descriptor": "(Ljava/io/PrintWriter;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getName",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/XMLWriter",
+          "name": "startElement",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getAttributeNames",
+          "descriptor": "()[Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getAttribute",
+          "descriptor": "(Ljava/lang/String;)Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/XMLWriter",
+          "name": "addAttribute",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getChildren",
+          "descriptor": "()[Lorg/codehaus/plexus/util/xml/Xpp3Dom;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/Xpp3Dom",
+          "name": "getValue",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/XMLWriter",
+          "name": "writeText",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/XMLWriter",
+          "name": "writeMarkup",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/XMLWriter",
+          "name": "endElement",
+          "descriptor": "()V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/pull/MXParser.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/ReaderFactory",
+        "org/codehaus/plexus/util/xml/XmlReader",
+        "org/codehaus/plexus/util/xml/XmlStreamReader",
+        "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+        "org/codehaus/plexus/util/xml/pull/XmlPullParserException"
+      ],
+      "memberReferences": [
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+          "name": "entityEnd",
+          "descriptor": "I"
+        },
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+          "name": "entityName",
+          "descriptor": "[Ljava/lang/String;"
+        },
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+          "name": "entityNameBuf",
+          "descriptor": "[[C"
+        },
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+          "name": "entityReplacement",
+          "descriptor": "[Ljava/lang/String;"
+        },
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+          "name": "entityReplacementBuf",
+          "descriptor": "[[C"
+        },
+        {
+          "kind": "field",
+          "owner": "org/codehaus/plexus/util/xml/pull/EntityReplacementMap",
+          "name": "entityNameHash",
+          "descriptor": "[I"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParserException",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Ljava/lang/Throwable;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParserException",
+          "name": "<init>",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/XmlReader",
+          "name": "getEncoding",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/ReaderFactory",
+          "name": "newReader",
+          "descriptor": "(Ljava/io/InputStream;Ljava/lang/String;)Ljava/io/Reader;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/xml/ReaderFactory",
+          "name": "newXmlReader",
+          "descriptor": "(Ljava/io/InputStream;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/pull/MXSerializer.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/pull/XmlSerializer"
+      ],
+      "memberReferences": []
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/pull/XmlPullParser.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/pull/XmlPullParserException"
+      ],
+      "memberReferences": []
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.0",
+      "classEntry": "org/codehaus/plexus/util/xml/pull/XmlPullParserException.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/xml/pull/XmlPullParser"
+      ],
+      "memberReferences": [
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getPositionDescription",
+          "descriptor": "()Ljava/lang/String;"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getLineNumber",
+          "descriptor": "()I"
+        },
+        {
+          "kind": "interfaceMethod",
+          "owner": "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+          "name": "getColumnNumber",
+          "descriptor": "()I"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.sonatype.plexus:plexus-build-api:jar:0.0.7",
+      "classEntry": "org/sonatype/plexus/build/incremental/DefaultBuildContext.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/DirectoryScanner",
+        "org/codehaus/plexus/util/Scanner"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "<init>",
+          "descriptor": "()V"
+        },
+        {
+          "kind": "method",
+          "owner": "org/codehaus/plexus/util/DirectoryScanner",
+          "name": "setBasedir",
+          "descriptor": "(Ljava/io/File;)V"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.sonatype.plexus:plexus-build-api:jar:0.0.7",
+      "classEntry": "org/sonatype/plexus/build/incremental/EmptyScanner.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/Scanner"
+      ],
+      "memberReferences": []
+    },
+    {
+      "coordinate": "org.sonatype.plexus:plexus-build-api:jar:0.0.7",
+      "classEntry": "org/sonatype/plexus/build/incremental/ThreadBuildContext.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/Scanner"
+      ],
+      "memberReferences": []
+    },
+    {
+      "coordinate": "org.sonatype.plexus:plexus-build-api:jar:0.0.7",
+      "classEntry": "org/sonatype/plexus/build/incremental/BuildContext.class",
+      "classAndDescriptorReferences": [
+        "org/codehaus/plexus/util/Scanner"
+      ],
+      "memberReferences": []
+    }
+  ]
+}

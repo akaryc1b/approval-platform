@@ -26,7 +26,9 @@ export function retainedJacocoAntRunSource(source) {
   });
   assert.equal(result.status, 0, `Pair historical source projection failed: ${result.stderr}`);
   const projection = JSON.parse(result.stdout);
-  assert.equal(projection.suppliedRootPomSha256, 'd36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c');
+  assert.equal(projection.suppliedRootPomSha256, digest);
+  assert.ok(['d36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c',
+    '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629'].includes(digest));
   assert.equal(projection.retainedRootPomSha256, '2f22ec8cae77cdfb519b81a8e48417fc75632416bcf28989f589f33d39261579');
   assert.equal(projection.retainedSourceRoot, directory);
   const view = { directory, projection };

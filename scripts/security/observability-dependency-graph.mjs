@@ -72,6 +72,13 @@ export { JACOCO_ANTRUN_GRAPH, readJacocoAntrunManifest, readJacocoAntrunCandidat
   readJacocoAntrunPreservedBootUtilitiesLineage, verifyJacocoAntrunDelta, verifyJacocoAntrunOwnerDelta }
   from './jacoco-antrun-graph-transition.mjs';
 
+import { ASSEMBLY_PLEXUS_GRAPH, readAssemblyPlexusManifest, verifyAssemblyPlexusCurrentEvidence,
+  verifyAssemblyPlexusDelta, assemblyPlexusReceipt } from './assembly-plexus-graph-transition.mjs';
+export { ASSEMBLY_PLEXUS_GRAPH, readAssemblyPlexusManifest, readAssemblyPlexusCandidate,
+  readAssemblyPlexusBaseline, readAssemblyPlexusSourceWitness, readAssemblyPlexusReport,
+  readAssemblyPlexusAcceptedLineage, verifyAssemblyPlexusDelta }
+  from './assembly-plexus-graph-transition.mjs';
+
 export const BASE_GRAPH = '2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94';
 export const OBSERVABILITY_GRAPH = '27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37';
 export const OBSERVABILITY_OTEL_GRAPH = '390773d2aa746a2203eec870e5dd0a8f97f81e91913bb016c9ef95b749c0e7b3';
@@ -461,6 +468,14 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, exp
   }), 'E2 graph projection mismatch');
   const digest = graphHash(projection);
   requireValue(expectedBaseDigest === BASE_GRAPH, 'unrecognized dependency graph baseline');
+  if (digest === ASSEMBLY_PLEXUS_GRAPH) {
+    requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e2.commitSha === expectedCommitSha, 'Assembly E2 requires current verified head and schema');
+    const manifest = readAssemblyPlexusManifest();
+    verifyAssemblyPlexusCurrentEvidence(e2, manifest);
+    verifyAssemblyPlexusDelta(projection, manifest);
+    return assemblyPlexusReceipt(e2);
+  }
   if (digest === JACOCO_ANTRUN_GRAPH) {
     requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
       && e2.commitSha === expectedCommitSha, 'JaCoCo/AntRun E2 requires current verified head and schema');
@@ -538,6 +553,14 @@ export function requirePreservedGraph(e4, historicalGraph, expectedCommitSha) {
   if (e4.e2GraphDigest === historicalGraph) {
     requireValue(e4.e2GraphTransition === undefined, 'unexpected dependency graph lineage');
     return null;
+  }
+  if (e4.e2GraphDigest === ASSEMBLY_PLEXUS_GRAPH) {
+    requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e4.commitSha === expectedCommitSha && /^[0-9a-f]{64}$/.test(e4.e2CurrentContentSha256 || ''),
+    'Assembly receipt requires current verified head and E2 identity');
+    const expected = assemblyPlexusReceipt({ commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 });
+    requireValue(canonicalGraph(e4.e2GraphTransition) === canonicalGraph(expected), 'Assembly E2 graph lineage mismatch');
+    return expected;
   }
   if (e4.e2GraphDigest === JACOCO_ANTRUN_GRAPH) {
     requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
