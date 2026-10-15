@@ -2,19 +2,20 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
-import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
+import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 
 // Synthetic scan envelope only. The production verifier checks all pinned lineage manifests.
 // Each mutation receives an isolated copy of a fully validated synthetic input.
 // The extracted callback still invokes the real preserved-graph gate every time.
 const retainedLineageFixtures = new Map();
-function lineageFixture(plugin = 'jacoco-antrun') {
+function lineageFixture(plugin = 'assembly-plexus') {
   if (!retainedLineageFixtures.has(plugin)) retainedLineageFixtures.set(plugin, buildLineageFixture(plugin));
   return structuredClone(retainedLineageFixtures.get(plugin));
 }
 function buildLineageFixture(plugin) {
-  const e2 = JSON.parse(readFileSync(new URL(`../../docs/operations/${plugin === 'checkstyle-guava' ? plugin : plugin + '-plugin'}-evidence/candidate-E2.json`, import.meta.url)));
+  const evidence = ['checkstyle-guava', 'assembly-plexus'].includes(plugin) ? plugin : plugin + '-plugin';
+  const e2 = JSON.parse(readFileSync(new URL(`../../docs/operations/${evidence}-evidence/candidate-E2.json`, import.meta.url)));
   e2.commitSha = 'a'.repeat(40); const { contentSha256, ...payload } = e2; e2.contentSha256 = graphHash(payload);
   const projection = { maven: e2.maven, pnpm: e2.pnpm,
     githubActions: e2.githubActions.acceptedDependencyGraph.githubActions,
@@ -37,7 +38,7 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   const logs = []; const downstream = new Error('DOWNSTREAM_BOUNDARY_REACHED'); let error; let calls = 0;
   const start = scannerBoundary.indexOf("test('E4 full scanner emits");
   assert.ok(start >= 0);
-  const context = { assert, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+  const context = { assert, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     process: { env: { GITHUB_ACTIONS: 'true' }, execPath: process.execPath }, S: 'scanner.mjs', root: '/fixture',
     console: { log: text => logs.push(text) },
     spawnSync: (command, args) => {
@@ -54,13 +55,14 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   return { error, downstream, calls, logs, stdout };
 }
 
-test('the full-scanner callback binds the current JaCoCo/AntRun graph instead of historical predecessors', () => {
+test('the full-scanner callback binds the current Assembly graph instead of historical predecessors', () => {
   const r = assertScannerBinding(); assert.equal(r.error, r.downstream); assert.equal(r.calls, 2);
-  assert.equal(lineageFixture().e4.e2GraphDigest, JACOCO_ANTRUN_GRAPH);
-  assert.ok(scannerBoundary.includes("import { JACOCO_ANTRUN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
+  assert.equal(lineageFixture().e4.e2GraphDigest, ASSEMBLY_PLEXUS_GRAPH);
+  assert.ok(scannerBoundary.includes("import { ASSEMBLY_PLEXUS_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
   assert.deepEqual(r.logs, [r.stdout]);
 });
 for (const [name, alter] of [
+  ['pre-Assembly JaCoCo/AntRun graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('jacoco-antrun').e4); }],
   ['pre-pair Boot utilities graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('boot-utilities').e4); }],
   ['pre-utilities Boot HTTP graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('boot-http').e4); }],
   ['pre-Boot Guava graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('checkstyle-guava').e4); }],
@@ -86,6 +88,8 @@ for (const [name, alter] of [
 ]) test(`the full-scanner callback rejects ${name} before downstream review and retains output`, () => {
   const r = assertScannerBinding(alter);
   assert.ok(r.error); assert.notEqual(r.error, r.downstream); assert.equal(r.calls, 1);
+  assert.notEqual(r.error.name, 'ReferenceError', 'missing VM binding must not count as a graph rejection');
+  assert.notEqual(r.error.name, 'SyntaxError', 'invalid callback must not count as a graph rejection');
   assert.deepEqual(r.logs, [r.stdout]);
 });
 test('a failed scanner cannot reach downstream review even with a well-formed output fixture', () => {
