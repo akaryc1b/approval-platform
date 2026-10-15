@@ -8,8 +8,8 @@ import { syntheticE4, snapshot as prototypeSnapshot, i2Inputs, runSyntheticCiCal
   from './m6-pr-e-e3-designer-prototype-remediation.test.mjs';
 import { modeledJarDigestFixture, acceptedJarDigestLegacyFindings, normalizedDigestFinding,
   resealJarDigestEvidence, ACCEPTED_JAR_DIGEST_BASE, ACCEPTED_GITLEAKS_70_SHA256, JAR_DIGEST_DOCUMENT_PATHS,
-  JAR_DIGEST_FIXTURE_PATH, ORIGINAL_JAR_DIGEST_FIXTURE_SHA256, originalJarDigestFixtureBytes }
-  from './fixtures/jar-digest-review-fixture.mjs';
+  JAR_DIGEST_FIXTURE_PATH, ORIGINAL_JAR_DIGEST_FIXTURE_SHA256, originalJarDigestFixtureBytes, JAR_VERIFIER_PATH, publishedVerifierIntroductionBytes }
+  from './fixtures/jar-verifier-review-fixture.mjs';
 import { canonical, seal } from './fixtures/public-commit-review-fixture.mjs';
 import { gitleaksJarExecutionDigestFields, requireGitleaksCaptureInventory,
   readGitleaksCaptureHashReviewPlan, buildGitleaksCaptureHashReviewSnapshot,
@@ -132,11 +132,11 @@ test('JAR digest fixture retains the exact public commit declaration in independ
     `export const ACCEPTED_JAR_DIGEST_BASE = '${ACCEPTED_JAR_DIGEST_BASE}';`);
 });
 
-test('JAR digest V4 receipt replays all 192 identities and preserves the legacy proof groups', () => {
+test('JAR digest V5 receipt replays all 194 identities and preserves the legacy proof groups', () => {
   const { e4, receipt, model } = baseCase(), before = canonical(e4);
   assert.equal(e4.e2GraphDigest, JAR_PLUGIN_GRAPH); requireGitleaksCaptureInventory(e4);
-  assert.equal(receipt.schemaVersion, 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V4');
-  assert.equal(receipt.currentFindingCount, 192); assert.equal(receipt.findings.length, 3);
+  assert.equal(receipt.schemaVersion, 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V5');
+  assert.equal(receipt.currentFindingCount, 194); assert.equal(receipt.findings.length, 3);
   assert.equal(receipt.planMetadataReview.findings.length, 38);
   assert.equal(receipt.executionDigestReview.findings.length, 121);
   assert.deepEqual(receipt.executionDigestReview.fields, gitleaksJarExecutionDigestFields());
@@ -167,7 +167,7 @@ test('JAR digest V4 receipt replays all 192 identities and preserves the legacy 
   assert.equal(fixture.scannerColumnsRetained, false); assert.equal(fixture.rawCandidateMaterialRetained, false);
   assert.equal(fixture.releaseBlocked, true);
   assert.deepEqual(Buffer.from(receipt.proof.fixturePublicCommit.introductionContentBase64, 'base64'), model.fixtureIntroductionBytes);
-  assert.equal(gitleaksCaptureReviewFindings(receipt).length, 163);
+  assert.equal(gitleaksCaptureReviewFindings(receipt).length, 165);
   assert.ok(receipt.proof.inputs.length === 3 && receipt.proof.planMetadata.scannerBaseline);
   assert.equal(receipt.releaseBlocked, true);
   assert.deepEqual(requireGitleaksCaptureHashReviewReceipt(e4, receipt), receipt);
@@ -207,17 +207,17 @@ for (const options of [{}, { mergeHead: true }, { mergeIntroduction: true },
   });
 }
 
-test('JAR digest I2 and R2B retain all observations with 165 append-only reviews and the release block', () => {
+test('JAR digest I2 and R2B retain all observations with 167 append-only reviews and the release block', () => {
   const { e4, source } = baseCase(), before = currentI2(e4);
   const triage = applyGitleaksTestExpressionReview(before, e4, source);
   requireGitleaksTestExpressionTriage(e4, triage);
   assert.deepEqual(triage.decisions.map(row => row.findingId), before.decisions.map(row => row.findingId));
-  assert.equal(triage.decisions.filter(row => row.sourceClass === 'E4_GITLEAKS').length, 192);
-  assert.equal(triage.appendOnlyReviewedFindingCount, 165); assert.equal(triage.currentReviewedFindingCount, 167);
+  assert.equal(triage.decisions.filter(row => row.sourceClass === 'E4_GITLEAKS').length, 194);
+  assert.equal(triage.appendOnlyReviewedFindingCount, 167); assert.equal(triage.currentReviewedFindingCount, 169);
   assert.equal(triage.summary.releaseBlocked, true);
   const reconciliation = reconcileScannerFindingIdentities(e4, prototypeSnapshot(e4), source);
-  assert.equal(reconciliation.currentScannerCounts.gitleaks, 192);
-  assert.equal(reconciliation.reviewedAddedGitleaksFindingCount, 165);
+  assert.equal(reconciliation.currentScannerCounts.gitleaks, 194);
+  assert.equal(reconciliation.reviewedAddedGitleaksFindingCount, 167);
   assert.equal(reconciliation.retainedHistoricalGitleaksFindingCount, 27);
   assert.equal(reconciliation.releaseBlocked, true);
 });
@@ -232,15 +232,20 @@ test('JAR digest extension preserves every accepted 70 disposition and rationale
   const unbind = item => { const copy = structuredClone(item); if (copy.reviewEvidence) delete copy.reviewEvidence.reviewCanonicalSha256; return copy; };
   const oldDecisions = prior.decisions.filter(row => row.sourceClass === 'E4_GITLEAKS'); assert.equal(oldDecisions.length, 70);
   for (const row of oldDecisions) assert.deepEqual(unbind(current.decisions.find(now => now.findingId === row.findingId)), unbind(row));
+  assert.deepEqual(current.decisions.filter(row => row.disposition === 'UNRESOLVED').map(row => row.findingId),
+    prior.decisions.filter(row => row.disposition === 'UNRESOLVED').map(row => row.findingId));
+  assert.equal(current.summary.releaseBlocked, true); assert.equal(prior.summary.releaseBlocked, true);
 });
 
 for (const [label, mutate] of [
   ['current graph with only the prior 70', e4 => { e4.scanners.gitleaks.findings = acceptedJarDigestLegacyFindings(); }],
-  ['current191 omitting the fixture row', e4 => { e4.scanners.gitleaks.findings = e4.scanners.gitleaks.findings.filter(row => row.path !== JAR_DIGEST_FIXTURE_PATH); }],
+  ['current193 omitting the fixture row', e4 => { e4.scanners.gitleaks.findings = e4.scanners.gitleaks.findings.filter(row => row.path !== JAR_DIGEST_FIXTURE_PATH); }],
+  ['current192 omitting both verifier rows', e4 => { e4.scanners.gitleaks.findings = e4.scanners.gitleaks.findings.filter(row => row.path !== JAR_VERIFIER_PATH); }],
+  ['current191 omitting all public source rows', e4 => { e4.scanners.gitleaks.findings = e4.scanners.gitleaks.findings.filter(row => ![JAR_VERIFIER_PATH, JAR_DIGEST_FIXTURE_PATH].includes(row.path)); }],
   ['missing digest row', e4 => { e4.scanners.gitleaks.findings = e4.scanners.gitleaks.findings.filter(row => row.findingId !== digestRows(e4)[0].findingId); }],
   ['duplicate digest row', e4 => { e4.scanners.gitleaks.findings.push(digestRows(e4)[0]); }],
   ['extra digest row', e4 => { e4.scanners.gitleaks.findings.push({ ...digestRows(e4)[0], findingId: hash('unreviewed extra digest') }); }],
-  ['192 on a historical graph', e4 => { e4.e2GraphDigest = ASSEMBLY_PLEXUS_GRAPH; }],
+  ['194 on a historical graph', e4 => { e4.e2GraphDigest = ASSEMBLY_PLEXUS_GRAPH; }],
   ['unsupported historical graph', e4 => { e4.e2GraphDigest = '1'.repeat(64); e4.scanners.gitleaks.findings = acceptedJarDigestLegacyFindings(); }],
 ]) test(`JAR digest admission rejects ${label} before source-proof collection`, () => {
   const e4 = mutatedEvidence(mutate); let calls = 0;
@@ -285,7 +290,7 @@ for (const [label, mutate] of [
 
 test('JAR digest decisions reject duplicates, omissions and replayed applied decisions', () => {
   const { e4, receipt } = baseCase(), reviewed = new Set(gitleaksCaptureReviewFindings(receipt).map(row => row.findingId));
-  const decisions = currentI2(e4).decisions.filter(row => reviewed.has(row.findingId)); assert.equal(decisions.length, 163);
+  const decisions = currentI2(e4).decisions.filter(row => reviewed.has(row.findingId)); assert.equal(decisions.length, 165);
   assert.throws(() => applyGitleaksCaptureHashDecisions([...decisions.slice(1), decisions[1]], receipt), /duplicate/);
   assert.throws(() => applyGitleaksCaptureHashDecisions(decisions.slice(1), receipt), /decisions|identities/);
   const applied = applyGitleaksCaptureHashDecisions(decisions, receipt);
@@ -397,7 +402,7 @@ for (const [label, mutate] of [
   ['missing legacy plan metadata proof', proof => { delete proof.planMetadata; }],
   ['missing legacy scanner baseline', proof => { delete proof.planMetadata.scannerBaseline; }],
   ['missing all new document proofs', proof => { delete proof.executionDigests; }],
-]) test(`JAR digest V4 replay rejects ${label} after resealing`, () => {
+]) test(`JAR digest V5 replay rejects ${label} after resealing`, () => {
   const receipt = structuredClone(baseCase().receipt); mutate(receipt.proof);
   assert.throws(() => requireGitleaksCaptureHashReviewReceipt(baseCase().e4, seal(receipt)), /Gitleaks/);
 });
@@ -465,7 +470,7 @@ test('JAR digest merge introduction requires absence under every parent', () => 
   assert.throws(() => requireGitleaksCaptureHashReviewReceipt(e4, seal(receipt)), /every execution introduction parent/);
 });
 
-test('JAR digest receipt replay freshly rereads fixed document and fixture bytes without mutating the checkout', async () => {
+test('JAR digest receipt replay freshly rereads fixed documents, fixture and complete current verifier bytes without mutating the checkout', async () => {
   const path = 'scripts/security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
   // An isolated module loader changes only this import's read result. The real
   // checkout, receipt and Git objects remain untouched throughout the test.
@@ -474,7 +479,7 @@ test('JAR digest receipt replay freshly rereads fixed document and fixture bytes
 export const fixtureReadControl = { changedPath: null, reads: {} };
 const readFileSync = (path, ...options) => {
   const value = retainedReadFileSync(path, ...options);
-  const target = ${JSON.stringify([JAR_DIGEST_DOCUMENT_PATHS[0], JAR_DIGEST_FIXTURE_PATH])}.find(target => String(path).endsWith(target));
+  const target = ${JSON.stringify([JAR_DIGEST_DOCUMENT_PATHS[0], JAR_DIGEST_FIXTURE_PATH, JAR_VERIFIER_PATH])}.find(target => String(path).endsWith(target));
   if (target) {
     fixtureReadControl.reads[target] = (fixtureReadControl.reads[target] || 0) + 1;
     if (fixtureReadControl.changedPath === target) return typeof value === 'string' ? value + '\\n' : Buffer.concat([value, Buffer.from('\\n')]);
@@ -488,10 +493,10 @@ const readFileSync = (path, ...options) => {
   const isolated = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
   const { e4, receipt } = baseCase();
   assert.deepEqual(isolated.requireGitleaksCaptureHashReviewReceipt(e4, receipt), receipt);
-  for (const target of [JAR_DIGEST_DOCUMENT_PATHS[0], JAR_DIGEST_FIXTURE_PATH]) {
+  for (const target of [JAR_DIGEST_DOCUMENT_PATHS[0], JAR_DIGEST_FIXTURE_PATH, JAR_VERIFIER_PATH]) {
     const readsBefore = isolated.fixtureReadControl.reads[target]; assert.ok(readsBefore > 0);
     isolated.fixtureReadControl.changedPath = target;
-    assert.throws(() => isolated.requireGitleaksCaptureHashReviewReceipt(e4, receipt), /fixed (?:execution|fixture) document bytes changed/);
+    assert.throws(() => isolated.requireGitleaksCaptureHashReviewReceipt(e4, receipt), /fixed (?:execution|fixture) document bytes changed|Git source path\/blob mismatch/);
     assert.ok(isolated.fixtureReadControl.reads[target] > readsBefore);
     isolated.fixtureReadControl.changedPath = null;
   }
@@ -502,7 +507,7 @@ const readFileSync = (path, ...options) => {
 let retainedCiCase;
 function ciCase() {
   if (!retainedCiCase) {
-    const model = modeledJarDigestFixture('full192 modeled CI merge', { mergeHead: true });
+    const model = modeledJarDigestFixture('full194 modeled CI merge', { mergeHead: true });
     const result = runSyntheticCiCallback({ publicCommitFixture: model }); assert.equal(result.error, undefined);
     const output = stage => {
       const block = result.logs.find(text => text.startsWith(`M6_PR_E_${stage}_BEGIN\n`));
@@ -518,41 +523,42 @@ function replayReviews(e4, value) {
   requireGitleaksTestExpressionReviewReceipt(e4, value.gitleaksTestExpressionReview, publicReview, capture);
 }
 
-test('JAR digest full callback retains 192 findings and replays V4 through I2 I3 I4 and R2B', () => {
+test('JAR digest full callback retains 194 findings and replays V5 through I2 I3 I4 and R2B', () => {
   const { result, output } = ciCase();
   assert.equal(result.commands.filter(([command]) => command === process.execPath).length, 1);
   assert.equal(result.logs.filter(text => /^M6_PR_E_.*_BEGIN\n/.test(text)).length, 14);
   const receipt = output('E3_GITLEAKS_CAPTURE_HASH_REVIEW');
-  assert.equal(receipt.schemaVersion, 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V4');
+  assert.equal(receipt.schemaVersion, 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V5');
   assert.equal(receipt.executionDigestReview.findings.length, 121);
   assert.deepEqual(receipt.fixturePublicCommitReview.finding, fixtureRow(result.e4));
-  assert.equal(output('E4').scanners.gitleaks.findingCount, 192);
+  assert.equal(output('E4').scanners.gitleaks.findingCount, 194);
   assert.deepEqual(output('E4').scanners.gitleaks.findings, result.e4.scanners.gitleaks.findings);
   for (const stage of ['E3_I2_TRIAGE', 'E3_I3_TRIAGE', 'E3_I4_TRIAGE']) {
     const triage = output(stage);
-    assert.equal(triage.decisions.filter(row => row.sourceClass === 'E4_GITLEAKS').length, 192);
+    assert.equal(triage.decisions.filter(row => row.sourceClass === 'E4_GITLEAKS').length, 194);
     assert.deepEqual(triage.gitleaksCaptureHashReview, receipt);
-    assert.equal(triage.appendOnlyReviewedFindingCount, 165);
+    assert.equal(triage.appendOnlyReviewedFindingCount, 167);
     assert.equal(triage.summary.releaseBlocked, true);
     requireGitleaksTestExpressionTriage(result.e4, triage); replayReviews(result.e4, triage);
   }
   const reconciliation = output('E3_R2B_REMEDIATION').scannerIdentityReconciliation;
-  assert.equal(reconciliation.currentScannerCounts.gitleaks, 192);
-  assert.equal(reconciliation.reviewedAddedGitleaksFindingCount, 165);
+  assert.equal(reconciliation.currentScannerCounts.gitleaks, 194);
+  assert.equal(reconciliation.reviewedAddedGitleaksFindingCount, 167);
   assert.equal(reconciliation.releaseBlocked, true); replayReviews(result.e4, reconciliation);
-  assert.equal(output('E3_I4_TRIAGE').summary.notApplicableCount, 167);
-  assert.equal(output('E3_I4_TRIAGE').cumulativeReviewedFindingCount, 233);
+  assert.equal(output('E3_I4_TRIAGE').summary.notApplicableCount, 169);
+  assert.equal(output('E3_I4_TRIAGE').cumulativeReviewedFindingCount, 235);
   assert.equal(output('E3_I4_TRIAGE').historicallyRemediatedFindingCount, 66);
 });
 
-test('JAR digest full callback fails current70 and current191 before any source-review collector or triage output', () => {
-  for (const count of [70, 191]) {
+test('JAR digest full callback fails current70, current191, current192 and current193 before any source-review collector or triage output', () => {
+  for (const count of [70, 191, 192, 193]) {
     const result = runSyntheticCiCallback({ publicCommitFixture: baseCase().model,
       mutateEvidence: e4 => { e4.scanners.gitleaks.findings = count === 70 ? acceptedJarDigestLegacyFindings()
-        : e4.scanners.gitleaks.findings.filter(row => row.path !== JAR_DIGEST_FIXTURE_PATH);
+        : e4.scanners.gitleaks.findings.filter(row => count === 191 ? ![JAR_DIGEST_FIXTURE_PATH, JAR_VERIFIER_PATH].includes(row.path)
+          : row.path !== (count === 192 ? JAR_VERIFIER_PATH : JAR_DIGEST_FIXTURE_PATH));
       e4.scanners.gitleaks.findingCount = e4.scanners.gitleaks.findings.length;
       e4.totalFindingCount = Object.values(e4.scanners).reduce((sum, scanner) => sum + scanner.findingCount, 0); } });
-    assert.match(String(result.error), /current JAR graph requires all 192/);
+    assert.match(String(result.error), /current JAR graph requires all 194/);
     assert.equal(result.e4.scanners.gitleaks.findingCount, count);
     assert.equal(result.commands.filter(([command, args]) => command === 'git' && args[0] === 'cat-file').length, 0);
     assert.equal(result.logs.filter(text => /^M6_PR_E_E3_.*_BEGIN\n/.test(text)).length, 0);
@@ -560,7 +566,7 @@ test('JAR digest full callback fails current70 and current191 before any source-
   }
 });
 
-test('JAR digest serialized I2 I3 I4 reject missing legacy receipts, V4 tampering and a cleared release block', () => {
+test('JAR digest serialized I2 I3 I4 reject missing legacy receipts, V5 tampering and a cleared release block', () => {
   const { result, output } = ciCase();
   for (const stage of ['E3_I2_TRIAGE', 'E3_I3_TRIAGE', 'E3_I4_TRIAGE']) {
     const original = output(stage);
@@ -570,6 +576,7 @@ test('JAR digest serialized I2 I3 I4 reject missing legacy receipts, V4 tamperin
       value => { delete value.gitleaksTestExpressionReview; },
       value => { delete value.gitleaksCaptureHashReview.executionDigestReview; },
       value => { delete value.gitleaksCaptureHashReview.fixturePublicCommitReview; },
+      value => { delete value.gitleaksCaptureHashReview.verifierPublicGitReview; },
       value => { value.gitleaksCaptureHashReview.executionDigestReview.fields[0].role = 'ANY_HASH';
         value.gitleaksCaptureHashReview.executionDigestReview = seal(value.gitleaksCaptureHashReview.executionDigestReview);
         value.gitleaksCaptureHashReview = seal(value.gitleaksCaptureHashReview); },
@@ -579,6 +586,7 @@ test('JAR digest serialized I2 I3 I4 reject missing legacy receipts, V4 tamperin
       value => { value.decisions.find(row => row.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS-EXECUTION-DIGEST').reviewEvidence.jsonPointer = '/unreviewed'; },
       value => { value.decisions.find(row => row.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS-EXECUTION-DIGEST').reviewEvidence.scannerColumnsRetained = true; },
       value => { value.decisions.find(row => row.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS-FIXTURE-PUBLIC-COMMIT').reviewEvidence.sourceField = 'UNREVIEWED_PUBLIC_COMMIT'; },
+      value => { value.decisions.find(row => row.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS-VERIFIER-PUBLIC-GIT').reviewEvidence.metadataRole = 'ANY_PUBLIC_HASH'; },
     ]) {
       const value = structuredClone(original); mutate(value);
       assert.throws(() => requireGitleaksTestExpressionTriage(result.e4, seal(value)), /Gitleaks|receipt/);
@@ -586,7 +594,7 @@ test('JAR digest serialized I2 I3 I4 reject missing legacy receipts, V4 tamperin
   }
 });
 
-test('JAR digest runtime and workflow consumers require all three source review receipts for 192', () => {
+test('JAR digest runtime and workflow consumers require all three source review receipts for 194', () => {
   const { result, output } = ciCase();
   const withoutReviews = value => {
     delete value.gitleaksCaptureHashReview; delete value.gitleaksPublicCommitReview; delete value.gitleaksTestExpressionReview;
@@ -598,4 +606,137 @@ test('JAR digest runtime and workflow consumers require all three source review 
   assert.throws(() => applyWorkflowSupplyChainReviews(withoutReviews(output('E3_I3_TRIAGE')), result.e4,
     json('i4-reviewed-findings'), output('E3_R2A_REMEDIATION'), output('E3_R2B_REMEDIATION')),
   /all three source review receipts/);
+});
+
+test('JAR digest verifier proves two distinct accepted Git roles and separately binds current and introduction bytes', () => {
+  const { e4, receipt, model } = baseCase(), review = receipt.verifierPublicGitReview;
+  assert.equal(review.findings.length, 2);
+  assert.equal(review.findings.every(row => row.commit === model.verifierIntro), true);
+  assert.notEqual(model.verifierIntro, model.intro); assert.notEqual(model.verifierIntro, model.fixtureIntro);
+  assert.equal(review.acceptedMainCommit, ACCEPTED_JAR_DIGEST_BASE); assert.equal(review.acceptedMainTree, model.baseTree);
+  assert.equal(review.source.sha256, hash(read(JAR_VERIFIER_PATH)));
+  assert.equal(review.source.blobSha, objectHash('blob', readFileSync(`${root}${JAR_VERIFIER_PATH}`)));
+  assert.equal(review.introductionSource.sha256, hash(publishedVerifierIntroductionBytes()));
+  assert.notEqual(review.source.blobSha, review.introductionSource.blobSha);
+  assert.equal(review.sourceProofCanonicalSha256, hash(canonical(receipt.proof.verifierPublicGit)));
+  assert.deepEqual(review.source.fields.map(row => [row.field, row.line, row.role]), [
+    ['JAR_BASE', 22, 'ACCEPTED_MAIN_GIT_COMMIT_IDENTITY'], ['JAR_BASE_TREE', 23, 'ACCEPTED_MAIN_GIT_TREE_IDENTITY'],
+  ]);
+  for (const field of review.source.fields) {
+    assert.equal(field.scannerColumnsRetained, false);
+    const line = read(JAR_VERIFIER_PATH).split('\n')[field.line - 1];
+    assert.equal(hash(line), field.lineSha256);
+    assert.equal(line.slice(field.derivedLiteralColumns.startOneBased - 1, field.derivedLiteralColumns.endOneBased),
+      field.field === 'JAR_BASE' ? review.acceptedMainCommit : review.acceptedMainTree);
+  }
+  const applied = applyGitleaksCaptureHashDecisions(currentI2(e4).decisions, receipt);
+  const rows = applied.filter(row => row.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS-VERIFIER-PUBLIC-GIT');
+  assert.equal(rows.length, 2);
+  for (const row of rows) {
+    assert.equal(row.disposition, 'NOT_APPLICABLE');
+    assert.equal(row.reviewEvidence.sourceBlobSha, review.introductionSource.blobSha);
+    assert.equal(row.reviewEvidence.currentSourceBlobSha, review.source.blobSha);
+    assert.equal(row.reviewEvidence.scannerColumnsRetained, false);
+  }
+});
+
+for (const options of [
+  { combinedVerifierIntroduction: true, fixtureIntroductionVersion: 'current' },
+  { combinedVerifierIntroduction: true, fixtureIntroductionVersion: 'current', mergeIntroduction: true, mergeHead: true },
+  { mergeVerifierIntroduction: true },
+]) test(`JAR digest verifier supports exact public introduction bytes with modeled ancestry ${JSON.stringify(options)}`, () => {
+  const model = modeledJarDigestFixture('alternate verifier metadata', options), e4 = model.prepareEvidence(syntheticE4());
+  const receipt = verifyGitleaksCaptureHashReview(e4, model.snapshot(e4));
+  assert.notEqual(model.verifierIntro, baseCase().model.verifierIntro);
+  assert.equal(receipt.verifierPublicGitReview.findings.every(row => row.commit === model.verifierIntro), true);
+  assert.equal(receipt.proof.verifierPublicGit.introductionParents.length, options.mergeIntroduction || options.mergeVerifierIntroduction ? 2 : 1);
+  if (options.combinedVerifierIntroduction) {
+    assert.equal(receipt.fixturePublicCommitReview.finding.commit, model.verifierIntro);
+    assert.equal(receipt.executionDigestReview.findings.every(row => row.commit === model.verifierIntro), true);
+  }
+  assert.deepEqual(requireGitleaksCaptureHashReviewReceipt(e4, receipt), receipt);
+  if (receipt.proof.verifierPublicGit.introductionParents.length === 2) {
+    receipt.proof.verifierPublicGit.introductionParents.pop();
+    assert.throws(() => requireGitleaksCaptureHashReviewReceipt(e4, seal(receipt)), /every verifier introduction parent/);
+  }
+});
+
+test('JAR digest verifier rejects recomputed wrong rule, field, path and introduction identities', () => {
+  const policy = plan.retainedFindings.find(row => row.ruleId === 'sourcegraph-access-token');
+  for (const [label, change] of [
+    ['another field', row => normalizedDigestFinding(row.commit, row.path, 24, policy)],
+    ['another rule', row => normalizedDigestFinding(row.commit, row.path, row.startLine, plan.finding)],
+    ['another path', row => normalizedDigestFinding(row.commit, 'scripts/security/unreviewed.mjs', row.startLine, policy)],
+    ['later copy', row => normalizedDigestFinding(baseCase().model.head, row.path, row.startLine, policy)],
+    ['unknown introduction', row => normalizedDigestFinding('e'.repeat(40), row.path, row.startLine, policy)],
+  ]) {
+    const e4 = mutatedEvidence(value => {
+      const row = value.scanners.gitleaks.findings.find(row => row.path === JAR_VERIFIER_PATH);
+      value.scanners.gitleaks.findings[value.scanners.gitleaks.findings.indexOf(row)] = change(row);
+      value.scanners.gitleaks.findings.sort((a,b) => a.findingId.localeCompare(b.findingId));
+    });
+    assert.throws(() => verifyGitleaksCaptureHashReview(e4, snapshotFor(e4, baseCase().receipt.proof)), /Gitleaks|E4/, label);
+  }
+});
+
+test('JAR digest verifier refuses wrong complete blobs and any introduction parent already containing the fields', () => {
+  for (const [label, options] of [
+    ['introduction bytes at current path', { transformVerifierCurrent: () => publishedVerifierIntroductionBytes() }],
+    ['changed current bytes', { transformVerifierCurrent: bytes => Buffer.concat([bytes, Buffer.from('\n')]) }],
+    ['different current declaration', { transformVerifierCurrent: bytes => bytes.toString().replace('const JAR_BASE =', 'const UNREVIEWED_BASE =') }],
+    ['third introduction body', { transformVerifierIntroduction: bytes => Buffer.concat([bytes, Buffer.from('\n')]) }],
+    ['different introduction field', { transformVerifierIntroduction: bytes => bytes.toString().replace('const JAR_BASE_TREE =', 'const UNREVIEWED_TREE =') }],
+    ['second parent already has fields', { verifierParentContainsFields: true }],
+  ]) {
+    const model = modeledJarDigestFixture(label, options), e4 = model.prepareEvidence(syntheticE4());
+    assert.throws(() => model.snapshot(e4), /Gitleaks.*(?:verifier|blob|path|source)/, label);
+  }
+});
+
+test('JAR digest verifier replay rejects missing, substituted and reordered source proofs', () => {
+  for (const [label, mutate] of [
+    ['missing proof', proof => { delete proof.verifierPublicGit; }],
+    ['missing current path', proof => { proof.verifierPublicGit.currentPath = []; }],
+    ['missing introduction path', proof => { proof.verifierPublicGit.introductionPath = []; }],
+    ['missing accepted path', proof => { proof.verifierPublicGit.basePath = []; }],
+    ['missing accepted bytes', proof => { delete proof.verifierPublicGit.baseContentBase64; }],
+    ['wrong accepted bytes', proof => { proof.verifierPublicGit.baseContentBase64 = Buffer.from('unreviewed\n').toString('base64'); }],
+    ['wrong introduction bytes', proof => { proof.verifierPublicGit.introductionContentBase64 = readFileSync(`${root}${JAR_VERIFIER_PATH}`).toString('base64'); }],
+    ['missing parents', proof => { proof.verifierPublicGit.introductionParents = []; }],
+    ['missing parent path', proof => { proof.verifierPublicGit.introductionParents[0].sourcePath = []; }],
+    ['missing parent bytes', proof => { delete proof.verifierPublicGit.introductionParents[0].contentBase64; }],
+    ['wrong parent bytes', proof => { proof.verifierPublicGit.introductionParents[0].contentBase64 = Buffer.from('unreviewed\n').toString('base64'); }],
+    ['wrong parent commit', proof => { proof.verifierPublicGit.introductionParents[0].commit = proof.verifierPublicGit.commits[0]; }],
+    ['missing introduction commit', proof => { proof.verifierPublicGit.commits.splice(1, 1); }],
+    ['missing accepted commit', proof => { proof.verifierPublicGit.commits.pop(); }],
+    ['reordered ancestry', proof => { proof.verifierPublicGit.commits.reverse(); }],
+    ['duplicate ancestry', proof => { proof.verifierPublicGit.commits.push(proof.verifierPublicGit.commits[0]); }],
+    ['fixture proof substituted', proof => { proof.verifierPublicGit.currentPath = proof.fixturePublicCommit.currentPath; }],
+  ]) {
+    const receipt = structuredClone(baseCase().receipt); mutate(receipt.proof);
+    assert.throws(() => requireGitleaksCaptureHashReviewReceipt(baseCase().e4, seal(receipt)), /Gitleaks/, label);
+  }
+});
+
+test('JAR digest verifier replay rejects changed Git roles, derived positions and review claims', () => {
+  for (const [label, mutate] of [
+    ['field name', value => { value.source.fields[0].field = 'ANY_HASH'; }],
+    ['field role', value => { value.source.fields[1].role = value.source.fields[0].role; }],
+    ['field line', value => { value.source.fields[0].line++; }],
+    ['field line hash', value => { value.source.fields[0].lineSha256 = 'a'.repeat(64); }],
+    ['field columns', value => { value.source.fields[0].derivedLiteralColumns.startOneBased++; }],
+    ['scanner columns', value => { value.source.fields[0].scannerColumnsRetained = true; }],
+    ['missing finding', value => { value.findings.pop(); }],
+    ['current blob', value => { value.source.blobSha = value.introductionSource.blobSha; }],
+    ['accepted commit', value => { value.acceptedMainCommit = 'a'.repeat(40); }],
+    ['accepted tree', value => { value.acceptedMainTree = 'a'.repeat(40); }],
+    ['accepted source', value => { value.acceptedSourceSha256 = 'a'.repeat(64); }],
+    ['proof hash', value => { value.sourceProofCanonicalSha256 = 'a'.repeat(64); }],
+    ['digest rationale', value => { value.decision = baseCase().receipt.executionDigestReview.decision; }],
+    ['release block', value => { value.releaseBlocked = false; }],
+  ]) {
+    const receipt = structuredClone(baseCase().receipt); mutate(receipt.verifierPublicGitReview);
+    receipt.verifierPublicGitReview = seal(receipt.verifierPublicGitReview);
+    assert.throws(() => requireGitleaksCaptureHashReviewReceipt(baseCase().e4, seal(receipt)), /receipt drift/, label);
+  }
 });

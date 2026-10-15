@@ -17,7 +17,7 @@ import { syntheticCheckstyleGuavaOsv } from './fixtures/checkstyle-guava-fixture
 import { syntheticBootHttpOsv } from './fixtures/boot-http-fixture.mjs';
 import { syntheticJacocoAntrunOsv } from './fixtures/jacoco-antrun-fixture.mjs';
 import { syntheticJarPluginOsv } from './fixtures/jar-plugin-fixture.mjs';
-import { modeledJarDigestFixture } from './fixtures/jar-digest-review-fixture.mjs';
+import { modeledJarDigestFixture } from './fixtures/jar-verifier-review-fixture.mjs';
 import { JAR_PLUGIN_GRAPH, readJarPluginCandidate, readJarPluginManifest } from '../security/jar-plugin-graph-transition.mjs';
 import { syntheticAssemblyPlexusOsv } from './fixtures/assembly-plexus-fixture.mjs';
 import { ASSEMBLY_PLEXUS_GRAPH, readAssemblyPlexusCandidate, readAssemblyPlexusManifest }
@@ -402,7 +402,7 @@ export function runSyntheticCiCallback({ historicalSourceContext = false, wrongH
     assert.equal(result.status, 0, result.stderr); historicalCallbackSource = result.stdout;
   }
   // Historical review fixtures execute the actual accepted Assembly callback.
-  // Current JAR fixtures always execute the current mandatory-192 callback.
+  // Current JAR fixtures always execute the current mandatory-194 callback.
   const source = historicalSourceContext ? historicalCallbackSource : read('scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs');
   const logs = [], commands = [];
   const fixtureOutput = `M6_PR_E_E4_SCANNER_EVIDENCE_BEGIN\n${JSON.stringify(e4)}\nM6_PR_E_E4_SCANNER_EVIDENCE_END`;
@@ -479,7 +479,7 @@ test('actual CI callback consumes one full scan, binds three exact-head blobs, a
     && target.package.version === '31.0.1-jre'), false);
   assert.equal(r.e4.scanners.osv.coverage.targets.some(target => target.package.name === 'org.apache.httpcomponents.core5:httpcore5'
     && target.package.version === '5.3.6'), false);
-  assert.equal(r.e4.totalFindingCount, 195);
+  assert.equal(r.e4.totalFindingCount, 197);
   const outputs = new Map();
   for (const stage of ['E3_I2_TRIAGE', 'E3_DESIGNER_PROTOTYPE_REMEDIATION',
     'E3_R4_SERVER_DEPENDENCY_REMEDIATION', 'E3_I3_TRIAGE', 'E3_I4_TRIAGE']) {
@@ -498,7 +498,7 @@ test('actual CI callback consumes one full scan, binds three exact-head blobs, a
   assert.deepEqual(i4.serverDependencyRemediation, r4);
   assert.equal(i3.historicallyRemediatedFindingCount, 5);
   assert.equal(i4.historicallyRemediatedFindingCount, 66);
-  assert.equal(i4.summary.notApplicableCount, 167);
+  assert.equal(i4.summary.notApplicableCount, 169);
   assert.equal(i4.summary.unresolvedCount, 28);
   assert.equal(i4.summary.releaseBlocked, true);
   assert.deepEqual(i4.decisions.map(f => f.findingId), outputs.get('E3_I2_TRIAGE').decisions.map(f => f.findingId));

@@ -21,12 +21,15 @@ const key = finding => `${finding.sourceClass}:${finding.findingId}`;
 const JAR_GRAPH = '73825d80bd2a55d0507742bac096e73309100911d69692cd34dc753674bdb9c5';
 const JAR_BASE = 'f1c99eaa998239044b164d32437a9f3c0765b321';
 const JAR_BASE_TREE = 'bc30fc2b5c277e3b9cc7452af7616b56dd17868f';
+const JAR_VERIFIER_PATH = 'scripts/security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
+const JAR_VERIFIER_BASE_SHA256 = '3ecb8b738ea3bc251e10f73d0a93600bfca28791d62b0003f3a18b0fef665bb0';
+const JAR_VERIFIER_INTRODUCTION_SHA256 = 'bdd6e49a49db78da02980d24e30741b6802174f398b9800fbcc9a93f73db9e98';
 const JAR_FIXTURE_PATH = 'scripts/tests/fixtures/jar-digest-review-fixture.mjs';
 const JAR_FIXTURE_CURRENT_SHA256 = 'd86e33849a97cee6765fb2e96a38eb86c234f502b59bdbba97989f71e712b412';
 const JAR_FIXTURE_ORIGINAL_SHA256 = '5ee1a65d8587d82ca85b4e47bf91f8c818430693ea1c5a996bac411be5d7a83d';
 const JAR_ACCEPTED_FINDINGS = 'afa27a6b74ed970e0618df2a537975dcebc355e65067e1cea262519a7eb60c7c';
 // Closed historical graph contexts. A future graph continuation must explicitly
-// carry this 192-record review forward; omitted fixture/digest records never fall back.
+// carry this 194-record review forward; omitted fixture/digest records never fall back.
 const HISTORICAL_GRAPHS = new Set([
   "255008a8cf1b3d57182cdd47c680aad7e484b027f23ae5e3a19590791732d950",
   "27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37",
@@ -50,9 +53,9 @@ const JAR_DOCUMENTS = [{"path":"docs/operations/jar-plugin-evidence/model-runtim
 export function requireGitleaksCaptureInventory(e4) {
   const count = e4?.scanners?.gitleaks?.findingCount;
   if (e4?.e2GraphDigest === JAR_GRAPH) {
-    requireValue(count === 192, 'current JAR graph requires all 192 Gitleaks observations'); return 192;
+    requireValue(count === 194, 'current JAR graph requires all 194 Gitleaks observations'); return 194;
   }
-  requireValue(![191, 192].includes(count), 'current execution-digest inventory requires the reviewed JAR graph and all 192 observations');
+  requireValue(![191, 192, 193, 194].includes(count), 'current execution-digest inventory requires the reviewed JAR graph and all 194 observations');
   if ([32, 70].includes(count)) requireValue(HISTORICAL_GRAPHS.has(e4?.e2GraphDigest), 'unsupported historical capture graph');
   return [32, 70].includes(count) ? count : null;
 }
@@ -120,7 +123,7 @@ function jarDigestFindings(e4, plan, documents = jarExecutionDocuments()) {
   const expected = fields.map(field => expectedFinding({ finding: plan.finding, source: { path: field.path } }, findings[0].commit, field))
     .sort((a,b) => a.findingId.localeCompare(b.findingId));
   requireValue(canonical(findings) === canonical(expected), 'execution field finding identity drift');
-  const retained = e4.scanners.gitleaks.findings.filter(finding => !paths.has(finding.path) && finding.path !== JAR_FIXTURE_PATH);
+  const retained = e4.scanners.gitleaks.findings.filter(finding => !paths.has(finding.path) && finding.path !== JAR_FIXTURE_PATH && finding.path !== JAR_VERIFIER_PATH);
   requireValue(retained.length === 70 && hash(canonical(retained)) === JAR_ACCEPTED_FINDINGS, 'accepted main1862 findings changed');
   return findings;
 }
@@ -176,6 +179,70 @@ function verifyFixturePublicCommitProof(e4, proof, executionProof, plan) {
     inputProvenance: 'ACTUAL_ACCEPTED_GIT_COMMIT_OBJECT_AND_EXACT_FIXED_SOURCE_FIELD', scannerColumnsRetained: false,
     releaseBlocked: true, rawCandidateMaterialRetained: false,
     decision: { disposition: 'NOT_APPLICABLE', evidenceCode: 'EXACT_FIXTURE_ACCEPTED_MAIN_GIT_IDENTITY', exploitPreconditionsSatisfied: false } });
+}
+function jarVerifierSource(bytes) {
+  requireValue(bytes.length > 0 && bytes.length <= 256 * 1024, 'verifier source length invalid');
+  const lines = bytes.toString('utf8').split('\n');
+  const fields = [
+    { line: 22, field: 'JAR_BASE', value: JAR_BASE, role: 'ACCEPTED_MAIN_GIT_COMMIT_IDENTITY' },
+    { line: 23, field: 'JAR_BASE_TREE', value: JAR_BASE_TREE, role: 'ACCEPTED_MAIN_GIT_TREE_IDENTITY' },
+  ].map(({ value, ...field }) => {
+    const rawLine = lines[field.line - 1];
+    requireValue(rawLine === `const ${field.field} = '${value}';`, 'exact verifier accepted-main declaration changed');
+    const startOneBased = rawLine.indexOf(value) + 1;
+    return { ...field, lineSha256: hash(rawLine), scannerColumnsRetained: false,
+      derivedLiteralColumns: { startOneBased, endOneBased: startOneBased + 39 } };
+  });
+  return { path: JAR_VERIFIER_PATH, sha256: hash(bytes), blobSha: objectHash('blob', bytes), byteLength: bytes.length, fields };
+}
+function jarVerifierCurrentSource() { return jarVerifierSource(readFileSync(new URL(import.meta.url))); }
+function jarVerifierFindings(e4, plan, source = jarVerifierCurrentSource()) {
+  const findings = e4.scanners.gitleaks.findings.filter(finding => finding.path === JAR_VERIFIER_PATH);
+  const policy = plan.retainedFindings.find(finding => finding.ruleId === 'sourcegraph-access-token');
+  requireValue(findings.length === 2 && SHA40.test(findings[0]?.commit || '') && policy
+    && findings.every(finding => finding.commit === findings[0].commit), 'exact verifier public-Git introduction required');
+  const expected = source.fields.map(field => expectedFinding({ finding: policy, source }, findings[0].commit, field))
+    .sort((a,b) => a.findingId.localeCompare(b.findingId));
+  requireValue(canonical(findings) === canonical(expected), 'exact verifier public-Git finding identity drift');
+  return findings;
+}
+function requireVerifierFieldsAbsent(bytes) {
+  requireValue(bytes.length > 0 && bytes.length <= 256 * 1024
+    && !/\b(?:JAR_BASE|JAR_BASE_TREE)\b/.test(bytes.toString('utf8')), 'verifier fields already present before introduction');
+}
+function verifyVerifierPublicGitProof(e4, proof, executionProof, plan) {
+  shape(proof, ['commits','introductionParents','currentPath','introductionPath','introductionContentBase64','basePath','baseContentBase64'], 'verifier public-Git proof');
+  const source = jarVerifierCurrentSource(), findings = jarVerifierFindings(e4, plan, source);
+  requireValue(Array.isArray(proof.commits) && proof.commits.length >= 2 && proof.commits.length <= 4096, 'verifier ancestry required');
+  const commits = proof.commits.map(commitObject), current = commits[0], base = commits.at(-1);
+  const accepted = commitObject(executionProof.commits.at(-1));
+  requireValue(new Set(commits.map(row => row.sha)).size === commits.length && current.sha === e4.commitSha
+    && current.tree === e4.checkout.expectedHeadTreeSha && base.sha === accepted.sha && base.tree === accepted.tree
+    && accepted.sha === JAR_BASE && accepted.tree === JAR_BASE_TREE, 'verifier current/accepted-main identity changed');
+  for (let index = 0; index < commits.length - 1; index++) requireValue(commits[index].parents.includes(commits[index + 1].sha), 'verifier ancestry mismatch');
+  const introduced = commits.find(row => row.sha === findings[0].commit);
+  requireValue(introduced && introduced.sha !== base.sha && introduced.parents.length > 0, 'verifier introduction absent');
+  const introductionBytes = bytesFromBase64(proof.introductionContentBase64);
+  requireValue(hash(introductionBytes) === JAR_VERIFIER_INTRODUCTION_SHA256, 'fixed public verifier introduction bytes changed');
+  const introductionSource = jarVerifierSource(introductionBytes), baseBytes = bytesFromBase64(proof.baseContentBase64);
+  requireValue(hash(baseBytes) === JAR_VERIFIER_BASE_SHA256, 'fixed accepted verifier bytes changed');
+  requireVerifierFieldsAbsent(baseBytes);
+  verifyPath(proof.currentPath, current.tree, source.path, source.blobSha);
+  verifyPath(proof.introductionPath, introduced.tree, source.path, introductionSource.blobSha);
+  verifyPath(proof.basePath, base.tree, source.path, objectHash('blob', baseBytes));
+  requireValue(Array.isArray(proof.introductionParents) && proof.introductionParents.length === introduced.parents.length, 'every verifier introduction parent required');
+  for (const [index, row] of proof.introductionParents.entries()) {
+    shape(row, ['commit','sourcePath','contentBase64'], 'verifier introduction parent');
+    const parent = commitObject(row.commit), bytes = bytesFromBase64(row.contentBase64);
+    requireValue(parent.sha === introduced.parents[index], 'verifier introduction parent mismatch');
+    requireVerifierFieldsAbsent(bytes);
+    verifyPath(row.sourcePath, parent.tree, source.path, objectHash('blob', bytes));
+  }
+  return seal({ schemaVersion: 'M6_PR_E_E3_GITLEAKS_VERIFIER_PUBLIC_GIT_REVIEW_V1', findings, source, introductionSource,
+    sourceProofCanonicalSha256: hash(canonical(proof)), acceptedMainCommit: accepted.sha, acceptedMainTree: accepted.tree,
+    acceptedSourceSha256: hash(baseBytes), inputProvenance: 'ACTUAL_ACCEPTED_GIT_COMMIT_AND_TREE_OBJECTS_AND_EXACT_SOURCE_FIELDS',
+    scannerColumnsRetained: false, releaseBlocked: true, rawCandidateMaterialRetained: false,
+    decision: { disposition: 'NOT_APPLICABLE', evidenceCode: 'EXACT_VERIFIER_ACCEPTED_MAIN_GIT_IDENTITIES', exploitPreconditionsSatisfied: false } });
 }
 function verifyExecutionDigestProof(e4, proof, plan) {
   shape(proof, ['commits','introductionParents','documents'], 'execution digest proof');
@@ -274,7 +341,7 @@ function requireCurrentFindings(e4, plan) {
   requireCompleteCurrentE4(e4, plan.repository);
   const scanner = e4.scanners.gitleaks;
   for (const [field, value] of Object.entries(plan.scannerIdentity)) requireValue(scanner[field] === value, `scanner identity drift ${field}`);
-  requireValue([32, 70, 192].includes(scanner.findingCount), 'requires the exact supported capture inventory');
+  requireValue([32, 70, 194].includes(scanner.findingCount), 'requires the exact supported capture inventory');
   const ids = new Set(plan.retainedFindings.map(finding => finding.findingId));
   requireValue(canonical(scanner.findings.filter(finding => ids.has(finding.findingId))) === canonical(plan.retainedFindings),
     'retained finding metadata/order drift');
@@ -287,16 +354,17 @@ function requireCurrentFindings(e4, plan) {
     .sort((a, b) => a.findingId.localeCompare(b.findingId));
   requireValue(canonical(added) === canonical(expected), 'unreviewed addition or exact finding identity drift');
   const metadata = unretained.filter(finding => finding.path === PLAN_PATH);
-  if ([70, 192].includes(scanner.findingCount)) {
+  if ([70, 194].includes(scanner.findingCount)) {
     requireValue(metadata.length === 38 && SHA40.test(metadata[0].commit || '')
       && metadata.every(finding => finding.commit === metadata[0].commit), 'exact plan metadata introduction required');
     const expectedMetadata = gitleaksPlanMetadataFields().map(field => expectedPlanMetadataFinding(plan, metadata[0].commit, field))
       .sort((a, b) => a.findingId.localeCompare(b.findingId));
     requireValue(canonical(metadata) === canonical(expectedMetadata), 'unreviewed plan metadata identity drift');
   } else requireValue(metadata.length === 0, 'unexpected plan metadata records');
-  const executionFields = scanner.findingCount === 192 ? jarDigestFindings(e4, plan) : [];
-  const fixtureFields = scanner.findingCount === 192 ? [jarFixtureFinding(e4, plan)] : [];
-  requireValue(unretained.length === added.length + metadata.length + executionFields.length + fixtureFields.length, 'unreviewed finding outside exact source paths');
+  const executionFields = scanner.findingCount === 194 ? jarDigestFindings(e4, plan) : [];
+  const fixtureFields = scanner.findingCount === 194 ? [jarFixtureFinding(e4, plan)] : [];
+  const verifierFields = scanner.findingCount === 194 ? jarVerifierFindings(e4, plan) : [];
+  requireValue(unretained.length === added.length + metadata.length + executionFields.length + fixtureFields.length + verifierFields.length, 'unreviewed finding outside exact source paths');
   return added;
 }
 function verifyBlob(contentBase64, expected) {
@@ -307,8 +375,8 @@ function verifyBlob(contentBase64, expected) {
 }
 function verifyProof(e4, findings, proof, plan) {
   shape(proof, ['commits', 'introductionParents', 'baseSourcePath', 'source', 'collector', 'inputs',
-    ...([70, 192].includes(e4.scanners.gitleaks.findingCount) ? ['planMetadata'] : []),
-    ...(e4.scanners.gitleaks.findingCount === 192 ? ['executionDigests', 'fixturePublicCommit'] : [])], 'proof');
+    ...([70, 194].includes(e4.scanners.gitleaks.findingCount) ? ['planMetadata'] : []),
+    ...(e4.scanners.gitleaks.findingCount === 194 ? ['executionDigests', 'fixturePublicCommit', 'verifierPublicGit'] : [])], 'proof');
   requireValue(Array.isArray(proof.commits) && proof.commits.length >= 2 && proof.commits.length <= 4096, 'Git ancestry proof required');
   const commits = proof.commits.map(commitObject);
   requireValue(new Set(commits.map(commit => commit.sha)).size === commits.length, 'duplicate ancestry commit');
@@ -406,16 +474,17 @@ function verifyPlanMetadataProof(e4, proof, plan) {
     decision: { disposition: 'NOT_APPLICABLE', evidenceCode: 'EXACT_PINNED_PLAN_GIT_IDENTITY_METADATA', exploitPreconditionsSatisfied: false } });
 }
 function receipt(e4, findings, proof, plan) {
-  const planMetadataReview = [70, 192].includes(e4.scanners.gitleaks.findingCount) ? verifyPlanMetadataProof(e4, proof.planMetadata, plan) : null;
-  const executionDigestReview = e4.scanners.gitleaks.findingCount === 192 ? verifyExecutionDigestProof(e4, proof.executionDigests, plan) : null;
+  const planMetadataReview = [70, 194].includes(e4.scanners.gitleaks.findingCount) ? verifyPlanMetadataProof(e4, proof.planMetadata, plan) : null;
+  const executionDigestReview = e4.scanners.gitleaks.findingCount === 194 ? verifyExecutionDigestProof(e4, proof.executionDigests, plan) : null;
   const fixturePublicCommitReview = executionDigestReview ? verifyFixturePublicCommitProof(e4, proof.fixturePublicCommit, proof.executionDigests, plan) : null;
-  return seal({ schemaVersion: executionDigestReview ? 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V4' : planMetadataReview ? 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V2' : 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V1', repository: e4.repository,
+  const verifierPublicGitReview = executionDigestReview ? verifyVerifierPublicGitProof(e4, proof.verifierPublicGit, proof.executionDigests, plan) : null;
+  return seal({ schemaVersion: executionDigestReview ? 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V5' : planMetadataReview ? 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V2' : 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V1', repository: e4.repository,
     commitSha: e4.commitSha, sourceE4CanonicalSha256: e4.contentSha256, planCanonicalSha256: plan.contentSha256,
     acceptedPublicBaseCommit: plan.acceptedPublicBaseCommit, acceptedE4CanonicalSha256: plan.acceptedE4CanonicalSha256,
     retainedFindingCount: plan.retainedFindingCount, currentFindingCount: e4.scanners.gitleaks.findingCount,
     retainedFindingsSha256: hash(canonical(plan.retainedFindings)), findings, source: plan.source,
     collector: plan.collector, observations: plan.observations, proof, decision: plan.decision, ...plan.limits,
-    ...(planMetadataReview ? { planMetadataReview } : {}), ...(executionDigestReview ? { executionDigestReview, fixturePublicCommitReview } : {}) });
+    ...(planMetadataReview ? { planMetadataReview } : {}), ...(executionDigestReview ? { executionDigestReview, fixturePublicCommitReview, verifierPublicGitReview } : {}) });
 }
 export function verifyGitleaksCaptureHashReview(e4, snapshot) {
   const plan = readGitleaksCaptureHashReviewPlan(), findings = requireCurrentFindings(e4, plan);
@@ -431,6 +500,15 @@ export function requireGitleaksCaptureHashReviewReceipt(e4, evidence) {
   return verified;
 }
 function decisionReview(evidence, finding) {
+  if (finding.path === JAR_VERIFIER_PATH) {
+    const review = evidence.verifierPublicGitReview, field = review.source.fields.find(row => row.line === finding.startLine);
+    return { reviewLayer: 'E3-I2-APPEND_ONLY-GITLEAKS-VERIFIER-PUBLIC-GIT', reviewCanonicalSha256: evidence.contentSha256,
+      sourceCommitSha: finding.commit, sourceBlobSha: review.introductionSource.blobSha, currentSourceBlobSha: review.source.blobSha,
+      sourcePath: review.source.path, sourceLineSha256: field.lineSha256, metadataRole: field.role,
+      sourceField: field.field, scannerColumnsRetained: false, derivedLiteralColumns: field.derivedLiteralColumns,
+      acceptedMainCommit: review.acceptedMainCommit, acceptedMainTree: review.acceptedMainTree,
+      inputProvenance: review.inputProvenance, evidenceCode: review.decision.evidenceCode, exploitPreconditionsSatisfied: false };
+  }
   if (finding.path === JAR_FIXTURE_PATH) {
     const review = evidence.fixturePublicCommitReview;
     return { reviewLayer: 'E3-I2-APPEND_ONLY-GITLEAKS-FIXTURE-PUBLIC-COMMIT', reviewCanonicalSha256: evidence.contentSha256,
@@ -468,14 +546,14 @@ function decisionReview(evidence, finding) {
     exploitPreconditionsSatisfied: false };
 }
 export function gitleaksCaptureReviewFindings(evidence) {
-  return [...evidence.findings, ...(evidence.planMetadataReview?.findings || []), ...(evidence.executionDigestReview?.findings || []), ...(evidence.fixturePublicCommitReview ? [evidence.fixturePublicCommitReview.finding] : [])];
+  return [...evidence.findings, ...(evidence.planMetadataReview?.findings || []), ...(evidence.executionDigestReview?.findings || []), ...(evidence.fixturePublicCommitReview ? [evidence.fixturePublicCommitReview.finding] : []), ...(evidence.verifierPublicGitReview?.findings || [])];
 }
 function requireDecisionIdentity(decision, finding) {
   requireValue(decision && ['ruleId', 'commit', 'fingerprint', 'path', 'startLine', 'endLine']
     .every(field => decision.sourceIdentity?.[field] === finding[field]), 'decision source identity drift');
 }
 export function applyGitleaksCaptureHashDecisions(decisions, evidence) {
-  const findings = gitleaksCaptureReviewFindings(evidence), expectedCount = evidence.fixturePublicCommitReview ? 163 : evidence.planMetadataReview ? 41 : 3;
+  const findings = gitleaksCaptureReviewFindings(evidence), expectedCount = evidence.verifierPublicGitReview ? 165 : evidence.planMetadataReview ? 41 : 3;
   const byKey = new Map(findings.map(finding => [key(finding), finding]));
   requireValue(byKey.size === expectedCount && findings.length === expectedCount, 'distinct exact reviewed identities required');
   const applied = new Set();
@@ -489,7 +567,7 @@ export function applyGitleaksCaptureHashDecisions(decisions, evidence) {
     return stable({ ...decision, disposition: 'NOT_APPLICABLE', exploitPreconditions: ['ACTUAL_CREDENTIAL_MATERIAL_PRESENT'],
       reviewEvidence: decisionReview(evidence, finding) });
   });
-  requireValue(applied.size === expectedCount, 'exactly three capture and any proven 38 metadata/121 execution/one fixture current decisions required');
+  requireValue(applied.size === expectedCount, 'exactly three capture and any proven 38 metadata/121 execution/one fixture/two verifier current decisions required');
   return result;
 }
 export function requireGitleaksCaptureHashDecisions(triage, evidence) {
@@ -508,6 +586,8 @@ export function requireGitleaksCaptureHashDecisions(triage, evidence) {
     'current execution digest review count drift');
   requireValue(triage.decisions.filter(item => item.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS-FIXTURE-PUBLIC-COMMIT').length === (evidence.fixturePublicCommitReview ? 1 : 0),
     'current fixture public-commit review count drift');
+  requireValue(triage.decisions.filter(item => item.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS-VERIFIER-PUBLIC-GIT').length === (evidence.verifierPublicGitReview ? 2 : 0),
+    'current verifier public-Git review count drift');
 }
 
 /** Read only Git objects; no source, index, ref or scanner mutation. */
@@ -554,7 +634,7 @@ export function buildGitleaksCaptureHashReviewSnapshot(e4, { root, git = spawnSy
       const commit = readObject('commit', sha); return { commit, sourcePath: pathProof(commitObject(commit).tree, plan.source.path) };
     }), baseSourcePath: pathProof(base.tree, plan.source.path), source: sourceProof(plan.source), collector: sourceProof(plan.collector),
     inputs: plan.observations.map(({ input }) => ({ path: input.path, ...sourceProof(input), basePath: pathProof(base.tree, input.path) })) } };
-  if ([70, 192].includes(e4.scanners.gitleaks.findingCount)) {
+  if ([70, 194].includes(e4.scanners.gitleaks.findingCount)) {
     const finding = e4.scanners.gitleaks.findings.find(item => item.path === PLAN_PATH), source = planMetadataSource();
     const metadataCommits = [...ancestry(e4.commitSha, finding.commit), ...ancestry(finding.commit, plan.acceptedPublicBaseCommit).slice(1)];
     const metadataIntro = commitObject(readObject('commit', finding.commit));
@@ -570,7 +650,7 @@ export function buildGitleaksCaptureHashReviewSnapshot(e4, { root, git = spawnSy
         currentPath: pathProof(current.tree, PLAN_PATH), introductionPath: pathProof(metadataIntro.tree, PLAN_PATH) },
       scannerBaseline: { contentBase64: readObject('blob', baselineEntry.sha).contentBase64, basePath: baselinePath } };
   }
-  if (e4.scanners.gitleaks.findingCount === 192) {
+  if (e4.scanners.gitleaks.findingCount === 194) {
     const documents = jarExecutionDocuments(), findings = jarDigestFindings(e4, plan, documents);
     const digestCommits = [...ancestry(e4.commitSha, findings[0].commit), ...ancestry(findings[0].commit, JAR_BASE).slice(1)];
     const digestIntro = commitObject(readObject('commit', findings[0].commit));
@@ -593,6 +673,25 @@ export function buildGitleaksCaptureHashReviewSnapshot(e4, { root, git = spawnSy
         const commit = readObject('commit', sha); return { commit, sourcePath: pathProof(commitObject(commit).tree, source.path) };
       }), currentPath: pathProof(current.tree, source.path), introductionPath,
       basePath: pathProof(JAR_BASE_TREE, source.path), introductionContentBase64: readObject('blob', introductionEntry.sha).contentBase64 };
+  }
+  if (e4.scanners.gitleaks.findingCount === 194) {
+    const source = jarVerifierCurrentSource(), findings = jarVerifierFindings(e4, plan, source);
+    const verifierCommits = [...ancestry(e4.commitSha, findings[0].commit), ...ancestry(findings[0].commit, JAR_BASE).slice(1)];
+    const verifierIntro = commitObject(readObject('commit', findings[0].commit));
+    const completePath = tree => {
+      const sourcePath = pathProof(tree, source.path);
+      const entry = treeEntries(bytesFromBase64(sourcePath.at(-1).contentBase64))
+        .find(entry => entry.name === source.path.split('/').at(-1));
+      requireValue(entry?.mode === '100644', 'verifier source file absent');
+      return { sourcePath, contentBase64: readObject('blob', entry.sha).contentBase64 };
+    };
+    const introduction = completePath(verifierIntro.tree), accepted = completePath(JAR_BASE_TREE);
+    snapshot.proof.verifierPublicGit = { commits: verifierCommits, currentPath: pathProof(current.tree, source.path),
+      introductionPath: introduction.sourcePath, introductionContentBase64: introduction.contentBase64,
+      basePath: accepted.sourcePath, baseContentBase64: accepted.contentBase64,
+      introductionParents: verifierIntro.parents.map(sha => {
+        const commit = readObject('commit', sha); return { commit, ...completePath(commitObject(commit).tree) };
+      }) };
   }
   verifyGitleaksCaptureHashReview(e4, snapshot);
   return snapshot;

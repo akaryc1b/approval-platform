@@ -23,7 +23,7 @@ function buildLineageFixture(plugin) {
     limitations: e2.githubActions.acceptedDependencyGraph.limitations };
   return { e4: { repository: e2.repository, commitSha: e2.commitSha,
     e2CurrentContentSha256: e2.contentSha256, e2GraphDigest: graphHash(projection),
-    scanners: { gitleaks: { findingCount: plugin === 'jar' ? 192 : 70 } },
+    scanners: { gitleaks: { findingCount: plugin === 'jar' ? 194 : 70 } },
     e2GraphTransition: verifyObservabilityGraph(e2, projection, BASE_GRAPH, e2.commitSha) } };
 }
 
@@ -81,7 +81,9 @@ for (const [name, alter] of [
   ['foundation graph', e => { e.e2GraphDigest = BASE_GRAPH; }],
   ['unknown graph', e => { e.e2GraphDigest = '0'.repeat(64); }],
   ['missing execution digest observations', e => { e.scanners.gitleaks.findingCount = 70; }],
-  ['missing fixture public-Git observation', e => { e.scanners.gitleaks.findingCount = 191; }],
+  ['missing fixture public-Git observation', e => { e.scanners.gitleaks.findingCount = 193; }],
+  ['missing verifier public-Git observations', e => { e.scanners.gitleaks.findingCount = 192; }],
+  ['missing all public source observations', e => { e.scanners.gitleaks.findingCount = 191; }],
   ['missing lineage', e => { delete e.e2GraphTransition; }],
   ['foreign repository', e => { e.repository = 'foreign/repository'; }],
   ['wrong Head', e => { e.commitSha = 'd'.repeat(40); }],

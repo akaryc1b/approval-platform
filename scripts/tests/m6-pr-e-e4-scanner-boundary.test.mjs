@@ -102,10 +102,10 @@ test('E4 full scanner emits E4→I1→I2→R1→I3→R2A→R2B→I4 exact-head c
   const historicalContent=spawnSync('git',['show',historicalRef],{cwd:root,encoding:'utf8'});
   assert.equal(historicalBlob.status,0,historicalBlob.stderr||historicalBlob.stdout);
   assert.equal(historicalContent.status,0,historicalContent.stderr);
-  const captureHashReviewSnapshot=[32,70,192].includes(e.scanners.gitleaks.findingCount)
+  const captureHashReviewSnapshot=[32,70,194].includes(e.scanners.gitleaks.findingCount)
     ? buildGitleaksCaptureHashReviewSnapshot(e,{root,git:spawnSync}):null;
   const captureHashReview=captureHashReviewSnapshot?verifyGitleaksCaptureHashReview(e,captureHashReviewSnapshot):null;
-  const publicCommitReviewSnapshot=[29,32,70,192].includes(e.scanners.gitleaks.findingCount)
+  const publicCommitReviewSnapshot=[29,32,70,194].includes(e.scanners.gitleaks.findingCount)
     ? buildGitleaksPublicCommitReviewSnapshot(e,{root,git:spawnSync,captureHashReview}):null;
   const gitleaksReviewSnapshot={...(captureHashReviewSnapshot?{captureHashReviewSnapshot}:{}),...(publicCommitReviewSnapshot?{publicCommitReviewSnapshot}:{}),repository:e.repository,commitSha:e.commitSha,currentE4CanonicalSha256:e.contentSha256,
     historicalSource:{commitSha:historicalSource.commitSha,path:historicalSource.path,blobSha:historicalBlob.stdout.trim(),content:historicalContent.stdout}};
