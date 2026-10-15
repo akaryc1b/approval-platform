@@ -45,6 +45,8 @@ Raw scanner reports exist only inside the runner temporary directory and are del
 
 No candidate Secret may appear in the retained canonical payload.
 
+Failed Semgrep image acquisition may retain bounded normalized diagnostics in the existing Hygiene log: observed elapsed milliseconds, allowlisted spawn-error code and signal, numeric exit status, separate stdout/stderr summaries capped at 4 KiB each with byte/line counts for the captured decoded UTF-8 strings and omission counts, fixed Docker progress states with hexadecimal layer IDs, the known public Semgrep image/digest syntax, and constant error-category labels. Unknown, control-bearing, oversized and incomplete lines are omitted; raw messages, URLs, hosts, paths, authentication material and hashes of unknown output are not retained. Acquisition remains one pull of `semgrep/semgrep:1.172.0` with the existing 900000 ms spawn timeout, 256 MiB capture buffer and default termination behavior; the timeout is not a hard wall guarantee. Image digest, version, scan and provenance gates remain required, and acquisition failure still blocks evidence closure.
+
 ## Execution and CI shape
 
 E4 is imported into the existing `scripts/tests/m6-ai-transport-review-boundary.test.mjs` aggregate. Actual scanner execution occurs only when `GITHUB_ACTIONS=true`. The existing Hygiene Job and existing `m6-ai-transport-review-boundary.log` retain the canonical E4 marker; the existing `approval-hygiene-*` Artifact remains the only E4 Artifact destination.

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
+import { readOsvDiagnosticSource } from './osv-diagnostic-source-reader.mjs';
 import { acceptedE2GraphProjection } from '../../security/m6-pr-e-e2-generate-sbom.mjs';
 import { osvInputFromE2 } from '../../security/osv-scan-coverage.mjs';
 import { BOOT_HTTP_GRAPH, readBootHttpManifest } from '../../security/boot-http-graph-transition.mjs';
@@ -46,7 +47,7 @@ export function readBootHttpPluginDiagnostic() {
   const manifestBytesSha256 = sha(pinned(binding.bootHttpManifest));
   assert.equal(sha(readPreservedGuavaSource('pom.xml', binding.sourcePom.rawSha256)), binding.sourcePom.rawSha256);
   pinned(binding.sourcePom);
-  for (const [p, h] of Object.entries(binding.referenceSourceHelpers)) assert.equal(sha(readFileSync(new URL(p, root))), h, 'reference source helper: ' + p);
+  for (const [p, h] of Object.entries(binding.referenceSourceHelpers)) assert.equal(sha(readOsvDiagnosticSource(p, h)), h, 'reference source helper: ' + p);
   return { files, binding, manifest, manifestBytesSha256, originalE2: JSON.parse(pinned(binding.sourceE2)), baselineE2: JSON.parse(pinned(binding.baseline.e2)),
     guavaBaseline: JSON.parse(pinned(binding.baseline.guavaFindings)), summary: json('verified-osv-summary.json'),
     coverage: json('diagnostic-target-coverage.json'), findings: json('normalized-osv-findings.json'), baseline: json('baseline-normalized-osv-findings.json'),

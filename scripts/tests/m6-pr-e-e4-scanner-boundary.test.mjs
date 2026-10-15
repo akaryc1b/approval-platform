@@ -16,6 +16,8 @@ import './compiler-plugin-graph-transition.test.mjs';
 import './checkstyle-plugin-graph-transition.test.mjs';
 import './m6-pr-e-e4-osv-target-coverage.test.mjs';
 import './m6-pr-e-e4-osv-package-attribution.test.mjs';
+import './semgrep-image-pull.test.mjs';
+import './osv-diagnostic-source-reader.test.mjs';
 import './server-dependency-remediation.test.mjs';
 import { JAR_PLUGIN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';
 import assert from 'node:assert/strict';

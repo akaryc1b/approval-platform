@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
+import { readOsvDiagnosticSource } from './osv-diagnostic-source-reader.mjs';
 import { acceptedE2GraphProjection } from '../../security/m6-pr-e-e2-generate-sbom.mjs';
 import { osvInputFromE2 } from '../../security/osv-scan-coverage.mjs';
 import { COMPILER_PLUGIN_GRAPH, readCompilerPluginManifest } from '../../security/compiler-plugin-graph-transition.mjs';
@@ -35,7 +36,7 @@ export function readCompilerDiagnostic() {
   const originalE2 = readFileSync(new URL(binding.originalQuery.sourceE2.path, root));
   assert.equal(sha(originalE2), binding.originalQuery.sourceE2.rawSha256);
   for (const [path, expected] of Object.entries(binding.sourceHelpers))
-    assert.equal(sha(readFileSync(new URL(path, root))), expected, 'current source helper bytes: ' + path);
+    assert.equal(sha(readOsvDiagnosticSource(path, expected)), expected, 'current source helper bytes: ' + path);
   assert.equal(sha(readPreservedCompilerSource('pom.xml', binding.originalQuery.sourcePomSha256)), binding.originalQuery.sourcePomSha256);
   // The current Compiler source/graph witness checks all 28 POMs. Historical local
   // commit IDs remain data; portability does not depend on their Git object existence.
