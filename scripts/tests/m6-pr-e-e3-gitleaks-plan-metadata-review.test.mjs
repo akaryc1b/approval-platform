@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { syntheticE4, snapshot as prototypeSnapshot, i2Inputs, runSyntheticCiCallback }
+import { syntheticE4, snapshot as prototypeSnapshot, i2Inputs, runSyntheticHistoricalCiCallback }
   from './m6-pr-e-e3-designer-prototype-remediation.test.mjs';
 import { modeledCaptureHashFixture } from './fixtures/capture-hash-review-fixture.mjs';
 import { canonical, seal } from './fixtures/public-commit-review-fixture.mjs';
@@ -180,7 +180,7 @@ test('metadata decision application and serialized triage reject duplicate, miss
 
 test('modeled full70 CI retains exactly13 outputs and unchanged historical remediation credit', () => {
   const fixture = modeledCaptureHashFixture('metadata main merge', { planMetadata: true, mergeHead: true });
-  const result = runSyntheticCiCallback({ publicCommitFixture: fixture }); assert.equal(result.error, undefined);
+  const result = runSyntheticHistoricalCiCallback({ publicCommitFixture: fixture }); assert.equal(result.error, undefined);
   const blocks = result.logs.filter(text => /^M6_PR_E_.*_BEGIN\n/.test(text)); assert.equal(blocks.length, 14); // One scanner subprocess envelope plus13 chain outputs.
   const output = stage => JSON.parse(result.logs.find(text => text.startsWith(`M6_PR_E_${stage}_BEGIN\n`)).split('\n')[1]);
   for (const stage of ['E3_I2_TRIAGE', 'E3_I3_TRIAGE', 'E3_I4_TRIAGE']) {

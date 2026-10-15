@@ -1,0 +1,16 @@
+{
+  "status": "HARNESS_LOG_INTERLEAVING_REJECTED",
+  "goalExitStatus": 0,
+  "class": "org/apache/commons/io/build/AbstractSupplier",
+  "loader": "6b0615ae",
+  "source": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository/commons-io/commons-io/2.21.0/commons-io-2.21.0.jar",
+  "observedSha256Prefix": "7b921e3281681d81b0fab76479caad15567868fd0deb75c9924576419a4a7ebb",
+  "effectiveEntryCandidates": {
+    "org/apache/commons/io/build/AbstractSupplier.class": "7b921e3281681d81b0fab76479caad15567868fd0deb75c9924576419a4a7ebb"
+  },
+  "appendedNativeLog": "[1.654s][info][class,load] java.util.concurrent.ForkJoinPool$DefaultForkJoinWorkerThreadFactory source: shared objects file",
+  "baselineSelectionAndEmptyPassed": true,
+  "candidateExecuted": false,
+  "originOrClassByteDriftObserved": false,
+  "retryPerformed": false
+}

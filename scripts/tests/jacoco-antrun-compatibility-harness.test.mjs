@@ -67,7 +67,11 @@ test('disposable POMs exercise assertion JVM and merge defaults while preserving
   python(String.raw`
 import xml.etree.ElementTree as ET
 from pathlib import Path
-contract=runpy.run_path(str(s['CONTRACT'])); ns=s['NS']; root=s['ROOT']
+import tempfile
+contract=runpy.run_path(str(s['CONTRACT'])); ns=s['NS']
+projection_directory=tempfile.TemporaryDirectory(prefix='pair-source-test-')
+config={'source':str(s['ROOT']),'output':str(Path(projection_directory.name)/'goals')}
+projection=s['prepare_source_projection'](config);root=s['source_for_contract'](config,projection)
 for baseline in (True,False):
     plugins=contract['fixture_plugins'](root,baseline=baseline)
     xml=s['fixture_pom'](plugins,Path('/fixture/candidate'))
@@ -97,6 +101,8 @@ for baseline in (True,False):
         assert jc.findtext('m:includes/m:include',namespaces=ns)=='fixture/CoverageTarget*'
         assert jc.findtext('m:dataFile',namespaces=ns).endswith(mode+'.exec')
 rejects(lambda:s['fixture_pom'](plugins,Path('/fixture'),'publish'))
+s['source_for_contract'](config,projection)
+projection_directory.cleanup()
 `);
 });
 
@@ -104,7 +110,11 @@ test('agent property survives initial Maven interpolation and preserves original
   python(String.raw`
 import xml.etree.ElementTree as ET
 from pathlib import Path
-plugins=runpy.run_path(str(s['CONTRACT']))['fixture_plugins'](s['ROOT'],baseline=True)
+import tempfile
+projection_directory=tempfile.TemporaryDirectory(prefix='pair-agent-source-test-')
+config={'source':str(s['ROOT']),'output':str(Path(projection_directory.name)/'goals')}
+projection=s['prepare_source_projection'](config);source=s['source_for_contract'](config,projection)
+plugins=runpy.run_path(str(s['CONTRACT']))['fixture_plugins'](source,baseline=True)
 raw=s['fixture_pom'](plugins,Path('/fixture/baseline')).decode();document=ET.fromstring(raw);ns=s['NS']
 props={x.tag.split('}',1)[1]:x.text for x in document.find('m:properties',ns)}
 assert props['argLine']=='-Dfixture.original=kept'
@@ -120,6 +130,8 @@ assert lines==['$'+'{fixture.jacoco.argLine}','-Dfixture.original=kept']
 late=lines[0].replace('$'+'{fixture.jacoco.argLine}','-javaagent:/fixture/agent.jar=destfile=/fixture/jacoco.exec')
 assert late.startswith('-javaagent:') and lines[1]=='-Dfixture.original=kept'
 assert 'real JaCoCo agent argument missing or duplicated' in s['ASSERTIONS']
+s['source_for_contract'](config,projection)
+projection_directory.cleanup()
 `);
 });
 

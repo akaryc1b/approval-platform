@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { requireGitleaksCaptureInventory } from './m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import { requireGitleaksTestExpressionTriage } from './m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 import { requireServerDependencyRemediation, requireServerDependencyHistoricalReview }
@@ -36,6 +37,7 @@ function remediationById(...remediations){
 
 export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null,serverRemediation=null){
   if(!triage||!e4||!review)throw new Error('triage e4 and review required');
+  requireGitleaksCaptureInventory(e4);
   if(triage.repository!==e4.repository||review.repository!==triage.repository)throw new Error('repository mismatch');
   if(triage.commitSha!==e4.commitSha)throw new Error('triage/E4 Head mismatch');
   if(!/^[0-9a-f]{64}$/.test(review.reviewBasisE2GraphDigest||''))throw new Error('review E2 graph digest required');
@@ -48,7 +50,7 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null,
     ? requireServerDependencyRemediation(e4,serverRemediation,{expectedCommitSha:triage.commitSha}):null;
   if(serverDependencyRemediation)requireServerDependencyHistoricalReview(review);
 
-  if(([32,70].includes(e4.scanners?.gitleaks?.findingCount)||triage.gitleaksCaptureHashReview)
+  if(([32,70,192].includes(e4.scanners?.gitleaks?.findingCount)||triage.gitleaksCaptureHashReview)
     &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview||!triage.gitleaksCaptureHashReview))throw new Error('capture hash review requires all three source review receipts');
   if((e4.scanners?.gitleaks?.findingCount===29||triage.gitleaksPublicCommitReview)
     &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview))throw new Error('public commit review requires both source review receipts');

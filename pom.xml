@@ -45,6 +45,7 @@
 
         <maven.compiler.version>3.14.0</maven.compiler.version>
         <maven.compiler.commons-io.version>2.20.0</maven.compiler.commons-io.version>
+        <maven.jar.version>3.5.1</maven.jar.version>
         <maven.surefire.version>3.5.5</maven.surefire.version>
         <maven.enforcer.version>3.5.0</maven.enforcer.version>
         <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
@@ -144,6 +145,11 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>${maven.jar.version}</version>
+                </plugin>
                 <!-- Keep Assembly inactive; constrain only its private Plexus Utils dependency. -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>

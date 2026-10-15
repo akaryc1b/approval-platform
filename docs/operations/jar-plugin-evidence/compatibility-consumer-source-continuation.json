@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "JAR_PLUGIN_RECEIPT_CONSUMER_CONTINUATION_V1",
+  "status": "PASSED",
+  "scope": "LOSSLESS_RECEIPT_EMISSION_ONLY",
+  "actualMavenExecutionSealSha256": "7036dff106172b82af4ebe16427cc16fe1e2251d492ba11441926f3434e69973",
+  "actualReceiptSha256": "a41a99952e9277838ad54b38b7699239c6e51495e79ad0b8b95a429617b18389",
+  "changedSource": {
+    "scripts/tests/jar-plugin-live-compatibility.test.mjs": {
+      "executedSealSha256": "41ce8926890ffd3f64c9909d5d16f62e1198eb0fe2740a49a7a8e432f1737cc4",
+      "currentSha256": "6dd3b8d4245dd5dbb3cff594eef7235390704403e7aa65f5a1a21ab7ff073815"
+    },
+    "scripts/tests/jar-plugin-receipt-retention.test.mjs": {
+      "executedSealSha256": "2f6266376e9299b54732e3487e5754272e32bbc2dfabf6e773235c5c31bc5297",
+      "currentSha256": "2643f4110a18a9e61463ec60461f9c3b71f00663389be57e9d7e06fbecc90777"
+    }
+  },
+  "unchangedExecutedSourceCount": 19,
+  "mavenJvmNetworkRerun": false,
+  "reason": "Preserve validated original JSON numeric lexemes; Node JSON.parse/stringify rounded six nanosecond values above 2^53.",
+  "preservedRejectedRetentionSha256": "dea40ca1dde050e819c847c9dda4b6807a5304e7eddd6df29b685fda3f0328b7",
+  "correctedRetentionSha256": "51d098e88a28d3d3fb3eac18ab5011fc1a9002a7486560f47197b26ec7f020df",
+  "correctedRetentionBytes": 4305362,
+  "exactIntegerJsonEqualityVerifiedByPython": true,
+  "affectedTestCommand": [
+    "node",
+    "--test",
+    "scripts/tests/jar-plugin-receipt-retention.test.mjs"
+  ],
+  "affectedTestsPassed": 6,
+  "originalGoalExecutionAndAllOtherSourcesUnchanged": true
+}

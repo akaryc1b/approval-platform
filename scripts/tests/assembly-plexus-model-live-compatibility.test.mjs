@@ -35,11 +35,16 @@ with tempfile.TemporaryDirectory(prefix='assembly-model-preparation-') as direct
     sandbox=Path(directory);repository=sandbox/'cache';repository.mkdir()
     with patch.dict(s['ModelRun'].__init__.__globals__,{'Commands':NoCommands,'python_origins':lambda:({},[]),'runtime_files':lambda *args:[]}):
         m=s['ModelRun'](root,sandbox,repository,Path('/reviewed/jdk'),Path('/reviewed/maven/bin/mvn'),True,'assembly')
-    assert m.source==root and m.assembly_source_projection is None and m.pair_source_projection is None
+    assert m.source==Path(m.jar_source_projection['retainedSourceRoot'])
+    assert m.jar_source_projection['suppliedSourceRoot']==str(root)
+    assert m.jar_source_projection['suppliedRootPomSha256']==s['JAR_RETAINED']['CURRENT_POM']
+    assert m.jar_source_projection['retainedRootPomSha256']==s['ASSEMBLY']['CURRENT_POM']
+    assert m.report['historicalJarSourceProjection']==m.jar_source_projection
+    assert m.assembly_source_projection is None and m.pair_source_projection is None
     assert 'HOME' not in m.commands.environment and m.commands.results==[]
     assert m.projection['suppliedRootPomSha256']==s['ASSEMBLY']['CURRENT_POM']
     assert m.projection['retainedRootPomSha256']==s['ASSEMBLY']['PRIOR_POM']
-    assert s['ASSEMBLY']['reverse_source']((root/'pom.xml').read_bytes())==(m.retained/'pom.xml').read_bytes()
+    assert s['ASSEMBLY']['reverse_source']((m.source/'pom.xml').read_bytes())==(m.retained/'pom.xml').read_bytes()
     m.containment()
     original=(m.retained/'pom.xml').read_bytes()
     (m.retained/'pom.xml').write_bytes(original.replace(b'<maven.release.version>3.3.1',b'<maven.release.version>3.3.0'))
@@ -71,6 +76,10 @@ test('CI compares Assembly private dependency across all26 actual default-profil
   for (const key of ['sourceInputsStable', 'executionInputsStable', 'runtimeInputsStable', 'cacheExistingJarPomBytesStable']) assert.equal(receipt[key], true, key);
   assert.equal(receipt.offline, process.env.GITHUB_ACTIONS !== 'true');
   assert.equal(receipt.scannerEvidence, false); assert.equal(receipt.canonicalCiEvidence, false);
+  assert.equal(receipt.historicalJarSourceProjection.suppliedRootPomSha256, '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f');
+  assert.equal(receipt.historicalJarSourceProjection.retainedRootPomSha256, '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629');
+  assert.equal(receipt.historicalJarSourceProjection.sourcePomCount, 28);
+  assert.equal(receipt.actualModelSourceRoots.candidate, receipt.historicalJarSourceProjection.retainedSourceRoot);
   assert.equal(receipt.historicalAssemblySourceProjection, null); assert.equal(receipt.historicalPairSourceProjection, null);
   assert.deepEqual(receipt.commands.map(row => row.case), ['assembly-model-maven-version', 'assembly-baseline-effective-models', 'assembly-candidate-effective-models']);
   for (const command of receipt.commands) {

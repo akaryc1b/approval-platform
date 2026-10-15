@@ -38,6 +38,8 @@ def run():
     sandbox = Path(tempfile.mkdtemp(prefix='assembly-plexus-ci-'))
     config = {'source': str(source), 'maven': str(Path(executable).resolve()), 'jdk': str(Path(jdk_value).resolve()),
               'repository': str(repository), 'output': str(sandbox / 'offline-goals')}
+    projection = fixture['prepare_source_projection'](config)
+    historical_source = fixture['source_for_contract'](config, projection)
     for name in ('home', 'tmp'): (sandbox / name).mkdir()
     (sandbox / 'central-settings.xml').write_text(CENTRAL_SETTINGS)
     (sandbox / 'empty-toolchains.xml').write_text('<toolchains/>\n')
@@ -48,7 +50,7 @@ def run():
         for name, value in [('modelVersion', '4.0.0'), ('groupId', 'fixture'), ('artifactId', 'assembly-cache'), ('version', '1'), ('packaging', 'pom')]:
             ET.SubElement(root, P + name).text = value
         plugins = ET.SubElement(ET.SubElement(root, P + 'build'), P + 'plugins')
-        plugins.append(contract['fixture_plugin'](source, baseline=variant == 'baseline'))
+        plugins.append(contract['fixture_plugin'](historical_source, baseline=variant == 'baseline'))
         (sandbox / (variant + '-pom.xml')).write_bytes(ET.tostring(root, encoding='utf-8', xml_declaration=True))
     source_hashes = fixture['source_hashes'](source)
     runtime_hashes = fixture['runtime_hashes'](Path(config['maven']), Path(config['jdk']))
@@ -69,8 +71,10 @@ def run():
                        + str(sandbox / 'home') + ' -Djava.io.tmpdir=' + str(sandbox / 'tmp'))
     commands = Commands(sandbox, environment, 240)
     receipt = {'status': 'RUNNING', 'commands': commands.results, 'resolutionCommandsMaximum': 2,
+               'historicalJarSourceProjection': projection, 'actualFixtureSourceRoot': str(historical_source),
                'centralPreparationOnly': True, 'offlineGoalCount': 12, 'acceptanceGoal': False}
     def unchanged():
+        fixture['source_for_contract'](config, projection)
         require(fixture['source_hashes'](source) == source_hashes, 'preparation source changed')
         require(all(digest(Path(p)) == h for p, h in fixed.items()), 'preparation inputs changed')
         current = cache_snapshot(repository)
@@ -83,7 +87,7 @@ def run():
             require(status == 0, 'bounded Central Assembly preparation failed'); unchanged()
         require(existing_pins() == set(pins['artifactHashes']), 'complete pinned artifact union required')
         require(fixture['runtime_hashes'](Path(config['maven']), Path(config['jdk'])) == runtime_hashes, 'preparation runtime changed')
-        seal = fixture['prepare'](config); seal_file = sandbox / 'execution-seal.json'
+        seal = fixture['prepare'](config, projection); seal_file = sandbox / 'execution-seal.json'
         seal_file.write_text(json.dumps(seal, indent=2) + '\n'); receipt['executionSealSha256'] = digest(seal_file)
         fixture['execute'](seal)
         require(digest(seal_file) == receipt['executionSealSha256'], 'execution seal changed')

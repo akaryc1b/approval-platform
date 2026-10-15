@@ -6,7 +6,7 @@ import './assembly-plexus-receipt-retention.test.mjs';
 
 const harness = fileURLToPath(new URL('./fixtures/assembly-plexus-compatibility.py', import.meta.url));
 function python(body) {
-  const result = spawnSync('python3', ['-I', '-S', '-B', '-c', `import runpy\ns=runpy.run_path(${JSON.stringify(harness)})\ndef rejects(fn):\n try: fn()\n except (ValueError,AssertionError,KeyError): return\n raise AssertionError('unexpected acceptance')\n${body}`],
+  const result = spawnSync('python3', ['-I', '-S', '-B', '-c', `import http.server,ssl,runpy,subprocess,socket\ndef blocked(*args,**kwargs): raise AssertionError('pure fixture attempted process or socket execution')\nsubprocess.Popen=socket.socket=blocked\ns=runpy.run_path(${JSON.stringify(harness)})\ndef rejects(fn):\n try: fn()\n except (ValueError,AssertionError,KeyError): return\n raise AssertionError('unexpected acceptance')\n${body}`],
     { encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024 });
   assert.equal(result.status, 0, result.stdout + result.stderr);
 }
@@ -43,8 +43,13 @@ test('owned project covers all formats, independent discovery, default settings 
 from pathlib import Path
 import tempfile,xml.etree.ElementTree as ET
 contract=s['run_path'](str(s['CONTRACT']))
+projection_directory=tempfile.TemporaryDirectory(prefix='assembly-source-test-')
+config={'source':str(s['ROOT']),'output':str(Path(projection_directory.name)/'goals')}
+projection=s['prepare_source_projection'](config)
+source=s['source_for_contract'](config,projection)
+assert projection['suppliedRootPomSha256']==s['JAR_RETAINED']['CURRENT_POM']
 for baseline in (True,False):
- plugin=contract['fixture_plugin'](s['ROOT'],baseline=baseline)
+ plugin=contract['fixture_plugin'](source,baseline=baseline)
  with tempfile.TemporaryDirectory(prefix='assembly-input-test-') as name:
   root=Path(name)
   for case in s['CASES']:
@@ -68,6 +73,83 @@ for baseline in (True,False):
   assert [e.findtext('useDefaultExcludes') for e in desc.findall('fileSets/fileSet')[:3]]==[None,'true','false']
   assert [e.findtext('unpackOptions/useDefaultExcludes') for e in desc.findall('dependencySets/dependencySet')[:3]]==[None,'true','false']
   assert desc.findtext('containerDescriptorHandlers/containerDescriptorHandler/handlerName')=='plexus'
+s['source_for_contract'](config,projection)
+projection_directory.cleanup()
+`);
+});
+
+test('JAR historical projection binds all POMs and strict historical inputs without executing tools', () => {
+  python(String.raw`
+import copy,shutil,tempfile
+from pathlib import Path
+jar=s['JAR_RETAINED'];contract=runpy.run_path(str(s['CONTRACT']))
+def rejected(fn,message):
+ try:fn()
+ except ValueError as error:assert message in str(error),str(error)
+ else:raise AssertionError('historical source mutation accepted')
+with tempfile.TemporaryDirectory(prefix='jar-historical-source-') as directory:
+ root=Path(directory);source=root/'source';source.mkdir()
+ inventory=jar['source_inventory'](s['ROOT'])
+ assert len(inventory)==50 and sum(name.endswith('/pom.xml') or name=='pom.xml' for name in inventory)==28
+ for name in inventory:
+  target=source/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(s['ROOT']/name,target)
+ projection=jar['materialize_accepted_source'](source,root/'assembly')
+ assert projection['reversalApplied'] is True
+ assert projection['suppliedRootPomSha256']==jar['CURRENT_POM']
+ assert projection['retainedRootPomSha256']==contract['CURRENT_POM']
+ assert [n for n in inventory if projection['suppliedSourceHashes'][n]!=projection['retainedSourceHashes'][n]]==['pom.xml']
+ assert len(contract['verify_source'](root/'assembly'))==29
+ rejected(lambda:contract['verify_source'](source),'Assembly source bytes drift: pom.xml')
+ # The exact accepted Assembly root remains a positive, unchanged historical case.
+ historical=jar['materialize_accepted_source'](root/'assembly',root/'historical-copy')
+ assert historical['reversalApplied'] is False
+ assert historical['suppliedSourceHashes']==historical['retainedSourceHashes']
+ jar['verify_projection'](historical)
+ for base,name in [(source,'pom.xml'),(source,'apps/server/pom.xml'),
+                   (source,'integrations/ruoyi6-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml'),
+                   (source,jar['ARCHIVE']),(source,'scripts/ci/boot_utilities_contract.py'),
+                   (root/'assembly','pom.xml'),(root/'assembly',jar['ARCHIVE'])]:
+  file=base/name;original=file.read_bytes();file.write_bytes(original+b'\n')
+  rejected(lambda:jar['verify_projection'](projection),'JAR historical source')
+  file.write_bytes(original);jar['verify_projection'](projection)
+ for key in ('suppliedSourceHashes','retainedSourceHashes'):
+  altered=copy.deepcopy(projection);del altered[key]['apps/server/pom.xml']
+  rejected(lambda:jar['verify_projection'](altered),'projection inventory changed')
+ altered=copy.deepcopy(projection);altered['retainedRootPomSha256']='0'*64
+ rejected(lambda:jar['verify_projection'](altered),'projection identity changed')
+ extra=root/'assembly'/'extra.xml';extra.write_text('extra')
+ rejected(lambda:jar['verify_projection'](projection),'retained view membership changed')
+ extra.unlink();jar['verify_projection'](projection)
+ file=root/'assembly'/'apps/server/pom.xml';original=file.read_bytes();file.unlink();file.symlink_to(source/'apps/server/pom.xml')
+ rejected(lambda:jar['verify_projection'](projection),'requires bounded real file')
+ file.unlink();file.write_bytes(original);jar['verify_projection'](projection)
+ (root/'alias').symlink_to(source,target_is_directory=True)
+ rejected(lambda:jar['source_inventory'](root/'alias'),'canonical real source directory')
+ rejected(lambda:jar['checked'](source,'../pom.xml'),'unsafe member path')
+ rejected(lambda:jar['materialize_accepted_source'](source,source/'nested'),'fresh real path outside source')
+ bootstrap=source/'apps/.mvn';bootstrap.mkdir()
+ rejected(lambda:jar['verify_projection'](projection),'unreviewed Maven configuration')
+ bootstrap.rmdir();jar['verify_projection'](projection)
+`);
+});
+
+test('Assembly and JaCoCo entrypoints retain separate current and accepted source identities', () => {
+  python(String.raw`
+import tempfile
+from pathlib import Path
+for fixture in (s,runpy.run_path(str(s['HERE']/'jacoco-antrun-compatibility.py'))):
+ with tempfile.TemporaryDirectory(prefix='historical-entrypoint-') as directory:
+  config={'source':str(s['ROOT']),'output':str(Path(directory)/'goals')}
+  projection=fixture['prepare_source_projection'](config)
+  selected=fixture['source_for_contract'](config,projection)
+  assert selected!=s['ROOT'] and selected==Path(projection['retainedSourceRoot'])
+  assert projection['suppliedSourceRoot']==str(s['ROOT']) and projection['sourcePomCount']==28
+  assert fixture['source_hashes'](s['ROOT'])[str(s['ROOT']/'pom.xml')]==s['JAR_RETAINED']['CURRENT_POM']
+  changed=dict(projection,suppliedSourceRoot=str(selected))
+  try:fixture['source_for_contract'](config,changed)
+  except ValueError as error:assert 'sealed JAR historical source roots changed' in str(error)
+  else:raise AssertionError('substituted source accepted')
+  fixture['source_for_contract'](config,projection)
 `);
 });
 

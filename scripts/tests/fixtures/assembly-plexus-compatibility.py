@@ -29,6 +29,8 @@ CONSUMERS = HERE / 'assembly-plexus-consumers.json'
 OBSERVER = HERE / 'AssemblyRealmObserver.java'
 SPY = HERE / 'AssemblyRealmCompletionSpy.java'
 CONTRACT = ROOT / 'scripts/ci/assembly_plexus_contract.py'
+SOURCE_ADAPTER = ROOT / 'scripts/ci/jar_plugin_retained_source.py'
+JAR_RETAINED = run_path(str(SOURCE_ADAPTER))
 OWNER = 'org.apache.maven.plugins:maven-assembly-plugin:3.7.1'
 GOAL = OWNER + ':single'
 CASES = ('archives', 'discovery', 'missing-main', 'malformed-main', 'missing-component', 'malformed-component')
@@ -62,15 +64,42 @@ def read_pins():
 
 
 def source_hashes(source):
-    contract = run_path(str(CONTRACT)); values = contract['verify_source'](source)
+    contract = run_path(str(CONTRACT))
+    values = (JAR_RETAINED['source_inventory'](source) if JAR_RETAINED['is_jar_source'](source)
+              else contract['verify_source'](source))
     result = {str(source / key): value for key, value in values.items()}
-    files = [Path(__file__).resolve(), PINS, CONSUMERS, OBSERVER, SPY, CONTRACT, source / contract['WITNESS'],
+    files = [Path(__file__).resolve(), PINS, CONSUMERS, OBSERVER, SPY, CONTRACT, SOURCE_ADAPTER, source / contract['WITNESS'],
              HERE / 'assembly-plexus-portable.py',
              HERE / 'assembly_plexus_inventory.py', HERE / 'checkstyle_live_support.py',
              HERE / 'run_boot_live_compatibility.py', HERE.parent / 'assembly-plexus-compatibility-harness.test.mjs',
              HERE.parent / 'assembly-plexus-plugin-live-compatibility.test.mjs']
     result.update({str(p): digest(p) for p in files})
     return result
+
+
+def prepare_source_projection(config):
+    source, output = Path(config['source']), Path(config['output'])
+    if not JAR_RETAINED['is_jar_source'](source):
+        run_path(str(CONTRACT))['verify_source'](source)
+        return None
+    projection = JAR_RETAINED['materialize_accepted_source'](
+        source, output.with_name(output.name + '-accepted-assembly-source'))
+    source_for_contract(config, projection)
+    return projection
+
+
+def source_for_contract(config, projection):
+    source, output = Path(config['source']), Path(config['output'])
+    require(JAR_RETAINED['is_jar_source'](source) == (projection is not None),
+            'explicit JAR historical source projection required')
+    if projection is not None:
+        require(projection['suppliedSourceRoot'] == str(source)
+                and projection['retainedSourceRoot'] == str(output.with_name(output.name + '-accepted-assembly-source')),
+                'sealed JAR historical source roots changed')
+        JAR_RETAINED['verify_projection'](projection)
+        source = Path(projection['retainedSourceRoot'])
+    run_path(str(CONTRACT))['verify_source'](source)
+    return source
 
 
 def runtime_hashes(maven, jdk):
@@ -112,7 +141,7 @@ def effective_consumers(config, declared, uses):
     return result, sorted(adjusted)
 
 
-def prepare(config):
+def prepare(config, historical_jar_projection=None):
     paths = {k: Path(config[k]).absolute() for k in ('source', 'maven', 'jdk', 'repository', 'output')}
     require(all(p.resolve() == p and not any(c.isspace() or ord(c) < 32 for c in str(p)) for p in paths.values()), 'canonical JVM-safe paths')
     require(not paths['output'].exists() and paths['output'].parent.is_dir(), 'fresh output under existing directory')
@@ -126,8 +155,13 @@ def prepare(config):
     expected = json.loads(CONSUMERS.read_text())
     require(all(actual[k] == expected[k] for k in actual), 'complete current consumer inventory differs')
     effective, effective_uses = effective_consumers(config, actual, uses)
+    supplied_hashes = source_hashes(paths['source'])
+    projection = (historical_jar_projection if historical_jar_projection is not None
+                  else prepare_source_projection(config))
+    selected_source = source_for_contract(config, projection)
     return {'schemaVersion': 1, 'plan': PLAN, 'config': {k: str(v) for k, v in paths.items()},
-            'sourceHashes': source_hashes(paths['source']), 'runtimeHashes': runtime_hashes(paths['maven'], paths['jdk']),
+            'sourceHashes': supplied_hashes, 'runtimeHashes': runtime_hashes(paths['maven'], paths['jdk']),
+            'historicalJarSourceProjection': projection, 'actualFixtureSourceRoot': str(selected_source),
             'cacheHashes': cache_snapshot(paths['repository']), 'inventory': actual,
             'memberUses': [list(row) for row in uses], 'effectiveInventory': effective, 'effectiveMemberUses': [list(row) for row in effective_uses],
             'pythonOrigins': python_origins()[0]}
@@ -145,6 +179,8 @@ def check_seal(seal, complete=False):
     effective, effective_uses = effective_consumers(config, seal['inventory'], seal['memberUses'])
     require(effective == seal['effectiveInventory'] and [list(row) for row in effective_uses] == seal['effectiveMemberUses'], 'effective consumer projection changed')
     require(source_hashes(Path(seal['config']['source'])) == seal['sourceHashes'], 'source changed')
+    require(str(source_for_contract(config, seal['historicalJarSourceProjection'])) == seal['actualFixtureSourceRoot'],
+            'fixture historical source identity changed')
     if complete:
         require(cache_snapshot(Path(seal['config']['repository'])) == seal['cacheHashes'], 'cache changed')
         require(runtime_hashes(Path(seal['config']['maven']), Path(seal['config']['jdk'])) == seal['runtimeHashes'], 'runtime changed')
@@ -524,6 +560,7 @@ def execute(seal):
     commands = Commands(output, environment, 900)
     result = {'status': 'RUNNING', 'plan': PLAN, 'commands': commands.results, 'variants': {},
               'inventory': seal['inventory'], 'effectiveInventory': seal['effectiveInventory'], 'sourceHashes': seal['sourceHashes'], 'runtimeHashes': seal['runtimeHashes'],
+              'historicalJarSourceProjection': seal['historicalJarSourceProjection'], 'actualFixtureSourceRoot': seal['actualFixtureSourceRoot'],
               'cacheHashes': seal['cacheHashes'], 'scannerEvidence': False, 'productionActivationClaim': False}
     previous = {sig: signal.getsignal(sig) for sig in (signal.SIGALRM, signal.SIGTERM, signal.SIGINT)}
     def deadline(signum, frame): raise TimeoutError('bounded pair-set deadline or termination')
@@ -531,6 +568,7 @@ def execute(seal):
         check_seal(seal)
         require(all(Path(p).is_file() and digest(Path(p)) == h for p, h in fixed.items()), 'generated fixture input changed')
         value = commands.run(label, command, seconds, extra_env)
+        check_seal(seal)
         require(all(Path(p).is_file() and digest(Path(p)) == h for p, h in fixed.items()), 'generated fixture input changed')
         return value
     for sig in previous: signal.signal(sig, deadline)
@@ -556,7 +594,7 @@ def execute(seal):
         contract = run_path(str(CONTRACT))
         for variant in ('baseline', 'candidate'):
             result['variants'][variant] = {}
-            plugin = contract['fixture_plugin'](Path(config['source']), baseline=variant == 'baseline')
+            plugin = contract['fixture_plugin'](source_for_contract(config, seal['historicalJarSourceProjection']), baseline=variant == 'baseline')
             for case in CASES:
                 directory = output / (variant + '-' + case); fixed.update(write_case(directory, plugin, case))
                 status, stdout, stderr = run(variant + '-' + case, maven_command(config, output, directory / 'pom.xml'), extra_env={'MAVEN_OPTS': opts})

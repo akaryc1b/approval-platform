@@ -6,6 +6,7 @@ import './m6-pr-e-e3-gitleaks-test-expression-review.test.mjs';
 import './m6-pr-e-e3-gitleaks-public-commit-review.test.mjs';
 import './m6-pr-e-e3-gitleaks-capture-hash-review.test.mjs';
 import './m6-pr-e-e3-gitleaks-plan-metadata-review.test.mjs';
+import './m6-pr-e-e3-gitleaks-jar-digest-review.test.mjs';
 import './server-dependency-graph-transition.test.mjs';
 import './build-plugin-jackson-graph-transition.test.mjs';
 import './site-dependency-plugin-graph-transition.test.mjs';
@@ -16,7 +17,7 @@ import './checkstyle-plugin-graph-transition.test.mjs';
 import './m6-pr-e-e4-osv-target-coverage.test.mjs';
 import './m6-pr-e-e4-osv-package-attribution.test.mjs';
 import './server-dependency-remediation.test.mjs';
-import { ASSEMBLY_PLEXUS_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';
+import { JAR_PLUGIN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';
 import assert from 'node:assert/strict';
 import {existsSync,readFileSync,readdirSync} from 'node:fs';
 import path from 'node:path';
@@ -26,7 +27,7 @@ import {fileURLToPath} from 'node:url';
 import {buildScannerFindingIntake} from '../security/m6-pr-e-e3-ingest-e4.mjs';
 import {applyReviewedFindings} from '../security/m6-pr-e-e3-apply-reviewed-findings.mjs';
 import {exactHead as expectedScannerHead} from '../security/m6-pr-e-e4-scan.mjs';
-import {buildGitleaksCaptureHashReviewSnapshot,verifyGitleaksCaptureHashReview,gitleaksCaptureReviewFindings} from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
+import {buildGitleaksCaptureHashReviewSnapshot,verifyGitleaksCaptureHashReview,gitleaksCaptureReviewFindings,requireGitleaksCaptureInventory} from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import {buildGitleaksPublicCommitReviewSnapshot} from '../security/m6-pr-e-e3-review-gitleaks-public-commit.mjs';
 import {readGitleaksTestExpressionReviewPlan,applyGitleaksTestExpressionReview} from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import {readDesignerPrototypeRemediationPlan} from '../security/m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
@@ -82,7 +83,7 @@ test('E4 full scanner emits E4→I1→I2→R1→I3→R2A→R2B→I4 exact-head c
   assert.equal(r.status,0,r.stderr||r.stdout);
   console.log(r.stdout); // Retain normalized findings even when a later historical review rejects them.
   const m=r.stdout.match(/M6_PR_E_E4_SCANNER_EVIDENCE_BEGIN\n([^\n]+)\nM6_PR_E_E4_SCANNER_EVIDENCE_END/);assert.ok(m);
-  const e=JSON.parse(m[1]);assert.equal(e.commitSha,expectedScannerHead());assert.equal(e.e2GraphDigest,ASSEMBLY_PLEXUS_GRAPH);assert.ok(requirePreservedGraph(e,NG,expectedScannerHead()));assert.equal(e.allScannersCompleted,true);assert.equal(e.rawScannerReportsRetained,false);assert.equal(e.candidateSecretMaterialRetained,false);
+  const e=JSON.parse(m[1]);assert.equal(e.commitSha,expectedScannerHead());assert.equal(e.e2GraphDigest,JAR_PLUGIN_GRAPH);assert.ok(requirePreservedGraph(e,NG,expectedScannerHead()));assert.equal(e.allScannersCompleted,true);assert.equal(e.rawScannerReportsRetained,false);assert.equal(e.candidateSecretMaterialRetained,false);requireGitleaksCaptureInventory(e);
   const gt=spawnSync('git',['show','-s','--format=%cI',e.commitSha],{cwd:root,encoding:'utf8'});assert.equal(gt.status,0);
   const transitionPlan=JSON.parse(T(I2T)),e2SourcePath=transitionPlan.transitions[0].sourcePath,e2SourceHash=spawnSync('git',['hash-object',e2SourcePath],{cwd:root,encoding:'utf8'});assert.equal(e2SourceHash.status,0,e2SourceHash.stderr||e2SourceHash.stdout);
   const prototypePlan=readDesignerPrototypeRemediationPlan();
@@ -101,10 +102,10 @@ test('E4 full scanner emits E4→I1→I2→R1→I3→R2A→R2B→I4 exact-head c
   const historicalContent=spawnSync('git',['show',historicalRef],{cwd:root,encoding:'utf8'});
   assert.equal(historicalBlob.status,0,historicalBlob.stderr||historicalBlob.stdout);
   assert.equal(historicalContent.status,0,historicalContent.stderr);
-  const captureHashReviewSnapshot=[32,70].includes(e.scanners.gitleaks.findingCount)
+  const captureHashReviewSnapshot=[32,70,192].includes(e.scanners.gitleaks.findingCount)
     ? buildGitleaksCaptureHashReviewSnapshot(e,{root,git:spawnSync}):null;
   const captureHashReview=captureHashReviewSnapshot?verifyGitleaksCaptureHashReview(e,captureHashReviewSnapshot):null;
-  const publicCommitReviewSnapshot=[29,32,70].includes(e.scanners.gitleaks.findingCount)
+  const publicCommitReviewSnapshot=[29,32,70,192].includes(e.scanners.gitleaks.findingCount)
     ? buildGitleaksPublicCommitReviewSnapshot(e,{root,git:spawnSync,captureHashReview}):null;
   const gitleaksReviewSnapshot={...(captureHashReviewSnapshot?{captureHashReviewSnapshot}:{}),...(publicCommitReviewSnapshot?{publicCommitReviewSnapshot}:{}),repository:e.repository,commitSha:e.commitSha,currentE4CanonicalSha256:e.contentSha256,
     historicalSource:{commitSha:historicalSource.commitSha,path:historicalSource.path,blobSha:historicalBlob.stdout.trim(),content:historicalContent.stdout}};

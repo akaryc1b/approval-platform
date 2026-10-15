@@ -21,6 +21,7 @@ UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
 PAIR = run_path(str(ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
 ASSEMBLY = run_path(str(ROOT / 'scripts/ci/assembly_plexus_contract.py'))
 ASSEMBLY_RETAINED = run_path(str(ROOT / 'scripts/ci/assembly_plexus_retained_source.py'))
+JAR_RETAINED = run_path(str(ROOT / 'scripts/ci/jar_plugin_retained_source.py'))
 TOTAL_SECONDS = 660
 SCHEMAS = {'http': 'BOOT_HTTP_ACTUAL_MODELS_V1', 'utilities': 'BOOT_UTILITIES_ACTUAL_MODELS_V1',
            'jacoco-antrun': 'JACOCO_ANTRUN_ACTUAL_MODELS_V1', 'assembly': 'ASSEMBLY_PLEXUS_ACTUAL_MODELS_V1'}
@@ -33,6 +34,10 @@ class ModelRun:
         require(profile in SCHEMAS, 'Named model profile required')
         self.profile = profile
         self.contract = {'http': BOOT, 'utilities': UTILITIES, 'jacoco-antrun': PAIR, 'assembly': ASSEMBLY}[profile]
+        self.jar_source_projection = None
+        if JAR_RETAINED['is_jar_source'](source):
+            self.jar_source_projection = JAR_RETAINED['materialize_accepted_source'](source, sandbox / 'accepted-jar-source')
+            source = Path(self.jar_source_projection['retainedSourceRoot'])
         self.assembly_source_projection = None
         if profile == 'jacoco-antrun' and ASSEMBLY['is_assembly_source'](source):
             self.assembly_source_projection = ASSEMBLY_RETAINED['materialize_accepted_source'](source, sandbox / 'accepted-assembly-source')
@@ -65,6 +70,7 @@ class ModelRun:
             ROOT / 'scripts/ci/maven-toolchain.mjs', ROOT / 'scripts/ci/boot_utilities_contract.py',
             ROOT / 'scripts/ci/jacoco_antrun_contract.py', ROOT / 'scripts/ci/assembly_plexus_contract.py',
             ROOT / 'scripts/ci/assembly_plexus_retained_source.py',
+            ROOT / 'scripts/ci/jar_plugin_retained_source.py',
             ROOT / 'scripts/tests/assembly-plexus-model-live-compatibility.test.mjs',
             ROOT / 'scripts/tests/boot-http-model-live-compatibility.test.mjs',
             ROOT / 'scripts/tests/boot-utilities-model-live-compatibility.test.mjs',
@@ -81,6 +87,7 @@ class ModelRun:
         self.commands = Commands(sandbox, environment, TOTAL_SECONDS)
         self.report = {'schemaVersion': SCHEMAS[profile],
             'dependencyProfile': profile, 'status': 'RUNNING',
+            'historicalJarSourceProjection': self.jar_source_projection,
             'historicalAssemblySourceProjection': self.assembly_source_projection,
             'historicalPairSourceProjection': self.pair_source_projection,
             'historicalUtilitiesSourceProjection': self.utilities_source_projection,
@@ -98,7 +105,7 @@ class ModelRun:
                       + {'http': 'Retained Boot HTTP and Guava sources are paired',
                          'utilities': 'Accepted Boot utility source and exact retained HTTP predecessor are paired',
                          'jacoco-antrun': 'Accepted JaCoCo/AntRun source and exact utilities predecessor are paired',
-                         'assembly': 'Current Assembly source and exact accepted JaCoCo/AntRun predecessor are paired'}[profile]
+                         'assembly': 'Accepted Assembly source and exact accepted JaCoCo/AntRun predecessor are paired'}[profile]
                       + '; overlays remain source-bound only.')}
 
     def write_cache_manifest(self, label, data):
@@ -123,6 +130,8 @@ class ModelRun:
         self.cache_previous = current
 
     def containment(self):
+        if self.jar_source_projection:
+            JAR_RETAINED['verify_projection'](self.jar_source_projection)
         if self.assembly_source_projection:
             ASSEMBLY['verify_projection'](self.assembly_source_projection)
         if self.pair_source_projection:

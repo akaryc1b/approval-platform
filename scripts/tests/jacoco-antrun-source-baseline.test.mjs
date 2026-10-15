@@ -11,6 +11,7 @@ import { retainedJacocoAntRunSource } from './fixtures/jacoco-antrun-retained-so
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const adapter = path.join(root, 'scripts/ci/jacoco_antrun_contract.py');
 const retained = retainedJacocoAntRunSource(root);
+const current = retained.currentDirectory ?? root;
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const python = args => spawnSync('/usr/bin/python3', ['-I', '-S', '-B', ...args], {
   encoding: 'utf8', timeout: 20000, maxBuffer: 32 * 1024 * 1024,
@@ -21,13 +22,16 @@ function temporary(t) {
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   return directory;
 }
-function rejected(result) {
+function rejected(result, message = /ValueError:|ParseError:/) {
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /ValueError:|ParseError:/);
+  assert.match(result.stderr, message);
 }
 
 test('pair source view restores accepted utilities bytes and leaves all historical contracts unchanged', () => {
   assert.ok(retained.projection);
+  assert.equal(retained.jarProjection.suppliedSourceRoot, path.resolve(root));
+  assert.equal(retained.jarProjection.suppliedRootPomSha256, '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f');
+  assert.equal(retained.jarProjection.retainedSourceRoot, current);
   const p = retained.projection;
   assert.deepEqual(Object.keys(p.suppliedSourceHashes).filter(name =>
     p.suppliedSourceHashes[name] !== p.retainedSourceHashes[name]), ['pom.xml']);
@@ -35,7 +39,7 @@ test('pair source view restores accepted utilities bytes and leaves all historic
     '2f22ec8cae77cdfb519b81a8e48417fc75632416bcf28989f589f33d39261579');
   for (const [name, hash] of Object.entries(p.retainedSourceHashes))
     assert.equal(sha(readFileSync(path.join(retained.directory, name))), hash, name);
-  const checked = python([adapter, `--root=${root}`]);
+  const checked = python([adapter, `--root=${current}`]);
   assert.equal(checked.status, 0, checked.stderr);
   const result = JSON.parse(checked.stdout);
   assert.equal(result.sourcePomCount, 28);
@@ -55,13 +59,17 @@ for (const [name, file, mutate] of [
   ['historical utilities rewrite', 'scripts/ci/boot_utilities_contract.py', s => s + '\n'],
 ]) test(`pair source rejects ${name}`, t => {
   const directory = temporary(t);
-  for (const name of Object.keys(retained.projection.suppliedSourceHashes)) {
+  for (const name of Object.keys(retained.jarProjection?.retainedSourceHashes ?? retained.projection.suppliedSourceHashes)) {
     const destination = path.join(directory, name); mkdirSync(path.dirname(destination), { recursive: true });
-    copyFileSync(path.join(root, name), destination);
+    copyFileSync(path.join(current, name), destination);
   }
+  const pristine = python([adapter, `--root=${directory}`]);
+  assert.equal(pristine.status, 0, `Copied historical source must pass before mutation: ${pristine.stderr}`);
   const target = path.join(directory, file), before = readFileSync(target, 'utf8'), after = mutate(before);
   assert.notEqual(after, before); writeFileSync(target, after);
-  rejected(python([adapter, `--root=${directory}`]));
+  rejected(python([adapter, `--root=${directory}`]), file === 'scripts/ci/boot_utilities_contract.py'
+    ? /ValueError: Pair source bytes drift: scripts\/ci\/boot_utilities_contract\.py/
+    : new RegExp('ValueError: Assembly source bytes drift: ' + file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 });
 
 const generate = String.raw`
@@ -100,13 +108,13 @@ for label,source in [('before',prior),('after',current)]:
     result[label]=raw
 print(json.dumps(result))
 `;
-const generated = python(['-c', generate, root, retained.directory]);
+const generated = python(['-c', generate, current, retained.directory]);
 assert.equal(generated.status, 0, generated.stderr);
 const models = JSON.parse(generated.stdout);
 function compare(t, candidate = models.after, baseline = models.before) {
   const directory = temporary(t), after = path.join(directory, 'candidate.xml'), before = path.join(directory, 'baseline.xml');
   writeFileSync(after, candidate); writeFileSync(before, baseline);
-  return python([adapter, `--root=${root}`, `--effective-pom=${after}`,
+  return python([adapter, `--root=${current}`, `--effective-pom=${after}`,
     `--baseline-effective-pom=${before}`, `--baseline-root=${retained.directory}`]);
 }
 test('pair parser accepts only the synthetic 26-model two-owner delta without claiming actual execution', t => {
