@@ -72,6 +72,11 @@ export { JACOCO_ANTRUN_GRAPH, readJacocoAntrunManifest, readJacocoAntrunCandidat
   readJacocoAntrunPreservedBootUtilitiesLineage, verifyJacocoAntrunDelta, verifyJacocoAntrunOwnerDelta }
   from './jacoco-antrun-graph-transition.mjs';
 
+import { JAR_PLUGIN_GRAPH, readJarPluginManifest, verifyJarPluginCurrentEvidence,
+  verifyJarPluginDelta, jarPluginReceipt } from './jar-plugin-graph-transition.mjs';
+export { JAR_PLUGIN_GRAPH, readJarPluginManifest, readJarPluginCandidate,
+  readJarPluginBaseline, readJarPluginSourceWitness, readJarPluginReport,
+  readJarPluginAcceptedLineage, verifyJarPluginDelta } from './jar-plugin-graph-transition.mjs';
 import { ASSEMBLY_PLEXUS_GRAPH, readAssemblyPlexusManifest, verifyAssemblyPlexusCurrentEvidence,
   verifyAssemblyPlexusDelta, assemblyPlexusReceipt } from './assembly-plexus-graph-transition.mjs';
 export { ASSEMBLY_PLEXUS_GRAPH, readAssemblyPlexusManifest, readAssemblyPlexusCandidate,
@@ -468,6 +473,14 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, exp
   }), 'E2 graph projection mismatch');
   const digest = graphHash(projection);
   requireValue(expectedBaseDigest === BASE_GRAPH, 'unrecognized dependency graph baseline');
+  if (digest === JAR_PLUGIN_GRAPH) {
+    requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e2.commitSha === expectedCommitSha, 'JAR E2 requires current verified head and schema');
+    const manifest = readJarPluginManifest();
+    verifyJarPluginCurrentEvidence(e2, manifest);
+    verifyJarPluginDelta(projection, manifest);
+    return jarPluginReceipt(e2);
+  }
   if (digest === ASSEMBLY_PLEXUS_GRAPH) {
     requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
       && e2.commitSha === expectedCommitSha, 'Assembly E2 requires current verified head and schema');
@@ -553,6 +566,14 @@ export function requirePreservedGraph(e4, historicalGraph, expectedCommitSha) {
   if (e4.e2GraphDigest === historicalGraph) {
     requireValue(e4.e2GraphTransition === undefined, 'unexpected dependency graph lineage');
     return null;
+  }
+  if (e4.e2GraphDigest === JAR_PLUGIN_GRAPH) {
+    requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e4.commitSha === expectedCommitSha && /^[0-9a-f]{64}$/.test(e4.e2CurrentContentSha256 || ''),
+    'JAR receipt requires current verified head and E2 identity');
+    const expected = jarPluginReceipt({ commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 });
+    requireValue(canonicalGraph(e4.e2GraphTransition) === canonicalGraph(expected), 'JAR E2 graph lineage mismatch');
+    return expected;
   }
   if (e4.e2GraphDigest === ASSEMBLY_PLEXUS_GRAPH) {
     requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')

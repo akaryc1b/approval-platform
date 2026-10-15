@@ -18,6 +18,8 @@ sys.path.insert(0, str(ROOT / 'scripts/ci'))
 import boot_utilities_contract as utilities_contract
 import jacoco_antrun_contract as pair_contract
 
+JAR_SOURCE_ADAPTER = ROOT / 'scripts/ci/jar_plugin_retained_source.py'
+
 MAIN = 'public class BootGoalFixture { public static void main(String[] args) { System.out.println("BOOT_GOAL_MAIN_OK"); } }\n'
 BOOT = 'org.springframework.boot:spring-boot-maven-plugin:4.0.8:'
 JAR = 'org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar'
@@ -104,15 +106,44 @@ def utility_origin_observations(stdout, stderr, artifacts, maven, input_hashes):
             'scope': 'Classes loaded anywhere in the actual goal JVM, with Maven-core/private origins distinguished; not proof that a Mojo invoked each class'}
 
 
-def fixture_pom(variant, profile='http'):
-    require(profile in ('http', 'utilities') and variant in ('baseline', 'candidate'), 'fixed Boot fixture profile required')
-    current = utilities_contract.is_utilities_source(ROOT)
-    raw = (ROOT / 'pom.xml').read_bytes()
-    if pair_contract.is_pair_source(ROOT):
-        pair_contract.verify_source(ROOT)
-        raw = pair_contract.reverse_source(raw)
+def source_inputs(source=ROOT):
+    """Validate current inputs; historical contracts see their exact retained root."""
+    # JAR imports only Boot's runtime helpers, so keep this routing work lazy.
+    from runpy import run_path
+    import tempfile
+    retained_contract = run_path(str(JAR_SOURCE_ADAPTER))
+    current = utilities_contract.is_utilities_source(source)
+    if retained_contract['is_jar_source'](source):
+        inventory = retained_contract['source_inventory'](source)
+        with tempfile.TemporaryDirectory(prefix='boot-jar-retained-') as directory:
+            retained = Path(directory) / 'accepted-assembly'
+            projection = retained_contract['materialize_accepted_source'](source, retained)
+            retained_contract['verify_projection'](projection)
+            pair_contract.verify_source(retained)
+            raw = pair_contract.reverse_source((retained / 'pom.xml').read_bytes())
+            retained_contract['verify_projection'](projection)
     else:
-        utilities_contract.source_inventory(ROOT, current=current)
+        raw = (source / 'pom.xml').read_bytes()
+        if pair_contract.is_pair_source(source):
+            inventory = pair_contract.verify_source(source)
+            raw = pair_contract.reverse_source(raw)
+        else:
+            inventory = utilities_contract.source_inventory(source, current=current)
+    return raw, current, inventory
+
+
+def verify_source_seal(seal, source=ROOT):
+    adapters = {str(path.resolve()): digest(path) for path in (Path(__file__), JAR_SOURCE_ADAPTER)}
+    require(all(seal['sourceHashes'].get(name) == expected for name, expected in adapters.items()),
+            'Boot goal source adapters are not sealed')
+    consumed = {str(source / name): expected for name, expected in source_inputs(source)[2].items()}
+    require(all(seal['sourceHashes'].get(name) == expected for name, expected in consumed.items()),
+            'Boot goal complete source continuation is not sealed')
+
+
+def fixture_pom(variant, profile='http', source=ROOT):
+    require(profile in ('http', 'utilities') and variant in ('baseline', 'candidate'), 'fixed Boot fixture profile required')
+    raw, current, _ = source_inputs(source)
     require(profile == 'http' or current, 'utility profile requires exact current utility source')
     if current and (profile == 'http' or variant == 'baseline'):
         raw = utilities_contract.reverse_source(raw)
@@ -149,6 +180,7 @@ def execute(seal):
     profile = config.get('profile', 'http')
     require(profile in ('http', 'utilities'), 'fixed Boot compatibility profile required')
     require(str(ROOT / 'scripts/ci/boot_utilities_contract.py') in seal['sourceHashes'], 'utility source reversal not sealed')
+    verify_source_seal(seal)
     maven, repository = Path(config['maven']).resolve(), Path(config['repository']).resolve()
     require(not output.exists() and str(maven) in seal['runtimeHashes'], 'fresh output and sealed Maven required')
     output.mkdir(parents=True)
@@ -167,12 +199,14 @@ def execute(seal):
 
     def run(label, command, seconds=45):
         check_seal(seal)
+        verify_source_seal(seal)
         require(all(not (ancestor / '.mvn').exists() for ancestor in [output, *output.parents]), 'applicable Maven bootstrap config')
         require(settings.read_text() == '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"/>\n'
                 and toolchains.read_text() == '<toolchains/>\n', 'empty Maven configuration drift')
         status, out, err = commands.run(label, command, seconds)
         require(status == 0, 'goal command failed: ' + label)
         check_seal(seal)
+        verify_source_seal(seal)
         return out, err
 
     old_handlers = install_deadline(240)

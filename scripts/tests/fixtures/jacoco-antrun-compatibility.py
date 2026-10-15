@@ -29,6 +29,8 @@ MEMBERS = HERE / 'jacoco-antrun-members.tsv'
 PROBE = HERE / 'JacocoAntRunPlexusProbe.java'
 OBSERVER = HERE / 'JacocoAntRunRealmObserver.java'
 CONTRACT = ROOT / 'scripts/ci/jacoco_antrun_contract.py'
+SOURCE_ADAPTER = ROOT / 'scripts/ci/jar_plugin_retained_source.py'
+JAR_RETAINED = run_path(str(SOURCE_ADAPTER))
 JACOCO = 'org.jacoco:jacoco-maven-plugin:0.8.15:'
 ANTRUN = 'org.apache.maven.plugins:maven-antrun-plugin:3.1.0:run'
 GOALS = frozenset([JACOCO + goal for goal in ('prepare-agent', 'report', 'merge')] + [ANTRUN])
@@ -132,11 +134,37 @@ def tree_hashes(root, maximum=15000):
 
 def source_hashes(root):
     contract = run_path(str(CONTRACT))
-    source = contract['verify_source'](root)
+    source = (JAR_RETAINED['source_inventory'](root) if JAR_RETAINED['is_jar_source'](root)
+              else contract['verify_source'](root))
     require(isinstance(source, dict) and source, 'source-contract hash mapping required')
     hashes = {str(Path(k) if Path(k).is_absolute() else root / k): v for k, v in source.items()}
-    hashes.update({str(p): digest(p) for p in source_files()})
+    hashes.update({str(p): digest(p) for p in [*source_files(), SOURCE_ADAPTER]})
     return hashes
+
+
+def prepare_source_projection(config):
+    source, output = Path(config['source']), Path(config['output'])
+    if not JAR_RETAINED['is_jar_source'](source):
+        run_path(str(CONTRACT))['verify_source'](source)
+        return None
+    projection = JAR_RETAINED['materialize_accepted_source'](
+        source, output.with_name(output.name + '-accepted-assembly-source'))
+    source_for_contract(config, projection)
+    return projection
+
+
+def source_for_contract(config, projection):
+    source, output = Path(config['source']), Path(config['output'])
+    require(JAR_RETAINED['is_jar_source'](source) == (projection is not None),
+            'explicit JAR historical source projection required')
+    if projection is not None:
+        require(projection['suppliedSourceRoot'] == str(source)
+                and projection['retainedSourceRoot'] == str(output.with_name(output.name + '-accepted-assembly-source')),
+                'sealed JAR historical source roots changed')
+        JAR_RETAINED['verify_projection'](projection)
+        source = Path(projection['retainedSourceRoot'])
+    run_path(str(CONTRACT))['verify_source'](source)
+    return source
 
 
 def runtime_hashes(maven, jdk):
@@ -171,7 +199,7 @@ def shared_maven_api(maven):
             'scope': 'Maven shared API import; excluded from the private JaCoCo realm'}
 
 
-def prepare(config):
+def prepare(config, historical_jar_projection=None):
     paths = {key: Path(config[key]).absolute() for key in ('source', 'maven', 'jdk', 'repository', 'output')}
     require(all(path.resolve() == path for path in paths.values()), 'canonical input paths required')
     require(not paths['output'].exists(), 'fresh output required')
@@ -191,8 +219,13 @@ def prepare(config):
         require(path.is_file() and not path.is_symlink() and digest(path) == expected,
                 'missing or wrong pinned artifact: ' + coordinate)
     runtime = runtime_hashes(paths['maven'], paths['jdk'])
+    supplied_hashes = source_hashes(paths['source'])
+    projection = (historical_jar_projection if historical_jar_projection is not None
+                  else prepare_source_projection(config))
+    selected_source = source_for_contract(config, projection)
     return {'schemaVersion': 1, 'plan': PLAN, 'config': {k: str(v) for k, v in paths.items()},
-            'sourceHashes': source_hashes(paths['source']), 'runtimeHashes': runtime,
+            'sourceHashes': supplied_hashes, 'runtimeHashes': runtime,
+            'historicalJarSourceProjection': projection, 'actualFixtureSourceRoot': str(selected_source),
             'cacheHashes': tree_hashes(paths['repository']), 'pinFileSha256': digest(PINS),
             'pythonOrigins': python_origins()[0]}
 
@@ -206,6 +239,8 @@ def check_seal(seal):
     require(all(not output.is_relative_to(Path(config[k])) and not Path(config[k]).is_relative_to(output)
                 for k in ('source', 'jdk', 'repository')), 'sealed output/input overlap')
     require(source_hashes(Path(config['source'])) == seal['sourceHashes'], 'source inputs changed')
+    require(str(source_for_contract(config, seal['historicalJarSourceProjection'])) == seal['actualFixtureSourceRoot'],
+            'fixture historical source identity changed')
     require(tree_hashes(Path(config['repository'])) == seal['cacheHashes'], 'cache inputs changed')
     require(runtime_hashes(Path(config['maven']), Path(config['jdk'])) == seal['runtimeHashes'], 'runtime inputs changed')
     require(digest(PINS) == seal['pinFileSha256'], 'artifact pin input changed')
@@ -393,7 +428,8 @@ def merge_inputs(log, directory, report_data):
 def execute(seal):
     require(os.environ.get('JACOCO_ANTRUN_COMPATIBILITY') == 'true', 'explicit reviewed compatibility opt-in required')
     check_seal(seal)
-    config = seal['config']; output = Path(config['output']); jdk = Path(config['jdk']); source = Path(config['source'])
+    config = seal['config']; output = Path(config['output']); jdk = Path(config['jdk'])
+    source = source_for_contract(config, seal['historicalJarSourceProjection'])
     require(not output.exists(), 'fresh output required')
     output.mkdir(parents=False)
     for name in ('home', 'tmp', 'observer', 'api-classes'): (output / name).mkdir()
@@ -404,6 +440,7 @@ def execute(seal):
     environment['MAVEN_BASEDIR'] = str(output)
     commands = Commands(output, environment, PLAN['aggregateTimeoutSeconds'])
     result = {'status': 'RUNNING', 'plan': PLAN, 'commands': commands.results, 'variants': {},
+              'historicalJarSourceProjection': seal['historicalJarSourceProjection'], 'actualFixtureSourceRoot': str(source),
               'apiReplay': {}, 'scannerEvidence': False, 'productionAntRunActivationClaim': False,
               'sharedMavenApi': shared_maven_api(Path(config['maven'])),
               'inputSeals': {k: seal[k] for k in ('sourceHashes', 'runtimeHashes', 'cacheHashes')}}
@@ -667,12 +704,14 @@ def portable(args):
     config = {'source': str(ROOT), 'maven': str(Path(executable).resolve()), 'jdk': str(Path(jdk_value).resolve()),
               'repository': str(repository), 'output': str(sandbox / 'offline-goals')}
     require(not any(c.isspace() or ord(c) < 32 for value in config.values() for c in value), 'JVM-option-safe portable paths required')
+    projection = prepare_source_projection(config)
+    historical_source = source_for_contract(config, projection)
     for name in ('home', 'tmp'): (sandbox / name).mkdir()
     (sandbox / 'central-settings.xml').write_text(CENTRAL_SETTINGS)
     (sandbox / 'empty-toolchains.xml').write_text('<toolchains/>\n')
     contract = run_path(str(CONTRACT))
     for variant in ('baseline', 'candidate'):
-        plugins = contract['fixture_plugins'](ROOT, baseline=variant == 'baseline')
+        plugins = contract['fixture_plugins'](historical_source, baseline=variant == 'baseline')
         document = ET.fromstring(fixture_pom(plugins, sandbox / variant))
         child(document, 'packaging', 'pom')
         (sandbox / (variant + '-pom.xml')).write_bytes(ET.tostring(document, encoding='utf-8', xml_declaration=True))
@@ -686,12 +725,14 @@ def portable(args):
                        + str(sandbox / 'home') + ' -Djava.io.tmpdir=' + str(sandbox / 'tmp'))
     commands = Commands(sandbox, environment, 240)
     def unchanged():
+        source_for_contract(config, projection)
         require(source_hashes(ROOT) == sources and runtime_hashes(Path(config['maven']), Path(config['jdk'])) == runtime,
                 'portable source/runtime changed')
         require(all(digest(Path(file)) == h for file, h in fixed.items()), 'preparation inputs changed')
         current = cache_snapshot(repository)
         require(all(current.get(file) == h for file, h in cache_before.items()), 'existing cache artifact changed')
     receipt = {'status': 'RUNNING', 'sandbox': str(sandbox), 'plan': PORTABLE_PLAN, 'commands': commands.results,
+               'historicalJarSourceProjection': projection, 'actualFixtureSourceRoot': str(historical_source),
                'cachePreparation': {'mode': 'ci-central-plugin-resolution' if ci else 'offline-existing-cache',
                                     'acceptanceGoal': False, 'resolutionCommandsRun': 0}}
     old = {sig: signal.getsignal(sig) for sig in (signal.SIGALRM, signal.SIGTERM, signal.SIGINT)}
@@ -708,7 +749,7 @@ def portable(args):
         artifacts = pinned_cache(repository); unchanged()
         receipt['cachePreparation'].update(status='VERIFIED', artifacts=artifacts,
                                           existingArtifactHashesUnchanged=True, cacheAfter=cache_snapshot(repository))
-        seal = prepare(config)
+        seal = prepare(config, projection)
         (sandbox / 'execution-seal.json').write_text(json.dumps(seal, indent=2) + '\n')
         receipt['executionSealSha256'] = digest(sandbox / 'execution-seal.json')
         execute(seal)

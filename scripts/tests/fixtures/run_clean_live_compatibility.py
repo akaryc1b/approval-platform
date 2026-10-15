@@ -27,6 +27,8 @@ from clean_live_support import (execution_mode, write_failure_receipt, verify_lo
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
 UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
 PAIR = run_path(str(ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
+JAR_SOURCE_ADAPTER = ROOT / 'scripts/ci/jar_plugin_retained_source.py'
+JAR_RETAINED = run_path(str(JAR_SOURCE_ADAPTER))
 
 CASES = ['defaults', 'defaults-repeat', 'separate-outputs', 'filesets', 'skip', 'exclude-defaults',
          'nested-symlinks', 'root-symlink-characterization', 'explicit-follow-characterization',
@@ -37,6 +39,12 @@ class FixtureRun:
     def __init__(self, sandbox, source, repository, maven, jdk, offline, stage):
         self.sandbox, self.source, self.repository = sandbox, source, repository
         self.maven, self.jdk, self.offline = maven, jdk, offline
+        self.jar_source_projection = None
+        self.jar_adapter_hash = digest(JAR_SOURCE_ADAPTER)
+        if JAR_RETAINED['is_jar_source'](source):
+            retained = inside(sandbox / 'accepted-assembly-source', sandbox)
+            self.jar_source_projection = JAR_RETAINED['materialize_accepted_source'](source, retained)
+            source = retained; self.source = source
         self.pair_source_projection = None
         if PAIR['is_pair_source'](source):
             retained = inside(sandbox / 'accepted-pair-predecessor', sandbox)
@@ -62,6 +70,8 @@ class FixtureRun:
                        'cases': {name: {'status': 'NOT_RUN'} for name in CASES} if stage == 'fixtures' else {},
                        'commands': self.commands.results, 'coverageGaps': [],
                        'scannerEvidence': False, 'vulnerableApiReachabilityClaim': False}
+        self.report['jarSourceProjection'] = self.jar_source_projection
+        self.report['historicalJarSourceAdapterSha256'] = self.jar_adapter_hash
         self.report['pairSourceProjection'] = self.pair_source_projection
         self.report['utilitiesSourceProjection'] = self.utilities_source_projection
         self.report['historicalUtilitiesMaterialized'] = bool(self.utilities_source_projection)
@@ -80,6 +90,9 @@ class FixtureRun:
         self.poms[file] = xml
 
     def containment(self):
+        require(digest(JAR_SOURCE_ADAPTER) == self.jar_adapter_hash, 'JAR source adapter changed')
+        if self.jar_source_projection:
+            JAR_RETAINED['verify_projection'](self.jar_source_projection)
         if self.pair_source_projection:
             PAIR['verify_projection'](self.pair_source_projection)
         if self.utilities_source_projection:

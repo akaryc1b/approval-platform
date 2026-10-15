@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { syntheticE4, snapshot as prototypeSnapshot, i2Inputs, runSyntheticCiCallback }
+import { syntheticE4, snapshot as prototypeSnapshot, i2Inputs, runSyntheticHistoricalCiCallback }
   from './m6-pr-e-e3-designer-prototype-remediation.test.mjs';
 import { modeledPublicCommitFixture, canonical, seal } from './fixtures/public-commit-review-fixture.mjs';
 import { modeledCaptureHashFixture } from './fixtures/capture-hash-review-fixture.mjs';
@@ -190,7 +190,7 @@ for (const field of ['decision', 'releaseBlocked', 'findings', 'source', 'observ
 
 test('normal modeled CI callback keeps all 32 observations and separate proofs through I4', () => {
   const model = modeledCaptureHashFixture('normal CI merge', { mergeHead: true });
-  const result = runSyntheticCiCallback({ publicCommitFixture: model }); assert.equal(result.error, undefined);
+  const result = runSyntheticHistoricalCiCallback({ publicCommitFixture: model }); assert.equal(result.error, undefined);
   assert.equal(result.commands.filter(([command]) => command === process.execPath).length, 1);
   const output = stage => JSON.parse(result.logs.find(text => text.startsWith(`M6_PR_E_${stage}_BEGIN\n`)).split('\n')[1]);
   const capture = output('E3_GITLEAKS_CAPTURE_HASH_REVIEW');

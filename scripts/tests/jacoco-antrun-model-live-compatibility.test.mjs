@@ -39,7 +39,11 @@ with tempfile.TemporaryDirectory(prefix='pair-model-preparation-') as directory:
         model=s['ModelRun'](root,sandbox,repository,Path('/reviewed/jdk'),Path('/reviewed/maven/bin/mvn'),True,'jacoco-antrun')
     assert 'HOME' not in model.commands.environment
     assert model.source==Path(model.assembly_source_projection['retainedSourceRoot'])
-    assert model.assembly_source_projection['suppliedSourceRoot']==str(root)
+    assert model.jar_source_projection['suppliedSourceRoot']==str(root)
+    assert model.jar_source_projection['suppliedRootPomSha256']==s['JAR_RETAINED']['CURRENT_POM']
+    assert model.jar_source_projection['retainedRootPomSha256']==s['ASSEMBLY']['CURRENT_POM']
+    assert model.assembly_source_projection['suppliedSourceRoot']==model.jar_source_projection['retainedSourceRoot']
+    assert model.report['historicalJarSourceProjection']==model.jar_source_projection
     assert model.assembly_source_projection['retainedRootPomSha256']==s['PAIR']['CURRENT_POM']
     assert model.pair_source_projection is None
     assert model.projection['suppliedRootPomSha256']==s['PAIR']['CURRENT_POM']
@@ -79,6 +83,9 @@ test('CI compares actual JaCoCo and inactive AntRun models with the exact accept
   assert.equal(receipt.sourcePomCount, 28); assert.equal(receipt.allOtherModelFieldsUnchanged, true);
   for (const key of ['sourceInputsStable', 'executionInputsStable', 'runtimeInputsStable', 'cacheExistingJarPomBytesStable'])
     assert.equal(receipt[key], true, key);
+  assert.equal(receipt.historicalJarSourceProjection.suppliedRootPomSha256, '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f');
+  assert.equal(receipt.historicalJarSourceProjection.retainedRootPomSha256, '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629');
+  assert.equal(receipt.historicalJarSourceProjection.retainedSourceRoot, receipt.historicalAssemblySourceProjection.suppliedSourceRoot);
   assert.equal(receipt.historicalAssemblySourceProjection.suppliedRootPomSha256, '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629');
   assert.equal(receipt.historicalAssemblySourceProjection.retainedRootPomSha256, 'd36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c');
   assert.equal(receipt.historicalPairSourceProjection, null); assert.equal(receipt.historicalUtilitiesSourceProjection, null);

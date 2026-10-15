@@ -1,0 +1,20 @@
+{
+  "status": "PASSED",
+  "mode": "actual local receipt consumed by frozen Node gate with spawnSync stubbed",
+  "newMavenJvmOrNetworkExecution": false,
+  "portableReceiptObserved": false,
+  "sourceSha256": "6dd3b8d4245dd5dbb3cff594eef7235390704403e7aa65f5a1a21ab7ff073815",
+  "actualReceiptSha256": "a41a99952e9277838ad54b38b7699239c6e51495e79ad0b8b95a429617b18389",
+  "retainedOutputSha256": "51d098e88a28d3d3fb3eac18ab5011fc1a9002a7486560f47197b26ec7f020df",
+  "retainedOutputBytes": 4305362,
+  "retainedOutputPath": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-design/retry-02/validated-local-receipt.log",
+  "exactIntegerJsonEqualityVerifiedByPython": true,
+  "nanosecondTimestamps": [
+    1792064500533451565,
+    1792064500533451565,
+    1792064505357606245,
+    1792064524614224238,
+    1792064524614224238,
+    1792064529734388677
+  ]
+}

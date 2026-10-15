@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { syntheticE4, snapshot as prototypeSnapshot, i2Inputs, runSyntheticCiCallback }
+import { syntheticE4, snapshot as prototypeSnapshot, i2Inputs, runSyntheticHistoricalCiCallback }
   from './m6-pr-e-e3-designer-prototype-remediation.test.mjs';
 import { modeledPublicCommitFixture, canonical, seal } from './fixtures/public-commit-review-fixture.mjs';
 import { readGitleaksPublicCommitReviewPlan, verifyGitleaksPublicCommitReview,
@@ -169,7 +169,7 @@ test('read-only snapshot builder fails closed on missing Git objects and never i
 });
 
 test('normal CI callback consumes one modeled scan and emits all 29 identities through separate I2/I3/I4 proof receipts', () => {
-  const result = runSyntheticCiCallback({ publicCommitFixture: fixture });
+  const result = runSyntheticHistoricalCiCallback({ publicCommitFixture: fixture });
   assert.equal(result.error, undefined);
   assert.equal(result.commands.filter(([command]) => command === process.execPath).length, 1);
   const output = stage => JSON.parse(result.logs.find(text => text.startsWith(`M6_PR_E_${stage}_BEGIN\n`)).split('\n')[1]);
@@ -230,7 +230,7 @@ test('normal main merge follows the hash-verified second parent and rejects a no
 
 test('normal CI callback supports the modeled merge Head and preserves separate public review through I4', () => {
   const merge = modeledPublicCommitFixture('normal CI merge introduction', { mergeHead: true });
-  const result = runSyntheticCiCallback({ publicCommitFixture: merge });
+  const result = runSyntheticHistoricalCiCallback({ publicCommitFixture: merge });
   assert.equal(result.error, undefined);
   const output = result.logs.find(text => text.startsWith('M6_PR_E_E3_I4_TRIAGE_BEGIN\n'));
   const i4 = JSON.parse(output.split('\n')[1]);

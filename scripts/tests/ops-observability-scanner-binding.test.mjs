@@ -2,14 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
-import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
+import { requireGitleaksCaptureInventory } from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
+import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 
 // Synthetic scan envelope only. The production verifier checks all pinned lineage manifests.
 // Each mutation receives an isolated copy of a fully validated synthetic input.
 // The extracted callback still invokes the real preserved-graph gate every time.
 const retainedLineageFixtures = new Map();
-function lineageFixture(plugin = 'assembly-plexus') {
+function lineageFixture(plugin = 'jar') {
   if (!retainedLineageFixtures.has(plugin)) retainedLineageFixtures.set(plugin, buildLineageFixture(plugin));
   return structuredClone(retainedLineageFixtures.get(plugin));
 }
@@ -22,6 +23,7 @@ function buildLineageFixture(plugin) {
     limitations: e2.githubActions.acceptedDependencyGraph.limitations };
   return { e4: { repository: e2.repository, commitSha: e2.commitSha,
     e2CurrentContentSha256: e2.contentSha256, e2GraphDigest: graphHash(projection),
+    scanners: { gitleaks: { findingCount: plugin === 'jar' ? 194 : 70 } },
     e2GraphTransition: verifyObservabilityGraph(e2, projection, BASE_GRAPH, e2.commitSha) } };
 }
 
@@ -38,7 +40,7 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   const logs = []; const downstream = new Error('DOWNSTREAM_BOUNDARY_REACHED'); let error; let calls = 0;
   const start = scannerBoundary.indexOf("test('E4 full scanner emits");
   assert.ok(start >= 0);
-  const context = { assert, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+  const context = { assert, requireGitleaksCaptureInventory, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     process: { env: { GITHUB_ACTIONS: 'true' }, execPath: process.execPath }, S: 'scanner.mjs', root: '/fixture',
     console: { log: text => logs.push(text) },
     spawnSync: (command, args) => {
@@ -55,13 +57,14 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   return { error, downstream, calls, logs, stdout };
 }
 
-test('the full-scanner callback binds the current Assembly graph instead of historical predecessors', () => {
+test('the full-scanner callback binds the current JAR graph instead of historical predecessors', () => {
   const r = assertScannerBinding(); assert.equal(r.error, r.downstream); assert.equal(r.calls, 2);
-  assert.equal(lineageFixture().e4.e2GraphDigest, ASSEMBLY_PLEXUS_GRAPH);
-  assert.ok(scannerBoundary.includes("import { ASSEMBLY_PLEXUS_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
+  assert.equal(lineageFixture().e4.e2GraphDigest, JAR_PLUGIN_GRAPH);
+  assert.ok(scannerBoundary.includes("import { JAR_PLUGIN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
   assert.deepEqual(r.logs, [r.stdout]);
 });
 for (const [name, alter] of [
+  ['pre-JAR Assembly graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('assembly-plexus').e4); }],
   ['pre-Assembly JaCoCo/AntRun graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('jacoco-antrun').e4); }],
   ['pre-pair Boot utilities graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('boot-utilities').e4); }],
   ['pre-utilities Boot HTTP graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('boot-http').e4); }],
@@ -77,6 +80,10 @@ for (const [name, alter] of [
   ['pre-upgrade graph', e => { e.e2GraphDigest = OBSERVABILITY_GRAPH; }],
   ['foundation graph', e => { e.e2GraphDigest = BASE_GRAPH; }],
   ['unknown graph', e => { e.e2GraphDigest = '0'.repeat(64); }],
+  ['missing execution digest observations', e => { e.scanners.gitleaks.findingCount = 70; }],
+  ['missing fixture public-Git observation', e => { e.scanners.gitleaks.findingCount = 193; }],
+  ['missing verifier public-Git observations', e => { e.scanners.gitleaks.findingCount = 192; }],
+  ['missing all public source observations', e => { e.scanners.gitleaks.findingCount = 191; }],
   ['missing lineage', e => { delete e.e2GraphTransition; }],
   ['foreign repository', e => { e.repository = 'foreign/repository'; }],
   ['wrong Head', e => { e.commitSha = 'd'.repeat(40); }],
@@ -107,4 +114,13 @@ test('natural transport boundary registers each Checkstyle and historical Compil
   }
   for (const gate of ['baseline', 'live-compatibility'])
     assert.equal(source.split(`import './clean-plugin-${gate}.test.mjs';`).length - 1, 1);
+});
+
+
+test('natural transport boundary registers each JAR gate exactly once', () => {
+  const source = readFileSync(new URL('./m6-ai-transport-review-boundary.test.mjs', import.meta.url), 'utf8');
+  for (const gate of ['graph-transition', 'source-continuation', 'osv-diagnostic', 'compatibility-harness', 'live-compatibility', 'receipt-retention']) {
+    const registration = `import './jar-plugin-${gate}.test.mjs';`;
+    assert.equal(source.split(registration).length - 1, 1, registration);
+  }
 });

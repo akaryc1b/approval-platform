@@ -1,0 +1,643 @@
+{
+  "schemaVersion": "JAR_PLUGIN_EXACT_COMMAND_PLAN_V1",
+  "sealPath": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-design/retry-02/execution-seal.json",
+  "sealSha256": "7036dff106172b82af4ebe16427cc16fe1e2251d492ba11441926f3434e69973",
+  "freshOutput": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+  "cache": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+  "driver": "/workspace/scratch/fb685c03ae3c/approval-platform-jar-plugin/scripts/tests/fixtures/jar-plugin-compatibility.py",
+  "baseEnvironment": {
+    "JAVA_HOME": "/workspace/scratch/fb685c03ae3c/release-recovery-tools/jdk/jdk-21.0.12.1+1",
+    "PATH": "/workspace/scratch/fb685c03ae3c/release-recovery-tools/jdk/jdk-21.0.12.1+1/bin:/usr/bin:/bin",
+    "LANG": "C.UTF-8",
+    "MAVEN_SKIP_RC": "1",
+    "HOME": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home",
+    "TMPDIR": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp",
+    "XDG_CONFIG_HOME": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home",
+    "MAVEN_BASEDIR": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02"
+  },
+  "cwd": "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+  "internalCommands": [
+    {
+      "label": "compile-observers",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/jdk/jdk-21.0.12.1+1/bin/javac",
+        "-J-Xmx128m",
+        "-proc:none",
+        "--release",
+        "21",
+        "-cp",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/aopalliance-1.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/asm-9.9.1.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/commons-cli-1.11.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/commons-codec-1.21.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/error_prone_annotations-2.41.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/failureaccess-1.0.3.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/gson-2.13.2.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/guava-33.6.0-jre.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/guice-5.1.0-classes.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/httpclient-4.5.14.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/httpcore-4.4.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/jansi-2.4.3.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/javax.annotation-api-1.3.2.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/javax.inject-1.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/jcl-over-slf4j-1.7.36.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/jspecify-1.0.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-artifact-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-builder-support-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-compat-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-core-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-embedder-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-model-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-model-builder-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-plugin-api-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-repository-metadata-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-api-1.9.27.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-connector-basic-1.9.27.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-impl-1.9.27.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-named-locks-1.9.27.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-provider-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-spi-1.9.27.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-transport-file-1.9.27.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-transport-http-1.9.27.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-transport-wagon-1.9.27.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-resolver-util-1.9.27.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-settings-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-settings-builder-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-shared-utils-3.4.2.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/maven-slf4j-provider-3.9.16.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/org.eclipse.sisu.inject-1.0.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/org.eclipse.sisu.plexus-1.0.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/plexus-cipher-2.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/plexus-component-annotations-2.2.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/plexus-interpolation-1.29.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/plexus-sec-dispatcher-2.0.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/plexus-utils-3.6.1.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/slf4j-api-1.7.36.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/wagon-file-3.5.3.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/wagon-http-3.5.3.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/wagon-http-shared-3.5.3.jar:/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/lib/wagon-provider-api-3.5.3.jar",
+        "-d",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer",
+        "/workspace/scratch/fb685c03ae3c/approval-platform-jar-plugin/scripts/tests/fixtures/JarRealmObserver.java",
+        "/workspace/scratch/fb685c03ae3c/approval-platform-jar-plugin/scripts/tests/fixtures/JarArtifactCompletionSpy.java"
+      ],
+      "timeoutSeconds": 30,
+      "extraEnvironment": {}
+    },
+    {
+      "label": "baseline-selection",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-selection/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@omitted",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@explicit",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@all"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-members.tsv -Djar.fixture.lastExecution=all -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-selection.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "baseline-empty",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-empty/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@empty-keep",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@empty-skip"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-members.tsv -Djar.fixture.lastExecution=empty-skip -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-empty.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "baseline-incremental-first",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-incremental/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@main"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-members.tsv -Djar.fixture.lastExecution=main -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-incremental-first.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "baseline-incremental-unchanged",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-incremental/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@main"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-members.tsv -Djar.fixture.lastExecution=main -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-incremental-unchanged.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "baseline-incremental-changed",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-incremental/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@main"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-members.tsv -Djar.fixture.lastExecution=main -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-incremental-changed.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "baseline-attachments",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-attachments/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@main",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@attached",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:test-jar@tests"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-members.tsv -Djar.fixture.lastExecution=tests -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-attachments.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "baseline-duplicate",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-duplicate/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@main",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@duplicate"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-members.tsv -Djar.fixture.lastExecution=duplicate -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-duplicate.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "baseline-compile-main",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/jdk/jdk-21.0.12.1+1/bin/javac",
+        "-J-Xmx64m",
+        "-proc:none",
+        "--release",
+        "21",
+        "-d",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-boot/target/classes",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-boot/JarBootFixture.java"
+      ],
+      "timeoutSeconds": 20,
+      "extraEnvironment": {}
+    },
+    {
+      "label": "baseline-boot",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-boot/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.0:jar@main",
+        "org.springframework.boot:spring-boot-maven-plugin:4.0.8:repackage"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-members.tsv -Djar.fixture.lastExecution=main -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-boot.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "baseline-archive-main",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/jdk/jdk-21.0.12.1+1/bin/java",
+        "-Xmx64m",
+        "-XX:-UsePerfData",
+        "-Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home",
+        "-Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp",
+        "-jar",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/baseline-boot/target/fixture.jar"
+      ],
+      "timeoutSeconds": 20,
+      "extraEnvironment": {}
+    },
+    {
+      "label": "candidate-selection",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-selection/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@omitted",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@explicit",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@all"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-members.tsv -Djar.fixture.lastExecution=all -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-selection.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "candidate-empty",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-empty/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@empty-keep",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@empty-skip"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-members.tsv -Djar.fixture.lastExecution=empty-skip -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-empty.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "candidate-incremental-first",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-incremental/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@main"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-members.tsv -Djar.fixture.lastExecution=main -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-incremental-first.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "candidate-incremental-unchanged",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-incremental/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@main"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-members.tsv -Djar.fixture.lastExecution=main -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-incremental-unchanged.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "candidate-incremental-changed",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-incremental/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@main"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-members.tsv -Djar.fixture.lastExecution=main -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-incremental-changed.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "candidate-attachments",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-attachments/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@main",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@attached",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:test-jar@tests"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-members.tsv -Djar.fixture.lastExecution=tests -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-attachments.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "candidate-duplicate",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-duplicate/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@main",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@duplicate"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-members.tsv -Djar.fixture.lastExecution=duplicate -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-duplicate.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "candidate-compile-main",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/jdk/jdk-21.0.12.1+1/bin/javac",
+        "-J-Xmx64m",
+        "-proc:none",
+        "--release",
+        "21",
+        "-d",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-boot/target/classes",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-boot/JarBootFixture.java"
+      ],
+      "timeoutSeconds": 20,
+      "extraEnvironment": {}
+    },
+    {
+      "label": "candidate-boot",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+        "-o",
+        "-B",
+        "-ntp",
+        "-N",
+        "-X",
+        "--strict-checksums",
+        "-s",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-gs",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-settings.xml",
+        "-t",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-gt",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/empty-toolchains.xml",
+        "-Dmaven.repo.local=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02",
+        "-Dmaven.ext.class.path=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/completion-spy.jar",
+        "-Dstyle.color=never",
+        "-f",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-boot/pom.xml",
+        "org.apache.maven.plugins:maven-jar-plugin:3.5.1:jar@main",
+        "org.springframework.boot:spring-boot-maven-plugin:4.0.8:repackage"
+      ],
+      "timeoutSeconds": 60,
+      "extraEnvironment": {
+        "MAVEN_OPTS": "-Xmx256m -XX:-UsePerfData -Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home -Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp -javaagent:/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/observer.jar=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-members.tsv -Djar.fixture.lastExecution=main -Xlog:class+load=info:file=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-boot.class-load.log:uptime,level,tags:filecount=0"
+      }
+    },
+    {
+      "label": "candidate-archive-main",
+      "argv": [
+        "/workspace/scratch/fb685c03ae3c/release-recovery-tools/jdk/jdk-21.0.12.1+1/bin/java",
+        "-Xmx64m",
+        "-XX:-UsePerfData",
+        "-Duser.home=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/home",
+        "-Djava.io.tmpdir=/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/tmp",
+        "-jar",
+        "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02/candidate-boot/target/fixture.jar"
+      ],
+      "timeoutSeconds": 20,
+      "extraEnvironment": {}
+    }
+  ],
+  "executeArgv": [
+    "/usr/bin/timeout",
+    "--signal=TERM",
+    "--kill-after=5s",
+    "930s",
+    "/usr/bin/env",
+    "JAR_PLUGIN_COMPATIBILITY=true",
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "-I",
+    "-S",
+    "-B",
+    "/workspace/scratch/fb685c03ae3c/approval-platform-jar-plugin/scripts/tests/fixtures/jar-plugin-compatibility.py",
+    "--execute-seal",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-design/retry-02/execution-seal.json"
+  ],
+  "prepareArgv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "-I",
+    "-S",
+    "-B",
+    "/workspace/scratch/fb685c03ae3c/approval-platform-jar-plugin/scripts/tests/fixtures/jar-plugin-compatibility.py",
+    "--prepare-seal",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-design/retry-02/execution-seal.json",
+    "--source",
+    "/workspace/scratch/fb685c03ae3c/approval-platform-jar-plugin",
+    "--pins",
+    "/workspace/scratch/fb685c03ae3c/approval-platform-jar-plugin/scripts/tests/fixtures/jar-plugin-artifact-pins.json",
+    "--maven",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-tools/maven/approval-maven-keUKkW/apache-maven-3.9.16/bin/mvn",
+    "--jdk",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-tools/jdk/jdk-21.0.12.1+1",
+    "--repository",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/preparation-01/m2-repository",
+    "--output",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/jar-plugin-remediation-20261015/compatibility-02"
+  ]
+}

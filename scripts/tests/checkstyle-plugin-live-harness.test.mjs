@@ -381,14 +381,15 @@ import checkstyle_live_support as s
 Run = runpy.run_path(sys.path[0] + '/run_checkstyle_live_compatibility.py')['Run']
 utilities = runpy.run_path(str(s.ROOT / 'scripts/ci/boot_utilities_contract.py'))
 pair = runpy.run_path(str(s.ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
+jar = runpy.run_path(str(s.ROOT / 'scripts/ci/jar_plugin_retained_source.py'))
+assembly = runpy.run_path(str(s.ROOT / 'scripts/ci/assembly_plexus_contract.py'))
+assembly_retained = runpy.run_path(str(s.ROOT / 'scripts/ci/assembly_plexus_retained_source.py'))
 with tempfile.TemporaryDirectory(prefix='checkstyle-history-mock-') as directory:
-    sandbox = Path(directory); source = sandbox / 'supplied-source'; source.mkdir()
-    pair_view = pair['materialize_retained_source'](s.ROOT, sandbox / 'accepted-source-witness')
-    for name in pair_view['suppliedSourceHashes']:
-        target = source / name; target.parent.mkdir(parents=True, exist_ok=True); shutil.copyfile(s.ROOT / name, target)
-    # Keep this historical fixture on the accepted pair POM. The complete current
-    # checkout was verified above; reverse only its exact Assembly addition.
-    (source / 'pom.xml').write_bytes(pair['before_assembly']((source / 'pom.xml').read_bytes()))
+    sandbox = Path(directory); source = sandbox / 'supplied-source'
+    jar_view = jar['materialize_accepted_source'](s.ROOT, sandbox / 'accepted-assembly')
+    assembly_view = assembly_retained['materialize_accepted_source'](Path(jar_view['retainedSourceRoot']), source)
+    assert jar_view['sourcePomCount'] == 28 and len(jar_view['suppliedSourceHashes']) == 50
+    assert assembly_view['retainedRootPomSha256'] == pair['CURRENT_POM']
     with patch.object(subprocess, 'Popen', side_effect=AssertionError('materialization attempted execution')):
         run = Run(source, sandbox, Path('/cache'), Path('/jdk'), Path('/maven/bin/mvn'), True, 'models', False, 'lang')
         assert run.pair_source_projection['suppliedRootPomSha256'] == 'd36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c'
@@ -404,20 +405,50 @@ with tempfile.TemporaryDirectory(prefix='checkstyle-history-mock-') as directory
         assert run.source_hashes['pom.xml'] == 'd55f730aa8490c60ddf8c3d76d062fd6c4706be4816adf8db8936df15941a6fb'
         assert run.supplied_hashes['pom.xml'] == 'd95d582e6ccfc91c01780717c83054cd9b52aeffa43c934fbf568f550288cdd5'
         assert len(run.source_hashes) == 29
-        run.containment()
+        def containment():
+            jar['verify_projection'](jar_view)
+            assembly['verify_projection'](assembly_view)
+            run.containment()
+        containment()
         for file in [source / 'pom.xml', Path(run.pair_source_projection['retainedSourceRoot']) / 'pom.xml',
-                     Path(run.utilities_source_projection['retainedSourceRoot']) / 'pom.xml']:
+                     Path(run.utilities_source_projection['retainedSourceRoot']) / 'pom.xml',
+                     Path(jar_view['retainedSourceRoot']) / 'pom.xml']:
             before = file.read_bytes(); file.write_bytes(before + b'\n')
             try:
-                try: run.containment()
+                try: containment()
                 except ValueError: pass
                 else: raise AssertionError('utility supplied/retained source drift accepted')
             finally: file.write_bytes(before)
-            run.containment()
+            containment()
         (run.source / 'pom.xml').write_text('changed')
         try: run.containment()
         except ValueError: pass
         else: raise AssertionError('historical materialization drift accepted')
+`);
+});
+
+test('Checkstyle current JAR entrypoint retains a separately sealed Assembly source projection', () => {
+  python(String.raw`
+import http.server,ssl,runpy,subprocess,socket,sys,tempfile
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+def blocked(*args,**kwargs):raise AssertionError('source preparation attempted execution')
+subprocess.Popen=socket.socket=blocked
+s=runpy.run_path(sys.path[0]+'/run_checkstyle_live_compatibility.py')
+with tempfile.TemporaryDirectory(prefix='checkstyle-jar-source-') as directory:
+ run=s['Run'](s['ROOT'],Path(directory),Path('/cache'),Path('/jdk'),Path('/maven/bin/mvn'),True,'models',False,'lang')
+ p=run.jar_source_projection
+ assert p['suppliedSourceRoot']==str(s['ROOT']) and p['suppliedRootPomSha256']==s['JAR_RETAINED']['CURRENT_POM']
+ assert p['retainedRootPomSha256']==s['JAR_RETAINED']['PRIOR_POM']
+ assert run.report['historicalJarSourceProjection']==p
+ assert run.pair_source_projection['suppliedSourceRoot']==p['retainedSourceRoot']
+ assert not run.commands.results
+ run.containment()
+ file=Path(p['retainedSourceRoot'])/'pom.xml';original=file.read_bytes();file.write_bytes(original+b'\n')
+ try:run.containment()
+ except ValueError as error:assert 'JAR historical source bytes drift: pom.xml' in str(error)
+ else:raise AssertionError('retained Assembly mutation accepted')
+ file.write_bytes(original);run.containment()
 `);
 });
 

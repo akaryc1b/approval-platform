@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { requireGitleaksCaptureInventory } from './m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import { requireGitleaksTestExpressionTriage } from './m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 import { requireServerDependencyRemediation } from './m6-pr-e-e3-verify-server-dependency-remediation.mjs';
@@ -52,6 +53,7 @@ function requireHistoricalRemediation(closed,planned){
 
 export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=null,workflowRemediation=null){
   if(!triage||!e4||!review)throw new Error('triage e4 and review required');
+  requireGitleaksCaptureInventory(e4);
   if(triage.repository!==e4.repository||review.repository!==triage.repository)throw new Error('repository mismatch');
   if(triage.commitSha!==e4.commitSha)throw new Error('triage/E4 Head mismatch');
   const serverDependencyRemediation=triage.serverDependencyRemediation
@@ -68,7 +70,7 @@ export function applyWorkflowSupplyChainReviews(triage,e4,review,remediation=nul
     if(workflowRemediation.workflowSupplyChainRemediationValidated!==true)throw new Error('R2B workflow remediation validation required');
   }
 
-  if(([32,70].includes(e4.scanners?.gitleaks?.findingCount)||triage.gitleaksCaptureHashReview)
+  if(([32,70,194].includes(e4.scanners?.gitleaks?.findingCount)||triage.gitleaksCaptureHashReview)
     &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview||!triage.gitleaksCaptureHashReview))throw new Error('capture hash review requires all three source review receipts');
   if((e4.scanners?.gitleaks?.findingCount===29||triage.gitleaksPublicCommitReview)
     &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview))throw new Error('public commit review requires both source review receipts');

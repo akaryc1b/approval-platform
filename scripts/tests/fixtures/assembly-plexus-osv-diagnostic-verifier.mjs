@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { acceptedE2GraphProjection } from '../../security/m6-pr-e-e2-generate-sbom.mjs';
 import { osvInputFromE2 } from '../../security/osv-scan-coverage.mjs';
+import { readPreservedAssemblySource } from '../../security/jar-plugin-source-continuation.mjs';
 import { ASSEMBLY_PLEXUS_GRAPH, readAssemblyPlexusManifest } from '../../security/assembly-plexus-graph-transition.mjs';
 export const canonical = value => JSON.stringify(stable(value));
 const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
@@ -34,7 +35,7 @@ export function readAssemblyPlexusDiagnostic() {
   assert.deepEqual(Object.keys(files).sort(), names); assert.deepEqual(readdirSync(directory).sort(), [...names,'public-file-checksums.sha256'].sort());
   const json = name => JSON.parse(files[name]), manifest = readAssemblyPlexusManifest();
   const pinned = ref => { const b = readFileSync(new URL(ref.path,root)); assert.equal(sha(b),ref.rawSha256); return JSON.parse(b); };
-  assert.equal(sha(readFileSync(new URL('pom.xml',root))),manifest.capture.sourcePom.rawSha256);
+  assert.equal(sha(readPreservedAssemblySource('pom.xml',manifest.capture.sourcePom.rawSha256)),manifest.capture.sourcePom.rawSha256);
   return { files, manifest, e2:pinned(manifest.capture.e2), priorE2:pinned(manifest.base.e2),
     binding:json('input-derivation.json'), findings:json('normalized-osv-findings.json'), baseline:json('baseline-normalized-osv-findings.json'),
     targets:json('independent-targets.json'), rows:json('independent-derivation-rows.json'), results:json('query-target-results.json'),
