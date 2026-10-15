@@ -58,6 +58,7 @@ import './jacoco-antrun-plugin-live-compatibility.test.mjs';
 import './jacoco-antrun-model-live-compatibility.test.mjs';
 import './jar-plugin-graph-transition.test.mjs';
 import './jar-plugin-source-continuation.test.mjs';
+import './jar-plugin-legacy-live-continuation.test.mjs';
 import './jar-plugin-osv-diagnostic.test.mjs';
 import './jar-plugin-compatibility-harness.test.mjs';
 import './jar-plugin-live-compatibility.test.mjs';

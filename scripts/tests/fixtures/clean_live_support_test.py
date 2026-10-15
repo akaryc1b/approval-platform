@@ -31,9 +31,14 @@ sys.addaudithook(no_execution)
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
 UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
 PAIR = run_path(str(ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
+JAR_RETAINED = run_path(str(ROOT / 'scripts/ci/jar_plugin_retained_source.py'))
 retained_directory = tempfile.TemporaryDirectory(prefix='clean-boot-retained-')
 unittest.addModuleCleanup(retained_directory.cleanup)
 source = ROOT
+if JAR_RETAINED['is_jar_source'](source):
+    jar_projection = JAR_RETAINED['materialize_accepted_source'](source, Path(retained_directory.name) / 'accepted-assembly')
+    source = Path(jar_projection['retainedSourceRoot'])
+    unittest.addModuleCleanup(JAR_RETAINED['verify_projection'], jar_projection)
 if PAIR['is_pair_source'](source):
     pair_projection = PAIR['materialize_retained_source'](source, Path(retained_directory.name) / 'accepted-utilities')
     source = Path(pair_projection['retainedSourceRoot'])

@@ -29,6 +29,8 @@ RELEASE = run_path(str(ROOT / 'scripts/ci/verify-release-plugin-baseline.py'))
 BOOT = run_path(str(ROOT / 'scripts/ci/boot_http_contract.py'))
 UTILITIES = run_path(str(ROOT / 'scripts/ci/boot_utilities_contract.py'))
 PAIR = run_path(str(ROOT / 'scripts/ci/jacoco_antrun_contract.py'))
+JAR_SOURCE_ADAPTER = ROOT / 'scripts/ci/jar_plugin_retained_source.py'
+JAR_RETAINED = run_path(str(JAR_SOURCE_ADAPTER))
 NS = CONTRACT['NS']; P = CONTRACT['P']
 HASHES = json.loads((HERE / 'compiler-artifact-hashes.json').read_text())
 OWNER = 'org.apache.maven.plugins:maven-compiler-plugin:jar:3.14.0'
@@ -39,6 +41,12 @@ class Run:
     def __init__(self, source, sandbox, repository, jdk, maven, offline):
         self.source, self.sandbox, self.repository = source, sandbox, repository
         self.jdk, self.maven, self.offline = jdk, maven, offline
+        self.jar_source_projection = None
+        self.jar_adapter_hash = digest(JAR_SOURCE_ADAPTER)
+        if JAR_RETAINED['is_jar_source'](source):
+            retained = inside(sandbox / 'accepted-assembly-source', sandbox)
+            self.jar_source_projection = JAR_RETAINED['materialize_accepted_source'](source, retained)
+            source = retained; self.source = source
         self.pair_source_projection = None
         if PAIR['is_pair_source'](source):
             retained = inside(sandbox / 'accepted-pair-predecessor', sandbox)
@@ -74,6 +82,8 @@ class Run:
             'contractSourceHashes': self.contract_hashes,
             'cases': {}, 'commands': self.commands.results, 'scannerEvidence': False,
             'vulnerableApiReachabilityClaim': False, 'canonicalCiEvidence': False}
+        self.report['jarSourceProjection'] = self.jar_source_projection
+        self.report['historicalJarSourceAdapterSha256'] = self.jar_adapter_hash
         self.report['pairSourceProjection'] = self.pair_source_projection
         self.report['utilitiesSourceProjection'] = self.utilities_source_projection
         self.report['historicalUtilitiesMaterialized'] = bool(self.utilities_source_projection)
@@ -86,6 +96,9 @@ class Run:
         self.poms[file] = text
 
     def containment(self):
+        require(digest(JAR_SOURCE_ADAPTER) == self.jar_adapter_hash, 'JAR source adapter changed')
+        if self.jar_source_projection:
+            JAR_RETAINED['verify_projection'](self.jar_source_projection)
         if self.pair_source_projection:
             PAIR['verify_projection'](self.pair_source_projection)
         if self.utilities_source_projection:
