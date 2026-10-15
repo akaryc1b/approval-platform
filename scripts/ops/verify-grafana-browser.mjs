@@ -64,8 +64,15 @@ export function verifyGrafanaBrowser({ directory, repositoryRoot, prometheus, ru
   runCommand('curl', ['--fail', '--location', '--silent', '--show-error', '--proto', '=https', '--proto-redir', '=https',
     '--connect-timeout', '15', '--max-time', '60', '--max-filesize', String(512 * 1024 * 1024), grafanaPin.url, '-o', archive], directory, 65000);
   verifyGrafanaArchive(archive);
+  // These 539 direct build-root source maps are debug metadata in this pinned archive.
+  // Keep generated assets and every bundled/public-app plugin file, including signed maps.
   runCommand('tar', ['--extract', '--gzip', '--file', archive, '--directory', home,
-    '--strip-components=1', '--no-same-owner', '--no-same-permissions'], directory, 20000);
+    '--strip-components=1', '--no-same-owner', '--no-same-permissions',
+    '--anchored', '--no-wildcards-match-slash', '--no-recursion',
+    '--exclude=grafana-13.2.2/public/build/*.js.map',
+    '--exclude=grafana-13.2.2/public/build/*.css.map',
+    '--exclude=grafana-13.2.2/public/build-swagger/*.js.map',
+    '--exclude=grafana-13.2.2/public/build-swagger/*.css.map'], directory, 20000);
   const binary = resolve(home, 'bin/grafana');
   assert.ok(lstatSync(binary).isFile() && !lstatSync(binary).isSymbolicLink(), 'GRAFANA_BROWSER_BINARY_REQUIRED');
   // This separate owned child bounds the unchanged Quick Start installer and strips credentials.
