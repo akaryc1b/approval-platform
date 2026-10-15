@@ -10,6 +10,8 @@ const baselinePom = readFileSync(new URL('../../docs/operations/compiler-plugin-
 const checkstylePom = readFileSync(new URL('../../docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml', import.meta.url));
 const guavaPom = readFileSync(new URL('../../docs/operations/checkstyle-guava-evidence/candidate-root-pom.xml', import.meta.url));
 const httpPom = readFileSync(new URL('../../docs/operations/boot-http-plugin-evidence/candidate-root-pom.xml', import.meta.url));
+const utilitiesPom = readFileSync(new URL('../../docs/operations/boot-utilities-plugin-evidence/candidate-root-pom.xml', import.meta.url));
+const pairPom = readFileSync(new URL('../../docs/operations/jacoco-antrun-plugin-evidence/candidate-root-pom.xml', import.meta.url));
 const currentPom = readFileSync(new URL('../../pom.xml', import.meta.url));
 const historicalPomHash = '1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a';
 
@@ -32,6 +34,11 @@ async function sourceFixture(t, pom) {
     path.join(moduleDirectory, 'boot-utilities-source-continuation.mjs'));
   copyFileSync(new URL('../security/jacoco-antrun-source-continuation.mjs', import.meta.url),
     path.join(moduleDirectory, 'jacoco-antrun-source-continuation.mjs'));
+  copyFileSync(new URL('../security/assembly-plexus-source-continuation.mjs', import.meta.url),
+    path.join(moduleDirectory, 'assembly-plexus-source-continuation.mjs'));
+  const pairEvidenceDirectory = path.join(directory, 'docs/operations/jacoco-antrun-plugin-evidence');
+  mkdirSync(pairEvidenceDirectory, { recursive: true });
+  writeFileSync(path.join(pairEvidenceDirectory, 'candidate-root-pom.xml'), pairPom);
   const utilitiesEvidenceDirectory = path.join(directory, 'docs/operations/boot-utilities-plugin-evidence');
   mkdirSync(utilitiesEvidenceDirectory, { recursive: true });
   copyFileSync(new URL('../../docs/operations/boot-utilities-plugin-evidence/candidate-root-pom.xml', import.meta.url),
@@ -51,7 +58,7 @@ async function sourceFixture(t, pom) {
     read: () => readPreservedCompilerSource('pom.xml', historicalPomHash) };
 }
 
-for (const [name, pom] of [['baseline', baselinePom], ['accepted Checkstyle Lang', checkstylePom], ['accepted Checkstyle Guava', guavaPom], ['accepted Boot HTTP', httpPom], ['Boot utilities candidate', currentPom]]) {
+for (const [name, pom] of [['baseline', baselinePom], ['accepted Checkstyle Lang', checkstylePom], ['accepted Checkstyle Guava', guavaPom], ['accepted Boot HTTP', httpPom], ['accepted Boot utilities', utilitiesPom], ['accepted JaCoCo/AntRun', pairPom], ['Assembly candidate', currentPom]]) {
   test(`Compiler diagnostic source pin accepts the exact ${name} root`, async t => {
     const fixture = await sourceFixture(t, pom);
     assert.equal(sha(baselinePom), historicalPomHash);
@@ -61,7 +68,7 @@ for (const [name, pom] of [['baseline', baselinePom], ['accepted Checkstyle Lang
     const fixture = await sourceFixture(t, pom);
     assert.deepEqual(fixture.read(), baselinePom);
     writeFileSync(fixture.pomPath, Buffer.concat([pom, Buffer.from('\n')]));
-    assert.throws(fixture.read, /(?:Checkstyle (?:Guava )?|Boot HTTP |Boot utilities |JaCoCo\/AntRun )continuation historical source byte digest mismatch/);
+    assert.throws(fixture.read, /(?:Checkstyle (?:Guava )?|Boot HTTP |Boot utilities |JaCoCo\/AntRun |Assembly )continuation historical source byte digest mismatch/);
   });
 }
 

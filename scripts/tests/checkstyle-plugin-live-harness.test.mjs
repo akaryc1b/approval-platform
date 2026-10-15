@@ -386,6 +386,9 @@ with tempfile.TemporaryDirectory(prefix='checkstyle-history-mock-') as directory
     pair_view = pair['materialize_retained_source'](s.ROOT, sandbox / 'accepted-source-witness')
     for name in pair_view['suppliedSourceHashes']:
         target = source / name; target.parent.mkdir(parents=True, exist_ok=True); shutil.copyfile(s.ROOT / name, target)
+    # Keep this historical fixture on the accepted pair POM. The complete current
+    # checkout was verified above; reverse only its exact Assembly addition.
+    (source / 'pom.xml').write_bytes(pair['before_assembly']((source / 'pom.xml').read_bytes()))
     with patch.object(subprocess, 'Popen', side_effect=AssertionError('materialization attempted execution')):
         run = Run(source, sandbox, Path('/cache'), Path('/jdk'), Path('/maven/bin/mvn'), True, 'models', False, 'lang')
         assert run.pair_source_projection['suppliedRootPomSha256'] == 'd36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c'

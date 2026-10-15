@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { readPreservedJacocoAntrunSource } from './assembly-plexus-source-continuation.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const PRIOR_POM = '2f22ec8cae77cdfb519b81a8e48417fc75632416bcf28989f589f33d39261579';
@@ -14,7 +15,9 @@ export function readPreservedBootUtilitiesSource(path, expected) {
   if (typeof path !== 'string' || !/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') || path.includes('\\')
       || path.split('/').some(part => !part || part === '.' || part === '..'))
     throw new Error('JaCoCo/AntRun continuation requires a safe relative source path');
-  const current = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  if (hash(raw) === expected) return raw;
+  const current = path === 'pom.xml' ? readPreservedJacocoAntrunSource(path, CURRENT_POM) : raw;
   if (hash(current) === expected) return current;
   if (path !== 'pom.xml' || expected !== PRIOR_POM || hash(current) !== CURRENT_POM)
     throw new Error('JaCoCo/AntRun continuation historical source byte digest mismatch');

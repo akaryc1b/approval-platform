@@ -1,0 +1,432 @@
+consumer	org/apache/maven/plugins/assembly/archive/DefaultAssemblyArchiver	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	555602da111b4ec9688b6de813cc0e89457c0eb2ac52ff05e578d82eda5e2d34
+type	org/apache/maven/plugins/assembly/archive/DefaultAssemblyArchiver	org/codehaus/plexus/util/StringUtils
+type	org/apache/maven/plugins/assembly/archive/DefaultAssemblyArchiver	org/codehaus/plexus/util/xml/Xpp3Dom
+type	org/apache/maven/plugins/assembly/archive/DefaultAssemblyArchiver	org/codehaus/plexus/util/xml/Xpp3DomBuilder
+type	org/apache/maven/plugins/assembly/archive/DefaultAssemblyArchiver	org/codehaus/plexus/util/xml/pull/XmlPullParserException
+member	org/apache/maven/plugins/assembly/archive/DefaultAssemblyArchiver	org/codehaus/plexus/util/StringUtils	method	isNotBlank	(Ljava/lang/String;)Z	static
+member	org/apache/maven/plugins/assembly/archive/DefaultAssemblyArchiver	org/codehaus/plexus/util/StringUtils	method	trim	(Ljava/lang/String;)Ljava/lang/String;	static
+member	org/apache/maven/plugins/assembly/archive/DefaultAssemblyArchiver	org/codehaus/plexus/util/xml/Xpp3DomBuilder	method	build	(Ljava/io/Reader;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;	static
+consumer	org/apache/maven/plugins/assembly/archive/task/AddArtifactTask	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	dcaab359d079ea877f08f33e058c1817229005f2d6882b7defd7f5f7549ee8a3
+type	org/apache/maven/plugins/assembly/archive/task/AddArtifactTask	org/codehaus/plexus/util/FileUtils
+type	org/apache/maven/plugins/assembly/archive/task/AddArtifactTask	org/codehaus/plexus/util/StringUtils
+member	org/apache/maven/plugins/assembly/archive/task/AddArtifactTask	org/codehaus/plexus/util/StringUtils	method	join	([Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;	static
+member	org/apache/maven/plugins/assembly/archive/task/AddArtifactTask	org/codehaus/plexus/util/FileUtils	method	copyFile	(Ljava/io/File;Ljava/io/File;)V	static
+consumer	org/apache/maven/plugins/assembly/artifact/DefaultDependencyResolver	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	f44d73b6231eeda290e1f4d5b59623888e2e33ce3a1d2a982021c81ae9fe696f
+type	org/apache/maven/plugins/assembly/artifact/DefaultDependencyResolver	org/codehaus/plexus/util/StringUtils
+member	org/apache/maven/plugins/assembly/artifact/DefaultDependencyResolver	org/codehaus/plexus/util/StringUtils	method	join	(Ljava/util/Iterator;Ljava/lang/String;)Ljava/lang/String;	static
+consumer	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	8345295640540787f9daf880f875a74b9029cf9678992989156b2fe6d39e07f9
+type	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3Dom
+type	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3DomBuilder
+type	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3DomWriter
+type	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/pull/XmlPullParserException
+member	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3DomBuilder	method	build	(Ljava/io/Reader;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;	static
+member	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3Dom	method	getChild	(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;	instance
+member	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3Dom	method	getChildren	()[Lorg/codehaus/plexus/util/xml/Xpp3Dom;	instance
+member	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3Dom	method	getValue	()Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3Dom	method	<init>	(Ljava/lang/String;)V	instance
+member	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3Dom	method	addChild	(Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V	instance
+member	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/Xpp3DomWriter	method	write	(Ljava/io/Writer;Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V	static
+member	org/apache/maven/plugins/assembly/filter/ComponentsXmlArchiverFileFilter	org/codehaus/plexus/util/xml/pull/XmlPullParserException	method	getMessage	()Ljava/lang/String;	instance
+consumer	org/apache/maven/plugins/assembly/io/DefaultAssemblyReader	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	ce554aece56ed280c80827077d3886ed7f760cc77a60f7a44d7a26f3fcb17866
+type	org/apache/maven/plugins/assembly/io/DefaultAssemblyReader	org/codehaus/plexus/util/DirectoryScanner
+type	org/apache/maven/plugins/assembly/io/DefaultAssemblyReader	org/codehaus/plexus/util/xml/pull/XmlPullParserException
+member	org/apache/maven/plugins/assembly/io/DefaultAssemblyReader	org/codehaus/plexus/util/DirectoryScanner	method	<init>	()V	instance
+member	org/apache/maven/plugins/assembly/io/DefaultAssemblyReader	org/codehaus/plexus/util/DirectoryScanner	method	setBasedir	(Ljava/io/File;)V	instance
+member	org/apache/maven/plugins/assembly/io/DefaultAssemblyReader	org/codehaus/plexus/util/DirectoryScanner	method	setIncludes	([Ljava/lang/String;)V	instance
+member	org/apache/maven/plugins/assembly/io/DefaultAssemblyReader	org/codehaus/plexus/util/DirectoryScanner	method	addDefaultExcludes	()V	instance
+member	org/apache/maven/plugins/assembly/io/DefaultAssemblyReader	org/codehaus/plexus/util/DirectoryScanner	method	scan	()V	instance
+member	org/apache/maven/plugins/assembly/io/DefaultAssemblyReader	org/codehaus/plexus/util/DirectoryScanner	method	getIncludedFiles	()[Ljava/lang/String;	instance
+consumer	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	5ac3dd1a6ef7672b0758ed130536e56c7bb161d05c2ed46ed2e17efc6d996ebc
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/ReaderFactory
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/XmlStreamReader
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/Xpp3Dom
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/Xpp3DomBuilder
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/EntityReplacementMap
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/MXParser
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParserException
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getName	()Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParserException	method	<init>	(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Ljava/lang/Throwable;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	next	()I	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	field	TYPES	[Ljava/lang/String;	static
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getEventType	()I	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getInputEncoding	()Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/EntityReplacementMap	field	defaultEntityReplacementMap	Lorg/codehaus/plexus/util/xml/pull/EntityReplacementMap;	static
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/MXParser	method	<init>	(Lorg/codehaus/plexus/util/xml/pull/EntityReplacementMap;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/MXParser	method	<init>	()V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	setInput	(Ljava/io/Reader;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/ReaderFactory	method	newXmlReader	(Ljava/io/InputStream;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;	static
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeCount	()I	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeName	(I)Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeValue	(I)Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	nextTag	()I	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	nextText	()Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Reader	org/codehaus/plexus/util/xml/Xpp3DomBuilder	method	build	(Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Z)Lorg/codehaus/plexus/util/xml/Xpp3Dom;	static
+consumer	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	2d939ec8e26eac2d5767642e2de23035b4545c33b955ee66b4b5f2170ce5a874
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/Xpp3Dom
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/MXSerializer
+type	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/MXSerializer	method	<init>	()V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	setProperty	(Ljava/lang/String;Ljava/lang/Object;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	setOutput	(Ljava/io/Writer;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	startDocument	(Ljava/lang/String;Ljava/lang/Boolean;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	endDocument	()V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	setOutput	(Ljava/io/OutputStream;Ljava/lang/String;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	comment	(Ljava/lang/String;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	setPrefix	(Ljava/lang/String;Ljava/lang/String;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	startTag	(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	attribute	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	text	(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	endTag	(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/AssemblyXpp3Writer	org/codehaus/plexus/util/xml/Xpp3Dom	method	writeToSerializer	(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;)V	instance
+consumer	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	48547143a4ca1249382eaf8e526903c26bfcf3459bd36da43a152c5e6256f758
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/ReaderFactory
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/XmlStreamReader
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/Xpp3Dom
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/Xpp3DomBuilder
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/EntityReplacementMap
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/MXParser
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParserException
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getName	()Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParserException	method	<init>	(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Ljava/lang/Throwable;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	next	()I	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	field	TYPES	[Ljava/lang/String;	static
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getEventType	()I	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getInputEncoding	()Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/EntityReplacementMap	field	defaultEntityReplacementMap	Lorg/codehaus/plexus/util/xml/pull/EntityReplacementMap;	static
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/MXParser	method	<init>	(Lorg/codehaus/plexus/util/xml/pull/EntityReplacementMap;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/MXParser	method	<init>	()V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	setInput	(Ljava/io/Reader;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/ReaderFactory	method	newXmlReader	(Ljava/io/InputStream;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;	static
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeCount	()I	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeName	(I)Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeValue	(I)Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	nextTag	()I	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	nextText	()Ljava/lang/String;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Reader	org/codehaus/plexus/util/xml/Xpp3DomBuilder	method	build	(Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Z)Lorg/codehaus/plexus/util/xml/Xpp3Dom;	static
+consumer	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	b684ce871e86dab68b595fbd4d1881ba014b9c79c8c659fc372ca29497b58e64
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/Xpp3Dom
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/MXSerializer
+type	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/MXSerializer	method	<init>	()V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	setProperty	(Ljava/lang/String;Ljava/lang/Object;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	setOutput	(Ljava/io/Writer;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	startDocument	(Ljava/lang/String;Ljava/lang/Boolean;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	endDocument	()V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	setOutput	(Ljava/io/OutputStream;Ljava/lang/String;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	comment	(Ljava/lang/String;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	setPrefix	(Ljava/lang/String;Ljava/lang/String;)V	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	startTag	(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	attribute	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	endTag	(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	text	(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/apache/maven/plugins/assembly/model/io/xpp3/ComponentXpp3Writer	org/codehaus/plexus/util/xml/Xpp3Dom	method	writeToSerializer	(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;)V	instance
+consumer	org/apache/maven/plugins/assembly/mojos/AbstractAssemblyMojo	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	204c677de6f4c68fbc11121710946fd57514034f27ed0a38cdc8fb130297f716
+type	org/apache/maven/plugins/assembly/mojos/AbstractAssemblyMojo	org/codehaus/plexus/util/cli/CommandLineUtils
+member	org/apache/maven/plugins/assembly/mojos/AbstractAssemblyMojo	org/codehaus/plexus/util/cli/CommandLineUtils	method	getSystemEnvVars	(Z)Ljava/util/Properties;	static
+consumer	org/apache/maven/plugins/assembly/mojos/SingleAssemblyMojo	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	f576f21f79a9a4d6982a60651dfff4e7bd0eb89d0c0e5755bff59ab8b9d30eac
+type	org/apache/maven/plugins/assembly/mojos/SingleAssemblyMojo	org/codehaus/plexus/util/xml/Xpp3Dom
+member	org/apache/maven/plugins/assembly/mojos/SingleAssemblyMojo	org/codehaus/plexus/util/xml/Xpp3Dom	method	getChild	(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;	instance
+consumer	org/apache/maven/plugins/assembly/utils/AssemblyFormatUtils	org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1	40e69bc7cde0406060f2774967108a5f10f22c702baab5dab1fbaa44eb5e37d8
+type	org/apache/maven/plugins/assembly/utils/AssemblyFormatUtils	org/codehaus/plexus/util/Os
+type	org/apache/maven/plugins/assembly/utils/AssemblyFormatUtils	org/codehaus/plexus/util/StringUtils
+member	org/apache/maven/plugins/assembly/utils/AssemblyFormatUtils	org/codehaus/plexus/util/StringUtils	method	join	(Ljava/util/Iterator;Ljava/lang/String;)Ljava/lang/String;	static
+member	org/apache/maven/plugins/assembly/utils/AssemblyFormatUtils	org/codehaus/plexus/util/StringUtils	method	replace	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;	static
+member	org/apache/maven/plugins/assembly/utils/AssemblyFormatUtils	org/codehaus/plexus/util/Os	method	isFamily	(Ljava/lang/String;)Z	static
+consumer	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering$1	org.apache.maven.shared:maven-filtering:jar:3.3.2	4979545ed75aa1c49eada46278837cba26f7335ea8bc77d790ed2205ef9a89ad
+type	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering$1	org/codehaus/plexus/util/DirectoryScanner
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering$1	org/codehaus/plexus/util/DirectoryScanner	method	<init>	()V	instance
+consumer	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org.apache.maven.shared:maven-filtering:jar:3.3.2	ab040e1651efd13e2677101746dc2fe0aa9a907418e9a11ae55315fbc51b5a6d
+type	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/DirectoryScanner
+type	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/Scanner
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/DirectoryScanner	method	setBasedir	(Ljava/io/File;)V	instance
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/DirectoryScanner	method	scan	()V	instance
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/DirectoryScanner	method	getIncludedFiles	()[Ljava/lang/String;	instance
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/Scanner	interfaceMethod	scan	()V	instance
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/Scanner	interfaceMethod	getIncludedFiles	()[Ljava/lang/String;	instance
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/Scanner	interfaceMethod	setIncludes	([Ljava/lang/String;)V	instance
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/Scanner	interfaceMethod	setExcludes	([Ljava/lang/String;)V	instance
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/Scanner	interfaceMethod	addDefaultExcludes	()V	instance
+member	org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering	org/codehaus/plexus/util/Scanner	interfaceMethod	getIncludedDirectories	()[Ljava/lang/String;	instance
+consumer	org/apache/maven/shared/filtering/FilteringUtils	org.apache.maven.shared:maven-filtering:jar:3.3.2	2501e18d92ce2aec657e37a3f27125ff140e150de37cf14686de918b78127744
+type	org/apache/maven/shared/filtering/FilteringUtils	org/codehaus/plexus/util/io/CachingOutputStream
+type	org/apache/maven/shared/filtering/FilteringUtils	org/codehaus/plexus/util/io/CachingWriter
+member	org/apache/maven/shared/filtering/FilteringUtils	org/codehaus/plexus/util/io/CachingOutputStream	method	<init>	(Ljava/nio/file/Path;)V	instance
+member	org/apache/maven/shared/filtering/FilteringUtils	org/codehaus/plexus/util/io/CachingWriter	method	<init>	(Ljava/nio/file/Path;Ljava/nio/charset/Charset;)V	instance
+consumer	org/codehaus/plexus/archiver/AbstractUnArchiver	org.codehaus.plexus:plexus-archiver:jar:4.9.2	fc22e38e4dd391efeff40db8cc0b5fdafacc616e0713c06c5b7c94d70f40f947
+type	org/codehaus/plexus/archiver/AbstractUnArchiver	org/codehaus/plexus/util/FileUtils
+type	org/codehaus/plexus/archiver/AbstractUnArchiver	org/codehaus/plexus/util/StringUtils
+member	org/codehaus/plexus/archiver/AbstractUnArchiver	org/codehaus/plexus/util/FileUtils	method	resolveFile	(Ljava/io/File;Ljava/lang/String;)Ljava/io/File;	static
+member	org/codehaus/plexus/archiver/AbstractUnArchiver	org/codehaus/plexus/util/StringUtils	method	isEmpty	(Ljava/lang/String;)Z	static
+consumer	org/codehaus/plexus/archiver/DotDirectiveArchiveFinalizer	org.codehaus.plexus:plexus-archiver:jar:4.9.2	e009302fdfe3671584d8e1c2a757f5ed4bd311a7a954a62064c086b59f2e144b
+type	org/codehaus/plexus/archiver/DotDirectiveArchiveFinalizer	org/codehaus/plexus/util/FileUtils
+type	org/codehaus/plexus/archiver/DotDirectiveArchiveFinalizer	org/codehaus/plexus/util/StringUtils
+member	org/codehaus/plexus/archiver/DotDirectiveArchiveFinalizer	org/codehaus/plexus/util/FileUtils	method	getFiles	(Ljava/io/File;Ljava/lang/String;Ljava/lang/String;)Ljava/util/List;	static
+member	org/codehaus/plexus/archiver/DotDirectiveArchiveFinalizer	org/codehaus/plexus/util/StringUtils	method	split	(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;	static
+consumer	org/codehaus/plexus/archiver/diags/TrackingArchiver$Addition	org.codehaus.plexus:plexus-archiver:jar:4.9.2	1088ca2df739b547aed12c2a79e63985aaedf149b08ce87f42a5f1a15e602923
+type	org/codehaus/plexus/archiver/diags/TrackingArchiver$Addition	org/codehaus/plexus/util/StringUtils
+member	org/codehaus/plexus/archiver/diags/TrackingArchiver$Addition	org/codehaus/plexus/util/StringUtils	method	join	([Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;	static
+consumer	org/codehaus/plexus/archiver/filters/JarSecurityFileFilter	org.codehaus.plexus:plexus-archiver:jar:4.9.2	2ac5e3548f3d49e0160333126a85b964b58518c8ebd30fa1399360ffa08d41fa
+type	org/codehaus/plexus/archiver/filters/JarSecurityFileFilter	org/codehaus/plexus/util/SelectorUtils
+member	org/codehaus/plexus/archiver/filters/JarSecurityFileFilter	org/codehaus/plexus/util/SelectorUtils	method	match	(Ljava/lang/String;Ljava/lang/String;)Z	static
+consumer	org/codehaus/plexus/archiver/filters/JarSecurityFileSelector	org.codehaus.plexus:plexus-archiver:jar:4.9.2	8944ec7a6219948603c03ae7473a68e004e80b645f60ef600112e24ad3786183
+type	org/codehaus/plexus/archiver/filters/JarSecurityFileSelector	org/codehaus/plexus/util/SelectorUtils
+member	org/codehaus/plexus/archiver/filters/JarSecurityFileSelector	org/codehaus/plexus/util/SelectorUtils	method	match	(Ljava/lang/String;Ljava/lang/String;)Z	static
+consumer	org/codehaus/plexus/archiver/jar/JarToolModularJarArchiver	org.codehaus.plexus:plexus-archiver:jar:4.9.2	9bb78686b18682daf71e6e404fc8b4634ee2846ce4ca8596b037e490cc72c229
+type	org/codehaus/plexus/archiver/jar/JarToolModularJarArchiver	org/codehaus/plexus/util/IOUtil
+member	org/codehaus/plexus/archiver/jar/JarToolModularJarArchiver	org/codehaus/plexus/util/IOUtil	method	copy	(Ljava/io/InputStream;Ljava/io/OutputStream;)V	static
+consumer	org/codehaus/plexus/archiver/jar/JdkManifestFactory	org.codehaus.plexus:plexus-archiver:jar:4.9.2	4620e843a1d5f77dd4bc4a5b80a3ff2a78b9d77edfa2f4946a4eb24da36048d2
+type	org/codehaus/plexus/archiver/jar/JdkManifestFactory	org/codehaus/plexus/util/PropertyUtils
+member	org/codehaus/plexus/archiver/jar/JdkManifestFactory	org/codehaus/plexus/util/PropertyUtils	method	loadProperties	(Ljava/io/InputStream;)Ljava/util/Properties;	static
+consumer	org/codehaus/plexus/archiver/manager/DefaultArchiverManager	org.codehaus.plexus:plexus-archiver:jar:4.9.2	540067db8c233f342878790d994458120d348c45177b2cd2d6fa28f50bb38745
+type	org/codehaus/plexus/archiver/manager/DefaultArchiverManager	org/codehaus/plexus/util/StringUtils
+member	org/codehaus/plexus/archiver/manager/DefaultArchiverManager	org/codehaus/plexus/util/StringUtils	method	split	(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;	static
+consumer	org/codehaus/plexus/archiver/tar/TarArchiver	org.codehaus.plexus:plexus-archiver:jar:4.9.2	a7cd6c06d84753cdcc79481b28e7e223892021814b04b5137e0ddb7ce339b8e9
+type	org/codehaus/plexus/archiver/tar/TarArchiver	org/codehaus/plexus/util/IOUtil
+type	org/codehaus/plexus/archiver/tar/TarArchiver	org/codehaus/plexus/util/StringUtils
+member	org/codehaus/plexus/archiver/tar/TarArchiver	org/codehaus/plexus/util/StringUtils	method	replace	(Ljava/lang/String;CC)Ljava/lang/String;	static
+member	org/codehaus/plexus/archiver/tar/TarArchiver	org/codehaus/plexus/util/IOUtil	method	close	(Ljava/io/OutputStream;)V	static
+member	org/codehaus/plexus/archiver/tar/TarArchiver	org/codehaus/plexus/util/IOUtil	method	close	(Ljava/io/InputStream;)V	static
+consumer	org/codehaus/plexus/archiver/util/ArchiveEntryUtils	org.codehaus.plexus:plexus-archiver:jar:4.9.2	c0439c08c49351e8d12feb6667bce1a93629931af83b59d334d573d85541911f
+type	org/codehaus/plexus/archiver/util/ArchiveEntryUtils	org/codehaus/plexus/util/Os
+member	org/codehaus/plexus/archiver/util/ArchiveEntryUtils	org/codehaus/plexus/util/Os	method	isFamily	(Ljava/lang/String;)Z	static
+consumer	org/codehaus/plexus/archiver/util/FilePermissionUtils	org.codehaus.plexus:plexus-archiver:jar:4.9.2	d3c929b261b7853d4805f16ecd181c2642e3f14ea96e38306523a0b832ae6d5c
+type	org/codehaus/plexus/archiver/util/FilePermissionUtils	org/codehaus/plexus/util/StringUtils
+member	org/codehaus/plexus/archiver/util/FilePermissionUtils	org/codehaus/plexus/util/StringUtils	method	isBlank	(Ljava/lang/String;)Z	static
+consumer	org/codehaus/plexus/archiver/util/Streams	org.codehaus.plexus:plexus-archiver:jar:4.9.2	ceba1a386b1142723bef7e4b389f157540024819f533c4795b869db3375eebea
+type	org/codehaus/plexus/archiver/util/Streams	org/codehaus/plexus/util/IOUtil
+member	org/codehaus/plexus/archiver/util/Streams	org/codehaus/plexus/util/IOUtil	method	close	(Ljava/io/OutputStream;)V	static
+member	org/codehaus/plexus/archiver/util/Streams	org/codehaus/plexus/util/IOUtil	method	close	(Ljava/io/InputStream;)V	static
+consumer	org/codehaus/plexus/archiver/zip/AbstractZipArchiver	org.codehaus.plexus:plexus-archiver:jar:4.9.2	291137195b453649cab4fb8cabfd2629cb92303655dc545b1e4a1dbb7dc55839
+type	org/codehaus/plexus/archiver/zip/AbstractZipArchiver	org/codehaus/plexus/util/FileUtils
+member	org/codehaus/plexus/archiver/zip/AbstractZipArchiver	org/codehaus/plexus/util/FileUtils	method	createTempFile	(Ljava/lang/String;Ljava/lang/String;Ljava/io/File;)Ljava/io/File;	static
+member	org/codehaus/plexus/archiver/zip/AbstractZipArchiver	org/codehaus/plexus/util/FileUtils	method	rename	(Ljava/io/File;Ljava/io/File;)V	static
+consumer	org/codehaus/plexus/components/io/attributes/PlexusIoResourceAttributeUtils	org.codehaus.plexus:plexus-io:jar:3.4.2	63bc96e315d65524302e3fff1ad73b50c7336c6abfaa1f1e1f1c5968df09ad61
+type	org/codehaus/plexus/components/io/attributes/PlexusIoResourceAttributeUtils	org/codehaus/plexus/util/FileUtils
+member	org/codehaus/plexus/components/io/attributes/PlexusIoResourceAttributeUtils	org/codehaus/plexus/util/FileUtils	method	getFileAndDirectoryNames	(Ljava/io/File;Ljava/lang/String;Ljava/lang/String;ZZZZ)Ljava/util/List;	static
+consumer	org/codehaus/plexus/components/io/fileselectors/IncludeExcludeFileSelector	org.codehaus.plexus:plexus-io:jar:3.4.2	c52c8506ebe1b24c392f8747eb207326a238776c37a8b711030d400a8e223b78
+type	org/codehaus/plexus/components/io/fileselectors/IncludeExcludeFileSelector	org/codehaus/plexus/util/FileUtils
+type	org/codehaus/plexus/components/io/fileselectors/IncludeExcludeFileSelector	org/codehaus/plexus/util/MatchPatterns
+type	org/codehaus/plexus/components/io/fileselectors/IncludeExcludeFileSelector	org/codehaus/plexus/util/SelectorUtils
+member	org/codehaus/plexus/components/io/fileselectors/IncludeExcludeFileSelector	org/codehaus/plexus/util/MatchPatterns	method	matches	(Ljava/lang/String;Z)Z	instance
+member	org/codehaus/plexus/components/io/fileselectors/IncludeExcludeFileSelector	org/codehaus/plexus/util/MatchPatterns	method	from	([Ljava/lang/String;)Lorg/codehaus/plexus/util/MatchPatterns;	static
+member	org/codehaus/plexus/components/io/fileselectors/IncludeExcludeFileSelector	org/codehaus/plexus/util/FileUtils	method	getDefaultExcludes	()[Ljava/lang/String;	static
+member	org/codehaus/plexus/components/io/fileselectors/IncludeExcludeFileSelector	org/codehaus/plexus/util/SelectorUtils	method	matchPath	(Ljava/lang/String;Ljava/lang/String;Z)Z	static
+consumer	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org.codehaus.plexus:plexus-io:jar:3.4.2	381557ff5b4ef7e775e24031f088b22a87cfcd461d7eb9dbab5cd1f0cdc5b5aa
+type	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner
+type	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/StringUtils
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/StringUtils	method	replace	(Ljava/lang/String;CC)Ljava/lang/String;	static
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	<init>	()V	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	setBasedir	(Ljava/io/File;)V	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	setIncludes	([Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	setExcludes	([Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	addDefaultExcludes	()V	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	setCaseSensitive	(Z)V	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	setFollowSymlinks	(Z)V	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	setFilenameComparator	(Ljava/util/Comparator;)V	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	scan	()V	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	getIncludedDirectories	()[Ljava/lang/String;	instance
+member	org/codehaus/plexus/components/io/resources/PlexusIoFileResourceCollection	org/codehaus/plexus/util/DirectoryScanner	method	getIncludedFiles	()[Ljava/lang/String;	instance
+consumer	org/codehaus/plexus/util/xml/CompactXMLWriter	org.codehaus.plexus:plexus-xml:jar:3.0.0	d720ad0fd0bbd0ce7a8d6f7d2c36f9177ea4f734bbac6fd6f1a94de9dbced291
+type	org/codehaus/plexus/util/xml/CompactXMLWriter	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter
+member	org/codehaus/plexus/util/xml/CompactXMLWriter	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	<init>	(Ljava/io/PrintWriter;)V	instance
+member	org/codehaus/plexus/util/xml/CompactXMLWriter	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	<init>	(Ljava/io/Writer;)V	instance
+consumer	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	org.codehaus.plexus:plexus-xml:jar:3.0.0	aba263fdf8def4ceeb1d474a099a65757f2ea11395a5ce10b8b5cd2f9ef9684e
+type	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	org/codehaus/plexus/util/xml/StringUtils
+type	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	org/codehaus/plexus/util/xml/XMLWriter
+member	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	org/codehaus/plexus/util/xml/StringUtils	method	unifyLineSeparators	(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;	static
+consumer	org/codehaus/plexus/util/xml/ReaderFactory	org.codehaus.plexus:plexus-xml:jar:3.0.0	971ff0765130bb8d119699319004639da5042c12927fa5fc1fcc3f7a921d2779
+type	org/codehaus/plexus/util/xml/ReaderFactory	org/codehaus/plexus/util/xml/XmlStreamReader
+member	org/codehaus/plexus/util/xml/ReaderFactory	org/codehaus/plexus/util/xml/XmlStreamReader	method	<init>	(Ljava/io/InputStream;)V	instance
+member	org/codehaus/plexus/util/xml/ReaderFactory	org/codehaus/plexus/util/xml/XmlStreamReader	method	<init>	(Ljava/io/File;)V	instance
+member	org/codehaus/plexus/util/xml/ReaderFactory	org/codehaus/plexus/util/xml/XmlStreamReader	method	<init>	(Ljava/net/URL;)V	instance
+consumer	org/codehaus/plexus/util/xml/SerializerXMLWriter	org.codehaus.plexus:plexus-xml:jar:3.0.0	d920bb2672bde2215a9eb5920fdffc0c1f9402f64e857146ff317459d31006af
+type	org/codehaus/plexus/util/xml/SerializerXMLWriter	org/codehaus/plexus/util/xml/XMLWriter
+type	org/codehaus/plexus/util/xml/SerializerXMLWriter	org/codehaus/plexus/util/xml/pull/XmlSerializer
+member	org/codehaus/plexus/util/xml/SerializerXMLWriter	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	startTag	(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/codehaus/plexus/util/xml/SerializerXMLWriter	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	attribute	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/codehaus/plexus/util/xml/SerializerXMLWriter	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	text	(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+member	org/codehaus/plexus/util/xml/SerializerXMLWriter	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	cdsect	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/SerializerXMLWriter	org/codehaus/plexus/util/xml/pull/XmlSerializer	interfaceMethod	endTag	(Ljava/lang/String;Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;	instance
+consumer	org/codehaus/plexus/util/xml/WriterFactory	org.codehaus.plexus:plexus-xml:jar:3.0.0	d2cd90c858dff8e08e69eb1a825eb6a7069720eaa153e9af00a6104ebb57b331
+type	org/codehaus/plexus/util/xml/WriterFactory	org/codehaus/plexus/util/xml/XmlStreamWriter
+member	org/codehaus/plexus/util/xml/WriterFactory	org/codehaus/plexus/util/xml/XmlStreamWriter	method	<init>	(Ljava/io/OutputStream;)V	instance
+member	org/codehaus/plexus/util/xml/WriterFactory	org/codehaus/plexus/util/xml/XmlStreamWriter	method	<init>	(Ljava/io/File;)V	instance
+consumer	org/codehaus/plexus/util/xml/XmlReader	org.codehaus.plexus:plexus-xml:jar:3.0.0	10617d686ec4a768c33f91fab6e66dc0e2bbc1bb70c871b2e2b7b8bbf327068d
+type	org/codehaus/plexus/util/xml/XmlReader	org/codehaus/plexus/util/xml/XmlStreamReaderException
+member	org/codehaus/plexus/util/xml/XmlReader	org/codehaus/plexus/util/xml/XmlStreamReaderException	method	getInputStream	()Ljava/io/InputStream;	instance
+member	org/codehaus/plexus/util/xml/XmlReader	org/codehaus/plexus/util/xml/XmlStreamReaderException	method	getXmlEncoding	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/XmlReader	org/codehaus/plexus/util/xml/XmlStreamReaderException	method	getContentTypeEncoding	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/XmlReader	org/codehaus/plexus/util/xml/XmlStreamReaderException	method	<init>	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/io/InputStream;)V	instance
+member	org/codehaus/plexus/util/xml/XmlReader	org/codehaus/plexus/util/xml/XmlStreamReaderException	method	<init>	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/io/InputStream;)V	instance
+consumer	org/codehaus/plexus/util/xml/XmlStreamReader	org.codehaus.plexus:plexus-xml:jar:3.0.0	4409e48369c63016486adb6e3a7b79c97dab2b97335ccdce649605f17a29146a
+type	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlReader
+type	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlStreamReaderException
+member	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlReader	method	<init>	(Ljava/io/File;)V	instance
+member	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlReader	method	<init>	(Ljava/io/InputStream;)V	instance
+member	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlReader	method	<init>	(Ljava/io/InputStream;Z)V	instance
+member	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlReader	method	<init>	(Ljava/net/URL;)V	instance
+member	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlReader	method	<init>	(Ljava/net/URLConnection;)V	instance
+member	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlReader	method	<init>	(Ljava/io/InputStream;Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlReader	method	<init>	(Ljava/io/InputStream;Ljava/lang/String;ZLjava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlStreamReader	org/codehaus/plexus/util/xml/XmlReader	method	<init>	(Ljava/io/InputStream;Ljava/lang/String;Z)V	instance
+consumer	org/codehaus/plexus/util/xml/XmlStreamReaderException	org.codehaus.plexus:plexus-xml:jar:3.0.0	670df897d139394b0b11f15506369391eddb7bf87133763652b9c8dcce24a58d
+type	org/codehaus/plexus/util/xml/XmlStreamReaderException	org/codehaus/plexus/util/xml/XmlReaderException
+member	org/codehaus/plexus/util/xml/XmlStreamReaderException	org/codehaus/plexus/util/xml/XmlReaderException	method	<init>	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/io/InputStream;)V	instance
+member	org/codehaus/plexus/util/xml/XmlStreamReaderException	org/codehaus/plexus/util/xml/XmlReaderException	method	<init>	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/io/InputStream;)V	instance
+consumer	org/codehaus/plexus/util/xml/XmlStreamWriter	org.codehaus.plexus:plexus-xml:jar:3.0.0	85c8d7f88d6be52f59f770bead406b34fd3c64bf2e858566419dd34064958842
+type	org/codehaus/plexus/util/xml/XmlStreamWriter	org/codehaus/plexus/util/xml/XmlReader
+member	org/codehaus/plexus/util/xml/XmlStreamWriter	org/codehaus/plexus/util/xml/XmlReader	field	ENCODING_PATTERN	Ljava/util/regex/Pattern;	static
+consumer	org/codehaus/plexus/util/xml/XmlUtil	org.codehaus.plexus:plexus-xml:jar:3.0.0	b719525b91b26d836ff63bef2efb81fdc6fa9dce5da42cd8e3bbf32f5ae398b6
+type	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter
+type	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/ReaderFactory
+type	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/StringUtils
+type	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/XmlStreamReader
+type	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/MXParser
+type	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParser
+type	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParserException
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/ReaderFactory	method	newXmlReader	(Ljava/io/File;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;	static
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/MXParser	method	<init>	()V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	setInput	(Ljava/io/Reader;)V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	nextToken	()I	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	<init>	(Ljava/io/Writer;)V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/StringUtils	method	repeat	(Ljava/lang/String;I)Ljava/lang/String;	static
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	setLineIndenter	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	setLineSeparator	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParserException	method	getMessage	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/ReaderFactory	method	newXmlReader	(Ljava/io/InputStream;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;	static
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getEventType	()I	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	getLineIndenter	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	writeText	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getName	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	startElement	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeCount	()I	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeName	(I)Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeValue	(I)Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	addAttribute	(Ljava/lang/String;Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getText	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/StringUtils	method	removeDuplicateWhitespace	(Ljava/lang/String;)Ljava/lang/String;	static
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	endElement	()V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	getLineSeparator	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	writeMarkup	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	getDepth	()I	instance
+member	org/codehaus/plexus/util/xml/XmlUtil	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	endOfLine	()V	instance
+consumer	org/codehaus/plexus/util/xml/XmlWriterUtil	org.codehaus.plexus:plexus-xml:jar:3.0.0	ad56b58e829c766ff8a1cced460da24c8866d8d13559be2cb9aba6571f48e1c0
+type	org/codehaus/plexus/util/xml/XmlWriterUtil	org/codehaus/plexus/util/xml/StringUtils
+type	org/codehaus/plexus/util/xml/XmlWriterUtil	org/codehaus/plexus/util/xml/XMLWriter
+member	org/codehaus/plexus/util/xml/XmlWriterUtil	org/codehaus/plexus/util/xml/XMLWriter	interfaceMethod	writeMarkup	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlWriterUtil	org/codehaus/plexus/util/xml/StringUtils	method	repeat	(Ljava/lang/String;I)Ljava/lang/String;	static
+member	org/codehaus/plexus/util/xml/XmlWriterUtil	org/codehaus/plexus/util/xml/XMLWriter	interfaceMethod	writeText	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/XmlWriterUtil	org/codehaus/plexus/util/xml/StringUtils	method	split	(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;	static
+consumer	org/codehaus/plexus/util/xml/Xpp3Dom	org.codehaus.plexus:plexus-utils:jar:3.6.1	e129b59c5042880c5c8da4d70be94bed734755fcaf8dcdce4ae8638f3a0d5f36
+type	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/StringUtils
+type	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter
+type	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/SerializerXMLWriter
+type	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/XMLWriter
+type	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/Xpp3DomWriter
+type	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/pull/XmlSerializer
+member	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/StringUtils	method	isEmpty	(Ljava/lang/String;)Z	static
+member	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/SerializerXMLWriter	method	<init>	(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/Xpp3DomWriter	method	write	(Lorg/codehaus/plexus/util/xml/XMLWriter;Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V	static
+member	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/SerializerXMLWriter	method	getExceptions	()Ljava/util/List;	instance
+member	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	<init>	(Ljava/io/Writer;Ljava/lang/String;Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3Dom	org/codehaus/plexus/util/xml/Xpp3DomWriter	method	write	(Lorg/codehaus/plexus/util/xml/XMLWriter;Lorg/codehaus/plexus/util/xml/Xpp3Dom;Z)V	static
+consumer	org/codehaus/plexus/util/xml/Xpp3DomBuilder$InputLocationBuilder	org.codehaus.plexus:plexus-xml:jar:3.0.0	1d1fc77998a40c19627c992569caed02736293edc6e369bac0da1e3e28acc9b1
+type	org/codehaus/plexus/util/xml/Xpp3DomBuilder$InputLocationBuilder	org/codehaus/plexus/util/xml/Xpp3DomBuilder
+type	org/codehaus/plexus/util/xml/Xpp3DomBuilder$InputLocationBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser
+consumer	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org.codehaus.plexus:plexus-xml:jar:3.0.0	35c839b49817a151acad03181d78c15ab99740e09e37be3adf4e957c36eba808
+type	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/Xpp3Dom
+type	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/Xpp3DomBuilder$InputLocationBuilder
+type	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/MXParser
+type	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser
+type	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParserException
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/MXParser	method	<init>	()V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	setInput	(Ljava/io/InputStream;Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	setInput	(Ljava/io/Reader;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getEventType	()I	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getName	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/Xpp3Dom	method	<init>	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/Xpp3DomBuilder$InputLocationBuilder	interfaceMethod	toInputLocation	(Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;)Ljava/lang/Object;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/Xpp3Dom	method	setInputLocation	(Ljava/lang/Object;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/Xpp3Dom	method	addChild	(Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	isEmptyElementTag	()Z	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeCount	()I	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeName	(I)Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getAttributeValue	(I)Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/Xpp3Dom	method	setAttribute	(Ljava/lang/String;Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getText	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/Xpp3Dom	method	getChildCount	()I	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/Xpp3Dom	method	setValue	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomBuilder	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	next	()I	instance
+consumer	org/codehaus/plexus/util/xml/Xpp3DomUtils	org.codehaus.plexus:plexus-xml:jar:3.0.0	d2f9c55f92619243c9a7b64af83dfc4f4a25ce3fcfc69d6f380067ca20dd7108
+type	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/SerializerXMLWriter
+type	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/XMLWriter
+type	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3Dom
+type	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3DomWriter
+type	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/pull/XmlSerializer
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/SerializerXMLWriter	method	<init>	(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlSerializer;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3DomWriter	method	write	(Lorg/codehaus/plexus/util/xml/XMLWriter;Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V	static
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/SerializerXMLWriter	method	getExceptions	()Ljava/util/List;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3Dom	method	getAttribute	(Ljava/lang/String;)Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3Dom	method	getAttributeNames	()[Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3Dom	method	setAttribute	(Ljava/lang/String;Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3Dom	method	getChildren	()[Lorg/codehaus/plexus/util/xml/Xpp3Dom;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3Dom	method	getName	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3Dom	method	getChild	(Ljava/lang/String;)Lorg/codehaus/plexus/util/xml/Xpp3Dom;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3Dom	method	<init>	(Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomUtils	org/codehaus/plexus/util/xml/Xpp3Dom	method	addChild	(Lorg/codehaus/plexus/util/xml/Xpp3Dom;)V	instance
+consumer	org/codehaus/plexus/util/xml/Xpp3DomWriter	org.codehaus.plexus:plexus-xml:jar:3.0.0	da930c4b4afda26af236c0fce142485d88739e6ba110bfe44abc109bd4e35a49
+type	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter
+type	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/XMLWriter
+type	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/Xpp3Dom
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	<init>	(Ljava/io/Writer;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/PrettyPrintXMLWriter	method	<init>	(Ljava/io/PrintWriter;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/Xpp3Dom	method	getName	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/XMLWriter	interfaceMethod	startElement	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/Xpp3Dom	method	getAttributeNames	()[Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/Xpp3Dom	method	getAttribute	(Ljava/lang/String;)Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/XMLWriter	interfaceMethod	addAttribute	(Ljava/lang/String;Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/Xpp3Dom	method	getChildren	()[Lorg/codehaus/plexus/util/xml/Xpp3Dom;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/Xpp3Dom	method	getValue	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/XMLWriter	interfaceMethod	writeText	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/XMLWriter	interfaceMethod	writeMarkup	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/Xpp3DomWriter	org/codehaus/plexus/util/xml/XMLWriter	interfaceMethod	endElement	()V	instance
+consumer	org/codehaus/plexus/util/xml/pull/MXParser	org.codehaus.plexus:plexus-xml:jar:3.0.0	c4a849680bd93ce050df04502a23be956043f743ec01d7cf94f3148aa2ca66e9
+type	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/ReaderFactory
+type	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/XmlReader
+type	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/XmlStreamReader
+type	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/EntityReplacementMap
+type	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/XmlPullParser
+type	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/XmlPullParserException
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/EntityReplacementMap	field	entityEnd	I	instance
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/EntityReplacementMap	field	entityName	[Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/EntityReplacementMap	field	entityNameBuf	[[C	instance
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/EntityReplacementMap	field	entityReplacement	[Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/EntityReplacementMap	field	entityReplacementBuf	[[C	instance
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/EntityReplacementMap	field	entityNameHash	[I	instance
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/XmlPullParserException	method	<init>	(Ljava/lang/String;Lorg/codehaus/plexus/util/xml/pull/XmlPullParser;Ljava/lang/Throwable;)V	instance
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/pull/XmlPullParserException	method	<init>	(Ljava/lang/String;)V	instance
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/XmlReader	method	getEncoding	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/ReaderFactory	method	newReader	(Ljava/io/InputStream;Ljava/lang/String;)Ljava/io/Reader;	static
+member	org/codehaus/plexus/util/xml/pull/MXParser	org/codehaus/plexus/util/xml/ReaderFactory	method	newXmlReader	(Ljava/io/InputStream;)Lorg/codehaus/plexus/util/xml/XmlStreamReader;	static
+consumer	org/codehaus/plexus/util/xml/pull/MXSerializer	org.codehaus.plexus:plexus-xml:jar:3.0.0	eb55bbb5fff1a93a6a46362b4583700f53a8470ec31df3eae18d037795abb473
+type	org/codehaus/plexus/util/xml/pull/MXSerializer	org/codehaus/plexus/util/xml/pull/XmlSerializer
+consumer	org/codehaus/plexus/util/xml/pull/XmlPullParser	org.codehaus.plexus:plexus-utils:jar:3.6.1	15aa3ceddbd70f6dc94b56814e960fd9bec694e921f409ef12d9589e252dfc29
+type	org/codehaus/plexus/util/xml/pull/XmlPullParser	org/codehaus/plexus/util/xml/pull/XmlPullParserException
+consumer	org/codehaus/plexus/util/xml/pull/XmlPullParserException	org.codehaus.plexus:plexus-utils:jar:3.6.1	cd4f83e60541cf8014a33f5bbf1bfc1434e900458930220ef74273198905d463
+type	org/codehaus/plexus/util/xml/pull/XmlPullParserException	org/codehaus/plexus/util/xml/pull/XmlPullParser
+member	org/codehaus/plexus/util/xml/pull/XmlPullParserException	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getPositionDescription	()Ljava/lang/String;	instance
+member	org/codehaus/plexus/util/xml/pull/XmlPullParserException	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getLineNumber	()I	instance
+member	org/codehaus/plexus/util/xml/pull/XmlPullParserException	org/codehaus/plexus/util/xml/pull/XmlPullParser	interfaceMethod	getColumnNumber	()I	instance
+consumer	org/sonatype/plexus/build/incremental/DefaultBuildContext	org.sonatype.plexus:plexus-build-api:jar:0.0.7	d218b6c3d03589b5d5e7753f91b8d31040788e5e14de1ae8a756ff44b6447218
+type	org/sonatype/plexus/build/incremental/DefaultBuildContext	org/codehaus/plexus/util/DirectoryScanner
+type	org/sonatype/plexus/build/incremental/DefaultBuildContext	org/codehaus/plexus/util/Scanner
+member	org/sonatype/plexus/build/incremental/DefaultBuildContext	org/codehaus/plexus/util/DirectoryScanner	method	<init>	()V	instance
+member	org/sonatype/plexus/build/incremental/DefaultBuildContext	org/codehaus/plexus/util/DirectoryScanner	method	setBasedir	(Ljava/io/File;)V	instance
+consumer	org/sonatype/plexus/build/incremental/EmptyScanner	org.sonatype.plexus:plexus-build-api:jar:0.0.7	87b00f678c0e18272e69700fca8bd0e495687f66efa4a62a34782f36d0fc97c9
+type	org/sonatype/plexus/build/incremental/EmptyScanner	org/codehaus/plexus/util/Scanner
+consumer	org/sonatype/plexus/build/incremental/ThreadBuildContext	org.sonatype.plexus:plexus-build-api:jar:0.0.7	c2e08763e014e53ebf72e8926d44ecdd0c8c836fa5dc73f1a7bb40e720913cef
+type	org/sonatype/plexus/build/incremental/ThreadBuildContext	org/codehaus/plexus/util/Scanner
+consumer	org/sonatype/plexus/build/incremental/BuildContext	org.sonatype.plexus:plexus-build-api:jar:0.0.7	14d0abaa7a5086aa1c7ad38071e26f78a5ff9781fd35dd30a902b3e647df04ab
+type	org/sonatype/plexus/build/incremental/BuildContext	org/codehaus/plexus/util/Scanner

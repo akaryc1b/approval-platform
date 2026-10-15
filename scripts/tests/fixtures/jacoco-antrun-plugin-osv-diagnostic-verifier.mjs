@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { acceptedE2GraphProjection } from '../../security/m6-pr-e-e2-generate-sbom.mjs';
 import { osvInputFromE2 } from '../../security/osv-scan-coverage.mjs';
 import { JACOCO_ANTRUN_GRAPH, readJacocoAntrunManifest } from '../../security/jacoco-antrun-graph-transition.mjs';
+import { readPreservedJacocoAntrunSource } from '../../security/assembly-plexus-source-continuation.mjs';
 
 export const stable = v => Array.isArray(v) ? v.map(stable) : v && typeof v === 'object'
   ? Object.fromEntries(Object.keys(v).sort().map(k => [k, stable(v[k])])) : v;
@@ -43,7 +44,7 @@ export function readJacocoAntrunPluginDiagnostic() {
   const pinned = ref => { const b = readFileSync(new URL(ref.path, root)); assert.equal(sha(b), ref.rawSha256, ref.path); return b; };
   const manifest = readJacocoAntrunManifest();
   const manifestBytesSha256 = sha(pinned(binding.jacocoAntrunManifest));
-  assert.equal(sha(readFileSync(new URL('pom.xml', root))), binding.sourcePom.rawSha256);
+  assert.equal(sha(readPreservedJacocoAntrunSource('pom.xml', binding.sourcePom.rawSha256)), binding.sourcePom.rawSha256);
   pinned(binding.sourcePom);
   for (const [p, h] of Object.entries(binding.referenceSourceHelpers)) assert.equal(sha(readFileSync(new URL(p, root))), h, 'reference source helper: ' + p);
   return { files, binding, manifest, manifestBytesSha256, originalE2: JSON.parse(pinned(binding.sourceE2)), baselineE2: JSON.parse(pinned(binding.baseline.e2)),

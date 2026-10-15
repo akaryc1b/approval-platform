@@ -15,6 +15,8 @@ import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, readBu
   from './observability-dependency-graph.mjs';
 import { verifyOsvCoverage, osvInputFromE2 } from './osv-scan-coverage.mjs';
 import { requireCompleteCurrentE4 } from './scanner-evidence-provenance.mjs';
+import { ASSEMBLY_PLEXUS_GRAPH, readAssemblyPlexusManifest,
+  readAssemblyPlexusAcceptedServerRemediation } from './assembly-plexus-graph-transition.mjs';
 
 const REPOSITORY = 'akaryc1b/approval-platform';
 const PLAN_HASH = '370e920ee0dcfd7f3cf7fec0a4078b0c0046b69089e5c64fca5846a8202e142d';
@@ -108,7 +110,7 @@ function requireFreshFullEvidence(e4, expectedHead) {
   requireValue(total === e4.totalFindingCount, 'server remediation scanner finding count mismatch');
   const e2 = e4.e2CurrentEvidence;
   requireValue(e2?.commitSha === expectedHead && e2.contentSha256 === e4.e2CurrentContentSha256
-    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
+    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
   const transition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, expectedHead);
   requireValue(same(transition, requirePreservedGraph(e4, BASE_GRAPH, expectedHead)), 'server remediation graph receipt mismatch');
   return verifyOsvCoverage(e4.scanners.osv.coverage, e4.scanners.osv.findings, e2,
@@ -122,7 +124,15 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
   const coverage = requireFreshFullEvidence(e4, expectedCommitSha);
   let expectedInput = { packageCount: plan.expectedInputPackageCount, inputBytesSha256: plan.expectedInputBytesSha256 };
   let subsequentGraphTransition;
-  if ([BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH].includes(e4.e2GraphDigest)) {
+  if (e4.e2GraphDigest === ASSEMBLY_PLEXUS_GRAPH) {
+    const manifest = readAssemblyPlexusManifest(), accepted = readAssemblyPlexusAcceptedServerRemediation(manifest);
+    requireValue(accepted.manifestFileSha256 === PLAN_HASH && accepted.historicalTargetE2GraphDigest === plan.targetE2GraphDigest
+      && accepted.historicalReviewFileSha256 === plan.historicalReviewFileSha256
+      && accepted.advisoryEvidenceFileSha256 === plan.advisoryEvidenceFileSha256,
+    'server remediation accepted Assembly input bridge mismatch');
+    expectedInput = manifest.osvInput.current;
+    subsequentGraphTransition = requirePreservedGraph(e4, BASE_GRAPH, expectedCommitSha);
+  } else if ([BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH].includes(e4.e2GraphDigest)) {
     const manifest = readBuildPluginJacksonManifest();
     const current = acceptedE2GraphProjection(e4.e2CurrentEvidence);
     const jacocoAntrunManifest = e4.e2GraphDigest === JACOCO_ANTRUN_GRAPH ? readJacocoAntrunManifest() : null;

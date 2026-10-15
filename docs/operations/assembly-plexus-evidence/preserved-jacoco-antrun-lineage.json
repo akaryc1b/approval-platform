@@ -1,0 +1,543 @@
+{
+  "addedPluginCoordinateCount": 0,
+  "archivalCandidate": {
+    "e2": {
+      "contentSha256": "57604a89d4e38ecdb98bbcefa96bf21c695edcaaf0fedfca7995e65e9ba72df8",
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/candidate-E2.json",
+      "rawSha256": "8f96a810b8126834d6e974866f18e7fbee1c332ea8865284067093818866513d"
+    },
+    "exactHeadEvidence": false,
+    "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+    "pluginReport": {
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/plugin-owner-report.txt",
+      "rawSha256": "3c3dfbf8460f8cdead51a397447a06e21c979411f3c3dc8d109d0bd1e67769a6"
+    },
+    "sourceBaseHead": "e653583e5a012e502271b1cf7b4255cc95cf9d63",
+    "sourceBaseTree": "ace937abdc61e24534215d686ba96c7e8978cdb6",
+    "sourcePom": {
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/candidate-root-pom.xml",
+      "rawSha256": "d36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c"
+    },
+    "sourceWitness": {
+      "contentSha256": "e7bbb9e1c69444df17d26ab6bca600bfe16d60154997139c3b0292ff75e87bab",
+      "path": "docs/operations/jacoco-antrun-plugin-evidence/source-witness.json",
+      "rawSha256": "56e5701e73c25262887edcf73663cf9f7eff870a34891927107dfeceec174971"
+    },
+    "sourceWorktreeClean": false
+  },
+  "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+  "commitSha": "9b03965b8c7f6015301fd3db729172cd0f2cca3b",
+  "contentSha256": "0083099b9d24edb7262edb1a7df929f7649157856698f81074ff596308919464",
+  "currentE2GraphDigest": "a338fa7e74474131fbd72f610f1be26cd7b676a46597aef5b04f5ef87a1dad92",
+  "findingReviewRequired": true,
+  "importedBomChangeCount": 0,
+  "inventory": {
+    "componentCount": 237,
+    "edgeCount": 345,
+    "importedBomCount": 6,
+    "reactorRootCount": 26,
+    "resolvedPluginCoordinateCount": 266
+  },
+  "licenseChangeCount": 0,
+  "manifestSha256": "6358651dc32375032f62f8c3f5197ad3849e4d1a1014911dd18ae4ed9993433a",
+  "preservedBootUtilitiesLineage": {
+    "addedPluginCoordinateCount": 1,
+    "archivalCandidate": {
+      "e2": {
+        "contentSha256": "d177bc306110e2fef30ea0322b8214bc7b7a052b799f046ed5bdfbb512ef187a",
+        "path": "docs/operations/boot-utilities-plugin-evidence/candidate-E2.json",
+        "rawSha256": "139f8c2cf8b19e3b1d178dbfadfb13f799448af0022c30ac300a6f061942c84c"
+      },
+      "exactHeadEvidence": false,
+      "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+      "pluginReport": {
+        "path": "docs/operations/boot-utilities-plugin-evidence/plugin-owner-report.txt",
+        "rawSha256": "499ac20c5ef58a32175399a6e48f6d5f6629a1d4582ba196de9a081ee8fdd98b"
+      },
+      "sourceBaseHead": "d38f57a82b13058d0e09839bdfb9a2ddf99d4508",
+      "sourceBaseTree": "77919616340579ab1d00ce5d85127e5638bb9f09",
+      "sourcePom": {
+        "path": "docs/operations/boot-utilities-plugin-evidence/candidate-root-pom.xml",
+        "rawSha256": "2f22ec8cae77cdfb519b81a8e48417fc75632416bcf28989f589f33d39261579"
+      },
+      "sourceWitness": {
+        "contentSha256": "cf4d637ef371252a7474545f4ece124cc89cc63cdd224383b348a19161bc08f7",
+        "path": "docs/operations/boot-utilities-plugin-evidence/source-witness.json",
+        "rawSha256": "71447f2d07ad2714bbd6965da1ce286702495308bb1cf4f283936cb7a6bbe1ef"
+      },
+      "sourceWorktreeClean": false
+    },
+    "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+    "commitSha": "e653583e5a012e502271b1cf7b4255cc95cf9d63",
+    "contentSha256": "a06daa5522bf445be8a730d3c11a5793c4cb1244aef8ca1771247d10cdb5ec25",
+    "currentE2GraphDigest": "454934f756eb08a49bc6d74435f12064df6c74286cad358558b0e73dda78c9ca",
+    "findingReviewRequired": true,
+    "importedBomChangeCount": 0,
+    "inventory": {
+      "componentCount": 237,
+      "edgeCount": 345,
+      "importedBomCount": 6,
+      "reactorRootCount": 26,
+      "resolvedPluginCoordinateCount": 268
+    },
+    "licenseChangeCount": 0,
+    "manifestSha256": "1e00bf4e04f0c99c19e00cb806b48b8deac8cc9f948aa7f498c406b14a29fc93",
+    "preservedBootHttpLineage": {
+      "addedPluginCoordinateCount": 3,
+      "archivalCandidate": {
+        "e2": {
+          "contentSha256": "eb60837de35d0a2bfa9f6fa7b63294a2bf3d4dc2148e7050d0567efa63696f46",
+          "path": "docs/operations/boot-http-plugin-evidence/candidate-E2.json",
+          "rawSha256": "0a50195cd10d208e23f6ca1f9c0c1df7d1ed0611fe73c6b43be43b9007a2e93f"
+        },
+        "exactHeadEvidence": false,
+        "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+        "pluginReport": {
+          "path": "docs/operations/boot-http-plugin-evidence/plugin-owner-report.txt",
+          "rawSha256": "e97117c83e5d6158a8f4884738139399a9b41746fad45bed821ccb79ba16660b"
+        },
+        "sourceBaseHead": "88a7fb07a90fc1cef2b8185e88ed60aa1f83d2be",
+        "sourceBaseTree": "81e2b07842eac26ce7936a6cf5452e5ebdd7d83d",
+        "sourcePom": {
+          "path": "docs/operations/boot-http-plugin-evidence/candidate-root-pom.xml",
+          "rawSha256": "dd3d2a854fd32d53efc2ccbe0efc1c217af46a7824de89c4c30f5bf29249e3c1"
+        },
+        "sourceWitness": {
+          "contentSha256": "9b6ba332f3042f72585a4bb769731a2113e82a24165bd057e975e122129aaaca",
+          "path": "docs/operations/boot-http-plugin-evidence/source-witness.json",
+          "rawSha256": "9b7109854c4fb7cfb946036fb6a71490d6f40f308c5c0fea3669b6fa9f2e68fc"
+        },
+        "sourceWorktreeClean": false
+      },
+      "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+      "commitSha": "d38f57a82b13058d0e09839bdfb9a2ddf99d4508",
+      "contentSha256": "ae1bd99989747fa36707527ed28d0920ec792b8a70abd4aa60d7f8ea67e5ca8b",
+      "currentE2GraphDigest": "5760ae70a04b967548d991397b14076d8aaf45bb4bd3bd00e917317fdd649867",
+      "findingReviewRequired": true,
+      "importedBomChangeCount": 0,
+      "inventory": {
+        "componentCount": 237,
+        "edgeCount": 345,
+        "importedBomCount": 6,
+        "reactorRootCount": 26,
+        "resolvedPluginCoordinateCount": 269
+      },
+      "licenseChangeCount": 0,
+      "manifestSha256": "3a2d6028aff6374f0ecb0ed537474d2b8f309289d5c2e36bf8590dc3a8fc94db",
+      "preservedCheckstyleGuavaLineage": {
+        "addedPluginCoordinateCount": 4,
+        "archivalCandidate": {
+          "e2": {
+            "contentSha256": "f8c0f95887fc15f0b0f041edcc02c36608b7d71c5be6a8f311bdcb620061b6aa",
+            "path": "docs/operations/checkstyle-guava-evidence/candidate-E2.json",
+            "rawSha256": "bf386572b9464dbfcf180a6b1aa9427a21565d8fc0417be4706c1cf21092d8df"
+          },
+          "exactHeadEvidence": false,
+          "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+          "pluginReport": {
+            "path": "docs/operations/checkstyle-guava-evidence/plugin-owner-report.txt",
+            "rawSha256": "61807bb05fa878454bcc26f39a3b4eca3e5ca140142bd9cc303447a92195e322"
+          },
+          "sourceBaseHead": "01aa72c1d2dfdc5a85dd0ff61e2e2a9e7f727a0c",
+          "sourceBaseTree": "fc9c0a6c7124bd8fbb92615c40625e6ae7e192d1",
+          "sourcePom": {
+            "path": "docs/operations/checkstyle-guava-evidence/candidate-root-pom.xml",
+            "rawSha256": "d95d582e6ccfc91c01780717c83054cd9b52aeffa43c934fbf568f550288cdd5"
+          },
+          "sourceWitness": {
+            "contentSha256": "8b0c1429506fe91d902e82679d965ec4f2e16e031a672364f2567fd3960d8ac7",
+            "path": "docs/operations/checkstyle-guava-evidence/source-witness.json",
+            "rawSha256": "b036b8a0ce8b62250775f044004724137bbf222b6241ff21bdd31d419d8ac709"
+          },
+          "sourceWorktreeClean": false
+        },
+        "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+        "commitSha": "88a7fb07a90fc1cef2b8185e88ed60aa1f83d2be",
+        "contentSha256": "04ee18c201feb085a7c64e940a195ae9f5ba52d9cbd35b1ad1db9199d5937449",
+        "currentE2GraphDigest": "b49dc95d7b88cc0c30fd8e3f81fc184204c9e94c5aa741ec12a4e68a9ee28a28",
+        "findingReviewRequired": true,
+        "importedBomChangeCount": 0,
+        "inventory": {
+          "componentCount": 237,
+          "edgeCount": 345,
+          "importedBomCount": 6,
+          "reactorRootCount": 26,
+          "resolvedPluginCoordinateCount": 269
+        },
+        "licenseChangeCount": 0,
+        "manifestSha256": "81eaf292170a5e5d684a34330d85fbe532ef728036a6ba174322d513a245c5e3",
+        "preservedCheckstylePluginLineage": {
+          "addedPluginCoordinateCount": 0,
+          "archivalCandidate": {
+            "e2": {
+              "contentSha256": "3d78169d94da0c42d47239b10933cb20bbd2c8fd10bff271172e9ae1e690e4d3",
+              "path": "docs/operations/checkstyle-plugin-evidence/candidate-E2.json",
+              "rawSha256": "a1817ce012ea0a31db300cde50418054ff259941aac8be0cb2fad2fe291e18e3"
+            },
+            "exactHeadEvidence": false,
+            "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+            "pluginReport": {
+              "path": "docs/operations/checkstyle-plugin-evidence/plugin-owner-report.txt",
+              "rawSha256": "12c701a4ec05e272464802655be0cdcba611116d70c483b2e2afd20656d0137b"
+            },
+            "sourceBaseHead": "4d685762d2db10497abe7668d1009b7e1a056796",
+            "sourceBaseTree": "f08f7160f69b93b29c881ee6b5f340611444d6dc",
+            "sourcePom": {
+              "path": "docs/operations/checkstyle-plugin-evidence/candidate-root-pom.xml",
+              "rawSha256": "d55f730aa8490c60ddf8c3d76d062fd6c4706be4816adf8db8936df15941a6fb"
+            },
+            "sourceWitness": {
+              "contentSha256": "dfffee86a7f8d0a7de967d2a5bb53151e793c21db2b1572237d3af8b279a52a5",
+              "path": "docs/operations/checkstyle-plugin-evidence/source-witness.json",
+              "rawSha256": "f32447eecb388a412c6fe874d5c8e03024073f70a252a1eae634cf74c2374cf8"
+            },
+            "sourceWorktreeClean": false
+          },
+          "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+          "commitSha": "01aa72c1d2dfdc5a85dd0ff61e2e2a9e7f727a0c",
+          "contentSha256": "9671d65f3c313af35b881751ba97604219fd6b842136b99e125210bfddb7341d",
+          "currentE2GraphDigest": "7a6b917477f2a9b4e1fea9eac40ae24a09af59cf93fe59737a08e3c8ff6868b0",
+          "findingReviewRequired": true,
+          "importedBomChangeCount": 0,
+          "inventory": {
+            "componentCount": 237,
+            "edgeCount": 345,
+            "importedBomCount": 6,
+            "reactorRootCount": 26,
+            "resolvedPluginCoordinateCount": 269
+          },
+          "licenseChangeCount": 0,
+          "manifestSha256": "a8b949328a79590b69de4e1aa5e88590432aeb63907d28178c4e6a792e457d2a",
+          "preservedCompilerPluginLineage": {
+            "addedPluginCoordinateCount": 0,
+            "archivalCandidate": {
+              "e2": {
+                "contentSha256": "0d03033d740dc426bdc32ac12f0784753f95440ebcea33b426bb2aa2be762004",
+                "path": "docs/operations/compiler-plugin-evidence/candidate-E2.json",
+                "rawSha256": "903c8f20091bfe7b6115c8011478a480c58156bd242c0df147aa7ffa1e7dce4f"
+              },
+              "exactHeadEvidence": false,
+              "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+              "pluginReport": {
+                "path": "docs/operations/compiler-plugin-evidence/plugin-owner-report.txt",
+                "rawSha256": "1d28b8fd0741cfc19bd976eff7c8af8c55769eaf0b001d6fe362bc2def95bb3c"
+              },
+              "sourceBaseHead": "0c55ff5e7d974022e5c76d9a88a4312d2af81827",
+              "sourceBaseTree": "2b378b6654f2bc246df7618b35db63cb9d817948",
+              "sourcePom": {
+                "path": "docs/operations/compiler-plugin-evidence/candidate-root-pom.xml",
+                "rawSha256": "1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a"
+              },
+              "sourceWitness": {
+                "contentSha256": "6ff12626401f2aa05046fb416c48eb1be01d1e305ca82b6753776419b6b6c213",
+                "path": "docs/operations/compiler-plugin-evidence/source-witness.json",
+                "rawSha256": "24fef7f9bccdc52e59d9f22c0048e1d4a306a1e07c79d0294c271190538b125a"
+              },
+              "sourceWorktreeClean": false
+            },
+            "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+            "commitSha": "4d685762d2db10497abe7668d1009b7e1a056796",
+            "contentSha256": "a91d957fc10ea5f59f7d30efa57951b7f2b05268ca331bebc6f4b63dabd43707",
+            "currentE2GraphDigest": "92f6b10a9fd199bbea69ce3a1bc743b77b00990b1e7ec4b1ca695407da7c91fe",
+            "findingReviewRequired": true,
+            "importedBomChangeCount": 0,
+            "inventory": {
+              "componentCount": 237,
+              "edgeCount": 345,
+              "importedBomCount": 6,
+              "reactorRootCount": 26,
+              "resolvedPluginCoordinateCount": 270
+            },
+            "licenseChangeCount": 0,
+            "manifestSha256": "30271a5c58a1a50cdaa9d044d59f5caf5cb4e79fd9cca3921c4b7b9127d8a109",
+            "preservedCleanPluginLineage": {
+              "addedPluginCoordinateCount": 0,
+              "archivalCandidate": {
+                "e2": {
+                  "contentSha256": "f4e7f0bc5dd2a77ea6e81bd61539d1c1afd0f1ffd7de51ee30c66eab5c1fb19a",
+                  "path": "docs/operations/clean-plugin-evidence/precommit-candidate-E2.json",
+                  "rawSha256": "e6bedb11b031b1ede7a724f792b87688e8700ae95532b908bc9a40ae19b8464b"
+                },
+                "exactHeadEvidence": false,
+                "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+                "pluginReport": {
+                  "path": "docs/operations/clean-plugin-evidence/plugin-owner-report.txt",
+                  "rawSha256": "78f8dfa63888ef5a671a10a928716b5ae8d1e7d7265c7ec4ac9757bcb49e31fc",
+                  "sourceReportSha256": "78f8dfa63888ef5a671a10a928716b5ae8d1e7d7265c7ec4ac9757bcb49e31fc"
+                },
+                "sourceBaseHead": "757fe355b2d868916e112f2fcbbe093b865e0669",
+                "sourceBaseTree": "c305d47c2049e500af916da83632e221cc2e36e3",
+                "sourcePom": {
+                  "path": "docs/operations/clean-plugin-evidence/precommit-pom.xml",
+                  "rawSha256": "e5637b8d5752474f9d1940f7b295ef0d3046bc6460391992f1936d4b306f40f2"
+                },
+                "sourceWitness": {
+                  "contentSha256": "9d1394cb758a8d62cad204efb5d58353ecd4002c873fc93566f2485a0a6163a3",
+                  "path": "docs/operations/clean-plugin-evidence/source-witness.json",
+                  "rawSha256": "0221ce68617ccecc2c1c5d7f6c56b3a886dbea64f6352dff6837137cecd98a82"
+                },
+                "sourceWorktreeClean": false
+              },
+              "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+              "commitSha": "0c55ff5e7d974022e5c76d9a88a4312d2af81827",
+              "contentSha256": "a1d709d9bb956625480d5f65e3c9164dd26d4b7fc345d3267087684605ea8e9c",
+              "currentE2GraphDigest": "255008a8cf1b3d57182cdd47c680aad7e484b027f23ae5e3a19590791732d950",
+              "findingReviewRequired": true,
+              "importedBomChangeCount": 0,
+              "inventory": {
+                "componentCount": 237,
+                "edgeCount": 345,
+                "importedBomCount": 6,
+                "reactorRootCount": 26,
+                "resolvedPluginCoordinateCount": 271
+              },
+              "licenseChangeCount": 0,
+              "manifestSha256": "9d810b921b021ce10eca41c6ff278964ed16210285fbca0e9c8af0814464e7b1",
+              "preservedReleasePluginLineage": {
+                "addedPluginCoordinateCount": 26,
+                "archivalCandidate": {
+                  "e2": {
+                    "contentSha256": "6ff899787d566b7526064d4d607b7955718379c575b87de65bd3f4dff2bf4897",
+                    "path": "docs/operations/release-plugin-evidence/precommit-candidate-E2.json",
+                    "rawSha256": "f02401bc985fc810ce626571493f8037e4c62a7c887c0c526647732a436ad6f8"
+                  },
+                  "exactHeadEvidence": false,
+                  "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+                  "pluginReport": {
+                    "path": "docs/operations/release-plugin-evidence/plugin-report-segments.json",
+                    "rawSha256": "e9d065a7e4521be4fc6999ebefc34649887387dd401eec8ddbdac4516e8cdaed",
+                    "sourceReportSha256": "2cbd1cd9f5fbfabab0b2ce7f8a2c7f5fe3f9bd43bf91b3db1bb444b513a70fcb"
+                  },
+                  "sourceBaseHead": "1aecc248d963556a9c00efbc55dd002cb7bc0a75",
+                  "sourcePomSha256": "1db89fd63a63880d84f15071dda4e4e1553b4a6b6cf69849f505e4e736c9d98b",
+                  "sourceWorktreeClean": false
+                },
+                "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+                "commitSha": "757fe355b2d868916e112f2fcbbe093b865e0669",
+                "contentSha256": "b99400f63544b6832406a7394148c0b794e6b53c92f6010cf4bfeff53ce8db69",
+                "currentE2GraphDigest": "7a719e7a07e9c7c51c5dddc228f4f00cb89ec7a62b4731067d2d977bc72ebc63",
+                "findingReviewRequired": true,
+                "importedBomChangeCount": 0,
+                "inventory": {
+                  "componentCount": 237,
+                  "edgeCount": 345,
+                  "importedBomCount": 6,
+                  "reactorRootCount": 26,
+                  "resolvedPluginCoordinateCount": 272
+                },
+                "licenseChangeCount": 0,
+                "manifestSha256": "a696e3ea1e23ca22838c90b7387f12e0a87e5c4f8ec927ebcd44ca93ac754ed9",
+                "preservedSiteDependencyPluginLineage": {
+                  "addedPluginCoordinateCount": 69,
+                  "archivalCandidate": {
+                    "e2": {
+                      "contentSha256": "69d4ae5beb112eb6d50986ad311c760a6eef69c4482117bad7ff77306fde61c6",
+                      "path": "docs/operations/site-dependency-plugin-evidence/precommit-candidate-E2.json",
+                      "rawSha256": "4b18e41a0335d896efb9185e5fbedb472484cdf2bb9baa22eabbbc58f910763e"
+                    },
+                    "exactHeadEvidence": false,
+                    "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+                    "pluginReport": {
+                      "path": "docs/operations/site-dependency-plugin-evidence/plugin-report-segments.json",
+                      "rawSha256": "432f35088ce345966bbd6a5139d1f979ad39a107a77fb55848b7b7e7bb1e6974",
+                      "sourceReportSha256": "fe5814b0c77a377d1237ca4f53243dbe1ff5401a53344d03a66aad7442165ec2"
+                    },
+                    "sourceBaseHead": "ea71ab67467779c7b4dc83c8a67508f6bfd73055",
+                    "sourcePomSha256": "53d9a654ec4feed7c44ddfc4874d27ba288381e69f4cc1720ecd1b4ece87a734",
+                    "sourceWorktreeClean": false
+                  },
+                  "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+                  "commitSha": "1aecc248d963556a9c00efbc55dd002cb7bc0a75",
+                  "contentSha256": "cb90e9eb003905092fa648933a354c9550ee1ee1964826b84ccdccb6cc1214cc",
+                  "currentE2GraphDigest": "e7a2f92ae31e016e6691eb8625311a32e930ef1103836ad28a45a9b4c27748b6",
+                  "findingReviewRequired": true,
+                  "importedBomChangeCount": 0,
+                  "inventory": {
+                    "componentCount": 237,
+                    "edgeCount": 345,
+                    "importedBomCount": 6,
+                    "reactorRootCount": 26,
+                    "resolvedPluginCoordinateCount": 282
+                  },
+                  "licenseChangeCount": 0,
+                  "manifestSha256": "6aa929fb3e460451ca62f8271854c50db59f8f59e928e101c8064c9a905e0d9f",
+                  "preservedBuildPluginJacksonLineage": {
+                    "archivalCandidate": {
+                      "e2": {
+                        "contentSha256": "9eea200e0d5b01767de636e9489cb2cbdbcbdfb653e0e5905c4ec480ccd94f9b",
+                        "path": "docs/operations/build-plugin-jackson-evidence/precommit-candidate-E2.json",
+                        "rawSha256": "46821dad12b659c1d41949aa4123d42ad71893e9857da5cdeed130e83dc06e78"
+                      },
+                      "exactHeadEvidence": false,
+                      "kind": "LOCAL_PRECOMMIT_POM_CANDIDATE",
+                      "sourceBaseHead": "28a9db4cf6372793ce32801d9812ab688d348b02",
+                      "sourcePomSha256": "1e1999da948c22d5e7b704e81ee84b0849889b09a94e1deb1d16a4e806f1ddef",
+                      "sourceWorktreeClean": false
+                    },
+                    "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+                    "commitSha": "ea71ab67467779c7b4dc83c8a67508f6bfd73055",
+                    "contentSha256": "e737b12b4c28ca192c3cb31356382afda67313b2bb070af679b6ead2ab6a1256",
+                    "currentE2GraphDigest": "f2e4ca66b29bd4e819f8751117e56900416d47c474de270d84e9d2ef552c92c3",
+                    "findingReviewRequired": true,
+                    "importedBomChangeCount": 0,
+                    "inventory": {
+                      "componentCount": 237,
+                      "edgeCount": 345,
+                      "importedBomCount": 6,
+                      "reactorRootCount": 26,
+                      "resolvedPluginCoordinateCount": 329
+                    },
+                    "licenseChangeCount": 0,
+                    "manifestSha256": "315f897668e2ec542fd00656413d7bc369af5b976879f3088869a6ce8b3aed52",
+                    "pluginCoordinateVersionChangeCount": 2,
+                    "preservedServerGraphLineage": {
+                      "addedImportedBomCount": 2,
+                      "archivalE2ContentSha256": "4c423ae6f24cbdd6a83c07f2176e254dfbee413a1e49ca9f28c3524a050b43b7",
+                      "archivalSourceHead": "921d5ec5a770cccdfa24f9cf809b0a3a609f9cbe",
+                      "archivalSourceTree": "79c138d18075b54e800829eb903cb58a0b39b040",
+                      "baseE2GraphDigest": "2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94",
+                      "commitSha": "28a9db4cf6372793ce32801d9812ab688d348b02",
+                      "componentVersionChangeCount": 90,
+                      "contentSha256": "14b595e396486ab5316b17fd8cb3f9ee1455a7a610bab80a61b9a3af9daebad1",
+                      "currentE2GraphDigest": "6557cef5d2ef11c36a8efb89cf7c1c607c721e32cdbabf0228441bb585b3c829",
+                      "findingReviewRequired": true,
+                      "foundationManifestSha256": "8aa64be5a9db6a6c7988226e5386592b94b91b034c10c6ccb914c2a171a26993",
+                      "importedBomVersionChangeCount": 1,
+                      "intermediateE2GraphDigest": "27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37",
+                      "inventory": {
+                        "componentCount": 237,
+                        "edgeCount": 345,
+                        "importedBomCount": 6,
+                        "priorImportedBomCount": 4,
+                        "reactorRootCount": 26,
+                        "resolvedPluginCoordinateCount": 329,
+                        "unknownLicenseComponentCount": 78
+                      },
+                      "licenseChangeCount": 0,
+                      "manifestSha256": "32f5da54a05cdaee6e5eaa555ffc3df99b088c4d4b6f214d874876eef41ab8df",
+                      "otelManifestSha256": "20e7bf496628c36b5afb66d593b57424bb092d80666c41b7097849380a98dc86",
+                      "pluginCoordinateVersionChangeCount": 13,
+                      "priorE2GraphDigest": "390773d2aa746a2203eec870e5dd0a8f97f81e91913bb016c9ef95b749c0e7b3",
+                      "releaseBlocked": true,
+                      "repository": "akaryc1b/approval-platform",
+                      "rewrittenEdgeCount": 180,
+                      "schemaVersion": "APPROVAL_SERVER_DEPENDENCY_GRAPH_LINEAGE_V1",
+                      "scopeChangeCount": 0,
+                      "sourceE2ContentSha256": "6994858ba6dae570659a9c40fda264feab18c8fbd31fe90a570d24326b0bf838",
+                      "sourceWitnessSha256": "0975f7932690123120fd9dd11606b0a5d4a971d083b62d25985a0694b136e18c"
+                    },
+                    "priorE2GraphDigest": "6557cef5d2ef11c36a8efb89cf7c1c607c721e32cdbabf0228441bb585b3c829",
+                    "releaseBlocked": true,
+                    "repository": "akaryc1b/approval-platform",
+                    "runtimeComponentChangeCount": 0,
+                    "runtimeEdgeChangeCount": 0,
+                    "schemaVersion": "APPROVAL_BUILD_PLUGIN_JACKSON_GRAPH_LINEAGE_V1",
+                    "scopeChangeCount": 0,
+                    "sourceE2ContentSha256": "3c66dff4322d6920c0666203e2fbd09542cccdd3249fa4f7fb401f02de792a4a"
+                  },
+                  "priorE2GraphDigest": "f2e4ca66b29bd4e819f8751117e56900416d47c474de270d84e9d2ef552c92c3",
+                  "releaseBlocked": true,
+                  "removedPluginCoordinateCount": 116,
+                  "repository": "akaryc1b/approval-platform",
+                  "runtimeComponentChangeCount": 0,
+                  "runtimeEdgeChangeCount": 0,
+                  "schemaVersion": "APPROVAL_SITE_DEPENDENCY_PLUGIN_GRAPH_LINEAGE_V1",
+                  "scopeChangeCount": 0,
+                  "sourceE2ContentSha256": "38aff337f77aab1b19b1b2bdd215696011e9ab2d0a930c7835c672d9e84b2c97",
+                  "unchangedOtherPluginOwnerCount": 15
+                },
+                "priorE2GraphDigest": "e7a2f92ae31e016e6691eb8625311a32e930ef1103836ad28a45a9b4c27748b6",
+                "releaseBlocked": true,
+                "removedPluginCoordinateCount": 36,
+                "repository": "akaryc1b/approval-platform",
+                "runtimeComponentChangeCount": 0,
+                "runtimeEdgeChangeCount": 0,
+                "schemaVersion": "APPROVAL_RELEASE_PLUGIN_GRAPH_LINEAGE_V1",
+                "scopeChangeCount": 0,
+                "sourceE2ContentSha256": "04738e5be3a900c7993c2a7700dc932ce666eb76089fcc7d35d25da0efa623e2",
+                "unchangedOtherPluginOwnerCount": 16
+              },
+              "priorE2GraphDigest": "7a719e7a07e9c7c51c5dddc228f4f00cb89ec7a62b4731067d2d977bc72ebc63",
+              "releaseBlocked": true,
+              "removedPluginCoordinateCount": 1,
+              "repository": "akaryc1b/approval-platform",
+              "runtimeComponentChangeCount": 0,
+              "runtimeEdgeChangeCount": 0,
+              "schemaVersion": "APPROVAL_CLEAN_PLUGIN_GRAPH_LINEAGE_V1",
+              "scopeChangeCount": 0,
+              "sourceE2ContentSha256": "8df130e795ff0d445534b9ab6f4591723a0e0957cda86b2b4240651bb8cce316",
+              "sourceWitnessSha256": "0221ce68617ccecc2c1c5d7f6c56b3a886dbea64f6352dff6837137cecd98a82",
+              "unchangedOtherPluginOwnerCount": 16
+            },
+            "priorE2GraphDigest": "255008a8cf1b3d57182cdd47c680aad7e484b027f23ae5e3a19590791732d950",
+            "releaseBlocked": true,
+            "removedPluginCoordinateCount": 1,
+            "repository": "akaryc1b/approval-platform",
+            "runtimeComponentChangeCount": 0,
+            "runtimeEdgeChangeCount": 0,
+            "schemaVersion": "APPROVAL_COMPILER_PLUGIN_GRAPH_LINEAGE_V1",
+            "scopeChangeCount": 0,
+            "sourceE2ContentSha256": "3cf330df4ace8afe354d806443809c8127dc466a032ac3eee30e3d1511834b47",
+            "sourceWitnessSha256": "24fef7f9bccdc52e59d9f22c0048e1d4a306a1e07c79d0294c271190538b125a",
+            "unchangedOtherPluginOwnerCount": 16
+          },
+          "priorE2GraphDigest": "92f6b10a9fd199bbea69ce3a1bc743b77b00990b1e7ec4b1ca695407da7c91fe",
+          "releaseBlocked": true,
+          "removedPluginCoordinateCount": 1,
+          "repository": "akaryc1b/approval-platform",
+          "runtimeComponentChangeCount": 0,
+          "runtimeEdgeChangeCount": 0,
+          "schemaVersion": "APPROVAL_CHECKSTYLE_PLUGIN_GRAPH_LINEAGE_V1",
+          "scopeChangeCount": 0,
+          "sourceE2ContentSha256": "8a490bd73a5aca2adc8a7121a436c3906712c752f05b39f23c658467f253088a",
+          "sourceWitnessSha256": "f32447eecb388a412c6fe874d5c8e03024073f70a252a1eae634cf74c2374cf8",
+          "unchangedOtherPluginOwnerCount": 16
+        },
+        "priorE2GraphDigest": "7a6b917477f2a9b4e1fea9eac40ae24a09af59cf93fe59737a08e3c8ff6868b0",
+        "releaseBlocked": true,
+        "removedPluginCoordinateCount": 4,
+        "repository": "akaryc1b/approval-platform",
+        "runtimeComponentChangeCount": 0,
+        "runtimeEdgeChangeCount": 0,
+        "schemaVersion": "APPROVAL_CHECKSTYLE_GUAVA_GRAPH_LINEAGE_V1",
+        "scopeChangeCount": 0,
+        "sourceE2ContentSha256": "bb9d047570ec21758651a9a4fdf6d348e8ff939f4d096c7f870ffcb951b5aaf8",
+        "sourceWitnessSha256": "b036b8a0ce8b62250775f044004724137bbf222b6241ff21bdd31d419d8ac709",
+        "unchangedOtherPluginOwnerCount": 16
+      },
+      "priorE2GraphDigest": "b49dc95d7b88cc0c30fd8e3f81fc184204c9e94c5aa741ec12a4e68a9ee28a28",
+      "releaseBlocked": true,
+      "removedPluginCoordinateCount": 3,
+      "repository": "akaryc1b/approval-platform",
+      "runtimeComponentChangeCount": 0,
+      "runtimeEdgeChangeCount": 0,
+      "schemaVersion": "APPROVAL_BOOT_HTTP_GRAPH_LINEAGE_V1",
+      "scopeChangeCount": 0,
+      "sourceE2ContentSha256": "b830275af28ea38f6d6f98178d4221a8146a22aae51ef391c445564a183ef8df",
+      "sourceWitnessSha256": "9b7109854c4fb7cfb946036fb6a71490d6f40f308c5c0fea3669b6fa9f2e68fc",
+      "unchangedOtherPluginOwnerCount": 16
+    },
+    "priorE2GraphDigest": "5760ae70a04b967548d991397b14076d8aaf45bb4bd3bd00e917317fdd649867",
+    "releaseBlocked": true,
+    "removedPluginCoordinateCount": 2,
+    "repository": "akaryc1b/approval-platform",
+    "runtimeComponentChangeCount": 0,
+    "runtimeEdgeChangeCount": 0,
+    "schemaVersion": "APPROVAL_BOOT_UTILITIES_GRAPH_LINEAGE_V1",
+    "scopeChangeCount": 0,
+    "sourceE2ContentSha256": "64ad618e8a39c8884b8e5c1f6a9143b2a755f2907eda7fd4c46450c7673daf3d",
+    "sourceWitnessSha256": "71447f2d07ad2714bbd6965da1ce286702495308bb1cf4f283936cb7a6bbe1ef",
+    "unchangedOtherPluginOwnerCount": 16
+  },
+  "priorE2GraphDigest": "454934f756eb08a49bc6d74435f12064df6c74286cad358558b0e73dda78c9ca",
+  "releaseBlocked": true,
+  "removedPluginCoordinateCount": 2,
+  "repository": "akaryc1b/approval-platform",
+  "runtimeComponentChangeCount": 0,
+  "runtimeEdgeChangeCount": 0,
+  "schemaVersion": "APPROVAL_JACOCO_ANTRUN_GRAPH_LINEAGE_V1",
+  "scopeChangeCount": 0,
+  "sourceE2ContentSha256": "72c4eccff422404896634bc5f6da7da46a354e8adc99d43352efbef03581e8c5",
+  "sourceWitnessSha256": "56e5701e73c25262887edcf73663cf9f7eff870a34891927107dfeceec174971",
+  "unchangedOtherPluginOwnerCount": 15
+}

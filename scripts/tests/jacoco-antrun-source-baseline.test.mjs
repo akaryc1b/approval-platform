@@ -73,7 +73,13 @@ contract=runpy.run_path(str(current/'scripts/ci/jacoco_antrun_contract.py'))
 clean=runpy.run_path(str(current/'scripts/ci/clean_plugin_contract.py'))
 result={}
 for label,source in [('before',prior),('after',current)]:
-    template=ET.parse(source/'pom.xml').getroot();props=template.find('m:properties',ns)
+    raw=(source/'pom.xml').read_bytes()
+    if b'<artifactId>maven-assembly-plugin</artifactId>' in raw:
+        # This is the historical pair model fixture; validate and reverse only
+        # the separately tested Assembly addition before generating its models.
+        assembly=runpy.run_path(str(current/'scripts/ci/assembly_plexus_contract.py'))
+        assembly['verify_source'](source);raw=assembly['reverse_source'](raw)
+    template=ET.fromstring(raw);props=template.find('m:properties',ns)
     pins={n.tag.removeprefix(p):n.text for n in props}
     if label=='before':
         managed=template.find('m:build/m:pluginManagement/m:plugins',ns)
