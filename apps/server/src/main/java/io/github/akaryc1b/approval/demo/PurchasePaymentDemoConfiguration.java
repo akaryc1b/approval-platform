@@ -23,10 +23,13 @@ import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -39,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Explicitly enabled, local-profile-only purchase-payment demo seed.
+ * Explicitly enabled, local-profile-only purchase-payment demo dependencies and optional seed.
  */
 @Configuration(proxyBeanMethods = false)
 @Profile("local")
@@ -126,6 +129,31 @@ public class PurchasePaymentDemoConfiguration {
     }
 
     @Bean
+    ApplicationListener<ApplicationReadyEvent> purchasePaymentDemoStartupMode(
+        @Value("${approval.demo.purchase-payment.seed.enabled:true}") String seedEnabled
+    ) {
+        if (!"true".equals(seedEnabled) && !"false".equals(seedEnabled)) {
+            throw new IllegalArgumentException(
+                "approval.demo.purchase-payment.seed.enabled must be exactly true or false"
+            );
+        }
+        return event -> {
+            if ("false".equals(seedEnabled)) {
+                LOGGER.info(
+                    "PURCHASE_PAYMENT_DEMO_RESTORE_ONLY_STARTED seedEnabled=false "
+                        + "restoredDataVerified=false"
+                );
+            }
+        };
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        prefix = "approval.demo.purchase-payment.seed",
+        name = "enabled",
+        havingValue = "true",
+        matchIfMissing = true
+    )
     ApplicationRunner purchasePaymentDemoSeedRunner(
         PurchasePaymentDemoSeeder seeder,
         PurchasePaymentDemoSeedState state,
@@ -222,8 +250,9 @@ public class PurchasePaymentDemoConfiguration {
                     + "actor binding cannot be automatically replayed or reseeded. Startup "
                     + "has stopped; preserve the database and receipts for review. Do not "
                     + "delete receipts or change fixed seed keys to bypass this conflict. "
-                    + "To inspect the existing database without reseeding, disable "
-                    + "approval.demo.purchase-payment.enabled.",
+                    + "To start preserved local demo data without reseeding, use "
+                    + "demo-backend.mjs start-restored (approval.demo.purchase-payment.seed.enabled=false). "
+                    + "Restore-only startup does not validate or re-authorize legacy receipts.",
                 conflict
             );
         }
@@ -254,6 +283,12 @@ public class PurchasePaymentDemoConfiguration {
     }
 
     @Bean("purchasePaymentDemoSeed")
+    @ConditionalOnProperty(
+        prefix = "approval.demo.purchase-payment.seed",
+        name = "enabled",
+        havingValue = "true",
+        matchIfMissing = true
+    )
     HealthIndicator purchasePaymentDemoSeedHealthIndicator(
         PurchasePaymentDemoSeedState state
     ) {

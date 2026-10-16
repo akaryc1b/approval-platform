@@ -1,3 +1,4 @@
+import { selectedFiles } from '../product-readiness/capacity-recovery/ci-scope.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -308,4 +309,18 @@ test('documentation distinguishes executable local references from accepted evid
   assert.match(operatingEnvelope, /evidence pending/iu);
   assert.match(operatingEnvelope, /RPO_RTO_NOT_VERIFIED/u);
   assert.doesNotMatch(operatingEnvelope, /production supported/iu);
+});
+
+
+test('shared backend startup helper alone selects this CI scope with exact-path boundaries', () => {
+  const path = 'scripts/product-readiness/demo-backend-startup.mjs';
+  assert.deepEqual(selectedFiles([path]), [path]);
+  for (const nearby of [
+    'scripts/product-readiness/demo-backend-startup-extra.mjs',
+    'scripts/product-readiness/demo-backend-startup.mjs.bak',
+    'scripts/product-readiness/demo-backend-startup.js',
+    'other/scripts/product-readiness/demo-backend-startup.mjs',
+  ]) {
+    assert.deepEqual(selectedFiles([nearby]), [], nearby);
+  }
 });

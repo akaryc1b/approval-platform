@@ -10,6 +10,14 @@ import {
   recordReusableBuild,
   reusableBuild,
 } from './capacity-recovery/demo-backend-build-reuse.mjs';
+import {
+  backendApplicationArguments,
+  backendEnvironment,
+  backendReady,
+  observeBackendOutput,
+  startupContract,
+  startupMode,
+} from './demo-backend-startup.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const rootPomPath = resolve(root, 'pom.xml');
@@ -20,8 +28,7 @@ const healthUrl = 'http://localhost:8080/actuator/health';
 const infrastructureTimeoutMs = 120_000;
 const backendTimeoutMs = 240_000;
 const pollIntervalMs = 1_500;
-const seedMarker = 'PURCHASE_PAYMENT_DEMO_SEED_APPLIED';
-const commands = new Set(['start', 'plan', 'stop', 'reset']);
+const commands = new Set(['start', 'start-restored', 'plan', 'plan-restored', 'stop', 'reset']);
 const capacityBuildReuseVariable = 'APPROVAL_DEMO_CAPACITY_REUSE_BUILD';
 
 class UsageError extends Error {}
@@ -34,7 +41,7 @@ function parseArguments(argv) {
 
   const flags = new Set(values);
   const allowed = new Set(['--help']);
-  if (command === 'plan') allowed.add('--json');
+  if (command === 'plan' || command === 'plan-restored') allowed.add('--json');
   if (command === 'reset') allowed.add('--confirm-local-data-loss');
   const unknown = [...flags].filter(flag => !allowed.has(flag));
   if (unknown.length > 0) {
@@ -49,7 +56,7 @@ function parseArguments(argv) {
 }
 
 function usage() {
-  return `Usage: node scripts/product-readiness/demo-backend.mjs [command] [options]\n\nCommands:\n  start   Run preflight, start PostgreSQL/Redis, build, start the real backend,\n          wait for Actuator UP and the deterministic seed, then remain attached.\n  plan    Print the exact non-destructive startup plan without executing it.\n  stop    Stop local Compose infrastructure without deleting its volume.\n  reset   Delete the disposable local Compose volume. Requires\n          --confirm-local-data-loss.\n\nOptions:\n  --json                     Machine-readable output for plan.\n  --confirm-local-data-loss  Required only for reset.\n  --help                     Show this help.\n\nThis command does not prove the 10-minute Quick Start, a complete approval E2E,\npayment integration, cross-client consistency, capacity, or recovery.`;
+  return `Usage: node scripts/product-readiness/demo-backend.mjs [command] [options]\n\nCommands:\n  start   Run preflight, start PostgreSQL/Redis, build, start the real backend,\n          wait for Actuator UP and the deterministic seed, then remain attached.\n  start-restored  Start preserved local data with demo dependencies but no seed;\n                  wait for health UP and the restore-only startup marker.\n  plan    Print the exact non-destructive seeded startup plan.\n  plan-restored  Print the non-destructive restore-only startup plan.\n  stop    Stop local Compose infrastructure without deleting its volume.\n  reset   Delete the disposable local Compose volume. Requires\n          --confirm-local-data-loss.\n\nOptions:\n  --json                     Machine-readable output for either plan command.\n  --confirm-local-data-loss  Required only for reset.\n  --help                     Show this help.\n\nThis command does not prove the 10-minute Quick Start, a complete approval E2E,\npayment integration, cross-client consistency, capacity, or recovery.`;
 }
 
 function rootRevision() {
@@ -75,13 +82,19 @@ function capacityBuildReuseRequested() {
   );
 }
 
-function startupPlan() {
+function startupPlan(command) {
+  const mode = startupMode(command);
+  const contract = startupContract(mode);
   const compose = `docker compose --project-name ${composeProject} -f ${composeFile}`;
   const revision = rootRevision();
   const profile = `-P${demoMavenProfile}`;
   return {
     schemaVersion: 1,
-    entrypoint: 'pnpm demo:backend:start',
+    entrypoint: mode === 'seed'
+      ? 'pnpm demo:backend:start'
+      : 'node scripts/product-readiness/demo-backend.mjs start-restored',
+    startupMode: mode,
+    seedEnabled: contract.seedEnabled === 'true',
     destructive: false,
     revision,
     steps: [
@@ -109,22 +122,23 @@ function startupPlan() {
       {
         id: 'backend',
         command: 'APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED=true '
+          + `APPROVAL_DEMO_PURCHASE_PAYMENT_SEED_ENABLED=${contract.seedEnabled} `
           + `mvn -B -ntp ${profile} -Drevision=${revision} -pl :approval-server `
-          + 'spring-boot:run -Dspring-boot.run.profiles=local',
+          + 'spring-boot:run -Dspring-boot.run.profiles=local '
+          + `-Dspring-boot.run.arguments="${backendApplicationArguments(mode)}"`,
       },
       {
         id: 'health',
         command: `GET ${healthUrl}`,
       },
       {
-        id: 'seed',
-        command: `wait for ${seedMarker}`,
+        id: mode === 'seed' ? 'seed' : 'restore-only-startup',
+        command: `wait for ${contract.applicationMarker}`,
       },
     ],
     successMarkers: [
-      'DEMO_BACKEND_ONE_COMMAND_STARTED',
-      'BACKEND_LOCAL_START_VERIFIED',
-      seedMarker,
+      ...contract.successMarkers,
+      contract.applicationMarker,
     ],
     nonClaims: [
       'QUICK_START_10_MINUTES_NOT_EXECUTED',
@@ -132,12 +146,16 @@ function startupPlan() {
       'PURCHASE_TO_PAYMENT_SANDBOX_E2E_NOT_EXECUTED',
       'CROSS_CLIENT_RUNTIME_NOT_EXECUTED',
       'PRODUCTION_PAYMENT_INTEGRATION_NOT_VERIFIED',
+      ...(mode === 'restore-only' ? [
+        'DETERMINISTIC_DEMO_SEED_NOT_EXECUTED',
+        'RESTORED_DATA_CONSISTENCY_NOT_VERIFIED',
+      ] : []),
     ],
   };
 }
 
-function printPlan(jsonOutput) {
-  const value = startupPlan();
+function printPlan(command, jsonOutput) {
+  const value = startupPlan(command);
   if (jsonOutput) {
     console.log(JSON.stringify(value, null, 2));
     return;
@@ -255,14 +273,20 @@ function readLocalDatabaseEnvironment() {
   return Object.fromEntries(required.map(name => [name, parsed.get(name)]));
 }
 
-function attachOutput(child, state) {
+function attachOutput(child, state, mode) {
   const forward = (stream, target) => {
     stream.on('data', chunk => {
       const text = chunk.toString('utf8');
+      try {
+        observeBackendOutput(mode, state, text);
+      } catch (error) {
+        state.spawnError = error;
+        terminateChild(child, 'SIGTERM');
+        const forceTimer = setTimeout(() => terminateChild(child, 'SIGKILL'), 10_000);
+        forceTimer.unref();
+        return;
+      }
       target.write(text);
-      state.recentOutput = `${state.recentOutput}${text}`.slice(-65_536);
-      const match = state.recentOutput.match(/PURCHASE_PAYMENT_DEMO_SEED_APPLIED[^\r\n]*/u);
-      if (match) state.seedLine = match[0];
     });
   };
   forward(child.stdout, process.stdout);
@@ -286,7 +310,7 @@ async function readHealth() {
   }
 }
 
-async function waitForBackend(child, state, isStopping) {
+async function waitForBackend(child, state, isStopping, mode) {
   const deadline = Date.now() + backendTimeoutMs;
   let lastHealth = 'not requested';
   while (Date.now() < deadline) {
@@ -297,11 +321,11 @@ async function waitForBackend(child, state, isStopping) {
     }
     const health = await readHealth();
     lastHealth = health.detail;
-    if (health.ready && state.seedLine) return true;
+    if (backendReady(mode, health.ready, state)) return true;
     await delay(1_000);
   }
   throw new Error(
-    `Backend did not reach health UP and deterministic seed completion: ${bounded(lastHealth)}`,
+    `Backend did not reach health UP and ${startupContract(mode).applicationMarker}: ${bounded(lastHealth)}`,
   );
 }
 
@@ -322,7 +346,9 @@ function terminateChild(child, signal) {
   }
 }
 
-async function start() {
+async function start(command) {
+  const mode = startupMode(command);
+  const contract = startupContract(mode);
   runNodeChecked('Read-only workstation preflight', [
     'scripts/product-readiness/demo-preflight.mjs',
   ]);
@@ -378,7 +404,9 @@ async function start() {
   }
 
   const localDatabaseEnvironment = readLocalDatabaseEnvironment();
-  console.log('\n==> Start real backend with explicit local seed');
+  console.log(mode === 'seed'
+    ? '\n==> Start real backend with explicit local seed'
+    : '\n==> Start local backend in restore-only mode without running the seed');
   const child = spawn(mavenExecutable(), [
     '-B',
     '-ntp',
@@ -388,22 +416,19 @@ async function start() {
     ':approval-server',
     'spring-boot:run',
     '-Dspring-boot.run.profiles=local',
+    `-Dspring-boot.run.arguments=${backendApplicationArguments(mode)}`,
   ], {
     cwd: root,
-    env: {
-      ...process.env,
-      ...localDatabaseEnvironment,
-      APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED: 'true',
-    },
+    env: backendEnvironment(mode, process.env, localDatabaseEnvironment),
     detached: process.platform !== 'win32',
     shell: false,
     stdio: ['inherit', 'pipe', 'pipe'],
   });
-  const state = { recentOutput: '', seedLine: null, spawnError: null };
+  const state = { recentOutput: '', seedLine: null, restoreLine: null, spawnError: null };
   child.once('error', error => {
     state.spawnError = error;
   });
-  attachOutput(child, state);
+  attachOutput(child, state, mode);
 
   let stopping = false;
   const requestStop = signal => {
@@ -419,7 +444,7 @@ async function start() {
 
   let ready;
   try {
-    ready = await waitForBackend(child, state, () => stopping);
+    ready = await waitForBackend(child, state, () => stopping, mode);
   } catch (error) {
     terminateChild(child, 'SIGTERM');
     const forceTimer = setTimeout(() => terminateChild(child, 'SIGKILL'), 10_000);
@@ -433,15 +458,20 @@ async function start() {
   }
 
   console.log('\nApproval Platform local demo backend is ready.');
-  console.log('DEMO_BACKEND_ONE_COMMAND_STARTED');
-  console.log('BACKEND_LOCAL_START_VERIFIED');
-  console.log(state.seedLine);
+  for (const marker of contract.successMarkers) console.log(marker);
+  if (mode === 'seed') console.log(state.seedLine);
+  else {
+    console.log(state.restoreLine);
+    console.log('DETERMINISTIC_DEMO_SEED_NOT_EXECUTED');
+    console.log('RESTORED_DATA_CONSISTENCY_NOT_VERIFIED');
+  }
   console.log('QUICK_START_10_MINUTES_NOT_EXECUTED');
   console.log('PURCHASE_APPROVAL_E2E_NOT_EXECUTED');
   console.log(`Health: ${healthUrl}`);
   console.log('Press Ctrl-C to stop the backend. PostgreSQL and Redis remain available.');
 
   const [code, signal] = await waitForExit(child);
+  if (state.spawnError) throw state.spawnError;
   if (!stopping && code !== 0) {
     throw new Error(`Backend exited with code ${code ?? '<none>'} signal ${signal ?? '<none>'}`);
   }
@@ -475,8 +505,8 @@ async function main() {
     console.log(usage());
     return;
   }
-  if (options.command === 'plan') {
-    printPlan(options.json);
+  if (options.command === 'plan' || options.command === 'plan-restored') {
+    printPlan(options.command, options.json);
     return;
   }
   if (options.command === 'stop') {
@@ -487,7 +517,7 @@ async function main() {
     reset(options.confirmLocalDataLoss);
     return;
   }
-  await start();
+  await start(options.command);
 }
 
 main().catch(error => {

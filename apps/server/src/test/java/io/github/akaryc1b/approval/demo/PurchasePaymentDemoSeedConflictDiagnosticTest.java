@@ -95,6 +95,8 @@ class PurchasePaymentDemoSeedConflictDiagnosticTest {
         assertTrue(failure.getMessage().contains("legacy unbound receipt or an actor/request conflict"));
         assertTrue(failure.getMessage().contains("cannot be automatically replayed or reseeded"));
         assertTrue(failure.getMessage().contains("preserve the database and receipts"));
-        assertTrue(failure.getMessage().contains("disable approval.demo.purchase-payment.enabled"));
+        assertTrue(failure.getMessage().contains("demo-backend.mjs start-restored"));
+        assertTrue(failure.getMessage().contains("approval.demo.purchase-payment.seed.enabled=false"));
+        assertTrue(failure.getMessage().contains("does not validate or re-authorize legacy receipts"));
     }
 }

@@ -1,3 +1,4 @@
+import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -432,4 +433,18 @@ test('package, guide and permanent Hygiene expose the bounded smoke', () => {
     aggregate,
     /import '\.\/product-readiness-pc-h5-runtime-boundary\.test\.mjs';/u,
   );
+});
+
+
+test('shared backend startup helper alone selects this CI scope with exact-path boundaries', () => {
+  const path = 'scripts/product-readiness/demo-backend-startup.mjs';
+  assert.equal(relevantChangeSet([path]), true);
+  for (const nearby of [
+    'scripts/product-readiness/demo-backend-startup-extra.mjs',
+    'scripts/product-readiness/demo-backend-startup.mjs.bak',
+    'scripts/product-readiness/demo-backend-startup.js',
+    'other/scripts/product-readiness/demo-backend-startup.mjs',
+  ]) {
+    assert.equal(relevantChangeSet([nearby]), false, nearby);
+  }
 });
