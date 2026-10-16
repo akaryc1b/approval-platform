@@ -39,6 +39,10 @@ async function sourceFixture(t, pom) {
     path.join(moduleDirectory, 'assembly-plexus-source-continuation.mjs'));
   copyFileSync(new URL('../security/jar-plugin-source-continuation.mjs', import.meta.url),
     path.join(moduleDirectory, 'jar-plugin-source-continuation.mjs'));
+  const jarEvidenceDirectory = path.join(directory, 'docs/operations/jar-plugin-evidence');
+  mkdirSync(jarEvidenceDirectory, { recursive: true });
+  copyFileSync(new URL('../../docs/operations/jar-plugin-evidence/candidate-root-pom.xml', import.meta.url),
+    path.join(jarEvidenceDirectory, 'candidate-root-pom.xml'));
   const assemblyEvidenceDirectory = path.join(directory, 'docs/operations/assembly-plexus-evidence');
   mkdirSync(assemblyEvidenceDirectory, { recursive: true });
   writeFileSync(path.join(assemblyEvidenceDirectory, 'candidate-root-pom.xml'), assemblyPom);
