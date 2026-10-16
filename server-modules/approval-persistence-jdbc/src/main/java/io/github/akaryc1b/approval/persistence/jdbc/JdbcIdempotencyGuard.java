@@ -11,10 +11,17 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -23,6 +30,8 @@ import java.util.function.Supplier;
  * Stores the completed command result in the same transaction as the command side effects.
  */
 public final class JdbcIdempotencyGuard implements IdempotencyGuard {
+
+    private static final String REQUEST_HASH_DOMAIN = "approval-command-idempotency:actor-bound:v1";
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
@@ -64,11 +73,12 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
         requireHash(requestHash);
         Objects.requireNonNull(resultType, "resultType must not be null");
         Objects.requireNonNull(action, "action must not be null");
+        String boundRequestHash = bindActor(context.operatorId(), requestHash);
 
         T result = transactionTemplate.execute(status -> executeInTransaction(
             context,
             operation,
-            requestHash,
+            boundRequestHash,
             resultType,
             action
         ));
@@ -156,7 +166,7 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
         );
         if (!requestHash.equals(row.get("request_hash"))) {
             throw new IdempotencyConflictException(
-                "idempotency key was already used with a different request payload"
+                "idempotency key was already used with a different actor or request payload"
             );
         }
         if (!"COMPLETED".equals(row.get("status"))) {
@@ -194,6 +204,29 @@ public final class JdbcIdempotencyGuard implements IdempotencyGuard {
 
     private static OffsetDateTime offset(Instant value) {
         return value.atOffset(ZoneOffset.UTC);
+    }
+
+    private static String bindActor(String operatorId, String requestHash) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            updateFramed(digest, REQUEST_HASH_DOMAIN);
+            updateFramed(digest, operatorId);
+            updateFramed(digest, requestHash);
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 must be available", exception);
+        }
+    }
+
+    private static void updateFramed(MessageDigest digest, String value) {
+        try {
+            // The encoder rejects malformed Unicode instead of replacing distinct actors with '?'.
+            ByteBuffer bytes = StandardCharsets.UTF_8.newEncoder().encode(CharBuffer.wrap(value));
+            digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.remaining()).array());
+            digest.update(bytes);
+        } catch (CharacterCodingException exception) {
+            throw new IllegalArgumentException("idempotency identity must be valid UTF-8", exception);
+        }
     }
 
     private static void requireText(String value, String name) {

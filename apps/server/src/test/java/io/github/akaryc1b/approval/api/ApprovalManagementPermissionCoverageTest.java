@@ -14,6 +14,9 @@ class ApprovalManagementPermissionCoverageTest {
 
     @Test
     void managementControllersDeclareClosedCapabilities() {
+        assertPermission(PurchasePaymentController.class, "publish", Requirement.PUBLISH);
+        assertPermission(ApprovalFormController.class, "publish", Requirement.PUBLISH);
+        assertPermission(ApprovalUiSchemaController.class, "publish", Requirement.PUBLISH);
         assertPermission(ApprovalFormDesignController.class, "findDrafts", Requirement.READ);
         assertPermission(ApprovalFormDesignController.class, "update", Requirement.DESIGN);
         assertPermission(ApprovalFormDesignController.class, "publish", Requirement.PUBLISH);

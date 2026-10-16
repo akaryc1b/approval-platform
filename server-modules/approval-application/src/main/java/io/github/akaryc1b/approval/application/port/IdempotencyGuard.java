@@ -6,7 +6,10 @@ import java.util.function.Supplier;
 
 /**
  * Executes a write command at most once for a tenant, operation and idempotency key.
- * Implementations must durably return the original completed result for a replayed command.
+ * Implementations must bind that reservation to the authenticated operator in the request context
+ * and the request hash, and durably return the original completed result for a matching replay.
+ * A different operator or request hash must be rejected without invoking the action or exposing
+ * the cached result. Persistence adapters document compatibility with previously stored records.
  */
 public interface IdempotencyGuard {
 

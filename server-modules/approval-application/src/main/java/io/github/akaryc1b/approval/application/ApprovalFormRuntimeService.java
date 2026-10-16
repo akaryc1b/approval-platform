@@ -125,9 +125,12 @@ public final class ApprovalFormRuntimeService {
     }
 
     public RuntimeView taskRuntime(String tenantId, String operatorId, UUID taskId) {
-        TaskProjection task = requirePendingTask(tenantId, operatorId, taskId);
+        TaskProjection task = projections.findTask(tenantId, taskId)
+            .filter(value -> value.status() == TaskStatus.PENDING
+                && value.assigneeId().equals(operatorId))
+            .orElseThrow(ApprovalParticipantResourceNotFoundException::new);
         FormSubmission submission = submissions.findByInstance(tenantId, task.instanceId())
-            .orElseThrow(() -> new IllegalArgumentException("approval instance has no form snapshot"));
+            .orElseThrow(ApprovalParticipantResourceNotFoundException::new);
         PublishedForm form = requireForm(tenantId, submission.formKey(), submission.formVersion());
         UiSelection selection = pinnedUiSchema(submission, form.definition());
         RuntimePermissions permissions = permissions(

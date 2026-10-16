@@ -66,6 +66,7 @@ public class ApprovalFormController {
     }
 
     @PostMapping("/publish")
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.PUBLISH)
     public PublishResult publish(
         @RequestHeader(TENANT_ID) String tenantId,
         @RequestHeader(OPERATOR_ID) String operatorId,

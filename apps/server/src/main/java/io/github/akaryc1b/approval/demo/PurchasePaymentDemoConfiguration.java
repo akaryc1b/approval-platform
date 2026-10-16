@@ -132,7 +132,7 @@ public class PurchasePaymentDemoConfiguration {
         PurchasePaymentDemoScenario scenario,
         ApprovalFormSubmissionService formSubmissionService
     ) {
-        return arguments -> {
+        return arguments -> runSeedWithConflictDiagnostic(() -> {
             PurchasePaymentDemoSeedState.SeedEvidence initialEvidence = seeder.apply();
             List<String> attachmentIds = initialEvidence.attachments().stream()
                 .map(value -> value.attachmentId().toString())
@@ -209,7 +209,24 @@ public class PurchasePaymentDemoConfiguration {
                     .map(value -> value.attachmentId().toString())
                     .toList()
             );
-        };
+        });
+    }
+
+    static void runSeedWithConflictDiagnostic(Runnable seed) {
+        try {
+            seed.run();
+        } catch (IdempotencyGuard.IdempotencyConflictException conflict) {
+            throw new IllegalStateException(
+                "PURCHASE_PAYMENT_DEMO_SEED_REPLAY_CONFLICT: a legacy unbound receipt "
+                    + "or an actor/request conflict prevents replay of the fixed demo seed. Legacy receipts without "
+                    + "actor binding cannot be automatically replayed or reseeded. Startup "
+                    + "has stopped; preserve the database and receipts for review. Do not "
+                    + "delete receipts or change fixed seed keys to bypass this conflict. "
+                    + "To inspect the existing database without reseeding, disable "
+                    + "approval.demo.purchase-payment.enabled.",
+                conflict
+            );
+        }
     }
 
     private static PurchasePaymentDemoSeedState.SeedEvidence markAttachmentsBound(

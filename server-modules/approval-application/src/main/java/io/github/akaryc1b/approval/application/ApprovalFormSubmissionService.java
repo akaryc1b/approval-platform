@@ -107,6 +107,10 @@ public final class ApprovalFormSubmissionService {
 
     public SubmissionResult submit(SubmissionCommand command) {
         Objects.requireNonNull(command, "command must not be null");
+        submissions.findByBusinessKey(command.context().tenantId(), command.businessKey())
+            .ifPresent(existing -> authorizeSubmitter(
+                command.context().operatorId(), existing.submittedBy()
+            ));
         StartPlan startPlan = runtimeService == null ? null : runtimeService.validateStart(
             command.context().tenantId(),
             command.context().operatorId(),
@@ -131,13 +135,16 @@ public final class ApprovalFormSubmissionService {
             data.values(),
             command.startParameters()
         );
-        return idempotency.execute(
+        SubmissionResult result = idempotency.execute(
             command.context(),
             SUBMIT_OPERATION,
             requestHash,
             SubmissionResult.class,
             () -> submitOnce(command, form, startPlan, data, requestHash)
         );
+        // Also cover cached results that appeared while a concurrent transaction committed.
+        authorizeSubmitter(command.context().operatorId(), result.submittedBy());
+        return result;
     }
 
     public Optional<SubmissionSnapshot> findByInstance(
@@ -160,6 +167,7 @@ public final class ApprovalFormSubmissionService {
             command.context().tenantId(), command.businessKey()
         );
         if (existing.isPresent()) {
+            authorizeSubmitter(command.context().operatorId(), existing.get().submittedBy());
             if (!existing.get().requestHash().equals(requestHash)) {
                 throw new ApprovalProjectionStore.ProjectionConflictException(
                     "business key is already used by a different form submission"
@@ -220,6 +228,12 @@ public final class ApprovalFormSubmissionService {
         return result(submission, false);
     }
 
+    private static void authorizeSubmitter(String operatorId, String submittedBy) {
+        if (!operatorId.equals(submittedBy)) {
+            throw new ApprovalParticipantResourceNotFoundException();
+        }
+    }
+
     private static Map<String, String> auditAttributes(FormSubmission submission) {
         Map<String, String> attributes = new java.util.LinkedHashMap<>();
         attributes.put("formKey", submission.formKey());
@@ -246,16 +260,12 @@ public final class ApprovalFormSubmissionService {
 
     private void authorizeParticipant(String tenantId, String operatorId, UUID instanceId) {
         ApprovalProjectionStore.InstanceProjection instance = projections.findInstance(tenantId, instanceId)
-            .orElseThrow(() -> new ApprovalProjectionStore.ProjectionConflictException(
-                "approval instance was not found"
-            ));
+            .orElseThrow(ApprovalParticipantResourceNotFoundException::new);
         boolean taskParticipant = projections.findTasks(tenantId, instanceId).stream()
             .anyMatch(task -> task.assigneeId().equals(operatorId));
         boolean messageRecipient = messages.isRecipient(tenantId, operatorId, instanceId);
         if (!instance.initiatorId().equals(operatorId) && !taskParticipant && !messageRecipient) {
-            throw new ApprovalProjectionStore.ProjectionConflictException(
-                "operator is not a participant in the approval instance"
-            );
+            throw new ApprovalParticipantResourceNotFoundException();
         }
     }
 
