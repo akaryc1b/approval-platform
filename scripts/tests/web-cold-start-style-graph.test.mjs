@@ -159,7 +159,10 @@ await test('pinned shell icons register synchronously from exact local data with
   const runtimePackage = join(dirname(dirname(requireIcons.resolve('@iconify/vue'))), 'package.json');
   assert.equal(JSON.parse(readFileSync(iconDataPackage)).version, '2.2.476');
   assert.equal(JSON.parse(readFileSync(runtimePackage)).version, '5.0.1');
-  const expectedNames = ['ep:expand', 'ep:fold', 'fluent-mdl2:world-clock', 'lucide:inbox', 'lucide:workflow'];
+  const expectedNames = [
+    'ep:expand', 'ep:fold', 'fluent-mdl2:world-clock', 'lucide:bell-ring',
+    'lucide:inbox', 'lucide:user-round-plus', 'lucide:workflow',
+  ];
   const defaults = { left: 0, top: 0, width: 16, height: 16, rotate: 0, hFlip: false, vFlip: false };
   const pinned = {}; const dataFiles = new Map();
   for (const name of expectedNames) {
@@ -177,6 +180,12 @@ await test('pinned shell icons register synchronously from exact local data with
   assert.throws(() => verify(missing));
   const wrong = structuredClone(approvalShellIcons); wrong['lucide:workflow'].body = '<path d="M0 0"/>';
   assert.throws(() => verify(wrong));
+  for (const name of ['lucide:bell-ring', 'lucide:user-round-plus']) {
+    const missingAdded = structuredClone(approvalShellIcons); delete missingAdded[name];
+    assert.throws(() => verify(missingAdded));
+    const wrongAdded = structuredClone(approvalShellIcons); wrongAdded[name].body = '<path d="M0 0"/>';
+    assert.throws(() => verify(wrongAdded));
+  }
   let fetchCalls = 0; const previousFetch = globalThis.fetch;
   let runtimeEvidence;
   try {
