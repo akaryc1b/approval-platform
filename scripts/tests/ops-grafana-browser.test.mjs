@@ -35,6 +35,14 @@ test('navigation requires the exact environment instance datasource and time ran
 });
 test('browser owns an empty profile and anonymous protocol pipes rather than a shared debugger port', () => {
   const args = chromiumArguments('/tmp/owned-profile');
+  assert.deepEqual(args, ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+    '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
+    '--disable-component-update', '--disable-sync', '--disable-extensions', '--disable-breakpad',
+    '--password-store=basic', '--use-mock-keychain', '--remote-debugging-pipe',
+    '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost', '--lang=en-US',
+    '--user-data-dir=/tmp/owned-profile', '--no-startup-window']);
+  assert.equal(args.filter(arg => arg === '--no-startup-window').length, 1);
+  assert.ok(args.every(arg => arg.startsWith('--')), 'the launch must not open an implicit startup URL');
   assert.ok(args.includes('--remote-debugging-pipe')); assert.ok(args.includes('--user-data-dir=/tmp/owned-profile'));
   assert.ok(args.includes('--disable-background-networking')); assert.ok(args.includes('--disable-extensions'));
   assert.ok(args.some(arg => arg.includes('MAP * ~NOTFOUND')));
