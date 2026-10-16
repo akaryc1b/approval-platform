@@ -125,7 +125,11 @@ function receipt() {
   const members = Array.from({ length: 10 }, (_, i) => ['enforcer', 'consumer', 'member' + i]);
   const value = { status: 'PASSED', inputSealsUnchanged: true, scannerEvidence: false, productionActivationClaim: false,
     plan: { variants: { baseline: '3.14.0', candidate: '3.18.0' }, goals, cases, offline: true, sockets: false,
-      actualGoalCount: 18, compileCount: 1, commandTimeoutSeconds: 60, compileTimeoutSeconds: 30, aggregateTimeoutSeconds: 1200, outerTimeoutSeconds: 1230 },
+      actualGoalCount: 18, compileCount: 1, commandTimeoutSeconds: 60, compileTimeoutSeconds: 30, aggregateTimeoutSeconds: 1200, outerTimeoutSeconds: 1230,
+      classLoadMaximumBytes: 4 * 1024 * 1024, classLoadTotalMaximumBytes: 72 * 1024 * 1024,
+      classLoadMaximumEntries: 18, classLoadPollIntervalSeconds: 0.1, classLoadBoundIsSampled: true },
+    classLoadStorage: { maximumBytes: 72 * 1024 * 1024, maximumEntries: 18, pollIntervalSeconds: 0.1,
+      sampledBound: true, failure: null, scans: 19, peakObservedBytes: 1800, peakObservedEntries: 18, fileLimits: {} },
     inventory: { consumers: Array(10).fill({}), memberUses: [...members, ...members.slice(0, 3)] },
     classUtilsStatic: { directSelfInvocation: false, classSha256: 'c'.repeat(64), codeSha256: 'd'.repeat(64) },
     comparison: { allNinePairsExactlyEqual: true, archiveBytesAndMetadataEqual: true, controlledResourceCopyEqual: true },
@@ -139,7 +143,11 @@ function receipt() {
       for (const name of names) {
         const exitStatus = ['archives', 'discovery', 'success'].includes(name) ? 0 : 1;
         value.commands.push(command(`${variant}-${owner}-${name}`, ['/maven/bin/mvn', '-o', '-N', '--strict-checksums', '-s', '-gs', '-t', '-gt', goals[owner]], exitStatus));
+        const log = { path: `class-load/${variant}-${owner}-${name}.log`, bytes: 100, sha256: 'a'.repeat(64) };
+        value.commands.at(-1).classLoadCorroborationLog = log;
+        value.classLoadStorage.fileLimits[`${variant}-${owner}-${name}.log`] = 4 * 1024 * 1024;
         value.variants[variant][owner][name] = { exitStatus, behavior: { name }, missingMemberControl: 'PASSED', symbolicResolutionIsInvocationClaim: false,
+          classLoadCorroborationLog: log,
           linkageMemberCount: owner === 'assembly' ? 3 : 10, realm: pins.owners[owner][variant], naturalOrigins: [], controlledLoads: [], symbolicLoads: [], explicitOrigins: [] };
       }
     }
@@ -161,6 +169,22 @@ test('live receipt checks reject missing goals, swallowed failures, wrong realm 
     v => { v.variants.candidate.enforcer['bad-java'].missingMemberControl = 'FAILED'; },
     v => { v.inventory.memberUses.pop(); }, v => { v.inputSealsUnchanged = false; },
     v => { v.classUtilsStatic.directSelfInvocation = true; }]) {
+    const changed = structuredClone(receipt()); mutate(changed); assert.throws(() => validateReceipt(changed, pins));
+  }
+});
+
+test('separate JVM receipt checks reject missing, foreign, oversized or inconsistent class logs', () => {
+  for (const mutate of [v => { delete v.commands[1].classLoadCorroborationLog; },
+    v => { v.commands[1].classLoadCorroborationLog.path = 'class-load/candidate-assembly-discovery.log'; },
+    v => { v.commands[1].classLoadCorroborationLog.bytes = 0; },
+    v => { v.commands[1].classLoadCorroborationLog.bytes = 4 * 1024 * 1024 + 1; },
+    v => { v.commands[1].classLoadCorroborationLog.sha256 = 'raw malformed field'; },
+    v => { v.variants.baseline.assembly.archives.classLoadCorroborationLog = { ...v.commands[1].classLoadCorroborationLog, sha256: 'f'.repeat(64) }; },
+    v => { v.classLoadStorage.failure = 'individual output file byte limit exceeded'; },
+    v => { v.classLoadStorage.peakObservedEntries = 19; },
+    v => { v.classLoadStorage.peakObservedBytes = 72 * 1024 * 1024 + 1; },
+    v => { delete v.classLoadStorage.fileLimits['baseline-assembly-archives.log']; },
+    v => { v.plan.classLoadMaximumBytes += 1; }]) {
     const changed = structuredClone(receipt()); mutate(changed); assert.throws(() => validateReceipt(changed, pins));
   }
 });

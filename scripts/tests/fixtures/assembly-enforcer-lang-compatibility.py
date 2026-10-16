@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 from runpy import run_path
 import signal
+import stat
 import struct
 import sys
 from urllib.parse import unquote, urlparse
@@ -21,6 +22,7 @@ ROOT = HERE.parents[2]
 sys.path.insert(0, str(HERE))
 from checkstyle_live_support import Commands, digest, inside, isolated_env, require, normalized, NS, P
 from run_boot_live_compatibility import runtime_files, python_origins, hashes, cache_snapshot
+from jar_plugin_storage import StorageGuard
 
 A = run_path(str(HERE / 'assembly-plexus-compatibility.py'))
 # Isolated globals preserve the existing Plexus inventory's meaning.
@@ -41,6 +43,8 @@ PLAN = {'execution': 'NOT_RUN', 'explicitOptIn': 'ASSEMBLY_ENFORCER_LANG_COMPATI
         'offline': True, 'sockets': False, 'goals': GOALS, 'variants': VERSIONS, 'cases': CASES,
         'actualGoalCount': 18, 'compileCount': 1, 'commandTimeoutSeconds': 60,
         'compileTimeoutSeconds': 30, 'aggregateTimeoutSeconds': 1200, 'outerTimeoutSeconds': 1230,
+        'classLoadMaximumBytes': 4 * 1024 * 1024, 'classLoadTotalMaximumBytes': 72 * 1024 * 1024,
+        'classLoadMaximumEntries': 18, 'classLoadPollIntervalSeconds': 0.1, 'classLoadBoundIsSampled': True,
         'budgetReason': '18 goals at 60s + one compilation at 30s = 1110s; 90s for bounded seals and packaging; 30s outer cleanup margin.',
         'scannerEvidence': False, 'productionActivationClaim': False,
         'evidencePhases': ['natural goal loads', 'controlled API calls after goal', 'symbolic member resolution']}
@@ -351,7 +355,84 @@ def compare_pairs(variants):
     return {'allNinePairsExactlyEqual': True, 'archiveBytesAndMetadataEqual': True, 'controlledResourceCopyEqual': True}
 
 
-def observations(stdout, stderr, config, variant, owner, rows, case):
+class ClassBytesMismatch(ValueError):
+    def __init__(self, diagnostic):
+        super().__init__('observed effective class bytes differ')
+        self.diagnostic = diagnostic
+
+
+def require_class_hash(observed, expected, variant, owner, case, phase, name, origin, entry):
+    if observed == expected: return
+    require(variant in VERSIONS and owner in OWNERS and case in CASES[owner]
+            and phase in ('NATURAL', 'CONTROLLED', 'SYMBOLIC') and re.fullmatch('[0-9a-f]{64}', expected),
+            'fixed class mismatch diagnostic context')
+    # Only approved relative artifact/class identifiers may reach the receipt.
+    class_pattern = r'[A-Za-z_$][A-Za-z0-9_$]*(?:/[A-Za-z_$][A-Za-z0-9_$]*)*'
+    safe_class = len(name.encode('utf-8')) <= 1024 and re.fullmatch(class_pattern, name)
+    safe_origin = len(origin.encode('utf-8')) <= 2048 and re.fullmatch(
+        r'(?:repository|maven-lib)/(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.jar', origin)
+    safe_entry = safe_class and entry in [name + '.class',
+        *['META-INF/versions/' + str(v) + '/' + name + '.class' for v in range(9, 22)]]
+    value = observed.encode('utf-8')
+    diagnostic = {'variant': variant, 'owner': owner, 'case': case, 'phase': phase,
+        'class': name if safe_class else 'REDACTED_INVALID_CLASS',
+        'origin': origin if safe_origin else 'REDACTED_INVALID_ORIGIN',
+        'entry': entry if safe_entry else 'REDACTED_INVALID_ENTRY', 'expectedSha256': expected,
+        'expectedPrefixMatches': observed.startswith(expected)}
+    if re.fullmatch('[0-9a-f]{64}', observed):
+        diagnostic.update(observedSha256=observed, category='different-sha256')
+    else:
+        diagnostic.update(observedFieldBytes=len(value), observedFieldSha256=hashlib.sha256(value).hexdigest(),
+            category='expected-digest-with-suffix' if observed.startswith(expected) else 'malformed-digest')
+    raise ClassBytesMismatch(diagnostic)
+
+
+def class_log_path(output, variant, owner, case):
+    require(variant in VERSIONS and owner in OWNERS and case in CASES[owner], 'fixed class-load case')
+    directory = output / 'class-load'
+    require(directory.is_dir() and not directory.is_symlink() and directory.resolve() == directory,
+            'owned class-load directory')
+    path = directory / (variant + '-' + owner + '-' + case + '.log')
+    require(not path.exists() and not path.is_symlink(), 'fresh separate JVM class-load log')
+    return path
+
+
+def read_class_log(path):
+    maximum = PLAN['classLoadMaximumBytes']
+    before = path.lstat()
+    require(stat.S_ISREG(before.st_mode) and 0 < before.st_size <= maximum, 'bounded regular JVM class-load log')
+    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as stream:
+        opened = os.fstat(stream.fileno()); data = stream.read(maximum + 1); after = os.fstat(stream.fileno())
+    identity = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns)
+    require(stat.S_ISREG(opened.st_mode) and identity(before) == identity(opened) == identity(after)
+            == identity(path.lstat()) and not path.is_symlink() and len(data) == before.st_size <= maximum,
+            'class-load log changed during bounded read')
+    return data.decode('utf-8'), {'path': 'class-load/' + path.name, 'bytes': len(data),
+        'sha256': hashlib.sha256(data).hexdigest()}
+
+
+def require_class_corroboration(class_log, name, uri):
+    pattern = r'\[\d+(?:\.\d+)?s\]\[info\]\[class,load\] ' + re.escape(name.replace('/', '.') + ' source: ' + uri)
+    require(any(re.fullmatch(pattern, line) for line in class_log.splitlines()), 'JVM class-load corroboration missing')
+
+
+def verify_class_logs(output, commands, variants):
+    expected = {variant + '-' + owner + '-' + case: (variant, owner, case)
+        for variant in VERSIONS for owner in OWNERS for case in CASES[owner]}
+    recorded = [command for command in commands if 'classLoadCorroborationLog' in command]
+    require(len(recorded) == len(expected) and {command['case'] for command in recorded} == set(expected),
+            'all 18 class-load command receipts required')
+    directory = output / 'class-load'
+    require(directory.is_dir() and not directory.is_symlink()
+            and {path.name for path in directory.iterdir()} == {label + '.log' for label in expected},
+            'exact final class-load file set')
+    for command in recorded:
+        label = command['case']; variant, owner, case = expected[label]
+        require(read_class_log(directory / (label + '.log'))[1] == command['classLoadCorroborationLog']
+                == variants[variant][owner][case]['classLoadCorroborationLog'], 'retained class-load evidence changed')
+
+
+def observations(stdout, stderr, class_log, config, variant, owner, rows, case):
     prefix = 'PLUGIN_LANG_'; lines = stderr.splitlines()
     require(not any(line.startswith(prefix + name) for line in lines for name in ('FAILURE', 'OBSERVER_FAILURE')), 'observer or controlled/linkage failure')
     successful = case in ('archives', 'discovery', 'success')
@@ -385,8 +466,9 @@ def observations(stdout, stderr, config, variant, owner, rows, case):
         path = uri_path(uri)
         require(path in approved or path.parent == lib, 'unexplained class origin')
         entry, expected_hash = A['effective_class'](path, name)
-        require(class_hash == expected_hash, 'observed effective class bytes differ')
-        require(name.replace('/', '.') + ' source: ' + uri in stderr, 'JVM class-load corroboration missing')
+        relative = 'repository/' + path.relative_to(repo).as_posix() if path in approved else 'maven-lib/' + path.name
+        require_class_hash(class_hash, expected_hash, variant, owner, case, phase, name, relative, entry)
+        require_class_corroboration(class_log, name, uri)
         if path in approved: require(loader == realm and ('plugin>' + OWNERS[owner]) in loader_name, 'private defining loader differs')
         if loader == realm and name.startswith('org/apache/commons/lang3/'): require(path == lang, 'wrong private Lang provider')
         return {'phase': phase, 'class': name, 'loader': loader, 'realm': loader_name, 'path': str(path), 'entry': entry, 'sha256': class_hash}
@@ -463,7 +545,7 @@ def execute(seal):
     check_seal(seal, complete=True)
     config = seal['config']; output = Path(config['output']); jdk = Path(config['jdk'])
     require(not output.exists(), 'fresh reviewed output'); output.mkdir()
-    for name in ('home', 'tmp', 'observer'): (output / name).mkdir()
+    for name in ('home', 'tmp', 'observer', 'class-load'): (output / name).mkdir()
     (output / 'empty-settings.xml').write_text('<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"/>\n')
     (output / 'empty-toolchains.xml').write_text('<toolchains/>\n')
     rows = {owner: linkage_rows(seal, owner) for owner in OWNERS}
@@ -471,6 +553,9 @@ def execute(seal):
     fixed = {str(p): digest(p) for p in output.iterdir() if p.is_file()}
     environment = isolated_env(jdk, output); environment['MAVEN_BASEDIR'] = str(output)
     commands = Commands(output, environment, PLAN['aggregateTimeoutSeconds'])
+    storage = StorageGuard(output / 'class-load', PLAN['classLoadTotalMaximumBytes'], PLAN['classLoadMaximumEntries'],
+        {variant + '-' + owner + '-' + case + '.log': PLAN['classLoadMaximumBytes']
+            for variant in VERSIONS for owner in OWNERS for case in CASES[owner]})
     result = {'status': 'RUNNING', 'plan': PLAN, 'commands': commands.results, 'variants': {},
         'sourceHashes': seal['sourceHashes'], 'runtimeHashes': seal['runtimeHashes'], 'cacheHashes': seal['cacheHashes'],
         'inventory': seal['inventory'], 'classUtilsStatic': seal['classUtilsStatic'], 'scannerEvidence': False,
@@ -480,7 +565,16 @@ def execute(seal):
     def run(label, command, seconds=60, extra_env=None):
         check_seal(seal)
         require(all(Path(p).is_file() and digest(Path(p)) == h for p, h in fixed.items()), 'generated fixture input changed')
-        value = commands.run(label, command, seconds, extra_env)
+        storage.start()
+        try:
+            value = commands.run(label, command, seconds, extra_env)
+        except BaseException as failure:
+            if storage.failure is not None: raise ValueError(storage.failure) from failure
+            raise
+        finally:
+            storage.stop()
+        require(storage.failure is None, 'storage watcher violation: ' + str(storage.failure))
+        storage.scan()
         check_seal(seal)
         require(all(Path(p).is_file() and digest(Path(p)) == h for p, h in fixed.items()), 'generated fixture input changed')
         return value
@@ -510,11 +604,19 @@ def execute(seal):
                     label = variant + '-' + owner + '-' + case; directory = output / label
                     fixed.update(A['write_case'](directory, plugin, case) if owner == 'assembly' else enforcer_case(directory, plugin, case))
                     opts = '-Xmx256m -XX:-UsePerfData -Duser.home=' + str(output / 'home') + ' -Djava.io.tmpdir=' + str(output / 'tmp')
-                    opts += ' -javaagent:' + str(output / 'observer.jar') + '=' + str(output / (owner + '-members.tsv')) + ' -Xlog:class+load=info:stderr'
+                    class_path = class_log_path(output, variant, owner, case)
+                    opts += ' -javaagent:' + str(output / 'observer.jar') + '=' + str(output / (owner + '-members.tsv'))
+                    opts += ' -Xlog:class+load=info:file=' + str(class_path) + ':uptime,level,tags:filecount=0'
                     opts += ' -Dfixture.lang.owner=' + owner + ' -Dfixture.lang.mode=' + ('api' if case in ('archives', 'success') else 'none')
                     opts += ' -Dfixture.lang.work=' + str(directory) + ' -Dfixture.lang.jar=' + str(artifact_path(Path(config['repository']), LANG_PREFIX + VERSIONS[variant]))
                     status, stdout, stderr = run(label, maven_command(config, output, directory / 'pom.xml', owner), extra_env={'MAVEN_OPTS': opts})
-                    observed = observations(stdout, stderr, config, variant, owner, rows[owner], case)
+                    class_log, class_receipt = read_class_log(class_path)
+                    commands.results[-1]['classLoadCorroborationLog'] = class_receipt
+                    try:
+                        observed = observations(stdout, stderr, class_log, config, variant, owner, rows[owner], case)
+                    finally:
+                        require(read_class_log(class_path)[1] == class_receipt, 'class-load log changed during observations')
+                    observed['classLoadCorroborationLog'] = class_receipt
                     if owner == 'enforcer': behavior = enforcer_result(stdout, status, case, config)
                     elif case in ('archives', 'discovery'):
                         require(status == 0, 'real Assembly goal failed')
@@ -537,10 +639,13 @@ def execute(seal):
                     'naturallyLoadedConsumers': sorted(consumers & loaded), 'notNaturallyLoadedConsumers': sorted(consumers - loaded),
                     'symbolicallyResolvedConsumers': len(consumers), 'naturalLoadIsMemberInvocationClaim': False}
         require(len(commands.results) == 19 and all(r['captureComplete'] and r['processGroupCleaned'] for r in commands.results), 'one compile and 18 cleaned real goals')
+        verify_class_logs(output, commands.results, result['variants'])
         check_seal(seal, complete=True); result.update(status='PASSED', inputSealsUnchanged=True, generatedInputHashes=fixed)
     except BaseException as failure:
+        if isinstance(failure, ClassBytesMismatch): result['classObservationMismatch'] = failure.diagnostic
         result.update(status='FAILED', errorType=type(failure).__name__, error=str(failure)); raise
     finally:
+        storage.stop(); result['classLoadStorage'] = storage.report()
         signal.alarm(0)
         for sig, handler in previous.items(): signal.signal(sig, handler)
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')

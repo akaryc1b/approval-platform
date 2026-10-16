@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, resolve } from 'node:path';
 import test from 'node:test';
@@ -46,6 +46,10 @@ function fixture(t, { fail, archiveKind, realDigest = false, binaryKind,
   const prometheus = resolve(directory, 'prometheus'); writeFileSync(prometheus, 'inert: never executed');
   const calls = [], order = [], failure = new Error('CONTROLLED_' + fail);
   const archive = resolve(directory, 'grafana.tgz'), home = resolve(directory, 'grafana-home');
+  const pluginMap = resolve(home, 'public/app/plugins/fixture/module.js.map');
+  const siblingArchive = resolve(directory, 'prometheus.tgz');
+  writeFileSync(siblingArchive, 'unrelated owned archive: preserve');
+  let extractionComplete = false;
   // Replace imported dependencies only in this private VM. Production has no hash-bypass seam.
   const body = source.replace(/^import [^\n]+\n/gmu, '').replace(/^export /gmu, '');
   assert.doesNotMatch(body, /^import /mu);
@@ -55,6 +59,13 @@ function fixture(t, { fail, archiveKind, realDigest = false, binaryKind,
     return { verifyGrafanaBrowser };
   })()`, {
     assert, createHash, lstatSync, mkdirSync, realpathSync, isAbsolute, resolve, Buffer,
+    unlinkSync(file, ...extra) {
+      order.push('retire'); assert.equal(file, archive); assert.deepEqual(extra, []);
+      assert.equal(extractionComplete, true, 'the archive cannot retire while extraction still needs it');
+      assert.equal(readFileSync(archive, 'utf8'), 'invalid archive fixture bytes; never extracted');
+      if (fail === 'retire') throw failure;
+      unlinkSync(file);
+    },
     process: { execPath: '/controlled/node', env: { GITHUB_ACTIONS: 'true' } },
     archiveSha256Sync(file, options) {
       order.push('digest'); assert.equal(file, archive); assert.equal(options.maximumBytes, 512 * 1024 * 1024);
@@ -66,7 +77,10 @@ function fixture(t, { fail, archiveKind, realDigest = false, binaryKind,
     calls.push({ file, args: Array.from(args), cwd, timeout });
     const phase = file === 'curl' ? 'download' : file === 'tar' ? 'extract'
       : args[0].endsWith('grafana-browser-fonts.mjs') ? 'fonts' : 'browser';
-    order.push(phase); if (fail === phase) throw failure;
+    order.push(phase);
+    if (phase === 'fonts' || phase === 'browser') assert.equal(existsSync(archive), false,
+      'the consumed archive cannot remain through font or browser startup');
+    if (fail === phase) throw failure;
     if (phase === 'download') {
       if (archiveKind === 'symlink') symlinkSync(prometheus, archive);
       else if (archiveKind === 'directory') mkdirSync(archive);
@@ -74,22 +88,31 @@ function fixture(t, { fail, archiveKind, realDigest = false, binaryKind,
       return '';
     }
     if (phase === 'extract') {
+      assert.equal(readFileSync(archive, 'utf8'), 'invalid archive fixture bytes; never extracted');
       if (binaryKind !== 'missing') {
         mkdirSync(resolve(home, 'bin'));
         if (binaryKind === 'symlink') symlinkSync(prometheus, resolve(home, 'bin/grafana'));
         else writeFileSync(resolve(home, 'bin/grafana'), 'inert: never executed');
       }
+      mkdirSync(resolve(home, 'public/app/plugins/fixture'), { recursive: true });
+      writeFileSync(pluginMap, 'signed plugin map fixture: preserve');
+      extractionComplete = true;
       return '';
     }
     return phase === 'fonts' ? fontOutput : browserOutput;
   };
-  return { directory, prometheus, archive, home, calls, order, failure,
+  return { directory, prometheus, archive, home, pluginMap, siblingArchive, calls, order, failure,
     run: () => api.verifyGrafanaBrowser({ directory, repositoryRoot: root, prometheus, runCommand }) };
 }
 
 test('real provisioner keeps its hash gate and command budgets while excluding only pinned public build maps', t => {
   const f = fixture(t), result = plain(f.run());
-  assert.deepEqual(f.order, ['download', 'digest', 'extract', 'fonts', 'browser']);
+  assert.deepEqual(f.order, ['download', 'digest', 'extract', 'retire', 'fonts', 'browser']);
+  assert.equal(existsSync(f.archive), false);
+  assert.equal(readFileSync(resolve(f.home, 'bin/grafana'), 'utf8'), 'inert: never executed');
+  assert.equal(readFileSync(f.pluginMap, 'utf8'), 'signed plugin map fixture: preserve');
+  assert.equal(readFileSync(f.prometheus, 'utf8'), 'inert: never executed');
+  assert.equal(readFileSync(f.siblingArchive, 'utf8'), 'unrelated owned archive: preserve');
   assert.equal(f.calls.length, 4);
   assert.deepEqual(f.calls[1], { file: 'tar', cwd: f.directory, timeout: 20000, args: [
     '--extract', '--gzip', '--file', f.archive, '--directory', f.home,
@@ -111,10 +134,18 @@ test('real provisioner keeps its hash gate and command budgets while excluding o
 });
 
 for (const [fail, expected] of [['download', ['download']], ['digest', ['download', 'digest']],
-  ['extract', ['download', 'digest', 'extract']], ['fonts', ['download', 'digest', 'extract', 'fonts']]]) {
+  ['extract', ['download', 'digest', 'extract']],
+  ['retire', ['download', 'digest', 'extract', 'retire']],
+  ['fonts', ['download', 'digest', 'extract', 'retire', 'fonts']]]) {
   test('provisioning ' + fail + ' failure remains terminal without retry or downstream launch', t => {
     const f = fixture(t, { fail }); assert.throws(f.run, error => error === f.failure);
     assert.deepEqual(f.order, expected);
+    assert.equal(existsSync(f.archive), ['digest', 'extract', 'retire'].includes(fail));
+    if (fail === 'retire') {
+      assert.equal(f.calls.length, 2);
+      assert.equal(readFileSync(resolve(f.home, 'bin/grafana'), 'utf8'), 'inert: never executed');
+      assert.equal(readFileSync(f.pluginMap, 'utf8'), 'signed plugin map fixture: preserve');
+    }
   });
 }
 
@@ -129,7 +160,7 @@ for (const archiveKind of ['corrupt', 'symlink', 'directory']) {
 for (const binaryKind of ['missing', 'symlink']) {
   test('a ' + binaryKind + ' extracted binary cannot reach font preparation or runtime', t => {
     const f = fixture(t, { binaryKind }); assert.throws(f.run);
-    assert.deepEqual(f.order, ['download', 'digest', 'extract']);
+    assert.deepEqual(f.order, ['download', 'digest', 'extract', 'retire']);
   });
 }
 
@@ -137,7 +168,7 @@ for (const fontOutput of ['', 'OPS_GRAFANA_FONT_RESULT={}\nOPS_GRAFANA_FONT_RESU
   'OPS_GRAFANA_FONT_RESULT={"status":"wrong"}']) {
   test('invalid font receipt still blocks the browser command: ' + JSON.stringify(fontOutput), t => {
     const f = fixture(t, { fontOutput }); assert.throws(f.run);
-    assert.deepEqual(f.order, ['download', 'digest', 'extract', 'fonts']);
+    assert.deepEqual(f.order, ['download', 'digest', 'extract', 'retire', 'fonts']);
   });
 }
 
@@ -145,6 +176,6 @@ for (const browserOutput of ['', 'OPS_GRAFANA_BROWSER_RESULT={}\nOPS_GRAFANA_BRO
   'OPS_GRAFANA_BROWSER_RESULT=' + JSON.stringify({ ...receipt(), viewerWriteDenied: false })]) {
   test('invalid runtime receipt remains a failure after selected extraction: ' + browserOutput.length, t => {
     const f = fixture(t, { browserOutput }); assert.throws(f.run);
-    assert.deepEqual(f.order, ['download', 'digest', 'extract', 'fonts', 'browser']);
+    assert.deepEqual(f.order, ['download', 'digest', 'extract', 'retire', 'fonts', 'browser']);
   });
 }
