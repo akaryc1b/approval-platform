@@ -12,12 +12,13 @@ const privateRoot = '/sys/fs/cgroup/PRIVATE-token.scope', secret = 'PRIVATE-devi
 const g = (id = '8:0', readBytes = 100, writeBytes = 20, readOps = 3, writeOps = 2) =>
   `${id} rbytes=${readBytes} wbytes=${writeBytes} rios=${readOps} wios=${writeOps}\n`;
 function d(id = '8:0', { name = secret, readOps = 5, readSectors = 20, writeOps = 3, writeSectors = 10,
-  inFlight = 1, ioMs = 7, weightedMs = 8, layout = 11 } = {}) {
-  return `${id.replace(':', ' ')} ${name} ` + [readOps, 0, readSectors, 0, writeOps, 0, writeSectors, 0,
+  readMs = 0, writeMs = 0, inFlight = 1, ioMs = 7, weightedMs = 8, layout = 11 } = {}) {
+  return `${id.replace(':', ' ')} ${name} ` + [readOps, 0, readSectors, readMs, writeOps, 0, writeSectors, writeMs,
     inFlight, ioMs, weightedMs, ...Array(layout - 11).fill(0)].join(' ') + '\n';
 }
 function window({ firstGroup = g(), lastGroup = g('8:0', 356, 30, 6, 4), firstDisk = d(),
-  lastDisk = d('8:0', { readOps: 7, readSectors: 24, writeOps: 4, writeSectors: 12, inFlight: 9, ioMs: 10, weightedMs: 21 }),
+  lastDisk = d('8:0', { readOps: 7, readSectors: 24, readMs: 17, writeOps: 4, writeSectors: 12, writeMs: 19,
+    inFlight: 9, ioMs: 10, weightedMs: 21 }),
   firstRoot = privateRoot, lastRoot = privateRoot, firstTime = 100, lastTime = 1100, readError = false } = {}) {
   let time = firstTime, phase = 0; const calls = [];
   const sampler = createBrowserIoSampler({ now: () => time });
@@ -39,10 +40,38 @@ test('one anonymous exact-key window keeps unlike accounting domains separate an
   assert.deepEqual(value, { coverage: 'complete', scope: 'visible-nested', devices: 1, paired: 1,
     selected: 'largest-read-delta', spanMs: 1000,
     cgroup: { readBytes: 256, writeBytes: 10, readOps: 3, writeOps: 2 },
-    device: { readBytes: 2048, writeBytes: 1024, readOps: 2, writeOps: 1, ioMs: 3, weightedMs: 13, inFlight: 9 } });
+    device: { readBytes: 2048, writeBytes: 1024, readOps: 2, writeOps: 1, ioMs: 3, weightedMs: 13, inFlight: 9,
+      readMs: 17, writeMs: 19 } });
   assert.equal(calls.length, 4);
   assert.deepEqual(calls.map(call => call.file), [privateRoot + '/io.stat', '/proc/diskstats', privateRoot + '/io.stat', '/proc/diskstats']);
   assert.doesNotMatch(JSON.stringify(value), /PRIVATE|8:0|0xdeadbeef|\/sys|\/proc|outside|share|utilization|cause/u);
+});
+
+test('completed-request durations are independent monotonic deltas, with original row validation unchanged', () => {
+  const max = Number.MAX_SAFE_INTEGER;
+  for (const layout of [11, 15, 17]) {
+    const { value, calls } = window({ firstDisk: d('8:0', { layout, readMs: 10, writeMs: 20 }),
+      lastDisk: d('8:0', { layout, readMs: 31, writeMs: 55 }) });
+    assert.equal(value.device.readMs, 21); assert.equal(value.device.writeMs, 35);
+    assert.equal(calls.length, 4); assert.equal(value.coverage, 'complete');
+  }
+  const original = window({ firstDisk: d(), lastDisk: d() }).value;
+  for (const [readMs, writeMs, expected] of [[9, 25, [null, 5]], [15, 19, [5, null]], [9, 19, [null, null]], [10, 20, [0, 0]]]) {
+    const { value, calls } = window({ firstDisk: d('8:0', { readMs: 10, writeMs: 20 }), lastDisk: d('8:0', { readMs, writeMs }) });
+    assert.deepEqual([value.device.readMs, value.device.writeMs], expected);
+    const { readMs: ignoredRead, writeMs: ignoredWrite, ...device } = value.device;
+    const { readMs: oldRead, writeMs: oldWrite, ...oldDevice } = original.device;
+    assert.deepEqual({ ...value, device }, { ...original, device: oldDevice }); assert.equal(calls.length, 4);
+  }
+  const maximum = window({ firstDisk: d(), lastDisk: d('8:0', { readMs: max, writeMs: max }) }).value;
+  assert.equal(maximum.device.readMs, max); assert.equal(maximum.device.writeMs, max);
+  assert.ok(maximum.device.readMs > maximum.spanMs);
+  for (const field of ['readMs', 'writeMs']) for (const bad of ['9007199254740992', '-1', '1.5', 'PRIVATE', 'NaN']) {
+    for (const phase of ['firstDisk', 'lastDisk']) {
+      const value = window({ [phase]: d('8:0', { [field]: bad }) }).value;
+      assert.equal(value.device, null); assert.equal(value.coverage, 'partial'); assert.equal(value.cgroup.readBytes, 256);
+    }
+  }
 });
 
 test('selection is the largest positive paired group read delta, not a sum or a convenient available device', () => {
@@ -254,7 +283,7 @@ test('new oversized/unserializable I/O is omitted before any original native or 
   assert.equal(value.native.threads.waits.ioOrPageWait, 1); assert.equal(value.native.threads.pipeNames, 2);
 });
 
-test('the saved CI1818 timeout plus maximal new numbers preserves all prior fields inside the existing tail', () => {
+test('the saved CI1818 timeout plus maximal numbers preserves original I/O before optional timing details', () => {
   const prior = JSON.parse(readFileSync(resolve(root, 'scripts/tests/fixtures/grafana-io-timeout-receipt.json')));
   assert.equal(Buffer.byteLength(JSON.stringify(prior)), 2488);
   const ioWindow = window().value, max = Number.MAX_SAFE_INTEGER;
@@ -263,14 +292,48 @@ test('the saved CI1818 timeout plus maximal new numbers preserves all prior fiel
   const reports = [], diagnostics = new BrowserStartupDiagnostics({ now: () => 1, report: line => reports.push(line) });
   Object.assign(diagnostics.value, structuredClone(prior), { ioWindow });
   diagnostics.finish({ exitCode: null, signalCode: 'SIGKILL' }, false);
-  const value = JSON.parse(reports[0].slice(marker.length)), { ioWindow: observed, ...retained } = value;
-  assert.deepEqual(retained, prior); assert.deepEqual(observed, ioWindow);
+  const value = JSON.parse(reports[0].slice(marker.length)), { ioWindow: observed, detailsOmitted, ...retained } = value;
+  const { readMs, writeMs, ...device } = ioWindow.device;
+  assert.deepEqual(retained, prior); assert.deepEqual(observed, { ...ioWindow, device }); assert.equal(detailsOmitted, 'size');
   assert.ok(Buffer.byteLength(reports[0].slice(marker.length)) <= 3000); assert.equal(reports.length, 1);
   const failure = 'GRAFANA_BROWSER_FAILED:browser-start:GRAFANA_BROWSER_TIMEOUT:Browser.getVersion:'
     + 'spawn=1,stderr=1048576,protocol=67108864,responses=128,categories=crashpad+dbus+devtools+fontconfig+library+path-length+permission+policy+resource+sandbox+socket';
   const stderr = reports[0] + '\n' + failure + '\n'; assert.equal(stderr.slice(-4000), stderr);
   const aggregate = readFileSync(resolve(root, 'scripts/tests/m4-sla-calendar-boundary.test.mjs'), 'utf8');
   assert.ok(aggregate.includes("import './ops-grafana-io-window.test.mjs';"));
+});
+
+test('new timing and wait details cannot erase existing I/O, native or PSI on size or serialization failures', () => {
+  const prior = JSON.parse(readFileSync(resolve(root, 'scripts/tests/fixtures/grafana-startup-timeout-1832.json')));
+  const cycle = {}; cycle.self = cycle;
+  for (const field of ['readMs', 'writeMs', 'ioWaits']) for (const broken of ['x'.repeat(4000), cycle, 1n, 'getter']) {
+    const original = structuredClone(prior), reports = [];
+    const diagnostics = new BrowserStartupDiagnostics({ now: () => 1, report: text => reports.push(text) });
+    Object.assign(diagnostics.value, original);
+    Object.assign(original.ioWindow.device, { readMs: 1, writeMs: 2 });
+    original.native.threads.ioWaits = { schedule: 1, pageBit: 0, writeback: 0, queue: 0 };
+    const target = field === 'ioWaits' ? original.native.threads : original.ioWindow.device;
+    if (broken === 'getter') Object.defineProperty(target, field, { enumerable: true, get() { throw new Error(secret); } });
+    else target[field] = broken;
+    diagnostics.finish({ exitCode: prior.exit.code, signalCode: prior.exit.signal }, false);
+    assert.equal(reports.length, 1);
+    const { detailsOmitted, ...retained } = JSON.parse(reports[0].slice(marker.length));
+    assert.equal(detailsOmitted, typeof broken === 'string' && broken !== 'getter' ? 'size' : 'serialization');
+    assert.deepEqual(retained, prior); assert.doesNotMatch(reports[0], /PRIVATE|0xdeadbeef/u);
+    assert.equal(Object.hasOwn(target, field), true);
+  }
+});
+
+test('detail omission preserves an original 3000-byte receipt byte-for-byte when its marker cannot fit', () => {
+  const prior = JSON.parse(readFileSync(resolve(root, 'scripts/tests/fixtures/grafana-startup-timeout-1832.json')));
+  prior.padding = ''; prior.padding = 'x'.repeat(3000 - Buffer.byteLength(JSON.stringify(prior)));
+  const expected = JSON.stringify(prior), reports = [];
+  const diagnostics = new BrowserStartupDiagnostics({ now: () => 1, report: text => reports.push(text) });
+  Object.assign(diagnostics.value, structuredClone(prior));
+  Object.assign(diagnostics.value.ioWindow.device, { readMs: Number.MAX_SAFE_INTEGER, writeMs: Number.MAX_SAFE_INTEGER });
+  diagnostics.value.native.threads.ioWaits = { schedule: 64, pageBit: 0, writeback: 0, queue: 0 };
+  diagnostics.finish({ exitCode: prior.exit.code, signalCode: prior.exit.signal }, false);
+  assert.equal(reports[0], marker + expected); assert.equal(reports.length, 1);
 });
 
 test('maximal existing native and original resource fields survive optional I/O size fallback', () => {

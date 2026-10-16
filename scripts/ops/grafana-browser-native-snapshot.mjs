@@ -6,6 +6,9 @@ const MAX_THREADS = 64;
 const integer = value => /^\d{1,16}$/u.test(String(value)) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
 const states = new Set(['R', 'S', 'D', 'Z', 'T', 't', 'W', 'X', 'x', 'K', 'P', 'I']);
 const attempt = operation => { try { return operation(); } catch { return null; } };
+const ioWaitClasses = new Map([['io_schedule', 'schedule'], ['folio_wait_bit_common', 'pageBit'],
+  ['wait_on_page_bit_common', 'pageBit'], ['folio_wait_writeback', 'writeback'],
+  ['wait_on_page_writeback', 'writeback'], ['blk_mq_get_tag', 'queue'], ['rq_qos_wait', 'queue']]);
 
 // Linux 6.17 fs/proc/array.c and Documentation/filesystems/proc.rst:
 // after the final ") ", field 3 is index 0; minflt/majflt are fields 10/12,
@@ -44,8 +47,7 @@ function tasks(pid, openDirectory) {
 function waitClass(text) {
   if (text === null || text.trim() === '' || text.trim() === '0') return 'unknown';
   const name = text.trim();
-  if (new Set(['io_schedule', 'folio_wait_bit_common', 'wait_on_page_bit_common',
-    'folio_wait_writeback', 'wait_on_page_writeback', 'blk_mq_get_tag', 'rq_qos_wait']).has(name)) return 'ioOrPageWait';
+  if (ioWaitClasses.has(name)) return 'ioOrPageWait';
   if (new Set(['futex_wait_queue', 'futex_wait_queue_me', 'futex_wait', 'futex_wait_multiple', 'do_futex']).has(name)) return 'futex';
   if (new Set(['do_epoll_wait', 'ep_poll', 'do_poll', 'do_select', 'poll_schedule_timeout']).has(name)) return 'poll';
   if (new Set(['pipe_read', 'pipe_write', 'pipe_wait_readable', 'pipe_wait_writable']).has(name)) return 'pipe';
@@ -97,6 +99,7 @@ export function browserNativeSnapshot(pid, profile, { read = readBoundedDiagnost
   const enumeration = tasks(pid, openDirectory);
   const stateCounts = { R: 0, S: 0, D: 0, other: 0, unknown: 0 };
   const waits = { ioOrPageWait: 0, futex: 0, poll: 0, pipe: 0, socket: 0, other: 0, unknown: 0 };
+  const ioWaits = { schedule: 0, pageBit: 0, writeback: 0, queue: 0 };
   let statReads = 0, pipeNames = 0, delayKnown = 0, ioDelayTicks = 0;
   for (const tid of enumeration.ids) {
     const taskRoot = root + '/task/' + tid;
@@ -105,13 +108,15 @@ export function browserNativeSnapshot(pid, profile, { read = readBoundedDiagnost
       stateCounts[Object.hasOwn(stateCounts, stat.state) ? stat.state : 'other']++;
       if (delayacct === 'enabled' && stat.ioDelayTicks !== null) { delayKnown++; ioDelayTicks += stat.ioDelayTicks; }
     } else stateCounts.unknown++;
-    waits[waitClass(get(taskRoot + '/wchan', 128))]++;
+    const channel = get(taskRoot + '/wchan', 128), kind = waitClass(channel);
+    waits[kind]++;
+    if (kind === 'ioOrPageWait') ioWaits[ioWaitClasses.get(channel.trim())]++;
   }
   const coverage = enumeration.coverage === 'complete' && statReads !== enumeration.ids.length ? 'partial' : enumeration.coverage;
   return { executable: executableKind(pid, readLink), profileFs: filesystem(profile, statFilesystem),
     minorFaults: process?.minorFaults ?? null, majorFaults: process?.majorFaults ?? null,
     readBytes: ioValue(/^read_bytes:\s+(\d+)$/gmu), writeBytes: ioValue(/^write_bytes:\s+(\d+)$/gmu),
     delayacct, threads: { coverage, scanned: enumeration.ids.length, statReads,
-      states: stateCounts, waits, pipeNames: statReads ? pipeNames : null,
+      states: stateCounts, waits, ioWaits, pipeNames: statReads ? pipeNames : null,
       delayKnown, ioDelayTicks: delayKnown > 0 && Number.isSafeInteger(ioDelayTicks) ? ioDelayTicks : null } };
 }
