@@ -111,6 +111,14 @@ The snapshot contains only fixed categories and numbers:
   network, font or lock fault. Unresolved/denied wait-channel zero is unknown.
   Complete coverage means the bounded enumeration and reads succeeded; these
   sequential reads are not an atomic process-wide snapshot.
+- Optional `threads.ioWaits` partitions the existing exact `ioOrPageWait`
+  allowlist into four counts: `schedule` (generic I/O scheduling), `pageBit`
+  (page-bit waits), `writeback` (writeback waits), and `queue` (request-queue
+  waits). Their sum equals the unchanged aggregate. The existing `waits.unknown`
+  and thread coverage still identify unavailable observations; zero means no
+  sampled match, not no actual waiting. A page-bit wait cannot prove read versus
+  write, and generic scheduling/page waits can hide writeback or queue waits.
+  No raw wait-channel name leaves the snapshot and no additional read is made.
 - A combined DevTools pipe-name count. Chromium 154.0.8037.97 gives its two pipe
   threads different long names, but Linux truncates both to `DevToolsPipeHan`.
   The detector cannot distinguish reader from writer. The existing successful
@@ -185,6 +193,13 @@ The summary contains only fixed enums and nullable finite numbers:
   milliseconds, and final `inFlight`. All are deltas except the in-flight gauge.
   Disk sectors use 512 bytes. Counter decreases, unsafe arithmetic, missing matches
   or a changed private device name make affected deltas unknown.
+- Optional device `readMs` and `writeMs` are monotonic deltas of diskstats fields
+  4 and 8, cumulative completed-request durations from the same reads. A reset
+  makes only the affected timing detail null; original raw-row validation is
+  unchanged. Durations can overlap and exceed the sampled span, include time
+  before the window for requests completed within it, and omit unfinished work.
+  They are neither service latency nor browser-attributed time. No causal
+  subtraction from wall time, cgroup counters, or service counters is valid.
 - `spanMs` measures the difference between sampling starts; unavailable,
   non-increasing or over-one-day clocks invalidate the window. Reads are sequential,
   not atomic. `scope: visible-root` or `visible-nested` describes only the membership
@@ -220,6 +235,15 @@ also fits. Only an already-oversized original receipt uses the older fallbacks.
 Tests combine the saved #1818 receipt with maximal new counters and exercise
 exact-budget fallback. Existing native browser/scanner acceptance remains required;
 this instrumentation and local mocked tests are not a fix or acceptance evidence.
+
+The completion-duration and four wait counts have lower priority than all
+previous evidence. At the unchanged 3,000-byte diagnostic, 2,048-byte handshake,
+and 6,000-byte bundle bounds, these details are discarded before any original
+I/O window, native or PSI fields on size or serialization failure. The fixed
+`detailsOmitted` reason (`size`, `serialization`, or typed-validation `capture`)
+is included only if it fits; it cannot displace original evidence. Older receipts
+remain accepted without these optional fields. The earlier I/O/native/shared
+resource fallbacks still apply when the original record itself cannot fit.
 
 Sources for these conservative semantics (not an assertion of #1818's kernel):
 

@@ -383,6 +383,103 @@ test('typed retention drops unknown private keys, rejects bad known fields, and 
   assert.deepEqual(d.value.resources, original.resources); assert.equal(d.value.failureKind, 'timeout');
 });
 
+function completionDetails(value) {
+  if (value.ioWindow?.device) Object.assign(value.ioWindow.device, { readMs: 31, writeMs: 47 });
+  if (value.native?.threads) value.native.threads.ioWaits = { schedule: 1, pageBit: 2, writeback: 3, queue: 4 };
+  return value;
+}
+function handshakeReceipt(prior) {
+  return { atMs: 1, sampleMs: 2, nativeSampling: 'not-requested', resources: structuredClone(prior.resources.failure),
+    ioWindow: structuredClone(prior.ioWindow) };
+}
+
+test('optional completion details survive typed retention while old receipts remain byte-for-byte unchanged', () => {
+  const prior = saved('grafana-startup-timeout-1832.json'), endpoint = handshakeReceipt(prior);
+  const old = finalizedStartupEvidence(prior, endpoint, null);
+  assert.equal(JSON.stringify(old.diagnostic), JSON.stringify(prior)); assert.deepEqual(old.handshake, endpoint);
+  const diagnostic = completionDetails(structuredClone(prior)), handshake = completionDetails(structuredClone(endpoint));
+  diagnostic.native.threads.ioWaits.PRIVATE = 'x'; diagnostic.ioWindow.device.PRIVATE = 'x';
+  const value = finalizedStartupEvidence(diagnostic, handshake, null);
+  assert.deepEqual(value.diagnostic.native.threads.ioWaits, { schedule: 1, pageBit: 2, writeback: 3, queue: 4 });
+  assert.equal(value.diagnostic.ioWindow.device.readMs, 31); assert.equal(value.diagnostic.ioWindow.device.writeMs, 47);
+  assert.equal(value.handshake.ioWindow.device.readMs, 31); assert.doesNotMatch(JSON.stringify(value), /PRIVATE/u);
+  const unknown = completionDetails(structuredClone(prior)); unknown.ioWindow.device.readMs = null; unknown.ioWindow.device.writeMs = null;
+  assert.equal(finalizedStartupEvidence(unknown, null, null).diagnostic.ioWindow.device.readMs, null);
+  for (const bad of [-1, Number.MAX_SAFE_INTEGER + 1, secret]) {
+    const invalid = completionDetails(structuredClone(prior)); invalid.ioWindow.device.readMs = bad;
+    const { detailsOmitted, ...retained } = finalizedStartupEvidence(invalid, null, null).diagnostic;
+    assert.equal(detailsOmitted, 'capture'); assert.deepEqual(retained, prior);
+  }
+});
+
+test('new details yield first at exact record and bundle caps without displacing originals or forcing a marker', () => {
+  const prior = saved('grafana-startup-timeout-1832.json');
+  for (const limit of [2048, 3000, 6000]) {
+    const original = limit === 2048 ? handshakeReceipt(prior) : limit === 3000 ? structuredClone(prior)
+      : { schema: 1, diagnostic: structuredClone(prior), handshake: handshakeReceipt(prior), io: maximalCompanion() };
+    original.padding = ''; original.padding = 'x'.repeat(limit - Buffer.byteLength(JSON.stringify(original)));
+    const extended = structuredClone(original);
+    if (limit === 6000) { completionDetails(extended.diagnostic); completionDetails(extended.handshake); }
+    else completionDetails(extended);
+    const retained = boundStartupRecord(extended, limit);
+    assert.equal(Buffer.byteLength(JSON.stringify(retained)), limit); assert.equal(JSON.stringify(retained), JSON.stringify(original));
+    assert.equal(retained.detailsOmitted, undefined);
+  }
+});
+
+test('normalization and bundle bounds shed oversized, cyclic or throwing optional details before old evidence', () => {
+  const prior = saved('grafana-startup-timeout-1832.json'), endpoint = handshakeReceipt(prior), cycle = {}; cycle.self = cycle;
+  for (const broken of [Number.MAX_SAFE_INTEGER, 'x'.repeat(6001), cycle, 1n, 'getter']) {
+    const diagnostic = completionDetails(structuredClone(prior)), handshake = completionDetails(structuredClone(endpoint));
+    if (broken === Number.MAX_SAFE_INTEGER) {
+      for (const key of ['readMs', 'writeMs']) diagnostic.ioWindow.device[key] = broken;
+      for (const key of Object.keys(diagnostic.native.threads.ioWaits)) diagnostic.native.threads.ioWaits[key] = broken;
+    } else if (broken === 'getter') {
+      Object.defineProperty(diagnostic.native.threads, 'ioWaits', { enumerable: true, get() { throw new Error(secret); } });
+    } else diagnostic.native.threads.ioWaits = broken;
+    if (broken === 'getter') Object.defineProperty(handshake.ioWindow.device, 'readMs', { enumerable: true, get() { throw new Error(secret); } });
+    else handshake.ioWindow.device.readMs = broken;
+    const value = finalizedStartupEvidence(diagnostic, handshake, maximalCompanion());
+    const { detailsOmitted, ...retained } = value.diagnostic;
+    assert.equal(detailsOmitted, typeof broken === 'number' || typeof broken === 'string' && broken !== 'getter' ? 'size' : 'serialization');
+    assert.deepEqual(retained, prior);
+    if (broken !== Number.MAX_SAFE_INTEGER) {
+      const { detailsOmitted: handshakeOmitted, ...oldHandshake } = value.handshake;
+      assert.equal(handshakeOmitted, typeof broken === 'string' && broken !== 'getter' ? 'size' : 'serialization');
+      assert.deepEqual(oldHandshake, endpoint);
+    } else assert.equal(value.handshake.ioWindow.device.readMs, Number.MAX_SAFE_INTEGER);
+    assert.ok(Buffer.byteLength(JSON.stringify(value)) <= 6000); assert.deepEqual(value.io, maximalCompanion());
+    assert.doesNotMatch(JSON.stringify(value), /PRIVATE/u);
+  }
+  const raw = { schema: 1, diagnostic: completionDetails(structuredClone(prior)), handshake: completionDetails(structuredClone(endpoint)), io: maximalCompanion() };
+  raw.diagnostic.native.threads.ioWaits = cycle;
+  const { detailsOmitted, ...retained } = boundStartupRecord(raw, 6000);
+  assert.equal(detailsOmitted, 'serialization');
+  assert.deepEqual(retained, { schema: 1, diagnostic: prior, handshake: endpoint, io: maximalCompanion() });
+});
+
+test('detail fallback never repairs malformed original containers into accepted records', () => {
+  const prior = saved('grafana-startup-timeout-1832.json'), cycle = {}; cycle.self = cycle;
+  for (const path of [[], ['ioWindow'], ['ioWindow', 'device'], ['native'], ['native', 'threads']]) {
+    for (const container of [[], new Date(0), { toJSON: () => [] }]) {
+      let diagnostic = completionDetails(structuredClone(prior));
+      // The broken optional field is outside the original container being invalidated.
+      if (path[0] === 'native') diagnostic.ioWindow.device.readMs = cycle;
+      else diagnostic.native.threads.ioWaits = cycle;
+      let parent = null, child = diagnostic;
+      for (const key of path) { parent = child; child = child[key]; }
+      const invalid = Object.assign(container, child);
+      if (path.length) parent[path.at(-1)] = invalid; else diagnostic = invalid;
+      assert.equal(finalizedStartupEvidence(diagnostic, null, null).diagnostic.status, 'unavailable');
+    }
+  }
+  const endpoint = handshakeReceipt(prior), invalid = Object.assign([], completionDetails(endpoint));
+  const bundle = { diagnostic: prior, handshake: invalid };
+  bundle.diagnostic = completionDetails(structuredClone(prior)); bundle.diagnostic.native.threads.ioWaits = cycle;
+  assert.ok(Array.isArray(boundStartupRecord(bundle, 6000).handshake));
+  assert.equal(startupHandshake(invalid).status, 'unavailable');
+});
+
 function successfulReceipt(startupEvidence) {
   const image = Buffer.alloc(150000); image.writeUInt16BE(0xffd8, 0); image.writeUInt16BE(0xffd9, image.length - 2);
   return { status: 'OPS_GRAFANA_BROWSER_VERIFIED', grafanaVersion: grafanaPin.version, browserVersion: 'Chrome/154.0.8037.97',

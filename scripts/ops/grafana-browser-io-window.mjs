@@ -64,8 +64,8 @@ function deviceTable(text) {
     // Retain the name privately only to reject an observed replacement at the same key.
     const numbers = tokens.slice(3).map(integer);
     result.set(id, [14, 18, 20].includes(tokens.length) && numbers.every(value => value !== null)
-      ? { name: tokens[2], readOps: numbers[0], readSectors: numbers[2], writeOps: numbers[4],
-        writeSectors: numbers[6], inFlight: numbers[8], ioMs: numbers[9], weightedMs: numbers[10] } : null);
+      ? { name: tokens[2], readOps: numbers[0], readSectors: numbers[2], readMs: numbers[3], writeOps: numbers[4],
+        writeSectors: numbers[6], writeMs: numbers[7], inFlight: numbers[8], ioMs: numbers[9], weightedMs: numbers[10] } : null);
   }
   return result;
 }
@@ -89,7 +89,10 @@ function deviceDelta(before, after) {
   const readBytes = value.readSectors * 512, writeBytes = value.writeSectors * 512;
   if (!Number.isSafeInteger(readBytes) || !Number.isSafeInteger(writeBytes)) return null;
   return { readBytes, writeBytes, readOps: value.readOps, writeOps: value.writeOps,
-    ioMs: value.ioMs, weightedMs: value.weightedMs, inFlight: after.inFlight };
+    ioMs: value.ioMs, weightedMs: value.weightedMs, inFlight: after.inFlight,
+    // Completed-request durations can overlap; a reset only invalidates its new detail.
+    readMs: delta(before, after, ['readMs'])?.readMs ?? null,
+    writeMs: delta(before, after, ['writeMs'])?.writeMs ?? null };
 }
 
 function summary(before, after) {

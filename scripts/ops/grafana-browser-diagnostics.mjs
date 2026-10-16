@@ -2,7 +2,8 @@ import { performance } from 'node:perf_hooks';
 import { diagnosticCgroupRoot, readBoundedDiagnosticFile, safeDiagnosticRead as safe } from './grafana-browser-diagnostic-files.mjs';
 import { browserNativeSnapshot } from './grafana-browser-native-snapshot.mjs';
 import { createBrowserIoSampler } from './grafana-browser-io-window.mjs';
-import { finalizedStartupEvidence, startupCompanion, startupHandshake, startupIoMarker } from './grafana-browser-startup-evidence.mjs';
+import { finalizedStartupEvidence, markStartupDetailsOmitted, startupCompanion, startupDetailFallback, startupHandshake,
+  startupIoMarker } from './grafana-browser-startup-evidence.mjs';
 export { readBoundedDiagnosticFile } from './grafana-browser-diagnostic-files.mjs';
 
 const signals = new Set(['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT',
@@ -209,7 +210,8 @@ export class BrowserStartupDiagnostics {
     if (this.emitted) return;
     this.emitted = true;
     let diagnostic = null;
-    try { let value = this.value, text, ioOmitted = null;
+    try { const details = startupDetailFallback(this.value, 3000);
+      let value = details.value, text, ioOmitted = null;
       if (Object.hasOwn(value, 'ioWindow')) {
         try { text = JSON.stringify(value); } catch {}
         if (text === undefined || Buffer.byteLength(text) > 3000) {
@@ -231,6 +233,8 @@ export class BrowserStartupDiagnostics {
         const annotated = JSON.stringify({ ...value, ioOmitted });
         if (Buffer.byteLength(annotated) <= 3000) text = annotated;
       }
+      if (details.omitted !== null && Buffer.byteLength(text) <= 3000)
+        text = JSON.stringify(markStartupDetailsOmitted(JSON.parse(text), details.omitted, 3000));
       if (Buffer.byteLength(text) <= 3000) {
         diagnostic = JSON.parse(text); this.report('GRAFANA_BROWSER_DIAGNOSTICS=' + text);
       }

@@ -41,6 +41,8 @@ test('native snapshot uses verified stat fields, combined truncated pipe names a
   assert.equal(value.threads.pipeNames, 2); assert.equal(value.threads.ioDelayTicks, 39);
   assert.equal(value.threads.delayKnown, 3); assert.equal(value.threads.states.D, 1); assert.equal(value.threads.states.S, 2);
   assert.equal(value.threads.waits.ioOrPageWait, 1); assert.equal(value.threads.waits.futex, 2); assert.equal(f.control.closed, true);
+  assert.deepEqual(value.threads.ioWaits, { schedule: 0, pageBit: 1, writeback: 0, queue: 0 });
+  assert.equal(f.paths.length, 9); assert.equal(f.paths.filter(path => path.endsWith('/wchan')).length, 3);
   const text = JSON.stringify(value); assert.ok(!text.includes(secret)); assert.ok(!text.includes('/owned')); assert.ok(!text.includes('/proc'));
   assert.ok(!text.includes('DevTools')); assert.ok(!text.includes('folio_wait')); assert.ok(!text.includes('pid'));
 });
@@ -101,6 +103,27 @@ test('wait channels use fixed coarse classes and never export raw symbolic names
   const f = fixture({ ids, overrides }), value = browserNativeSnapshot(123, '/owned-private/profile', f.options);
   assert.deepEqual(value.threads.waits, { ioOrPageWait: 1, futex: 1, poll: 1, pipe: 1, socket: 1, other: 1, unknown: 1 });
   assert.ok(!JSON.stringify(value).includes(secret));
+});
+
+test('four detail counts partition only the original exact I/O whitelist using the same wchan reads', () => {
+  const names = ['io_schedule', 'folio_wait_bit_common', 'wait_on_page_bit_common', 'folio_wait_writeback',
+    'wait_on_page_writeback', 'blk_mq_get_tag', 'rq_qos_wait', 'folio_wait_bit_common_PRIVATE', secret, null, '', '0'];
+  const ids = names.map((_, index) => String(index + 123)), overrides = {};
+  for (const [index, name] of names.entries()) overrides['/proc/123/task/' + ids[index] + '/wchan'] = name;
+  const f = fixture({ ids, overrides }), value = browserNativeSnapshot(123, '/owned-private/profile', f.options);
+  assert.deepEqual(value.threads.ioWaits, { schedule: 1, pageBit: 2, writeback: 2, queue: 2 });
+  assert.deepEqual(value.threads.waits, { ioOrPageWait: 7, futex: 0, poll: 0, pipe: 0, socket: 0, other: 2, unknown: 3 });
+  assert.equal(Object.values(value.threads.ioWaits).reduce((sum, count) => sum + count, 0), value.threads.waits.ioOrPageWait);
+  assert.equal(value.threads.coverage, 'complete'); assert.equal(f.paths.length, 3 + 2 * names.length);
+  assert.equal(new Set(f.paths).size, f.paths.length); assert.equal(f.control.directoryReads, names.length + 1);
+  assert.doesNotMatch(JSON.stringify(value), /PRIVATE|folio_|wait_on_|io_schedule|blk_mq|rq_qos|\/proc|\/owned/u);
+  const missing = fixture({ overrides: { '/proc/123/task/123/wchan': null, '/proc/123/task/124/wchan': null, '/proc/123/task/125/wchan': null } });
+  const unknown = browserNativeSnapshot(123, '/owned-private/profile', missing.options);
+  assert.deepEqual(unknown.threads.ioWaits, { schedule: 0, pageBit: 0, writeback: 0, queue: 0 });
+  assert.equal(unknown.threads.waits.unknown, 3);
+  const unavailable = browserNativeSnapshot(123, null, { ...missing.options, openDirectory() { throw new Error(secret); } });
+  assert.equal(unavailable.threads.coverage, 'unavailable'); assert.equal(unavailable.threads.scanned, 0);
+  assert.deepEqual(unavailable.threads.ioWaits, { schedule: 0, pageBit: 0, writeback: 0, queue: 0 });
 });
 
 test('executable and filesystem classification reject private strings, unknown values and unsafe numbers', () => {
