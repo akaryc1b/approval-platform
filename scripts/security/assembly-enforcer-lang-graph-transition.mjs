@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
+import { fileURLToPath } from 'node:url';
+import { acceptedE2GraphProjection, resolveGitHubActionsEvidence } from './m6-pr-e-e2-generate-sbom.mjs';
 import { parseCheckstylePluginOwners, verifyCheckstyleCaptureProvenance } from './checkstyle-plugin-graph-transition.mjs';
-import { readPreservedJarSource } from './jar-plugin-source-continuation.mjs';
+import { readPreservedJarSource, preservedHygieneJava21Source } from './jar-plugin-source-continuation.mjs';
 import { osvInputFromE2 } from './osv-scan-coverage.mjs';
 
 // Candidate pins bind retained actual captures. Accepted-main anchors below are
@@ -25,6 +26,10 @@ const ACCEPTED = {
     '9e698ed3366bdaa3de9926911974b0eeef759bbd0c3912c39a9e56e5ffb9a471'],
 };
 const REPOSITORY = 'akaryc1b/approval-platform';
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const M3_RETENTION_WORKFLOW = '.github/workflows/approval-platform-validation.yml';
+const M3_RETENTION_BLOBS = { fromBlob: 'e2d9d43a8594503f4efd9e3683ba69fe3f291581',
+  toBlob: '4cdfa529d6f5209d8c0dd913b7ae845d2829ce30' };
 const OWNERS = ['org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1',
   'org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0'];
 const OLD = 'org.apache.commons:commons-lang3:jar:3.14.0';
@@ -41,7 +46,7 @@ function bytes(path, expected) {
   requireValue(typeof path === 'string' && /^[A-Za-z0-9_./-]+$/.test(path) && !path.startsWith('/')
     && !path.split('/').some(part => !part || part === '.' || part === '..'), 'unsafe evidence path');
   requireValue(SHA256.test(expected || ''), 'evidence pin is unsealed');
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = preservedHygieneJava21Source(path, expected, readFileSync(new URL(`../../${path}`, import.meta.url)));
   requireValue(sha(raw) === expected, `byte digest mismatch: ${path}`); return raw;
 }
 const pinned = ref => JSON.parse(bytes(ref.path, ref.rawSha256));
@@ -291,13 +296,35 @@ export function verifyAssemblyEnforcerLangDelta(projection, manifest = readAssem
   }
   return previous;
 }
+// Resolve source on every admission. The captured Actions may continue only
+// through the exact reviewed M3 workflow blob and its complete pinned metadata.
+function currentAssemblyEnforcerLangActions(candidate) {
+  bytes('scripts/security/hygiene-java21-workflow-transition.mjs',
+    '76ada2498855ebf319612b92dbaf4fa4fd223d420bd8a10e030ab11051699b07');
+  const current = resolveGitHubActionsEvidence(ROOT), expected = structuredClone(candidate.githubActions);
+  const workflow = expected.workflows.find(row => row.path === M3_RETENTION_WORKFLOW);
+  const java21 = expected.workflowToolchainTransition.java21WorkflowContinuation;
+  requireValue(workflow?.blobSha === M3_RETENTION_BLOBS.fromBlob
+    && !Object.hasOwn(java21, 'm3LogRetentionContinuation'), 'captured Actions continuation identity mismatch');
+  workflow.blobSha = M3_RETENTION_BLOBS.toBlob;
+  java21.m3LogRetentionContinuation = {
+    schemaVersion: 'APPROVAL_HYGIENE_M3_LOG_RETENTION_CONTINUATION_V1',
+    manifestSha256: '452c856216d8213b7705a5a83b0eaf801c146a782c1a1759fe5a7d99e75f8efc',
+    workflowBlobs: { [M3_RETENTION_WORKFLOW]: M3_RETENTION_BLOBS },
+    originalTestCommandAndExitStatusRetained: true,
+  };
+  requireValue(same(current, expected), 'current Actions source continuation drift');
+  return current;
+}
+
 export function verifyAssemblyEnforcerLangCurrentEvidence(e2, manifest = readAssemblyEnforcerLangManifest()) {
   validate(manifest); const candidate = readAssemblyEnforcerLangCandidate(manifest);
   const { commitSha, contentSha256, ...payload } = e2;
   const { commitSha: base, contentSha256: capturedHash, ...captured } = candidate;
   requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && e2.repository === REPOSITORY
     && /^[0-9a-f]{40}$/.test(commitSha || '') && hash({ ...payload, commitSha }) === contentSha256
-    && same(payload, captured), 'current E2 source/Actions/toolchain drift');
+    && same(payload, { ...captured, githubActions: currentAssemblyEnforcerLangActions(candidate) }),
+  'current E2 source/Actions/toolchain drift');
   readAssemblyEnforcerLangSourceWitness(manifest);
 }
 
@@ -305,10 +332,11 @@ export function verifyAssemblyEnforcerLangCurrentEvidence(e2, manifest = readAss
 export function assemblyEnforcerLangReceipt(identity) {
   const manifest = readAssemblyEnforcerLangManifest(), candidate = readAssemblyEnforcerLangCandidate(manifest);
   const { contentSha256, ...candidatePayload } = candidate;
-  const current = { ...candidatePayload, commitSha: identity.commitSha };
+  const current = { ...candidatePayload, githubActions: currentAssemblyEnforcerLangActions(candidate), commitSha: identity.commitSha };
   requireValue(hash(current) === identity.contentSha256, 'receipt current E2 identity mismatch');
   // Admission passes the full E2; preserved-receipt verification supplies only its identity.
-  // In either case the identity must reconstruct the exact full captured E2 at this head.
+  // Both forms must reconstruct the exact full E2 with freshly resolved current
+  // Actions at this head; historical captures never substitute for current input.
   const evidence = Object.keys(identity).length === 2 ? { ...current, contentSha256: identity.contentSha256 } : identity;
   verifyAssemblyEnforcerLangCurrentEvidence(evidence, manifest);
   verifyAssemblyEnforcerLangDelta(acceptedE2GraphProjection(candidate), manifest);

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { preservedHygieneJava21Source } from './jar-plugin-source-continuation.mjs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { CHECKSTYLE_GUAVA_GRAPH, readCheckstyleGuavaReport, readCheckstyleGuavaSourceWitness }
   from './checkstyle-guava-graph-transition.mjs';
@@ -30,7 +31,7 @@ const requireValue = (ok, message) => { if (!ok) throw new Error(`Boot HTTP ${me
 const SHA256 = /^[0-9a-f]{64}$/;
 const bytes = (path, expected) => {
   requireValue(SHA256.test(expected || ''), 'evidence pin is unsealed');
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = preservedHygieneJava21Source(path, expected, readFileSync(new URL(`../../${path}`, import.meta.url)));
   requireValue(sha(raw) === expected, `byte digest mismatch: ${path}`); return raw;
 };
 const pinned = ref => JSON.parse(bytes(ref.path, ref.rawSha256));
@@ -108,7 +109,9 @@ export function readBootHttpSourceWitness(manifest = readBootHttpManifest()) {
     && execution.sourcePomSha256 === witness.rootPom.rawSha256, 'capture report/E2/source mismatch');
   requireValue(same(witness.generatorSources, historical.generatorSources)
     && same(execution.generatorSources, historical.generatorSources), 'unchanged generator closure mismatch');
-  for (const [path, expected] of Object.entries(execution.captureInputs)) readPreservedBootHttpSource(path, expected);
+  for (const [path, expected] of Object.entries(execution.captureInputs)) {
+    if (path === 'pom.xml') readPreservedBootHttpSource(path, expected); else bytes(path, expected);
+  }
   for (const [path, expected] of Object.entries(witness.generatorSources))
     requireValue(execution.captureInputs[path] === expected, 'generator capture binding mismatch');
   requireValue(same(witness.sourcePomFiles.map(row => row.path).sort(), historical.sourcePomFiles.map(row => row.path).sort())

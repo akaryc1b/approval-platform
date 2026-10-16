@@ -38,7 +38,7 @@ import { applyReviewedFindingsWithIdentityTransitions } from '../security/m6-pr-
 import { applyRuntimeDeploymentReviews } from '../security/m6-pr-e-e3-apply-runtime-deployment-reviews.mjs';
 import { applyWorkflowSupplyChainReviews } from '../security/m6-pr-e-e3-apply-workflow-supply-chain-reviews.mjs';
 import { verifyPgjdbcRemediation } from '../security/m6-pr-e-e3-verify-pgjdbc-remediation.mjs';
-import { acceptedE2GraphProjection } from '../security/m6-pr-e-e2-generate-sbom.mjs';
+import { acceptedE2GraphProjection, resolveGitHubActionsEvidence } from '../security/m6-pr-e-e2-generate-sbom.mjs';
 import { readServerDependencyRemediationPlan, verifyServerDependencyRemediation }
   from '../security/m6-pr-e-e3-verify-server-dependency-remediation.mjs';
 import { verifyDependabotCooldownRemediation } from '../security/m6-pr-e-e3-verify-dependabot-cooldown-remediation.mjs';
@@ -368,7 +368,8 @@ function retainedSyntheticCandidate(graph) {
 function syntheticCallbackGraph(graph, commitSha) {
   const key = `${graph}\0${commitSha}`;
   if (!retainedSyntheticGraphs.has(key)) {
-    const e2 = seal({ ...retainedSyntheticCandidate(graph), commitSha });
+    const e2 = seal({ ...retainedSyntheticCandidate(graph), commitSha,
+      ...(graph === 'lang' ? { githubActions: resolveGitHubActionsEvidence(fileURLToPath(new URL('../../', import.meta.url))) } : {}) });
     const osv = syntheticOsvBuilders[graph](e2, json('m6-pr-e-e3-r4-osv-preparation').osv);
     const lineage = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, commitSha);
     retainedSyntheticGraphs.set(key, { e2, osv, lineage, digest: syntheticGraphDigests[graph] });
@@ -578,7 +579,8 @@ test('current Lang CI callback completes modeled I2 I3 I4 and R2B with all 374 G
   assert.equal(r.commands.filter(([command]) => command === process.execPath).length, 1);
   assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 4);
   assert.equal(r.logs.filter(text => /^M6_PR_E_.*_BEGIN\n/.test(text)).length, 14);
-  assert.deepEqual(r.e4.e2CurrentEvidence, seal({ ...readAssemblyEnforcerLangCandidate(), commitSha: r.e4.commitSha }));
+  assert.deepEqual(r.e4.e2CurrentEvidence, seal({ ...readAssemblyEnforcerLangCandidate(), commitSha: r.e4.commitSha,
+    githubActions: resolveGitHubActionsEvidence(fileURLToPath(new URL('../../', import.meta.url))) }));
   assert.equal(r.e4.e2GraphDigest, ASSEMBLY_ENFORCER_LANG_GRAPH);
   assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, ASSEMBLY_ENFORCER_LANG_GRAPH);
   assert.equal(r.e4.scanners.osv.coverage.inputPackageCount, readAssemblyEnforcerLangManifest().osvInput.current.packageCount);

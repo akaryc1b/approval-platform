@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { preservedHygieneJava21Source } from './jar-plugin-source-continuation.mjs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { CLEAN_PLUGIN_GRAPH, readCleanPluginReport } from './clean-plugin-graph-transition.mjs';
 import { readPreservedCleanSource } from './compiler-plugin-source-continuation.mjs';
@@ -19,7 +20,7 @@ const hash = value => sha(canonical(value));
 const same = (a, b) => canonical(a) === canonical(b);
 const requireValue = (ok, message) => { if (!ok) throw new Error(message); };
 const bytes = (path, expected) => {
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = preservedHygieneJava21Source(path, expected, readFileSync(new URL(`../../${path}`, import.meta.url)));
   requireValue(sha(raw) === expected, `Compiler byte digest mismatch: ${path}`); return raw;
 };
 const pinned = ref => JSON.parse(bytes(ref.path, ref.rawSha256));

@@ -10,7 +10,8 @@ import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
 import test from 'node:test';
-import { acceptedE2GraphProjection } from '../security/m6-pr-e-e2-generate-sbom.mjs';
+import { acceptedE2GraphProjection, resolveGitHubActionsEvidence } from '../security/m6-pr-e-e2-generate-sbom.mjs';
+import { preservedHygieneJava21Source } from '../security/jar-plugin-source-continuation.mjs';
 import { ASSEMBLY_ENFORCER_LANG_GRAPH, readAssemblyEnforcerLangManifest, readAssemblyEnforcerLangBaseline,
   readAssemblyEnforcerLangCandidate, readAssemblyEnforcerLangSourceWitness, readAssemblyEnforcerLangReport,
   readAssemblyEnforcerLangAcceptedLineage, readAssemblyEnforcerLangAcceptedServerRemediation,
@@ -32,9 +33,65 @@ const NEW = 'org.apache.commons:commons-lang3:jar:3.18.0';
 const OWNERS = ['org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1',
   'org.apache.maven.plugins:maven-enforcer-plugin:jar:3.5.0'];
 const manifest = readAssemblyEnforcerLangManifest(), candidate = readAssemblyEnforcerLangCandidate(manifest);
+const currentCandidate = (commitSha = candidate.commitSha) => seal({ ...candidate, commitSha,
+  githubActions: resolveGitHubActionsEvidence(root) });
 const retained = { before: acceptedE2GraphProjection(readAssemblyEnforcerLangBaseline(manifest)),
   after: acceptedE2GraphProjection(candidate), beforeRaw: raw(manifest.base.pluginReport.path).toString(),
   afterRaw: readAssemblyEnforcerLangReport(manifest) };
+
+test('M3 helper continuation reconstructs only the exact historical path/hash/bytes and size', () => {
+  const path = 'scripts/security/hygiene-java21-workflow-transition.mjs', current = raw(path);
+  const expected = '820cffc7c6202de35c767c445a60361c00e632e8c7163a5284b0e7490e605f0e';
+  assert.equal(sha(current), '76ada2498855ebf319612b92dbaf4fa4fd223d420bd8a10e030ab11051699b07');
+  const prior = preservedHygieneJava21Source(path, expected, current);
+  assert.equal(sha(prior), expected); assert.equal(prior.length, 3254);
+  assert.deepEqual(preservedHygieneJava21Source(path, expected, prior), prior);
+  assert.deepEqual(preservedHygieneJava21Source('unrelated.mjs', expected, current), current);
+  assert.deepEqual(preservedHygieneJava21Source(path, 'f'.repeat(64), current), current);
+  const region = '  content = priorM3LogRetentionWorkflow(workflowPath, content);\n';
+  for (const altered of [Buffer.concat([current, Buffer.from('\n')]),
+    Buffer.from(current.toString().replace(region, '')),
+    Buffer.from(current.toString().replace(region, region.repeat(2))),
+    Buffer.from(current.toString().replace(region, region.replace('  content', '   content'))),
+    Buffer.from(current.toString().replace('originalTestCommandAndExitStatusRetained: true',
+      'originalTestCommandAndExitStatusRetained: false'))])
+    assert.throws(() => preservedHygieneJava21Source(path, expected, altered), /current byte digest mismatch/);
+});
+
+test('M3 workflow continuation reconstructs only the exact historical path/hash/bytes and size', () => {
+  const path = '.github/workflows/approval-platform-validation.yml', current = raw(path);
+  const expected = '5e0d736ccc9b5b43156397534eea2e1fc612a9fd9ee653d13e31aed3090c9ea5';
+  assert.equal(sha(current), 'd108d8a4544796bc6a068e1345efb85b16bd7b559a3d202db024f40d7247782d');
+  const prior = preservedHygieneJava21Source(path, expected, current);
+  assert.equal(sha(prior), expected); assert.equal(prior.length, 19151);
+  assert.deepEqual(preservedHygieneJava21Source(path, expected, prior), prior);
+  assert.deepEqual(preservedHygieneJava21Source('unrelated.yml', expected, current), current);
+  assert.deepEqual(preservedHygieneJava21Source(path, 'f'.repeat(64), current), current);
+  const retention = JSON.parse(raw('docs/m6/hygiene-m3-log-retention-transition.json'));
+  for (const { after } of retention.workflows[path].replacements) {
+    for (const replacement of ['', after.repeat(2), after.replace('m3-repository', 'm4-repository')]) {
+      const altered = Buffer.from(replaceOnce(current.toString(), after, replacement));
+      assert.throws(() => preservedHygieneJava21Source(path, expected, altered), /current byte digest mismatch/);
+    }
+  }
+});
+
+test('all nine retained source witnesses preserve their complete historical input hashes', async () => {
+  for (const [name, reader] of [
+    ['compiler-plugin', 'readCompilerPluginSourceWitness'],
+    ['checkstyle-plugin', 'readCheckstylePluginSourceWitness'],
+    ['checkstyle-guava', 'readCheckstyleGuavaSourceWitness'],
+    ['boot-http', 'readBootHttpSourceWitness'],
+    ['boot-utilities', 'readBootUtilitiesSourceWitness'],
+    ['jacoco-antrun', 'readJacocoAntrunSourceWitness'],
+    ['assembly-plexus', 'readAssemblyPlexusSourceWitness'],
+    ['jar-plugin', 'readJarPluginSourceWitness'],
+    ['assembly-enforcer-lang', 'readAssemblyEnforcerLangSourceWitness'],
+  ]) {
+    const api = await import(`../security/${name}-graph-transition.mjs`);
+    assert.equal(api[reader]().releaseBlocked, true, name);
+  }
+});
 
 test('retained actual Lang capture has exactly two owner replacements and a complete reversed accepted graph', () => {
   const owners = verifyAssemblyEnforcerLangOwnerSubstitution(retained.beforeRaw, retained.afterRaw);
@@ -94,7 +151,7 @@ for (const [name, mutate] of [
 });
 
 test('Lang current receipt binds the complete E2/head/schema and keeps the immutable JAR lineage and release gates', () => {
-  const current = seal({ ...candidate, commitSha: 'a'.repeat(40) });
+  const current = currentCandidate('a'.repeat(40));
   verifyAssemblyEnforcerLangCurrentEvidence(current);
   const receipt = assemblyEnforcerLangReceipt(current);
   assert.equal(receipt.schemaVersion, 'APPROVAL_ASSEMBLY_ENFORCER_LANG_GRAPH_LINEAGE_V1');
@@ -116,6 +173,48 @@ test('Lang current receipt binds the complete E2/head/schema and keeps the immut
   }
   const changedFullE2 = { ...current, toolchain: { forged: true } };
   assert.throws(() => assemblyEnforcerLangReceipt(changedFullE2), /current E2/);
+});
+
+test('Lang current Actions retain only the exact M3 continuation and reject historical or forged current identities', () => {
+  const current = currentCandidate('b'.repeat(40)), actions = structuredClone(current.githubActions);
+  const workflowPath = '.github/workflows/approval-platform-validation.yml';
+  const java21 = actions.workflowToolchainTransition.java21WorkflowContinuation;
+  assert.deepEqual(java21.m3LogRetentionContinuation, {
+    schemaVersion: 'APPROVAL_HYGIENE_M3_LOG_RETENTION_CONTINUATION_V1',
+    manifestSha256: '452c856216d8213b7705a5a83b0eaf801c146a782c1a1759fe5a7d99e75f8efc',
+    workflowBlobs: { [workflowPath]: { fromBlob: 'e2d9d43a8594503f4efd9e3683ba69fe3f291581',
+      toBlob: '4cdfa529d6f5209d8c0dd913b7ae845d2829ce30' } },
+    originalTestCommandAndExitStatusRetained: true,
+  });
+  delete java21.m3LogRetentionContinuation;
+  const workflow = actions.workflows.find(row => row.path === workflowPath);
+  assert.equal(workflow.blobSha, '4cdfa529d6f5209d8c0dd913b7ae845d2829ce30');
+  workflow.blobSha = 'e2d9d43a8594503f4efd9e3683ba69fe3f291581';
+  assert.deepEqual(actions, candidate.githubActions);
+  assert.deepEqual(acceptedE2GraphProjection(current), retained.after);
+  assert.deepEqual(readAssemblyEnforcerLangCandidate(), candidate);
+  const stale = seal({ ...candidate, commitSha: current.commitSha });
+  for (const evidence of [candidate, stale]) {
+    assert.throws(() => verifyAssemblyEnforcerLangCurrentEvidence(evidence), /current E2/);
+    assert.throws(() => assemblyEnforcerLangReceipt(evidence), /identity mismatch/);
+    assert.throws(() => assemblyEnforcerLangReceipt({ commitSha: evidence.commitSha,
+      contentSha256: evidence.contentSha256 }), /identity mismatch/);
+  }
+  for (const mutate of [
+    value => { value.workflows.find(row => row.path === workflowPath).blobSha = 'f'.repeat(40); },
+    value => { value.workflows.find(row => row.path !== workflowPath).automatic = true; },
+    value => { value.workflowToolchainTransition.java21WorkflowContinuation.m3LogRetentionContinuation.manifestSha256 = 'f'.repeat(64); },
+    value => { value.workflowToolchainTransition.java21WorkflowContinuation.m3LogRetentionContinuation.originalTestCommandAndExitStatusRetained = false; },
+    value => { delete value.workflowToolchainTransition.java21WorkflowContinuation.m3LogRetentionContinuation; },
+    value => { value.interpretation.forged = true; },
+  ]) {
+    const altered = structuredClone(current); mutate(altered.githubActions);
+    const evidence = seal(altered);
+    assert.throws(() => verifyAssemblyEnforcerLangCurrentEvidence(evidence), /current E2/);
+    assert.throws(() => assemblyEnforcerLangReceipt(evidence), /identity mismatch/);
+    assert.throws(() => assemblyEnforcerLangReceipt({ commitSha: evidence.commitSha,
+      contentSha256: evidence.contentSha256 }), /identity mismatch/);
+  }
 });
 
 function replaceOnce(source, before, after) {
@@ -149,8 +248,9 @@ test('direct Lang boundary rejects fresh source/archive/inventory mutations with
   assert.throws(() => jar.jarPluginReceipt(candidate), /Unexpected ancestor admission/);
   const graph = await import(pathToFileURL(join(directory, 'scripts/security/observability-dependency-graph.mjs')));
   assert.throws(() => graph.verifyObservabilityGraph(), /Unexpected ancestor admission/);
-  const invoke = () => api.assemblyEnforcerLangReceipt(candidate), originalReceipt = invoke();
-  assert.deepEqual(originalReceipt, assemblyEnforcerLangReceipt(candidate));
+  const current = currentCandidate();
+  const invoke = () => api.assemblyEnforcerLangReceipt(current), originalReceipt = invoke();
+  assert.deepEqual(originalReceipt, assemblyEnforcerLangReceipt(current));
   for (const [label, file] of [
     ['ancestor owner report', 'docs/operations/checkstyle-plugin-evidence/plugin-owner-report.txt'],
     ['ancestor source archive', 'docs/operations/compiler-plugin-evidence/candidate-root-pom.xml'],
@@ -164,25 +264,69 @@ test('direct Lang boundary rejects fresh source/archive/inventory mutations with
     ['model capture', 'docs/operations/assembly-enforcer-lang-evidence/model-capture-execution.json'],
     ['model source projection', 'docs/operations/assembly-enforcer-lang-evidence/model-source-projection.json'],
     ['full current model', 'docs/operations/assembly-enforcer-lang-evidence/candidate-effective-pom.xml'],
+    ['current workflow', '.github/workflows/approval-platform-validation.yml'],
+    ['current Java selector', 'scripts/ci/select-java21.mjs'],
+    ['current workflow helper', 'scripts/security/hygiene-java21-workflow-transition.mjs'],
+    ['M3 retention manifest', 'docs/m6/hygiene-m3-log-retention-transition.json'],
   ]) {
     const target = join(directory, file), original = readFileSync(target);
     writeFileSync(target, Buffer.concat([original, Buffer.from('\n')]));
-    try { assert.throws(invoke, /byte digest mismatch|retained Lang predecessor/, label); }
+    try { assert.throws(invoke, /byte digest mismatch|retained Lang predecessor|workflow blob|source blob drift|manifest drift/, label); }
     finally { writeFileSync(target, original); }
     assert.deepEqual(invoke(), originalReceipt, `fresh restored ${label}`);
   }
   for (const file of ['pom.xml', manifest.capture.e2.path, manifest.base.lineage.path,
     'docs/operations/jar-plugin-evidence/candidate-root-pom.xml',
-    'docs/operations/jar-plugin-evidence/baseline-effective-pom.xml']) {
-    api.verifyAssemblyEnforcerLangCurrentEvidence(candidate);
+    'docs/operations/jar-plugin-evidence/baseline-effective-pom.xml',
+    '.github/workflows/approval-platform-validation.yml',
+    'scripts/security/hygiene-java21-workflow-transition.mjs',
+    'docs/m6/hygiene-m3-log-retention-transition.json']) {
+    api.verifyAssemblyEnforcerLangCurrentEvidence(current);
     api.verifyAssemblyEnforcerLangDelta(retained.after);
     api.readAssemblyEnforcerLangAcceptedLineage();
     const target = join(directory, file), original = readFileSync(target);
     writeFileSync(target, Buffer.concat([original, Buffer.from('\n')]));
-    try { assert.throws(invoke, /byte digest mismatch|retained Lang predecessor/, `late ${file}`); }
+    try { assert.throws(invoke, /byte digest mismatch|retained Lang predecessor|workflow blob|manifest drift/, `late ${file}`); }
     finally { writeFileSync(target, original); }
     assert.deepEqual(invoke(), originalReceipt, `fresh after late mutation ${file}`);
   }
+  for (const file of ['docs/m6/m6-pr-e-e2-action-resolution-baseline.json',
+    'docs/m6/m6-pr-e-e3-r2b-workflow-supply-chain-remediation.json']) {
+    const target = join(directory, file), original = readFileSync(target), altered = JSON.parse(original);
+    if (file.includes('action-resolution')) altered.interpretation.forged = true;
+    else altered.forged = true;
+    writeFileSync(target, JSON.stringify(altered));
+    try { assert.throws(invoke, /current Actions source continuation drift/, `independent Actions pin ${file}`); }
+    finally { writeFileSync(target, original); }
+    assert.deepEqual(invoke(), originalReceipt, `fresh restored Actions source ${file}`);
+  }
+  const workflowPath = '.github/workflows/approval-platform-validation.yml';
+  const workflowFile = join(directory, workflowPath), originalWorkflow = readFileSync(workflowFile);
+  const retention = JSON.parse(readFileSync(join(directory, 'docs/m6/hygiene-m3-log-retention-transition.json')));
+  let oldWorkflow = originalWorkflow.toString();
+  for (const { before, after } of retention.workflows[workflowPath].replacements)
+    oldWorkflow = replaceOnce(oldWorkflow, after, before);
+  writeFileSync(workflowFile, oldWorkflow);
+  try {
+    for (const evidence of [current, candidate]) {
+      assert.throws(() => api.verifyAssemblyEnforcerLangCurrentEvidence(evidence), /current Actions source continuation drift/);
+      assert.throws(() => api.assemblyEnforcerLangReceipt(evidence), /current Actions source continuation drift/);
+      assert.throws(() => api.assemblyEnforcerLangReceipt({ commitSha: evidence.commitSha,
+        contentSha256: evidence.contentSha256 }), /current Actions source continuation drift/);
+    }
+  } finally { writeFileSync(workflowFile, originalWorkflow); }
+  assert.deepEqual(invoke(), originalReceipt, 'fresh restored M3 workflow after exact rollback');
+  const helperPath = 'scripts/security/hygiene-java21-workflow-transition.mjs';
+  const helperFile = join(directory, helperPath), originalHelper = readFileSync(helperFile);
+  writeFileSync(helperFile, preservedHygieneJava21Source(helperPath,
+    '820cffc7c6202de35c767c445a60361c00e632e8c7163a5284b0e7490e605f0e', originalHelper));
+  try {
+    assert.throws(() => api.verifyAssemblyEnforcerLangCurrentEvidence(current), /byte digest mismatch/);
+    assert.throws(invoke, /byte digest mismatch/);
+    assert.throws(() => api.assemblyEnforcerLangReceipt({ commitSha: current.commitSha,
+      contentSha256: current.contentSha256 }), /byte digest mismatch/);
+  } finally { writeFileSync(helperFile, originalHelper); }
+  assert.deepEqual(invoke(), originalReceipt, 'fresh restored M3 helper after exact rollback');
   const manifestFile = join(directory, 'docs/operations/assembly-enforcer-lang-transition.json');
   const originalManifest = readFileSync(manifestFile); let probeCount = 0;
   async function candidateProbe(editedManifest) {
