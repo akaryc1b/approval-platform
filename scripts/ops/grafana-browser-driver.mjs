@@ -12,12 +12,13 @@ export function chromiumExecutable() {
 }
 
 export function chromiumArguments(profile) {
+  // start() creates the owned page explicitly after the version handshake.
   return ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
     '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
     '--disable-component-update', '--disable-sync', '--disable-extensions', '--disable-breakpad',
     '--password-store=basic', '--use-mock-keychain', '--remote-debugging-pipe',
     '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost', '--lang=en-US',
-    '--user-data-dir=' + profile, 'about:blank'];
+    '--user-data-dir=' + profile, '--no-startup-window'];
 }
 
 export class BrowserPipe {

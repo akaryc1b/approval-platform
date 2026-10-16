@@ -10,10 +10,11 @@ import { prepareGrafanaFonts } from '../ops/grafana-browser-fonts.mjs';
 function fixture(t) {
   const child = new EventEmitter(); child.stderr = new EventEmitter();
   const input = new EventEmitter(), output = new EventEmitter(); output.setEncoding = () => {};
-  const writes = []; input.write = data => { writes.push(JSON.parse(data.slice(0, -1))); return true; };
+  const writes = [], launches = []; input.write = data => { writes.push(JSON.parse(data.slice(0, -1))); return true; };
   child.stdio = [null, null, child.stderr, input, output];
   const env = { PATH: process.env.PATH, HOME: '/owned-fixture' };
   const browser = new BrowserPipe('/owned-fixture/profile', env, { launch(file, args, options) {
+    launches.push({ file, args, options });
     assert.equal(options.env, env); assert.equal(options.detached, true);
     assert.deepEqual(options.stdio, ['ignore', 'ignore', 'pipe', 'pipe', 'pipe']);
     assert.ok(args.includes('--remote-debugging-pipe'));
@@ -23,8 +24,70 @@ function fixture(t) {
   } });
   child.emit('spawn');
   t.after(() => browser.fail('GRAFANA_BROWSER_FIXTURE_CLEANUP'));
-  return { browser, child, input, output, writes,
+  return { browser, child, input, output, writes, launches,
     reply: value => output.emit('data', JSON.stringify(value) + '\0') };
+}
+
+test('startup creates one explicit page after version and uses its returned session throughout', async t => {
+  const f = fixture(t), version = 'Chrome/123.4.5.6';
+  const started = f.browser.start();
+  assert.equal(f.launches.length, 1);
+  assert.deepEqual(f.writes, [{ id: 1, method: 'Browser.getVersion', params: {} }]);
+  f.reply({ id: 1, result: { product: version } }); await Promise.resolve();
+  assert.deepEqual(f.writes[1], { id: 2, method: 'Target.createTarget', params: { url: 'about:blank' } });
+  assert.equal(f.writes.length, 2, 'target creation must wait for the version response');
+  f.reply({ id: 2, result: { targetId: 'created-page' } }); await Promise.resolve();
+  assert.deepEqual(f.writes[2], { id: 3, method: 'Target.attachToTarget',
+    params: { targetId: 'created-page', flatten: true } });
+  assert.equal(f.writes.length, 3);
+  f.reply({ id: 3, result: { sessionId: 'created-session' } }); await Promise.resolve();
+  const setup = [['Page.enable', {}], ['Runtime.enable', {}], ['DOM.enable', {}], ['CSS.enable', {}],
+    ['Emulation.setDeviceMetricsOverride', { width: 1440, height: 2000, deviceScaleFactor: 1, mobile: false }]];
+  for (const [index, [method, params]] of setup.entries()) {
+    const id = index + 4;
+    assert.equal(f.writes.length, id);
+    assert.deepEqual(f.writes.at(-1), { id, method, params, sessionId: 'created-session' });
+    f.reply({ id, result: {} }); await Promise.resolve();
+  }
+  assert.equal(await started, version);
+  const evaluation = f.browser.evaluate('1 + 1');
+  assert.deepEqual(f.writes.at(-1), { id: 9, method: 'Runtime.evaluate', sessionId: 'created-session',
+    params: { expression: '1 + 1', returnByValue: true, awaitPromise: true } });
+  f.reply({ id: 9, result: { result: { value: 2 } } }); assert.equal(await evaluation, 2);
+  const capture = f.browser.call('Page.captureScreenshot', { format: 'jpeg', quality: 50 });
+  assert.deepEqual(f.writes.at(-1), { id: 10, method: 'Page.captureScreenshot', sessionId: 'created-session',
+    params: { format: 'jpeg', quality: 50 } });
+  f.reply({ id: 10, result: { data: 'protocol-only-fixture' } });
+  assert.deepEqual(await capture, { data: 'protocol-only-fixture' });
+  assert.equal(f.writes.length, 10);
+  assert.equal(f.writes.filter(command => command.method === 'Target.createTarget').length, 1);
+  assert.equal(f.launches.length, 1); assert.equal(f.browser.pending.size, 0);
+});
+
+for (const failedMethod of ['Browser.getVersion', 'Target.createTarget', 'Target.attachToTarget']) {
+  test('startup ' + failedMethod + ' failure propagates without subsequent setup or retry', async t => {
+    const f = fixture(t), started = f.browser.start();
+    const checked = assert.rejects(started, error => error.message === 'GRAFANA_BROWSER_COMMAND:' + failedMethod);
+    const sequence = [
+      ['Browser.getVersion', {}, { product: 'Chrome/123.4.5.6' }],
+      ['Target.createTarget', { url: 'about:blank' }, { targetId: 'created-page' }],
+      ['Target.attachToTarget', { targetId: 'created-page', flatten: true }, { sessionId: 'created-session' }],
+    ];
+    for (const [index, [method, params, result]] of sequence.entries()) {
+      const id = index + 1;
+      assert.deepEqual(f.writes.at(-1), { id, method, params });
+      if (method === failedMethod) {
+        f.reply({ id, error: { message: 'SECRET native failure' } }); break;
+      }
+      f.reply({ id, result }); await Promise.resolve();
+    }
+    await checked;
+    const failedIndex = sequence.findIndex(([method]) => method === failedMethod);
+    assert.deepEqual(f.writes.map(command => command.method), sequence.slice(0, failedIndex + 1).map(([method]) => method));
+    assert.equal(f.launches.length, 1); assert.equal(f.browser.session, undefined);
+    assert.equal(f.browser.pending.size, 0);
+    assert.equal(f.browser.closed, false, 'protocol errors leave cleanup to the caller');
+  });
 }
 
 test('fragmented and combined pipe responses preserve request identity and session', async t => {
@@ -82,7 +145,9 @@ test('a command timeout is terminal for the session and late replies cannot resu
   const f = fixture(t); const a = f.browser.call('Browser.getVersion'), b = f.browser.call('Page.enable');
   const checked = Promise.all([assert.rejects(a, /TIMEOUT:Browser.getVersion/),
     assert.rejects(b, /TIMEOUT:Browser.getVersion/)]);
-  t.mock.timers.tick(10000); await checked;
+  t.mock.timers.tick(9999);
+  assert.equal(f.browser.closed, false); assert.equal(f.browser.pending.size, 2);
+  t.mock.timers.tick(1); await checked;
   assert.equal(f.browser.pending.size, 0); f.reply({ id: 1, result: { product: 'too late' } });
   assert.equal(f.browser.responses, 0); await assert.rejects(f.browser.call('Page.enable'), /CLOSED/);
 });
@@ -173,6 +238,8 @@ test('real isolated Chromium completes the same handshake and reports rendered C
   });
   try {
     assert.match(await browser.start(), /^(HeadlessChrome|Chrome)\//);
+    const { targetInfos } = await browser.call('Target.getTargets', {}, null);
+    assert.equal(targetInfos.filter(target => target.type === 'page').length, 1, 'only the explicit page should exist');
     await browser.evaluate(`document.body.innerHTML='<h2 id="cjk" style="font-family: Noto Sans CJK SC,sans-serif">可执行任务</h2>'`);
     await browser.evaluate('document.fonts.ready.then(()=>true)');
     const fonts = await browser.platformFonts('#cjk');
