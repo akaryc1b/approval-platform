@@ -1,0 +1,9 @@
+{
+  "allOtherModelFieldsUnchanged": true,
+  "modelCount": 26,
+  "nonReactorOverlaysSourceBoundOnly": 2,
+  "ownerModelCounts": {
+    "maven-assembly-plugin": 26,
+    "maven-enforcer-plugin": 26
+  }
+}

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { parseCheckstylePluginOwners, verifyCheckstyleCaptureProvenance } from './checkstyle-plugin-graph-transition.mjs';
-import { readPreservedAssemblySource } from './jar-plugin-source-continuation.mjs';
+import { readPreservedAssemblySource, readPreservedJarSource } from './jar-plugin-source-continuation.mjs';
 import { readPreservedCleanSource } from './compiler-plugin-source-continuation.mjs';
 import { osvInputFromE2 } from './osv-scan-coverage.mjs';
 
@@ -194,7 +194,9 @@ export function readJarPluginSourceWitness(manifest = readJarPluginManifest()) {
     && execution.sourcePomSha256 === witness.rootPom.rawSha256, 'capture report/E2/source mismatch');
   requireValue(same(witness.generatorSources, historical.generatorSources)
     && same(execution.generatorSources, historical.generatorSources), 'unchanged generator closure mismatch');
-  for (const [path, expected] of Object.entries(execution.captureInputs)) bytes(path, expected);
+  for (const [path, expected] of Object.entries(execution.captureInputs)) {
+    if (path === 'pom.xml') readPreservedJarSource(path, expected); else bytes(path, expected);
+  }
   for (const [path, expected] of Object.entries(witness.generatorSources))
     requireValue(execution.captureInputs[path] === expected, 'generator capture binding mismatch');
   requireValue(same(witness.sourcePomFiles.map(row => row.path).sort(), historical.sourcePomFiles.map(row => row.path).sort())
@@ -202,7 +204,8 @@ export function readJarPluginSourceWitness(manifest = readJarPluginManifest()) {
   'source POM membership drift');
   const changed = [];
   for (const row of witness.sourcePomFiles) {
-    bytes(row.path, row.candidateSha256);
+    if (row.path === 'pom.xml') readPreservedJarSource(row.path, row.candidateSha256);
+    else bytes(row.path, row.candidateSha256);
     requireValue(execution.sourcePomHashes[row.path] === row.candidateSha256
       && historical.sourcePomFiles.find(prior => prior.path === row.path).candidateSha256 === row.baselineSha256,
     'source POM baseline/capture mismatch');
@@ -231,7 +234,9 @@ export function readJarPluginSourceWitness(manifest = readJarPluginManifest()) {
   requireValue(same(Object.keys(modelExecution.captureInputs).sort(),
     [...Object.keys(execution.captureInputs), 'scripts/ci/checkstyle_plugin_contract.py', 'scripts/ci/clean_plugin_contract.py'].sort()),
   'paired model input closure mismatch');
-  for (const [path, expected] of Object.entries(modelExecution.captureInputs)) bytes(path, expected);
+  for (const [path, expected] of Object.entries(modelExecution.captureInputs)) {
+    if (path === 'pom.xml') readPreservedJarSource(path, expected); else bytes(path, expected);
+  }
   for (const [path, expected] of Object.entries(execution.captureInputs))
     requireValue(modelExecution.captureInputs[path] === expected, 'paired model source binding mismatch');
   for (const label of ['baseline', 'candidate']) {

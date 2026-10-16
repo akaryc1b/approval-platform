@@ -1,5 +1,7 @@
 import { JACOCO_ANTRUN_GRAPH } from '../security/jacoco-antrun-graph-transition.mjs';
-import { JAR_PLUGIN_GRAPH } from '../security/jar-plugin-graph-transition.mjs';
+import { JAR_PLUGIN_GRAPH, readJarPluginReport } from '../security/jar-plugin-graph-transition.mjs';
+import { ASSEMBLY_ENFORCER_LANG_GRAPH, readAssemblyEnforcerLangCandidate, readAssemblyEnforcerLangReport,
+  readAssemblyEnforcerLangAcceptedLineage } from '../security/assembly-enforcer-lang-graph-transition.mjs';
 import { ASSEMBLY_PLEXUS_GRAPH } from '../security/assembly-plexus-graph-transition.mjs';
 import { BOOT_UTILITIES_GRAPH } from '../security/boot-utilities-graph-transition.mjs';
 import { BOOT_HTTP_GRAPH } from '../security/boot-http-graph-transition.mjs';
@@ -14,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import {
   canonical,
   evaluateEvidence,
+  evaluateCurrentEvidence,
+  readCurrentSourceTransition,
   findPluginResolutionPaths,
   parseResolvedPluginReport,
   resolveExactHead,
@@ -242,6 +246,37 @@ test('R3A documents and permanently imports the non-closure boundary', () => {
   );
 });
 
+test('R3A Lang source continuation preserves V3 observations and rejects prior-JAR report or runtime drift', () => {
+  // Synthetic observations exercise the source consumer; no Maven/JVM or scanner runs.
+  const current = readAssemblyEnforcerLangCandidate(), transition = readCurrentSourceTransition();
+  const input = { contract, transition, commitSha: current.commitSha, currentE2: current,
+    checkout: { expectedHeadSha: current.commitSha, checkedOutSha: current.commitSha,
+      expectedHeadTreeSha: 'a'.repeat(40), checkedOutTreeSha: 'a'.repeat(40), exactTreeMatches: true, trackedWorktreeClean: true },
+    runtimeComponents: [{ groupId: 'org.apache.tomcat.embed', artifactId: 'tomcat-embed-core', version: '11.0.26',
+      type: 'jar', scope: 'compile', path: ['io.github.akaryc1b.approval:approval-server:0.1.0-SNAPSHOT',
+        'org.springframework.boot:spring-boot-starter-web:4.0.8', 'org.springframework.boot:spring-boot-starter-tomcat:4.0.8',
+        'org.springframework.boot:spring-boot-starter-tomcat-runtime:4.0.8', 'org.apache.tomcat.embed:tomcat-embed-core:11.0.26'] }],
+    jarEvidence: { jar: transition.tomcat.jarFileName, jarSha256: transition.tomcat.jarSha256,
+      jarBytes: transition.tomcat.jarBytes, entryCount: 1615, vulnerableCloudMembershipEntryCount: 0, vulnerableCloudMembershipEntries: [] },
+    sourceMatches: [], pluginReport: readAssemblyEnforcerLangReport() };
+  const before = canonical(input), result = evaluateCurrentEvidence(input);
+  assert.equal(result.schemaVersion, 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V3');
+  assert.equal(result.currentE2GraphDigest, ASSEMBLY_ENFORCER_LANG_GRAPH);
+  assert.deepEqual(result.currentGraphTransition.preservedJarLineage, readAssemblyEnforcerLangAcceptedLineage());
+  assert.deepEqual(result.historicalReview.findings, contract.findings);
+  assert.deepEqual(result.historicalHttpcoreReview, contract.findings[1]);
+  assert.equal(result.currentHttpcoreObservation.package.version, '5.4.3');
+  assert.equal(result.currentHttpcoreObservation.dispositionTransferred, false);
+  assert.equal(result.decision.currentOsvTotalsClaimed, false); assert.equal(result.decision.releaseBlocked, true);
+  assert.equal(canonical(input), before);
+  for (const mutate of [x => { x.pluginReport = readJarPluginReport(); },
+    x => { x.runtimeComponents[0].path[1] = 'foreign:runtime:1'; },
+    x => { x.jarEvidence.jarSha256 = '0'.repeat(64); }]) {
+    const changed = structuredClone(input); mutate(changed);
+    assert.throws(() => evaluateCurrentEvidence(changed));
+  }
+});
+
 test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
   timeout: 900000,
 }, () => {
@@ -277,7 +312,7 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
   assert.ok(match, 'R3A canonical review evidence must be retained');
   const resultEvidence = JSON.parse(match[1]);
   assert.match(resultEvidence.commitSha, /^[0-9a-f]{40}$/);
-  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH].includes(resultEvidence.currentE2GraphDigest);
+  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH].includes(resultEvidence.currentE2GraphDigest);
   assert.equal(resultEvidence.schemaVersion, bootHttp
     ? 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V3' : 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V2');
   const { contentSha256, ...payload } = resultEvidence;

@@ -39,7 +39,8 @@ print(json.dumps({'projection':projection,'jarProjection':jar_projection,'curren
   assert.equal(projection.suppliedRootPomSha256, jarProjection ? jarProjection.retainedRootPomSha256 : digest);
   assert.ok(['d36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c',
     '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629',
-    '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f'].includes(digest));
+    '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f',
+    'ddb286b44b1976dd19ad74b06f3ceef86e19d0fbee87dd27dc87985ffb1f7932'].includes(digest));
   if (jarProjection) {
     assert.equal(jarProjection.suppliedRootPomSha256, digest);
     assert.equal(jarProjection.retainedRootPomSha256, '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629');

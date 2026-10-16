@@ -30,7 +30,8 @@ function rejected(result, message = /ValueError:|ParseError:/) {
 test('pair source view restores accepted utilities bytes and leaves all historical contracts unchanged', () => {
   assert.ok(retained.projection);
   assert.equal(retained.jarProjection.suppliedSourceRoot, path.resolve(root));
-  assert.equal(retained.jarProjection.suppliedRootPomSha256, '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f');
+  assert.equal(retained.jarProjection.suppliedRootPomSha256, 'ddb286b44b1976dd19ad74b06f3ceef86e19d0fbee87dd27dc87985ffb1f7932');
+  assert.equal(retained.jarProjection.schemaVersion, 'ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1');
   assert.equal(retained.jarProjection.retainedSourceRoot, current);
   const p = retained.projection;
   assert.deepEqual(Object.keys(p.suppliedSourceHashes).filter(name =>

@@ -3,28 +3,33 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import { requireGitleaksCaptureInventory } from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
-import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
+import { modeledLangDigestFixture } from './fixtures/lang-digest-review-fixture.mjs';
+import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
 
 // Synthetic scan envelope only. The production verifier checks all pinned lineage manifests.
 // Each mutation receives an isolated copy of a fully validated synthetic input.
 // The extracted callback still invokes the real preserved-graph gate every time.
 const retainedLineageFixtures = new Map();
-function lineageFixture(plugin = 'jar') {
+let currentLangPublication;
+function lineageFixture(plugin = 'assembly-enforcer-lang') {
   if (!retainedLineageFixtures.has(plugin)) retainedLineageFixtures.set(plugin, buildLineageFixture(plugin));
   return structuredClone(retainedLineageFixtures.get(plugin));
 }
 function buildLineageFixture(plugin) {
-  const evidence = ['checkstyle-guava', 'assembly-plexus'].includes(plugin) ? plugin : plugin + '-plugin';
+  currentLangPublication ||= modeledLangDigestFixture('Lang scanner binding publication');
+  const evidence = ['checkstyle-guava', 'assembly-plexus', 'assembly-enforcer-lang'].includes(plugin) ? plugin : plugin + '-plugin';
   const e2 = JSON.parse(readFileSync(new URL(`../../docs/operations/${evidence}-evidence/candidate-E2.json`, import.meta.url)));
-  e2.commitSha = 'a'.repeat(40); const { contentSha256, ...payload } = e2; e2.contentSha256 = graphHash(payload);
+  e2.commitSha = currentLangPublication.head; const { contentSha256, ...payload } = e2; e2.contentSha256 = graphHash(payload);
   const projection = { maven: e2.maven, pnpm: e2.pnpm,
     githubActions: e2.githubActions.acceptedDependencyGraph.githubActions,
     limitations: e2.githubActions.acceptedDependencyGraph.limitations };
-  return { e4: { repository: e2.repository, commitSha: e2.commitSha,
+  let e4 = { repository: e2.repository, commitSha: e2.commitSha,
     e2CurrentContentSha256: e2.contentSha256, e2GraphDigest: graphHash(projection),
     scanners: { gitleaks: { findingCount: plugin === 'jar' ? 194 : 70 } },
-    e2GraphTransition: verifyObservabilityGraph(e2, projection, BASE_GRAPH, e2.commitSha) } };
+    e2GraphTransition: verifyObservabilityGraph(e2, projection, BASE_GRAPH, e2.commitSha) };
+  if (plugin === 'assembly-enforcer-lang') e4 = currentLangPublication.prepareEvidence(e4);
+  return { e4 };
 }
 
 const scannerBoundary = readFileSync(new URL('./m6-pr-e-e4-scanner-boundary.test.mjs', import.meta.url), 'utf8');
@@ -33,6 +38,7 @@ const scannerBoundary = readFileSync(new URL('./m6-pr-e-e4-scanner-boundary.test
 // Reaching that boundary is NOT a completed scanner or downstream triage result.
 function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   const { e4 } = lineageFixture();
+  const expectedHead = e4.commitSha;
   Object.assign(e4, { allScannersCompleted: true, rawScannerReportsRetained: false,
     candidateSecretMaterialRetained: false });
   alter(e4);
@@ -40,7 +46,7 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   const logs = []; const downstream = new Error('DOWNSTREAM_BOUNDARY_REACHED'); let error; let calls = 0;
   const start = scannerBoundary.indexOf("test('E4 full scanner emits");
   assert.ok(start >= 0);
-  const context = { assert, requireGitleaksCaptureInventory, expectedScannerHead: () => 'a'.repeat(40), OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+  const context = { assert, requireGitleaksCaptureInventory, expectedScannerHead: () => expectedHead, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     process: { env: { GITHUB_ACTIONS: 'true' }, execPath: process.execPath }, S: 'scanner.mjs', root: '/fixture',
     console: { log: text => logs.push(text) },
     spawnSync: (command, args) => {
@@ -57,13 +63,20 @@ function assertScannerBinding(alter = () => {}, scannerStatus = 0) {
   return { error, downstream, calls, logs, stdout };
 }
 
-test('the full-scanner callback binds the current JAR graph instead of historical predecessors', () => {
+test('the full-scanner callback binds current Lang lineage and all 374 modeled Gitleaks findings before downstream review', () => {
   const r = assertScannerBinding(); assert.equal(r.error, r.downstream); assert.equal(r.calls, 2);
-  assert.equal(lineageFixture().e4.e2GraphDigest, JAR_PLUGIN_GRAPH);
-  assert.ok(scannerBoundary.includes("import { JAR_PLUGIN_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
+  const { e4 } = lineageFixture();
+  assert.equal(e4.e2GraphDigest, ASSEMBLY_ENFORCER_LANG_GRAPH);
+  assert.equal(e4.scanners.gitleaks.findingCount, 374);
+  assert.equal(e4.scanners.gitleaks.findings.length, 374);
+  assert.equal(new Set(e4.scanners.gitleaks.findings.map(finding => finding.findingId)).size, 374);
+  assert.equal(e4.e2GraphTransition.preservedJarLineage.currentE2GraphDigest, JAR_PLUGIN_GRAPH);
+  assert.equal(e4.e2GraphTransition.preservedJarLineage.commitSha, '9e3489f2aef3ffb36508367591bc0d77ceb99bd1');
+  assert.ok(scannerBoundary.includes("import { ASSEMBLY_ENFORCER_LANG_GRAPH, requirePreservedGraph } from '../security/observability-dependency-graph.mjs';"));
   assert.deepEqual(r.logs, [r.stdout]);
 });
 for (const [name, alter] of [
+  ['previous JAR graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('jar').e4); }],
   ['pre-JAR Assembly graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('assembly-plexus').e4); }],
   ['pre-Assembly JaCoCo/AntRun graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('jacoco-antrun').e4); }],
   ['pre-pair Boot utilities graph with preserved historical lineage', e => { Object.assign(e, lineageFixture('boot-utilities').e4); }],
@@ -80,10 +93,6 @@ for (const [name, alter] of [
   ['pre-upgrade graph', e => { e.e2GraphDigest = OBSERVABILITY_GRAPH; }],
   ['foundation graph', e => { e.e2GraphDigest = BASE_GRAPH; }],
   ['unknown graph', e => { e.e2GraphDigest = '0'.repeat(64); }],
-  ['missing execution digest observations', e => { e.scanners.gitleaks.findingCount = 70; }],
-  ['missing fixture public-Git observation', e => { e.scanners.gitleaks.findingCount = 193; }],
-  ['missing verifier public-Git observations', e => { e.scanners.gitleaks.findingCount = 192; }],
-  ['missing all public source observations', e => { e.scanners.gitleaks.findingCount = 191; }],
   ['missing lineage', e => { delete e.e2GraphTransition; }],
   ['foreign repository', e => { e.repository = 'foreign/repository'; }],
   ['wrong Head', e => { e.commitSha = 'd'.repeat(40); }],
@@ -97,7 +106,27 @@ for (const [name, alter] of [
   assert.ok(r.error); assert.notEqual(r.error, r.downstream); assert.equal(r.calls, 1);
   assert.notEqual(r.error.name, 'ReferenceError', 'missing VM binding must not count as a graph rejection');
   assert.notEqual(r.error.name, 'SyntaxError', 'invalid callback must not count as a graph rejection');
+  assert.doesNotMatch(String(r.error), /requires the exact Lang graph and all 374 observations/,
+    'inventory rejection must not hide a failed upstream mutation check');
   assert.deepEqual(r.logs, [r.stdout]);
+});
+for (const [name, count] of [['previous JAR inventory', 194], ['missing cache observations', 205],
+  ['missing runtime observations', 363], ['one missing observation', 373], ['unknown extra observation', 375]])
+test(`the current Lang callback rejects ${name} before any downstream review`, () => {
+  const r = assertScannerBinding(e => { e.scanners.gitleaks.findingCount = count; });
+  assert.match(String(r.error), /requires the exact Lang graph and all 374 observations/);
+  assert.equal(r.calls, 1); assert.deepEqual(r.logs, [r.stdout]);
+});
+for (const [name, count] of [
+  ['missing execution digest observations', 70],
+  ['missing fixture public-Git observation', 193],
+  ['missing verifier public-Git observations', 192],
+  ['missing all public source observations', 191],
+]) test(`historical JAR inventory rejects ${name} without relying on the current Lang graph gate`, () => {
+  const { e4 } = lineageFixture('jar');
+  assert.equal(requireGitleaksCaptureInventory(e4), 194);
+  e4.scanners.gitleaks.findingCount = count;
+  assert.throws(() => requireGitleaksCaptureInventory(e4), /current JAR graph requires all 194 Gitleaks observations/);
 });
 test('a failed scanner cannot reach downstream review even with a well-formed output fixture', () => {
   const r = assertScannerBinding(() => {}, 1);

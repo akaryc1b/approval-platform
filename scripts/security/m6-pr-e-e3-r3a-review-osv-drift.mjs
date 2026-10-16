@@ -20,6 +20,7 @@ import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_D
 import { verifyScannerCheckout, requireScannerCheckoutUnchanged } from './m6-pr-e-e4-scan.mjs';
 import { JAR_PLUGIN_GRAPH } from './jar-plugin-graph-transition.mjs';
 import { ASSEMBLY_PLEXUS_GRAPH } from './assembly-plexus-graph-transition.mjs';
+import { ASSEMBLY_ENFORCER_LANG_GRAPH } from './assembly-enforcer-lang-graph-transition.mjs';
 
 const CURRENT_TRANSITION_SHA256 = '6c093a36fbad3e87176f7e68b90ddf571db486b7b21025ab15dc744d3f20e209';
 
@@ -463,11 +464,11 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
   const graphTransition = verifyObservabilityGraph(currentE2, acceptedE2GraphProjection(currentE2), BASE_GRAPH, commitSha);
   if (typeof pluginReport !== 'string') throw new Error('R3A raw current plugin report required');
   const pluginReportSha256 = sha256(pluginReport), pluginGroups = parseResolvedPluginReport(pluginReport);
-  const subsequentPluginGraph = [JAR_PLUGIN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH]
+  const subsequentPluginGraph = [ASSEMBLY_ENFORCER_LANG_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH]
     .includes(graphTransition.currentE2GraphDigest);
-  // JAR and Assembly admission already proved their exact deltas against pinned accepted
-  // main1862 and main1857 graph/lineage data. Current runtime/JAR/source/owner checks below still run.
-  if (subsequentPluginGraph && ![JAR_PLUGIN_GRAPH, ASSEMBLY_PLEXUS_GRAPH].includes(graphTransition.currentE2GraphDigest)) {
+  // Lang, JAR and Assembly admission already proved their exact deltas against pinned
+  // accepted graph/lineage data. Current runtime/JAR/source/owner checks below still run.
+  if (subsequentPluginGraph && ![ASSEMBLY_ENFORCER_LANG_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_PLEXUS_GRAPH].includes(graphTransition.currentE2GraphDigest)) {
     const current = acceptedE2GraphProjection(currentE2);
     const beforeJacocoAntrun = graphTransition.currentE2GraphDigest === JACOCO_ANTRUN_GRAPH ? verifyJacocoAntrunDelta(current) : current;
     const beforeUtilities = [BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyBootUtilitiesDelta(beforeJacocoAntrun) : beforeJacocoAntrun;
@@ -516,7 +517,7 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
     || jarEvidence.vulnerableCloudMembershipEntryCount !== 0
     || canonical(jarEvidence.vulnerableCloudMembershipEntries) !== '[]') throw new Error('R3A exact current Tomcat JAR/cloud evidence mismatch');
   if (!Array.isArray(sourceMatches) || sourceMatches.length) throw new Error('R3A current Tomcat source/config drift');
-  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH].includes(graphTransition.currentE2GraphDigest);
+  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH].includes(graphTransition.currentE2GraphDigest);
   const observedHttpcore = bootHttp ? { ...httpcore, version: '5.4.3', requiredCoResolvedComponents: [
     'org.apache.httpcomponents.client5:httpclient5:5.6.3',
     'org.apache.httpcomponents.core5:httpcore5-h2:5.4.3',

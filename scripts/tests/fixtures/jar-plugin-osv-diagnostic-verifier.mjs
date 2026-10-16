@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { acceptedE2GraphProjection } from '../../security/m6-pr-e-e2-generate-sbom.mjs';
 import { osvInputFromE2 } from '../../security/osv-scan-coverage.mjs';
 import { JAR_PLUGIN_GRAPH, readJarPluginManifest } from '../../security/jar-plugin-graph-transition.mjs';
+import { readPreservedJarSource } from '../../security/jar-plugin-source-continuation.mjs';
 export const canonical = value => JSON.stringify(stable(value));
 const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
@@ -34,7 +35,7 @@ export function readJarPluginDiagnostic() {
   assert.deepEqual(Object.keys(files).sort(), names); assert.deepEqual(readdirSync(directory).sort(), [...names,'public-file-checksums.sha256'].sort());
   const json = name => JSON.parse(files[name]), manifest = readJarPluginManifest();
   const pinned = ref => { const b = readFileSync(new URL(ref.path,root)); assert.equal(sha(b),ref.rawSha256); return JSON.parse(b); };
-  assert.equal(sha(readFileSync(new URL('pom.xml',root))),manifest.capture.sourcePom.rawSha256);
+  assert.equal(sha(readPreservedJarSource('pom.xml',manifest.capture.sourcePom.rawSha256)),manifest.capture.sourcePom.rawSha256);
   assert.equal(sha(readFileSync(new URL(manifest.capture.sourcePom.path,root))),manifest.capture.sourcePom.rawSha256);
   return { files, manifest, e2:pinned(manifest.capture.e2), priorE2:pinned(manifest.base.e2),
     binding:json('input-derivation.json'), findings:json('normalized-osv-findings.json'), baseline:json('baseline-normalized-osv-findings.json'),
@@ -45,7 +46,7 @@ export function readJarPluginDiagnostic() {
 export function verifyJarPluginDiagnostic(d) {
   const {files,manifest,e2,priorE2,binding,findings,baseline,targets,rows,results,coverage,summary,comparison,execution,http,precision}=d;
   assert.deepEqual(Object.keys(files).sort(),names);assert.deepEqual(manifest,readJarPluginManifest());
-  assert.equal(sha(readFileSync(new URL('pom.xml',root))),manifest.capture.sourcePom.rawSha256);
+  assert.equal(sha(readPreservedJarSource('pom.xml',manifest.capture.sourcePom.rawSha256)),manifest.capture.sourcePom.rawSha256);
   for(const e of [e2,priorE2]) { const {contentSha256,...body}=e; assert.equal(sha(canonical(body)),contentSha256); assert.equal(e.commitSha,HEAD); }
   assert.deepEqual(binding.sourceE2,manifest.capture.e2); assert.deepEqual(binding.sourcePom,manifest.capture.sourcePom); assert.deepEqual(binding.baselineE2,manifest.base.e2);
   assert.equal(e2.contentSha256,manifest.capture.e2.contentSha256);assert.equal(priorE2.contentSha256,manifest.base.e2.contentSha256);

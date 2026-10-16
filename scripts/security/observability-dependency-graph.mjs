@@ -84,6 +84,15 @@ export { ASSEMBLY_PLEXUS_GRAPH, readAssemblyPlexusManifest, readAssemblyPlexusCa
   readAssemblyPlexusAcceptedLineage, verifyAssemblyPlexusDelta }
   from './assembly-plexus-graph-transition.mjs';
 
+import { ASSEMBLY_ENFORCER_LANG_GRAPH, readAssemblyEnforcerLangManifest,
+  verifyAssemblyEnforcerLangCurrentEvidence, verifyAssemblyEnforcerLangDelta,
+  assemblyEnforcerLangReceipt } from './assembly-enforcer-lang-graph-transition.mjs';
+export { ASSEMBLY_ENFORCER_LANG_GRAPH, readAssemblyEnforcerLangManifest,
+  readAssemblyEnforcerLangCandidate, readAssemblyEnforcerLangBaseline,
+  readAssemblyEnforcerLangSourceWitness, readAssemblyEnforcerLangReport,
+  readAssemblyEnforcerLangAcceptedLineage, verifyAssemblyEnforcerLangDelta }
+  from './assembly-enforcer-lang-graph-transition.mjs';
+
 export const BASE_GRAPH = '2cc0000745441ebb70b7dd9ad6b17e5c9d6e27981ea213c7005c9bed3e09df94';
 export const OBSERVABILITY_GRAPH = '27bdcae01a4affff009d6b90ca04989bd14a3cb159bbef6a6a379fab84109a37';
 export const OBSERVABILITY_OTEL_GRAPH = '390773d2aa746a2203eec870e5dd0a8f97f81e91913bb016c9ef95b749c0e7b3';
@@ -473,6 +482,14 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, exp
   }), 'E2 graph projection mismatch');
   const digest = graphHash(projection);
   requireValue(expectedBaseDigest === BASE_GRAPH, 'unrecognized dependency graph baseline');
+  if (digest === ASSEMBLY_ENFORCER_LANG_GRAPH) {
+    requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e2.commitSha === expectedCommitSha, 'Assembly/Enforcer Lang E2 requires current verified head and schema');
+    const manifest = readAssemblyEnforcerLangManifest();
+    verifyAssemblyEnforcerLangCurrentEvidence(e2, manifest);
+    verifyAssemblyEnforcerLangDelta(projection, manifest);
+    return assemblyEnforcerLangReceipt(e2);
+  }
   if (digest === JAR_PLUGIN_GRAPH) {
     requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
       && e2.commitSha === expectedCommitSha, 'JAR E2 requires current verified head and schema');
@@ -566,6 +583,14 @@ export function requirePreservedGraph(e4, historicalGraph, expectedCommitSha) {
   if (e4.e2GraphDigest === historicalGraph) {
     requireValue(e4.e2GraphTransition === undefined, 'unexpected dependency graph lineage');
     return null;
+  }
+  if (e4.e2GraphDigest === ASSEMBLY_ENFORCER_LANG_GRAPH) {
+    requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
+      && e4.commitSha === expectedCommitSha && /^[0-9a-f]{64}$/.test(e4.e2CurrentContentSha256 || ''),
+    'Assembly/Enforcer Lang receipt requires current verified head and E2 identity');
+    const expected = assemblyEnforcerLangReceipt({ commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 });
+    requireValue(canonicalGraph(e4.e2GraphTransition) === canonicalGraph(expected), 'Assembly/Enforcer Lang E2 graph lineage mismatch');
+    return expected;
   }
   if (e4.e2GraphDigest === JAR_PLUGIN_GRAPH) {
     requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
