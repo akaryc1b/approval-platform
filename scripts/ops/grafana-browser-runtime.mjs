@@ -133,7 +133,9 @@ export async function runGrafanaBrowser({ directory, repositoryRoot, grafanaHome
     startupCapture = createStartupEvidenceCapture(owned);
     browser = new BrowserPipe(resolve(workspace, 'chrome'), env, { diagnostics: startupCapture.diagnostics }); const browserVersion = await browser.start();
     phase = 'browser-login'; await browser.navigate(baseUrl + '/login');
+    phase = 'browser-login-form';
     await wait(() => browser.evaluate(`!!document.querySelector('input[name="user"]') && !!document.querySelector('input[name="password"]')`), phase);
+    phase = 'browser-login-submit';
     await browser.evaluate(`(() => {
       const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
       for (const [name,value] of ${JSON.stringify([['user', 'browser-viewer'], ['password', viewerPassword]])}) {
@@ -142,7 +144,9 @@ export async function runGrafanaBrowser({ directory, repositoryRoot, grafanaHome
       }
       document.querySelector('button[type="submit"]').click();
     })()`);
+    phase = 'browser-login-session';
     await wait(() => browser.evaluate(`fetch('/api/user').then(async r=>r.ok && (await r.json()).login==='browser-viewer')`), phase);
+    phase = 'browser-viewer-write';
     const protectedStatus = await browser.evaluate(`fetch('/api/dashboards/db',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({dashboard:{uid:'forbidden-fixture-write',title:'Forbidden fixture write',panels:[]},overwrite:false})}).then(r=>r.status)`);
     assert.equal(protectedStatus, 403, 'GRAFANA_BROWSER_VIEWER_WRITE_NOT_REJECTED');

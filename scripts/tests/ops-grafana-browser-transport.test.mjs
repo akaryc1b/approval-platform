@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { BrowserPipe, panelReadExpression } from '../ops/grafana-browser-driver.mjs';
+import { BrowserPipe, panelReadExpression, protocolErrorCategory } from '../ops/grafana-browser-driver.mjs';
 import { prepareGrafanaFonts } from '../ops/grafana-browser-fonts.mjs';
 
 function fixture(t) {
@@ -67,7 +67,7 @@ test('startup creates one explicit page after version and uses its returned sess
 for (const failedMethod of ['Browser.getVersion', 'Target.createTarget', 'Target.attachToTarget']) {
   test('startup ' + failedMethod + ' failure propagates without subsequent setup or retry', async t => {
     const f = fixture(t), started = f.browser.start();
-    const checked = assert.rejects(started, error => error.message === 'GRAFANA_BROWSER_COMMAND:' + failedMethod);
+    const checked = assert.rejects(started, error => error.message === 'GRAFANA_BROWSER_COMMAND:' + failedMethod + ':other');
     const sequence = [
       ['Browser.getVersion', {}, { product: 'Chrome/123.4.5.6' }],
       ['Target.createTarget', { url: 'about:blank' }, { targetId: 'created-page' }],
@@ -196,9 +196,65 @@ for (const [parts, categories] of [
 
 test('failed protocol command does not expose the native response error', async t => {
   const f = fixture(t); const pending = f.browser.call('Page.enable');
-  const checked = assert.rejects(pending, error => error.message === 'GRAFANA_BROWSER_COMMAND:Page.enable');
+  const checked = assert.rejects(pending, error => error.message === 'GRAFANA_BROWSER_COMMAND:Page.enable:other');
   f.reply({ id: 1, error: { message: 'SECRET browser error' } }); await checked;
   assert.equal(f.browser.closed, false);
+});
+
+test('protocol error classifier requires the exact V8 server code and message', () => {
+  const message = 'Execution context was destroyed.';
+  assert.equal(protocolErrorCategory({ code: -32000, message }), 'context-destroyed');
+  assert.equal(protocolErrorCategory({ code: -32000, message, data: 'SECRET response detail' }), 'context-destroyed');
+  for (const error of [null, undefined, false, true, 0, -32000, 'SECRET response detail', [], {},
+    { code: '-32000', message }, { code: -32602, message }, { code: null, message }, { message },
+    { code: -32000 }, { code: -32000, message: null }, { code: -32000, message: [message] },
+    { code: -32000, message: message.slice(0, -1) }, { code: -32000, message: message + ' SECRET' },
+    { code: -32000, message: 'SECRET ' + message }, { code: -32000, message: 'SECRET'.repeat(10000) },
+    { code: -32000, message: 'Cannot find context with specified id' }]) {
+    assert.equal(protocolErrorCategory(error), 'other');
+  }
+});
+
+test('protocol evaluation errors reject once with fixed categories and no retry', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  for (const [error, category] of [
+    [{ code: -32000, message: 'Execution context was destroyed.', data: 'SECRET response detail' }, 'context-destroyed'],
+    [{ code: -32602, message: 'Execution context was destroyed.' }, 'other'],
+    [{ code: -32000, message: 'Execution context was destroyed. SECRET' }, 'other'],
+    [{ code: -32000, message: 'SECRET browser error', data: { password: 'SECRET' } }, 'other'],
+    [true, 'other'], ['SECRET browser error', 'other'], [[], 'other'], [{}, 'other'],
+  ]) {
+    const f = fixture(t); let rejections = 0;
+    const pending = f.browser.evaluate('1 + 1');
+    const checked = assert.rejects(pending, failure => {
+      rejections++;
+      assert.equal(failure.message, 'GRAFANA_BROWSER_COMMAND:Runtime.evaluate:' + category);
+      assert.doesNotMatch(failure.stack, /SECRET|password|Execution context|response detail/u);
+      return true;
+    });
+    f.reply({ id: 1, error }); await checked;
+    assert.equal(f.browser.pending.size, 0); assert.equal(f.browser.responses, 1);
+    // A duplicate response or the original timer cannot retry, reject again or close the session.
+    f.reply({ id: 1, error }); t.mock.timers.tick(10000); await Promise.resolve();
+    assert.equal(rejections, 1); assert.equal(f.browser.responses, 1);
+    assert.equal(f.browser.closed, false); assert.equal(f.browser.failure, null);
+    assert.equal(f.browser.startupDiagnostics.value.failureKind, null);
+    assert.equal(f.writes.length, 1); assert.equal(f.launches.length, 1);
+  }
+});
+
+test('JavaScript evaluation exceptions remain distinct from protocol error categories', async t => {
+  const f = fixture(t), pending = f.browser.evaluate('1 + 1');
+  const checked = assert.rejects(pending, error => {
+    assert.equal(error.message, 'GRAFANA_BROWSER_EVALUATION_FAILED');
+    assert.doesNotMatch(error.stack, /SECRET|context-destroyed|Execution context/u); return true;
+  });
+  f.reply({ id: 1, result: { result: { value: 'SECRET' }, exceptionDetails: {
+    text: 'Execution context was destroyed.', exception: { description: 'SECRET browser exception' },
+  } } });
+  await checked;
+  assert.equal(f.browser.pending.size, 0); assert.equal(f.browser.closed, false);
+  assert.equal(f.writes.length, 1); assert.equal(f.launches.length, 1);
 });
 
 test('invalid method labels and excessive pending commands are rejected before another write', async t => {
