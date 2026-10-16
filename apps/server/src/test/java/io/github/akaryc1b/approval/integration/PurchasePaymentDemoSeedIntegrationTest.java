@@ -133,10 +133,28 @@ class PurchasePaymentDemoSeedIntegrationTest {
         assertEquals("demo-employee", initiatorId);
         assertEquals(2, financeApproverIds.size());
 
+        assertNotEquals(scenario.administratorId(), initiatorId);
+        assertNotEquals(scenario.administratorId(), managerId);
+        assertNotEquals(scenario.administratorId(), financeReviewerId);
+        assertFalse(financeApproverIds.contains(scenario.administratorId()));
+        HttpResponse<String> unrelatedAdmin = client.send(
+            approvalGet(
+                "/api/approval/instances/" + evidence.instanceId(),
+                scenario.administratorId(),
+                "demo-unrelated-admin-instance-denied-v1"
+            ),
+            HttpResponse.BodyHandlers.ofString()
+        );
+        assertEquals(404, unrelatedAdmin.statusCode(), unrelatedAdmin.body());
+        JsonNode hiddenInstance = objectMapper.readTree(unrelatedAdmin.body());
+        assertEquals("APPROVAL_RESOURCE_NOT_FOUND", hiddenInstance.path("code").asText());
+        assertEquals("approval resource was not found", hiddenInstance.path("message").asText());
+        assertFalse(hiddenInstance.path("retryable").asBoolean());
+
         JsonNode initialInstance = getJson(
             client,
             "/api/approval/instances/" + evidence.instanceId(),
-            scenario.administratorId(),
+            initiatorId,
             "demo-inspect-initial-instance-v1"
         );
         assertEquals(
@@ -276,7 +294,7 @@ class PurchasePaymentDemoSeedIntegrationTest {
         JsonNode runningInstance = getJson(
             client,
             "/api/approval/instances/" + evidence.instanceId(),
-            scenario.administratorId(),
+            initiatorId,
             "demo-inspect-awaiting-payment-v1"
         );
         assertEquals("RUNNING", runningInstance.path("instance").path("status").asText());
@@ -315,7 +333,7 @@ class PurchasePaymentDemoSeedIntegrationTest {
         JsonNode completedInstance = getJson(
             client,
             "/api/approval/instances/" + evidence.instanceId(),
-            scenario.administratorId(),
+            initiatorId,
             "demo-inspect-completed-instance-v1"
         );
         assertEquals(
