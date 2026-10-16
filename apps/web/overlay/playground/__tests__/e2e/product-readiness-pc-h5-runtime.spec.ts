@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
+import { runCollaborationNotificationRegression } from './product-readiness-pc-h5-collaboration';
 import { testCaptureBudget } from './product-readiness-capture-budget';
 import { collectCjkFontEvidence } from './product-readiness-cjk-fonts';
 import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
@@ -694,4 +695,11 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
     failures.forEach(observer => observer.dispose());
     await context.close();
   }
+});
+
+// A fresh fixture runs after the seeded handoff and never changes its receipt.
+test('PC/H5 collaboration notifications open read-only summaries for a pure participant', async ({
+  browser, request,
+}, testInfo) => {
+  await runCollaborationNotificationRegression(browser, request, testCaptureBudget(testInfo, captureStartedAt));
 });

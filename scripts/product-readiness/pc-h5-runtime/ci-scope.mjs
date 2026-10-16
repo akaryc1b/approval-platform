@@ -5,6 +5,7 @@ import { repositoryRoot } from './contract.mjs';
 
 const relevantPaths = [
   /^scripts\/product-readiness\/demo-backend-startup\.mjs$/u,
+  /^apps\/web\/overlay\/playground\/__tests__\/e2e\/product-readiness-pc-h5-collaboration\.ts$/u,
   /^\.gitignore$/u,
   /^package\.json$/u,
   /^apps\/mobile\/overlay\//u,

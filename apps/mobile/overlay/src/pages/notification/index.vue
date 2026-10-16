@@ -161,7 +161,12 @@ async function toggleUnread() {
 async function openNotification(item: NotificationIntent) {
   try {
     if (!item.readAt) await markNotificationRead(item.intentId)
-    if (item.instanceId) {
+    if (item.eventType === 'TASK_COLLABORATION_ASSIGNED'
+      || item.eventType === 'TASK_COLLABORATION_RESULT') {
+      const query = item.taskId ? `?taskId=${encodeURIComponent(item.taskId)}` : ''
+      uni.navigateTo({ url: `/pages/collaboration/index${query}` })
+    }
+    else if (item.instanceId) {
       uni.navigateTo({
         url: `/pages/discussion/detail?instanceId=${encodeURIComponent(item.instanceId)}`,
       })

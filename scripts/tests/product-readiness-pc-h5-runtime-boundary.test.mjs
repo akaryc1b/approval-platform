@@ -448,3 +448,71 @@ test('shared backend startup helper alone selects this CI scope with exact-path 
     assert.equal(relevantChangeSet([nearby]), false, nearby);
   }
 });
+
+test('isolated collaboration regression leaves golden approvals and receipts browser-owned', () => {
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-collaboration.ts');
+  const testName = "test('PC/H5 collaboration notifications open read-only summaries for a pure participant'";
+  const goldenBody = playwrightSpec.slice(playwrightSpec.indexOf("test('PC manager"), playwrightSpec.indexOf(testName));
+  assert.doesNotMatch(goldenBody, /runCollaborationNotificationRegression|createCollaborationNotificationFixture/u);
+  assert.equal((playwrightSpec.match(/await runCollaborationNotificationRegression\(/gu) || []).length, 1);
+  assert.match(playwrightSpec.slice(playwrightSpec.indexOf(testName)), /testCaptureBudget\(testInfo, captureStartedAt\)/u);
+  for (const required of [
+    'const token = randomUUID()', 'COLLAB-NOTIFICATION-${token}',
+    'expect(fixtureBusinessKey).not.toBe(businessKey)',
+    '/api/approval/attachments', 'multipart:', 'attachmentIds: [attachmentId]',
+    '/api/approval/instances/purchase-payment', 'assigneeRules: scenario.assigneeRules',
+    'taskDefinitionKey: authoritativeTaskKeys.managerApproval',
+    'assigneeId: authoritativeActors.managerApproval',
+    'mode: \'ANY\'', 'TASK_COLLABORATION_ASSIGNED', 'TASK_COLLABORATION_RESULT',
+    'await fixture.satisfy()', 'decidedAt: null',
+    "await clickNotification(pc, 'pc'", "await clickNotification(h5, 'h5'",
+    "'.notification-main' : '.card-main').click(",
+    'actorResponse(response, `/api/approval/tasks/${fixture.taskId}/collaboration`)',
+    "selectedHeaders(response).operatorId === observerId", "route.searchParams.get('taskId') === fixture.taskId",
+    "page.locator('.notification-summary')", 'summary.locator(',
+    'APPROVAL_RESOURCE_NOT_FOUND', 'APPROVAL_TASK_COLLABORATION_UNAUTHORIZED',
+    'APPROVAL_TASK_COLLABORATION_STATE_CONFLICT',
+    'expect(await readPolicy()).toEqual(before)',
+    '/api/approval/instances/${instanceId}/withdraw', 'await fixture.cleanup()', 'pcContext.close()', 'h5Context.close()',
+    'viewport: matrix.viewports.h5', 'config/demo/browser-accessibility-matrix.json',
+    "item.channel !== 'IN_APP' && item.enabled", 'budget.remaining(',
+  ]) assert.ok(helper.includes(required), `collaboration protection missing: ${required}`);
+  assert.doesNotMatch(helper, /\/(?:approve|reject|resubmit|transfer|retrieve)(?:['"`/]|$)/u);
+  assert.doesNotMatch(helper, /writeEvidence|publishCaptureReceipt|writeFileSync|\.route\(|route\.fulfill|addInitScript|setExtraHTTPHeaders|X-Approval-Trusted-Permissions|X-Approval-Worker-Id/u);
+  assert.doesNotMatch(helper, /test\.setTimeout|captureBudget\(/u);
+  assert.match(helper, /if \(!instanceId\) return/u);
+});
+
+test('a collaboration-helper-only change selects the existing PC/H5 runtime', () => {
+  assert.equal(relevantChangeSet([
+    'apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-collaboration.ts',
+  ]), true);
+  assert.equal(relevantChangeSet([
+    'apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-collaboration-unrelated.ts',
+  ]), false);
+});
+
+test('collaboration fixture writes stay on the explicit synthetic-resource allowlist', () => {
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-collaboration.ts');
+  // Capture every direct API/wrapper POST call, including TypeScript generics.
+  // The count also rejects a new call using an unreviewed dynamic first argument.
+  const calls = [...helper.matchAll(/\b(?:request\.post|post)(?:<[\s\S]*?>)?\(/gu)];
+  const paths = [...helper.matchAll(/\b(?:request\.post|post)(?:<[\s\S]*?>)?\(\s*([`'"])([\s\S]*?)\1/gu)]
+    .map(match => match[2]);
+  const allowed = [
+    '${backendOrigin}${path}', // The single private, status-checked POST wrapper.
+    '/api/approval/instances/${instanceId}/withdraw',
+    '${backendOrigin}/api/approval/attachments',
+    '/api/approval/instances/purchase-payment',
+    '/api/approval/tasks/${taskId}/collaboration',
+    '/api/approval/collaboration/participants/${participant(deciderId).participantId}/decide',
+    '/api/approval/tasks/${taskId}/collaboration/participants', // Expected 403 owner-only probe.
+    '/api/approval/collaboration/participants/${participant(observerId).participantId}/decide', // Expected 409 late-decision probe.
+  ];
+  assert.equal(calls.length, allowed.length);
+  assert.deepEqual(paths.sort(), allowed.sort());
+  assert.doesNotMatch(helper, /\b(?:fetch\(|request\.(?:fetch|put|patch|delete)\(|request\[)/u);
+  assert.match(helper, /instanceId = started\.instanceId/u);
+  assert.match(helper, /taskId = started\.activeTasks\[0\]\.taskId/u);
+  assert.match(helper, /policy\.participants\.filter\(item => item\.participantUserId === actorId\)/u);
+});

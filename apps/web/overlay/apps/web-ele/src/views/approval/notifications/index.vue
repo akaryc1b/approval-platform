@@ -39,6 +39,7 @@ import {
   replayNotification,
   updateNotificationPreferences,
 } from '#/api/approval/notifications';
+import { getApprovalRuntimeConfig } from '#/platform/approval/runtime';
 
 type ActiveTab = 'history' | 'preferences';
 type TagType = 'danger' | 'info' | 'primary' | 'success' | 'warning';
@@ -181,7 +182,17 @@ async function openNotification(item: NotificationIntent) {
   try {
     if (!item.readAt) await markNotificationRead(item.intentId);
     const route = item.metadata.route;
-    if (route) {
+    if (item.eventType === 'TASK_COLLABORATION_ASSIGNED'
+      || item.eventType === 'TASK_COLLABORATION_RESULT') {
+      const runtime = getApprovalRuntimeConfig();
+      await router.push({
+        path: '/approval/collaboration',
+        query: {
+          ...(item.taskId ? { taskId: item.taskId } : {}),
+          ...(runtime.localDemo ? { demoOperator: runtime.operatorId } : {}),
+        },
+      });
+    } else if (route) {
       await router.push(route);
     } else if (item.instanceId) {
       await router.push({

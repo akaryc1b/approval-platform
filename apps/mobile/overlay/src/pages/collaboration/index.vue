@@ -9,6 +9,8 @@ import type {
   TaskCollaboration,
 } from '@/api/approval/task-collaboration'
 
+import { onLoad, onUnload } from '@dcloudio/uni-app'
+
 import { findPendingTasks } from '@/api/approval'
 import { getApprovalRuntimeConfig } from '@/platform/approval/runtime'
 import { findApprovalIdentityCandidates } from '@/api/approval/identities'
@@ -34,6 +36,16 @@ definePage({
 type ViewMode = 'mine' | 'pending'
 
 const currentOperatorId = getApprovalRuntimeConfig().operatorId
+// Notification deep links are read-only and never select a task for management.
+const notificationSummary = ref<TaskCollaboration>()
+const notificationSummaryLoading = ref(false)
+const notificationSummaryError = ref('')
+const notificationTaskId = ref('')
+let notificationSummaryRequest = 0
+const notificationParticipant = computed(() => notificationSummary.value?.participants.find(
+  participant => participant.participantUserId === currentOperatorId,
+))
+
 const loading = ref(false)
 const saving = ref(false)
 const viewMode = ref<ViewMode>('pending')
@@ -211,6 +223,34 @@ function resetForm() {
   showForm.value = false
 }
 
+async function loadNotificationSummary(value: unknown) {
+  const request = ++notificationSummaryRequest
+  notificationSummary.value = undefined
+  notificationSummaryError.value = ''
+  notificationSummaryLoading.value = false
+  notificationTaskId.value = ''
+  if (value === undefined || value === null || value === '') return
+  if (typeof value !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+    notificationSummaryError.value = '通知中的任务标识无效，请从协作列表查看。'
+    return
+  }
+  notificationTaskId.value = value
+  notificationSummaryLoading.value = true
+  try {
+    const summary = await findTaskCollaboration(value)
+    if (request !== notificationSummaryRequest) return
+    notificationSummary.value = summary
+    if (!summary) notificationSummaryError.value = '协作事项不存在或当前账号无权查看。'
+  } catch {
+    if (request === notificationSummaryRequest) {
+      notificationSummaryError.value = '无法加载协作摘要，请稍后重试。'
+    }
+  } finally {
+    if (request === notificationSummaryRequest) notificationSummaryLoading.value = false
+  }
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -333,6 +373,7 @@ async function submitParticipants() {
     }
     showForm.value = false
     await loadData()
+    if (notificationTaskId.value) await loadNotificationSummary(notificationTaskId.value)
   }
   catch (error) {
     uni.showToast({ title: errorMessage(error), icon: 'none' })
@@ -370,6 +411,7 @@ async function removeParticipant(participant: CollaborationParticipant) {
     )
     uni.showToast({ title: '已完成减签', icon: 'success' })
     await loadData()
+    if (notificationTaskId.value) await loadNotificationSummary(notificationTaskId.value)
   }
   catch (error) {
     uni.showToast({ title: errorMessage(error), icon: 'none' })
@@ -394,6 +436,7 @@ async function decide(item: PendingCollaborationTask, decision: 'APPROVED' | 'RE
       icon: 'success',
     })
     await loadData()
+    if (notificationTaskId.value) await loadNotificationSummary(notificationTaskId.value)
   }
   catch (error) {
     uni.showToast({ title: errorMessage(error), icon: 'none' })
@@ -403,6 +446,8 @@ async function decide(item: PendingCollaborationTask, decision: 'APPROVED' | 'RE
   }
 }
 
+onLoad(query => { void loadNotificationSummary(query?.taskId) })
+onUnload(() => { notificationSummaryRequest++ })
 onShow(loadData)
 </script>
 
@@ -411,6 +456,32 @@ onShow(loadData)
     <view class="notice-card">
       <text class="notice-title">协作不改变原任务责任人</text>
       <text>协作进行中时原任务不能同意、转办或拿回；未达到要求后原审批人只能驳回。</text>
+    </view>
+
+    <view
+      v-if="notificationSummaryLoading || notificationSummaryError || notificationSummary"
+      class="policy-card notification-summary"
+    >
+      <text class="item-title">通知协作摘要（只读）</text>
+      <text v-if="notificationSummaryLoading" class="item-reason">正在加载协作摘要...</text>
+      <text v-else-if="notificationSummaryError" class="item-reason">{{ notificationSummaryError }}</text>
+      <template v-else-if="notificationSummary">
+        <text class="item-reason">任务：{{ notificationSummary.taskName }}</text>
+        <view class="metric-row">
+          <text>协作状态：{{ policyStatusLabel(notificationSummary.status) }}</text>
+          <text>{{ modeLabel(notificationSummary.mode) }}</text>
+        </view>
+        <text class="item-reason">
+          我的状态：{{ notificationParticipant ? participantStatusLabel(notificationParticipant.status) : '当前账号不是协作参与人' }}
+        </text>
+        <view class="metric-row">
+          <text>{{ notificationSummary.progress.approvedCount }} 同意 / {{ notificationSummary.progress.pendingCount }} 待处理</text>
+          <text v-if="notificationSummary.mode === 'VOTE'">阈值 {{ notificationSummary.approvalThreshold }} 票</text>
+          <text v-if="notificationSummary.mode === 'WEIGHTED'">阈值 {{ notificationSummary.approvalWeightThreshold }}</text>
+        </view>
+        <text class="item-reason">原因：{{ notificationSummary.reason }}</text>
+        <text v-if="notificationSummary.terminalReason" class="item-reason">结束原因：{{ notificationSummary.terminalReason }}</text>
+      </template>
     </view>
 
     <view class="mode-tabs">
@@ -624,5 +695,5 @@ onShow(loadData)
 </template>
 
 <style scoped>
-.page{min-height:100vh;padding:24rpx 24rpx 120rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.notice-card,.state-card,.item-card,.policy-card,.form-panel{padding:28rpx;border-radius:24rpx;background:var(--wot-color-white,var(--uni-bg-color));box-shadow:0 8rpx 24rpx rgb(15 23 42 / 5%)}.notice-card{display:grid;gap:10rpx}.notice-title,.item-title,.form-title{font-size:30rpx;font-weight:700}.mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:12rpx;margin:24rpx 0}.mode-tab{padding:22rpx;text-align:center;border-radius:18rpx;background:var(--wot-color-white,var(--uni-bg-color))}.mode-tab.active{color:var(--wot-color-theme,var(--uni-color-primary));font-weight:700}.card-list,.participant-list,.candidate-list,.weight-list{display:grid;gap:20rpx}.item-card,.policy-card{margin-bottom:20rpx}.item-header,.action-row,.policy-summary,.participant-row,.participant-actions,.search-row,.candidate-row,.metric-row,.weight-row{display:flex;align-items:center;justify-content:space-between;gap:18rpx}.item-header>view:first-child,.participant-row>view:first-child,.candidate-row>view{display:grid;flex:1;gap:8rpx}.item-subtitle,.item-reason,.metric-row{color:var(--wot-color-content-secondary,var(--uni-text-color-grey));font-size:24rpx}.item-reason{display:block;margin:20rpx 0}.task-strip{display:flex;gap:16rpx;margin-bottom:20rpx;overflow-x:auto}.task-chip{display:grid;flex:0 0 260rpx;gap:8rpx;padding:20rpx;border:1rpx solid var(--wot-color-border-light,var(--uni-border-color));border-radius:18rpx;background:var(--wot-color-white,var(--uni-bg-color))}.task-chip.active{border-color:var(--wot-color-theme,var(--uni-color-primary))}.participant-row{padding:18rpx 0;border-bottom:1rpx solid var(--wot-color-border-light,var(--uni-border-color))}.progress-grid{display:grid;grid-template-columns:1fr 1fr;gap:16rpx;margin:20rpx 0}.progress-grid>view{display:grid;gap:6rpx;padding:18rpx;border-radius:16rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.metric-value{font-size:34rpx;font-weight:700}.mask{position:fixed;z-index:1000;inset:0;display:flex;align-items:flex-end;background:rgb(15 23 42 / 45%)}.form-panel{width:100%;max-height:88vh;overflow-y:auto;border-radius:28rpx 28rpx 0 0}.field{display:grid;gap:12rpx;margin-top:24rpx}.field-label{font-weight:600}.field-input,.field-textarea,.weight-input{box-sizing:border-box;width:100%;padding:18rpx;border:1rpx solid var(--wot-color-border-light,var(--uni-border-color));border-radius:14rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.field-textarea{min-height:180rpx}.search-row .field-input{flex:1}.candidate-list{margin-top:18rpx}.candidate-row{justify-content:flex-start;padding:16rpx 0;border-bottom:1rpx solid var(--wot-color-border-light,var(--uni-border-color))}.weight-row{padding:16rpx;border-radius:14rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.weight-input{width:180rpx}.rule-preview{display:grid;gap:8rpx;margin-top:20rpx;padding:18rpx;border-radius:16rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey));font-size:24rpx}.action-row{justify-content:flex-end;margin-top:24rpx}
+.page{min-height:100vh;padding:24rpx 24rpx 120rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.notice-card,.state-card,.item-card,.policy-card,.form-panel{padding:28rpx;border-radius:24rpx;background:var(--wot-color-white,var(--uni-bg-color));box-shadow:0 8rpx 24rpx rgb(15 23 42 / 5%)}.notice-card{display:grid;gap:10rpx}.notice-title,.item-title,.form-title{font-size:30rpx;font-weight:700}.notification-summary{margin-top:24rpx}.mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:12rpx;margin:24rpx 0}.mode-tab{padding:22rpx;text-align:center;border-radius:18rpx;background:var(--wot-color-white,var(--uni-bg-color))}.mode-tab.active{color:var(--wot-color-theme,var(--uni-color-primary));font-weight:700}.card-list,.participant-list,.candidate-list,.weight-list{display:grid;gap:20rpx}.item-card,.policy-card{margin-bottom:20rpx}.item-header,.action-row,.policy-summary,.participant-row,.participant-actions,.search-row,.candidate-row,.metric-row,.weight-row{display:flex;align-items:center;justify-content:space-between;gap:18rpx}.item-header>view:first-child,.participant-row>view:first-child,.candidate-row>view{display:grid;flex:1;gap:8rpx}.item-subtitle,.item-reason,.metric-row{color:var(--wot-color-content-secondary,var(--uni-text-color-grey));font-size:24rpx}.item-reason{display:block;margin:20rpx 0}.task-strip{display:flex;gap:16rpx;margin-bottom:20rpx;overflow-x:auto}.task-chip{display:grid;flex:0 0 260rpx;gap:8rpx;padding:20rpx;border:1rpx solid var(--wot-color-border-light,var(--uni-border-color));border-radius:18rpx;background:var(--wot-color-white,var(--uni-bg-color))}.task-chip.active{border-color:var(--wot-color-theme,var(--uni-color-primary))}.participant-row{padding:18rpx 0;border-bottom:1rpx solid var(--wot-color-border-light,var(--uni-border-color))}.progress-grid{display:grid;grid-template-columns:1fr 1fr;gap:16rpx;margin:20rpx 0}.progress-grid>view{display:grid;gap:6rpx;padding:18rpx;border-radius:16rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.metric-value{font-size:34rpx;font-weight:700}.mask{position:fixed;z-index:1000;inset:0;display:flex;align-items:flex-end;background:rgb(15 23 42 / 45%)}.form-panel{width:100%;max-height:88vh;overflow-y:auto;border-radius:28rpx 28rpx 0 0}.field{display:grid;gap:12rpx;margin-top:24rpx}.field-label{font-weight:600}.field-input,.field-textarea,.weight-input{box-sizing:border-box;width:100%;padding:18rpx;border:1rpx solid var(--wot-color-border-light,var(--uni-border-color));border-radius:14rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.field-textarea{min-height:180rpx}.search-row .field-input{flex:1}.candidate-list{margin-top:18rpx}.candidate-row{justify-content:flex-start;padding:16rpx 0;border-bottom:1rpx solid var(--wot-color-border-light,var(--uni-border-color))}.weight-row{padding:16rpx;border-radius:14rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey))}.weight-input{width:180rpx}.rule-preview{display:grid;gap:8rpx;margin-top:20rpx;padding:18rpx;border-radius:16rpx;background:var(--wot-color-bg,var(--uni-bg-color-grey));font-size:24rpx}.action-row{justify-content:flex-end;margin-top:24rpx}
 </style>

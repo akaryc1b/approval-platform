@@ -196,13 +196,9 @@ public final class ApprovalMessageService {
 
     public List<MessageReceipt> findReceipts(String tenantId, String operatorId, UUID instanceId) {
         InstanceProjection instance = projections.findInstance(tenantId, instanceId)
-            .orElseThrow(() -> new ApprovalProjectionStore.ProjectionConflictException(
-                "approval instance was not found"
-            ));
+            .orElseThrow(ApprovalParticipantResourceNotFoundException::new);
         if (!instance.initiatorId().equals(operatorId)) {
-            throw new ApprovalProjectionStore.ProjectionConflictException(
-                "only the process initiator can view message receipts"
-            );
+            throw new ApprovalParticipantResourceNotFoundException();
         }
         return messages.findReceipts(tenantId, instanceId);
     }
@@ -215,7 +211,7 @@ public final class ApprovalMessageService {
             command.instanceId()
         );
         if (instance.status() != InstanceStatus.RUNNING) {
-            throw new ApprovalProjectionStore.ProjectionConflictException(
+            throw new MessageStateConflictException(
                 "only a running approval can be urged"
             );
         }
@@ -232,7 +228,7 @@ public final class ApprovalMessageService {
                 LinkedHashMap::new
             ));
         if (recipientTasks.isEmpty()) {
-            throw new ApprovalProjectionStore.ProjectionConflictException(
+            throw new MessageStateConflictException(
                 "there is no other pending assignee to urge"
             );
         }
@@ -264,7 +260,7 @@ public final class ApprovalMessageService {
         }).toList();
         int created = messages.append(outbound);
         if (created == 0) {
-            throw new ApprovalProjectionStore.ProjectionConflictException(
+            throw new MessageStateConflictException(
                 "the current assignees were already urged within the last 10 minutes"
             );
         }
@@ -289,7 +285,7 @@ public final class ApprovalMessageService {
             .collect(Collectors.toSet());
         List<String> invalid = recipients.stream().filter(recipient -> !allowed.contains(recipient)).toList();
         if (!invalid.isEmpty()) {
-            throw new ApprovalProjectionStore.ProjectionConflictException(
+            throw new MessageStateConflictException(
                 "copy recipients are not present in the immutable approval identity snapshot: "
                     + String.join(",", invalid)
             );
@@ -311,7 +307,7 @@ public final class ApprovalMessageService {
         )).toList();
         int created = messages.append(outbound);
         if (created == 0) {
-            throw new ApprovalProjectionStore.ProjectionConflictException(
+            throw new MessageStateConflictException(
                 "all selected users have already been copied on this approval"
             );
         }
@@ -325,15 +321,11 @@ public final class ApprovalMessageService {
         UUID instanceId
     ) {
         InstanceProjection instance = projections.findInstance(tenantId, instanceId)
-            .orElseThrow(() -> new ApprovalProjectionStore.ProjectionConflictException(
-                "approval instance was not found"
-            ));
+            .orElseThrow(ApprovalParticipantResourceNotFoundException::new);
         boolean taskParticipant = projections.findTasks(tenantId, instanceId).stream()
             .anyMatch(task -> task.assigneeId().equals(operatorId));
         if (!instance.initiatorId().equals(operatorId) && !taskParticipant) {
-            throw new ApprovalProjectionStore.ProjectionConflictException(
-                "operator is not allowed to collaborate on the approval instance"
-            );
+            throw new ApprovalParticipantResourceNotFoundException();
         }
         return instance;
     }
@@ -433,6 +425,14 @@ public final class ApprovalMessageService {
 
     private static String normalizeOptional(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** A recognized urge/copy business conflict, separate from participant visibility. */
+    public static final class MessageStateConflictException extends RuntimeException {
+
+        public MessageStateConflictException(String message) {
+            super(message);
+        }
     }
 
     public record UserOption(String userId, String displayName) {

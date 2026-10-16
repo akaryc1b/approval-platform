@@ -16,7 +16,8 @@ import java.util.UUID;
 @RestControllerAdvice(assignableTypes = {
     PurchasePaymentController.class,
     ApprovalFormRuntimeController.class,
-    ApprovalFormSubmissionController.class
+    ApprovalFormSubmissionController.class,
+    ApprovalMessageController.class
 })
 public class ApprovalParticipantReadApiExceptionHandler {
 
