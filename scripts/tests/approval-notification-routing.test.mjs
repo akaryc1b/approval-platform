@@ -5,10 +5,69 @@ import { runInNewContext } from 'node:vm';
 
 const web = new URL('../../apps/web/overlay/apps/web-ele/src/views/approval/notifications/index.vue', import.meta.url);
 const mobile = new URL('../../apps/mobile/overlay/src/pages/notification/index.vue', import.meta.url);
+const routeModule = new URL('../../apps/web/overlay/apps/web-ele/src/router/routes/modules/approval.ts', import.meta.url);
+const localDemoModule = new URL('../../apps/web/overlay/apps/web-ele/src/platform/approval/local-demo.ts', import.meta.url);
 const otherEvents = [
   'TASK_ASSIGNED', 'AUTOMATIC_DELEGATION', 'EMPLOYEE_HANDOVER',
   'APPROVAL_COMPLETED', 'APPROVAL_REJECTED', 'COMMENT_MENTION',
 ];
+
+// Evaluate the real development flag and route objects without loading components.
+function routeAuthorities(environment) {
+  const localDemoSource = readFileSync(localDemoModule, 'utf8');
+  const flag = localDemoSource.match(/export function approvalLocalDemoEnabled\(\) \{[^}]+\}/u);
+  assert.ok(flag, 'the actual local-demo flag function must be present');
+  const source = readFileSync(routeModule, 'utf8');
+  const typeImport = "import type { RouteRecordRaw } from 'vue-router';";
+  const flagImport = "import { approvalLocalDemoEnabled } from '#/platform/approval/local-demo';";
+  for (const part of [typeImport, flagImport, 'const routes: RouteRecordRaw[] =', 'export default routes;']) {
+    assert.equal(source.split(part).length, 2, `expected one route syntax boundary: ${part}`);
+  }
+  const executable = source.replace(typeImport, '').replace(flagImport, '')
+    .replace('const routes: RouteRecordRaw[] =', 'const routes =')
+    .replace('export default routes;', 'routes;');
+  const routes = runInNewContext(
+    `${flag[0].replace('export ', '').replaceAll('import.meta.env', 'environment')}\n${executable}`,
+    { environment },
+    { timeout: 1000 },
+  );
+  return JSON.parse(JSON.stringify(Object.fromEntries(
+    routes.flatMap(route => route.children).map(route => [route.name, route.meta.authority]),
+  )));
+}
+
+test('local-demo shell super reaches only workbench and the two notification collaboration pages', () => {
+  const production = routeAuthorities({ DEV: false, VITE_APPROVAL_LOCAL_DEMO: 'true' });
+  const demo = routeAuthorities({ DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true' });
+  assert.deepEqual(Object.keys(demo).sort(), Object.keys(production).sort());
+  assert.deepEqual(Object.keys(demo).filter(name => demo[name].includes('super')).sort(), [
+    'ApprovalNotifications', 'ApprovalTaskCollaboration', 'ApprovalWorkbench',
+  ]);
+  assert.deepEqual(demo.ApprovalTaskCollaboration, ['approval:workbench:view', 'super']);
+  assert.deepEqual(demo.ApprovalNotifications, ['approval:message:view', 'super']);
+  for (const [name, authority] of Object.entries(demo)) {
+    assert.deepEqual(authority.filter(value => value !== 'super'), production[name]);
+    if (!['ApprovalWorkbench', 'ApprovalTaskCollaboration', 'ApprovalNotifications'].includes(name)) {
+      assert.deepEqual(authority, production[name], `unrelated route changed: ${name}`);
+    }
+  }
+});
+
+for (const [label, environment] of [
+  ['production even with explicit demo flag', { DEV: false, VITE_APPROVAL_LOCAL_DEMO: 'true' }],
+  ['development with false flag', { DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'false' }],
+  ['development with missing flag', { DEV: true }],
+  ['development with uppercase near-match flag', { DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'TRUE' }],
+  ['development with trailing-space near-match flag', { DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true ' }],
+]) {
+  test(`${label} preserves capability-only approval route authorities`, () => {
+    const routes = routeAuthorities(environment);
+    assert.deepEqual(routes.ApprovalTaskCollaboration, ['approval:workbench:view']);
+    assert.deepEqual(routes.ApprovalNotifications, ['approval:message:view']);
+    assert.deepEqual(routes, routeAuthorities({ DEV: false }));
+    assert.equal(Object.values(routes).some(authority => authority.includes('super')), false);
+  });
+}
 
 // Execute the actual Vue click handler with transport/navigation doubles; this is not a browser click test.
 function handler(path, runtime = { localDemo: false, operatorId: 'production-user' }) {

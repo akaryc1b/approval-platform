@@ -5,6 +5,9 @@ import { approvalLocalDemoEnabled } from '#/platform/approval/local-demo';
 const approvalWorkbenchAuthority = approvalLocalDemoEnabled()
   ? ['approval:workbench:view', 'super']
   : ['approval:workbench:view'];
+const approvalNotificationAuthority = approvalLocalDemoEnabled()
+  ? ['approval:message:view', 'super']
+  : ['approval:message:view'];
 
 const routes: RouteRecordRaw[] = [
   {
@@ -32,7 +35,7 @@ const routes: RouteRecordRaw[] = [
         path: '/approval/collaboration',
         component: () => import('#/views/approval/collaboration/index.vue'),
         meta: {
-          authority: ['approval:workbench:view'],
+          authority: approvalWorkbenchAuthority,
           icon: 'lucide:user-round-plus',
           title: '加签协作',
         },
@@ -72,7 +75,7 @@ const routes: RouteRecordRaw[] = [
         path: '/approval/notifications',
         component: () => import('#/views/approval/notifications/index.vue'),
         meta: {
-          authority: ['approval:message:view'],
+          authority: approvalNotificationAuthority,
           icon: 'lucide:bell-cog',
           title: '通知中心',
         },
