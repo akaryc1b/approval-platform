@@ -7,8 +7,8 @@ import test from 'node:test';
 import { approvalShellIcons, registerApprovalShellIcons } from '../../apps/web/overlay/apps/web-ele/src/platform/approval/local-icons.ts';
 import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.mjs';
 
-// Independently bound to @iconify/json 2.2.476 and actual CI1826 responses
-// (four observed names); ep:expand is the pinned paired sidebar state.
+// Independently bound to @iconify/json 2.2.476 and retained CI1826/1887 responses.
+// ep:expand and lucide:bell-ring are pinned local shapes, not observed responses.
 const expected = {
   "ep:expand": {
     "width": 1024,
@@ -25,10 +25,20 @@ const expected = {
     "height": 2048,
     "bodySha256": "ba9dd894ac115c60cd2bb839552a2610ffae5cd33b60e57b5b01ff828663fe50"
   },
+  "lucide:bell-ring": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "7c76f0b69f6b3bcd6f6144c0523e24bd787e844f55844b5f874f2a61b0a81be2"
+  },
   "lucide:inbox": {
     "width": 24,
     "height": 24,
     "bodySha256": "17a61c59de89bd3202dd2f6512d31d9f32e4f57ea291cf4888bb623f8f5e68f8"
+  },
+  "lucide:user-round-plus": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "2d332334197dfacda8468001c3156ee62e982083d2bd0ebe0fa0d31bd0325eb6"
   },
   "lucide:workflow": {
     "width": 24,
@@ -47,6 +57,35 @@ function verifyDefinitions(icons) {
   }
 }
 const bootstrapSource = readFileSync(new URL('../../apps/web/overlay/apps/web-ele/src/bootstrap.ts', import.meta.url), 'utf8');
+function localDemoMenuIcons() {
+  const localDemo = readFileSync(new URL('../../apps/web/overlay/apps/web-ele/src/platform/approval/local-demo.ts', import.meta.url), 'utf8');
+  const flag = localDemo.match(/export function approvalLocalDemoEnabled\(\) \{[^}]+\}/u);
+  assert.ok(flag, 'actual local-demo flag function must be present');
+  const routeSource = readFileSync(new URL('../../apps/web/overlay/apps/web-ele/src/router/routes/modules/approval.ts', import.meta.url), 'utf8');
+  const flagImport = "import { approvalLocalDemoEnabled } from '#/platform/approval/local-demo';";
+  assert.equal(routeSource.split(flagImport).length, 2);
+  assert.equal(routeSource.split('export default routes;').length, 2);
+  const executable = stripTypeScriptTypes(routeSource).replace(flagImport, '')
+    .replace('export default routes;', 'routes;');
+  const routes = runInNewContext(
+    `${flag[0].replace('export ', '').replaceAll('import.meta.env', 'environment')}\n${executable}`,
+    { environment: { DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true' } },
+    { timeout: 1000 },
+  );
+  const visible = [];
+  function visit(route) {
+    if (route.meta?.authority && !route.meta.authority.includes('super')) return;
+    visible.push([route.name, route.meta?.icon]);
+    for (const child of route.children ?? []) visit(child);
+  }
+  routes.forEach(visit);
+  return Object.fromEntries(visible);
+}
+function verifyMenuCoverage(icons, menuIcons) {
+  for (const [route, icon] of Object.entries(menuIcons)) {
+    assert.equal(Object.hasOwn(icons, icon), true, `unregistered visible route icon: ${route}/${icon}`);
+  }
+}
 async function bootstrapOrder(source) {
   const start = source.indexOf('async function bootstrap(');
   const end = source.indexOf('\nexport { bootstrap };', start);
@@ -89,11 +128,29 @@ await test('registration covers only governed names and preserves existing custo
 await test('actual bootstrap registers local names before adapter initialization and first mount', async () => {
   assert.match(bootstrapSource, /import \{ addIcon \} from '@vben\/icons'/u);
   const events = await bootstrapOrder(bootstrapSource);
-  assert.deepEqual(events.slice(0, 5).sort(), Object.keys(expected).map(name => `icon:${name}`).sort());
-  assert.deepEqual(events.slice(5), ['adapter', 'mount']);
+  const iconCount = Object.keys(expected).length;
+  assert.deepEqual(events.slice(0, iconCount).sort(), Object.keys(expected).map(name => `icon:${name}`).sort());
+  assert.deepEqual(events.slice(iconCount), ['adapter', 'mount']);
   const late = bootstrapSource.replace('  registerApprovalShellIcons(addIcon);\n', '')
     .replace("  app.mount('#app');", "  app.mount('#app');\n  registerApprovalShellIcons(addIcon);");
   await assert.rejects(bootstrapOrder(late));
+});
+await test('every actual local-demo super menu icon is registered before navigation', () => {
+  const menuIcons = localDemoMenuIcons();
+  assert.deepEqual(menuIcons, {
+    ApprovalPlatform: 'lucide:workflow',
+    ApprovalWorkbench: 'lucide:inbox',
+    ApprovalTaskCollaboration: 'lucide:user-round-plus',
+    ApprovalNotifications: 'lucide:bell-ring',
+  });
+  verifyMenuCoverage(approvalShellIcons, menuIcons);
+  for (const name of ['lucide:bell-ring', 'lucide:user-round-plus']) {
+    const missing = structuredClone(approvalShellIcons); delete missing[name];
+    assert.throws(() => verifyMenuCoverage(missing, menuIcons), /unregistered visible route icon/u);
+  }
+  assert.throws(() => verifyMenuCoverage(approvalShellIcons, {
+    ...menuIcons, ApprovalNotifications: 'lucide:unregistered-fixture',
+  }), /unregistered visible route icon/u);
 });
 await test('icon source bootstrap and regression changes independently select browser runtime', () => {
   for (const path of [

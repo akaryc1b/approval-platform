@@ -76,7 +76,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/approval/notifications/index.vue'),
         meta: {
           authority: approvalNotificationAuthority,
-          icon: 'lucide:bell-cog',
+          icon: 'lucide:bell-ring',
           title: '通知中心',
         },
       },
