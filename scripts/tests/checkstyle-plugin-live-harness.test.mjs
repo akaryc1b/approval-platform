@@ -388,7 +388,7 @@ with tempfile.TemporaryDirectory(prefix='checkstyle-history-mock-') as directory
     sandbox = Path(directory); source = sandbox / 'supplied-source'
     jar_view = jar['materialize_accepted_source'](s.ROOT, sandbox / 'accepted-assembly')
     assembly_view = assembly_retained['materialize_accepted_source'](Path(jar_view['retainedSourceRoot']), source)
-    assert jar_view['sourcePomCount'] == 28 and len(jar_view['suppliedSourceHashes']) == 50
+    assert jar_view['sourcePomCount'] == 28 and len(jar_view['suppliedSourceHashes']) == 51
     assert assembly_view['retainedRootPomSha256'] == pair['CURRENT_POM']
     with patch.object(subprocess, 'Popen', side_effect=AssertionError('materialization attempted execution')):
         run = Run(source, sandbox, Path('/cache'), Path('/jdk'), Path('/maven/bin/mvn'), True, 'models', False, 'lang')
@@ -427,7 +427,7 @@ with tempfile.TemporaryDirectory(prefix='checkstyle-history-mock-') as directory
 `);
 });
 
-test('Checkstyle current JAR entrypoint retains a separately sealed Assembly source projection', () => {
+test('Checkstyle current Lang entrypoint retains a separately sealed Assembly source projection', () => {
   python(String.raw`
 import http.server,ssl,runpy,subprocess,socket,sys,tempfile
 from pathlib import Path
@@ -438,7 +438,8 @@ s=runpy.run_path(sys.path[0]+'/run_checkstyle_live_compatibility.py')
 with tempfile.TemporaryDirectory(prefix='checkstyle-jar-source-') as directory:
  run=s['Run'](s['ROOT'],Path(directory),Path('/cache'),Path('/jdk'),Path('/maven/bin/mvn'),True,'models',False,'lang')
  p=run.jar_source_projection
- assert p['suppliedSourceRoot']==str(s['ROOT']) and p['suppliedRootPomSha256']==s['JAR_RETAINED']['CURRENT_POM']
+ assert p['suppliedSourceRoot']==str(s['ROOT']) and p['suppliedRootPomSha256']==s['JAR_RETAINED']['LANG_POM']
+ assert p['schemaVersion']=='ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
  assert p['retainedRootPomSha256']==s['JAR_RETAINED']['PRIOR_POM']
  assert run.report['historicalJarSourceProjection']==p
  assert run.pair_source_projection['suppliedSourceRoot']==p['retainedSourceRoot']

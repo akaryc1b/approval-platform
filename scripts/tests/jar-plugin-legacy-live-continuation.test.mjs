@@ -36,6 +36,59 @@ function python(source) {
   assert.equal(result.status, 0, `${result.error?.message ?? ''}\n${result.stdout}\n${result.stderr}`);
 }
 
+test('Lang source receipts preserve old schemas and reject intermediate archive or identity tampering', () => {
+  python(String.raw`
+with tempfile.TemporaryDirectory(prefix='lang-source-receipts-') as directory:
+    base = Path(directory); source = copy_source(base)
+    lang = (source / 'pom.xml').read_bytes()
+    accepted_jar = (source / jar['JAR_ARCHIVE']).read_bytes()
+    assembly = (source / jar['ARCHIVE']).read_bytes()
+    assert jar['reverse_lang_source'](lang) == accepted_jar
+    assert jar['reverse_source'](lang) == jar['reverse_source'](accepted_jar) == assembly
+    for label, raw, sha, count, applied in (
+            ('lang', lang, jar['LANG_POM'], 51, True),
+            ('jar', accepted_jar, jar['CURRENT_POM'], 50, True),
+            ('assembly', assembly, jar['PRIOR_POM'], 50, False)):
+        (source / 'pom.xml').write_bytes(raw)
+        projection = jar['materialize_accepted_source'](source, base / label)
+        assert projection['suppliedRootPomSha256'] == sha
+        assert projection['retainedRootPomSha256'] == jar['PRIOR_POM']
+        assert projection['sourceFileCount'] == count and projection['sourcePomCount'] == 28
+        assert projection['reversalApplied'] is applied
+        if label != 'lang':
+            assert projection['schemaVersion'] == 'JAR_PLUGIN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
+            assert 'reversalSteps' not in projection and jar['JAR_ARCHIVE'] not in projection['suppliedSourceHashes']
+            assert projection['scope'] == 'Exact JAR root additions reversed to accepted Assembly bytes; no current JAR compatibility claim.'
+            continue
+        assert projection['schemaVersion'] == 'ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
+        assert [step['toRootPomSha256'] for step in projection['reversalSteps']] == [jar['CURRENT_POM'], jar['PRIOR_POM']]
+        assert projection['suppliedSourceHashes'][jar['JAR_ARCHIVE']] == jar['CURRENT_POM']
+        for field, replacement in [('schemaVersion', 'JAR_PLUGIN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'),
+                ('scope', 'JAR-only reversal'), ('reversalApplied', False), ('reversalSteps', []), ('sourceFileCount', 50)]:
+            rejects(lambda: jar['verify_projection'](dict(projection, **{field: replacement})))
+        forged = copy.deepcopy(projection); forged['reversalSteps'][0]['archiveSha256'] = jar['PRIOR_POM']
+        rejects(lambda: jar['verify_projection'](forged))
+        forged = copy.deepcopy(projection); del forged['suppliedSourceHashes'][jar['JAR_ARCHIVE']]
+        rejects(lambda: jar['verify_projection'](forged))
+        for root in (source, base / label):
+            archive = root / jar['JAR_ARCHIVE']; original = archive.read_bytes()
+            for replacement in (assembly, original + b'\n'):
+                archive.write_bytes(replacement)
+                rejects(lambda: jar['verify_projection'](projection))
+                archive.write_bytes(original); jar['verify_projection'](projection)
+            archive.unlink(); rejects(lambda: jar['verify_projection'](projection))
+            archive.symlink_to(source / jar['ARCHIVE']); rejects(lambda: jar['verify_projection'](projection))
+            archive.unlink(); archive.write_bytes(original); jar['verify_projection'](projection)
+        for addition, previous in jar['LANG_EDITS']:
+            for changed in (lang.replace(addition, previous, 1), lang.replace(addition, addition + addition, 1)):
+                assert changed != lang
+                (source / 'pom.xml').write_bytes(changed)
+                rejects(lambda: jar['source_inventory'](source))
+                rejects(lambda: jar['verify_projection'](projection))
+        (source / 'pom.xml').write_bytes(lang); jar['verify_projection'](projection)
+`);
+});
+
 test('JAR legacy live Boot source preserves exact historical fixture POMs for both profiles', () => {
   python(String.raw`
 rejects(lambda: goals['pair_contract'].verify_source(ROOT))
@@ -45,8 +98,8 @@ with tempfile.TemporaryDirectory(prefix='jar-legacy-boot-') as directory:
     current_raw, current, current_inventory = goals['source_inputs'](ROOT)
     prior_raw, prior_current, prior_inventory = goals['source_inputs'](retained)
     assert current and prior_current and current_raw == prior_raw
-    assert len(current_inventory) == 50 and len(prior_inventory) == 29
-    assert current_inventory['pom.xml'] == jar['CURRENT_POM']
+    assert len(current_inventory) == 51 and len(prior_inventory) == 29
+    assert current_inventory['pom.xml'] == jar['LANG_POM']
     assert prior_inventory['pom.xml'] == jar['PRIOR_POM']
     for profile in ('http', 'utilities'):
         for variant in ('baseline', 'candidate'):
@@ -59,11 +112,13 @@ for (const family of ['clean', 'compiler']) test(`JAR legacy live ${family} reta
   python(String.raw`
 family = '${family}'
 module = runpy.run_path(str(HERE / ('run_' + family + '_live_compatibility.py')))
-for current in (True, False):
+for root_sha in (jar['LANG_POM'], jar['CURRENT_POM'], jar['PRIOR_POM']):
     with tempfile.TemporaryDirectory(prefix='jar-legacy-' + family + '-') as directory:
         base = Path(directory); source = copy_source(base)
-        if not current:
-            (source / 'pom.xml').write_bytes((source / jar['ARCHIVE']).read_bytes())
+        current = root_sha != jar['PRIOR_POM']
+        if root_sha != jar['LANG_POM']:
+            archive = jar['JAR_ARCHIVE'] if current else jar['ARCHIVE']
+            (source / 'pom.xml').write_bytes((source / archive).read_bytes())
         sandbox = base / 'sandbox'; sandbox.mkdir()
         repository, jdk, maven = base / 'repository', base / 'jdk', base / 'maven/bin/mvn'
         run = (module['FixtureRun'](sandbox, source, repository, maven, jdk, True, 'models') if family == 'clean'
@@ -74,9 +129,9 @@ for current in (True, False):
         projection = run.report['jarSourceProjection']
         assert bool(projection) == current
         if not current: continue
-        assert projection['suppliedRootPomSha256'] == jar['CURRENT_POM']
+        assert projection['suppliedRootPomSha256'] == root_sha
         assert projection['retainedRootPomSha256'] == jar['PRIOR_POM']
-        assert projection['sourceFileCount'] == 50
+        assert projection['sourceFileCount'] == (51 if root_sha == jar['LANG_POM'] else 50)
         assert run.report['pairSourceProjection']['suppliedSourceRoot'] == projection['retainedSourceRoot']
         retained = Path(projection['retainedSourceRoot'])
         child_pom = next(name for name in projection['suppliedSourceHashes'] if name.endswith('/pom.xml'))
@@ -99,7 +154,7 @@ with tempfile.TemporaryDirectory(prefix='jar-legacy-boot-seal-') as directory:
     consumed = {str(source / name): value for name, value in inventory.items()}
     for file in (Path(goals['__file__']), goals['JAR_SOURCE_ADAPTER']):
         consumed[str(file.resolve())] = goals['digest'](file)
-    assert len(consumed) == 52
+    assert len(consumed) == 53
     seal = {'sourceHashes': consumed}; goals['verify_source_seal'](seal, source)
     def no_reload(*args): raise AssertionError('Unsealed adapter was reloaded')
     for file in (Path(goals['__file__']), goals['JAR_SOURCE_ADAPTER']):
@@ -114,7 +169,7 @@ with tempfile.TemporaryDirectory(prefix='jar-legacy-boot-seal-') as directory:
         rejects(lambda: goals['verify_source_seal'](missing, source))
     wrong = copy.deepcopy(seal); wrong['sourceHashes'][str(source / 'pom.xml')] = '0' * 64
     rejects(lambda: goals['verify_source_seal'](wrong, source))
-    for name in ('pom.xml', jar['ARCHIVE'], next(name for name in inventory if name.endswith('/pom.xml'))):
+    for name in ('pom.xml', jar['ARCHIVE'], jar['JAR_ARCHIVE'], next(name for name in inventory if name.endswith('/pom.xml'))):
         file = source / name; original = file.read_bytes(); file.write_bytes(original + b'\n')
         rejects(lambda: goals['source_inputs'](source)); rejects(lambda: goals['verify_source_seal'](seal, source))
         file.write_bytes(original)

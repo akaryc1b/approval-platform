@@ -48,6 +48,8 @@
         <maven.jar.version>3.5.1</maven.jar.version>
         <maven.surefire.version>3.5.5</maven.surefire.version>
         <maven.enforcer.version>3.5.0</maven.enforcer.version>
+        <maven.enforcer.commons-lang3.version>3.18.0</maven.enforcer.commons-lang3.version>
+        <maven.assembly.commons-lang3.version>3.18.0</maven.assembly.commons-lang3.version>
         <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
         <maven.checkstyle.commons-lang3.version>3.18.0</maven.checkstyle.commons-lang3.version>
         <maven.checkstyle.guava.version>32.0.1-jre</maven.checkstyle.guava.version>
@@ -150,7 +152,7 @@
                     <artifactId>maven-jar-plugin</artifactId>
                     <version>${maven.jar.version}</version>
                 </plugin>
-                <!-- Keep Assembly inactive; constrain only its private Plexus Utils dependency. -->
+                <!-- Keep Assembly inactive; constrain its private utility dependencies. -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
@@ -160,6 +162,11 @@
                             <groupId>org.codehaus.plexus</groupId>
                             <artifactId>plexus-utils</artifactId>
                             <version>4.0.3</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>${maven.assembly.commons-lang3.version}</version>
                         </dependency>
                     </dependencies>
                 </plugin>
@@ -320,6 +327,13 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <version>${maven.enforcer.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.commons</groupId>
+                        <artifactId>commons-lang3</artifactId>
+                        <version>${maven.enforcer.commons-lang3.version}</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <id>enforce-toolchain</id>

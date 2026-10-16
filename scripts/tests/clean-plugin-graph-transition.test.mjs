@@ -169,6 +169,7 @@ test('Clean production reader rejects changed archived bytes and current POM byt
     'scripts/security/jacoco-antrun-source-continuation.mjs',
     'scripts/security/assembly-plexus-source-continuation.mjs',
     'scripts/security/jar-plugin-source-continuation.mjs',
+    'docs/operations/jar-plugin-evidence/candidate-root-pom.xml',
     'docs/operations/assembly-plexus-evidence/candidate-root-pom.xml',
     'docs/operations/jacoco-antrun-plugin-evidence/candidate-root-pom.xml',
     'docs/operations/boot-utilities-plugin-evidence/candidate-root-pom.xml',

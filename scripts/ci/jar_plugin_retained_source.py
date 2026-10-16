@@ -1,8 +1,8 @@
-"""Sealed JAR successor to accepted Assembly source; no project execution.
+"""Sealed JAR and two-owner Lang successors to Assembly; no project execution.
 
 Historical contracts retain their original, strict input identities. This adapter
 copies a bounded historical input closure and changes only the exact root POM
-addition, comparing the result with independently retained Assembly bytes.
+edits, comparing each reversal with independently retained predecessor bytes.
 """
 import argparse
 import hashlib
@@ -13,7 +13,9 @@ import stat
 
 CURRENT_POM = '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f'
 PRIOR_POM = '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629'
+LANG_POM = 'ddb286b44b1976dd19ad74b06f3ceef86e19d0fbee87dd27dc87985ffb1f7932'
 ARCHIVE = 'docs/operations/assembly-plexus-evidence/candidate-root-pom.xml'
+JAR_ARCHIVE = 'docs/operations/jar-plugin-evidence/candidate-root-pom.xml'
 WITNESS = 'docs/operations/jacoco-antrun-plugin-evidence/source-witness.json'
 WITNESS_SHA = '56e5701e73c25262887edcf73663cf9f7eff870a34891927107dfeceec174971'
 PROPERTY = b'        <maven.jar.version>3.5.1</maven.jar.version>\n'
@@ -23,6 +25,26 @@ DECLARATION = b'''                <plugin>
                     <version>${maven.jar.version}</version>
                 </plugin>
 '''
+LANG_EDITS = (
+    (b'        <maven.enforcer.commons-lang3.version>3.18.0</maven.enforcer.commons-lang3.version>\n', b''),
+    (b'        <maven.assembly.commons-lang3.version>3.18.0</maven.assembly.commons-lang3.version>\n', b''),
+    (b'                <!-- Keep Assembly inactive; constrain its private utility dependencies. -->\n',
+     b'                <!-- Keep Assembly inactive; constrain only its private Plexus Utils dependency. -->\n'),
+    (b'''                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>${maven.assembly.commons-lang3.version}</version>
+                        </dependency>
+''', b''),
+    (b'''                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.commons</groupId>
+                        <artifactId>commons-lang3</artifactId>
+                        <version>${maven.enforcer.commons-lang3.version}</version>
+                    </dependency>
+                </dependencies>
+''', b''),
+)
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 8 * 1024 * 1024
 HISTORICAL_FILES = {
@@ -87,11 +109,23 @@ def is_jar_source(root):
     return b'<maven.jar.version>' in raw or b'<artifactId>maven-jar-plugin</artifactId>' in raw
 
 
+def reverse_lang_source(raw):
+    """Reverse the exact two-owner Lang edits; retain JAR's historical identity."""
+    require(digest(raw) == LANG_POM, 'Lang root bytes changed')
+    for addition, previous in LANG_EDITS:
+        require(raw.count(addition) == 1, 'exact Lang edit missing or ambiguous')
+        raw = raw.replace(addition, previous, 1)
+    require(digest(raw) == CURRENT_POM, 'root changed beyond exact Lang edits')
+    return raw
+
+
 def reverse_source(raw):
     identity = digest(raw)
-    require(identity in (CURRENT_POM, PRIOR_POM), 'root bytes changed')
+    require(identity in (LANG_POM, CURRENT_POM, PRIOR_POM), 'root bytes changed')
     if identity == PRIOR_POM:
         return raw
+    if identity == LANG_POM:
+        raw = reverse_lang_source(raw)
     require(raw.count(PROPERTY) == raw.count(DECLARATION) == 1,
             'exact property or managed declaration missing or ambiguous')
     prior = raw.replace(PROPERTY, b'', 1).replace(DECLARATION, b'', 1)
@@ -109,6 +143,10 @@ def expected_inventory(root, root_sha):
     require(not set(result) & set(HISTORICAL_FILES), 'historical inventory overlap')
     result.update(HISTORICAL_FILES)
     require(len(result) == 50, 'historical closure membership changed')
+    if root_sha == LANG_POM:
+        require(JAR_ARCHIVE not in result, 'Lang archive inventory overlap')
+        result[JAR_ARCHIVE] = CURRENT_POM
+        require(len(result) == 51, 'Lang closure membership changed')
     return result
 
 
@@ -132,8 +170,31 @@ def source_inventory(source):
     prior = reverse_source(raw)
     expected = expected_inventory(source, digest(raw))
     check_inventory(source, expected)
+    if digest(raw) == LANG_POM:
+        require(reverse_lang_source(raw) == checked(source, JAR_ARCHIVE, CURRENT_POM),
+                'Lang reversal differs from accepted JAR archive')
     require(prior == checked(source, ARCHIVE, PRIOR_POM), 'reversal differs from accepted archive')
     return expected
+
+
+def projection_identity(root_sha):
+    if root_sha == LANG_POM:
+        return {
+            'schemaVersion': 'ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',
+            'reversalApplied': True,
+            'reversalSteps': [
+                {'fromRootPomSha256': LANG_POM, 'toRootPomSha256': CURRENT_POM,
+                 'archivePath': JAR_ARCHIVE, 'archiveSha256': CURRENT_POM},
+                {'fromRootPomSha256': CURRENT_POM, 'toRootPomSha256': PRIOR_POM,
+                 'archivePath': ARCHIVE, 'archiveSha256': PRIOR_POM},
+            ],
+            'scope': 'Exact two-owner Lang edits then JAR additions reversed to accepted Assembly bytes; no current Lang or JAR compatibility claim.',
+        }
+    return {
+        'schemaVersion': 'JAR_PLUGIN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',
+        'reversalApplied': root_sha == CURRENT_POM,
+        'scope': 'Exact JAR root additions reversed to accepted Assembly bytes; no current JAR compatibility claim.',
+    }
 
 
 def materialize_accepted_source(source, destination):
@@ -154,15 +215,13 @@ def materialize_accepted_source(source, destination):
         with file.open('xb') as stream:
             stream.write(raw)
     result = {
-        'schemaVersion': 'JAR_PLUGIN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',
+        **projection_identity(supplied['pom.xml']),
         'suppliedSourceRoot': str(source), 'retainedSourceRoot': str(destination),
         'suppliedSourceHashes': supplied, 'retainedSourceHashes': retained,
         'suppliedRootPomSha256': supplied['pom.xml'], 'retainedRootPomSha256': PRIOR_POM,
         'retainedArchivePath': ARCHIVE, 'retainedArchiveSha256': PRIOR_POM,
         'sourcePomCount': 28, 'sourceFileCount': len(supplied),
         'adapterSha256': digest(Path(__file__).read_bytes()),
-        'reversalApplied': supplied['pom.xml'] == CURRENT_POM,
-        'scope': 'Exact JAR root additions reversed to accepted Assembly bytes; no current JAR compatibility claim.',
     }
     verify_projection(result)
     return result
@@ -173,13 +232,15 @@ def verify_projection(projection):
     retained = real_root(projection['retainedSourceRoot'])
     supplied = source_inventory(source)
     expected = {**supplied, 'pom.xml': PRIOR_POM}
-    require(projection['schemaVersion'] == 'JAR_PLUGIN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
+    identity = projection_identity(supplied['pom.xml'])
+    require(all(projection.get(key) == value for key, value in identity.items()
+                if key != 'scope' or supplied['pom.xml'] == LANG_POM)
             and projection['suppliedRootPomSha256'] == supplied['pom.xml']
             and projection['retainedRootPomSha256'] == PRIOR_POM
             and projection['retainedArchivePath'] == ARCHIVE
             and projection['retainedArchiveSha256'] == PRIOR_POM
             and projection['sourcePomCount'] == 28 and projection['sourceFileCount'] == len(supplied)
-            and projection['reversalApplied'] is (supplied['pom.xml'] == CURRENT_POM)
+            and projection['reversalApplied'] is identity['reversalApplied']
             and projection['adapterSha256'] == digest(Path(__file__).read_bytes()),
             'projection identity changed')
     require(not retained.is_relative_to(source) and not source.is_relative_to(retained),
@@ -187,6 +248,10 @@ def verify_projection(projection):
     require(projection['suppliedSourceHashes'] == supplied and projection['retainedSourceHashes'] == expected,
             'projection inventory changed')
     check_inventory(retained, expected)
+    if supplied['pom.xml'] == LANG_POM:
+        require(reverse_lang_source(checked(source, 'pom.xml', LANG_POM))
+                == checked(source, JAR_ARCHIVE, CURRENT_POM) == checked(retained, JAR_ARCHIVE, CURRENT_POM),
+                'Lang projection reversal changed')
     require(reverse_source(checked(source, 'pom.xml', supplied['pom.xml']))
             == checked(retained, 'pom.xml', PRIOR_POM) == checked(source, ARCHIVE, PRIOR_POM),
             'projection reversal changed')

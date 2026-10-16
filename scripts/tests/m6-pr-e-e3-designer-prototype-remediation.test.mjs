@@ -4,9 +4,9 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { spawnSync as historicalGit } from 'node:child_process';
-import { buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview, gitleaksCaptureReviewFindings, requireGitleaksCaptureInventory } from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
-import { buildGitleaksPublicCommitReviewSnapshot } from '../security/m6-pr-e-e3-review-gitleaks-public-commit.mjs';
-import { readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview }
+import { buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview, gitleaksCaptureReviewFindings, requireGitleaksCaptureInventory, requireGitleaksCaptureHashReviewReceipt } from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
+import { buildGitleaksPublicCommitReviewSnapshot, requireGitleaksPublicCommitReviewReceipt } from '../security/m6-pr-e-e3-review-gitleaks-public-commit.mjs';
+import { readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview, requireGitleaksTestExpressionReviewReceipt, requireGitleaksTestExpressionTriage }
   from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, readJacocoAntrunCandidate, readJacocoAntrunManifest, readBootUtilitiesCandidate, readBootUtilitiesManifest, readBootHttpCandidate, readCheckstyleGuavaCandidate, readCompilerPluginCandidate, readCheckstylePluginCandidate, verifyObservabilityGraph, requirePreservedGraph }
   from '../security/observability-dependency-graph.mjs';
@@ -18,7 +18,11 @@ import { syntheticBootHttpOsv } from './fixtures/boot-http-fixture.mjs';
 import { syntheticJacocoAntrunOsv } from './fixtures/jacoco-antrun-fixture.mjs';
 import { syntheticJarPluginOsv } from './fixtures/jar-plugin-fixture.mjs';
 import { modeledJarDigestFixture } from './fixtures/jar-verifier-review-fixture.mjs';
+import { modeledLangDigestFixture, acceptedLangDigestLegacyFindings } from './fixtures/lang-digest-review-fixture.mjs';
 import { JAR_PLUGIN_GRAPH, readJarPluginCandidate, readJarPluginManifest } from '../security/jar-plugin-graph-transition.mjs';
+import { ASSEMBLY_ENFORCER_LANG_GRAPH, readAssemblyEnforcerLangCandidate, readAssemblyEnforcerLangManifest,
+  readAssemblyEnforcerLangAcceptedLineage } from '../security/assembly-enforcer-lang-graph-transition.mjs';
+import { osvInputFromE2, buildOsvCoverage } from '../security/osv-scan-coverage.mjs';
 import { syntheticAssemblyPlexusOsv } from './fixtures/assembly-plexus-fixture.mjs';
 import { ASSEMBLY_PLEXUS_GRAPH, readAssemblyPlexusCandidate, readAssemblyPlexusManifest }
   from '../security/assembly-plexus-graph-transition.mjs';
@@ -330,11 +334,32 @@ test('I3 and I4 fail closed on historical receipt and count tampering', () => {
 // the actual callback and downstream verification still run on every copy.
 const retainedSyntheticCandidates = new Map();
 const retainedSyntheticGraphs = new Map();
-const syntheticGraphReaders = { jar: readJarPluginCandidate, assembly: readAssemblyPlexusCandidate, pair: readJacocoAntrunCandidate, utilities: readBootUtilitiesCandidate, boot: readBootHttpCandidate, guava: readCheckstyleGuavaCandidate,
+// SYNTHETIC UNIT ONLY: a fabricated advisory preserves an unresolved finding.
+// Neither the response nor its totals describe an actual Lang security scan.
+function syntheticLangOsv(e2, source) {
+  const input = osvInputFromE2(e2), inputPath = '/synthetic-unit-only-assembly-enforcer-lang-input.json';
+  const selected = [...input.lookup.values()].find(target => target.package.name === 'org.apache.commons:commons-lang3'
+    && target.package.version === '3.18.0');
+  assert.ok(selected);
+  const advisory = 'GHSA-synthetic-unit-only-assembly-enforcer-lang';
+  const finding = { sourceClass: 'E4_OSV_SCANNER',
+    findingId: hash(['OSV', advisory, selected.package.ecosystem, selected.package.name, selected.package.version].join('\0')),
+    upstreamFindingId: advisory, aliases: [], package: selected.package,
+    componentRefs: [...selected.componentRefs].sort(), scopes: [...selected.scopes].sort(), upstreamSeverity: [], fixedVersions: [] };
+  const raw = { results: [{ source: { path: inputPath, type: 'lockfile' },
+    packages: input.scannerInput.results[0].packages.map(({ package: identity }) => ({ package: identity,
+      vulnerabilities: identity.name === selected.package.name && identity.version === selected.package.version ? [{ id: advisory }] : [] })) }] };
+  const coverage = buildOsvCoverage(raw, e2, { head: e2.commitSha, graphDigest: ASSEMBLY_ENFORCER_LANG_GRAPH,
+    inputBytes: JSON.stringify(input.scannerInput), inputPath, findings: [finding], exitStatus: 1,
+    stderr: `Starting filesystem walk for root: /\nScanned ${inputPath} file and found ${input.packageCount} packages\nEnd status: 0 dirs visited, 1 inodes visited, 1 Extract calls, 1ms elapsed, 1ms wall time\n` });
+  return { ...structuredClone(source), findings: [finding], findingCount: 1, coverage,
+    inputPackageCount: input.packageCount, binarySha256: 'a'.repeat(64) };
+}
+const syntheticGraphReaders = { lang: readAssemblyEnforcerLangCandidate, jar: readJarPluginCandidate, assembly: readAssemblyPlexusCandidate, pair: readJacocoAntrunCandidate, utilities: readBootUtilitiesCandidate, boot: readBootHttpCandidate, guava: readCheckstyleGuavaCandidate,
   checkstyle: readCheckstylePluginCandidate, compiler: readCompilerPluginCandidate };
-const syntheticOsvBuilders = { jar: syntheticJarPluginOsv, assembly: syntheticAssemblyPlexusOsv, pair: syntheticJacocoAntrunOsv, utilities: syntheticBootUtilitiesOsv, boot: syntheticBootHttpOsv, guava: syntheticCheckstyleGuavaOsv,
+const syntheticOsvBuilders = { lang: syntheticLangOsv, jar: syntheticJarPluginOsv, assembly: syntheticAssemblyPlexusOsv, pair: syntheticJacocoAntrunOsv, utilities: syntheticBootUtilitiesOsv, boot: syntheticBootHttpOsv, guava: syntheticCheckstyleGuavaOsv,
   checkstyle: syntheticCheckstylePluginOsv, compiler: syntheticCompilerPluginOsv };
-const syntheticGraphDigests = { jar: JAR_PLUGIN_GRAPH, assembly: ASSEMBLY_PLEXUS_GRAPH, pair: JACOCO_ANTRUN_GRAPH, utilities: BOOT_UTILITIES_GRAPH, boot: BOOT_HTTP_GRAPH, guava: CHECKSTYLE_GUAVA_GRAPH,
+const syntheticGraphDigests = { lang: ASSEMBLY_ENFORCER_LANG_GRAPH, jar: JAR_PLUGIN_GRAPH, assembly: ASSEMBLY_PLEXUS_GRAPH, pair: JACOCO_ANTRUN_GRAPH, utilities: BOOT_UTILITIES_GRAPH, boot: BOOT_HTTP_GRAPH, guava: CHECKSTYLE_GUAVA_GRAPH,
   checkstyle: CHECKSTYLE_PLUGIN_GRAPH, compiler: COMPILER_PLUGIN_GRAPH };
 function retainedSyntheticCandidate(graph) {
   if (!retainedSyntheticCandidates.has(graph)) retainedSyntheticCandidates.set(graph, syntheticGraphReaders[graph]());
@@ -352,20 +377,29 @@ function syntheticCallbackGraph(graph, commitSha) {
 }
 
 let currentJarPublication;
+let currentLangPublication;
 let historicalCallbackSource;
+let acceptedJarCallbackSource;
 export function runSyntheticHistoricalCiCallback(options = {}) {
   return runSyntheticCiCallback({ ...options, historicalSourceContext: true });
 }
-export function runSyntheticCiCallback({ historicalSourceContext = false, wrongHeadBlob = false, includePrototype = false, staleHead = false,
-  mutateEvidence = null, staleR4Receipt = false, publicCommitFixture = null, previousCompilerGraph = false, previousCheckstyleGraph = false, previousGuavaGraph = false, previousBootHttpGraph = false, previousBootUtilitiesGraph = false, previousAssemblyGraph = false } = {}) {
+// Preserve the exported accepted-JAR fixture used by historical digest reviews.
+// The current Lang callback is selected explicitly with its complete modeled inventory.
+export function runSyntheticCiCallback({ currentLangGraph = false, historicalSourceContext = false, wrongHeadBlob = false, includePrototype = false, staleHead = false,
+  mutateEvidence = null, staleR4Receipt = false, publicCommitFixture = null, previousJarGraph = false, previousCompilerGraph = false, previousCheckstyleGraph = false, previousGuavaGraph = false, previousBootHttpGraph = false, previousBootUtilitiesGraph = false, previousAssemblyGraph = false } = {}) {
+  assert.ok(!(currentLangGraph && historicalSourceContext));
   const preparation = json('m6-pr-e-e3-r4-osv-preparation');
   const baseline = json('m6-pr-e-e4-scanner-baseline');
-  if (!historicalSourceContext && !publicCommitFixture) currentJarPublication ||= modeledJarDigestFixture('current JAR callback publication');
-  const publication = publicCommitFixture || (!historicalSourceContext ? currentJarPublication : null);
+  if (!historicalSourceContext && !publicCommitFixture) {
+    if (currentLangGraph) currentLangPublication ||= modeledLangDigestFixture('current Lang callback publication');
+    else currentJarPublication ||= modeledJarDigestFixture('current JAR callback publication');
+  }
+  const publication = publicCommitFixture || (!historicalSourceContext
+    ? currentLangGraph ? currentLangPublication : currentJarPublication : null);
   const expectedHead = publication?.head || retainedSyntheticCandidate('assembly').commitSha;
   let e4 = syntheticE4(includePrototype);
   e4.commitSha = staleHead ? 'f'.repeat(40) : expectedHead;
-  const graph = previousCompilerGraph ? 'compiler' : previousCheckstyleGraph ? 'checkstyle' : previousGuavaGraph ? 'guava' : previousBootHttpGraph ? 'boot' : previousBootUtilitiesGraph ? 'utilities' : previousAssemblyGraph || historicalSourceContext ? 'assembly' : 'jar';
+  const graph = previousCompilerGraph ? 'compiler' : previousCheckstyleGraph ? 'checkstyle' : previousGuavaGraph ? 'guava' : previousBootHttpGraph ? 'boot' : previousBootUtilitiesGraph ? 'utilities' : previousAssemblyGraph || historicalSourceContext ? 'assembly' : previousJarGraph || !currentLangGraph ? 'jar' : 'lang';
   const fixture = syntheticCallbackGraph(graph, e4.commitSha);
   e4.e2CurrentEvidence = fixture.e2;
   e4.scanners.osv = fixture.osv;
@@ -401,9 +435,17 @@ export function runSyntheticCiCallback({ historicalSourceContext = false, wrongH
       { encoding: 'utf8', cwd: fileURLToPath(new URL('../../', import.meta.url)), timeout: 10000, maxBuffer: 4 * 1024 * 1024 });
     assert.equal(result.status, 0, result.stderr); historicalCallbackSource = result.stdout;
   }
-  // Historical review fixtures execute the actual accepted Assembly callback.
-  // Current JAR fixtures always execute the current mandatory-194 callback.
-  const source = historicalSourceContext ? historicalCallbackSource : read('scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs');
+  if (!historicalSourceContext && !currentLangGraph && !acceptedJarCallbackSource) {
+    const result = historicalGit('git', ['show', '9e3489f2aef3ffb36508367591bc0d77ceb99bd1:scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs'],
+      { encoding: 'utf8', cwd: fileURLToPath(new URL('../../', import.meta.url)), timeout: 10000, maxBuffer: 4 * 1024 * 1024 });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(hash(result.stdout), '827408a0810b35c6ed9c5b85c4ab8a82f48c1c262da378e803deabe4f1da0b8a');
+    acceptedJarCallbackSource = result.stdout;
+  }
+  // Historical schemas run their actual accepted callbacks. The current Lang
+  // callback must not inherit authorization for the old 194-observation model.
+  const source = historicalSourceContext ? historicalCallbackSource : currentLangGraph
+    ? read('scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs') : acceptedJarCallbackSource;
   const logs = [], commands = [];
   const fixtureOutput = `M6_PR_E_E4_SCANNER_EVIDENCE_BEGIN\n${JSON.stringify(e4)}\nM6_PR_E_E4_SCANNER_EVIDENCE_END`;
   let error;
@@ -417,7 +459,7 @@ export function runSyntheticCiCallback({ historicalSourceContext = false, wrongH
     readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview, buildGitleaksPublicCommitReviewSnapshot,
     buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview, gitleaksCaptureReviewFindings, requireGitleaksCaptureInventory,
     expectedScannerHead: () => expectedHead,
-    SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
+    SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     readServerDependencyRemediationPlan, verifyServerDependencyRemediation,
     buildScannerFindingIntake, applyReviewedFindingsWithIdentityTransitions,
     // Inject a stale handoff only after the genuine R4 verifier has produced it.
@@ -458,7 +500,7 @@ export function runSyntheticCiCallback({ historicalSourceContext = false, wrongH
   return { e4, logs, commands, error, fixtureOutput };
 }
 
-test('actual CI callback consumes one full scan, binds three exact-head blobs, and emits synthetic complete lineage', () => {
+test('accepted JAR CI callback consumes one synthetic full scan, binds three exact-head blobs, and preserves complete lineage', () => {
   const r = runSyntheticCiCallback();
   assert.equal(r.error, undefined);
   assert.equal(r.logs[0], r.fixtureOutput);
@@ -512,7 +554,140 @@ test('actual CI callback consumes one full scan, binds three exact-head blobs, a
     assert.equal(i4.decisions.find(f => f.findingId === finding.findingId).disposition, 'UNRESOLVED');
   }
 });
-test('actual CI callback rejects the previous Assembly graph with internally consistent E2, OSV and lineage', () => {
+let retainedLangCiCase;
+function langCiCase() {
+  if (!retainedLangCiCase) {
+    const result = runSyntheticCiCallback({ currentLangGraph: true });
+    assert.equal(result.error, undefined);
+    const output = stage => {
+      const block = result.logs.find(text => text.startsWith(`M6_PR_E_${stage}_BEGIN\n`));
+      assert.ok(block, `missing ${stage} output`); return JSON.parse(block.split('\n')[1]);
+    };
+    retainedLangCiCase = { result, output };
+  }
+  return retainedLangCiCase;
+}
+function replayLangSourceReviews(e4, value) {
+  const capture = requireGitleaksCaptureHashReviewReceipt(e4, value.gitleaksCaptureHashReview);
+  const publicReview = requireGitleaksPublicCommitReviewReceipt(e4, value.gitleaksPublicCommitReview, capture);
+  requireGitleaksTestExpressionReviewReceipt(e4, value.gitleaksTestExpressionReview, publicReview, capture);
+}
+test('current Lang CI callback completes modeled I2 I3 I4 and R2B with all 374 Gitleaks identities and V6 replay', () => {
+  const { result: r, output } = langCiCase();
+  assert.equal(r.logs[0], r.fixtureOutput);
+  assert.equal(r.commands.filter(([command]) => command === process.execPath).length, 1);
+  assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 4);
+  assert.equal(r.logs.filter(text => /^M6_PR_E_.*_BEGIN\n/.test(text)).length, 14);
+  assert.deepEqual(r.e4.e2CurrentEvidence, seal({ ...readAssemblyEnforcerLangCandidate(), commitSha: r.e4.commitSha }));
+  assert.equal(r.e4.e2GraphDigest, ASSEMBLY_ENFORCER_LANG_GRAPH);
+  assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, ASSEMBLY_ENFORCER_LANG_GRAPH);
+  assert.equal(r.e4.scanners.osv.coverage.inputPackageCount, readAssemblyEnforcerLangManifest().osvInput.current.packageCount);
+  assert.deepEqual(r.e4.e2GraphTransition.preservedJarLineage, readAssemblyEnforcerLangAcceptedLineage());
+  assert.equal(r.e4.e2GraphTransition.priorE2GraphDigest, JAR_PLUGIN_GRAPH);
+  assert.equal(r.e4.scanners.osv.findings[0].upstreamFindingId, 'GHSA-synthetic-unit-only-assembly-enforcer-lang');
+  assert.equal(r.e4.scanners.osv.findingCount, 1);
+  assert.equal(r.e4.scanners.osv.coverage.reportedPackageCount, 466);
+  // This is a modeled callback: the OSV finding is deliberately synthetic.
+  assert.equal(r.e4.totalFindingCount, 377);
+  assert.equal(r.e4.scanners.gitleaks.findingCount, 374);
+  assert.equal(r.e4.scanners.gitleaks.findings.length, 374);
+  assert.deepEqual(output('E4').scanners.gitleaks.findings, r.e4.scanners.gitleaks.findings);
+  const legacy = acceptedLangDigestLegacyFindings(), legacyIds = new Set(legacy.map(row => row.findingId));
+  assert.equal(legacy.length, 194);
+  assert.deepEqual(r.e4.scanners.gitleaks.findings.filter(row => legacyIds.has(row.findingId)), legacy);
+  const receipt = output('E3_GITLEAKS_CAPTURE_HASH_REVIEW');
+  assert.equal(receipt.schemaVersion, 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V6');
+  assert.equal(receipt.langExecutionDigestReview.findings.length, 180);
+  assert.equal(receipt.executionDigestReview.findings.length, 121);
+  assert.equal(receipt.planMetadataReview.findings.length, 38);
+  assert.equal(gitleaksCaptureReviewFindings(receipt).length, 345);
+  assert.equal(receipt.releaseBlocked, true);
+  const currentIds = r.e4.scanners.gitleaks.findings.map(row => row.findingId).sort();
+  assert.equal(new Set(currentIds).size, 374);
+  for (const [stage, schema] of [['E3_I2_TRIAGE', 'M6_PR_E_E3_I2_TRIAGE_V6'],
+    ['E3_I3_TRIAGE', 'M6_PR_E_E3_I3_TRIAGE_V5'], ['E3_I4_TRIAGE', 'M6_PR_E_E3_I4_TRIAGE_V6']]) {
+    const triage = output(stage);
+    assert.equal(triage.schemaVersion, schema);
+    assert.equal(triage.commitSha, r.e4.commitSha);
+    if (stage === 'E3_I2_TRIAGE') {
+      const intake = output('E3_SCANNER_INTAKE');
+      assert.equal(triage.sourceIntakeCanonicalSha256, intake.contentSha256);
+      assert.equal(intake.sourceE4ContentSha256, r.e4.contentSha256);
+    } else assert.equal(triage.sourceE4CanonicalSha256, r.e4.contentSha256);
+    assert.deepEqual(triage.decisions.filter(row => row.sourceClass === 'E4_GITLEAKS').map(row => row.findingId).sort(), currentIds);
+    assert.deepEqual(triage.gitleaksCaptureHashReview, receipt);
+    assert.equal(triage.appendOnlyReviewedFindingCount, 347);
+    assert.equal(triage.summary.releaseBlocked, true);
+    requireGitleaksTestExpressionTriage(r.e4, triage); replayLangSourceReviews(r.e4, triage);
+  }
+  const reconciliation = output('E3_R2B_REMEDIATION').scannerIdentityReconciliation;
+  assert.equal(reconciliation.currentScannerCounts.gitleaks, 374);
+  assert.equal(reconciliation.reviewedAddedGitleaksFindingCount, 347);
+  assert.deepEqual(reconciliation.gitleaksCaptureHashReview, receipt);
+  assert.equal(reconciliation.releaseBlocked, true); replayLangSourceReviews(r.e4, reconciliation);
+  const r4 = output('E3_R4_SERVER_DEPENDENCY_REMEDIATION'), i4 = output('E3_I4_TRIAGE');
+  assert.equal(r4.subsequentGraphTransition.priorE2GraphDigest, JAR_PLUGIN_GRAPH);
+  assert.equal(r4.subsequentGraphTransition.currentE2GraphDigest, ASSEMBLY_ENFORCER_LANG_GRAPH);
+  assert.deepEqual(i4.serverDependencyRemediation, r4);
+  assert.equal(i4.summary.notApplicableCount, 349);
+  assert.equal(i4.summary.unresolvedCount, 28);
+  assert.equal(i4.cumulativeReviewedFindingCount, 415);
+  assert.equal(i4.historicallyRemediatedFindingCount, 66);
+});
+test('current Lang runtime and workflow consumers require each of the three source review receipts for 374', () => {
+  const { result, output } = langCiCase();
+  for (const absent of [['gitleaksCaptureHashReview'], ['gitleaksPublicCommitReview'], ['gitleaksTestExpressionReview'],
+    ['gitleaksCaptureHashReview', 'gitleaksPublicCommitReview', 'gitleaksTestExpressionReview']]) {
+    const i2 = output('E3_I2_TRIAGE'), i3 = output('E3_I3_TRIAGE');
+    for (const field of absent) { delete i2[field]; delete i3[field]; }
+    assert.throws(() => applyRuntimeDeploymentReviews(seal(i2), result.e4, runtimeReview,
+      output('E3_R1_REMEDIATION'), output('E3_R4_SERVER_DEPENDENCY_REMEDIATION')),
+    /capture hash review requires all three source review receipts/, absent.join(','));
+    assert.throws(() => applyWorkflowSupplyChainReviews(seal(i3), result.e4, workflowReview,
+      output('E3_R2A_REMEDIATION'), output('E3_R2B_REMEDIATION')),
+    /capture hash review requires all three source review receipts/, absent.join(','));
+  }
+});
+for (const [name, mutate, expected] of [
+  ['missing Lang receipt group', value => { delete value.gitleaksCaptureHashReview.langExecutionDigestReview; }, /Gitleaks capture hash receipt drift/],
+  ['V5 receipt relabeling', value => { value.gitleaksCaptureHashReview.schemaVersion = 'M6_PR_E_E3_GITLEAKS_CAPTURE_HASH_REVIEW_EVIDENCE_V5'; }, /Gitleaks capture hash receipt drift/],
+  ['old JAR append-only count', value => { value.appendOnlyReviewedFindingCount = 167; }, /Gitleaks append-only review count drift/],
+  ['missing current identity', value => { value.decisions.pop(); }, /Gitleaks reviewed triage must retain every current identity/],
+  ['cleared release block', value => { value.summary.releaseBlocked = false; }, /Gitleaks reviewed triage summary drift/],
+  ['Lang field rationale drift', value => { value.decisions.find(row => row.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS-LANG-EXECUTION-DIGEST').reviewEvidence.jsonPointer = '/unreviewed'; }, /Gitleaks capture hash current disposition drift/],
+]) test(`current Lang serialized I2 I3 I4 reject ${name} after resealing`, () => {
+  const { result, output } = langCiCase();
+  for (const stage of ['E3_I2_TRIAGE', 'E3_I3_TRIAGE', 'E3_I4_TRIAGE']) {
+    const value = output(stage); mutate(value);
+    value.gitleaksCaptureHashReview = seal(value.gitleaksCaptureHashReview);
+    assert.throws(() => requireGitleaksTestExpressionTriage(result.e4, seal(value)), expected, stage);
+  }
+});
+test('current Lang CI callback rejects the previous JAR graph with internally consistent E2, OSV and lineage', () => {
+  const r = runSyntheticCiCallback({ currentLangGraph: true, previousJarGraph: true });
+  assert.equal(r.e4.e2GraphDigest, JAR_PLUGIN_GRAPH);
+  assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, JAR_PLUGIN_GRAPH);
+  assert.equal(r.e4.e2GraphTransition.currentE2GraphDigest, JAR_PLUGIN_GRAPH);
+  assert.equal(r.error.actual, JAR_PLUGIN_GRAPH); assert.equal(r.error.expected, ASSEMBLY_ENFORCER_LANG_GRAPH);
+  assert.equal(r.commands.length, 1); assert.deepEqual(r.logs, [r.fixtureOutput]);
+});
+for (const [name, count, findings] of [
+  ['previous JAR inventory', 194, rows => rows.filter(row => !row.path.startsWith('docs/operations/assembly-enforcer-lang-evidence/'))],
+  ['missing cache observations', 205, rows => rows.filter(row => row.path !== 'docs/operations/assembly-enforcer-lang-evidence/cache-inputs.json')],
+  ['missing runtime observations', 363, rows => rows.filter(row => row.path !== 'docs/operations/assembly-enforcer-lang-evidence/runtime-inputs.json')],
+  ['one missing observation', 373, rows => rows.slice(1)],
+  ['unknown extra observation', 375, rows => [...rows, { ...rows[0], findingId: '0'.repeat(64) }]],
+]) test(`current Lang CI callback rejects ${name} before any source review and retains the modeled scan`, () => {
+  const r = runSyntheticCiCallback({ currentLangGraph: true, mutateEvidence: e4 => {
+    e4.scanners.gitleaks.findings = findings(e4.scanners.gitleaks.findings);
+    e4.scanners.gitleaks.findingCount = e4.scanners.gitleaks.findings.length;
+    e4.totalFindingCount = Object.values(e4.scanners).reduce((sum, scanner) => sum + scanner.findingCount, 0);
+  } });
+  assert.equal(r.e4.scanners.gitleaks.findingCount, count);
+  assert.match(String(r.error), /requires the exact Lang graph and all 374 observations/);
+  assert.equal(r.commands.length, 1); assert.deepEqual(r.logs, [r.fixtureOutput]);
+});
+test('accepted JAR CI callback rejects the previous Assembly graph with internally consistent E2, OSV and lineage', () => {
   const r = runSyntheticCiCallback({ previousAssemblyGraph: true });
   assert.equal(r.e4.e2GraphDigest, ASSEMBLY_PLEXUS_GRAPH);
   assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, ASSEMBLY_PLEXUS_GRAPH);
@@ -521,7 +696,7 @@ test('actual CI callback rejects the previous Assembly graph with internally con
   assert.equal(r.error.actual, ASSEMBLY_PLEXUS_GRAPH); assert.equal(r.error.expected, JAR_PLUGIN_GRAPH);
   assert.equal(r.commands.length, 1); assert.deepEqual(r.logs, [r.fixtureOutput]);
 });
-test('actual CI callback rejects the previous Boot utilities graph with internally consistent E2, OSV and lineage', () => {
+test('accepted JAR CI callback rejects the previous Boot utilities graph with internally consistent E2, OSV and lineage', () => {
   const r = runSyntheticCiCallback({ previousBootUtilitiesGraph: true });
   assert.equal(r.e4.e2GraphDigest, BOOT_UTILITIES_GRAPH);
   assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, BOOT_UTILITIES_GRAPH);
@@ -530,7 +705,7 @@ test('actual CI callback rejects the previous Boot utilities graph with internal
   assert.equal(r.error.actual, BOOT_UTILITIES_GRAPH); assert.equal(r.error.expected, JAR_PLUGIN_GRAPH);
   assert.equal(r.commands.length, 1); assert.deepEqual(r.logs, [r.fixtureOutput]);
 });
-test('actual CI callback rejects the previous Boot HTTP graph with internally consistent E2, OSV and lineage', () => {
+test('accepted JAR CI callback rejects the previous Boot HTTP graph with internally consistent E2, OSV and lineage', () => {
   const r = runSyntheticCiCallback({ previousBootHttpGraph: true });
   assert.equal(r.e4.e2GraphDigest, BOOT_HTTP_GRAPH);
   assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, BOOT_HTTP_GRAPH);
@@ -539,7 +714,7 @@ test('actual CI callback rejects the previous Boot HTTP graph with internally co
   assert.equal(r.error.actual, BOOT_HTTP_GRAPH); assert.equal(r.error.expected, JAR_PLUGIN_GRAPH);
   assert.equal(r.commands.length, 1); assert.deepEqual(r.logs, [r.fixtureOutput]);
 });
-test('actual CI callback rejects the previous Guava graph with internally consistent E2, OSV and lineage', () => {
+test('accepted JAR CI callback rejects the previous Guava graph with internally consistent E2, OSV and lineage', () => {
   const r = runSyntheticCiCallback({ previousGuavaGraph: true });
   assert.equal(r.e4.e2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
   assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, CHECKSTYLE_GUAVA_GRAPH);
@@ -548,7 +723,7 @@ test('actual CI callback rejects the previous Guava graph with internally consis
   assert.equal(r.error.actual, CHECKSTYLE_GUAVA_GRAPH); assert.equal(r.error.expected, JAR_PLUGIN_GRAPH);
   assert.equal(r.commands.length, 1); assert.deepEqual(r.logs, [r.fixtureOutput]);
 });
-test('actual CI callback rejects the previous Checkstyle graph with internally consistent E2, OSV and lineage', () => {
+test('accepted JAR CI callback rejects the previous Checkstyle graph with internally consistent E2, OSV and lineage', () => {
   const r = runSyntheticCiCallback({ previousCheckstyleGraph: true });
   assert.equal(r.e4.e2GraphDigest, CHECKSTYLE_PLUGIN_GRAPH);
   assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, CHECKSTYLE_PLUGIN_GRAPH);
@@ -557,7 +732,7 @@ test('actual CI callback rejects the previous Checkstyle graph with internally c
   assert.equal(r.error.actual, CHECKSTYLE_PLUGIN_GRAPH); assert.equal(r.error.expected, JAR_PLUGIN_GRAPH);
   assert.equal(r.commands.length, 1); assert.deepEqual(r.logs, [r.fixtureOutput]);
 });
-test('actual CI callback rejects the previous Compiler graph with internally consistent E2, OSV and lineage', () => {
+test('accepted JAR CI callback rejects the previous Compiler graph with internally consistent E2, OSV and lineage', () => {
   const r = runSyntheticCiCallback({ previousCompilerGraph: true });
   assert.equal(r.e4.e2GraphDigest, COMPILER_PLUGIN_GRAPH);
   assert.equal(r.e4.scanners.osv.coverage.e2GraphDigest, COMPILER_PLUGIN_GRAPH);
@@ -584,8 +759,9 @@ for (const [name, options, expected] of [
     e.scanners.osv.coverage = seal(coverage);
   } }, /OSV/],
   ['stale rehashed R4 receipt', { staleR4Receipt: true }, /server dependency remediation receipt mismatch/],
-]) test(`actual CI callback retains the synthetic scan and rejects ${name}`, () => {
-  const r = runSyntheticCiCallback(options);
+]) for (const [context, currentLangGraph] of [['accepted JAR', false], ['current Lang', true]])
+test(`${context} CI callback retains the synthetic scan and rejects ${name}`, () => {
+  const r = runSyntheticCiCallback({ ...options, currentLangGraph });
   assert.match(String(r.error), expected);
   assert.deepEqual(r.logs, [r.fixtureOutput]);
 });

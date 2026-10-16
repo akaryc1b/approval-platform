@@ -37,7 +37,8 @@ with tempfile.TemporaryDirectory(prefix='assembly-model-preparation-') as direct
         m=s['ModelRun'](root,sandbox,repository,Path('/reviewed/jdk'),Path('/reviewed/maven/bin/mvn'),True,'assembly')
     assert m.source==Path(m.jar_source_projection['retainedSourceRoot'])
     assert m.jar_source_projection['suppliedSourceRoot']==str(root)
-    assert m.jar_source_projection['suppliedRootPomSha256']==s['JAR_RETAINED']['CURRENT_POM']
+    assert m.jar_source_projection['suppliedRootPomSha256']==s['JAR_RETAINED']['LANG_POM']
+    assert m.jar_source_projection['schemaVersion']=='ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
     assert m.jar_source_projection['retainedRootPomSha256']==s['ASSEMBLY']['CURRENT_POM']
     assert m.report['historicalJarSourceProjection']==m.jar_source_projection
     assert m.assembly_source_projection is None and m.pair_source_projection is None
@@ -76,7 +77,8 @@ test('CI compares Assembly private dependency across all26 actual default-profil
   for (const key of ['sourceInputsStable', 'executionInputsStable', 'runtimeInputsStable', 'cacheExistingJarPomBytesStable']) assert.equal(receipt[key], true, key);
   assert.equal(receipt.offline, process.env.GITHUB_ACTIONS !== 'true');
   assert.equal(receipt.scannerEvidence, false); assert.equal(receipt.canonicalCiEvidence, false);
-  assert.equal(receipt.historicalJarSourceProjection.suppliedRootPomSha256, '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f');
+  assert.equal(receipt.historicalJarSourceProjection.suppliedRootPomSha256, 'ddb286b44b1976dd19ad74b06f3ceef86e19d0fbee87dd27dc87985ffb1f7932');
+  assert.equal(receipt.historicalJarSourceProjection.schemaVersion, 'ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1');
   assert.equal(receipt.historicalJarSourceProjection.retainedRootPomSha256, '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629');
   assert.equal(receipt.historicalJarSourceProjection.sourcePomCount, 28);
   assert.equal(receipt.actualModelSourceRoots.candidate, receipt.historicalJarSourceProjection.retainedSourceRoot);

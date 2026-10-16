@@ -47,7 +47,7 @@ projection_directory=tempfile.TemporaryDirectory(prefix='assembly-source-test-')
 config={'source':str(s['ROOT']),'output':str(Path(projection_directory.name)/'goals')}
 projection=s['prepare_source_projection'](config)
 source=s['source_for_contract'](config,projection)
-assert projection['suppliedRootPomSha256']==s['JAR_RETAINED']['CURRENT_POM']
+assert projection['suppliedRootPomSha256']==s['JAR_RETAINED']['LANG_POM']
 for baseline in (True,False):
  plugin=contract['fixture_plugin'](source,baseline=baseline)
  with tempfile.TemporaryDirectory(prefix='assembly-input-test-') as name:
@@ -90,12 +90,13 @@ def rejected(fn,message):
 with tempfile.TemporaryDirectory(prefix='jar-historical-source-') as directory:
  root=Path(directory);source=root/'source';source.mkdir()
  inventory=jar['source_inventory'](s['ROOT'])
- assert len(inventory)==50 and sum(name.endswith('/pom.xml') or name=='pom.xml' for name in inventory)==28
+ assert len(inventory)==51 and sum(name.endswith('/pom.xml') or name=='pom.xml' for name in inventory)==28
  for name in inventory:
   target=source/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(s['ROOT']/name,target)
  projection=jar['materialize_accepted_source'](source,root/'assembly')
  assert projection['reversalApplied'] is True
- assert projection['suppliedRootPomSha256']==jar['CURRENT_POM']
+ assert projection['suppliedRootPomSha256']==jar['LANG_POM']
+ assert projection['schemaVersion']=='ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
  assert projection['retainedRootPomSha256']==contract['CURRENT_POM']
  assert [n for n in inventory if projection['suppliedSourceHashes'][n]!=projection['retainedSourceHashes'][n]]==['pom.xml']
  assert len(contract['verify_source'](root/'assembly'))==29
@@ -144,7 +145,7 @@ for fixture in (s,runpy.run_path(str(s['HERE']/'jacoco-antrun-compatibility.py')
   selected=fixture['source_for_contract'](config,projection)
   assert selected!=s['ROOT'] and selected==Path(projection['retainedSourceRoot'])
   assert projection['suppliedSourceRoot']==str(s['ROOT']) and projection['sourcePomCount']==28
-  assert fixture['source_hashes'](s['ROOT'])[str(s['ROOT']/'pom.xml')]==s['JAR_RETAINED']['CURRENT_POM']
+  assert fixture['source_hashes'](s['ROOT'])[str(s['ROOT']/'pom.xml')]==s['JAR_RETAINED']['LANG_POM']
   changed=dict(projection,suppliedSourceRoot=str(selected))
   try:fixture['source_for_contract'](config,changed)
   except ValueError as error:assert 'sealed JAR historical source roots changed' in str(error)

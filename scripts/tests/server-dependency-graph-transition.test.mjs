@@ -233,6 +233,7 @@ test('production entrypoint rejects edited manifest, source witness or archival 
     'scripts/security/jacoco-antrun-graph-transition.mjs', 'scripts/security/jacoco-antrun-source-continuation.mjs',
     'scripts/security/assembly-plexus-graph-transition.mjs', 'scripts/security/jar-plugin-graph-transition.mjs', 'scripts/security/assembly-plexus-source-continuation.mjs',
     'scripts/security/jar-plugin-source-continuation.mjs',
+    'scripts/security/assembly-enforcer-lang-graph-transition.mjs',
     'scripts/security/checkstyle-plugin-graph-transition.mjs', 'scripts/security/checkstyle-plugin-source-continuation.mjs',
     'scripts/security/osv-scan-coverage.mjs', 'scripts/security/scanner-report-structure.mjs',
     'scripts/security/clean-plugin-graph-transition.mjs', 'scripts/security/m6-pr-e-e2-generate-sbom.mjs',

@@ -1,0 +1,316 @@
+{
+  "schemaVersion": 1,
+  "consumerCount": 10,
+  "memberRowCount": 13,
+  "distinctLangMemberCount": 10,
+  "consumers": [
+    {
+      "owner": "assembly",
+      "coordinate": "org.apache.commons:commons-compress:jar:1.26.1",
+      "classEntry": "org/apache/commons/compress/harmony/unpack200/Pack200UnpackerAdapter.class",
+      "classSha256": "d5a96b7dfbb1e47e8f77ee26b55eb1367e257e5607530aa1926a6dffc37b7ee1",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/reflect/FieldUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/apache/commons/lang3/reflect/FieldUtils",
+          "name": "readField",
+          "descriptor": "(Ljava/lang/Object;Ljava/lang/String;Z)Ljava/lang/Object;"
+        }
+      ]
+    },
+    {
+      "owner": "assembly",
+      "coordinate": "org.apache.maven.shared:maven-filtering:jar:3.3.2",
+      "classEntry": "org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering.class",
+      "classSha256": "ab040e1651efd13e2677101746dc2fe0aa9a907418e9a11ae55315fbc51b5a6d",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/apache/commons/lang3/StringUtils",
+          "name": "isEmpty",
+          "descriptor": "(Ljava/lang/CharSequence;)Z"
+        }
+      ]
+    },
+    {
+      "owner": "assembly",
+      "coordinate": "org.apache.maven.shared:maven-filtering:jar:3.3.2",
+      "classEntry": "org/apache/maven/shared/filtering/FilteringUtils.class",
+      "classSha256": "2501e18d92ce2aec657e37a3f27125ff140e150de37cf14686de918b78127744",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/SystemUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "field",
+          "owner": "org/apache/commons/lang3/SystemUtils",
+          "name": "IS_OS_WINDOWS",
+          "descriptor": "Z"
+        }
+      ]
+    },
+    {
+      "owner": "enforcer",
+      "coordinate": "org.apache.maven.enforcer:enforcer-rules:jar:3.5.0",
+      "classEntry": "org/apache/maven/enforcer/rules/RequireJavaVendor.class",
+      "classSha256": "287f393d2c6877783905fc3fb8b6119a70cd02be2a0c2b138b85787bf3214eff",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/SystemUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "field",
+          "owner": "org/apache/commons/lang3/SystemUtils",
+          "name": "JAVA_VENDOR",
+          "descriptor": "Ljava/lang/String;"
+        },
+        {
+          "kind": "field",
+          "owner": "org/apache/commons/lang3/SystemUtils",
+          "name": "JAVA_HOME",
+          "descriptor": "Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "owner": "enforcer",
+      "coordinate": "org.apache.maven.enforcer:enforcer-rules:jar:3.5.0",
+      "classEntry": "org/apache/maven/enforcer/rules/checksum/RequireTextFileChecksum.class",
+      "classSha256": "69b3f661a61ee58356ba35442af730ecc2f43a812b7c62e5ad7931dbabf077f5",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/apache/commons/lang3/StringUtils",
+          "name": "isBlank",
+          "descriptor": "(Ljava/lang/CharSequence;)Z"
+        }
+      ]
+    },
+    {
+      "owner": "enforcer",
+      "coordinate": "org.apache.maven.enforcer:enforcer-rules:jar:3.5.0",
+      "classEntry": "org/apache/maven/enforcer/rules/dependency/BanTransitiveDependencies.class",
+      "classSha256": "bf4b2c7fed68145da480fc1f05d79e6d15932cd39433c3ae8196aca98ea133f5",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/apache/commons/lang3/StringUtils",
+          "name": "repeat",
+          "descriptor": "(Ljava/lang/String;I)Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "owner": "enforcer",
+      "coordinate": "org.apache.maven.enforcer:enforcer-rules:jar:3.5.0",
+      "classEntry": "org/apache/maven/enforcer/rules/dependency/BannedDependenciesBase.class",
+      "classSha256": "be370ad672d58274de0b74c98eef2a751ce66ca32bde12e509dd70e521706d17",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/apache/commons/lang3/StringUtils",
+          "name": "repeat",
+          "descriptor": "(Ljava/lang/String;I)Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "owner": "enforcer",
+      "coordinate": "org.apache.maven.enforcer:enforcer-rules:jar:3.5.0",
+      "classEntry": "org/apache/maven/enforcer/rules/dependency/DependencyVersionMap.class",
+      "classSha256": "252b0cf72c32b8a759b050c12ef152a49cffdf2822ab066fff4cd4610fa2a3e0",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/apache/commons/lang3/StringUtils",
+          "name": "stripAll",
+          "descriptor": "([Ljava/lang/String;)[Ljava/lang/String;"
+        },
+        {
+          "kind": "method",
+          "owner": "org/apache/commons/lang3/StringUtils",
+          "name": "join",
+          "descriptor": "([Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "owner": "enforcer",
+      "coordinate": "org.apache.maven.enforcer:enforcer-rules:jar:3.5.0",
+      "classEntry": "org/apache/maven/enforcer/rules/utils/ArtifactUtils.class",
+      "classSha256": "ab742ccf3ec22ac28c318c23fc011e47dd1d8f02fd7be495b19a6d4fcb076318",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/StringUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "method",
+          "owner": "org/apache/commons/lang3/StringUtils",
+          "name": "stripAll",
+          "descriptor": "([Ljava/lang/String;)[Ljava/lang/String;"
+        }
+      ]
+    },
+    {
+      "owner": "enforcer",
+      "coordinate": "org.apache.maven.enforcer:enforcer-rules:jar:3.5.0",
+      "classEntry": "org/apache/maven/enforcer/rules/version/RequireJavaVersion.class",
+      "classSha256": "21361059a3c2a1a2325bf9ec94693ed57ce7e5e1a79806425a33a909657b0d35",
+      "classAndDescriptorReferences": [
+        "org/apache/commons/lang3/SystemUtils"
+      ],
+      "memberReferences": [
+        {
+          "kind": "field",
+          "owner": "org/apache/commons/lang3/SystemUtils",
+          "name": "JAVA_VERSION",
+          "descriptor": "Ljava/lang/String;"
+        },
+        {
+          "kind": "field",
+          "owner": "org/apache/commons/lang3/SystemUtils",
+          "name": "JAVA_HOME",
+          "descriptor": "Ljava/lang/String;"
+        }
+      ]
+    }
+  ],
+  "memberUses": [
+    [
+      "assembly",
+      "org/apache/commons/compress/harmony/unpack200/Pack200UnpackerAdapter",
+      "method",
+      "org/apache/commons/lang3/reflect/FieldUtils",
+      "readField",
+      "(Ljava/lang/Object;Ljava/lang/String;Z)Ljava/lang/Object;",
+      "static"
+    ],
+    [
+      "assembly",
+      "org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering",
+      "method",
+      "org/apache/commons/lang3/StringUtils",
+      "isEmpty",
+      "(Ljava/lang/CharSequence;)Z",
+      "static"
+    ],
+    [
+      "assembly",
+      "org/apache/maven/shared/filtering/FilteringUtils",
+      "field",
+      "org/apache/commons/lang3/SystemUtils",
+      "IS_OS_WINDOWS",
+      "Z",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/RequireJavaVendor",
+      "field",
+      "org/apache/commons/lang3/SystemUtils",
+      "JAVA_HOME",
+      "Ljava/lang/String;",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/RequireJavaVendor",
+      "field",
+      "org/apache/commons/lang3/SystemUtils",
+      "JAVA_VENDOR",
+      "Ljava/lang/String;",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/checksum/RequireTextFileChecksum",
+      "method",
+      "org/apache/commons/lang3/StringUtils",
+      "isBlank",
+      "(Ljava/lang/CharSequence;)Z",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/dependency/BanTransitiveDependencies",
+      "method",
+      "org/apache/commons/lang3/StringUtils",
+      "repeat",
+      "(Ljava/lang/String;I)Ljava/lang/String;",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/dependency/BannedDependenciesBase",
+      "method",
+      "org/apache/commons/lang3/StringUtils",
+      "repeat",
+      "(Ljava/lang/String;I)Ljava/lang/String;",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/dependency/DependencyVersionMap",
+      "method",
+      "org/apache/commons/lang3/StringUtils",
+      "join",
+      "([Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/dependency/DependencyVersionMap",
+      "method",
+      "org/apache/commons/lang3/StringUtils",
+      "stripAll",
+      "([Ljava/lang/String;)[Ljava/lang/String;",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/utils/ArtifactUtils",
+      "method",
+      "org/apache/commons/lang3/StringUtils",
+      "stripAll",
+      "([Ljava/lang/String;)[Ljava/lang/String;",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/version/RequireJavaVersion",
+      "field",
+      "org/apache/commons/lang3/SystemUtils",
+      "JAVA_HOME",
+      "Ljava/lang/String;",
+      "static"
+    ],
+    [
+      "enforcer",
+      "org/apache/maven/enforcer/rules/version/RequireJavaVersion",
+      "field",
+      "org/apache/commons/lang3/SystemUtils",
+      "JAVA_VERSION",
+      "Ljava/lang/String;",
+      "static"
+    ]
+  ],
+  "behaviorLimits": "Pack200, Java vendor, checksum and dependency rules receive symbolic coverage only."
+}
