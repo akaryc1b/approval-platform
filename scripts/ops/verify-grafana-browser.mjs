@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdirSync, realpathSync } from 'node:fs';
+import { lstatSync, mkdirSync, realpathSync, unlinkSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { sourceIdentities } from './grafana-browser-runtime.mjs';
 import { archiveSha256Sync } from './archive-digest.mjs';
@@ -73,6 +73,8 @@ export function verifyGrafanaBrowser({ directory, repositoryRoot, prometheus, ru
     '--exclude=grafana-13.2.2/public/build/*.css.map',
     '--exclude=grafana-13.2.2/public/build-swagger/*.js.map',
     '--exclude=grafana-13.2.2/public/build-swagger/*.css.map'], directory, 20000);
+  // Extraction is the final archive consumer; release the owned download before runtime startup.
+  unlinkSync(archive);
   const binary = resolve(home, 'bin/grafana');
   assert.ok(lstatSync(binary).isFile() && !lstatSync(binary).isSymbolicLink(), 'GRAFANA_BROWSER_BINARY_REQUIRED');
   // This separate owned child bounds the unchanged Quick Start installer and strips credentials.
