@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "APPROVAL_HYGIENE_M3_LOG_RETENTION_CONTINUATION_V1",
+  "repository": "akaryc1b/approval-platform",
+  "reviewBasisHead": "cd866af35813205662ce330c87765284cc9f0325",
+  "priorJava21ManifestSha256": "90399bc6500b2dcaf36f5897f134769b12ed6ff09677dd1d7edee0f5a47a43e8",
+  "workflows": {
+    ".github/workflows/approval-platform-validation.yml": {
+      "fromBlob": "e2d9d43a8594503f4efd9e3683ba69fe3f291581",
+      "toBlob": "4cdfa529d6f5209d8c0dd913b7ae845d2829ce30",
+      "replacements": [
+        {
+          "before": "      - name: Verify final tracked-tree hygiene\n        run: node --test scripts/tests/m3-repository-hygiene.test.mjs\n",
+          "after": "      - name: Verify final tracked-tree hygiene\n        shell: bash\n        run: |\n          m3_status=0\n          node --test scripts/tests/m3-repository-hygiene.test.mjs \\\n            >m3-repository-hygiene.log 2>&1 || m3_status=$?\n          cat m3-repository-hygiene.log\n          exit \"$m3_status\"\n"
+        },
+        {
+          "before": "          path: |\n            m4-sla-calendar-boundary.log\n",
+          "after": "          path: |\n            m3-repository-hygiene.log\n            m4-sla-calendar-boundary.log\n"
+        }
+      ]
+    }
+  },
+  "invariants": {
+    "testCommand": "node --test scripts/tests/m3-repository-hygiene.test.mjs",
+    "originalNodeExitStatusPreserved": true,
+    "existingSixLogsRetained": true,
+    "uploadCondition": "always()",
+    "newActionUses": 0,
+    "permissionsChanged": false,
+    "timeoutsChanged": false,
+    "retriesAdded": false,
+    "testAssertionsChanged": false,
+    "historicalManifestsModified": false,
+    "releaseBlocked": true
+  },
+  "logEvidenceScope": {
+    "streamsMerged": true,
+    "streamTimingPreserved": false,
+    "newSanitizer": false,
+    "source": "Existing M3 CI TAP, fixture diagnostics and bounded native PostgreSQL fixture receipt",
+    "purpose": "Retain independently readable M3 test identities without fetching the entire large hygiene job log",
+    "limitations": "Raw file capture does not establish console-mask equivalence or sanitize arbitrary failure diagnostics"
+  }
+}

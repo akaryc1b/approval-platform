@@ -13,6 +13,10 @@ import {
 } from '../product-readiness/pc-h5-runtime/safe-output.mjs';
 
 const processModule = new URL('../product-readiness/pc-h5-runtime/processes.mjs', import.meta.url).href;
+const restoreOnlyMarkers = [
+  'DEMO_BACKEND_RESTORE_ONLY_STARTED',
+  'BACKEND_LOCAL_RESTORE_ONLY_STARTED',
+];
 const jwt = ['eyJzeW50aGV0aWMiOnRydWV9', 'eyJjYW5hcnkiOiJvbmx5In0', 'not-a-real-signature'].join('.');
 const password = 'SYNTHETIC-only-password-canary';
 const cookie = 'SYNTHETIC-only-cookie-canary';
@@ -63,6 +67,43 @@ function runFixture(source, environment = process.env) {
   const output = `${result.stdout}${result.stderr}`;
   assertNoCanaries(output);
   return output;
+}
+
+function managedRestoreFixture(chunks, expectedMarkers = []) {
+  const directory = mkdtempSync(join(tmpdir(), 'approval-safe-restore-'));
+  const logFile = join(directory, 'managed.log');
+  try {
+    const childSource = `const chunks = ${JSON.stringify(chunks)};
+      for (const [pipe, chunk] of chunks) {
+        process[pipe].write(chunk);
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }`;
+    const output = runFixture(`
+      import assert from 'node:assert/strict';
+      import { once } from 'node:events';
+      import { startManagedNode, waitForMarker } from ${JSON.stringify(processModule)};
+      const managed = startManagedNode('Synthetic restore',
+        ['--input-type=module', '-e', ${JSON.stringify(childSource)}],
+        ${JSON.stringify(logFile)}, process.env);
+      await once(managed.child, 'close');
+      const expected = ${JSON.stringify(expectedMarkers)};
+      for (const marker of ${JSON.stringify(restoreOnlyMarkers)}) {
+        assert.equal(managed.state.buffer.includes(marker), expected.includes(marker));
+        if (expected.includes(marker)) await waitForMarker(managed, marker, 100);
+        else await assert.rejects(waitForMarker(managed, marker, 100), /exited before/u);
+      }
+      console.log('STATE=' + managed.state.buffer);
+    `);
+    const log = readFileSync(logFile, 'utf8');
+    assertNoCanaries(log);
+    for (const marker of restoreOnlyMarkers) {
+      assert.equal(log.includes(marker), expectedMarkers.includes(marker));
+      assert.equal(output.includes(marker), expectedMarkers.includes(marker));
+    }
+    return { output, log };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 test('only fixed markers and bounded numeric summaries survive the output gate', () => {
@@ -221,6 +262,100 @@ test('managed output is sanitized before console, file, and ordinary state reten
     assert.match(output, /STATE=/u);
   } finally {
     rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('restore-only fixed lines survive every chunk split only after line completion', () => {
+  for (const marker of restoreOnlyMarkers) {
+    for (let split = 0; split <= marker.length; split += 1) {
+      const { recorder, output } = capture();
+      recorder.write(marker.slice(0, split));
+      recorder.write(marker.slice(split));
+      assert.equal(output(), '', 'an unfinished line must not establish readiness');
+      recorder.write('\n');
+      assert.equal(output(), `${marker}\n`);
+      recorder.end();
+      assert.equal(output(), `${marker}\n`);
+    }
+  }
+});
+
+test('restore-only fixed lines reach managed readiness with LF and existing ANSI trim or EOF semantics', () => {
+  for (const marker of restoreOnlyMarkers) {
+    for (const [pipe, prefix, suffix] of [
+      ['stdout', '', '\n'],
+      ['stderr', ' \u001b[32m', '\u001b[0m \r\n'],
+      ['stdout', '', ''],
+    ]) {
+      const { log } = managedRestoreFixture([
+        [pipe, `${password}\n`],
+        [pipe, prefix + marker.slice(0, 12)],
+        [pipe, marker.slice(12) + suffix],
+      ], [marker]);
+      assert.equal(log, `[subprocess] unstructured output omitted\n${marker}\n`);
+    }
+  }
+});
+
+test('restore-only managed readiness rejects non-fixed lines and never projects their variable tails', () => {
+  for (const marker of restoreOnlyMarkers) {
+    for (const line of [
+      `${marker}_EXTRA`,
+      `EXTRA_${marker}`,
+      `prefix ${marker}`,
+      `${marker} suffix`,
+      `2026-10-16 INFO Demo : ${marker} value=${password}`,
+      `BROWSER_FAILURE_V1 phase=PC_AUDIT category=FAILED reason=UNKNOWN ${marker} ${password}`,
+      `${' '.repeat(maximumProcessLineBytes + 1)}${marker}`,
+      'PURCHASE_PAYMENT_DEMO_RESTORE_ONLY_STARTED',
+      `PURCHASE_PAYMENT_DEMO_RESTORE_ONLY_STARTED seedEnabled=false restoredDataVerified=false ${password}`,
+    ]) {
+      const { output, log } = managedRestoreFixture([['stdout', `${line}\n`]]);
+      assert.equal(log, '[subprocess] unstructured output omitted\n');
+      assert.doesNotMatch(output, /PURCHASE_PAYMENT_DEMO_RESTORE_ONLY_STARTED/u);
+    }
+    const { log } = managedRestoreFixture([
+      ['stdout', marker.slice(0, 12)],
+      ['stderr', `${marker.slice(12)}\n`],
+      ['stdout', '\n'],
+    ]);
+    assert.equal(log, '[subprocess] unstructured output omitted\n[subprocess] unstructured output omitted\n');
+  }
+});
+
+test('unterminated restore-only managed output cannot establish readiness before EOF', () => {
+  for (const marker of restoreOnlyMarkers) {
+    const directory = mkdtempSync(join(tmpdir(), 'approval-safe-restore-pending-'));
+    const logFile = join(directory, 'managed.log');
+    try {
+      const childSource = `process.stdout.write(${JSON.stringify(marker)});
+        setTimeout(() => process.stdout.write(${JSON.stringify(` suffix ${password}\n`)}), 1_500);`;
+      const output = runFixture(`
+        import assert from 'node:assert/strict';
+        import { once } from 'node:events';
+        import { startManagedNode, terminateManaged, waitForMarker } from ${JSON.stringify(processModule)};
+        const managed = startManagedNode('Synthetic pending restore', ['-e', ${JSON.stringify(childSource)}],
+          ${JSON.stringify(logFile)}, process.env);
+        const closed = once(managed.child, 'close');
+        try {
+          await once(managed.child.stdout, 'data');
+          assert.equal(managed.state.buffer.includes(${JSON.stringify(marker)}), false);
+          await assert.rejects(waitForMarker(managed, ${JSON.stringify(marker)}, 1), /did not emit/u);
+          await closed;
+          assert.equal(managed.state.buffer.includes(${JSON.stringify(marker)}), false);
+          console.log('STATE=' + managed.state.buffer);
+        } finally {
+          terminateManaged(managed);
+          await closed;
+        }
+      `);
+      const log = readFileSync(logFile, 'utf8');
+      assertNoCanaries(log);
+      assert.doesNotMatch(output, new RegExp(marker, 'u'));
+      assert.equal(log, '[subprocess] unstructured output omitted\n');
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   }
 });
 

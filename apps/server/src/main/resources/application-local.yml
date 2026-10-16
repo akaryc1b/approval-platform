@@ -9,6 +9,8 @@ approval:
   demo:
     purchase-payment:
       enabled: ${APPROVAL_DEMO_PURCHASE_PAYMENT_ENABLED:false}
+      seed:
+        enabled: ${APPROVAL_DEMO_PURCHASE_PAYMENT_SEED_ENABLED:true}
       sandbox:
         enabled: ${APPROVAL_DEMO_PAYMENT_SANDBOX_ENABLED:false}
         endpoint: ${APPROVAL_DEMO_PAYMENT_SANDBOX_ENDPOINT:http://127.0.0.1:0/payment-sandbox/v1/events}

@@ -291,7 +291,7 @@ async function backendSnapshot(
   const processState = discoveredInstanceId
     ? await readJson(
         request,
-        'demo-admin',
+        authoritativeActors.initiator,
         'instance',
         `${backendOrigin}/api/approval/instances/${discoveredInstanceId}`,
       )

@@ -56,7 +56,13 @@ jobs:
             exit 1
           fi
       - name: Verify final tracked-tree hygiene
-        run: node --test scripts/tests/m3-repository-hygiene.test.mjs
+        shell: bash
+        run: |
+          m3_status=0
+          node --test scripts/tests/m3-repository-hygiene.test.mjs \
+            >m3-repository-hygiene.log 2>&1 || m3_status=$?
+          cat m3-repository-hygiene.log
+          exit "$m3_status"
       - name: Verify persistence CI sharding helpers
         shell: bash
         run: |
@@ -169,6 +175,7 @@ jobs:
         with:
           name: approval-hygiene-${{ github.run_id }}
           path: |
+            m3-repository-hygiene.log
             m4-sla-calendar-boundary.log
             m4-release-governance-boundary.log
             m5-migration-boundary.log

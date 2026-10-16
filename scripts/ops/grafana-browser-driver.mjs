@@ -21,6 +21,14 @@ export function chromiumArguments(profile) {
     '--user-data-dir=' + profile, '--no-startup-window'];
 }
 
+/** Fixed protocol categories only; never retain or export the browser's error text. */
+export function protocolErrorCategory(error) {
+  // V8 discardEvaluateCallbacks uses ServerError (-32000) for this exact message.
+  return error !== null && typeof error === 'object' && !Array.isArray(error)
+    && error.code === -32000 && error.message === 'Execution context was destroyed.'
+    ? 'context-destroyed' : 'other';
+}
+
 export class BrowserPipe {
   constructor(profile, environment, { launch = spawn, diagnostics = {} } = {}) {
     this.startupDiagnostics = new BrowserStartupDiagnostics({ ...diagnostics, profile });
@@ -71,7 +79,7 @@ export class BrowserPipe {
         if (value.id && this.pending.has(value.id)) {
           this.responses++;
           const task = this.pending.get(value.id); this.pending.delete(value.id); clearTimeout(task.timer);
-          if (value.error) task.reject(new Error('GRAFANA_BROWSER_COMMAND:' + task.method));
+          if (value.error) task.reject(new Error('GRAFANA_BROWSER_COMMAND:' + task.method + ':' + protocolErrorCategory(value.error)));
           else task.resolve(value.result);
         }
       }

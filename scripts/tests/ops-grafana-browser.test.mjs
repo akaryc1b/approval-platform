@@ -149,6 +149,32 @@ test('browser startup failures are attributed to startup rather than the last da
   assert.match(source, /'GRAFANA_BROWSER_FAILED:' \+ phase/u);
 });
 
+test('login diagnostics distinguish four evaluation phases without changing execution bounds', () => {
+  const source = readFileSync(resolve(root, 'scripts/ops/grafana-browser-runtime.mjs'), 'utf8');
+  const driver = readFileSync(resolve(root, 'scripts/ops/grafana-browser-driver.mjs'), 'utf8');
+  const login = source.slice(source.indexOf("phase = 'browser-login';"), source.indexOf('    const selected ='));
+  // Source-boundary coverage only: no Grafana, Chromium, login or POST executes here.
+  assert.deepEqual([...login.matchAll(/phase = '([^']+)';/gu)].map(match => match[1]), [
+    'browser-login', 'browser-login-form', 'browser-login-submit', 'browser-login-session', 'browser-viewer-write',
+  ]);
+  assert.match(login, /phase = 'browser-login'; await browser\.navigate\(baseUrl \+ '\/login'\);/u);
+  assert.match(login, /phase = 'browser-login-form';\s+await wait\(\(\) => browser\.evaluate\(`!!document\.querySelector/u);
+  assert.match(login, /phase = 'browser-login-submit';\s+await browser\.evaluate\(`/u);
+  assert.match(login, /phase = 'browser-login-session';\s+await wait\(\(\) => browser\.evaluate\(`fetch\('\/api\/user'\)/u);
+  assert.match(login, /phase = 'browser-viewer-write';\s+const protectedStatus = await browser\.evaluate\(`fetch\('\/api\/dashboards\/db'/u);
+  assert.equal([...login.matchAll(/browser\.evaluate\(/gu)].length, 4);
+  assert.equal([...login.matchAll(/await wait\(/gu)].length, 2);
+  assert.equal(login.split("document.querySelector('button[type=\"submit\"]').click();").length, 2);
+  assert.equal(login.split("method:'POST'").length, 2);
+  assert.match(login, /assert\.equal\(protectedStatus, 403, 'GRAFANA_BROWSER_VIEWER_WRITE_NOT_REJECTED'\)/u);
+  assert.doesNotMatch(login, /\b(?:catch|try|retry)\b/u);
+  assert.match(source, /const deadline = performance\.now\(\) \+ 105000;/u);
+  assert.match(source, /while \(performance\.now\(\) < deadline && !abort\.signal\.aborted\)/u);
+  assert.match(source, /const value = await read\(\); if \(value\) return value;/u);
+  assert.match(source, /setTimeout\(resolve, 200\)/u);
+  assert.match(driver, /this\.startupDiagnostics\.timeout\(startedAt, 10000\);\s+this\.fail\('GRAFANA_BROWSER_TIMEOUT:' \+ method\);\s+\}, 10000\);/u);
+});
+
 for (const mode of ['ci', 'local']) {
   test('font preparation reuses an isolated helper child in ' + mode + ' mode', async t => {
     const directory = context(t), file = resolve(directory, 'controlled-font-helper.mjs');

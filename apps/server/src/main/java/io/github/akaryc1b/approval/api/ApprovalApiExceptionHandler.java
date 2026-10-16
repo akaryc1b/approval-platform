@@ -1,5 +1,7 @@
 package io.github.akaryc1b.approval.api;
 
+import io.github.akaryc1b.approval.application.ApprovalFormRuntimeService;
+import io.github.akaryc1b.approval.application.FormDataValidator;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationStore;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
@@ -15,8 +17,20 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.UUID;
 
-@RestControllerAdvice(assignableTypes = PurchasePaymentController.class)
+@RestControllerAdvice(assignableTypes = {
+    PurchasePaymentController.class,
+    PurchasePaymentCollaborationController.class,
+    ApprovalParticipationController.class
+})
 public class ApprovalApiExceptionHandler {
+
+    @ExceptionHandler({
+        FormDataValidator.FormDataValidationException.class,
+        ApprovalFormRuntimeService.FieldPermissionException.class
+    })
+    ResponseEntity<ApiError> invalidForm(Exception exception, HttpServletRequest request) {
+        return response(400, "FORM_DATA_INVALID", exception.getMessage(), false, request);
+    }
 
     @ExceptionHandler({
         IllegalArgumentException.class,

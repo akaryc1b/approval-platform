@@ -656,13 +656,13 @@ export async function executeUpgradeRestoreRehearsal(contract) {
 
     candidateBackend = startManagedNode(
       'Start exact candidate Head on restored PostgreSQL data',
-      ['scripts/product-readiness/demo-backend.mjs', 'start'],
+      ['scripts/product-readiness/demo-backend.mjs', 'start-restored'],
       resolve(runDirectory, 'candidate-backend.log'),
       environment,
     );
     await waitForMarker(
       candidateBackend,
-      'BACKEND_LOCAL_START_VERIFIED',
+      'BACKEND_LOCAL_RESTORE_ONLY_STARTED',
       Math.min(
         backendTimeoutMs,
         remainingMilliseconds(deadline, 'candidate backend readiness'),

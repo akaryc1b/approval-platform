@@ -172,13 +172,13 @@
         "name": "instance",
         "method": "GET",
         "path": "/instances/{instanceId}",
-        "actorId": "demo-admin"
+        "actorId": "demo-employee"
       },
       {
         "name": "timeline",
         "method": "GET",
         "path": "/instances/{instanceId}/timeline",
-        "actorId": "demo-admin"
+        "actorId": "demo-employee"
       }
     ]
   },

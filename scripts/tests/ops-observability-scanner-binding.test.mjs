@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { resolveGitHubActionsEvidence } from '../security/m6-pr-e-e2-generate-sbom.mjs';
 import { requireGitleaksCaptureInventory } from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import { modeledLangDigestFixture } from './fixtures/lang-digest-review-fixture.mjs';
 import { BASE_GRAPH, OBSERVABILITY_GRAPH, OBSERVABILITY_OTEL_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, graphHash, verifyObservabilityGraph, requirePreservedGraph }
@@ -20,6 +22,7 @@ function buildLineageFixture(plugin) {
   currentLangPublication ||= modeledLangDigestFixture('Lang scanner binding publication');
   const evidence = ['checkstyle-guava', 'assembly-plexus', 'assembly-enforcer-lang'].includes(plugin) ? plugin : plugin + '-plugin';
   const e2 = JSON.parse(readFileSync(new URL(`../../docs/operations/${evidence}-evidence/candidate-E2.json`, import.meta.url)));
+  if (plugin === 'assembly-enforcer-lang') e2.githubActions = resolveGitHubActionsEvidence(fileURLToPath(new URL('../../', import.meta.url)));
   e2.commitSha = currentLangPublication.head; const { contentSha256, ...payload } = e2; e2.contentSha256 = graphHash(payload);
   const projection = { maven: e2.maven, pnpm: e2.pnpm,
     githubActions: e2.githubActions.acceptedDependencyGraph.githubActions,

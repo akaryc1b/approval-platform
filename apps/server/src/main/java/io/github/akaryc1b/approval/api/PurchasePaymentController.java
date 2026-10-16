@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.api;
 
 import io.github.akaryc1b.approval.application.ApprovalTaskQueryService;
 import io.github.akaryc1b.approval.application.ApprovalTimelineQueryService;
+import io.github.akaryc1b.approval.application.ApprovalParticipantResourceNotFoundException;
 import io.github.akaryc1b.approval.application.PurchasePaymentApplicationService;
 import io.github.akaryc1b.approval.application.PurchasePaymentTaskActionService;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.TaskProjection;
@@ -62,6 +63,7 @@ public class PurchasePaymentController {
     }
 
     @PostMapping("/definitions/purchase-payment/publish")
+    @ApprovalManagementPermission(ApprovalManagementPermission.Requirement.PUBLISH)
     public PurchasePaymentApplicationService.PublishResult publish(
         @RequestHeader(TENANT_ID) String tenantId,
         @RequestHeader(OPERATOR_ID) String operatorId,
@@ -107,8 +109,10 @@ public class PurchasePaymentController {
     @GetMapping("/instances/{instanceId}")
     public ResponseEntity<PurchasePaymentApplicationService.InstanceDetails> findInstance(
         @RequestHeader(TENANT_ID) String tenantId,
+        @RequestHeader(OPERATOR_ID) String operatorId,
         @PathVariable UUID instanceId
     ) {
+        authorizeInstanceRead(tenantId, operatorId, instanceId);
         return service.findInstance(tenantId, instanceId)
             .map(ResponseEntity::ok)
             .orElseGet(() -> ResponseEntity.notFound().build());
@@ -156,9 +160,19 @@ public class PurchasePaymentController {
     @GetMapping("/tasks")
     public List<TaskProjection> findTasks(
         @RequestHeader(TENANT_ID) String tenantId,
+        @RequestHeader(OPERATOR_ID) String operatorId,
         @RequestParam UUID instanceId
     ) {
+        authorizeInstanceRead(tenantId, operatorId, instanceId);
         return service.findTasks(tenantId, instanceId);
+    }
+
+    private void authorizeInstanceRead(String tenantId, String operatorId, UUID instanceId) {
+        // Keep raw projections within the same participant boundary as the timeline,
+        // including message recipients and historical task responsibility evidence.
+        if (timelineQueryService.findTimeline(tenantId, operatorId, instanceId).isEmpty()) {
+            throw new ApprovalParticipantResourceNotFoundException();
+        }
     }
 
     @PostMapping("/tasks/{taskId}/approve")

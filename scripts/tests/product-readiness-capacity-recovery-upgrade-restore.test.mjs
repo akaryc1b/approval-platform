@@ -8,7 +8,9 @@ import './product-readiness-capacity-recovery-upgrade-refs.test.mjs';
 import {
   createRecorder,
   readConsistency,
+  requireExactRestoredConsistency,
 } from '../product-readiness/capacity-recovery/upgrade-restore-http.mjs';
+import { backendReady, restoreMarker } from '../product-readiness/demo-backend-startup.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const text = path => readFileSync(resolve(root, path), 'utf8');
@@ -211,6 +213,25 @@ test('consistency reader follows public InstanceDetails and ApprovalTimeline sha
     assert.equal(value.timeline[0].action, 'INSTANCE_STARTED');
     assert.equal(value.timeline[0].operatorId, 'demo-employee');
     assert.deepEqual(value.timeline[0].attributes, { sequence: '1' });
+    for (const missing of [
+      { instance: null },
+      { tasks: [], activeTasks: [] },
+      { timeline: [] },
+    ]) {
+      assert.throws(() => requireExactRestoredConsistency(value, { ...value, ...missing }),
+        /differs from pre-backup state/u);
+    }
+    for (const [missingDetails, missingTimeline, error] of [
+      [{ ...details, instance: null }, timeline, /invalid identity/u],
+      [{ ...details, tasks: undefined }, timeline, /does not expose tasks/u],
+      [details, { instanceId, items: [] }, /timeline consistency read is incomplete/u],
+    ]) {
+      const recorder = {
+        request: async operation => operation === 'read-in-flight-instance'
+          ? missingDetails : missingTimeline,
+      };
+      await assert.rejects(readConsistency(recorder, shapeContract, instanceId), error);
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -219,6 +240,30 @@ test('consistency reader follows public InstanceDetails and ApprovalTimeline sha
   assert.match(http, /event\.action/u);
   assert.doesNotMatch(http, /details\.activeTasks/u);
   assert.doesNotMatch(http, /event\.eventType/u);
+});
+
+test('candidate uses explicit restore-only startup and readiness never substitutes for restored data', () => {
+  const baseline = runtime.slice(runtime.indexOf('baseBackend = startManagedNode('),
+    runtime.indexOf('const token = runId'));
+  assert.match(baseline, /'scripts\/product-readiness\/demo-backend\.mjs', 'start'/u);
+  assert.match(baseline, /'BACKEND_LOCAL_START_VERIFIED'/u);
+  assert.match(baseline, /'PURCHASE_PAYMENT_DEMO_SEED_APPLIED'/u);
+  const candidate = runtime.slice(runtime.indexOf('candidateBackend = startManagedNode('),
+    runtime.indexOf('const candidateRecorder ='));
+  assert.match(candidate, /'scripts\/product-readiness\/demo-backend\.mjs', 'start-restored'/u);
+  assert.match(candidate, /'BACKEND_LOCAL_RESTORE_ONLY_STARTED'/u);
+  assert.doesNotMatch(candidate, /SEED_APPLIED|BACKEND_LOCAL_START_VERIFIED/u);
+  assert.equal(backendReady('restore-only', true, { seedLine: null, restoreLine: restoreMarker }), true);
+  const candidateStart = runtime.indexOf('candidateBackend = startManagedNode(');
+  const consistencyRead = runtime.indexOf('const after = await readConsistency(', candidateStart);
+  const exactCheck = runtime.indexOf('requireExactRestoredConsistency(before, after);', consistencyRead);
+  const continuation = runtime.indexOf('const continuation = await continueRestoredPurchase(', exactCheck);
+  const outbox = runtime.indexOf('const pending = await waitForState(', continuation);
+  const payment = runtime.indexOf('verifyExactAcceptedPayments(value.sandbox, allowlist)', outbox);
+  const success = runtime.indexOf("status: 'PASSED_LOCAL_QUIESCED_REHEARSAL_ONLY'", payment);
+  assert.ok(consistencyRead > candidateStart && exactCheck > consistencyRead
+    && continuation > exactCheck && outbox > continuation && payment > outbox && success > payment);
+  assert.doesNotMatch(runtime.slice(consistencyRead, continuation), /catch|\|\|\s*\{\}|\?\?\s*\{\}/u);
 });
 
 test('rehearsal verifies exact in-flight business consistency and continuation', () => {

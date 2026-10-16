@@ -235,8 +235,10 @@ public final class PurchasePaymentApplicationService {
     public StartResult start(StartCommand command) {
         Objects.requireNonNull(command, "command must not be null");
         validateStart(command);
+        projections.findByBusinessKey(command.context().tenantId(), command.businessKey())
+            .ifPresent(instance -> authorizeInitiator(command.context().operatorId(), instance));
         String requestHash = startRequestHash(command);
-        return idempotencyGuard.execute(
+        StartResult result = idempotencyGuard.execute(
             command.context(),
             START_OPERATION,
             requestHash,
@@ -248,6 +250,7 @@ public final class PurchasePaymentApplicationService {
                     command.businessKey()
                 );
                 if (existing.isPresent()) {
+                    authorizeInitiator(command.context().operatorId(), existing.get());
                     if (!requestHash.equals(existing.get().requestHash())) {
                         throw new ApprovalProjectionStore.ProjectionConflictException(
                             "business key is already used by a different purchase payment request"
@@ -393,6 +396,17 @@ public final class PurchasePaymentApplicationService {
                 return startResult(instance, tasks);
             }
         );
+        // A concurrent start may become visible only after the idempotency lookup waits.
+        authorizeInitiator(command.context().operatorId(), projections.findInstance(
+            command.context().tenantId(), result.instanceId()
+        ).orElseThrow(ApprovalParticipantResourceNotFoundException::new));
+        return result;
+    }
+
+    private static void authorizeInitiator(String operatorId, InstanceProjection instance) {
+        if (!operatorId.equals(instance.initiatorId())) {
+            throw new ApprovalParticipantResourceNotFoundException();
+        }
     }
 
     public ApproveResult approve(ApproveCommand command) {
@@ -610,6 +624,13 @@ public final class PurchasePaymentApplicationService {
     }
 
     private static void validateStart(StartCommand command) {
+        if (command.assigneeRules() != null
+            && !command.context().operatorId().equals(command.assigneeRules().initiatorUserId().value())) {
+            throw new PurchasePaymentAssigneeResolver.AssigneeResolutionException(
+                "INITIATOR_OPERATOR_MISMATCH",
+                "initiator external ID does not match the authenticated operator"
+            );
+        }
         requireText(command.businessKey(), "businessKey");
         if (command.amount() == null || command.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("amount must be greater than zero");

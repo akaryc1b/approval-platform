@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { preservedHygieneJava21Source } from './jar-plugin-source-continuation.mjs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { BOOT_UTILITIES_GRAPH, readBootUtilitiesReport, readBootUtilitiesSourceWitness }
   from './boot-utilities-graph-transition.mjs';
@@ -30,7 +31,7 @@ const requireValue = (ok, message) => { if (!ok) throw new Error(`JaCoCo/AntRun 
 const SHA256 = /^[0-9a-f]{64}$/;
 const bytes = (path, expected) => {
   requireValue(SHA256.test(expected || ''), 'evidence pin is unsealed');
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = preservedHygieneJava21Source(path, expected, readFileSync(new URL(`../../${path}`, import.meta.url)));
   requireValue(sha(raw) === expected, `byte digest mismatch: ${path}`); return raw;
 };
 const pinned = ref => JSON.parse(bytes(ref.path, ref.rawSha256));

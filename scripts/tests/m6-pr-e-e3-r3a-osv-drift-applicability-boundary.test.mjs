@@ -12,6 +12,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { resolveGitHubActionsEvidence } from '../security/m6-pr-e-e2-generate-sbom.mjs';
 
 import {
   canonical,
@@ -248,7 +249,9 @@ test('R3A documents and permanently imports the non-closure boundary', () => {
 
 test('R3A Lang source continuation preserves V3 observations and rejects prior-JAR report or runtime drift', () => {
   // Synthetic observations exercise the source consumer; no Maven/JVM or scanner runs.
-  const current = readAssemblyEnforcerLangCandidate(), transition = readCurrentSourceTransition();
+  const { contentSha256, ...captured } = readAssemblyEnforcerLangCandidate();
+  const payload = { ...captured, githubActions: resolveGitHubActionsEvidence(root) };
+  const current = { ...payload, contentSha256: sha256(canonical(payload)) }, transition = readCurrentSourceTransition();
   const input = { contract, transition, commitSha: current.commitSha, currentE2: current,
     checkout: { expectedHeadSha: current.commitSha, checkedOutSha: current.commitSha,
       expectedHeadTreeSha: 'a'.repeat(40), checkedOutTreeSha: 'a'.repeat(40), exactTreeMatches: true, trackedWorktreeClean: true },

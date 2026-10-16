@@ -7,13 +7,14 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { isJava21Version, selectJava21 } from '../ci/select-java21.mjs';
-import { readHygieneJava21WorkflowTransition, priorJava21Workflow } from '../security/hygiene-java21-workflow-transition.mjs';
+import { readHygieneJava21WorkflowTransition, readHygieneM3LogRetentionTransition, priorM3LogRetentionWorkflow, priorJava21Workflow } from '../security/hygiene-java21-workflow-transition.mjs';
 import { gitBlob, historicalMavenWorkflow, readMavenWorkflowTransition, verifyMavenWorkflowTransition } from '../security/maven-workflow-transition.mjs';
 import { resolveGitHubActionsEvidence } from '../security/m6-pr-e-e2-generate-sbom.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const read = relative => readFileSync(path.join(root, relative), 'utf8');
 const manifest = readHygieneJava21WorkflowTransition();
+const retentionManifest = readHygieneM3LogRetentionTransition();
 const mavenManifest = readMavenWorkflowTransition();
 const plan = JSON.parse(read('docs/m6/m6-pr-e-e3-r2b-workflow-supply-chain-remediation.json'));
 const workflowPath = '.github/workflows/approval-platform-validation.yml';
@@ -154,7 +155,8 @@ test('Java selection rejects shared environment output files', t => {
 test('one hygiene run step precedes all checks without changing Action uses or historical graph', () => {
   const current = read(workflowPath), before = priorJava21Workflow(workflowPath, current);
   assert.equal(gitBlob(before), manifest.workflows[workflowPath].fromBlob);
-  assert.equal(gitBlob(current), manifest.workflows[workflowPath].toBlob);
+  assert.equal(gitBlob(priorM3LogRetentionWorkflow(workflowPath, current)), manifest.workflows[workflowPath].toBlob);
+  assert.equal(gitBlob(current), retentionManifest.workflows[workflowPath].toBlob);
   assert.equal(current.split(step).length, 2);
   assert.ok(current.indexOf(step) > current.indexOf('  hygiene:'));
   assert.ok(current.indexOf(step) < current.indexOf(mavenManifest.insertedStep));
@@ -167,6 +169,8 @@ test('one hygiene run step precedes all checks without changing Action uses or h
   assert.equal(proof.toolchainTransition.changedWorkflowCount, 5);
   assert.equal(proof.toolchainTransition.java21WorkflowContinuation.changedWorkflowCount, 1);
   assert.equal(proof.toolchainTransition.java21WorkflowContinuation.javaMajorVersion, 21);
+  assert.deepEqual(proof.toolchainTransition.java21WorkflowContinuation.m3LogRetentionContinuation.workflowBlobs,
+    { [workflowPath]: { fromBlob: manifest.workflows[workflowPath].toBlob, toBlob: gitBlob(current) } });
   const actions = resolveGitHubActionsEvidence(root);
   assert.equal(actions.workflows.flatMap(workflow => workflow.actions).length, 43);
   assert.deepEqual(actions.workflowToolchainTransition, proof.toolchainTransition);
@@ -232,4 +236,93 @@ test('Java continuation manifest bytes fail closed through the production reader
     writeFileSync(file, JSON.stringify({ ...manifest, [key]: 'unreviewed' }));
     const result = execute(); assert.notEqual(result.status, 0); assert.match(result.stderr, /manifest drift/);
   }
+});
+
+test('M3 retention changes only the exact command wrapper and seventh artifact path', () => {
+  const current = read(workflowPath), change = retentionManifest.workflows[workflowPath];
+  let projected = current;
+  assert.equal(change.replacements.length, 2);
+  for (const replacement of change.replacements) {
+    assert.equal(projected.split(replacement.after).length, 2);
+    projected = projected.replace(replacement.after, replacement.before);
+  }
+  assert.equal(gitBlob(projected), change.fromBlob);
+  assert.equal(priorM3LogRetentionWorkflow(workflowPath, current), projected);
+  assert.equal(priorM3LogRetentionWorkflow(workflowPath, projected), projected);
+  assert.equal(read('docs/m6/hygiene-java21-workflow-transition.json').length > 0, true);
+  assert.equal(createHash('sha256').update(read('docs/m6/hygiene-java21-workflow-transition.json')).digest('hex'),
+    retentionManifest.priorJava21ManifestSha256);
+  assert.equal(current.match(/^\s*if: always\(\)$/gm).length, projected.match(/^\s*if: always\(\)$/gm).length);
+  assert.deepEqual([...current.matchAll(/^\s*(?:uses:|timeout-minutes:|contents:).+$/gm)].map(x => x[0]),
+    [...projected.matchAll(/^\s*(?:uses:|timeout-minutes:|contents:).+$/gm)].map(x => x[0]));
+});
+for (const [name, mutate] of [
+  ['changed M3 command', s => s.replace('node --test scripts/tests/m3-repository-hygiene.test.mjs', 'node --test scripts/tests/m4-identity-boundary.test.mjs')],
+  ['missing M3 capture', s => s.replace('>m3-repository-hygiene.log 2>&1', '>other.log 2>&1')],
+  ['missing M3 upload path', s => s.replace('            m3-repository-hygiene.log\n', '')],
+  ['duplicate M3 upload path', s => s.replace('            m3-repository-hygiene.log\n', '            m3-repository-hygiene.log\n'.repeat(2))],
+  ['lost failure status', s => s.replace('exit "$m3_status"', 'exit 0')],
+  ['added retry', s => s.replace('|| m3_status=$?', '|| node --test scripts/tests/m3-repository-hygiene.test.mjs')],
+  ['changed upload condition', s => s.replace('if: always()', 'if: success()')],
+]) test(`M3 retention rejects ${name} even with a recomputed current blob`, () => {
+  const current = snapshot();
+  current[workflowPath].content = mutate(current[workflowPath].content);
+  current[workflowPath].blobSha = gitBlob(current[workflowPath].content);
+  assert.throws(() => verifyMavenWorkflowTransition(current, plan.workflowInventory.targetBlobs), /workflow|step/);
+});
+
+const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
+function runRetentionShell(t, fixture, prepare = () => {}) {
+  const directory = temporary(t, 'm3-capture-');
+  const block = retentionManifest.workflows[workflowPath].replacements[0].after;
+  assert.match(block, /        shell: bash\n        run: \|\n/);
+  let command = block.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /, '')).join('\n');
+  const original = 'node --test scripts/tests/m3-repository-hygiene.test.mjs';
+  assert.equal(command.split(original).length, 2);
+  command = command.replace(original, `${shellQuote(process.execPath)} -e ${shellQuote(fixture)}`);
+  prepare(directory);
+  const result = spawnSync('/bin/bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', command], {
+    cwd: directory, env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' }, encoding: 'utf8', timeout: 5000, maxBuffer: 1024 * 1024,
+  });
+  assert.equal(result.error, undefined);
+  return { directory, result };
+}
+for (const status of [0, 7]) test(`M3 capture shell retains both synthetic streams and exact exit ${status}`, t => {
+  const { directory, result } = runRetentionShell(t,
+    `process.stdout.write('fixture stdout\\n'); process.stderr.write('fixture stderr\\n'); process.exitCode=${status};`);
+  assert.equal(result.status, status);
+  assert.equal(result.stdout, 'fixture stdout\nfixture stderr\n');
+  assert.equal(result.stderr, '');
+  assert.equal(readFileSync(path.join(directory, 'm3-repository-hygiene.log'), 'utf8'), result.stdout);
+});
+test('M3 capture shell fails closed when output redirection is unavailable', t => {
+  const { result } = runRetentionShell(t, "process.stdout.write('MUST_NOT_EXECUTE')", directory => {
+    mkdirSync(path.join(directory, 'm3-repository-hygiene.log'));
+  });
+  assert.notEqual(result.status, 0);
+  assert.equal(result.stdout.includes('MUST_NOT_EXECUTE'), false);
+});
+test('M3 capture shell fails closed when its completed log cannot be read', t => {
+  const { result } = runRetentionShell(t, "require('node:fs').unlinkSync('m3-repository-hygiene.log')");
+  assert.notEqual(result.status, 0);
+});
+
+test('M3 retention manifest rejects missing or changed bytes without changing historical readers', t => {
+  const directory = temporary(t, 'm3-manifest-');
+  for (const relative of ['scripts/security/hygiene-java21-workflow-transition.mjs', 'docs/m6/hygiene-java21-workflow-transition.json',
+    'docs/m6/hygiene-m3-log-retention-transition.json']) {
+    mkdirSync(path.dirname(path.join(directory, relative)), { recursive: true });
+    writeFileSync(path.join(directory, relative), read(relative));
+  }
+  const entry = path.join(directory, 'run.mjs');
+  writeFileSync(entry, "import { readHygieneM3LogRetentionTransition } from './scripts/security/hygiene-java21-workflow-transition.mjs'; readHygieneM3LogRetentionTransition();");
+  const execute = () => spawnSync(process.execPath, [entry], { encoding: 'utf8', timeout: 5000 });
+  assert.equal(execute().status, 0);
+  const file = path.join(directory, 'docs/m6/hygiene-m3-log-retention-transition.json');
+  writeFileSync(file, JSON.stringify({ ...retentionManifest, reviewBasisHead: 'unreviewed' }));
+  const changed = execute(); assert.notEqual(changed.status, 0); assert.match(changed.stderr, /manifest drift/);
+  rmSync(file);
+  assert.notEqual(execute().status, 0);
+  writeFileSync(entry, "import { readHygieneJava21WorkflowTransition } from './scripts/security/hygiene-java21-workflow-transition.mjs'; readHygieneJava21WorkflowTransition();");
+  assert.equal(execute().status, 0);
 });

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
 import { parseCheckstylePluginOwners, verifyCheckstyleCaptureProvenance } from './checkstyle-plugin-graph-transition.mjs';
 import { readPreservedJacocoAntrunSource } from './assembly-plexus-source-continuation.mjs';
-import { readPreservedAssemblySource } from './jar-plugin-source-continuation.mjs';
+import { readPreservedAssemblySource, preservedHygieneJava21Source } from './jar-plugin-source-continuation.mjs';
 import { readPreservedCleanSource } from './compiler-plugin-source-continuation.mjs';
 import { osvInputFromE2 } from './osv-scan-coverage.mjs';
 
@@ -39,7 +39,7 @@ function bytes(path, expected) {
   requireValue(typeof path === 'string' && /^[A-Za-z0-9_./-]+$/.test(path) && !path.startsWith('/')
     && !path.split('/').some(part => !part || part === '.' || part === '..'), 'unsafe evidence path');
   requireValue(SHA256.test(expected || ''), 'evidence pin is unsealed');
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = preservedHygieneJava21Source(path, expected, readFileSync(new URL(`../../${path}`, import.meta.url)));
   requireValue(sha(raw) === expected, `byte digest mismatch: ${path}`); return raw;
 }
 const pinned = ref => JSON.parse(bytes(ref.path, ref.rawSha256));

@@ -81,6 +81,28 @@ test('contract fails closed when the scenario no longer exercises finance review
   );
 });
 
+test('raw instance and timeline reads require the governed initiator, not an unrelated administrator', () => {
+  const manifest = readScenario();
+  assert.equal(
+    manifest.apiContract.operations.find(operation => operation.name === 'publish').actorId,
+    'demo-admin',
+  );
+  for (const name of ['instance', 'timeline']) {
+    assert.equal(
+      manifest.apiContract.operations.find(operation => operation.name === name).actorId,
+      manifest.assigneeRules.initiatorUserId.value,
+    );
+    const unrelatedAdmin = structuredClone(manifest);
+    unrelatedAdmin.apiContract.operations.find(operation => operation.name === name).actorId
+      = 'demo-admin';
+    assert.throws(
+      () => validateScenario(unrelatedAdmin),
+      /does not match the governed API sequence/u,
+      `${name} must reject an unrelated administrator reader`,
+    );
+  }
+});
+
 test('contract fails closed on duplicate identities and production sandbox claims', () => {
   const duplicateIdentity = structuredClone(readScenario());
   duplicateIdentity.directory.users[5].id = duplicateIdentity.directory.users[4].id;

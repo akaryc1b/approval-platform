@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { repositoryRoot } from './contract.mjs';
 
 const relevantPaths = [
+  /^scripts\/product-readiness\/demo-backend-startup\.mjs$/u,
   /^\.gitignore$/u,
   /^package\.json$/u,
   /^apps\/mobile\/overlay\//u,
