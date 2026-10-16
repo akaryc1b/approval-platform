@@ -199,6 +199,19 @@ function loadContract() {
   const knownActors = new Set(
     scenario.directory?.users?.map(user => requireText(user.id, 'user.id')),
   );
+  const initiatorId = requireText(
+    scenario.assigneeRules?.initiatorUserId?.value,
+    'assigneeRules.initiatorUserId.value',
+  );
+  if (scenario.assigneeRules.initiatorUserId.source !== scenario.directory.source
+    || scenario.assigneeRules.initiatorUserId.objectType !== 'user'
+    || !knownActors.has(initiatorId)) {
+    throw new Error('observer initiator must be a governed demo directory user');
+  }
+  if (!requireStringList(manifest.clients?.pc?.allowedActors, 'pc.allowedActors')
+    .includes(initiatorId)) {
+    throw new Error('observer initiator must be allowed for the final PC read');
+  }
   const expected = scenario.expectedWorkflow.flatMap(step =>
     step.actorIds.map(actorId => ({
       actorId,
@@ -251,6 +264,7 @@ function loadContract() {
       scenarioSha256: sha256(scenarioSource),
     },
     handoffs,
+    initiatorId,
     manifest,
     scenario,
   };
@@ -286,10 +300,11 @@ function launchPlan(contract) {
     businessKey: contract.manifest.businessKey,
     handoffs: contract.handoffs,
     finalRead: {
-      actorId: 'demo-admin',
+      actorId: contract.initiatorId,
       client: 'pc',
-      clientCommand: 'pnpm demo:client:pc -- --actor demo-admin --port 5778 --skip-install',
-      clientLocation: 'http://127.0.0.1:5778/approval/workbench?demoOperator=demo-admin',
+      clientCommand: `pnpm demo:client:pc -- --actor ${contract.initiatorId} --port 5778 --skip-install`,
+      clientLocation: 'http://127.0.0.1:5778/approval/workbench'
+        + `?demoOperator=${encodeURIComponent(contract.initiatorId)}`,
     },
     output: defaultOutput,
     claimsAvailableAfterSuccessfulObservation: [
@@ -432,7 +447,7 @@ async function readTimeline(contract, backendOrigin, instanceId, suffix) {
   const requestId = `demo-runtime-observe-timeline-${suffix}-v1`;
   const payload = await fetchJson(
     `${backendOrigin}${apiBasePath}/instances/${encodeURIComponent(instanceId)}/timeline`,
-    { headers: requestHeaders(contract, 'demo-admin', requestId) },
+    { headers: requestHeaders(contract, contract.initiatorId, requestId) },
   );
   if (payload?.instanceId !== instanceId || !Array.isArray(payload.items)) {
     throw new Error('timeline response does not match the observed instance');
@@ -444,7 +459,7 @@ async function readInstance(contract, backendOrigin, instanceId, suffix) {
   const requestId = `demo-runtime-observe-instance-${suffix}-v1`;
   const payload = await fetchJson(
     `${backendOrigin}${apiBasePath}/instances/${encodeURIComponent(instanceId)}`,
-    { headers: requestHeaders(contract, 'demo-admin', requestId) },
+    { headers: requestHeaders(contract, contract.initiatorId, requestId) },
   );
   if (payload?.instance?.instanceId !== instanceId) {
     throw new Error('instance response does not match the observed instance');

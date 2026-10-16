@@ -180,7 +180,7 @@ function validateUsers(directory) {
   return { connectorKey, source, byId };
 }
 
-function validateApiContract(apiContract, controllerSource, userIds) {
+function validateApiContract(apiContract, controllerSource, userIds, initiatorId) {
   exactKeys(apiContract, ['basePath', 'headers', 'operations'], 'apiContract');
   if (apiContract.basePath !== '/api/approval') {
     fail('apiContract.basePath must be /api/approval');
@@ -202,8 +202,8 @@ function validateApiContract(apiContract, controllerSource, userIds) {
     ['start', 'POST', '/instances/purchase-payment', 'demo-employee'],
     ['pendingTasks', 'GET', '/tasks/pending', 'ACTIVE_TASK_ACTOR'],
     ['approveTask', 'POST', '/tasks/{taskId}/approve', 'ACTIVE_TASK_ACTOR'],
-    ['instance', 'GET', '/instances/{instanceId}', 'demo-admin'],
-    ['timeline', 'GET', '/instances/{instanceId}/timeline', 'demo-admin'],
+    ['instance', 'GET', '/instances/{instanceId}', initiatorId],
+    ['timeline', 'GET', '/instances/{instanceId}/timeline', initiatorId],
   ];
   const operations = requireArray(apiContract.operations, 'apiContract.operations');
   if (operations.length !== expectedOperations.length) {
@@ -479,7 +479,12 @@ export function validateScenario(
 
   const users = validateUsers(manifest.directory);
   validateWorkflow(manifest, templateSource, users);
-  validateApiContract(manifest.apiContract, controllerSource, new Set(users.byId.keys()));
+  validateApiContract(
+    manifest.apiContract,
+    controllerSource,
+    new Set(users.byId.keys()),
+    manifest.assigneeRules.initiatorUserId.value,
+  );
   validateEvidenceBoundaries(manifest);
 
   const paymentStage = manifest.expectedWorkflow.at(-1);

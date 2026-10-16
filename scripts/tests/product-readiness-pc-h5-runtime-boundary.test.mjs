@@ -340,6 +340,23 @@ test('runtime failures preserve diagnostics for every browser actor and remain f
   assert.doesNotMatch(playwrightSpec, /catch\s*\([^)]*\)\s*\{\s*\}/u);
 });
 
+test('failure diagnostics read raw instance and timeline state as the governed initiator', () => {
+  for (const [start, end, operation] of [
+    ['const processState =', 'const processTimeline =', 'instance'],
+    ['const processTimeline =', '\n  return {', 'timeline'],
+  ]) {
+    const startIndex = playwrightDiagnostics.indexOf(start);
+    const endIndex = playwrightDiagnostics.indexOf(end, startIndex);
+    assert.ok(startIndex >= 0 && endIndex > startIndex, `missing ${operation} diagnostic`);
+    const read = playwrightDiagnostics.slice(startIndex, endIndex);
+    assert.match(
+      read,
+      new RegExp(`readJson\\(\\s*request,\\s*authoritativeActors\\.initiator,\\s*'${operation}'`, 'u'),
+    );
+    assert.doesNotMatch(read, /demo-admin/u);
+  }
+});
+
 test('success and failure evidence are retained in the permanent Vben artifact', () => {
   for (const marker of [
     'APPROVAL_PC_H5_RUNTIME_EVIDENCE_ENVELOPE_BEGIN',

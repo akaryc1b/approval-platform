@@ -60,8 +60,17 @@ test('interactive runtime plan matches the governed cross-client handoff', () =>
     })),
     expected,
   );
-  assert.equal(plan.finalRead.actorId, 'demo-admin');
+  const initiatorId = scenario.assigneeRules.initiatorUserId.value;
+  assert.equal(plan.finalRead.actorId, initiatorId);
   assert.equal(plan.finalRead.client, 'pc');
+  assert.equal(
+    plan.finalRead.clientCommand,
+    `pnpm demo:client:pc -- --actor ${initiatorId} --port 5778 --skip-install`,
+  );
+  assert.equal(
+    plan.finalRead.clientLocation,
+    `http://127.0.0.1:5778/approval/workbench?demoOperator=${encodeURIComponent(initiatorId)}`,
+  );
   assert.deepEqual(plan.claimsAvailableAfterSuccessfulObservation, [
     'CROSS_CLIENT_SHARED_INSTANCE_OBSERVED',
     'CROSS_CLIENT_ROLE_HANDOFFS_OBSERVED',
@@ -115,6 +124,26 @@ test('observer reads runtime state and never performs an approval write', () => 
   assert.doesNotMatch(observer, /approvalCommandHeaders/u);
   assert.doesNotMatch(observer, /X-Approval-Trusted-Permissions/u);
   assert.doesNotMatch(observer, /X-Approval-Worker-Id/u);
+});
+
+test('observer raw reads use the validated governed initiator', () => {
+  assert.match(observer, /scenario\.assigneeRules\?\.initiatorUserId\?\.value/u);
+  assert.match(observer, /!knownActors\.has\(initiatorId\)/u);
+  assert.match(observer, /observer initiator must be allowed for the final PC read/u);
+  for (const [start, end] of [
+    ['async function readTimeline(', 'async function readInstance('],
+    ['async function readInstance(', 'function delay('],
+  ]) {
+    const startIndex = observer.indexOf(start);
+    const endIndex = observer.indexOf(end, startIndex);
+    assert.ok(startIndex >= 0 && endIndex > startIndex, `missing read helper ${start}`);
+    const readHelper = observer.slice(startIndex, endIndex);
+    assert.match(
+      readHelper,
+      /requestHeaders\(contract, contract\.initiatorId, requestId\)/u,
+    );
+    assert.doesNotMatch(readHelper, /demo-admin/u);
+  }
 });
 
 test('retained task history counts only pending and completing tasks as active', () => {
@@ -218,4 +247,6 @@ test('guide separates observed backend evidence from browser and device proof', 
   assert.match(guide, /WECHAT_PHYSICAL_DEVICE_NOT_VERIFIED/u);
   assert.match(guide, /CLIENT_SCREEN_RECORDING_NOT_INCLUDED/u);
   assert.match(guide, /不能单独证明/u);
+  assert.match(guide, /PC 发起人 `demo-employee`/u);
+  assert.doesNotMatch(guide, /PC 管理员或发起人/u);
 });
