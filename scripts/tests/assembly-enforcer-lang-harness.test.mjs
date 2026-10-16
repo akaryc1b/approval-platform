@@ -202,6 +202,169 @@ sealed=isolated['source_hashes'](isolated['ROOT'])
 assert recorded and set(recorded)<=set(sealed),(recorded,sealed.keys())
 assert all(Path(name).is_absolute() and Path(name).resolve()==Path(name) for name in sealed)
 assert str(s['ROOT']/'scripts/ci/jar_plugin_retained_source.py') in sealed
+assert str(s['HERE']/'jar_plugin_storage.py') in sealed
+`);
+});
+
+test('class mismatch diagnostics preserve exact rejection and redact malformed fields', () => {
+  python(String.raw`
+import hashlib,json
+expected='a'*64;name='org/apache/commons/lang3/ClassUtils';origin='repository/org/apache/commons/commons-lang3/3.18.0/commons-lang3-3.18.0.jar'
+def check(value,**changes):
+ context=dict(variant='candidate',owner='assembly',case='discovery',phase='NATURAL',name=name,origin=origin,entry=name+'.class');context.update(changes)
+ return s['require_class_hash'](value,expected,**context)
+assert check(expected) is None
+for value,category in [('b'*64,'different-sha256'),('malformed-secret','malformed-digest'),(expected+'[1.654s][info][class,load] secret.Host source: private-path','expected-digest-with-suffix')]:
+ try:check(value)
+ except s['ClassBytesMismatch'] as failure:
+  assert isinstance(failure,ValueError) and str(failure)=='observed effective class bytes differ'
+  record=failure.diagnostic;assert record['expectedSha256']==expected and record['category']==category
+  assert record['expectedPrefixMatches']==value.startswith(expected)
+  assert record['class']==name and record['origin']==origin and record['entry']==name+'.class'
+  if category=='different-sha256':assert record['observedSha256']==value and 'observedFieldSha256' not in record
+  else:
+   assert 'observedSha256' not in record and record['observedFieldBytes']==len(value.encode())
+   assert record['observedFieldSha256']==hashlib.sha256(value.encode()).hexdigest()
+   assert 'secret' not in json.dumps(record) and 'private-path' not in json.dumps(record)
+ else:raise AssertionError('mismatch accepted')
+try:check('invalid',name='secret\nvalue',origin='/private/host.jar',entry='../../secret.class')
+except s['ClassBytesMismatch'] as failure:
+ assert all(failure.diagnostic[key].startswith('REDACTED_') for key in ('class','origin','entry'))
+ assert 'secret' not in json.dumps(failure.diagnostic) and '/private' not in json.dumps(failure.diagnostic)
+else:raise AssertionError('unsafe mismatch accepted')
+`);
+});
+
+test('separate class logs require fresh regular bounded stable bytes', () => {
+  python(String.raw`
+import hashlib,os,tempfile
+from pathlib import Path
+with tempfile.TemporaryDirectory(prefix='lang-class-log-') as temporary:
+ root=Path(temporary);logs=root/'class-load';logs.mkdir()
+ path=s['class_log_path'](root,'candidate','assembly','discovery')
+ try:s['read_class_log'](path)
+ except FileNotFoundError:pass
+ else:raise AssertionError('missing log accepted')
+ path.symlink_to(logs/'missing');rejects(lambda:s['class_log_path'](root,'candidate','assembly','discovery'));rejects(lambda:s['read_class_log'](path));path.unlink()
+ os.mkfifo(path);rejects(lambda:s['read_class_log'](path));path.unlink()
+ path.write_bytes(b'');rejects(lambda:s['read_class_log'](path))
+ path.write_bytes(b'\xff');rejects(lambda:s['read_class_log'](path))
+ path.write_bytes(b'x'*(s['PLAN']['classLoadMaximumBytes']+1));rejects(lambda:s['read_class_log'](path))
+ payload=b'[1.000s][info][class,load] x.Foo source: file:/approved.jar\n';path.write_bytes(payload)
+ text,record=s['read_class_log'](path)
+ assert text==payload.decode() and record=={'path':'class-load/candidate-assembly-discovery.log','bytes':len(payload),'sha256':hashlib.sha256(payload).hexdigest()}
+ rejects(lambda:s['class_log_path'](root,'candidate','assembly','discovery'))
+ guard=s['StorageGuard'](logs,maximum_bytes=len(payload),maximum_entries=1,file_limits={path.name:len(payload)})
+ assert guard.scan()==(len(payload),1)
+ path.write_bytes(payload+b'x');rejects(guard.scan)
+ path.write_bytes(payload);(logs/'foreign.log').write_bytes(b'x');rejects(guard.scan)
+ (logs/'foreign.log').unlink();path.unlink();path.symlink_to(root/'outside');rejects(guard.scan)
+`);
+});
+
+test('separate native corroboration rejects missing foreign truncated and coalesced lines', () => {
+  python(String.raw`
+name='org/apache/commons/lang3/ClassUtils';uri='file:/approved/commons-lang3.jar'
+line='[1.654s][info][class,load] '+name.replace('/','.')+' source: '+uri
+s['require_class_corroboration'](line+'\n'+line+'\n',name,uri)
+for value in ('',line[:-1],line.replace('approved','foreign'),'PLUGIN_LANG_LOAD\t'+line,line+'trailing',line.replace('[info]','[debug]')):
+ rejects(lambda:s['require_class_corroboration'](value,name,uri))
+`);
+});
+
+test('separate observation channels retain repeated loads and reject every differing digest', () => {
+  python(String.raw`
+import hashlib,tempfile,zipfile
+from pathlib import Path
+with tempfile.TemporaryDirectory(prefix='lang-origins-') as temporary:
+ root=Path(temporary);repo=root/'repository';maven=root/'maven/bin/mvn';lib=maven.parent.parent/'lib';lib.mkdir(parents=True)
+ with zipfile.ZipFile(lib/'maven-core-3.9.16.jar','w') as archive:archive.writestr('META-INF/maven/extension.xml','<extension><exportedArtifacts/></extension>')
+ expected=s['read_pins']()['owners']['assembly']['candidate'];realm='test-loader';realm_name='plugin>'+s['OWNERS']['assembly']
+ natural=['org/apache/maven/plugins/assembly/mojos/SingleAssemblyMojo','org/apache/maven/plugins/assembly/io/DefaultAssemblyReader','org/apache/maven/plugins/assembly/format/ReaderFormatter','org/apache/maven/shared/filtering/DefaultMavenReaderFilter','org/apache/maven/shared/filtering/DefaultMavenResourcesFiltering']
+ target='org/apache/commons/lang3/ClassUtils';assembly=s['artifact_path'](repo,'org.apache.maven.plugins:maven-assembly-plugin:jar:3.7.1');lang=s['artifact_path'](repo,s['LANG_PREFIX']+'3.18.0')
+ for path,names in [(assembly,natural),(lang,[target])]:
+  path.parent.mkdir(parents=True,exist_ok=True)
+  with zipfile.ZipFile(path,'w') as archive:
+   archive.writestr('META-INF/MANIFEST.MF','Manifest-Version: 1.0\n')
+   for name in names:archive.writestr(name+'.class',name.encode())
+ def fields(name,path):return '\t'.join([name,realm,realm_name,path.as_uri(),hashlib.sha256(name.encode()).hexdigest()])
+ loads=['PLUGIN_LANG_NATURAL_LOAD\t'+fields(name,assembly) for name in natural]
+ stdout='[DEBUG] Populating class realm '+realm_name+'\n'+''.join('[DEBUG] Included: '+c+'\n' for c in expected)
+ urls=['PLUGIN_LANG_REALM_URL\t'+realm+'\t'+s['artifact_path'](repo,c).as_uri() for c in expected]
+ tail=['PLUGIN_LANG_GOAL_TERMINAL\tMojoSucceeded','PLUGIN_LANG_CONTROLLED_COMPLETE\tSKIPPED','PLUGIN_LANG_TYPE\tSYMBOLIC\t'+fields(target,lang),'PLUGIN_LANG_MISSING_MEMBER\tPASSED','PLUGIN_LANG_LINKAGE_COMPLETE\t0\t0\t0\t'+hashlib.sha256(b'\n').hexdigest()]
+ native='\n'.join('[1.000s][info][class,load] '+name.replace('/','.')+' source: '+path.as_uri() for path,names in [(assembly,natural),(lang,[target])] for name in names)
+ config={'repository':str(repo),'maven':str(maven)}
+ def observe(rows,corroboration=native):return s['observations'](stdout,'\n'.join(urls+rows+tail),corroboration,config,'candidate','assembly',[],'discovery')
+ assert len(observe(loads)['naturalOrigins'])==5
+ assert len(observe(loads+[loads[0]],native+'\n'+native)['naturalOrigins'])==6
+ rejects(lambda:observe(loads+[native],''))
+ for value in ('b'*64,'malformed',hashlib.sha256(natural[0].encode()).hexdigest()+'[1.000s][info][class,load] joined'):
+  bad='\t'.join(loads[0].split('\t')[:-1])+ '\t'+value
+  try:observe(loads+[bad])
+  except s['ClassBytesMismatch']:pass
+  else:raise AssertionError('differing repeated definition accepted')
+`);
+});
+
+test('failed observation retains safe mismatch and separate log hash before rethrowing', () => {
+  python(String.raw`
+import contextlib,io,json,os,signal,tempfile,threading
+from pathlib import Path
+with tempfile.TemporaryDirectory(prefix='lang-failure-retention-') as temporary:
+ root=Path(temporary);output=root/'output';g=s['execute'].__globals__;calls=[]
+ handlers={sig:signal.getsignal(sig) for sig in (signal.SIGALRM,signal.SIGTERM,signal.SIGINT)}
+ class FakeCommands:
+  def __init__(self,*args):self.results=[]
+  def run(self,label,command,seconds,extra_env=None):
+   calls.append(label);self.results.append({'case':label})
+   if label=='compile-observer':
+    for name in ('PluginLangRealmObserver','PluginLangRealmCompletionSpy'):(output/'observer'/(name+'.class')).write_bytes(b'fixture')
+   else:
+    assert '-Xlog:class+load=info:file=' in extra_env['MAVEN_OPTS'] and 'filecount=0' in extra_env['MAVEN_OPTS']
+    assert ':stderr' not in extra_env['MAVEN_OPTS']
+    (output/'class-load'/(label+'.log')).write_text('[1.000s][info][class,load] fixture.Type source: file:/approved.jar\n')
+   return 0,'',''
+ def bad_observation(*args):s['require_class_hash']('b'*64,'a'*64,'baseline','assembly','archives','NATURAL','fixture/Type','maven-lib/core.jar','fixture/Type.class')
+ g['Commands']=FakeCommands;g['check_seal']=lambda *args,**kwargs:None;g['linkage_rows']=lambda *args:[];g['observations']=bad_observation
+ os.environ['ASSEMBLY_ENFORCER_LANG_COMPATIBILITY']='true'
+ seal={'config':{'source':str(s['ROOT']),'output':str(output),'jdk':str(root/'jdk'),'maven':str(root/'maven/bin/mvn'),'repository':str(root/'repository')}}
+ for key in ('sourceHashes','runtimeHashes','cacheHashes','inventory','classUtilsStatic'):seal[key]={}
+ with contextlib.redirect_stdout(io.StringIO()):
+  try:s['execute'](seal)
+  except s['ClassBytesMismatch']:pass
+  else:raise AssertionError('observation failure swallowed')
+ result=json.loads((output/'result.json').read_text())
+ assert calls==['compile-observer','baseline-assembly-archives'] and result['status']=='FAILED'
+ assert result['classObservationMismatch']['observedSha256']=='b'*64
+ record=result['commands'][-1]['classLoadCorroborationLog'];assert record==s['read_class_log'](output/record['path'])[1]
+ assert result['variants']['baseline']['assembly']=={} and result['classLoadStorage']['failure'] is None
+ assert result['classLoadStorage']['scans']>=4
+ assert not any(thread.name=='jar-storage-bound' for thread in threading.enumerate())
+ assert all(signal.getsignal(sig)==handler for sig,handler in handlers.items()) and signal.alarm(0)==0
+`);
+});
+
+test('final class log verification rejects late mutation and foreign or missing receipts', () => {
+  python(String.raw`
+import copy,tempfile
+from pathlib import Path
+with tempfile.TemporaryDirectory(prefix='lang-final-logs-') as temporary:
+ output=Path(temporary);logs=output/'class-load';logs.mkdir();commands=[];variants={}
+ for variant in s['VERSIONS']:
+  variants[variant]={}
+  for owner in s['OWNERS']:
+   variants[variant][owner]={}
+   for case in s['CASES'][owner]:
+    label=variant+'-'+owner+'-'+case;path=logs/(label+'.log');path.write_bytes(b'original bytes\n')
+    record=s['read_class_log'](path)[1];commands.append({'case':label,'classLoadCorroborationLog':record})
+    variants[variant][owner][case]={'classLoadCorroborationLog':record}
+ s['verify_class_logs'](output,commands,variants)
+ first=logs/(commands[0]['case']+'.log');first.write_bytes(b'modified bytes\n')
+ rejects(lambda:s['verify_class_logs'](output,commands,variants));first.write_bytes(b'original bytes\n')
+ rejects(lambda:s['verify_class_logs'](output,commands[:-1],variants))
+ altered=copy.deepcopy(variants);altered['baseline']['assembly']['archives']['classLoadCorroborationLog']['path']='class-load/foreign.log'
+ rejects(lambda:s['verify_class_logs'](output,commands,altered))
+ (logs/'foreign.log').write_bytes(b'foreign');rejects(lambda:s['verify_class_logs'](output,commands,variants))
 `);
 });
 
