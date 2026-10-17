@@ -4,6 +4,16 @@ import type { CaptureBudget } from './product-readiness-capture-budget';
 const cjkFamilies = /^(Noto Sans CJK|Noto Sans SC|Source Han Sans|PingFang SC|Hiragino Sans GB|Microsoft YaHei|WenQuanYi Micro Hei)/u;
 export type CjkSurface = 'list' | 'acknowledged';
 interface PlatformFont { familyName: string; glyphCount: number }
+type SettlementVisibility = 'visible' | 'hidden' | 'prerender' | 'unknown';
+interface SettlementFrame {
+  elapsedMs: number; intervalMs: number; visibility: SettlementVisibility;
+  pendingAnimations: number; runningAnimations: number; pausedAnimations: number; otherActiveAnimations: number;
+  visible: boolean; inViewport: boolean; stableFrames: number;
+}
+interface SettlementReport {
+  version: 1; elapsedMs: number; frameCount: number; maxFrameIntervalMs: number;
+  initialVisibility: SettlementVisibility; frames: SettlementFrame[];
+}
 
 /** Wait only for the current toast's entrance, never the destination or drawer. */
 export function settleCjkAcknowledgment(input: { timeout: number }) {
@@ -24,30 +34,58 @@ export function settleCjkAcknowledgment(input: { timeout: number }) {
   const originalText = text;
   const range = document.createRange();
   range.selectNodeContents(originalText);
-  const deadline = performance.now() + input.timeout;
-  return new Promise<void>((resolve, reject) => {
+  const started = performance.now();
+  const deadline = started + input.timeout;
+  const visibility = (): SettlementVisibility => {
+    const value: string = document.visibilityState;
+    return value === 'visible' || value === 'hidden' || value === 'prerender' ? value : 'unknown';
+  };
+  const initialVisibility = visibility();
+  return new Promise<SettlementReport>((resolve, reject) => {
     let frame = 0, stableFrames = 0, previousGeometry = '', finished = false;
+    let frameCount = 0, previousFrameTime = started, maxFrameIntervalMs = 0;
+    const frames: SettlementFrame[] = [];
+    // Diagnostic-only primitives, retained by the existing evaluate trace. No
+    // report is returned if settlement rejects; callers ignore successful reports.
+    const recordFrame = (now: number, animations: Animation[], visible: boolean, inViewport: boolean) => {
+      const intervalMs = now - previousFrameTime;
+      previousFrameTime = now;
+      frameCount += 1;
+      maxFrameIntervalMs = Math.max(maxFrameIntervalMs, intervalMs);
+      frames.push({
+        elapsedMs: now - started, intervalMs, visibility: visibility(),
+        pendingAnimations: animations.filter(animation => animation.pending).length,
+        runningAnimations: animations.filter(animation => animation.playState === 'running').length,
+        pausedAnimations: animations.filter(animation => animation.playState === 'paused').length,
+        otherActiveAnimations: animations.filter(animation => !['finished', 'running', 'paused'].includes(animation.playState)).length,
+        visible, inViewport, stableFrames,
+      });
+      if (frames.length > 16) frames.shift();
+    };
     const finish = (error?: Error) => {
       if (finished) return;
       finished = true;
       cancelAnimationFrame(frame);
       clearTimeout(timer);
       removeEventListener('pagehide', navigated);
-      if (error) reject(error); else resolve();
+      if (error) reject(error); else resolve({
+        version: 1, elapsedMs: previousFrameTime - started, frameCount, maxFrameIntervalMs, initialVisibility, frames,
+      });
     };
     const navigated = () => finish(new Error('CJK_SURFACE_CHANGED'));
     const timer = setTimeout(() => finish(new Error('CJK_SURFACE_SETTLEMENT_EXPIRED')), input.timeout);
     addEventListener('pagehide', navigated, { once: true });
     const tick = () => {
       try {
-        if (performance.now() >= deadline) throw new Error('CJK_SURFACE_SETTLEMENT_EXPIRED');
+        const now = performance.now();
+        if (now >= deadline) throw new Error('CJK_SURFACE_SETTLEMENT_EXPIRED');
         if (!originalText.isConnected || originalText.parentElement !== target
           || originalText.textContent?.replace(/\s/gu, '') !== label) throw new Error('CJK_SURFACE_CHANGED');
         const ancestors: Element[] = [];
         for (let node: Element | null = target; node; node = node.parentElement) ancestors.push(node);
         // An endless or unknown active animation is not a settled acknowledgment.
-        const pending = ancestors.flatMap(node => node.getAnimations())
-          .some(animation => animation.pending || animation.playState !== 'finished');
+        const animations = ancestors.flatMap(node => node.getAnimations());
+        const pending = animations.some(animation => animation.pending || animation.playState !== 'finished');
         const visible = ancestors.every(node => {
           const style = getComputedStyle(node);
           return style.display !== 'none' && style.visibility === 'visible' && Number(style.opacity) >= 0.999;
@@ -59,10 +97,12 @@ export function settleCjkAcknowledgment(input: { timeout: number }) {
         if (!pending && visible && inside) {
           stableFrames = geometry === previousGeometry ? stableFrames + 1 : 0;
           previousGeometry = geometry;
+          recordFrame(now, animations, visible, inside);
           if (stableFrames >= 2) { finish(); return; }
         } else {
           stableFrames = 0;
           previousGeometry = '';
+          recordFrame(now, animations, visible, inside);
         }
         frame = requestAnimationFrame(tick);
       } catch (error) {
