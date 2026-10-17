@@ -32,6 +32,8 @@ const governed = [
   'components/approval/ApprovalFormRenderer.vue',
   'components/approval/ApprovalAssistancePanel.vue',
   'components/approval/ControlledAutomationConfirmationBoundary.vue',
+  'views/approval/notifications/index.vue',
+  'views/approval/collaboration/index.vue',
 ];
 const entries = [...readFileSync(sourceConfig, 'utf8').matchAll(/'(?<entry>element-plus\/es\/components\/[^']+\/style\/css)'/gu)].map(match => match.groups.entry);
 const transform = ElementPlus({ format: 'esm' }).transform;
@@ -61,7 +63,7 @@ function cacheSnapshot() {
   return result;
 }
 
-await test('pinned post-transform workbench style imports exactly match production includes', async () => {
+await test('pinned post-transform approval route style imports exactly match production includes', async () => {
   assert.equal(JSON.parse(readFileSync(requireApp.resolve('element-plus/package.json'))).version, '2.14.0');
   // Resolve package.json from the transform entry because its exports do not expose package.json.
   const pluginPackage = join(dirname(dirname(requireApp.resolve('unplugin-element-plus/vite'))), 'package.json');
@@ -71,7 +73,7 @@ await test('pinned post-transform workbench style imports exactly match producti
     const path = join(root, 'apps/web/overlay/apps/web-ele/src', file);
     return emitted(readFileSync(path, 'utf8'), path);
   }))).flat())].sort();
-  assert.equal(entries.length, 29);
+  assert.equal(entries.length, 34);
   assert.deepEqual([...entries].sort(), imports);
   const elementPackagePath = requireApp.resolve('element-plus/package.json');
   const elementPackage = JSON.parse(readFileSync(elementPackagePath));
@@ -84,9 +86,13 @@ await test('pinned post-transform workbench style imports exactly match producti
     assert.ok(existsSync(join(dirname(elementPackagePath), exported)), entry);
   }
   assert.throws(() => assertCovered(imports, entries.slice(1)), /missing transformed style/u);
-  const negative = `<script setup lang="ts">import { ElBadge } from 'element-plus';</script><template><ElBadge :value="1" /></template>`;
+  for (const component of ['badge', 'checkbox', 'table', 'table-column', 'time-select']) {
+    const missing = `element-plus/es/components/${component}/style/css`;
+    assert.throws(() => assertCovered(imports, entries.filter(entry => entry !== missing)), /missing transformed style/u);
+  }
+  const negative = `<script setup lang="ts">import { ElRate } from 'element-plus';</script><template><ElRate /></template>`;
   const added = await emitted(negative, 'new-nested-component.vue');
-  assert.ok(added.includes('element-plus/es/components/badge/style/css'));
+  assert.ok(added.includes('element-plus/es/components/rate/style/css'));
   assert.throws(() => assertCovered([...imports, ...added], entries), /missing transformed style/u);
   retain('transform-graph.json', {
     vite: vite.version, elementPlus: elementPackage.version, unpluginElementPlus: '0.11.2',
@@ -159,7 +165,10 @@ await test('pinned shell icons register synchronously from exact local data with
   const runtimePackage = join(dirname(dirname(requireIcons.resolve('@iconify/vue'))), 'package.json');
   assert.equal(JSON.parse(readFileSync(iconDataPackage)).version, '2.2.476');
   assert.equal(JSON.parse(readFileSync(runtimePackage)).version, '5.0.1');
-  const expectedNames = ['ep:expand', 'ep:fold', 'fluent-mdl2:world-clock', 'lucide:inbox', 'lucide:workflow'];
+  const expectedNames = [
+    'ep:expand', 'ep:fold', 'fluent-mdl2:world-clock', 'lucide:bell-ring',
+    'lucide:inbox', 'lucide:user-round-plus', 'lucide:workflow',
+  ];
   const defaults = { left: 0, top: 0, width: 16, height: 16, rotate: 0, hFlip: false, vFlip: false };
   const pinned = {}; const dataFiles = new Map();
   for (const name of expectedNames) {
@@ -177,6 +186,12 @@ await test('pinned shell icons register synchronously from exact local data with
   assert.throws(() => verify(missing));
   const wrong = structuredClone(approvalShellIcons); wrong['lucide:workflow'].body = '<path d="M0 0"/>';
   assert.throws(() => verify(wrong));
+  for (const name of ['lucide:bell-ring', 'lucide:user-round-plus']) {
+    const missingAdded = structuredClone(approvalShellIcons); delete missingAdded[name];
+    assert.throws(() => verify(missingAdded));
+    const wrongAdded = structuredClone(approvalShellIcons); wrongAdded[name].body = '<path d="M0 0"/>';
+    assert.throws(() => verify(wrongAdded));
+  }
   let fetchCalls = 0; const previousFetch = globalThis.fetch;
   let runtimeEvidence;
   try {

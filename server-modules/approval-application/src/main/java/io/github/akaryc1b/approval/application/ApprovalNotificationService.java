@@ -543,6 +543,11 @@ public final class ApprovalNotificationService {
         if (seed.taskId() != null) {
             metadata.put("taskId", seed.taskId().toString());
         }
+        if (seed.eventType() == NotificationEventType.TASK_COLLABORATION_ASSIGNED
+            || seed.eventType() == NotificationEventType.TASK_COLLABORATION_RESULT) {
+            metadata.put("route", "/approval/collaboration"
+                + (seed.taskId() == null ? "" : "?taskId=" + seed.taskId()));
+        }
         Instant now = clock.instant();
         return new NotificationIntent(
             identifierGenerator.get(),

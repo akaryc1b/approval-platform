@@ -1,22 +1,29 @@
 # Approval shell icon source and notices
 
-`local-icons.ts` contains five exact SVG definitions from the already pinned
+`local-icons.ts` contains seven exact SVG definitions from the already pinned
 `@iconify/json` 2.2.476, using the existing `@iconify/vue` 5.0.1 registration API.
 No icon collection or runtime dependency is added. The original names, dimensions,
 transforms and currentColor bodies are preserved.
 
 The governed local-demo user has only the `super` role. Pinned frontend authority
-filtering admits the ApprovalPlatform/ApprovalWorkbench route pair, whose icons
-are `lucide:workflow` and `lucide:inbox`. The visible shell uses `ep:fold` and
+filtering admits ApprovalPlatform, ApprovalWorkbench, ApprovalTaskCollaboration
+and ApprovalNotifications under the existing development-only demo flag. Their
+icons are `lucide:workflow`, `lucide:inbox`, `lucide:user-round-plus` and
+`lucide:bell-ring`. The visible shell uses `ep:fold` and
 `fluent-mdl2:world-clock`; `ep:expand` is its paired existing sidebar state.
-These five definitions are registered synchronously before the first bootstrap
+These seven definitions are registered synchronously before the first bootstrap
 await and before router installation or component mount. Other permissioned
 routes and custom icon/provider fallback behavior are unchanged.
 
-All four observed icons have SVG bodies and resolved geometry identical to the
-successful Iconify response resources retained in natural CI #1826. Expand is
+The original four observed icons have SVG bodies and resolved geometry identical
+to successful Iconify response resources retained in natural CI #1826. Expand is
 bound to pinned local data, not claimed to have appeared in that response set.
-This is source/asset provenance, not a native WebKit acceptance claim.
+The user-round-plus body and geometry also match the retained CI #1887 response.
+That response reports `bell-cog` as not found, consistent with its absence from
+the pinned collection. The notification route now uses the existing standard
+`bell-ring` definition from the same collection; its shape is pinned locally,
+not claimed to have appeared in that response. This is source/asset provenance,
+not a native WebKit acceptance claim.
 
 ## Pinned data provenance
 
@@ -32,7 +39,7 @@ Vben commit: `63a38dce49ba109f61607994e21ba921d8e970e9` (v5.7.0).
   Metadata source: https://github.com/microsoft/fluentui/tree/master/packages/react-icons-mdl2
   Metadata license URL: https://github.com/microsoft/fluentui/blob/master/packages/react-icons-mdl2/LICENSE
 
-- `lucide` (inbox, workflow): Lucide Contributors; metadata license ISC; `json/lucide.json` SHA-256 `f7b10c2ba65f53e8ae0700f1bab235b37ac61a464b6c97814d5e93d68f937e1f`.
+- `lucide` (bell-ring, inbox, user-round-plus, workflow): Lucide Contributors; metadata license ISC; `json/lucide.json` SHA-256 `f7b10c2ba65f53e8ae0700f1bab235b37ac61a464b6c97814d5e93d68f937e1f`.
   Metadata source: https://github.com/lucide-icons/lucide
   Metadata license URL: https://github.com/lucide-icons/lucide/blob/main/LICENSE
 

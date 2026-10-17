@@ -113,6 +113,58 @@ test('each new entrance movement invalidates earlier stable frames and settlemen
   await result;
 });
 
+test('settlement success reports bounded frame timing and fixed visibility without changing readiness', async () => {
+  const f = settlementFixture();
+  f.document.visibilityState = 'hidden';
+  const result = f.start(10_000);
+  f.animation.playState = 'running';
+  assert.equal(await f.frame(10, 16), undefined);
+  f.animation.playState = 'finished';
+  f.document.visibilityState = 'visible';
+  assert.equal(await f.frame(10, 1_000), undefined);
+  assert.equal(await f.frame(10, 16), undefined);
+  assert.equal(await f.frame(10, 16), 'passed');
+  const report = await result;
+  assert.equal(report.version, 1);
+  assert.equal(report.initialVisibility, 'hidden');
+  assert.equal(report.frameCount, 4);
+  assert.equal(report.elapsedMs, 1048);
+  assert.equal(report.maxFrameIntervalMs, 1000);
+  assert.deepEqual(JSON.parse(JSON.stringify(report.frames.map(frame => frame.visibility))), ['hidden', 'visible', 'visible', 'visible']);
+  assert.deepEqual(Object.keys(report).sort(), ['elapsedMs', 'frameCount', 'frames', 'initialVisibility', 'maxFrameIntervalMs', 'version']);
+  assert.deepEqual(Object.keys(report.frames[0]).sort(), ['elapsedMs', 'inViewport', 'intervalMs', 'otherActiveAnimations', 'pausedAnimations', 'pendingAnimations', 'runningAnimations', 'stableFrames', 'visibility', 'visible']);
+  assert.equal(report.frames[0].runningAnimations, 1);
+  assert.equal(report.frames.at(-1).stableFrames, 2);
+  assert.equal(f.frames.size + f.timers.size + f.listeners.size, 0);
+});
+test('settlement diagnostic ring retains only sixteen frames and preserves every active animation refusal', async () => {
+  const f = settlementFixture(), result = f.start(10_000);
+  f.document.visibilityState = 'not-a-browser-state';
+  f.animation.playState = 'running';
+  for (let i = 0; i < 20; i++) assert.equal(await f.frame(), undefined);
+  f.animation.playState = 'finished'; f.animation.pending = true;
+  assert.equal(await f.frame(), undefined);
+  f.animation.pending = false;
+  for (const state of ['idle', 'unknown', 'paused']) {
+    f.animation.playState = state;
+    assert.equal(await f.frame(), undefined);
+  }
+  f.animation.playState = 'finished';
+  assert.equal(await f.frame(), undefined);
+  assert.equal(await f.frame(), undefined);
+  assert.equal(await f.frame(), 'passed');
+  const report = await result;
+  assert.equal(report.frameCount, 27);
+  assert.equal(report.frames.length, 16);
+  assert.equal(report.initialVisibility, 'unknown');
+  assert.ok(report.frames.every(frame => frame.visibility === 'unknown'));
+  assert.equal(report.frames.filter(frame => frame.pendingAnimations === 1).length, 1);
+  assert.equal(report.frames.filter(frame => frame.otherActiveAnimations === 1).length, 2);
+  assert.equal(report.frames.filter(frame => frame.pausedAnimations === 1).length, 1);
+  assert.ok(JSON.stringify(report).length < 8000);
+  assert.equal(f.frames.size + f.timers.size + f.listeners.size, 0);
+});
+
 test('actual visible list and acknowledgment labels use their own computed font and nonempty distinct glyphs', () => {
   for (const [surface, label] of [['list', '待我处理 1'], ['acknowledged', '审批已同意']]) {
     const evidence = fixture({ label }).inspect(surface);
@@ -166,6 +218,7 @@ function browserFixture(options = {}) {
     async evaluate(fn, arg) {
       evaluations.push(fn.name);
       if (fn === inspectCjkSurface) return f.inspect(arg);
+      if (fn === settleCjkAcknowledgment) return options.settlementReport;
       await f.document.fonts.ready;
     } };
   return { ...f, calls, evaluations, page, detached: () => detached };
@@ -178,6 +231,17 @@ test('only the acknowledged capture settles its current toast before font inspec
   await assert.rejects(result.assertCurrent(), /SURFACE_CHANGED/);
   const list = browserFixture(); await collectCjkFontEvidence(list.page, 'list', captureBudget(1000));
   assert.equal(list.evaluations.includes('settleCjkAcknowledgment'), false);
+});
+test('the sole font collector ignores settlement diagnostics and keeps subsequent witness rejection exact', async () => {
+  const report = { version: 1, elapsedMs: 999, frames: [{ visibility: 'hidden' }] };
+  const f = browserFixture({ label: '审批已同意', fonts: [{ ...families[0], glyphCount: 5 }], settlementReport: report });
+  const result = await collectCjkFontEvidence(f.page, 'acknowledged', captureBudget(1000));
+  assert.equal(f.evaluations.filter(name => name === 'settleCjkAcknowledgment').length, 1);
+  assert.equal('settlementReport' in result.evidence, false);
+  assert.equal('frames' in result.evidence, false);
+  assert.equal(result.evidence.cjkGlyphsRendered, true);
+  f.bounds.y += 1;
+  await assert.rejects(result.assertCurrent(), /CJK_SURFACE_CHANGED/);
 });
 test('Chromium evidence resolves the exact inspected control and rechecks its witness around capture', async () => {
   const f = browserFixture(), result = await collectCjkFontEvidence(f.page, 'list', captureBudget(1000));

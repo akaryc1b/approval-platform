@@ -12,13 +12,16 @@ export default defineConfig(async () => {
     application: {},
     vite: {
       // The post-transform Element Plus plugin adds these style imports after
-      // Vite's raw SFC dependency scan. Declare the governed workbench graph
-      // before the first browser request, keeping normal discovery enabled.
+      // Vite's raw SFC dependency scan. Declare the governed workbench,
+      // notification and collaboration graph before the first browser request,
+      // keeping normal discovery enabled.
       optimizeDeps: {
         include: [
           'element-plus/es/components/alert/style/css',
+          'element-plus/es/components/badge/style/css',
           'element-plus/es/components/button/style/css',
           'element-plus/es/components/card/style/css',
+          'element-plus/es/components/checkbox/style/css',
           'element-plus/es/components/col/style/css',
           'element-plus/es/components/collapse/style/css',
           'element-plus/es/components/collapse-item/style/css',
@@ -39,9 +42,12 @@ export default defineConfig(async () => {
           'element-plus/es/components/select/style/css',
           'element-plus/es/components/skeleton/style/css',
           'element-plus/es/components/switch/style/css',
+          'element-plus/es/components/table/style/css',
           'element-plus/es/components/tab-pane/style/css',
+          'element-plus/es/components/table-column/style/css',
           'element-plus/es/components/tabs/style/css',
           'element-plus/es/components/tag/style/css',
+          'element-plus/es/components/time-select/style/css',
           'element-plus/es/components/timeline/style/css',
           'element-plus/es/components/timeline-item/style/css',
           'element-plus/es/components/upload/style/css',

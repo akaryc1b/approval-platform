@@ -9,7 +9,8 @@ import type {
   TaskCollaboration,
 } from '#/api/approval/task-collaboration';
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import {
@@ -44,6 +45,17 @@ import {
 } from '#/api/approval/task-collaboration';
 
 const currentOperatorId = getApprovalRuntimeConfig().operatorId;
+const route = useRoute();
+// Notification deep links are read-only and never select a task for management.
+const notificationSummary = ref<TaskCollaboration>();
+const notificationSummaryLoading = ref(false);
+const notificationSummaryError = ref('');
+const notificationTaskId = ref('');
+let notificationSummaryRequest = 0;
+const notificationParticipant = computed(() => notificationSummary.value?.participants.find(
+  participant => participant.participantUserId === currentOperatorId,
+));
+
 const loading = ref(false);
 const saving = ref(false);
 const pendingTasks = ref<PendingTaskItem[]>([]);
@@ -212,6 +224,34 @@ function onModeChanged() {
     : undefined;
 }
 
+async function loadNotificationSummary(value: unknown) {
+  const request = ++notificationSummaryRequest;
+  notificationSummary.value = undefined;
+  notificationSummaryError.value = '';
+  notificationSummaryLoading.value = false;
+  notificationTaskId.value = '';
+  if (value === undefined || value === null || value === '') return;
+  if (typeof value !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+    notificationSummaryError.value = '通知中的任务标识无效，请从协作列表查看。';
+    return;
+  }
+  notificationTaskId.value = value;
+  notificationSummaryLoading.value = true;
+  try {
+    const summary = await findTaskCollaboration(value);
+    if (request !== notificationSummaryRequest) return;
+    notificationSummary.value = summary;
+    if (!summary) notificationSummaryError.value = '协作事项不存在或当前账号无权查看。';
+  } catch {
+    if (request === notificationSummaryRequest) {
+      notificationSummaryError.value = '无法加载协作摘要，请稍后重试。';
+    }
+  } finally {
+    if (request === notificationSummaryRequest) notificationSummaryLoading.value = false;
+  }
+}
+
 async function loadData() {
   loading.value = true;
   try {
@@ -327,6 +367,7 @@ async function submitParticipants() {
       ElMessage.success('协作策略已创建');
     }
     await loadData();
+    if (notificationTaskId.value) await loadNotificationSummary(notificationTaskId.value);
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -360,6 +401,7 @@ async function removeParticipant(participant: CollaborationParticipant) {
     );
     ElMessage.success('已完成减签');
     await loadData();
+    if (notificationTaskId.value) await loadNotificationSummary(notificationTaskId.value);
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -390,6 +432,7 @@ async function decide(item: PendingCollaborationTask, decision: 'APPROVED' | 'RE
     await decideTaskCollaboration(item.participantId, decision, comment);
     ElMessage.success(decision === 'APPROVED' ? '已同意协作事项' : '已拒绝协作事项');
     await loadData();
+    if (notificationTaskId.value) await loadNotificationSummary(notificationTaskId.value);
   } catch (error) {
     ElMessage.error(errorMessage(error));
   } finally {
@@ -397,6 +440,8 @@ async function decide(item: PendingCollaborationTask, decision: 'APPROVED' | 'RE
   }
 }
 
+watch(() => route.query.taskId, loadNotificationSummary, { immediate: true });
+onUnmounted(() => { notificationSummaryRequest++; });
 onMounted(loadData);
 </script>
 
@@ -412,6 +457,32 @@ onMounted(loadData);
         title="协作进行中时原任务不能同意、转办或拿回；协作未达到要求后，原审批人只能驳回。"
         type="info"
       />
+
+      <ElCard
+        v-if="notificationSummaryLoading || notificationSummaryError || notificationSummary"
+        class="notification-summary"
+        shadow="never"
+      >
+        <template #header><strong>通知协作摘要（只读）</strong></template>
+        <ElSkeleton v-if="notificationSummaryLoading" :rows="3" animated />
+        <ElAlert v-else-if="notificationSummaryError" :title="notificationSummaryError" type="info" :closable="false" />
+        <ElDescriptions v-else-if="notificationSummary" :column="2" border>
+          <ElDescriptionsItem label="任务">{{ notificationSummary.taskName }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="协作状态">{{ policyStatusLabel(notificationSummary.status) }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="我的状态">
+            {{ notificationParticipant ? participantStatusLabel(notificationParticipant.status) : '当前账号不是协作参与人' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="规则">{{ modeLabel(notificationSummary.mode) }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="进度">
+            {{ notificationSummary.progress.approvedCount }} 同意 / {{ notificationSummary.progress.pendingCount }} 待处理
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="阈值">{{ thresholdLabel(notificationSummary) }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="原因">{{ notificationSummary.reason }}</ElDescriptionsItem>
+          <ElDescriptionsItem v-if="notificationSummary.terminalReason" label="结束原因">
+            {{ notificationSummary.terminalReason }}
+          </ElDescriptionsItem>
+        </ElDescriptions>
+      </ElCard>
 
       <ElCard shadow="never">
         <template #header>
