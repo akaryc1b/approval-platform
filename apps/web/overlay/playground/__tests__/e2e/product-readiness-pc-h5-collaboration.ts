@@ -267,8 +267,7 @@ async function clickNotification(
     // Existing pending DTO controls remain available, outside the read-only card.
     const pendingRow = page.locator(client === 'pc' ? '.el-table__row' : '.item-card').filter({ hasText: fixture.reason });
     for (const label of ['同意', '拒绝']) {
-      const button = client === 'pc' ? pendingRow.getByRole('button', { name: label, exact: true })
-        : pendingRow.locator('.wd-button').filter({ hasText: new RegExp(`^${label}$`, 'u') });
+      const button = pendingRow.getByRole('button', { name: label, exact: true });
       await expect(button).toBeVisible({ timeout: budget.remaining(15_000) });
       await expect(button).toBeEnabled({ timeout: budget.remaining(15_000) });
     }

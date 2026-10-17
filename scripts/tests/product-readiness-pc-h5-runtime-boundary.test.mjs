@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -515,4 +516,78 @@ test('collaboration fixture writes stay on the explicit synthetic-resource allow
   assert.match(helper, /instanceId = started\.instanceId/u);
   assert.match(helper, /taskId = started\.activeTasks\[0\]\.taskId/u);
   assert.match(helper, /policy\.participants\.filter\(item => item\.participantUserId === actorId\)/u);
+});
+
+
+test('collaboration pending actions use exact accessible names within the fixture row and retain visibility and enabled checks', async () => {
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-collaboration.ts');
+  const start = helper.indexOf('    const pendingRow =');
+  const end = helper.indexOf('\n  }\n}\n\nexport async function runCollaborationNotificationRegression', start);
+  assert.ok(start >= 0 && end > start);
+  const body = helper.slice(start, end);
+  const reason = 'Notification regression bounded-fixture';
+  // Trace-shaped locator doubles exercise the actual helper branch. This is a
+  // selection/assertion contract test, not a browser accessibility-tree replay.
+  for (const client of ['pc', 'h5']) {
+    for (const outcome of ['valid', 'wrong-name', 'other-row', 'disabled', 'hidden']) {
+      const controls = () => ['同意', '拒绝'].map(name => ({
+        role: 'button', name, text: ` ${name} `, visible: true, enabled: true,
+      }));
+      const target = { reason, controls: controls() };
+      const other = { reason: 'Unrelated fixture row', controls: controls() };
+      if (outcome === 'wrong-name') target.controls[0].name = '同意其他事项';
+      if (outcome === 'other-row') target.controls = [];
+      if (outcome === 'disabled') target.controls[0].enabled = false;
+      if (outcome === 'hidden') target.controls[0].visible = false;
+      const observed = [];
+      const page = {
+        locator(selector) {
+          assert.equal(selector, client === 'pc' ? '.el-table__row' : '.item-card');
+          return {
+            filter(options) {
+              assert.equal(options.hasText, reason);
+              const rows = [target, other].filter(row => row.reason.includes(options.hasText));
+              return {
+                getByRole(role, options) {
+                  assert.equal(role, 'button');
+                  assert.equal(options.exact, true);
+                  assert.ok(['同意', '拒绝'].includes(options.name));
+                  observed.push(`select:${options.name}`);
+                  return rows.flatMap(row => row.controls)
+                    .filter(control => control.role === role && control.name === options.name);
+                },
+              };
+            },
+          };
+        },
+      };
+      const expectation = controls => ({
+        async toBeVisible(options) {
+          assert.equal(options.timeout, 15_000);
+          assert.equal(controls.length, 1, 'expected one control within the fixture row');
+          assert.equal(controls[0].visible, true, 'control must be visible');
+          observed.push(`visible:${controls[0].name}`);
+        },
+        async toBeEnabled(options) {
+          assert.equal(options.timeout, 15_000);
+          assert.equal(controls.length, 1, 'expected one control within the fixture row');
+          assert.equal(controls[0].enabled, true, 'control must be enabled');
+          observed.push(`enabled:${controls[0].name}`);
+        },
+      });
+      const run = runInNewContext(`(async function () {${body}\n})`, {
+        page, client, fixture: { reason }, expect: expectation,
+        budget: { remaining(milliseconds) { assert.equal(milliseconds, 15_000); return milliseconds; } },
+      }, { timeout: 1000 });
+      if (outcome === 'valid') {
+        await run();
+        assert.deepEqual(observed, [
+          'select:同意', 'visible:同意', 'enabled:同意',
+          'select:拒绝', 'visible:拒绝', 'enabled:拒绝',
+        ]);
+      } else {
+        await assert.rejects(run, /expected one control|control must be visible|control must be enabled/u);
+      }
+    }
+  }
 });
