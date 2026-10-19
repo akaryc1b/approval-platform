@@ -66,6 +66,7 @@ async function triggerApproval(
   budget: CaptureBudget,
   acknowledged: (budget: CaptureBudget, assertCurrent: () => Promise<void>) => Promise<void>,
 ) {
+  await budget.run(() => page.bringToFront());
   await expect(confirmation).toBeVisible({ timeout: budget.remaining(5_000) });
   // Arm the exact positive feedback before the actual click. Capture it while
   // the drawer may be closing / H5 may still be on its old detail route.
