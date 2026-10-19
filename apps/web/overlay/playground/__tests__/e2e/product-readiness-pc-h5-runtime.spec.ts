@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
@@ -141,6 +142,10 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
 }, testInfo) => {
   const budget = testCaptureBudget(testInfo, captureStartedAt);
   const startedAt = new Date().toISOString();
+  const h5Viewport = (JSON.parse(readFileSync(resolve(
+    process.env.APPROVAL_DEMO_REPOSITORY_ROOT!, 'config/demo/browser-accessibility-matrix.json',
+  ), 'utf8')) as { viewports: { h5: { width: number; height: number } } }).viewports.h5;
+  expect(h5Viewport).toEqual({ width: 390, height: 844 });
   const context = await browser.newContext();
   const pc = await context.newPage();
   const h5Reviewer = await context.newPage();
@@ -183,6 +188,14 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
   let processInstanceId: string | undefined;
 
   try {
+    const pcViewport = pc.viewportSize();
+    await h5Reviewer.setViewportSize(h5Viewport);
+    await h5CountersignA.setViewportSize(h5Viewport);
+    await h5CountersignB.setViewportSize(h5Viewport);
+    expect(h5Reviewer.viewportSize()).toEqual(h5Viewport);
+    expect(h5CountersignA.viewportSize()).toEqual(h5Viewport);
+    expect(h5CountersignB.viewportSize()).toEqual(h5Viewport);
+    expect(pc.viewportSize()).toEqual(pcViewport);
     await ensurePcLogin(pc);
     const [pcPending] = await Promise.all([
       pendingResponse(pc, {

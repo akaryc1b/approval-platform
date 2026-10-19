@@ -96,10 +96,15 @@ test('H5 mobile surrogate completes the governed payment confirmation', async ({
 }, testInfo) => {
   const budget = testCaptureBudget(testInfo, captureStartedAt);
   const startedAt = new Date().toISOString();
-  const context = await browser.newContext();
+  const h5Viewport = (JSON.parse(readFileSync(resolve(
+    repositoryRoot, 'config/demo/browser-accessibility-matrix.json',
+  ), 'utf8')) as { viewports: { h5: { width: number; height: number } } }).viewports.h5;
+  expect(h5Viewport).toEqual({ width: 390, height: 844 });
+  const context = await browser.newContext({ viewport: h5Viewport });
   const page = await context.newPage();
   const failures = observeCaptureFailures(page);
   try {
+    expect(page.viewportSize()).toEqual(h5Viewport);
     const [pending] = await Promise.all([
       pendingResponse(page, {
         actorId: policy.actorId,
