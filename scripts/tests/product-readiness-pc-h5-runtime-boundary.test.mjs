@@ -591,3 +591,37 @@ test('collaboration pending actions use exact accessible names within the fixtur
     }
   }
 });
+
+test('core H5 approval pages use governed narrow viewports without resizing PC', () => {
+  const governed = JSON.parse(text('config/demo/browser-accessibility-matrix.json'));
+  assert.deepEqual(governed.viewports.h5, { width: 390, height: 844 });
+  const verify = (source) => {
+    const golden = source.split('// A fresh fixture runs after the seeded handoff')[0];
+    assert.match(golden, /readFileSync\(resolve\(\s*process\.env\.APPROVAL_DEMO_REPOSITORY_ROOT!, 'config\/demo\/browser-accessibility-matrix\.json'/u);
+    assert.match(golden, /\}\s*\)\.viewports\.h5;/u);
+    assert.match(golden, /expect\(h5Viewport\)\.toEqual\(\{ width: 390, height: 844 \}\);/u);
+    assert.equal((golden.match(/browser\.newContext\(\)/gu) || []).length, 1);
+    assert.equal((golden.match(/\.setViewportSize\(/gu) || []).length, 3);
+    assert.doesNotMatch(golden, /pc\.setViewportSize|context\.setViewportSize/u);
+    const start = golden.indexOf('  try {\n    const pcViewport = pc.viewportSize();');
+    const navigation = golden.indexOf('    await ensurePcLogin(pc);');
+    assert.ok(start >= 0 && navigation > start);
+    for (const page of ['h5Reviewer', 'h5CountersignA', 'h5CountersignB']) {
+      const setter = golden.indexOf(`await ${page}.setViewportSize(h5Viewport);`);
+      const actual = golden.indexOf(`expect(${page}.viewportSize()).toEqual(h5Viewport);`);
+      assert.ok(setter > start && actual > setter && actual < navigation, `${page} narrow setup precedes navigation`);
+    }
+    const pcCheck = golden.indexOf('expect(pc.viewportSize()).toEqual(pcViewport);');
+    assert.ok(pcCheck > start && pcCheck < navigation);
+  };
+  verify(playwrightSpec);
+  for (const [label, mutated] of [
+    ['wrong dimensions', playwrightSpec.replace('width: 390, height: 844', 'width: 1280, height: 720')],
+    ['missing config check', playwrightSpec.replace('expect(h5Viewport).toEqual({ width: 390, height: 844 });', '')],
+    ['missing finance page', playwrightSpec.replace('await h5CountersignB.setViewportSize(h5Viewport);', '')],
+    ['resized PC', playwrightSpec.replace('await h5Reviewer.setViewportSize(h5Viewport);', 'await pc.setViewportSize(h5Viewport);')],
+    ['late setup', playwrightSpec.replace('    await ensurePcLogin(pc);', '').replace('    const pcViewport = pc.viewportSize();', '    await ensurePcLogin(pc);\n    const pcViewport = pc.viewportSize();')],
+    ['missing actual assertion', playwrightSpec.replace('expect(h5Reviewer.viewportSize()).toEqual(h5Viewport);', '')],
+    ['missing PC preservation', playwrightSpec.replace('expect(pc.viewportSize()).toEqual(pcViewport);', '')],
+  ]) assert.throws(() => verify(mutated), undefined, label);
+});

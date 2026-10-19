@@ -195,3 +195,29 @@ test('package, CI scope and repository hygiene expose the new bounded E2E', () =
     /import '\.\/product-readiness-purchase-payment-e2e-boundary\.test\.mjs';/u,
   );
 });
+
+test('core H5 payment uses the governed narrow context before navigation', () => {
+  const governed = JSON.parse(text('config/demo/browser-accessibility-matrix.json'));
+  assert.deepEqual(governed.viewports.h5, { width: 390, height: 844 });
+  const verify = (source) => {
+    assert.match(source, /readFileSync\(resolve\(\s*repositoryRoot, 'config\/demo\/browser-accessibility-matrix\.json'/u);
+    assert.match(source, /\}\s*\)\.viewports\.h5;/u);
+    assert.match(source, /expect\(h5Viewport\)\.toEqual\(\{ width: 390, height: 844 \}\);/u);
+    assert.match(source, /const context = await browser\.newContext\(\{ viewport: h5Viewport \}\);/u);
+    assert.equal((source.match(/browser\.newContext\(/gu) || []).length, 1);
+    assert.doesNotMatch(source, /\.setViewportSize\(/u);
+    const start = source.indexOf('  try {');
+    const actual = source.indexOf('expect(page.viewportSize()).toEqual(h5Viewport);');
+    const navigation = source.indexOf('page.goto(h5SurrogateUrl()');
+    assert.ok(start >= 0 && actual > start && navigation > actual);
+  };
+  verify(paymentSpec);
+  for (const [label, mutated] of [
+    ['wrong dimensions', paymentSpec.replace('width: 390, height: 844', 'width: 1280, height: 720')],
+    ['missing config check', paymentSpec.replace('expect(h5Viewport).toEqual({ width: 390, height: 844 });', '')],
+    ['default context', paymentSpec.replace('browser.newContext({ viewport: h5Viewport })', 'browser.newContext()')],
+    ['wrong context viewport', paymentSpec.replace('viewport: h5Viewport', 'viewport: { width: 1280, height: 720 }')],
+    ['missing actual assertion', paymentSpec.replace('expect(page.viewportSize()).toEqual(h5Viewport);', '')],
+    ['late assertion', paymentSpec.replace('    expect(page.viewportSize()).toEqual(h5Viewport);', '').replace('    const beforeBudget =', '    expect(page.viewportSize()).toEqual(h5Viewport);\n    const beforeBudget =')],
+  ]) assert.throws(() => verify(mutated), undefined, label);
+});
