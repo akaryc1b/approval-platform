@@ -493,28 +493,217 @@ await test('test and outer stage time already spent is never reset at capture se
 const ui = readFileSync(resolve(import.meta.dirname, '../../apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-ui.ts'), 'utf8');
 const triggerSource = ui.slice(ui.indexOf('async function triggerApproval('), ui.indexOf('export async function ensurePcLogin'));
 async function flush() { for (let turn = 0; turn < 20; turn++) await Promise.resolve(); }
-function acknowledgment({ stale = false, deferVisibility = false } = {}) {
+function acknowledgment({ stale = false, deferVisibility = false, budget = captureBudget(100, () => 0), activate = async () => {}, acknowledge = async () => {} } = {}) {
   let visible = stale;
   let captures = 0;
   let reads = 0;
+  const events = [];
+  const timeouts = [];
+  const activationReceivers = [];
+  const acknowledgmentBudgets = [];
   const appeared = Promise.withResolvers();
   const response = Promise.withResolvers();
   const click = Promise.withResolvers();
   const visibility = Promise.withResolvers();
   response.promise.catch(() => {});
-  const success = { isVisible: async () => ++reads > 1 && deferVisibility ? visibility.promise : visible };
-  const confirmation = { click: () => { visible = true; appeared.resolve(); return click.promise; } };
-  const page = { locator: () => ({ getByText: () => success }), waitForResponse: () => response.promise };
-  const expect = node => ({ toBeVisible: () => node === confirmation || visible ? Promise.resolve() : appeared.promise });
+  click.promise.catch(() => {});
+  const success = { isVisible: async () => {
+    events.push(++reads === 1 ? 'stale-toast-check' : 'current-toast-check');
+    return reads > 1 && deferVisibility ? visibility.promise : visible;
+  } };
+  const confirmation = { click: ({ timeout }) => {
+    events.push('click'); timeouts.push(['click', timeout]);
+    visible = true; appeared.resolve(); return click.promise;
+  } };
+  const page = {
+    bringToFront() { activationReceivers.push(this); events.push('activate'); return activate(); },
+    locator: () => { events.push('success-locator'); return { getByText: () => success }; },
+    waitForResponse: (_predicate, { timeout }) => {
+      events.push('observe-response'); timeouts.push(['response', timeout]); return response.promise;
+    },
+  };
+  const expect = node => ({ toBeVisible: ({ timeout }) => {
+    const stage = node === confirmation ? 'confirmation-visible' : 'arm-acknowledgment';
+    events.push(stage); timeouts.push([stage, timeout]);
+    return node === confirmation || visible ? Promise.resolve() : appeared.promise;
+  } });
   const trigger = runInNewContext(`${stripTypeScriptTypes(triggerSource)}\ntriggerApproval`, { expect, exactApprovalResponse: async () => true });
-  const pending = trigger(page, confirmation, {}, { remaining: () => 100, run: fn => fn(100) }, async () => { captures++; });
+  const pending = trigger(page, confirmation, {}, budget, async (owner, assertCurrent) => {
+    captures++; events.push('acknowledged'); acknowledgmentBudgets.push(owner);
+    await acknowledge(owner, assertCurrent);
+  });
   pending.catch(() => {});
-  return { pending, response, click, visibility, captures: () => captures, reads: () => reads };
+  return { pending, response, click, visibility, page, budget, events, timeouts, activationReceivers, acknowledgmentBudgets, captures: () => captures, reads: () => reads };
 }
 await test('an earlier identical toast cannot acknowledge a new action', async () => {
   const action = acknowledgment({ stale: true });
   await assert.rejects(action.pending, /prior approval acknowledgment/u);
   assert.equal(action.captures(), 0);
+});
+
+await test('deferred target-page activation blocks every later approval effect', async () => {
+  const activation = Promise.withResolvers();
+  const action = acknowledgment({ activate: () => activation.promise });
+  await flush();
+  assert.deepEqual(action.events, ['activate']);
+  assert.deepEqual(action.activationReceivers, [action.page]);
+  assert.equal(action.reads(), 0);
+  assert.equal(action.captures(), 0);
+  assert.deepEqual(action.timeouts, []);
+  activation.resolve();
+  await flush();
+  assert.deepEqual(action.events, ['activate', 'confirmation-visible', 'success-locator', 'stale-toast-check', 'arm-acknowledgment', 'observe-response', 'click', 'current-toast-check', 'acknowledged']);
+  const result = { status: 'approved' };
+  action.response.resolve(result);
+  action.click.resolve();
+  assert.equal(await action.pending, result);
+  assert.deepEqual(action.activationReceivers, [action.page]);
+  assert.equal(action.events.filter(event => event === 'click').length, 1);
+  assert.equal(action.captures(), 1);
+  assert.deepEqual(action.acknowledgmentBudgets, [action.budget]);
+});
+
+await test('immediate acknowledgment runs once while the approval response is still pending', async () => {
+  const action = acknowledgment();
+  let completed = false;
+  action.pending.then(() => { completed = true; });
+  action.click.resolve();
+  await flush();
+  assert.equal(action.captures(), 1);
+  assert.equal(completed, false);
+  assert.deepEqual(action.activationReceivers, [action.page]);
+  assert.deepEqual(action.acknowledgmentBudgets, [action.budget]);
+  action.response.resolve('matching response');
+  assert.equal(await action.pending, 'matching response');
+  assert.equal(action.events.filter(event => event === 'click').length, 1);
+  assert.equal(action.captures(), 1);
+});
+
+await test('activation rejection propagates its original error without starting the action', async () => {
+  const failure = new Error('activation failed');
+  const action = acknowledgment({ activate: async () => { throw failure; } });
+  await assert.rejects(action.pending, error => error === failure);
+  assert.deepEqual(action.events, ['activate']);
+  assert.deepEqual(action.activationReceivers, [action.page]);
+  assert.equal(action.captures(), 0);
+});
+
+await test('a budget expired before activation does not invoke the supplied page', async () => {
+  let time = 0;
+  const budget = captureBudget(10, () => time);
+  time = 10;
+  const action = acknowledgment({ budget });
+  await assert.rejects(action.pending, /expired/u);
+  assert.deepEqual(action.events, []);
+  assert.deepEqual(action.activationReceivers, []);
+  assert.equal(action.captures(), 0);
+});
+
+for (const completion of [10, 11]) {
+  await test(`activation resolving at ${completion} cannot proceed past the absolute deadline`, async () => {
+    let time = 0;
+    const budget = captureBudget(10, () => time);
+    const action = acknowledgment({ budget, activate: async () => { time = completion; } });
+    await assert.rejects(action.pending, /deadline|expired/u);
+    assert.deepEqual(action.events, ['activate']);
+    assert.deepEqual(action.activationReceivers, [action.page]);
+    assert.equal(action.captures(), 0);
+  });
+}
+
+await test('time spent activating the page reduces all subsequent approval timeouts', async () => {
+  let time = 0;
+  const budget = captureBudget(100, () => time);
+  const activation = Promise.withResolvers();
+  const action = acknowledgment({ budget, activate: () => activation.promise });
+  await flush();
+  time = 60;
+  activation.resolve();
+  await flush();
+  assert.deepEqual(action.timeouts, [['confirmation-visible', 40], ['arm-acknowledgment', 40], ['response', 40], ['click', 40]]);
+  assert.deepEqual(action.acknowledgmentBudgets, [budget]);
+  assert.equal(budget.remaining(), 40);
+  action.response.resolve();
+  action.click.resolve();
+  await action.pending;
+});
+
+await test('timed-out activation cannot resume approval when its promise later resolves', async () => {
+  const nativeSetTimeout = globalThis.setTimeout;
+  const nativeClearTimeout = globalThis.clearTimeout;
+  const timers = new Map();
+  let id = 0;
+  let time = 0;
+  globalThis.setTimeout = callback => { timers.set(++id, callback); return id; };
+  globalThis.clearTimeout = handle => timers.delete(handle);
+  try {
+    const activation = Promise.withResolvers();
+    const action = acknowledgment({ budget: captureBudget(10, () => time), activate: () => activation.promise });
+    await flush();
+    assert.equal(timers.size, 1);
+    time = 11;
+    for (const callback of [...timers.values()]) callback();
+    await assert.rejects(action.pending, /deadline|expired/u);
+    assert.equal(timers.size, 0);
+    activation.resolve();
+    await flush();
+    assert.deepEqual(action.events, ['activate']);
+    assert.deepEqual(action.activationReceivers, [action.page]);
+    assert.equal(action.captures(), 0);
+  } finally {
+    globalThis.setTimeout = nativeSetTimeout;
+    globalThis.clearTimeout = nativeClearTimeout;
+  }
+});
+
+await test('a later click failure cancels deferred acknowledgment without retrying the action', async () => {
+  const failure = new Error('click failed');
+  const action = acknowledgment({ deferVisibility: true });
+  await flush();
+  assert.ok(action.reads() > 1);
+  action.click.reject(failure);
+  await assert.rejects(action.pending, error => error === failure);
+  action.visibility.resolve(true);
+  action.response.resolve();
+  await flush();
+  assert.deepEqual(action.activationReceivers, [action.page]);
+  assert.equal(action.events.filter(event => event === 'click').length, 1);
+  assert.equal(action.captures(), 0);
+});
+
+await test('acknowledgment callback failure propagates without repeating activation or action', async () => {
+  const failure = new Error('acknowledgment failed');
+  const action = acknowledgment({ acknowledge: async () => { throw failure; } });
+  await assert.rejects(action.pending, error => error === failure);
+  action.response.resolve();
+  action.click.resolve();
+  await flush();
+  assert.deepEqual(action.activationReceivers, [action.page]);
+  assert.equal(action.events.filter(event => event === 'click').length, 1);
+  assert.equal(action.captures(), 1);
+});
+
+await test('acknowledged screenshot failure propagates without publishing or retrying the action', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'approval-capture-failure-'));
+  const target = join(directory, 'result.png');
+  const failure = new Error('screenshot failed');
+  let screenshots = 0;
+  try {
+    const action = acknowledgment({ acknowledge: (budget, assertCurrent) => captureScreenshot({ screenshot: async () => {
+      screenshots++; throw failure;
+    } }, budget, target, { assertCurrent }) });
+    await assert.rejects(action.pending, error => error === failure);
+    action.response.resolve();
+    action.click.resolve();
+    await flush();
+    assert.deepEqual(action.activationReceivers, [action.page]);
+    assert.equal(action.events.filter(event => event === 'click').length, 1);
+    assert.equal(action.captures(), 1);
+    assert.equal(screenshots, 1);
+    assert.deepEqual(readdirSync(directory), []);
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
 });
 await test('failed action cancels acknowledgment while its visibility check is deferred', async () => {
   const action = acknowledgment({ deferVisibility: true });
