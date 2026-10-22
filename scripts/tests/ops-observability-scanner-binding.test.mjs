@@ -169,9 +169,10 @@ test('a failed scanner cannot reach downstream review even with a well-formed ou
   assert.ok(r.error); assert.notEqual(r.error, r.downstream); assert.equal(r.calls, 1);
 });
 
-test('the current callback binds Resources/Flatten before its first downstream read without claiming scanner results', () => {
+test('the current callback rejects a partial Resources/Flatten inventory before its first downstream read', () => {
   const r = assertScannerBinding(() => {}, 0, 'resources-flatten');
-  assert.equal(r.error, r.downstream); assert.equal(r.calls, 2);
+  assert.match(String(r.error), /requires the exact Resources\/Flatten graph and all 554 observations/);
+  assert.equal(r.calls, 1);
   const { e4 } = lineageFixture('resources-flatten');
   assert.equal(e4.e2GraphDigest, RESOURCES_FLATTEN_GRAPH);
   assert.deepEqual(e4.e2GraphTransition.preservedLangLineage, readResourcesFlattenAcceptedLineage());
@@ -200,11 +201,13 @@ for (const [name, alter] of [
   const r = assertScannerBinding(alter, 0, 'resources-flatten');
   assert.ok(r.error); assert.notEqual(r.error, r.downstream); assert.equal(r.calls, 1);
   assert.notEqual(r.error.name, 'ReferenceError'); assert.notEqual(r.error.name, 'SyntaxError');
+  assert.doesNotMatch(String(r.error), /requires the exact Resources\/Flatten graph and all 554 observations/,
+    'inventory rejection must not hide a failed upstream mutation check');
   assert.deepEqual(r.logs, [r.stdout]);
 });
-for (const count of [194, 374]) test(`Resources/Flatten cannot inherit the historical ${count}-finding inventory`, () => {
+for (const count of [28, 29, 32, 70, 194, 374, 553, 555]) test(`Resources/Flatten rejects the unsupported ${count}-finding inventory`, () => {
   const r = assertScannerBinding(e => { e.scanners.gitleaks.findingCount = count; }, 0, 'resources-flatten');
-  assert.match(String(r.error), /current execution-digest inventory requires the reviewed JAR graph and all 194 observations/);
+  assert.match(String(r.error), /requires the exact Resources\/Flatten graph and all 554 observations/);
   assert.equal(r.calls, 1); assert.deepEqual(r.logs, [r.stdout]);
 });
 test('a failed current Resources/Flatten scanner cannot reach downstream review', () => {

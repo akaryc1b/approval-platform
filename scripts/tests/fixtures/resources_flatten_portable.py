@@ -97,7 +97,10 @@ def existing_pins(repository, pins):
                         and path.resolve().is_relative_to(repository), 'escaped/non-regular pinned cache file')
         if pom.exists():
             require(0 < pom.stat().st_size <= 4 * 1024 * 1024, 'bounded nonempty artifact POM required')
-            require(ET.parse(pom).getroot().tag == P + 'project', 'artifact POM must be XML project')
+            # Maven also accepts legacy unqualified POMs (e.g. javax.inject:1).
+            # Match the two exact roots, never a local-name/namespace wildcard.
+            require(ET.parse(pom).getroot().tag in (P + 'project', 'project'),
+                    'artifact POM must be XML project in the Maven or empty namespace: ' + coordinate)
         if jar.exists():
             require(digest(jar) == expected, 'pre-existing pinned artifact changed: ' + coordinate)
             if pom.exists():

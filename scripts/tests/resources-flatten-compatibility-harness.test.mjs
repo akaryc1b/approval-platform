@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { decodeProtocol, liveInvocation, maximumReceiptBytes, portableMarker, readReceipt, resultMarker,
-  retainReceipts, validateReceipt } from './fixtures/resources-flatten-live-support.mjs';
+  retainReceipts, validateClassLoadCorroboration, validateReceipt } from './fixtures/resources-flatten-live-support.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const fixture = fileURLToPath(new URL('./fixtures/resources_flatten_compatibility.py', import.meta.url));
@@ -251,6 +251,83 @@ function runLiveSpawnMockChecks() {
 test('receipt pointers retain complete failures and reject stale, ambiguous or escaped records', runPointerMutationChecks);
 test('complete protocol compression rejects hash, count and decompression bound mutations', runCompressionMutationChecks);
 test('natural CI selects the exact hosted command while ordinary local imports remain inert', runLiveSpawnMockChecks);
+test('independent JVM class logs bind exact classes and local paths across file URI serialization', () => {
+  const observed = { naturalDefinitions: [{ class: 'mock/Natural', path: '/cache/natural.jar' }],
+    explicitDefinitions: [{ class: 'mock/Explicit', path: '/cache/explicit.jar' }] };
+  const prefix = '[0.169s][info][class,load] ';
+  const line = (name, uri) => `${prefix}${name} source: ${uri}\n`;
+  const natural = line('mock.Natural', 'file:/cache/natural.jar');
+  const explicit = line('mock.Explicit', 'file:/cache/explicit.jar');
+  for (const slash of ['/', '///']) validateClassLoadCorroboration(Buffer.from(
+    line('mock.Natural', `file:${slash}cache/natural.jar`) + line('mock.Explicit', `file:${slash}cache/explicit.jar`)), observed);
+  for (const uri of ['file:/cache/wrong.jar', 'file://foreign/cache/explicit.jar',
+    'file:/cache/explicit.jar?query', 'file:/cache/explicit.jar#fragment', 'https://host/cache/explicit.jar',
+    'file:/cache%2Fexplicit.jar', 'file:/cache/explicit.jar%00', 'file:/cache/explicit.jar%20'])
+    assert.throws(() => validateClassLoadCorroboration(Buffer.from(natural + line('mock.Explicit', uri)), observed));
+  for (const log of [natural, explicit, natural + line('mock.Wrong', 'file:/cache/explicit.jar'),
+    natural + explicit.replace('[info]', '[debug]'), natural + explicit.replace('[class,load]', '[class,unload]')])
+    assert.throws(() => validateClassLoadCorroboration(Buffer.from(log), observed));
+});
+test('pinned cache accepts the actual legacy javax.inject POM but rejects foreign roots and unsafe files', () => {
+  python(String.raw`
+import hashlib,tempfile,xml.etree.ElementTree as ET
+p=runpy.run_path(str(here/'resources_flatten_portable.py'))
+# Exact 612-byte Central javax/inject/javax.inject/1/javax.inject-1.pom.
+# Its SHA-256 is also present in the failed hosted run's retained cache receipts.
+legacy=b'''<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>javax.inject</groupId>
+  <artifactId>javax.inject</artifactId>
+  <packaging>jar</packaging>
+  <name>javax.inject</name>
+  <version>1</version>
+  <description>The javax.inject API</description>
+  <url>http://code.google.com/p/atinject/</url>
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <scm>
+    <url>http://code.google.com/p/atinject/source/checkout</url>
+  </scm>
+</project>
+'''
+assert len(legacy)==612 and hashlib.sha256(legacy).hexdigest()=='943e12b100627804638fa285805a0ab788a680266531e650921ebfe4621a8bfa'
+def rejected(fn):
+ try:fn()
+ except (ValueError,ET.ParseError):return
+ raise AssertionError('unsafe cached POM accepted')
+with tempfile.TemporaryDirectory(prefix='rf-pom-cache-') as temp:
+ repository=Path(temp).resolve()/'repository';repository.mkdir()
+ coordinates=['javax.inject:javax.inject:jar:1']+[f'mock.group:artifact-{i}:jar:1' for i in range(12)]
+ jar=p['artifact_path'](repository,coordinates[0]);jar.parent.mkdir(parents=True)
+ jar_bytes=b'MOCK JAR for pure cache boundary tests';jar.write_bytes(jar_bytes);pom=jar.with_suffix('.pom')
+ pins={'artifactHashes':{c:hashlib.sha256(jar_bytes).hexdigest() for c in coordinates},'owners':{'resources':{},'flatten':{}}}
+ def check():return p['existing_pins'](repository,pins)
+ for data in (legacy,b'<project xmlns="http://maven.apache.org/POM/4.0.0"/>',
+              b'<?xml version="1.0"?><!-- before root --><project/>',
+              b'\xef\xbb\xbf<project/>',b'<m:project xmlns:m="http://maven.apache.org/POM/4.0.0"/>'):
+  pom.write_bytes(data);assert check()=={coordinates[0]}
+ for data in (b'',b'not XML',b'<project>',b'<html><project/></html>',b'<projectExtra/>',
+              b'<project xmlns="urn:foreign"/>',b'<x:project xmlns:x="urn:foreign"/>',
+              b'<project xmlns="http://maven.apache.org/POM/4.0.0/"/>',b' '*(4*1024*1024+1)):
+  pom.write_bytes(data);rejected(check)
+ pom.write_bytes(legacy);jar.write_bytes(b'changed JAR');rejected(check);jar.write_bytes(jar_bytes)
+ pom.unlink();assert check()==set() # A valid JAR alone remains incomplete.
+ pom.write_bytes(b'<project xmlns="urn:foreign"/>');jar.unlink();rejected(check)
+ pom.write_bytes(legacy);assert check()==set() # A valid POM alone remains incomplete.
+ jar.write_bytes(jar_bytes);pom.unlink();pom.mkdir();rejected(check);pom.rmdir()
+ outside=Path(temp)/'outside.pom';outside.write_bytes(legacy)
+ pom.symlink_to(outside);rejected(check);pom.unlink()
+ pom.symlink_to(Path(temp)/'absent.pom');rejected(check);pom.unlink()
+ # Even a regular POM reached through a symlinked coordinate directory is rejected.
+ parent=jar.parent;relocated=Path(temp)/'relocated';parent.rename(relocated);parent.symlink_to(relocated,target_is_directory=True)
+ (relocated/pom.name).write_bytes(legacy);rejected(check)
+`);
+});
 test('portable Central preparation uses bounded mocks and preserves first failure receipts', () => {
   python(String.raw`
 """Unexecuted private review tests. Every command/runtime operation is a mock.
@@ -289,7 +366,7 @@ def run_checks(wrapper_path):
             raise AssertionError('local preparation was admitted')
         except ValueError:
             pass
-        for mode in ('complete-cache', 'missing-pom', 'bad-jar', 'bad-pom-without-jar',
+        for mode in ('complete-cache', 'complete-cache-unqualified', 'missing-pom', 'bad-jar', 'bad-pom-without-jar', 'foreign-pom',
                      'failed-preparation', 'missing-pom-after-prep', 'cache-mutation', 'runtime-mutation',
                      'source-mutation', 'harness-mutation', 'adapter-mutation', 'seal-mutation',
                      'goal-failure', 'partial-output', 'command-timeout', 'cleanup-failure', 'cleanup-report-failure'):
@@ -317,7 +394,10 @@ def run_checks(wrapper_path):
                     'flatten': {'baseline': coordinates[10:], 'candidate': coordinates[10:]}}}
                 pins_file = root / 'candidate/pins.json'; pins_file.write_text(json.dumps(pins))
                 first_jar = module['artifact_path'](repository, coordinates[0])
-                if mode not in ('complete-cache', 'seal-mutation', 'goal-failure', 'partial-output', 'cleanup-failure', 'cleanup-report-failure'):
+                if mode == 'complete-cache-unqualified':
+                    first_jar.with_suffix('.pom').write_bytes(b'<project><modelVersion>4.0.0</modelVersion></project>')
+                if mode == 'foreign-pom': first_jar.with_suffix('.pom').write_bytes(b'<project xmlns="urn:foreign"/>')
+                if mode not in ('complete-cache', 'complete-cache-unqualified', 'foreign-pom', 'seal-mutation', 'goal-failure', 'partial-output', 'cleanup-failure', 'cleanup-report-failure'):
                     first_jar.with_suffix('.pom').unlink()
                 if mode == 'bad-jar': first_jar.write_bytes(b'corrupt old JAR')
                 if mode == 'bad-pom-without-jar':
@@ -395,10 +475,11 @@ def run_checks(wrapper_path):
                     except BaseException as caught: error = caught
                 receipt = json.loads((root / 'scratch/portable-result.json').read_text())
                 assert capture.getvalue().count('RESOURCES_FLATTEN_PORTABLE_RESULT ') == 1
-                assert receipt['status'] == ('PASSED' if mode in ('complete-cache', 'missing-pom') else 'FAILED'), (mode, error)
-                assert (error is None) == (mode in ('complete-cache', 'missing-pom'))
-                if mode in ('bad-jar', 'bad-pom-without-jar'): assert not calls and not goals
-                if mode == 'complete-cache': assert not calls and len(goals) == 1
+                assert receipt['status'] == ('PASSED' if mode in ('complete-cache', 'complete-cache-unqualified', 'missing-pom') else 'FAILED'), (mode, error)
+                assert (error is None) == (mode in ('complete-cache', 'complete-cache-unqualified', 'missing-pom'))
+                if mode in ('bad-jar', 'bad-pom-without-jar', 'foreign-pom'): assert not calls and not goals
+                if mode == 'foreign-pom': assert coordinates[0] in receipt['error']
+                if mode in ('complete-cache', 'complete-cache-unqualified'): assert not calls and len(goals) == 1
                 if mode == 'missing-pom': assert len(calls) == len(goals) == 1
                 if mode in ('cleanup-failure', 'cleanup-report-failure'): assert receipt['cleanupComplete'] is False and 'cleanupError' in receipt
                 assert len(calls) <= 2; results[mode] = {'mockCommandCount': len(calls), 'status': receipt['status']}
@@ -407,7 +488,7 @@ def run_checks(wrapper_path):
         glob.update(saved)
 
 value=run_checks(here/'resources_flatten_portable.py')
-assert value['status']=='PURE_MOCK_ONLY_NOT_EXECUTION_EVIDENCE' and len(value['cases'])==17
+assert value['status']=='PURE_MOCK_ONLY_NOT_EXECUTION_EVIDENCE' and len(value['cases'])==19
 `);
 });
 

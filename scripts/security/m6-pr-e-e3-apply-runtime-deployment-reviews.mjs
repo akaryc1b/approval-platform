@@ -50,7 +50,7 @@ export function applyRuntimeDeploymentReviews(triage,e4,review,remediation=null,
     ? requireServerDependencyRemediation(e4,serverRemediation,{expectedCommitSha:triage.commitSha}):null;
   if(serverDependencyRemediation)requireServerDependencyHistoricalReview(review);
 
-  if(([32,70,194,374].includes(e4.scanners?.gitleaks?.findingCount)||triage.gitleaksCaptureHashReview)
+  if(([32,70,194,374,554].includes(e4.scanners?.gitleaks?.findingCount)||triage.gitleaksCaptureHashReview)
     &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview||!triage.gitleaksCaptureHashReview))throw new Error('capture hash review requires all three source review receipts');
   if((e4.scanners?.gitleaks?.findingCount===29||triage.gitleaksPublicCommitReview)
     &&(!triage.gitleaksTestExpressionReview||!triage.gitleaksPublicCommitReview))throw new Error('public commit review requires both source review receipts');

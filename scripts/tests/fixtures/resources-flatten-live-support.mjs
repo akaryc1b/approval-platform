@@ -164,6 +164,18 @@ function fileUri(value) {
   assert.equal(url.search, ''); assert.equal(url.hash, ''); return canonical(fileURLToPath(url));
 }
 
+export function validateClassLoadCorroboration(classLog, observed) {
+  const definitions = new Set(classLog.toString('utf8').split('\n').flatMap(line => {
+    const match = line.match(/^\[\d+(?:\.\d+)?s\]\[info\]\[class,load\] (\S+) source: (file:\S+)$/);
+    // HotSpot emits file:/path, while WHATWG URL.href uses file:///path.
+    // Compare exact classes and validated local paths, not URI serialization.
+    return match ? [`${match[1]} source: ${fileUri(match[2])}`] : [];
+  }));
+  for (const definition of [...observed.naturalDefinitions, ...observed.explicitDefinitions])
+    assert.ok(definitions.has(`${definition.class.replaceAll('/', '.')} source: ${canonical(definition.path)}`),
+      'independent class-load corroboration');
+}
+
 export function validateProtocol(observed, inventory, variant, name, pins, config) {
   const rows = decodeProtocol(observed.protocol), terms = expectedTerminals(name);
   const owner = name.startsWith('resources-') ? 'resources' : 'flatten';
@@ -495,11 +507,7 @@ export function validateReceipt(receipt, pins, io = defaultIO) {
       const log = command.classLoadCorroborationLog; assert.equal(log.path, `${config.output}/class-load/${label}.log`);
       assert.ok(Number.isSafeInteger(log.bytes) && log.bytes > 0 && log.bytes <= 6 * 1024 * 1024); sha256(log.sha256);
       const classLog = io.read(log.path, 6 * 1024 * 1024); assert.equal(classLog.length, log.bytes); assert.equal(hash(classLog), log.sha256); classBytes += log.bytes;
-      const definitions = new Set(classLog.toString('utf8').split('\n').flatMap(line => {
-        const match = line.match(/^\[\d+(?:\.\d+)?s\]\[info\]\[class,load\] (.+)$/); return match ? [match[1]] : [];
-      }));
-      for (const definition of [...observed.naturalDefinitions, ...observed.explicitDefinitions])
-        assert.ok(definitions.has(`${definition.class.replaceAll('/', '.')} source: ${new URL('file://' + definition.path).href}`), 'independent class-load corroboration');
+      validateClassLoadCorroboration(classLog, observed);
       for (const [index, state] of observed.states.entries()) {
         const term = expectedTerminals(name)[index], directory = term[4] === '.' ? work : `${work}/${term[4]}`;
         assert.equal(state.before.project.projectBasedir, directory); assert.equal(state.after.project.projectBasedir, directory);

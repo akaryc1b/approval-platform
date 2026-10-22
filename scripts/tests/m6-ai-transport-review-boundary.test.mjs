@@ -76,6 +76,7 @@ import './resources-flatten-compatibility-harness.test.mjs';
 import './resources-flatten-live-compatibility.test.mjs';
 import './resources-flatten-graph-transition.test.mjs';
 import './m6-pr-e-e3-gitleaks-lang-digest-review.test.mjs';
+import './m6-pr-e-e3-gitleaks-resources-flatten-digest-review.test.mjs';
 import './assembly-plexus-graph-transition.test.mjs';
 import './assembly-plexus-compatibility-harness.test.mjs';
 import './assembly-plexus-plugin-live-compatibility.test.mjs';
