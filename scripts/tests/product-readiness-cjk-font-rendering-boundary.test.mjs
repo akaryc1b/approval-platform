@@ -51,7 +51,7 @@ test('application font overrides load after upstream Vben and Element Plus style
 });
 
 test('Quick Start prepares a bounded Linux CJK runtime without a font binary or CDN', () => {
-  assert.match(launcher, /ensureCjkFontRuntime\(\)/u);
+  assert.match(launcher, /ensureCjkFontRuntime\(\{ observe: observeFontPhase \}\)/u);
   assert.match(fontRuntime, /fc-list/u);
   assert.match(fontRuntime, /fonts-noto-cjk/u);
   assert.match(fontRuntime, /process\.env\.GITHUB_ACTIONS === 'true'/u);
