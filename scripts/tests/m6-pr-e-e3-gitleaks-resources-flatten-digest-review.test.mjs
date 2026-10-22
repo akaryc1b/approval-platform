@@ -218,9 +218,9 @@ const readFileSync = (path, ...options) => {
   assert.deepEqual(isolated.requireGitleaksCaptureHashReviewReceipt(e4, receipt), receipt);
 });
 
-// Modeled scanner transport only: the current CI callback and every downstream
+// Modeled scanner transport only: the accepted main89b callback and every downstream
 // receipt verifier are real, while no scanner execution is claimed by this test.
-test('current Resources/Flatten callback preserves all 554 observations through I4 with exact V7 proof', () => {
+test('accepted Resources/Flatten callback preserves all 554 observations through I4 with exact V7 proof', () => {
   const model = modeledResourcesFlattenDigestFixture('current Resources/Flatten callback', { mergeHead: true });
   const result = runSyntheticCiCallback({ currentResourcesFlattenGraph: true, publicCommitFixture: model });
   assert.equal(result.error, undefined);
