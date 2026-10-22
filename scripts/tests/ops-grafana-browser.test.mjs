@@ -286,3 +286,70 @@ test('the actual M4 entry provisions once before all runtime bodies and fails cl
     assert.equal(existsSync(bodies) ? readFileSync(bodies).length : 0, mode === 'failed' ? 0 : 16);
   }
 });
+
+test('font failures retain the actual bounded installer phase and status without native output', async t => {
+  const directory = context(t), file = resolve(directory, 'observed-font-helper.mjs');
+  const source = readFileSync(resolve(root, 'scripts/product-readiness/quick-start/cjk-fonts.mjs'), 'utf8');
+  for (const [phase, failAt, result] of [
+    ['probe-before',1,{status:100}], ['package-index',2,{status:100}],
+    ['package-install',3,{status:null,signal:'SIGTERM',error:{code:'ETIMEDOUT',message:'PRIVATE native timeout'}}],
+    ['font-cache',4,{status:null,signal:'PRIVATE signal',error:{code:'PRIVATE error',message:'PRIVATE detail'}}],
+    ['probe-after',5,{status:100}],
+  ]) {
+    const fake = `let calls=0;function spawnSync(command,args,options){
+      calls++;
+      if(options.timeout!==[10000,180000,240000,120000,10000][calls-1]) throw Error('changed phase budget');
+      process.stderr.write('PRIVATE native output /private/path credential=value\\n');
+      return calls===${failAt} ? {...${JSON.stringify(result)},stdout:'PRIVATE stdout',stderr:'PRIVATE stderr'} : {status:0,stdout:''};
+    }`;
+    writeFileSync(file, source.replace("import { spawnSync } from 'node:child_process';", fake));
+    const pending = failAt === 1 ? prepareGrafanaFonts('local',{moduleUrl:pathToFileURL(file).href})
+      : provisionGrafanaCiFonts({moduleUrl:pathToFileURL(file).href});
+    await assert.rejects(pending, error => {
+      assert.ok(error.message.startsWith('GRAFANA_FONT_PREPARATION_FAILED:phase=' + phase + ',state=complete,'));
+      assert.match(error.message, /,childExit=1,childSignal=none$/u);
+      assert.doesNotMatch(error.message, /PRIVATE|private|credential|value/u);
+      if (phase === 'package-install') assert.match(error.message, /exitCode=none,signal=SIGTERM,error=ETIMEDOUT/u);
+      else if (phase === 'font-cache') assert.match(error.message, /exitCode=none,signal=other,error=other/u);
+      else assert.match(error.message, /exitCode=100,signal=none,error=none/u);
+      assert.ok(error.message.length < 300); return true;
+    });
+  }
+});
+
+test('font diagnostic records are strict bounded optional data, never a success or error-text channel', async t => {
+  const directory = context(t), file = resolve(directory, 'untrusted-font-diagnostics.mjs');
+  const valid = {phase:'package-install',state:'start',elapsedMs:0,exitCode:null,signal:null,error:null};
+  const invalid = [null,[],{}, {...valid,private:'PRIVATE'}, {...valid,phase:'PRIVATE'}, {...valid,state:'PRIVATE'},
+    {...valid,elapsedMs:570001}, {...valid,elapsedMs:-1}, {...valid,elapsedMs:'PRIVATE'},
+    {...valid,exitCode:256}, {...valid,exitCode:'PRIVATE'}, {...valid,signal:'PRIVATE'}, {...valid,error:'PRIVATE'}];
+  for (const withValid of [false,true]) {
+    writeFileSync(file, `export function ensureCjkFontRuntime({observe}){
+      ${withValid ? 'observe(' + JSON.stringify(valid) + ');' : ''}
+      for(const value of ${JSON.stringify(invalid)}) observe(value);
+      console.log('CJK_FONT_RUNTIME_PHASE='+ 'PRIVATE'.repeat(50));
+      console.log('PRIVATE unrelated stdout');console.error('PRIVATE stderr');throw Error('PRIVATE failure');
+    }`);
+    await assert.rejects(provisionGrafanaCiFonts({moduleUrl:pathToFileURL(file).href}), error => {
+      assert.ok(error.message.includes('phase=' + (withValid ? 'package-install,state=start' : 'unknown,state=unknown')));
+      assert.doesNotMatch(error.message, /PRIVATE|unrelated|failure/u); return true;
+    });
+  }
+});
+
+test('font timeout and native child signal report the last phase without changing cleanup or bounds', async t => {
+  const directory = context(t), file = resolve(directory, 'unfinished-font-phase.mjs');
+  const before = [process.listenerCount('SIGTERM'),process.listenerCount('SIGINT')];
+  for (const signal of [false,true]) {
+    writeFileSync(file, `export function ensureCjkFontRuntime({observe}){
+      observe({phase:'package-index',state:'start',elapsedMs:0,exitCode:null,signal:null,error:null});
+      ${signal ? "process.kill(process.pid,'SIGTERM');" : 'setInterval(()=>{},1000);'}
+    }`);
+    await assert.rejects(prepareGrafanaFonts('ci',{moduleUrl:pathToFileURL(file).href,timeoutMs:300}), error => {
+      assert.ok(error.message.startsWith('GRAFANA_FONT_PREPARATION_' + (signal ? 'FAILED' : 'TIMEOUT') + ':phase=package-index,state=start,'));
+      assert.ok(error.message.endsWith('childExit=none,childSignal=' + (signal ? 'SIGTERM' : 'none')));
+      return true;
+    });
+    assert.deepEqual([process.listenerCount('SIGTERM'),process.listenerCount('SIGINT')], before);
+  }
+});
