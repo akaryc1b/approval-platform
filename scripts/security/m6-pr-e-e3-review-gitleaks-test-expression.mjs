@@ -7,6 +7,8 @@ import { verifyGitleaksCaptureHashReview, requireGitleaksCaptureHashReviewReceip
 import { requireCompleteCurrentE4 } from './scanner-evidence-provenance.mjs';
 import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 import { requireServerDependencyRemediation } from './m6-pr-e-e3-verify-server-dependency-remediation.mjs';
+import { verifyGitleaksHistoricalSourceReview, requireGitleaksHistoricalSourceReviewReceipt,
+  historicalSourceDecisions } from './gitleaks-historical-noncredential-sources.mjs';
 
 const PLAN_SHA256 = '20158102576d7ba5931d0605bdd1aab548ec94db571b31a2bc5a20032f673c5d';
 const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
@@ -66,15 +68,16 @@ function requireCurrentFinding(e4, plan, publicCommitReview = null, captureHashR
   requireValue(reviewedIds.length === plan.currentReviewedFindingSet.findingCount
     && setHash(reviewedIds) === plan.currentReviewedFindingSet.findingSetSha256, 'Gitleaks reviewed current identity set drift');
 }
-function receipt(e4, plan) {
-  return seal({ schemaVersion: 'M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW_EVIDENCE_V1',
+function receipt(e4, plan, historicalSourceReview = null) {
+  return seal({ schemaVersion: historicalSourceReview ? 'M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW_EVIDENCE_V2' : 'M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW_EVIDENCE_V1',
     repository: e4.repository, commitSha: e4.commitSha, sourceE4CanonicalSha256: e4.contentSha256,
     planCanonicalSha256: plan.contentSha256, reviewBasisHead: plan.reviewBasisHead,
     reviewBasisE4CanonicalSha256: plan.reviewBasisE4CanonicalSha256,
     historicalFinding: plan.historicalFinding, historicalSource: plan.historicalSource,
     reviewedExpression: plan.reviewedExpression, scannerIdentity: plan.scannerIdentity,
     retainedHistoricalFindingSet: plan.historicalFindingSet, currentFindingSet: plan.currentReviewedFindingSet,
-    decision: plan.decision, releaseBlocked: true, rawCandidateMaterialRetained: false });
+    decision: plan.decision, releaseBlocked: true, rawCandidateMaterialRetained: false,
+    ...(historicalSourceReview ? { historicalSourceReview } : {}) });
 }
 
 /** Read-only proof over the pinned historical Git source; never evaluates code. */
@@ -103,13 +106,17 @@ export function verifyGitleaksTestExpressionReview(e4, snapshot) {
   requireValue(parsed && parsed[1] === expression.testCaseLabel && parsed[2] === expression.receiverIdentifier
     && parsed[3] === expression.propertyIdentifier && parsed[4] === expression.assignedCharacter
     && Number(parsed[5]) === expression.repeatCount, 'Gitleaks reviewed fixed source grammar mismatch');
-  return receipt(e4, plan);
+  const historicalSourceReview = snapshot.historicalSourceReviewSnapshot
+    ? verifyGitleaksHistoricalSourceReview(e4, snapshot.historicalSourceReviewSnapshot) : null;
+  return receipt(e4, plan, historicalSourceReview);
 }
 
 export function requireGitleaksTestExpressionReviewReceipt(e4, evidence, publicCommitReview = null, captureHashReview = null) {
   const plan = readGitleaksTestExpressionReviewPlan();
   requireCurrentFinding(e4, plan, publicCommitReview, captureHashReview);
-  requireValue(canonical(evidence) === canonical(receipt(e4, plan)), 'Gitleaks expression review receipt drift');
+  const historicalSourceReview = evidence?.historicalSourceReview
+    ? requireGitleaksHistoricalSourceReviewReceipt(e4, evidence.historicalSourceReview) : null;
+  requireValue(canonical(evidence) === canonical(receipt(e4, plan, historicalSourceReview)), 'Gitleaks expression review receipt drift');
   return evidence;
 }
 function reviewEvidence(evidence) {
@@ -145,7 +152,9 @@ export function applyGitleaksTestExpressionReview(triage, e4, snapshot) {
   });
   if (publicCommitReview) decisions = applyGitleaksPublicCommitDecision(decisions, publicCommitReview);
   if (captureHashReview) decisions = applyGitleaksCaptureHashDecisions(decisions, captureHashReview);
-  const appendedCount = (publicCommitReview ? 2 : 1) + (captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).length : 0);
+  if (evidence.historicalSourceReview) decisions = historicalSourceDecisions(decisions, evidence.historicalSourceReview, true);
+  const appendedCount = (publicCommitReview ? 2 : 1) + (captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).length : 0)
+    + (evidence.historicalSourceReview ? 3 : 0);
   const counts = {};
   for (const finding of decisions) counts[finding.disposition] = (counts[finding.disposition] || 0) + 1;
   return seal({ ...triage, schemaVersion: captureHashReview ? 'M6_PR_E_E3_I2_TRIAGE_V6' : publicCommitReview ? 'M6_PR_E_E3_I2_TRIAGE_V5' : 'M6_PR_E_E3_I2_TRIAGE_V4',
@@ -172,7 +181,8 @@ export function requireGitleaksTestExpressionTriage(e4, triage) {
     'Gitleaks reviewed triage must retain every current identity');
   const reviewedCurrentCount = triage.decisions.filter(item => item.reviewEvidence).length;
   const extraReviews = triage.decisions.filter(item => item.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS');
-  requireValue(triage.appendOnlyReviewedFindingCount === (publicCommitReview ? 2 : 1) + (captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).length : 0) && extraReviews.length === 1,
+  requireValue(triage.appendOnlyReviewedFindingCount === (publicCommitReview ? 2 : 1) + (captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).length : 0)
+    + (evidence.historicalSourceReview ? 3 : 0) && extraReviews.length === 1,
     'Gitleaks append-only review count drift');
   if (['M6_PR_E_E3_I2_TRIAGE_V4', 'M6_PR_E_E3_I2_TRIAGE_V5', 'M6_PR_E_E3_I2_TRIAGE_V6'].includes(triage.schemaVersion)) {
     requireValue(triage.schemaVersion === (captureHashReview ? 'M6_PR_E_E3_I2_TRIAGE_V6' : publicCommitReview ? 'M6_PR_E_E3_I2_TRIAGE_V5' : 'M6_PR_E_E3_I2_TRIAGE_V4'), 'Gitleaks I2 schema/review drift');
@@ -210,9 +220,11 @@ export function requireGitleaksTestExpressionTriage(e4, triage) {
     && canonical(finding.reviewEvidence) === canonical(reviewEvidence(evidence)), 'Gitleaks reviewed current disposition drift');
   if (publicCommitReview) requireGitleaksPublicCommitDecision(triage, publicCommitReview);
   if (captureHashReview) requireGitleaksCaptureHashDecisions(triage, captureHashReview);
+  if (evidence.historicalSourceReview) historicalSourceDecisions(triage.decisions, evidence.historicalSourceReview);
   if (captureHashReview?.planMetadataReview) {
     const reviewed = new Set([evidence.historicalFinding.findingId, publicCommitReview.finding.findingId,
-      ...gitleaksCaptureReviewFindings(captureHashReview).map(item => item.findingId)]);
+      ...gitleaksCaptureReviewFindings(captureHashReview).map(item => item.findingId),
+      ...(evidence.historicalSourceReview?.findings || []).map(item => item.findingId)]);
     for (const source of e4.scanners.gitleaks.findings) {
       const decision = triage.decisions.find(item => key(item) === key(source));
       requireValue(decision && ['ruleId', 'commit', 'fingerprint', 'path', 'startLine', 'endLine']
