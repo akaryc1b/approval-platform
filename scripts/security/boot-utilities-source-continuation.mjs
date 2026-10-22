@@ -1,3 +1,4 @@
+import { readMain905Source } from './jar-plugin-source-continuation.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { readPreservedBootUtilitiesSource } from './jacoco-antrun-source-continuation.mjs';
@@ -12,7 +13,7 @@ export function readPreservedBootHttpSource(path, expected) {
   if (typeof path !== 'string' || !/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') || path.includes('\\')
       || path.split('/').some(part => !part || part === '.' || part === '..'))
     throw new Error('Boot utilities continuation requires a safe relative source path');
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = readMain905Source(path);
   if (hash(raw) === expected) return raw;
   const current = path === 'pom.xml' ? readPreservedBootUtilitiesSource(path, CURRENT_POM) : raw;
   if (hash(current) === expected) return current;

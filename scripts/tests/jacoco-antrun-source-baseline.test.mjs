@@ -30,8 +30,14 @@ function rejected(result, message = /ValueError:|ParseError:/) {
 test('pair source view restores accepted utilities bytes and leaves all historical contracts unchanged', () => {
   assert.ok(retained.projection);
   assert.equal(retained.jarProjection.suppliedSourceRoot, path.resolve(root));
-  assert.equal(retained.jarProjection.suppliedRootPomSha256, 'ddb286b44b1976dd19ad74b06f3ceef86e19d0fbee87dd27dc87985ffb1f7932');
-  assert.equal(retained.jarProjection.schemaVersion, 'ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1');
+  assert.equal(retained.jarProjection.suppliedRootPomSha256, '7aaef759cbdebaafde2383186cbb90861c23f51bd4fe3219614ed0fa8c22a9ab');
+  assert.equal(retained.jarProjection.schemaVersion, 'RESOURCES_FLATTEN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1');
+  assert.equal(retained.jarProjection.sourceFileCount, 53);
+  assert.equal(retained.jarProjection.suppliedSdkPomSha256, '2d933d9c89c7a0ee99b4870091a880ac086b295501914297c9bb6a21dd751078');
+  assert.equal(retained.jarProjection.retainedSdkPomSha256, 'e755e3a2abd6d2df15b7e5739b10cd81f9a59476d8c21e6dc231961145b2d701');
+  assert.deepEqual(Object.keys(retained.jarProjection.suppliedSourceHashes).filter(name =>
+    retained.jarProjection.suppliedSourceHashes[name] !== retained.jarProjection.retainedSourceHashes[name]).sort(),
+  ['integrations/host-sdk/pom.xml', 'pom.xml']);
   assert.equal(retained.jarProjection.retainedSourceRoot, current);
   const p = retained.projection;
   assert.deepEqual(Object.keys(p.suppliedSourceHashes).filter(name =>

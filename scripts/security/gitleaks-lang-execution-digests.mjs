@@ -5,6 +5,9 @@ import { commitObject, verifyPath, objectHash } from './gitleaks-git-source-proo
 import { ASSEMBLY_ENFORCER_LANG_GRAPH, readAssemblyEnforcerLangManifest,
   readAssemblyEnforcerLangCandidate } from './assembly-enforcer-lang-graph-transition.mjs';
 
+import { RESOURCES_FLATTEN_GRAPH, requireResourcesFlattenDigestGraph, isResourcesFlattenExecutionDigestPath }
+  from './gitleaks-resources-flatten-execution-digests.mjs';
+
 export { ASSEMBLY_ENFORCER_LANG_GRAPH };
 const DOCUMENTS = [{"path":"docs/operations/assembly-enforcer-lang-evidence/runtime-inputs.json","sha256":"0e4d6bb6589c3accb075ea869f9769bb328cef83db802b1f705fd30eff95f8dd","count":158,"role":"LANG_CAPTURE_RUNTIME_FILE_DIGEST","lines":[8,9,91,92,109,110,124,126,154,155,159]},{"path":"docs/operations/assembly-enforcer-lang-evidence/cache-inputs.json","sha256":"090af136bf05db6030dd4b7ba43351123389157e4b480e3d6f7e85ba84da7be3","count":3332,"role":"LANG_CAPTURE_CACHE_FILE_DIGEST","lines":[88,89,142,143,144,145,231,232,234,235,552,553,671,672,674,675,677,678,683,686,687,689,692,693,695,696,697,698,705,706,707,708,710,713,714,715,716,1110,1111,1191,1192,1193,1194,1196,1197,1198,1199,1201,1202,1203,1204,1251,1252,1253,1254,1347,1348,1478,1479,1480,1481,1501,1502,1503,1504,1506,1507,1508,1509,1521,1522,1523,1524,1526,1527,1528,1529,1531,1532,1533,1534,1536,1537,1581,1582,1583,1584,1760,1761,1762,1763,1770,1771,1772,1773,1780,1781,1782,1783,1793,1794,1795,1796,1891,1892,1974,1975,1976,1977,2036,2037,2038,2039,2041,2042,2044,2045,2046,2047,2363,2364,2378,2379,2384,2385,2390,2391,2396,2397,2405,2406,2411,2412,2432,2433,2438,2439,2447,2448,2453,2454,2465,2466,2507,2508,2513,2514,2739,2740,2898,2899,2901,2902,2904,2905,2907,2908,2909,2910,2912,2913,2915,2916,2960,2961,2962,2963,3293,3294]}];
 const DIRECTORY = 'docs/operations/assembly-enforcer-lang-evidence/';
@@ -24,7 +27,8 @@ const seal = value => stable({ ...value, contentSha256: hash(canonical(value)) }
 export const isLangExecutionDigestPath = path => DOCUMENTS.some(row => row.path === path);
 
 export function requireLangDigestGraph(e4) {
-  requireValue(e4.e2GraphDigest === ASSEMBLY_ENFORCER_LANG_GRAPH && e4.scanners?.gitleaks?.findingCount === 374,
+  if (e4.e2GraphDigest === RESOURCES_FLATTEN_GRAPH) requireResourcesFlattenDigestGraph(e4);
+  else requireValue(e4.e2GraphDigest === ASSEMBLY_ENFORCER_LANG_GRAPH && e4.scanners?.gitleaks?.findingCount === 374,
     'requires the exact Lang graph and all 374 observations');
   // These bounded readers validate the fixed manifest and actual candidate graph.
   // They do not invoke complete graph/source/scanner admission or retain a cache.
@@ -81,7 +85,8 @@ export function langDigestFindings(e4, expectedFinding, policy, context = langEx
   const expected = context.documents.flatMap(row => row.fields).map(field => expectedFinding(
     { finding: policy, source: { path: field.path } }, findings[0].commit, field)).sort((a,b) => a.findingId.localeCompare(b.findingId));
   requireValue(canonical(findings) === canonical(expected), 'exact field finding identity drift');
-  const retained = e4.scanners.gitleaks.findings.filter(row => !isLangExecutionDigestPath(row.path));
+  const retained = e4.scanners.gitleaks.findings.filter(row => !isLangExecutionDigestPath(row.path)
+    && !(e4.e2GraphDigest === RESOURCES_FLATTEN_GRAPH && isResourcesFlattenExecutionDigestPath(row.path)));
   requireValue(retained.length === 194 && hash(canonical(retained)) === ACCEPTED_LANG_GITLEAKS_194_SHA256,
     'accepted 194 finding identities/order changed');
   return findings;

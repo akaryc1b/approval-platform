@@ -147,6 +147,19 @@
     <build>
         <pluginManagement>
             <plugins>
+                <!-- Preserve the lifecycle version; constrain Resources' private utility dependency. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.4.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>4.0.3</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
@@ -424,6 +437,13 @@
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>flatten-maven-plugin</artifactId>
                         <version>${flatten.maven.version}</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.codehaus.plexus</groupId>
+                                <artifactId>plexus-utils</artifactId>
+                                <version>4.0.3</version>
+                            </dependency>
+                        </dependencies>
                         <configuration>
                             <flattenMode>resolveCiFriendliesOnly</flattenMode>
                             <updatePomFile>true</updatePomFile>

@@ -8,6 +8,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.mjs';
+import { publicFailureDetail } from '../product-readiness/artifact-privacy/publication.mjs';
 import { validateBrowserEvidence } from '../product-readiness/quick-start/runtime.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -46,6 +47,103 @@ const quickStart = JSON.parse(text('config/demo/quick-start.json'));
 const crossClient = JSON.parse(text('config/demo/cross-client-local-demo.json'));
 const packageJson = JSON.parse(text('package.json'));
 const aggregate = text('scripts/tests/m3-repository-hygiene.test.mjs');
+
+// Evaluate the actual launcher and canonical installer together, replacing only
+// host commands/runtime mutation so diagnostics can be tested without apt or UI.
+async function fontLauncherFixture({ command = 'ci', warm = false, failAt = -1, missing = false } = {}) {
+  const output = [], calls = [], executions = [];
+  const privateText = 'SYNTHETIC-private-command-output-and-error';
+  const context = {
+    process: { argv: ['node', 'demo-quickstart.mjs', command], platform: 'linux',
+      env: { GITHUB_ACTIONS: command === 'ci' ? 'true' : 'false' } },
+    console: { log: value => output.push(value), error: value => output.push(value) },
+    spawnSync: (program, args, options) => {
+      calls.push({ program, args, options });
+      if (calls.length === failAt) return { status: null, signal: 'SIGTERM',
+        error: { code: 'ETIMEDOUT', message: privateText }, stdout: privateText, stderr: privateText };
+      return { status: 0, stdout: program === 'fc-list'
+        ? !missing && (warm || calls.length === 5) ? 'Noto Sans CJK SC' : '' : privateText,
+      stderr: privateText };
+    },
+    parseArguments: () => ({ command }), loadContract: () => ({ maximumReadySeconds: 600 }),
+    shouldRunInCi: () => true, publicFailureDetail,
+    execute: async options => {
+      assert.equal(output.includes('CJK_FONT_RUNTIME_READY=Noto Sans CJK SC'), true);
+      executions.push(options.keepAlive);
+    },
+    resetLedger: () => assert.fail('font preparation failure must not start runtime or reset its ledger'),
+    UsageError: class UsageError extends Error {},
+  };
+  const fontSource = text('scripts/product-readiness/quick-start/cjk-fonts.mjs')
+    .replace(/^import[^\n]*\n/u, '').replace('export function ensureCjkFontRuntime', 'function ensureCjkFontRuntime');
+  const launcherSource = launcher.replace(/^#![^\n]*\n/u, '').replace(/^import\b[\s\S]*?;\n/gmu, '');
+  await runInNewContext(`${fontSource}\n${launcherSource}`, context);
+  assert.equal(output.join('\n').includes(privateText), false);
+  const records = output.filter(line => line.startsWith('QUICK_START_FONT_PHASE='));
+  assert.ok(records.length <= 10);
+  for (const line of records) assert.ok(line.length <= 256);
+  return { context, output, calls, executions,
+    records: records.map(line => JSON.parse(line.slice('QUICK_START_FONT_PHASE='.length))) };
+}
+
+test('Quick Start reports bounded font phases before runtime and keeps warm/cold readiness', async () => {
+  for (const warm of [true, false]) {
+    const result = await fontLauncherFixture({ warm });
+    assert.equal(result.context.process.exitCode, undefined);
+    assert.deepEqual(result.executions, [false, false]);
+    assert.deepEqual(result.records.filter(record => record.state === 'complete').map(record => record.phase),
+      warm ? ['probe-before'] : ['probe-before', 'package-index', 'package-install', 'font-cache', 'probe-after']);
+    assert.deepEqual(result.calls.map(call => call.options.timeout), warm ? [10000] : [10000, 180000, 240000, 120000, 10000]);
+    for (const call of result.calls.filter(call => call.program !== 'fc-list')) {
+      assert.equal(call.options.env.DEBIAN_FRONTEND, 'noninteractive');
+      assert.equal(call.options.shell, false);
+    }
+  }
+  const local = await fontLauncherFixture({ command: 'start', warm: true });
+  assert.deepEqual(local.executions, [true]);
+  const initialProbeFailure = await fontLauncherFixture({ failAt: 1 });
+  assert.deepEqual(initialProbeFailure.executions, [false, false]);
+  assert.equal(initialProbeFailure.records[1].error, 'ETIMEDOUT');
+  assert.equal(initialProbeFailure.calls.length, 5, 'failed initial discovery still uses the existing cold path');
+});
+
+test('Quick Start font failure retains typed phase/status without private output or runtime entry', async () => {
+  for (const [failAt, phase] of [[2, 'package-index'], [3, 'package-install'], [4, 'font-cache'], [5, 'probe-after']]) {
+    const result = await fontLauncherFixture({ failAt });
+    assert.equal(result.context.process.exitCode, 1);
+    assert.deepEqual(result.executions, []);
+    assert.equal(result.calls.length, failAt, 'failure cannot trigger retry or later phases');
+    assert.deepEqual({ ...result.records.at(-1), elapsedMs: 0 },
+      { phase, state: 'complete', elapsedMs: 0, exitCode: null, signal: 'SIGTERM', error: 'ETIMEDOUT' });
+    assert.equal(result.output.at(-1), 'DEMO_QUICK_START_FAILED: Error; details withheld from public log');
+    assert.equal(result.output.some(line => line.startsWith('CJK_FONT_RUNTIME_READY=')), false);
+  }
+  const absent = await fontLauncherFixture({ missing: true });
+  assert.equal(absent.context.process.exitCode, 1);
+  assert.deepEqual(absent.executions, []);
+  assert.equal(absent.records.at(-1).phase, 'probe-after');
+  const local = await fontLauncherFixture({ command: 'start', missing: true });
+  assert.equal(local.context.process.exitCode, 1);
+  assert.equal(local.calls.length, 1, 'local mode must not install packages');
+});
+
+test('Quick Start public phase observer rejects untyped/private fields and caps records', async () => {
+  const { context, output } = await fontLauncherFixture({ warm: true });
+  output.length = 0;
+  const valid = { phase: 'probe-before', state: 'complete', elapsedMs: 10, exitCode: 0, signal: null, error: null };
+  const privateText = 'SYNTHETIC-private-untrusted-diagnostic';
+  for (const value of [null, [], {}, { ...valid, detail: privateText },
+    ...['phase', 'state', 'elapsedMs', 'exitCode', 'signal', 'error'].map(key => ({ ...valid, [key]: privateText })),
+    { ...valid, elapsedMs: 570001 }, { ...valid, elapsedMs: -1 }, { ...valid, exitCode: 256 }]) {
+    context.observeFontPhase(value);
+  }
+  assert.deepEqual(output, []);
+  const withSerializer = Object.defineProperty({ ...valid }, 'toJSON', { value: () => privateText });
+  for (let i = 0; i < 20; i++) context.observeFontPhase(withSerializer);
+  assert.equal(output.length, 8, 'two warm probe receipts already used the ten-record budget');
+  assert.equal(output.join('\n').includes(privateText), false);
+  for (const line of output) assert.deepEqual(JSON.parse(line.slice('QUICK_START_FONT_PHASE='.length)), valid);
+});
 
 test('Quick Start exposes a measured local-only plan and skips non-CI execution', () => {
   const planned = runQuickStart('plan', '--json');

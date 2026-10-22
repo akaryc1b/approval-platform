@@ -8,7 +8,7 @@ import test from 'node:test';
 const sha = value => createHash('sha256').update(value).digest('hex');
 const prior = readFileSync(new URL('../../docs/operations/assembly-plexus-evidence/candidate-root-pom.xml', import.meta.url));
 const jar = readFileSync(new URL('../../docs/operations/jar-plugin-evidence/candidate-root-pom.xml', import.meta.url));
-const current = readFileSync(new URL('../../pom.xml', import.meta.url));
+const current = readFileSync(new URL('../../docs/operations/assembly-enforcer-lang-evidence/candidate-root-pom.xml', import.meta.url));
 const expected = '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629';
 const jarExpected = '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f';
 async function fixture(t, source = current) {

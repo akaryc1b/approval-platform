@@ -13,10 +13,12 @@ const httpPom = readFileSync(new URL('../../docs/operations/boot-http-plugin-evi
 const utilitiesPom = readFileSync(new URL('../../docs/operations/boot-utilities-plugin-evidence/candidate-root-pom.xml', import.meta.url));
 const pairPom = readFileSync(new URL('../../docs/operations/jacoco-antrun-plugin-evidence/candidate-root-pom.xml', import.meta.url));
 const assemblyPom = readFileSync(new URL('../../docs/operations/assembly-plexus-evidence/candidate-root-pom.xml', import.meta.url));
+const jarPom = readFileSync(new URL('../../docs/operations/jar-plugin-evidence/candidate-root-pom.xml', import.meta.url));
+const langPom = readFileSync(new URL('../../docs/operations/assembly-enforcer-lang-evidence/candidate-root-pom.xml', import.meta.url));
 const currentPom = readFileSync(new URL('../../pom.xml', import.meta.url));
 const historicalPomHash = '1569b0356f1bfc122066ced97c29038c3c38e891135ea277e7b7067726782e1a';
 
-async function sourceFixture(t, pom) {
+async function sourceFixture(t, pom, resourcesFlatten = false) {
   const directory = mkdtempSync(path.join(tmpdir(), 'compiler-diagnostic-source-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const moduleDirectory = path.join(directory, 'scripts/security');
@@ -61,6 +63,14 @@ async function sourceFixture(t, pom) {
   writeFileSync(path.join(guavaEvidenceDirectory, 'candidate-root-pom.xml'), guavaPom);
   writeFileSync(path.join(evidenceDirectory, 'candidate-root-pom.xml'), baselinePom);
   writeFileSync(path.join(checkstyleEvidenceDirectory, 'candidate-root-pom.xml'), checkstylePom);
+  if (resourcesFlatten) {
+    for (const file of ['integrations/host-sdk/pom.xml',
+      'docs/operations/assembly-enforcer-lang-evidence/candidate-root-pom.xml',
+      'docs/operations/resources-flatten-evidence/accepted-main905-host-sdk-pom.xml']) {
+      const destination = path.join(directory, file); mkdirSync(path.dirname(destination), { recursive: true });
+      copyFileSync(new URL(`../../${file}`, import.meta.url), destination);
+    }
+  }
   const pomPath = path.join(directory, 'pom.xml');
   writeFileSync(pomPath, pom);
   const { readPreservedCompilerSource } = await import(pathToFileURL(modulePath).href);
@@ -68,29 +78,40 @@ async function sourceFixture(t, pom) {
     read: () => readPreservedCompilerSource('pom.xml', historicalPomHash) };
 }
 
-for (const [name, pom] of [['baseline', baselinePom], ['accepted Checkstyle Lang', checkstylePom], ['accepted Checkstyle Guava', guavaPom], ['accepted Boot HTTP', httpPom], ['accepted Boot utilities', utilitiesPom], ['accepted JaCoCo/AntRun', pairPom], ['accepted Assembly', assemblyPom], ['JAR candidate', currentPom]]) {
+for (const [name, pom, resourcesFlatten] of [['baseline', baselinePom], ['accepted Checkstyle Lang', checkstylePom], ['accepted Checkstyle Guava', guavaPom], ['accepted Boot HTTP', httpPom], ['accepted Boot utilities', utilitiesPom], ['accepted JaCoCo/AntRun', pairPom], ['accepted Assembly', assemblyPom], ['accepted JAR', jarPom], ['accepted Assembly/Enforcer Lang', langPom], ['Resources/Flatten candidate', currentPom, true]]) {
   test(`Compiler diagnostic source pin accepts the exact ${name} root`, async t => {
-    const fixture = await sourceFixture(t, pom);
+    const fixture = await sourceFixture(t, pom, resourcesFlatten);
     assert.equal(sha(baselinePom), historicalPomHash);
     assert.deepEqual(fixture.read(), baselinePom);
   });
   test(`Compiler diagnostic source pin rejects an extra edit to the ${name} root`, async t => {
-    const fixture = await sourceFixture(t, pom);
+    const fixture = await sourceFixture(t, pom, resourcesFlatten);
     assert.deepEqual(fixture.read(), baselinePom);
     writeFileSync(fixture.pomPath, Buffer.concat([pom, Buffer.from('\n')]));
     assert.throws(fixture.read, /(?:Checkstyle (?:Guava )?|Boot HTTP |Boot utilities |JaCoCo\/AntRun |Assembly |JAR )continuation historical source byte digest mismatch/);
   });
 }
 
+test('Compiler diagnostic source pin rereads the Resources/Flatten SDK after successful root projection', async t => {
+  const fixture = await sourceFixture(t, currentPom, true);
+  assert.deepEqual(fixture.read(), baselinePom);
+  const sdkPath = path.join(fixture.directory, 'integrations/host-sdk/pom.xml');
+  const original = readFileSync(sdkPath);
+  writeFileSync(sdkPath, Buffer.concat([original, Buffer.from('\n')]));
+  assert.throws(fixture.read, /JAR continuation historical source byte digest mismatch: Resources\/Flatten/);
+  writeFileSync(sdkPath, original);
+  assert.deepEqual(fixture.read(), baselinePom);
+});
+
 test('Compiler diagnostic source pin rejects a wrong expected historical hash', async t => {
-  const fixture = await sourceFixture(t, currentPom);
+  const fixture = await sourceFixture(t, currentPom, true);
   assert.deepEqual(fixture.read(), baselinePom);
   assert.throws(() => fixture.readSource('pom.xml', '0'.repeat(64)),
     /Checkstyle continuation historical source byte digest mismatch/);
 });
 
 test('Compiler diagnostic source pin rejects changed bytes at a non-root path', async t => {
-  const fixture = await sourceFixture(t, currentPom);
+  const fixture = await sourceFixture(t, currentPom, true);
   const otherPath = path.join(fixture.directory, 'other.xml');
   writeFileSync(otherPath, baselinePom);
   assert.deepEqual(fixture.readSource('other.xml', historicalPomHash), baselinePom);

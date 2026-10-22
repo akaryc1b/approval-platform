@@ -1,3 +1,4 @@
+import { readMain905Source } from './jar-plugin-source-continuation.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { readPreservedCompilerSource } from './checkstyle-plugin-source-continuation.mjs';
@@ -10,7 +11,7 @@ const dependency = '                    <dependencies>\n                        
 
 /** Return exact historical bytes only after reversing the two pinned Compiler additions. */
 export function readPreservedCleanSource(path, expected) {
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = readMain905Source(path);
   if (hash(raw) === expected) return raw;
   const current = path === 'pom.xml' ? readPreservedCompilerSource(path, CURRENT_POM) : raw;
   if (path !== 'pom.xml' || expected !== PRIOR_POM || hash(current) !== CURRENT_POM)

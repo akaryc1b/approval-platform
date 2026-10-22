@@ -1,3 +1,12 @@
+import { before } from 'node:test';
+import { provisionGrafanaCiFonts } from '../ops/grafana-browser-fonts.mjs';
+
+// Once per aggregate, outside the unchanged 60s font/80s component/360s native tests.
+// Cold CI setup owns 570s plus at most 3s cleanup; failure blocks every runtime probe.
+before(async () => {
+  if (process.env.GITHUB_ACTIONS === 'true') await provisionGrafanaCiFonts();
+}, { timeout: 575000 });
+
 import './m4-sla-calendar-core-boundary.test.mjs';
 import './m4-sla-calendar-security-boundary.test.mjs';
 import './ops-observability-boundary.test.mjs';

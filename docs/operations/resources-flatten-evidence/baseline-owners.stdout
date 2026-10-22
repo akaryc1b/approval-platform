@@ -1,0 +1,247 @@
+[INFO] Scanning for projects...
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] Approval Platform                                                  [pom]
+[INFO] approval-domain                                                    [jar]
+[INFO] approval-definition-compiler                                       [jar]
+[INFO] approval-engine-spi                                                [jar]
+[INFO] approval-connector-spi                                             [jar]
+[INFO] approval-ai-spi                                                    [jar]
+[INFO] approval-ai-core                                                   [jar]
+[INFO] approval-connector-dingtalk                                        [jar]
+[INFO] approval-connector-credential-core                                 [jar]
+[INFO] approval-ai-openai                                                 [jar]
+[INFO] approval-connector-routing-core                                    [jar]
+[INFO] approval-connector-dingtalk-token                                  [jar]
+[INFO] approval-connector-invocation-core                                 [jar]
+[INFO] approval-connector-operations-core                                 [jar]
+[INFO] approval-connector-dingtalk-http                                   [jar]
+[INFO] approval-integration-core                                          [jar]
+[INFO] approval-connector-generic                                         [jar]
+[INFO] approval-integration-jdbc                                          [jar]
+[INFO] approval-engine-flowable                                           [jar]
+[INFO] approval-application                                               [jar]
+[INFO] approval-persistence-jdbc                                          [jar]
+[INFO] approval-host-sdk                                                  [jar]
+[INFO] approval-architecture-tests                                        [jar]
+[INFO] approval-server-modules                                            [pom]
+[INFO] approval-server                                                    [jar]
+[INFO] approval-generic-spring-host-example                               [jar]
+[INFO] 
+[INFO] -----------< io.github.akaryc1b.approval:approval-platform >------------
+[INFO] Building Approval Platform 0.1.0-SNAPSHOT                         [1/26]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-platform ---
+[INFO] 
+[INFO] ------------< io.github.akaryc1b.approval:approval-domain >-------------
+[INFO] Building approval-domain 0.1.0-SNAPSHOT                           [2/26]
+[INFO]   from server-modules/approval-domain/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-domain ---
+[INFO] 
+[INFO] ------< io.github.akaryc1b.approval:approval-definition-compiler >------
+[INFO] Building approval-definition-compiler 0.1.0-SNAPSHOT              [3/26]
+[INFO]   from server-modules/approval-definition-compiler/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-definition-compiler ---
+[INFO] 
+[INFO] ----------< io.github.akaryc1b.approval:approval-engine-spi >-----------
+[INFO] Building approval-engine-spi 0.1.0-SNAPSHOT                       [4/26]
+[INFO]   from server-modules/approval-engine-spi/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-engine-spi ---
+[INFO] 
+[INFO] ---------< io.github.akaryc1b.approval:approval-connector-spi >---------
+[INFO] Building approval-connector-spi 0.1.0-SNAPSHOT                    [5/26]
+[INFO]   from server-modules/approval-connector-spi/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-connector-spi ---
+[INFO] 
+[INFO] ------------< io.github.akaryc1b.approval:approval-ai-spi >-------------
+[INFO] Building approval-ai-spi 0.1.0-SNAPSHOT                           [6/26]
+[INFO]   from server-modules/approval-ai-spi/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-ai-spi ---
+[INFO] 
+[INFO] ------------< io.github.akaryc1b.approval:approval-ai-core >------------
+[INFO] Building approval-ai-core 0.1.0-SNAPSHOT                          [7/26]
+[INFO]   from server-modules/approval-ai-core/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-ai-core ---
+[INFO] 
+[INFO] ------< io.github.akaryc1b.approval:approval-connector-dingtalk >-------
+[INFO] Building approval-connector-dingtalk 0.1.0-SNAPSHOT               [8/26]
+[INFO]   from server-modules/approval-connector-dingtalk/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-connector-dingtalk ---
+[INFO] 
+[INFO] ---< io.github.akaryc1b.approval:approval-connector-credential-core >---
+[INFO] Building approval-connector-credential-core 0.1.0-SNAPSHOT        [9/26]
+[INFO]   from server-modules/approval-connector-credential-core/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-connector-credential-core ---
+[INFO] 
+[INFO] -----------< io.github.akaryc1b.approval:approval-ai-openai >-----------
+[INFO] Building approval-ai-openai 0.1.0-SNAPSHOT                       [10/26]
+[INFO]   from server-modules/approval-ai-openai/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-ai-openai ---
+[INFO] 
+[INFO] ----< io.github.akaryc1b.approval:approval-connector-routing-core >-----
+[INFO] Building approval-connector-routing-core 0.1.0-SNAPSHOT          [11/26]
+[INFO]   from server-modules/approval-connector-routing-core/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-connector-routing-core ---
+[INFO] 
+[INFO] ---< io.github.akaryc1b.approval:approval-connector-dingtalk-token >----
+[INFO] Building approval-connector-dingtalk-token 0.1.0-SNAPSHOT        [12/26]
+[INFO]   from server-modules/approval-connector-dingtalk-token/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-connector-dingtalk-token ---
+[INFO] 
+[INFO] ---< io.github.akaryc1b.approval:approval-connector-invocation-core >---
+[INFO] Building approval-connector-invocation-core 0.1.0-SNAPSHOT       [13/26]
+[INFO]   from server-modules/approval-connector-invocation-core/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-connector-invocation-core ---
+[INFO] 
+[INFO] ---< io.github.akaryc1b.approval:approval-connector-operations-core >---
+[INFO] Building approval-connector-operations-core 0.1.0-SNAPSHOT       [14/26]
+[INFO]   from server-modules/approval-connector-operations-core/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-connector-operations-core ---
+[INFO] 
+[INFO] ----< io.github.akaryc1b.approval:approval-connector-dingtalk-http >----
+[INFO] Building approval-connector-dingtalk-http 0.1.0-SNAPSHOT         [15/26]
+[INFO]   from server-modules/approval-connector-dingtalk-http/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-connector-dingtalk-http ---
+[INFO] 
+[INFO] -------< io.github.akaryc1b.approval:approval-integration-core >--------
+[INFO] Building approval-integration-core 0.1.0-SNAPSHOT                [16/26]
+[INFO]   from server-modules/approval-integration-core/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-integration-core ---
+[INFO] 
+[INFO] -------< io.github.akaryc1b.approval:approval-connector-generic >-------
+[INFO] Building approval-connector-generic 0.1.0-SNAPSHOT               [17/26]
+[INFO]   from server-modules/approval-connector-generic/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-connector-generic ---
+[INFO] 
+[INFO] -------< io.github.akaryc1b.approval:approval-integration-jdbc >--------
+[INFO] Building approval-integration-jdbc 0.1.0-SNAPSHOT                [18/26]
+[INFO]   from server-modules/approval-integration-jdbc/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-integration-jdbc ---
+[INFO] 
+[INFO] --------< io.github.akaryc1b.approval:approval-engine-flowable >--------
+[INFO] Building approval-engine-flowable 0.1.0-SNAPSHOT                 [19/26]
+[INFO]   from server-modules/approval-engine-flowable/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-engine-flowable ---
+[INFO] 
+[INFO] ----------< io.github.akaryc1b.approval:approval-application >----------
+[INFO] Building approval-application 0.1.0-SNAPSHOT                     [20/26]
+[INFO]   from server-modules/approval-application/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-application ---
+[INFO] 
+[INFO] -------< io.github.akaryc1b.approval:approval-persistence-jdbc >--------
+[INFO] Building approval-persistence-jdbc 0.1.0-SNAPSHOT                [21/26]
+[INFO]   from server-modules/approval-persistence-jdbc/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-persistence-jdbc ---
+[INFO] 
+[INFO] -----------< io.github.akaryc1b.approval:approval-host-sdk >------------
+[INFO] Building approval-host-sdk 0.1.0-SNAPSHOT                        [22/26]
+[INFO]   from integrations/host-sdk/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-host-sdk ---
+[INFO] 
+[INFO] ------< io.github.akaryc1b.approval:approval-architecture-tests >-------
+[INFO] Building approval-architecture-tests 0.1.0-SNAPSHOT              [23/26]
+[INFO]   from server-modules/approval-architecture-tests/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-architecture-tests ---
+[INFO] 
+[INFO] --------< io.github.akaryc1b.approval:approval-server-modules >---------
+[INFO] Building approval-server-modules 0.1.0-SNAPSHOT                  [24/26]
+[INFO]   from server-modules/pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-server-modules ---
+[INFO] 
+[INFO] ------------< io.github.akaryc1b.approval:approval-server >-------------
+[INFO] Building approval-server 0.1.0-SNAPSHOT                          [25/26]
+[INFO]   from apps/server/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-server ---
+[INFO] 
+[INFO] --< io.github.akaryc1b.approval:approval-generic-spring-host-example >--
+[INFO] Building approval-generic-spring-host-example 0.1.0-SNAPSHOT     [26/26]
+[INFO]   from examples/generic-spring-host/pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.11.0:resolve-plugins (default-cli) @ approval-generic-spring-host-example ---
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for Approval Platform 0.1.0-SNAPSHOT:
+[INFO] 
+[INFO] Approval Platform .................................. SUCCESS [  1.635 s]
+[INFO] approval-domain .................................... SUCCESS [  0.114 s]
+[INFO] approval-definition-compiler ....................... SUCCESS [  0.105 s]
+[INFO] approval-engine-spi ................................ SUCCESS [  0.097 s]
+[INFO] approval-connector-spi ............................. SUCCESS [  0.131 s]
+[INFO] approval-ai-spi .................................... SUCCESS [  0.081 s]
+[INFO] approval-ai-core ................................... SUCCESS [  0.095 s]
+[INFO] approval-connector-dingtalk ........................ SUCCESS [  0.090 s]
+[INFO] approval-connector-credential-core ................. SUCCESS [  0.084 s]
+[INFO] approval-ai-openai ................................. SUCCESS [  0.100 s]
+[INFO] approval-connector-routing-core .................... SUCCESS [  0.109 s]
+[INFO] approval-connector-dingtalk-token .................. SUCCESS [  0.085 s]
+[INFO] approval-connector-invocation-core ................. SUCCESS [  0.079 s]
+[INFO] approval-connector-operations-core ................. SUCCESS [  0.095 s]
+[INFO] approval-connector-dingtalk-http ................... SUCCESS [  0.088 s]
+[INFO] approval-integration-core .......................... SUCCESS [  0.080 s]
+[INFO] approval-connector-generic ......................... SUCCESS [  0.081 s]
+[INFO] approval-integration-jdbc .......................... SUCCESS [  0.067 s]
+[INFO] approval-engine-flowable ........................... SUCCESS [  0.072 s]
+[INFO] approval-application ............................... SUCCESS [  0.085 s]
+[INFO] approval-persistence-jdbc .......................... SUCCESS [  0.076 s]
+[INFO] approval-host-sdk .................................. SUCCESS [  0.079 s]
+[INFO] approval-architecture-tests ........................ SUCCESS [  0.090 s]
+[INFO] approval-server-modules ............................ SUCCESS [  0.084 s]
+[INFO] approval-server .................................... SUCCESS [  0.083 s]
+[INFO] approval-generic-spring-host-example ............... SUCCESS [  0.084 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  4.385 s
+[INFO] Finished at: 2026-10-19T10:58:04Z
+[INFO] ------------------------------------------------------------------------

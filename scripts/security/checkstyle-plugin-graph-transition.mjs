@@ -1,3 +1,4 @@
+import { memoizePluginOwnerParser } from './plugin-owner-parser-cache.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { preservedHygieneJava21Source } from './jar-plugin-source-continuation.mjs';
@@ -54,7 +55,11 @@ function validate(manifest) {
 }
 
 /** Strict owner evidence parser; repeated modules must retain identical inventories. */
+const cachedCheckstylePluginOwners = memoizePluginOwnerParser(parseCheckstylePluginOwnersUncached);
 export function parseCheckstylePluginOwners(raw) {
+  return cachedCheckstylePluginOwners(raw);
+}
+function parseCheckstylePluginOwnersUncached(raw) {
   const result = {}, occurrences = {}; let owner, coordinates;
   const finish = () => {
     if (!owner) return;

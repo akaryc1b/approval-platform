@@ -36,7 +36,7 @@ function fixture(t, mutate = x => x, fileMutation = () => {}) {
   const directory = temporary(t, 'checkstyle-source-');
   for (const relative of [...poms, 'config/checkstyle/checkstyle.xml']) {
     mkdirSync(path.dirname(path.join(directory, relative)), { recursive: true });
-    copyFileSync(path.join(root, relative), path.join(directory, relative));
+    copyFileSync(path.join(retainedRoot, relative), path.join(directory, relative));
   }
   writeFileSync(path.join(directory, 'pom.xml'), mutate(source)); fileMutation(directory); return directory;
 }

@@ -226,7 +226,7 @@ test('production entrypoint rejects edited manifest, source witness or archival 
   const directory = mkdtempSync(resolve(tmpdir(), 'server-dependency-pins-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const files = ['scripts/security/release-plugin-graph-transition.mjs', 'scripts/security/site-dependency-plugin-graph-transition.mjs', 'scripts/security/build-plugin-jackson-graph-transition.mjs', 'scripts/security/observability-dependency-graph.mjs', 'scripts/security/server-dependency-graph-transition.mjs',
-    'scripts/security/compiler-plugin-graph-transition.mjs', 'scripts/security/compiler-plugin-source-continuation.mjs',
+    'scripts/security/plugin-owner-parser-cache.mjs', 'scripts/security/compiler-plugin-graph-transition.mjs', 'scripts/security/compiler-plugin-source-continuation.mjs',
     'scripts/security/checkstyle-guava-graph-transition.mjs', 'scripts/security/checkstyle-guava-source-continuation.mjs',
     'scripts/security/boot-http-graph-transition.mjs', 'scripts/security/boot-http-source-continuation.mjs',
     'scripts/security/boot-utilities-graph-transition.mjs', 'scripts/security/boot-utilities-source-continuation.mjs',
@@ -234,6 +234,7 @@ test('production entrypoint rejects edited manifest, source witness or archival 
     'scripts/security/assembly-plexus-graph-transition.mjs', 'scripts/security/jar-plugin-graph-transition.mjs', 'scripts/security/assembly-plexus-source-continuation.mjs',
     'scripts/security/jar-plugin-source-continuation.mjs',
     'scripts/security/assembly-enforcer-lang-graph-transition.mjs',
+    'scripts/security/resources-flatten-graph-transition.mjs',
     'scripts/security/checkstyle-plugin-graph-transition.mjs', 'scripts/security/checkstyle-plugin-source-continuation.mjs',
     'scripts/security/osv-scan-coverage.mjs', 'scripts/security/scanner-report-structure.mjs',
     'scripts/security/clean-plugin-graph-transition.mjs', 'scripts/security/m6-pr-e-e2-generate-sbom.mjs',

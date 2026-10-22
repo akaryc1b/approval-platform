@@ -22,9 +22,10 @@ const seal = value => { const { contentSha256, ...payload } = value; return { ..
 const admit = e2 => verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, e2.commitSha);
 // These negative cases exercise pure substitutions. Validate their retained
 // source/evidence once, then isolate each mutation with a fresh deep copy.
+const retainedManifest = readJacocoAntrunManifest();
 const retainedFixture = {
-  beforeRaw: readBootUtilitiesReport(), afterRaw: readJacocoAntrunReport(),
-  before: acceptedE2GraphProjection(readJacocoAntrunBaseline()), after: acceptedE2GraphProjection(readJacocoAntrunCandidate()),
+  beforeRaw: readBootUtilitiesReport(), afterRaw: readJacocoAntrunReport(retainedManifest),
+  before: acceptedE2GraphProjection(readJacocoAntrunBaseline(retainedManifest)), after: acceptedE2GraphProjection(readJacocoAntrunCandidate(retainedManifest)),
 };
 function mutateOwner(raw, owner, change) {
   let current;

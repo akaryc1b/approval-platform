@@ -1,0 +1,229 @@
+{
+  "schemaVersion": "RESOURCES_FLATTEN_COMPATIBILITY_PINS_V1",
+  "owners": {
+    "resources": {
+      "coordinate": "org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "baseline": [
+        "commons-io:commons-io:jar:2.16.1",
+        "javax.inject:javax.inject:jar:1",
+        "org.apache.commons:commons-lang3:jar:3.20.0",
+        "org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+        "org.apache.maven.shared:maven-filtering:jar:3.4.0",
+        "org.codehaus.plexus:plexus-interpolation:jar:1.27",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.2",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1",
+        "org.slf4j:slf4j-api:jar:1.7.36",
+        "org.sonatype.plexus:plexus-build-api:jar:0.0.7"
+      ],
+      "candidate": [
+        "commons-io:commons-io:jar:2.16.1",
+        "javax.inject:javax.inject:jar:1",
+        "org.apache.commons:commons-lang3:jar:3.20.0",
+        "org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+        "org.apache.maven.shared:maven-filtering:jar:3.4.0",
+        "org.codehaus.plexus:plexus-interpolation:jar:1.27",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.3",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1",
+        "org.slf4j:slf4j-api:jar:1.7.36",
+        "org.sonatype.plexus:plexus-build-api:jar:0.0.7"
+      ],
+      "expectedPrivateRealmBaseline": [
+        "commons-io:commons-io:jar:2.16.1",
+        "org.apache.commons:commons-lang3:jar:3.20.0",
+        "org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+        "org.apache.maven.shared:maven-filtering:jar:3.4.0",
+        "org.codehaus.plexus:plexus-interpolation:jar:1.27",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.2",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1",
+        "org.sonatype.plexus:plexus-build-api:jar:0.0.7"
+      ],
+      "expectedPrivateRealmCandidate": [
+        "commons-io:commons-io:jar:2.16.1",
+        "org.apache.commons:commons-lang3:jar:3.20.0",
+        "org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+        "org.apache.maven.shared:maven-filtering:jar:3.4.0",
+        "org.codehaus.plexus:plexus-interpolation:jar:1.27",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.3",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1",
+        "org.sonatype.plexus:plexus-build-api:jar:0.0.7"
+      ]
+    },
+    "flatten": {
+      "coordinate": "org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3",
+      "baseline": [
+        "org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3",
+        "org.codehaus.plexus:plexus-interpolation:jar:1.28",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.2",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1"
+      ],
+      "candidate": [
+        "org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3",
+        "org.codehaus.plexus:plexus-interpolation:jar:1.28",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.3",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1"
+      ],
+      "expectedPrivateRealmBaseline": [
+        "org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3",
+        "org.codehaus.plexus:plexus-interpolation:jar:1.28",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.2",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1"
+      ],
+      "expectedPrivateRealmCandidate": [
+        "org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3",
+        "org.codehaus.plexus:plexus-interpolation:jar:1.28",
+        "org.codehaus.plexus:plexus-utils:jar:4.0.3",
+        "org.codehaus.plexus:plexus-xml:jar:3.0.1"
+      ]
+    }
+  },
+  "artifactHashes": {
+    "commons-io:commons-io:jar:2.16.1": "f41f7baacd716896447ace9758621f62c1c6b0a91d89acee488da26fc477c84f",
+    "javax.inject:javax.inject:jar:1": "91c77044a50c481636c32d916fd89c9118a72195390452c81065080f957de7ff",
+    "org.apache.commons:commons-lang3:jar:3.20.0": "69e5c9fa35da7a51a5fd2099dfe56a2d8d32cf233e2f6d770e796146440263f4",
+    "org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0": "72c7d66ea49256ea64a82b28a15df69177d13066d12afeb4a1ee0616da4648f1",
+    "org.apache.maven.shared:maven-filtering:jar:3.4.0": "ff04a5297c69d95f6face0af8934d6ee7bf1389dec50648bdd5e8569fb9d8e26",
+    "org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3": "3802c54c69ab927335c2bdb5399cb7d4668edd7990c8adaa0442f22592e92ec9",
+    "org.codehaus.plexus:plexus-interpolation:jar:1.27": "3fb4fb6143fdf964024c3cb738551524b9ea84e5c211cd660c559ad0703e5230",
+    "org.codehaus.plexus:plexus-interpolation:jar:1.28": "ab2a8715570438a2e4164d85ad3e8d489eabc38ea5093c2eb8ab7f58403535b5",
+    "org.codehaus.plexus:plexus-utils:jar:4.0.2": "8957274e75fe2c278b1428dd16a0daeee1dd38152cb6eff816177ac28fccb697",
+    "org.codehaus.plexus:plexus-utils:jar:4.0.3": "421ff6ed146c53a9d4eaade8f629b52b12af7187101f1bd06c2c64e904019f3c",
+    "org.codehaus.plexus:plexus-xml:jar:3.0.1": "c1a510a87a62bd2d74ac1472dd31c3f9e9b0b8b8568f37d77c0f135415bebd05",
+    "org.slf4j:slf4j-api:jar:1.7.36": "d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0",
+    "org.sonatype.plexus:plexus-build-api:jar:0.0.7": "934171640fbd3d2495c50b79b0d9adb11e2c83e65bad157df8fe34bcac0ff798"
+  },
+  "artifacts": [
+    {
+      "coordinate": "commons-io:commons-io:jar:2.16.1",
+      "bytes": 508826,
+      "sha256": "f41f7baacd716896447ace9758621f62c1c6b0a91d89acee488da26fc477c84f"
+    },
+    {
+      "coordinate": "javax.inject:javax.inject:jar:1",
+      "bytes": 2497,
+      "sha256": "91c77044a50c481636c32d916fd89c9118a72195390452c81065080f957de7ff"
+    },
+    {
+      "coordinate": "org.apache.commons:commons-lang3:jar:3.20.0",
+      "bytes": 713862,
+      "sha256": "69e5c9fa35da7a51a5fd2099dfe56a2d8d32cf233e2f6d770e796146440263f4"
+    },
+    {
+      "coordinate": "org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "bytes": 30835,
+      "sha256": "72c7d66ea49256ea64a82b28a15df69177d13066d12afeb4a1ee0616da4648f1"
+    },
+    {
+      "coordinate": "org.apache.maven.shared:maven-filtering:jar:3.4.0",
+      "bytes": 56038,
+      "sha256": "ff04a5297c69d95f6face0af8934d6ee7bf1389dec50648bdd5e8569fb9d8e26"
+    },
+    {
+      "coordinate": "org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3",
+      "bytes": 130539,
+      "sha256": "3802c54c69ab927335c2bdb5399cb7d4668edd7990c8adaa0442f22592e92ec9"
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-interpolation:jar:1.27",
+      "bytes": 85874,
+      "sha256": "3fb4fb6143fdf964024c3cb738551524b9ea84e5c211cd660c559ad0703e5230"
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-interpolation:jar:1.28",
+      "bytes": 87143,
+      "sha256": "ab2a8715570438a2e4164d85ad3e8d489eabc38ea5093c2eb8ab7f58403535b5"
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-utils:jar:4.0.2",
+      "bytes": 192537,
+      "sha256": "8957274e75fe2c278b1428dd16a0daeee1dd38152cb6eff816177ac28fccb697"
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-utils:jar:4.0.3",
+      "bytes": 193088,
+      "sha256": "421ff6ed146c53a9d4eaade8f629b52b12af7187101f1bd06c2c64e904019f3c"
+    },
+    {
+      "coordinate": "org.codehaus.plexus:plexus-xml:jar:3.0.1",
+      "bytes": 94331,
+      "sha256": "c1a510a87a62bd2d74ac1472dd31c3f9e9b0b8b8568f37d77c0f135415bebd05"
+    },
+    {
+      "coordinate": "org.slf4j:slf4j-api:jar:1.7.36",
+      "bytes": 41125,
+      "sha256": "d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0"
+    },
+    {
+      "coordinate": "org.sonatype.plexus:plexus-build-api:jar:0.0.7",
+      "bytes": 8482,
+      "sha256": "934171640fbd3d2495c50b79b0d9adb11e2c83e65bad157df8fe34bcac0ff798"
+    }
+  ],
+  "runtime": [
+    {
+      "sha256": "5d45c72e3dbfab8b68d15ad4f12777b7d9b5fe4d4adc99c3bd51fb9641fab009",
+      "name": "maven-core-3.9.16.jar"
+    },
+    {
+      "sha256": "05a63effd67e2d6b9d610cc82e2bd7473289d34802e57a529b28110f28af5679",
+      "name": "plexus-utils-3.6.1.jar"
+    }
+  ],
+  "mavenCoreExtensionSha256": "c3471b85b2b658be8469a1e417602949eb9999ffdde989c6887be2547d5c0b49",
+  "coreXmlExports": [
+    "org/codehaus/plexus/util/xml/Xpp3Dom",
+    "org/codehaus/plexus/util/xml/pull/XmlPullParser",
+    "org/codehaus/plexus/util/xml/pull/XmlPullParserException",
+    "org/codehaus/plexus/util/xml/pull/XmlSerializer"
+  ],
+  "coreExportedArtifacts": [
+    "classworlds:classworlds",
+    "javax.annotation:javax.annotation-api",
+    "javax.inject:javax.inject",
+    "org.apache.maven.resolver:maven-resolver-api",
+    "org.apache.maven.resolver:maven-resolver-connector-basic",
+    "org.apache.maven.resolver:maven-resolver-impl",
+    "org.apache.maven.resolver:maven-resolver-spi",
+    "org.apache.maven.resolver:maven-resolver-util",
+    "org.apache.maven.wagon:wagon-provider-api",
+    "org.apache.maven:maven-aether-provider",
+    "org.apache.maven:maven-artifact",
+    "org.apache.maven:maven-artifact-manager",
+    "org.apache.maven:maven-compat",
+    "org.apache.maven:maven-core",
+    "org.apache.maven:maven-error-diagnostics",
+    "org.apache.maven:maven-lifecycle",
+    "org.apache.maven:maven-model",
+    "org.apache.maven:maven-model-builder",
+    "org.apache.maven:maven-monitor",
+    "org.apache.maven:maven-plugin-api",
+    "org.apache.maven:maven-plugin-descriptor",
+    "org.apache.maven:maven-plugin-parameter-documenter",
+    "org.apache.maven:maven-plugin-registry",
+    "org.apache.maven:maven-profile",
+    "org.apache.maven:maven-project",
+    "org.apache.maven:maven-repository-metadata",
+    "org.apache.maven:maven-resolver-provider",
+    "org.apache.maven:maven-settings",
+    "org.apache.maven:maven-settings-builder",
+    "org.apache.maven:maven-toolchain",
+    "org.codehaus.plexus:plexus-classworlds",
+    "org.codehaus.plexus:plexus-component-api",
+    "org.codehaus.plexus:plexus-container-default",
+    "org.eclipse.aether:aether-api",
+    "org.eclipse.aether:aether-connector-basic",
+    "org.eclipse.aether:aether-impl",
+    "org.eclipse.aether:aether-spi",
+    "org.eclipse.aether:aether-util",
+    "org.eclipse.sisu:org.eclipse.sisu.plexus",
+    "org.fusesource.jansi:jansi",
+    "org.slf4j:slf4j-api",
+    "org.sonatype.aether:aether-api",
+    "org.sonatype.aether:aether-impl",
+    "org.sonatype.aether:aether-spi",
+    "org.sonatype.sisu:sisu-inject-plexus",
+    "org.sonatype.spice:spice-inject-plexus",
+    "plexus:plexus-container-default"
+  ],
+  "status": "STATIC_READ_ONLY_NOT_RUNTIME_ACCEPTANCE",
+  "mavenLauncherSha256": "f9381d0cb98abaaf9592dae421eddc497e84ed9bfb723b84c111d1350863c3a2"
+}

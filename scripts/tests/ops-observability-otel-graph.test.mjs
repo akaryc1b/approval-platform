@@ -106,7 +106,7 @@ test('the real upgrade manifest cannot be edited or supplemented without failing
   writeFileSync(resolve(directory, 'scripts/security/build-plugin-jackson-graph-transition.mjs'),
     readFileSync(new URL('../security/build-plugin-jackson-graph-transition.mjs', import.meta.url)));
   mkdirSync(resolve(directory, 'scripts/ci'), { recursive: true });
-  for (const file of ['security/clean-plugin-graph-transition.mjs', 'security/m6-pr-e-e2-generate-sbom.mjs',
+  for (const file of ['security/plugin-owner-parser-cache.mjs', 'security/clean-plugin-graph-transition.mjs', 'security/m6-pr-e-e2-generate-sbom.mjs',
     'security/compiler-plugin-graph-transition.mjs', 'security/compiler-plugin-source-continuation.mjs',
     'security/checkstyle-plugin-graph-transition.mjs', 'security/checkstyle-plugin-source-continuation.mjs',
     'security/checkstyle-guava-graph-transition.mjs', 'security/checkstyle-guava-source-continuation.mjs',
@@ -115,6 +115,7 @@ test('the real upgrade manifest cannot be edited or supplemented without failing
     'security/jacoco-antrun-graph-transition.mjs', 'security/jacoco-antrun-source-continuation.mjs',
     'security/assembly-plexus-graph-transition.mjs', 'security/jar-plugin-graph-transition.mjs', 'security/assembly-plexus-source-continuation.mjs', 'security/jar-plugin-source-continuation.mjs',
     'security/assembly-enforcer-lang-graph-transition.mjs',
+    'security/resources-flatten-graph-transition.mjs',
     'security/osv-scan-coverage.mjs', 'security/scanner-report-structure.mjs',
     'security/maven-workflow-transition.mjs', 'security/hygiene-java21-workflow-transition.mjs', 'ci/maven-toolchain.mjs']) {
     writeFileSync(resolve(directory, `scripts/${file}`), readFileSync(new URL(`../${file}`, import.meta.url)));

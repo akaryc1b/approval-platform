@@ -160,7 +160,7 @@ test('Clean production reader rejects changed archived bytes and current POM byt
   const directory = mkdtempSync(resolve(tmpdir(), 'clean-plugin-pins-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const witness = readCleanPluginSourceWitness();
-  const files = ['scripts/security/clean-plugin-graph-transition.mjs', 'scripts/security/release-plugin-graph-transition.mjs',
+  const files = ['scripts/security/plugin-owner-parser-cache.mjs', 'scripts/security/clean-plugin-graph-transition.mjs', 'scripts/security/release-plugin-graph-transition.mjs',
     'scripts/security/compiler-plugin-source-continuation.mjs',
     'scripts/security/checkstyle-plugin-source-continuation.mjs',
     'scripts/security/checkstyle-guava-source-continuation.mjs',
@@ -170,6 +170,8 @@ test('Clean production reader rejects changed archived bytes and current POM byt
     'scripts/security/assembly-plexus-source-continuation.mjs',
     'scripts/security/jar-plugin-source-continuation.mjs',
     'docs/operations/jar-plugin-evidence/candidate-root-pom.xml',
+    'docs/operations/assembly-enforcer-lang-evidence/candidate-root-pom.xml',
+    'docs/operations/resources-flatten-evidence/accepted-main905-host-sdk-pom.xml',
     'docs/operations/assembly-plexus-evidence/candidate-root-pom.xml',
     'docs/operations/jacoco-antrun-plugin-evidence/candidate-root-pom.xml',
     'docs/operations/boot-utilities-plugin-evidence/candidate-root-pom.xml',

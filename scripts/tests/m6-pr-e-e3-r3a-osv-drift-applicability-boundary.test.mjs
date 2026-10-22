@@ -2,6 +2,8 @@ import { JACOCO_ANTRUN_GRAPH } from '../security/jacoco-antrun-graph-transition.
 import { JAR_PLUGIN_GRAPH, readJarPluginReport } from '../security/jar-plugin-graph-transition.mjs';
 import { ASSEMBLY_ENFORCER_LANG_GRAPH, readAssemblyEnforcerLangCandidate, readAssemblyEnforcerLangReport,
   readAssemblyEnforcerLangAcceptedLineage } from '../security/assembly-enforcer-lang-graph-transition.mjs';
+import { RESOURCES_FLATTEN_GRAPH, readResourcesFlattenCandidate, readResourcesFlattenReport,
+  readResourcesFlattenAcceptedLineage } from '../security/resources-flatten-graph-transition.mjs';
 import { ASSEMBLY_PLEXUS_GRAPH } from '../security/assembly-plexus-graph-transition.mjs';
 import { BOOT_UTILITIES_GRAPH } from '../security/boot-utilities-graph-transition.mjs';
 import { BOOT_HTTP_GRAPH } from '../security/boot-http-graph-transition.mjs';
@@ -280,6 +282,51 @@ test('R3A Lang source continuation preserves V3 observations and rejects prior-J
   }
 });
 
+test('R3A Resources/Flatten source continuation preserves V3 observations without current scanner claims', () => {
+  // Independently selected unit head and synthetic runtime/JAR observations.
+  // The complete archived E2 payload is retained; this is not a scanner result.
+  const expectedHead = 'a'.repeat(40);
+  const { contentSha256, ...captured } = readResourcesFlattenCandidate();
+  const payload = { ...captured, commitSha: expectedHead };
+  const current = { ...payload, contentSha256: sha256(canonical(payload)) }, transition = readCurrentSourceTransition();
+  const input = { contract, transition, commitSha: expectedHead, currentE2: current,
+    checkout: { expectedHeadSha: expectedHead, checkedOutSha: expectedHead,
+      expectedHeadTreeSha: 'b'.repeat(40), checkedOutTreeSha: 'b'.repeat(40), exactTreeMatches: true, trackedWorktreeClean: true },
+    runtimeComponents: [{ groupId: 'org.apache.tomcat.embed', artifactId: 'tomcat-embed-core', version: '11.0.26',
+      type: 'jar', scope: 'compile', path: ['io.github.akaryc1b.approval:approval-server:0.1.0-SNAPSHOT',
+        'org.springframework.boot:spring-boot-starter-web:4.0.8', 'org.springframework.boot:spring-boot-starter-tomcat:4.0.8',
+        'org.springframework.boot:spring-boot-starter-tomcat-runtime:4.0.8', 'org.apache.tomcat.embed:tomcat-embed-core:11.0.26'] }],
+    jarEvidence: { jar: transition.tomcat.jarFileName, jarSha256: transition.tomcat.jarSha256,
+      jarBytes: transition.tomcat.jarBytes, entryCount: 1615, vulnerableCloudMembershipEntryCount: 0, vulnerableCloudMembershipEntries: [] },
+    sourceMatches: [], pluginReport: readResourcesFlattenReport() };
+  const before = canonical(input), result = evaluateCurrentEvidence(input);
+  assert.equal(result.schemaVersion, 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V3');
+  assert.equal(result.currentE2GraphDigest, RESOURCES_FLATTEN_GRAPH);
+  assert.equal(result.currentGraphTransition.schemaVersion, 'APPROVAL_RESOURCES_FLATTEN_GRAPH_LINEAGE_V1');
+  assert.deepEqual(result.currentGraphTransition.preservedLangLineage, readResourcesFlattenAcceptedLineage());
+  assert.deepEqual(result.historicalReview.findings, contract.findings);
+  assert.deepEqual(result.historicalHttpcoreReview, contract.findings[1]);
+  assert.equal(result.currentHttpcoreObservation.package.version, '5.4.3');
+  for (const observation of [result.currentTomcatObservation, result.currentHttpcoreObservation]) {
+    assert.equal(observation.currentFindingPresenceClaimed, false);
+    assert.equal(observation.dispositionTransferred, false);
+  }
+  assert.equal(result.currentHttpcoreObservation.currentFindingAbsenceClaimed, false);
+  assert.equal(result.decision.currentOsvTotalsClaimed, false);
+  assert.equal(result.decision.releaseBlocked, true);
+  assert.equal(canonical(input), before);
+  for (const [name, mutate] of [
+    ['prior Lang owner report', x => { x.pluginReport = readAssemblyEnforcerLangReport(); }],
+    ['wrong independent head', x => { x.commitSha = 'c'.repeat(40); }],
+    ['runtime path drift', x => { x.runtimeComponents[0].path[1] = 'foreign:runtime:1'; }],
+    ['JAR digest drift', x => { x.jarEvidence.jarSha256 = '0'.repeat(64); }],
+    ['production source drift', x => { x.sourceMatches = ['CloudMembershipProvider']; }],
+  ]) {
+    const changed = structuredClone(input); mutate(changed);
+    assert.throws(() => evaluateCurrentEvidence(changed), undefined, name);
+  }
+});
+
 test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
   timeout: 900000,
 }, () => {
@@ -315,7 +362,7 @@ test('R3A exact Maven and JAR evidence executes in GitHub Actions', {
   assert.ok(match, 'R3A canonical review evidence must be retained');
   const resultEvidence = JSON.parse(match[1]);
   assert.match(resultEvidence.commitSha, /^[0-9a-f]{40}$/);
-  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH].includes(resultEvidence.currentE2GraphDigest);
+  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, RESOURCES_FLATTEN_GRAPH].includes(resultEvidence.currentE2GraphDigest);
   assert.equal(resultEvidence.schemaVersion, bootHttp
     ? 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V3' : 'M6_PR_E_E3_R3A_OSV_DRIFT_EVIDENCE_V2');
   const { contentSha256, ...payload } = resultEvidence;

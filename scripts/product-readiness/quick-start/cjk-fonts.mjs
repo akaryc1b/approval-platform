@@ -10,8 +10,26 @@ const expectedFamilies = [
   'WenQuanYi Micro Hei',
 ];
 
-function runChecked(command, args, timeoutMs) {
-  const result = spawnSync(command, args, {
+function observedRun(command, args, options, phase, observe) {
+  const started = Date.now();
+  const report = result => {
+    try {
+      observe?.({ phase, state: result ? 'complete' : 'start',
+        elapsedMs: Math.max(0, Math.min(570000, Date.now() - started)),
+        exitCode: Number.isInteger(result?.status) && result.status >= 0 && result.status <= 255 ? result.status : null,
+        signal: result?.signal == null ? null : ['SIGTERM','SIGKILL','SIGABRT','SIGSEGV','SIGBUS','SIGINT'].includes(result.signal) ? result.signal : 'other',
+        error: result?.error == null ? null : ['ETIMEDOUT','ENOENT','EACCES','EPERM','ENOBUFS','EIO','EAGAIN'].includes(result.error.code) ? result.error.code : 'other',
+      });
+    } catch {} // Optional diagnostics never alter installer execution or its failure.
+  };
+  report();
+  const result = spawnSync(command, args, options);
+  report(result);
+  return result;
+}
+
+function runChecked(command, args, timeoutMs, phase, observe) {
+  const result = observedRun(command, args, {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -19,7 +37,7 @@ function runChecked(command, args, timeoutMs) {
     },
     shell: false,
     timeout: timeoutMs,
-  });
+  }, phase, observe);
   if (result.error) {
     throw new Error(`${command} could not run: ${result.error.message}`);
   }
@@ -35,12 +53,12 @@ function runChecked(command, args, timeoutMs) {
   return String(result.stdout ?? '').trim();
 }
 
-function installedChineseFamilies() {
-  const result = spawnSync('fc-list', [':lang=zh', 'family'], {
+function installedChineseFamilies(phase, observe) {
+  const result = observedRun('fc-list', [':lang=zh', 'family'], {
     encoding: 'utf8',
     shell: false,
     timeout: 10_000,
-  });
+  }, phase, observe);
   if (result.error || result.status !== 0) return [];
   return String(result.stdout ?? '')
     .split(/\r?\n/u)
@@ -54,7 +72,7 @@ function selectedFamily(families) {
     families.some(family => family.includes(expected)));
 }
 
-export function ensureCjkFontRuntime() {
+export function ensureCjkFontRuntime({ observe } = {}) {
   if (process.platform !== 'linux') {
     console.log(`CJK_FONT_RUNTIME_USING_SYSTEM_FALLBACK=${process.platform}`);
     return {
@@ -64,7 +82,7 @@ export function ensureCjkFontRuntime() {
     };
   }
 
-  let families = installedChineseFamilies();
+  let families = installedChineseFamilies('probe-before', observe);
   let family = selectedFamily(families);
 
   if (!family && process.env.GITHUB_ACTIONS === 'true') {
@@ -72,6 +90,7 @@ export function ensureCjkFontRuntime() {
       'sudo',
       ['-n', 'apt-get', 'update', '-qq'],
       180_000,
+      'package-index', observe,
     );
     runChecked(
       'sudo',
@@ -85,9 +104,10 @@ export function ensureCjkFontRuntime() {
         'fonts-noto-cjk',
       ],
       240_000,
+      'package-install', observe,
     );
-    runChecked('fc-cache', ['-f'], 120_000);
-    families = installedChineseFamilies();
+    runChecked('fc-cache', ['-f'], 120_000, 'font-cache', observe);
+    families = installedChineseFamilies('probe-after', observe);
     family = selectedFamily(families);
   }
 
