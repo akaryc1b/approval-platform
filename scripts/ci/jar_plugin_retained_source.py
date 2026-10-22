@@ -1,8 +1,9 @@
-"""Sealed JAR and two-owner Lang successors to Assembly; no project execution.
+"""Sealed JAR, Lang and Resources/Flatten successors to Assembly; no project execution.
 
 Historical contracts retain their original, strict input identities. This adapter
-copies a bounded historical input closure and changes only the exact root POM
-edits, comparing each reversal with independently retained predecessor bytes.
+copies one bounded historical input closure. Resources/Flatten reverses exactly
+three blocks in two POMs before the existing root-only Lang/JAR reversals.
+Each reversal is compared with independently pinned predecessor bytes.
 """
 import argparse
 import hashlib
@@ -14,6 +15,12 @@ import stat
 CURRENT_POM = '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f'
 PRIOR_POM = '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629'
 LANG_POM = 'ddb286b44b1976dd19ad74b06f3ceef86e19d0fbee87dd27dc87985ffb1f7932'
+RF_POM = '7aaef759cbdebaafde2383186cbb90861c23f51bd4fe3219614ed0fa8c22a9ab'
+RF_SDK_POM = '2d933d9c89c7a0ee99b4870091a880ac086b295501914297c9bb6a21dd751078'
+SDK_PATH = 'integrations/host-sdk/pom.xml'
+SDK_POM = 'e755e3a2abd6d2df15b7e5739b10cd81f9a59476d8c21e6dc231961145b2d701'
+LANG_ARCHIVE = 'docs/operations/assembly-enforcer-lang-evidence/candidate-root-pom.xml'
+SDK_ARCHIVE = 'docs/operations/resources-flatten-evidence/accepted-main905-host-sdk-pom.xml'
 ARCHIVE = 'docs/operations/assembly-plexus-evidence/candidate-root-pom.xml'
 JAR_ARCHIVE = 'docs/operations/jar-plugin-evidence/candidate-root-pom.xml'
 WITNESS = 'docs/operations/jacoco-antrun-plugin-evidence/source-witness.json'
@@ -45,6 +52,42 @@ LANG_EDITS = (
                 </dependencies>
 ''', b''),
 )
+RF_ADDITIONS = {
+    'pom.xml': (
+        b'''                <!-- Preserve the lifecycle version; constrain Resources' private utility dependency. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.4.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>4.0.3</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+''',
+        b'''                        <dependencies>
+                            <dependency>
+                                <groupId>org.codehaus.plexus</groupId>
+                                <artifactId>plexus-utils</artifactId>
+                                <version>4.0.3</version>
+                            </dependency>
+                        </dependencies>
+''',
+    ),
+    'integrations/host-sdk/pom.xml': (
+        b'''                <dependencies>
+                    <dependency>
+                        <groupId>org.codehaus.plexus</groupId>
+                        <artifactId>plexus-utils</artifactId>
+                        <version>4.0.3</version>
+                    </dependency>
+                </dependencies>
+''',
+    ),
+}
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 8 * 1024 * 1024
 HISTORICAL_FILES = {
@@ -119,9 +162,45 @@ def reverse_lang_source(raw):
     return raw
 
 
+def reverse_resources_flatten(name, raw):
+    """Pure byte reversal only; this does not accept a source pair."""
+    require(name in RF_ADDITIONS, 'unrecognized Resources/Flatten member')
+    expected = RF_POM if name == 'pom.xml' else RF_SDK_POM
+    previous = LANG_POM if name == 'pom.xml' else SDK_POM
+    require(digest(raw) == expected, 'Resources/Flatten bytes drift: ' + name)
+    for addition in RF_ADDITIONS[name]:
+        require(raw.count(addition) == 1, 'exact Resources/Flatten addition missing or ambiguous: ' + name)
+        raw = raw.replace(addition, b'', 1)
+    require(digest(raw) == previous, 'unrelated Resources/Flatten source change: ' + name)
+    return raw
+
+
+def checked_source_pair(source):
+    """Fresh pair acceptance; RF reads exactly both POMs and both originals.
+
+    Every old Python source closure already includes SDK. Check its unchanged
+    bytes even when the root is historical, before any root-only fast path.
+    """
+    raw = checked(source, 'pom.xml')
+    if digest(raw) == RF_POM:
+        sdk = checked(source, SDK_PATH, RF_SDK_POM)
+        root_original = checked(source, LANG_ARCHIVE, LANG_POM)
+        sdk_original = checked(source, SDK_ARCHIVE, SDK_POM)
+        require(reverse_resources_flatten('pom.xml', raw) == root_original
+                and reverse_resources_flatten(SDK_PATH, sdk) == sdk_original,
+                'Resources/Flatten reversal differs from independent originals')
+    else:
+        checked(source, SDK_PATH, SDK_POM)
+    return raw
+
+
 def reverse_source(raw):
+    # Source acceptance must call checked_source_pair; this is pure bytes only.
     identity = digest(raw)
-    require(identity in (LANG_POM, CURRENT_POM, PRIOR_POM), 'root bytes changed')
+    require(identity in (RF_POM, LANG_POM, CURRENT_POM, PRIOR_POM), 'root bytes changed')
+    if identity == RF_POM:
+        raw = reverse_resources_flatten('pom.xml', raw)
+        identity = LANG_POM
     if identity == PRIOR_POM:
         return raw
     if identity == LANG_POM:
@@ -143,10 +222,16 @@ def expected_inventory(root, root_sha):
     require(not set(result) & set(HISTORICAL_FILES), 'historical inventory overlap')
     result.update(HISTORICAL_FILES)
     require(len(result) == 50, 'historical closure membership changed')
-    if root_sha == LANG_POM:
+    if root_sha in (LANG_POM, RF_POM):
         require(JAR_ARCHIVE not in result, 'Lang archive inventory overlap')
         result[JAR_ARCHIVE] = CURRENT_POM
         require(len(result) == 51, 'Lang closure membership changed')
+    if root_sha == RF_POM:
+        require(result.get(SDK_PATH) == SDK_POM and LANG_ARCHIVE not in result
+                and SDK_ARCHIVE not in result, 'Resources/Flatten inventory overlap or SDK baseline drift')
+        result[SDK_PATH] = RF_SDK_POM
+        result.update({LANG_ARCHIVE: LANG_POM, SDK_ARCHIVE: SDK_POM})
+        require(len(result) == 53, 'Resources/Flatten closure membership changed')
     return result
 
 
@@ -166,18 +251,42 @@ def check_inventory(root, expected):
 
 def source_inventory(source):
     source = real_root(source)
-    raw = checked(source, 'pom.xml')
+    raw = checked_source_pair(source)
     prior = reverse_source(raw)
     expected = expected_inventory(source, digest(raw))
     check_inventory(source, expected)
-    if digest(raw) == LANG_POM:
-        require(reverse_lang_source(raw) == checked(source, JAR_ARCHIVE, CURRENT_POM),
+    if digest(raw) in (LANG_POM, RF_POM):
+        lang = reverse_resources_flatten('pom.xml', raw) if digest(raw) == RF_POM else raw
+        require(reverse_lang_source(lang) == checked(source, JAR_ARCHIVE, CURRENT_POM),
                 'Lang reversal differs from accepted JAR archive')
     require(prior == checked(source, ARCHIVE, PRIOR_POM), 'reversal differs from accepted archive')
     return expected
 
 
 def projection_identity(root_sha):
+    if root_sha == RF_POM:
+        return {
+            'schemaVersion': 'RESOURCES_FLATTEN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',
+            'reversalApplied': True,
+            'sourcePomReversals': [
+                {'path': 'pom.xml', 'fromSha256': RF_POM, 'toSha256': LANG_POM,
+                 'archivePath': LANG_ARCHIVE, 'archiveSha256': LANG_POM, 'removedBlockCount': 2},
+                {'path': SDK_PATH, 'fromSha256': RF_SDK_POM, 'toSha256': SDK_POM,
+                 'archivePath': SDK_ARCHIVE, 'archiveSha256': SDK_POM, 'removedBlockCount': 1},
+            ],
+            'reversalSteps': [
+                {'fromRootPomSha256': RF_POM, 'toRootPomSha256': LANG_POM,
+                 'archivePath': LANG_ARCHIVE, 'archiveSha256': LANG_POM},
+                {'fromRootPomSha256': LANG_POM, 'toRootPomSha256': CURRENT_POM,
+                 'archivePath': JAR_ARCHIVE, 'archiveSha256': CURRENT_POM},
+                {'fromRootPomSha256': CURRENT_POM, 'toRootPomSha256': PRIOR_POM,
+                 'archivePath': ARCHIVE, 'archiveSha256': PRIOR_POM},
+            ],
+            'sdkPomPath': SDK_PATH, 'suppliedSdkPomSha256': RF_SDK_POM,
+            'retainedSdkPomSha256': SDK_POM, 'retainedSdkArchivePath': SDK_ARCHIVE,
+            'retainedSdkArchiveSha256': SDK_POM,
+            'scope': 'Exact Resources/Flatten two-POM additions then existing Lang/JAR root additions reversed to accepted Assembly bytes; no current Resources/Flatten compatibility claim.',
+        }
     if root_sha == LANG_POM:
         return {
             'schemaVersion': 'ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',
@@ -206,10 +315,14 @@ def materialize_accepted_source(source, destination):
     supplied = source_inventory(source)
     destination.mkdir(parents=False, exist_ok=False)
     retained = {**supplied, 'pom.xml': PRIOR_POM}
+    if supplied['pom.xml'] == RF_POM:
+        retained[SDK_PATH] = SDK_POM
     for name, sha in supplied.items():
         raw = checked(source, name, sha)
         if name == 'pom.xml':
             raw = reverse_source(raw)
+        elif name == SDK_PATH and supplied['pom.xml'] == RF_POM:
+            raw = reverse_resources_flatten(name, raw)
         file = destination / name
         file.parent.mkdir(parents=True, exist_ok=True)
         with file.open('xb') as stream:
@@ -232,9 +345,11 @@ def verify_projection(projection):
     retained = real_root(projection['retainedSourceRoot'])
     supplied = source_inventory(source)
     expected = {**supplied, 'pom.xml': PRIOR_POM}
+    if supplied['pom.xml'] == RF_POM:
+        expected[SDK_PATH] = SDK_POM
     identity = projection_identity(supplied['pom.xml'])
     require(all(projection.get(key) == value for key, value in identity.items()
-                if key != 'scope' or supplied['pom.xml'] == LANG_POM)
+                if key != 'scope' or supplied['pom.xml'] in (LANG_POM, RF_POM))
             and projection['suppliedRootPomSha256'] == supplied['pom.xml']
             and projection['retainedRootPomSha256'] == PRIOR_POM
             and projection['retainedArchivePath'] == ARCHIVE
@@ -248,8 +363,18 @@ def verify_projection(projection):
     require(projection['suppliedSourceHashes'] == supplied and projection['retainedSourceHashes'] == expected,
             'projection inventory changed')
     check_inventory(retained, expected)
-    if supplied['pom.xml'] == LANG_POM:
-        require(reverse_lang_source(checked(source, 'pom.xml', LANG_POM))
+    if supplied['pom.xml'] == RF_POM:
+        require(reverse_resources_flatten('pom.xml', checked(source, 'pom.xml', RF_POM))
+                == checked(source, LANG_ARCHIVE, LANG_POM) == checked(retained, LANG_ARCHIVE, LANG_POM),
+                'Resources/Flatten root projection reversal changed')
+        require(reverse_resources_flatten(SDK_PATH, checked(source, SDK_PATH, RF_SDK_POM))
+                == checked(retained, SDK_PATH, SDK_POM) == checked(source, SDK_ARCHIVE, SDK_POM)
+                == checked(retained, SDK_ARCHIVE, SDK_POM), 'Resources/Flatten SDK projection reversal changed')
+    if supplied['pom.xml'] in (LANG_POM, RF_POM):
+        lang = checked(source, 'pom.xml', supplied['pom.xml'])
+        if supplied['pom.xml'] == RF_POM:
+            lang = reverse_resources_flatten('pom.xml', lang)
+        require(reverse_lang_source(lang)
                 == checked(source, JAR_ARCHIVE, CURRENT_POM) == checked(retained, JAR_ARCHIVE, CURRENT_POM),
                 'Lang projection reversal changed')
     require(reverse_source(checked(source, 'pom.xml', supplied['pom.xml']))

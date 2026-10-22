@@ -1,0 +1,246 @@
+{
+  "dataKind": "REORGANIZED_LOCAL_CAPTURE_AND_COMPLETE_MODEL_COMPARISON_DATA",
+  "files": {
+    "acceptedE2": {
+      "bytes": 163876,
+      "path": "docs/operations/resources-flatten-evidence/accepted-main905-E2.json",
+      "rawSha256": "b08ebf666a1c9b8f8450b65499c282f6b4fdf64c5ce8002ebc37fcd25b68e451"
+    },
+    "acceptedReport": {
+      "bytes": 558965,
+      "path": "docs/operations/resources-flatten-evidence/accepted-main905-plugin-owner-report.txt",
+      "rawSha256": "458c4ebe80574aeacc77202ecee4c133aa209f3b15eb6163d80633998df9ac29"
+    },
+    "additions": {
+      "bytes": 1444,
+      "path": "docs/operations/resources-flatten-evidence/approved-additions.json",
+      "rawSha256": "dffad78082b0e7d4d7b1e743c4d8da28265daf3ae7aad0666a7176cb2a2ae7ae"
+    },
+    "baselineDemoModel": {
+      "bytes": 10037347,
+      "path": "docs/operations/resources-flatten-evidence/baseline-demo-effective-pom.xml",
+      "rawSha256": "3363ab20cad945472e88b610bc52245b2477e7f270780b209669dab16deb75e8"
+    },
+    "baselineE2": {
+      "bytes": 163877,
+      "path": "docs/operations/resources-flatten-evidence/baseline-E2.json",
+      "rawSha256": "28b73be83b99c94a2365134b3bb83f3d7ada3081000eaada3a0e8c9bdb9dd564"
+    },
+    "baselineExecution": {
+      "bytes": 300404,
+      "path": "docs/operations/resources-flatten-evidence/baseline-capture-execution.json",
+      "rawSha256": "ee5e749ea1135eccf51b6f13ca3def6950f5482f862e270fb6de290a8ee7f26a"
+    },
+    "baselineLog": {
+      "bytes": 15313,
+      "path": "docs/operations/resources-flatten-evidence/baseline-owners.stdout",
+      "rawSha256": "6e858456e0c95e1d0c194f0dbd2cb8df6f73ce47c0f390c189833190e027d0fa"
+    },
+    "baselineNormalModel": {
+      "bytes": 9985524,
+      "path": "docs/operations/resources-flatten-evidence/baseline-normal-effective-pom.xml",
+      "rawSha256": "82876bc92cce778558d6f06f889a99f2bd0653ab54dd2f782c5dd13f04d88b7d"
+    },
+    "candidateDemoModel": {
+      "bytes": 10062513,
+      "path": "docs/operations/resources-flatten-evidence/candidate-demo-effective-pom.xml",
+      "rawSha256": "f8ac3e5e3c42d189f175bfce4b73c7f3ab43d98e4af62156e65706fbdda308e3"
+    },
+    "candidateE2": {
+      "bytes": 163832,
+      "path": "docs/operations/resources-flatten-evidence/candidate-E2.json",
+      "rawSha256": "a3944b822688cb8290a4b30d7ec04c4eca282b45376df5cf1fb86f673d63fccd"
+    },
+    "candidateExecution": {
+      "bytes": 300571,
+      "path": "docs/operations/resources-flatten-evidence/capture-execution.json",
+      "rawSha256": "af0cf1434e4ad1e02ee0fe42a78889b04aaad500b41dc956e25ec186408ec935"
+    },
+    "candidateLog": {
+      "bytes": 15313,
+      "path": "docs/operations/resources-flatten-evidence/candidate-owners.stdout",
+      "rawSha256": "31c3e26ce86924668b110b6a269ff6f19176d5556a5d00b40a0064a95d4d0092"
+    },
+    "candidateNormalModel": {
+      "bytes": 10003536,
+      "path": "docs/operations/resources-flatten-evidence/candidate-normal-effective-pom.xml",
+      "rawSha256": "a0c904475feb6dd14f6a8818ebb6972f50ab7d04fe03d1dfb33d29a614161eba"
+    },
+    "candidateReport": {
+      "bytes": 560065,
+      "path": "docs/operations/resources-flatten-evidence/plugin-owner-report.txt",
+      "rawSha256": "9ba9cf29ea27b67e5fcdff906b49d737580bc89f3fce041fd7226b368dba4e4a"
+    },
+    "modelExecution": {
+      "bytes": 588099,
+      "path": "docs/operations/resources-flatten-evidence/model-capture-execution.json",
+      "rawSha256": "28229842906bf622c7cd76b9e8cbfbf592e1fc025625eabb60ed0a21b319348a"
+    },
+    "occurrences": {
+      "bytes": 21489,
+      "path": "docs/operations/resources-flatten-evidence/resource-occurrence-explanation.json",
+      "rawSha256": "479ebc9a94429423b2add53ceeb8e67b876280437921925a6ecd248b2e28f1e4"
+    },
+    "oldRoot": {
+      "bytes": 21539,
+      "path": "docs/operations/assembly-enforcer-lang-evidence/candidate-root-pom.xml",
+      "rawSha256": "ddb286b44b1976dd19ad74b06f3ceef86e19d0fbee87dd27dc87985ffb1f7932"
+    },
+    "oldSdk": {
+      "bytes": 1922,
+      "path": "docs/operations/resources-flatten-evidence/accepted-main905-host-sdk-pom.xml",
+      "rawSha256": "e755e3a2abd6d2df15b7e5739b10cd81f9a59476d8c21e6dc231961145b2d701"
+    },
+    "sourceManifest": {
+      "bytes": 5703,
+      "path": "docs/operations/resources-flatten-evidence/accepted-main905-source-manifest.json",
+      "rawSha256": "f28e7012dd8638a9b219e00aa16ade8357c771ff249f2b753755579df838120c"
+    },
+    "sourceWitness": {
+      "bytes": 7646,
+      "path": "docs/operations/resources-flatten-evidence/source-pom-witness.json",
+      "rawSha256": "8e60a33de11560f158d0bb42830be76e91d6bcd0dd25c085f53d57310314bfbf"
+    }
+  },
+  "graph": {
+    "baselineGraphDigest": "c57035ab083aa9832d8d69b4dab2008f65d922ddec0edeb5b93742a10754f97d",
+    "candidateGraphDigest": "c1b04674b8dd67b29e0b720e793b62fe354be6a2cedef544e44abaa8614cf062",
+    "changedOwners": [
+      "org.apache.maven.plugins:maven-resources-plugin:jar:3.4.0",
+      "org.codehaus.mojo:flatten-maven-plugin:jar:1.7.3"
+    ],
+    "derivedOsvTargetsAfter": 465,
+    "derivedOsvTargetsBefore": 466,
+    "fullCapturedE2EqualAfterExactOwnerDeltaReversal": true,
+    "importedBomCount": 6,
+    "ownerCount": 17,
+    "reactorRootCount": 26,
+    "resolvedPluginCoordinatesAfter": 262,
+    "resolvedPluginCoordinatesBefore": 263,
+    "runtimeComponentCount": 237,
+    "runtimeEdgeCount": 345,
+    "unchangedOtherOwners": 15
+  },
+  "modelComparisonOrigin": {
+    "archivedModelContract": "7d5a774eaf178e6830eabf8c09460292ced764f2f601bb38253cbc61a886cfe4",
+    "modelBinding": "fd7e999e866812243aa0474200b9b9c8206370331f4fd31a88944c4b282c0a3b",
+    "modelSemantics": "8d0dab3e82979f31b19a280e5a1c414f1a80703c83d58401fdee06d8848c5371"
+  },
+  "models": {
+    "demo": {
+      "allOtherModelFieldsUnchanged": true,
+      "baselineSha256": "3363ab20cad945472e88b610bc52245b2477e7f270780b209669dab16deb75e8",
+      "candidateSha256": "f8ac3e5e3c42d189f175bfce4b73c7f3ab43d98e4af62156e65706fbdda308e3",
+      "modelCount": 26,
+      "ownerDeclarationCounts": {
+        "profile:product-readiness-demo/build/plugins:flatten-maven-plugin": 1,
+        "project/build/pluginManagement/plugins:maven-resources-plugin": 26,
+        "project/build/plugins:flatten-maven-plugin": 26,
+        "project/build/plugins:maven-resources-plugin": 24
+      }
+    },
+    "normal": {
+      "allOtherModelFieldsUnchanged": true,
+      "baselineSha256": "82876bc92cce778558d6f06f889a99f2bd0653ab54dd2f782c5dd13f04d88b7d",
+      "candidateSha256": "a0c904475feb6dd14f6a8818ebb6972f50ab7d04fe03d1dfb33d29a614161eba",
+      "modelCount": 26,
+      "ownerDeclarationCounts": {
+        "profile:product-readiness-demo/build/plugins:flatten-maven-plugin": 1,
+        "project/build/pluginManagement/plugins:maven-resources-plugin": 26,
+        "project/build/plugins:flatten-maven-plugin": 1,
+        "project/build/plugins:maven-resources-plugin": 24
+      }
+    }
+  },
+  "repository": "akaryc1b/approval-platform",
+  "resourcesReportOccurrences": {
+    "activeResourcesModelsUnchanged": 24,
+    "addedExecutionCount": 0,
+    "addedManagedDeclarationProjects": [
+      {
+        "artifactId": "approval-platform",
+        "baseline": {
+          "activeCount": 0,
+          "activeExecutionCount": 0,
+          "artifactId": "approval-platform",
+          "managedCount": 0,
+          "managedExecutionCount": 0,
+          "managedVersions": [],
+          "packaging": "pom",
+          "reactorIndex": 0,
+          "reportOwnerPresent": false
+        },
+        "candidate": {
+          "activeCount": 0,
+          "activeExecutionCount": 0,
+          "artifactId": "approval-platform",
+          "managedCount": 1,
+          "managedExecutionCount": 0,
+          "managedVersions": [
+            "3.4.0"
+          ],
+          "packaging": "pom",
+          "reactorIndex": 0,
+          "reportOwnerPresent": true
+        },
+        "reactorIndex": 0,
+        "sourcePom": "pom.xml"
+      },
+      {
+        "artifactId": "approval-server-modules",
+        "baseline": {
+          "activeCount": 0,
+          "activeExecutionCount": 0,
+          "artifactId": "approval-server-modules",
+          "managedCount": 0,
+          "managedExecutionCount": 0,
+          "managedVersions": [],
+          "packaging": "pom",
+          "reactorIndex": 23,
+          "reportOwnerPresent": false
+        },
+        "candidate": {
+          "activeCount": 0,
+          "activeExecutionCount": 0,
+          "artifactId": "approval-server-modules",
+          "managedCount": 1,
+          "managedExecutionCount": 0,
+          "managedVersions": [
+            "3.4.0"
+          ],
+          "packaging": "pom",
+          "reactorIndex": 23,
+          "reportOwnerPresent": true
+        },
+        "reactorIndex": 23,
+        "sourcePom": "server-modules/pom.xml"
+      }
+    ],
+    "baseline": 24,
+    "candidate": 26
+  },
+  "schemaVersion": "APPROVAL_RESOURCES_FLATTEN_ARCHIVAL_SOURCE_MODEL_DATA_V1",
+  "scope": {
+    "canonicalScannerOrCiClaimed": false,
+    "currentHeadExecutionClaimed": false,
+    "findingDispositionClaimed": false,
+    "freshOsvResultsClaimed": false,
+    "newlyOrganizedArchivalData": true,
+    "originalReceipt": false,
+    "releaseAccepted": false,
+    "releaseBlocked": true,
+    "runtimeCompatibilityClaimed": false
+  },
+  "source": {
+    "addedOwnerDeclarationBlocks": 3,
+    "modifiedProductionPaths": [
+      "integrations/host-sdk/pom.xml",
+      "pom.xml"
+    ],
+    "nonReactorOverlaySourceOnly": 2,
+    "reactorModelsPerDocument": 26,
+    "sourceHead": "905cd30fde430972da58203a61136d50a28f81e8",
+    "sourcePomWitnesses": 28,
+    "sourceTree": "8b5d522974a5547a7d990f42b6ce386dadad0941"
+  }
+}

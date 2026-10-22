@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { RESOURCES_FLATTEN_GRAPH } from './resources-flatten-graph-transition.mjs';
 
 import { createHash } from 'node:crypto';
 import {
@@ -464,11 +465,11 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
   const graphTransition = verifyObservabilityGraph(currentE2, acceptedE2GraphProjection(currentE2), BASE_GRAPH, commitSha);
   if (typeof pluginReport !== 'string') throw new Error('R3A raw current plugin report required');
   const pluginReportSha256 = sha256(pluginReport), pluginGroups = parseResolvedPluginReport(pluginReport);
-  const subsequentPluginGraph = [ASSEMBLY_ENFORCER_LANG_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH]
+  const subsequentPluginGraph = [RESOURCES_FLATTEN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH]
     .includes(graphTransition.currentE2GraphDigest);
-  // Lang, JAR and Assembly admission already proved their exact deltas against pinned
+  // Resources/Flatten, Lang, JAR and Assembly admission already proved their exact deltas against pinned
   // accepted graph/lineage data. Current runtime/JAR/source/owner checks below still run.
-  if (subsequentPluginGraph && ![ASSEMBLY_ENFORCER_LANG_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_PLEXUS_GRAPH].includes(graphTransition.currentE2GraphDigest)) {
+  if (subsequentPluginGraph && ![RESOURCES_FLATTEN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_PLEXUS_GRAPH].includes(graphTransition.currentE2GraphDigest)) {
     const current = acceptedE2GraphProjection(currentE2);
     const beforeJacocoAntrun = graphTransition.currentE2GraphDigest === JACOCO_ANTRUN_GRAPH ? verifyJacocoAntrunDelta(current) : current;
     const beforeUtilities = [BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH].includes(graphTransition.currentE2GraphDigest) ? verifyBootUtilitiesDelta(beforeJacocoAntrun) : beforeJacocoAntrun;
@@ -517,7 +518,7 @@ export function evaluateCurrentEvidence({ contract, transition, commitSha, curre
     || jarEvidence.vulnerableCloudMembershipEntryCount !== 0
     || canonical(jarEvidence.vulnerableCloudMembershipEntries) !== '[]') throw new Error('R3A exact current Tomcat JAR/cloud evidence mismatch');
   if (!Array.isArray(sourceMatches) || sourceMatches.length) throw new Error('R3A current Tomcat source/config drift');
-  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH].includes(graphTransition.currentE2GraphDigest);
+  const bootHttp = [BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, RESOURCES_FLATTEN_GRAPH].includes(graphTransition.currentE2GraphDigest);
   const observedHttpcore = bootHttp ? { ...httpcore, version: '5.4.3', requiredCoResolvedComponents: [
     'org.apache.httpcomponents.client5:httpclient5:5.6.3',
     'org.apache.httpcomponents.core5:httpcore5-h2:5.4.3',

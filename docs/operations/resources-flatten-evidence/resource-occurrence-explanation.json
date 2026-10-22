@@ -1,0 +1,713 @@
+{
+  "activeResourcePluginCountUnchanged": 24,
+  "addedExecutionCount": 0,
+  "addedOccurrenceProjects": [
+    {
+      "artifactId": "approval-platform",
+      "baseline": {
+        "activeCount": 0,
+        "activeExecutionCount": 0,
+        "artifactId": "approval-platform",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "pom",
+        "reactorIndex": 0,
+        "reportOwnerPresent": false
+      },
+      "candidate": {
+        "activeCount": 0,
+        "activeExecutionCount": 0,
+        "artifactId": "approval-platform",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "pom",
+        "reactorIndex": 0,
+        "reportOwnerPresent": true
+      },
+      "reactorIndex": 0,
+      "sourcePom": "pom.xml"
+    },
+    {
+      "artifactId": "approval-server-modules",
+      "baseline": {
+        "activeCount": 0,
+        "activeExecutionCount": 0,
+        "artifactId": "approval-server-modules",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "pom",
+        "reactorIndex": 23,
+        "reportOwnerPresent": false
+      },
+      "candidate": {
+        "activeCount": 0,
+        "activeExecutionCount": 0,
+        "artifactId": "approval-server-modules",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "pom",
+        "reactorIndex": 23,
+        "reportOwnerPresent": true
+      },
+      "reactorIndex": 23,
+      "sourcePom": "server-modules/pom.xml"
+    }
+  ],
+  "all26ReportBlocksMatchActualMavenReplayOrderAndNormalModelOrder": true,
+  "baselineOwnerOccurrences": 24,
+  "candidateOwnerOccurrences": 26,
+  "canonicalCiEvidence": false,
+  "explanation": "Explicit pluginManagement makes Resources visible to resolve-plugins in the two POM packaging projects. Their active build/plugins still contains no Resources and no Resources execution. The existing 24 lifecycle consumers keep their active occurrence and execution counts.",
+  "formalGraphAcceptance": "PENDING_INDEPENDENT_REVIEW",
+  "inputSha256": {
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/resources-flatten-plan-recovery-20261019/model-capture-work/baseline-graph-01/capture-execution.json": "ee5e749ea1135eccf51b6f13ca3def6950f5482f862e270fb6de290a8ee7f26a",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/resources-flatten-plan-recovery-20261019/model-capture-work/baseline-graph-01/owners.stdout": "6e858456e0c95e1d0c194f0dbd2cb8df6f73ce47c0f390c189833190e027d0fa",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/resources-flatten-plan-recovery-20261019/model-capture-work/baseline-graph-01/plugin-owner-report.txt": "458c4ebe80574aeacc77202ecee4c133aa209f3b15eb6163d80633998df9ac29",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/resources-flatten-plan-recovery-20261019/model-capture-work/candidate-graph-01/capture-execution.json": "af0cf1434e4ad1e02ee0fe42a78889b04aaad500b41dc956e25ec186408ec935",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/resources-flatten-plan-recovery-20261019/model-capture-work/candidate-graph-01/owners.stdout": "31c3e26ce86924668b110b6a269ff6f19176d5556a5d00b40a0064a95d4d0092",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/resources-flatten-plan-recovery-20261019/model-capture-work/candidate-graph-01/plugin-owner-report.txt": "9ba9cf29ea27b67e5fcdff906b49d737580bc89f3fce041fd7226b368dba4e4a",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/resources-flatten-plan-recovery-20261019/model-capture-work/models-02/baseline-normal-effective-pom.xml": "82876bc92cce778558d6f06f889a99f2bd0653ab54dd2f782c5dd13f04d88b7d",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/resources-flatten-plan-recovery-20261019/model-capture-work/models-02/candidate-normal-effective-pom.xml": "a0c904475feb6dd14f6a8818ebb6972f50ab7d04fe03d1dfb33d29a614161eba",
+    "/workspace/scratch/fb685c03ae3c/release-recovery-evidence/resources-flatten-plan-recovery-20261019/model-capture-work/models-02/capture-execution.json": "28229842906bf622c7cd76b9e8cbfbf592e1fc025625eabb60ed0a21b319348a"
+  },
+  "modelRows": {
+    "baseline": [
+      {
+        "activeCount": 0,
+        "activeExecutionCount": 0,
+        "artifactId": "approval-platform",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "pom",
+        "reactorIndex": 0,
+        "reportOwnerPresent": false
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-domain",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 1,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-definition-compiler",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 2,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-engine-spi",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 3,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-spi",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 4,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-ai-spi",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 5,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-ai-core",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 6,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-dingtalk",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 7,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-credential-core",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 8,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-ai-openai",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 9,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-routing-core",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 10,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-dingtalk-token",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 11,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-invocation-core",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 12,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-operations-core",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 13,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-dingtalk-http",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 14,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-integration-core",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 15,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-generic",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 16,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-integration-jdbc",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 17,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-engine-flowable",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 18,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-application",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 19,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-persistence-jdbc",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 20,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-host-sdk",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 21,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-architecture-tests",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 22,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 0,
+        "activeExecutionCount": 0,
+        "artifactId": "approval-server-modules",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "pom",
+        "reactorIndex": 23,
+        "reportOwnerPresent": false
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-server",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 24,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-generic-spring-host-example",
+        "managedCount": 0,
+        "managedExecutionCount": 0,
+        "managedVersions": [],
+        "packaging": "jar",
+        "reactorIndex": 25,
+        "reportOwnerPresent": true
+      }
+    ],
+    "candidate": [
+      {
+        "activeCount": 0,
+        "activeExecutionCount": 0,
+        "artifactId": "approval-platform",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "pom",
+        "reactorIndex": 0,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-domain",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 1,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-definition-compiler",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 2,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-engine-spi",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 3,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-spi",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 4,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-ai-spi",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 5,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-ai-core",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 6,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-dingtalk",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 7,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-credential-core",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 8,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-ai-openai",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 9,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-routing-core",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 10,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-dingtalk-token",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 11,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-invocation-core",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 12,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-operations-core",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 13,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-dingtalk-http",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 14,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-integration-core",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 15,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-connector-generic",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 16,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-integration-jdbc",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 17,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-engine-flowable",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 18,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-application",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 19,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-persistence-jdbc",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 20,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-host-sdk",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 21,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-architecture-tests",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 22,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 0,
+        "activeExecutionCount": 0,
+        "artifactId": "approval-server-modules",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "pom",
+        "reactorIndex": 23,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-server",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 24,
+        "reportOwnerPresent": true
+      },
+      {
+        "activeCount": 1,
+        "activeExecutionCount": 2,
+        "artifactId": "approval-generic-spring-host-example",
+        "managedCount": 1,
+        "managedExecutionCount": 0,
+        "managedVersions": [
+          "3.4.0"
+        ],
+        "packaging": "jar",
+        "reactorIndex": 25,
+        "reportOwnerPresent": true
+      }
+    ]
+  },
+  "releaseBlocked": true,
+  "status": "PASSED_ACTUAL_RESOURCE_OCCURRENCE_MODEL_AND_LOG_EXPLANATION"
+}

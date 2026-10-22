@@ -1,3 +1,5 @@
+import { RESOURCES_FLATTEN_GRAPH, resourcesFlattenReceipt } from './resources-flatten-graph-transition.mjs';
+export { RESOURCES_FLATTEN_GRAPH } from './resources-flatten-graph-transition.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { SERVER_DEPENDENCY_GRAPH, SERVER_DEPENDENCY_MANIFEST_SHA256,
@@ -482,6 +484,9 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, exp
   }), 'E2 graph projection mismatch');
   const digest = graphHash(projection);
   requireValue(expectedBaseDigest === BASE_GRAPH, 'unrecognized dependency graph baseline');
+  if (digest === RESOURCES_FLATTEN_GRAPH) {
+    return resourcesFlattenReceipt(e2, expectedCommitSha);
+  }
   if (digest === ASSEMBLY_ENFORCER_LANG_GRAPH) {
     requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
       && e2.commitSha === expectedCommitSha, 'Assembly/Enforcer Lang E2 requires current verified head and schema');
@@ -518,24 +523,27 @@ export function verifyObservabilityGraph(e2, projection, expectedBaseDigest, exp
   if (digest === BOOT_UTILITIES_GRAPH) {
     requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
       && e2.commitSha === expectedCommitSha, 'Boot utilities E2 requires current verified head and schema');
-    verifyBootUtilitiesCurrentEvidence(e2);
-    const previous = verifyBootUtilitiesDelta(projection), baseline = readBootUtilitiesBaseline();
+    const manifest = readBootUtilitiesManifest();
+    verifyBootUtilitiesCurrentEvidence(e2, manifest);
+    const previous = verifyBootUtilitiesDelta(projection, manifest), baseline = readBootUtilitiesBaseline(manifest);
     verifyObservabilityGraph(baseline, previous, BASE_GRAPH, baseline.commitSha);
     return bootUtilitiesReceipt(e2);
   }
   if (digest === BOOT_HTTP_GRAPH) {
     requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
       && e2.commitSha === expectedCommitSha, 'Boot HTTP E2 requires current verified head and schema');
-    verifyBootHttpCurrentEvidence(e2);
-    const previous = verifyBootHttpDelta(projection), baseline = readBootHttpBaseline();
+    const manifest = readBootHttpManifest();
+    verifyBootHttpCurrentEvidence(e2, manifest);
+    const previous = verifyBootHttpDelta(projection, manifest), baseline = readBootHttpBaseline(manifest);
     verifyObservabilityGraph(baseline, previous, BASE_GRAPH, baseline.commitSha);
     return bootHttpReceipt(e2);
   }
   if (digest === CHECKSTYLE_GUAVA_GRAPH) {
     requireValue(e2.schemaVersion === 'M6_PR_E_E2_SBOM_V1' && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')
       && e2.commitSha === expectedCommitSha, 'Guava E2 requires current verified head and schema');
-    verifyCheckstyleGuavaCurrentEvidence(e2);
-    const previous = verifyCheckstyleGuavaDelta(projection), baseline = readCheckstyleGuavaBaseline();
+    const manifest = readCheckstyleGuavaManifest();
+    verifyCheckstyleGuavaCurrentEvidence(e2, manifest);
+    const previous = verifyCheckstyleGuavaDelta(projection, manifest), baseline = readCheckstyleGuavaBaseline(manifest);
     verifyObservabilityGraph(baseline, previous, BASE_GRAPH, baseline.commitSha);
     return checkstyleGuavaReceipt(e2);
   }
@@ -583,6 +591,12 @@ export function requirePreservedGraph(e4, historicalGraph, expectedCommitSha) {
   if (e4.e2GraphDigest === historicalGraph) {
     requireValue(e4.e2GraphTransition === undefined, 'unexpected dependency graph lineage');
     return null;
+  }
+  if (e4.e2GraphDigest === RESOURCES_FLATTEN_GRAPH) {
+    requireValue(e4.repository === REPOSITORY, 'Resources/Flatten E4 repository mismatch');
+    const expected = resourcesFlattenReceipt({ commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 }, expectedCommitSha);
+    requireValue(canonicalGraph(e4.e2GraphTransition) === canonicalGraph(expected), 'Resources/Flatten E2 graph lineage mismatch');
+    return expected;
   }
   if (e4.e2GraphDigest === ASSEMBLY_ENFORCER_LANG_GRAPH) {
     requireValue(e4.repository === REPOSITORY && /^[0-9a-f]{40}$/.test(expectedCommitSha || '')

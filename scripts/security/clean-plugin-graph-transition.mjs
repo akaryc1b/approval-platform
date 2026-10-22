@@ -1,3 +1,4 @@
+import { memoizePluginOwnerParser } from './plugin-owner-parser-cache.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
@@ -172,7 +173,8 @@ export function readCleanPluginPreservedReleaseLineage(manifest = readCleanPlugi
   return value;
 }
 
-function owners(raw) {
+const owners = memoizePluginOwnerParser(parseOwners);
+function parseOwners(raw) {
   const result = {}, occurrences = {}; let owner, coordinates;
   const finish = () => {
     if (!owner) return;

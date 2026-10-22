@@ -26,6 +26,10 @@ def copy_source(base):
     for name in jar['source_inventory'](ROOT):
         target = source / name; target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, target)
+    # Retain independent old Lang cases even when the checkout is Resources/Flatten.
+    if (source / jar['SDK_ARCHIVE']).exists():
+        (source / 'pom.xml').write_bytes((source / jar['LANG_ARCHIVE']).read_bytes())
+        (source / jar['SDK_PATH']).write_bytes((source / jar['SDK_ARCHIVE']).read_bytes())
     return source
 `;
 function python(source) {
@@ -98,8 +102,9 @@ with tempfile.TemporaryDirectory(prefix='jar-legacy-boot-') as directory:
     current_raw, current, current_inventory = goals['source_inputs'](ROOT)
     prior_raw, prior_current, prior_inventory = goals['source_inputs'](retained)
     assert current and prior_current and current_raw == prior_raw
-    assert len(current_inventory) == 51 and len(prior_inventory) == 29
-    assert current_inventory['pom.xml'] == jar['LANG_POM']
+    assert len(current_inventory) == 53 and len(prior_inventory) == 29
+    assert current_inventory['pom.xml'] == jar['RF_POM']
+    assert current_inventory[jar['SDK_PATH']] == jar['RF_SDK_POM']
     assert prior_inventory['pom.xml'] == jar['PRIOR_POM']
     for profile in ('http', 'utilities'):
         for variant in ('baseline', 'candidate'):

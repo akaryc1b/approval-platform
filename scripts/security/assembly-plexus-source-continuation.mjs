@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { readPreservedAssemblySource } from './jar-plugin-source-continuation.mjs';
+import { readMain905Source, readPreservedAssemblySource } from './jar-plugin-source-continuation.mjs';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
 const PRIOR_POM = 'd36a115813577c7ce997c3adb990cd17247b060071fce25a201d1c73d392042c';
@@ -25,7 +25,7 @@ export function readPreservedJacocoAntrunSource(path, expected) {
   if (typeof path !== 'string' || !/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') || path.includes('\\')
       || path.split('/').some(part => !part || part === '.' || part === '..'))
     throw new Error('Assembly continuation requires a safe relative source path');
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = readMain905Source(path);
   const current = path === 'pom.xml' && sha(raw) !== expected ? readPreservedAssemblySource(path, CURRENT_POM) : raw;
   if (sha(current) === expected) return current;
   if (path !== 'pom.xml' || expected !== PRIOR_POM || sha(current) !== CURRENT_POM)

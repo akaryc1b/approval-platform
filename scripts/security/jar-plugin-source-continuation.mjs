@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, lstatSync, realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
 const PRIOR_HYGIENE_HELPER = '820cffc7c6202de35c767c445a60361c00e632e8c7163a5284b0e7490e605f0e';
@@ -59,8 +60,76 @@ export function priorM3LogRetentionWorkflow(workflowPath, content) {
 `, ''],
 ];
 
+const RF_ROOT_POM = '7aaef759cbdebaafde2383186cbb90861c23f51bd4fe3219614ed0fa8c22a9ab';
+const RF_SDK_POM = '2d933d9c89c7a0ee99b4870091a880ac086b295501914297c9bb6a21dd751078';
+const MAIN905_SDK_POM = 'e755e3a2abd6d2df15b7e5739b10cd81f9a59476d8c21e6dc231961145b2d701';
+const SDK_PATH = 'integrations/host-sdk/pom.xml';
+const MAIN905_ROOT_ARCHIVE = 'docs/operations/assembly-enforcer-lang-evidence/candidate-root-pom.xml';
+const MAIN905_SDK_ARCHIVE = 'docs/operations/resources-flatten-evidence/accepted-main905-host-sdk-pom.xml';
+const RF_ADDITIONS = {
+  "pom.xml": [
+    "                <!-- Preserve the lifecycle version; constrain Resources' private utility dependency. -->\n                <plugin>\n                    <groupId>org.apache.maven.plugins</groupId>\n                    <artifactId>maven-resources-plugin</artifactId>\n                    <version>3.4.0</version>\n                    <dependencies>\n                        <dependency>\n                            <groupId>org.codehaus.plexus</groupId>\n                            <artifactId>plexus-utils</artifactId>\n                            <version>4.0.3</version>\n                        </dependency>\n                    </dependencies>\n                </plugin>\n",
+    "                        <dependencies>\n                            <dependency>\n                                <groupId>org.codehaus.plexus</groupId>\n                                <artifactId>plexus-utils</artifactId>\n                                <version>4.0.3</version>\n                            </dependency>\n                        </dependencies>\n"
+  ],
+  "integrations/host-sdk/pom.xml": [
+    "                <dependencies>\n                    <dependency>\n                        <groupId>org.codehaus.plexus</groupId>\n                        <artifactId>plexus-utils</artifactId>\n                        <version>4.0.3</version>\n                    </dependency>\n                </dependencies>\n"
+  ]
+};
+
+function sourcePath(path) {
+  if (typeof path !== 'string' || !/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') || path.includes('\\')
+      || path.split('/').some(part => !part || part === '.' || part === '..'))
+    throw new Error('JAR continuation requires a safe relative source path');
+  return fileURLToPath(new URL(`../../${path}`, import.meta.url));
+}
+function pairFailure(path) {
+  throw new Error(`JAR continuation historical source byte digest mismatch: Resources/Flatten ${path}`);
+}
+function boundedSource(path) {
+  const file = sourcePath(path), info = lstatSync(file, { throwIfNoEntry: false });
+  if (!info || !info.isFile() || info.isSymbolicLink() || info.size > 2 * 1024 * 1024 || realpathSync(file) !== file)
+    pairFailure(path);
+  const raw = readFileSync(file);
+  if (raw.length > 2 * 1024 * 1024) pairFailure(path);
+  return raw;
+}
+
+/** Fresh, bounded dual-POM projection to independent main905 originals only. */
+export function readMain905Source(path, suppliedRaw) {
+  if (path !== 'pom.xml' && path !== SDK_PATH) return readFileSync(sourcePath(path));
+  const raw = boundedSource(path);
+  if (suppliedRaw !== undefined && (!Buffer.isBuffer(suppliedRaw) || !raw.equals(suppliedRaw)))
+    pairFailure(`${path}: stale supplied bytes`);
+  const root = path === 'pom.xml' ? raw : boundedSource('pom.xml');
+  const sdkInfo = lstatSync(sourcePath(SDK_PATH), { throwIfNoEntry: false });
+  if (!sdkInfo) {
+    // Original root-only historical fixtures do not acquire a new archive dependency.
+    if (path === SDK_PATH || sha(root) === RF_ROOT_POM) pairFailure(SDK_PATH);
+    return raw;
+  }
+  const sdk = path === SDK_PATH ? raw : boundedSource(SDK_PATH);
+  const oldRoot = boundedSource(MAIN905_ROOT_ARCHIVE), oldSdk = boundedSource(MAIN905_SDK_ARCHIVE);
+  if (sha(oldRoot) !== LANG_POM || sha(oldSdk) !== MAIN905_SDK_POM)
+    pairFailure('independent main905 originals');
+  if (sha(root) !== RF_ROOT_POM) {
+    if (sha(sdk) !== MAIN905_SDK_POM) pairFailure('mixed or changed POM pair');
+    return raw; // The existing historical reader still checks its exact root identity.
+  }
+  if (sha(sdk) !== RF_SDK_POM) pairFailure('mixed or changed POM pair');
+  for (const [name, current, original] of [['pom.xml', root, oldRoot], [SDK_PATH, sdk, oldSdk]]) {
+    let text = current.toString('utf8');
+    for (const addition of RF_ADDITIONS[name]) {
+      if (text.split(addition).length !== 2) pairFailure(`${name}: ambiguous addition`);
+      text = text.replace(addition, '');
+    }
+    if (!Buffer.from(text).equals(original)) pairFailure(`${name}: independent predecessor differs`);
+  }
+  return path === 'pom.xml' ? oldRoot : oldSdk;
+}
+
 /** Preserve exact historical helper/workflow bytes and sizes without changing retained captures. */
 export function preservedHygieneJava21Source(path, expected, current) {
+  if (path === 'pom.xml' || path === SDK_PATH) current = readMain905Source(path, current);
   const projection = path === 'scripts/security/hygiene-java21-workflow-transition.mjs' && expected === PRIOR_HYGIENE_HELPER
     ? { currentSha256: CURRENT_HYGIENE_HELPER, edits: hygieneHelperEdits, bytes: 3254 }
     : path === '.github/workflows/approval-platform-validation.yml' && expected === PRIOR_HYGIENE_WORKFLOW
@@ -110,10 +179,7 @@ const langEdits = [
 ];
 
 function readSource(path) {
-  if (typeof path !== 'string' || !/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') || path.includes('\\')
-      || path.split('/').some(part => !part || part === '.' || part === '..'))
-    throw new Error('JAR continuation requires a safe relative source path');
-  return readFileSync(new URL(`../../${path}`, import.meta.url));
+  return readMain905Source(path);
 }
 
 function preservedJarBytes(current) {

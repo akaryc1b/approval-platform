@@ -1,3 +1,4 @@
+import { readMain905Source } from './jar-plugin-source-continuation.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { readPreservedJacocoAntrunSource } from './assembly-plexus-source-continuation.mjs';
@@ -15,7 +16,7 @@ export function readPreservedBootUtilitiesSource(path, expected) {
   if (typeof path !== 'string' || !/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') || path.includes('\\')
       || path.split('/').some(part => !part || part === '.' || part === '..'))
     throw new Error('JaCoCo/AntRun continuation requires a safe relative source path');
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = readMain905Source(path);
   if (hash(raw) === expected) return raw;
   const current = path === 'pom.xml' ? readPreservedJacocoAntrunSource(path, CURRENT_POM) : raw;
   if (hash(current) === expected) return current;

@@ -20,9 +20,10 @@ const seal = value => { const { contentSha256, ...payload } = value; return { ..
 const admit = e2 => verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, e2.commitSha);
 // These negative cases exercise pure substitutions. Validate their retained
 // source/evidence once, then isolate each mutation with a fresh deep copy.
+const retainedManifest = readBootHttpManifest();
 const retainedFixture = {
-  beforeRaw: readCheckstyleGuavaReport(), afterRaw: readBootHttpReport(),
-  before: acceptedE2GraphProjection(readBootHttpBaseline()), after: acceptedE2GraphProjection(readBootHttpCandidate()),
+  beforeRaw: readCheckstyleGuavaReport(), afterRaw: readBootHttpReport(retainedManifest),
+  before: acceptedE2GraphProjection(readBootHttpBaseline(retainedManifest)), after: acceptedE2GraphProjection(readBootHttpCandidate(retainedManifest)),
 };
 function fixture() {
   return structuredClone(retainedFixture);

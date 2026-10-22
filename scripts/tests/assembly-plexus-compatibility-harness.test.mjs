@@ -8,7 +8,7 @@ const harness = fileURLToPath(new URL('./fixtures/assembly-plexus-compatibility.
 function python(body) {
   const result = spawnSync('python3', ['-I', '-S', '-B', '-c', `import http.server,ssl,runpy,subprocess,socket\ndef blocked(*args,**kwargs): raise AssertionError('pure fixture attempted process or socket execution')\nsubprocess.Popen=socket.socket=blocked\ns=runpy.run_path(${JSON.stringify(harness)})\ndef rejects(fn):\n try: fn()\n except (ValueError,AssertionError,KeyError): return\n raise AssertionError('unexpected acceptance')\n${body}`],
     { encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024 });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(result.status, 0, `spawn error=${result.error?.code ?? 'none'}; signal=${result.signal ?? 'none'}\n${result.stdout}${result.stderr}`);
 }
 
 test('Assembly plan is inert, six exact pairs and bounded offline direct goals', () => {
@@ -47,7 +47,10 @@ projection_directory=tempfile.TemporaryDirectory(prefix='assembly-source-test-')
 config={'source':str(s['ROOT']),'output':str(Path(projection_directory.name)/'goals')}
 projection=s['prepare_source_projection'](config)
 source=s['source_for_contract'](config,projection)
-assert projection['suppliedRootPomSha256']==s['JAR_RETAINED']['LANG_POM']
+assert projection['suppliedRootPomSha256']==s['JAR_RETAINED']['RF_POM']
+assert projection['schemaVersion']=='RESOURCES_FLATTEN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
+assert projection['suppliedSdkPomSha256']==s['JAR_RETAINED']['RF_SDK_POM']
+assert projection['retainedSdkPomSha256']==s['JAR_RETAINED']['SDK_POM']
 for baseline in (True,False):
  plugin=contract['fixture_plugin'](source,baseline=baseline)
  with tempfile.TemporaryDirectory(prefix='assembly-input-test-') as name:
@@ -78,7 +81,45 @@ projection_directory.cleanup()
 `);
 });
 
-test('JAR historical projection binds all POMs and strict historical inputs without executing tools', () => {
+test('independent Lang, JAR and Assembly archives keep their original source closure and receipt semantics', () => {
+  python(String.raw`
+import shutil,tempfile
+from pathlib import Path
+jar=s['JAR_RETAINED']
+for label,archive,root_sha,count,schema,reversal in [
+ ('lang',jar['LANG_ARCHIVE'],jar['LANG_POM'],51,'ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',True),
+ ('jar',jar['JAR_ARCHIVE'],jar['CURRENT_POM'],50,'JAR_PLUGIN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',True),
+ ('assembly',jar['ARCHIVE'],jar['PRIOR_POM'],50,'JAR_PLUGIN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',False)]:
+ with tempfile.TemporaryDirectory(prefix='independent-'+label+'-source-') as directory:
+  root=Path(directory);source=root/'source';source.mkdir()
+  # Read independently pinned archives; never derive the historical fixtures from current bytes.
+  historical_root=jar['checked'](s['ROOT'],archive,root_sha)
+  historical_sdk=jar['checked'](s['ROOT'],jar['SDK_ARCHIVE'],jar['SDK_POM'])
+  for name in jar['expected_inventory'](s['ROOT'],root_sha):
+   target=source/name;target.parent.mkdir(parents=True,exist_ok=True)
+   if name=='pom.xml':target.write_bytes(historical_root)
+   elif name==jar['SDK_PATH']:target.write_bytes(historical_sdk)
+   else:shutil.copyfile(s['ROOT']/name,target)
+  inventory=jar['source_inventory'](source)
+  assert len(inventory)==count and inventory['pom.xml']==root_sha and inventory[jar['SDK_PATH']]==jar['SDK_POM']
+  projection=jar['materialize_accepted_source'](source,root/'assembly')
+  assert projection['schemaVersion']==schema and projection['sourceFileCount']==count
+  assert projection['sourcePomCount']==28 and projection['reversalApplied'] is reversal
+  assert projection['suppliedRootPomSha256']==root_sha and projection['retainedRootPomSha256']==jar['PRIOR_POM']
+  assert not {'sourcePomReversals','sdkPomPath','suppliedSdkPomSha256','retainedSdkPomSha256'} & projection.keys()
+  changed=[name for name in inventory if projection['suppliedSourceHashes'][name]!=projection['retainedSourceHashes'][name]]
+  assert changed==(['pom.xml'] if reversal else [])
+  jar['verify_projection'](projection)
+  for name in ('pom.xml',jar['SDK_PATH']):
+   file=source/name;before=file.read_bytes();file.write_bytes(before+b'\n')
+   try:jar['verify_projection'](projection)
+   except ValueError as error:assert 'JAR historical source' in str(error)
+   else:raise AssertionError('historical '+label+' source drift accepted')
+   file.write_bytes(before);jar['verify_projection'](projection)
+`);
+});
+
+test('Resources/Flatten historical projection binds both POM changes and strict inputs without executing tools', () => {
   python(String.raw`
 import copy,shutil,tempfile
 from pathlib import Path
@@ -90,26 +131,34 @@ def rejected(fn,message):
 with tempfile.TemporaryDirectory(prefix='jar-historical-source-') as directory:
  root=Path(directory);source=root/'source';source.mkdir()
  inventory=jar['source_inventory'](s['ROOT'])
- assert len(inventory)==51 and sum(name.endswith('/pom.xml') or name=='pom.xml' for name in inventory)==28
+ assert len(inventory)==53 and sum(name.endswith('/pom.xml') or name=='pom.xml' for name in inventory)==28
  for name in inventory:
   target=source/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(s['ROOT']/name,target)
  projection=jar['materialize_accepted_source'](source,root/'assembly')
  assert projection['reversalApplied'] is True
- assert projection['suppliedRootPomSha256']==jar['LANG_POM']
- assert projection['schemaVersion']=='ASSEMBLY_ENFORCER_LANG_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
+ assert projection['suppliedRootPomSha256']==jar['RF_POM']
+ assert projection['schemaVersion']=='RESOURCES_FLATTEN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
+ assert projection['sourceFileCount']==53 and projection['sourcePomCount']==28
+ assert projection['suppliedSdkPomSha256']==jar['RF_SDK_POM']
+ assert projection['retainedSdkPomSha256']==jar['SDK_POM']
  assert projection['retainedRootPomSha256']==contract['CURRENT_POM']
- assert [n for n in inventory if projection['suppliedSourceHashes'][n]!=projection['retainedSourceHashes'][n]]==['pom.xml']
+ assert sorted(n for n in inventory if projection['suppliedSourceHashes'][n]!=projection['retainedSourceHashes'][n])==[jar['SDK_PATH'],'pom.xml']
  assert len(contract['verify_source'](root/'assembly'))==29
- rejected(lambda:contract['verify_source'](source),'Assembly source bytes drift: pom.xml')
+ rejected(lambda:contract['verify_source'](source),'Assembly source bytes drift: integrations/host-sdk/pom.xml')
  # The exact accepted Assembly root remains a positive, unchanged historical case.
  historical=jar['materialize_accepted_source'](root/'assembly',root/'historical-copy')
  assert historical['reversalApplied'] is False
+ assert historical['sourceFileCount']==50 and historical['schemaVersion']=='JAR_PLUGIN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1'
  assert historical['suppliedSourceHashes']==historical['retainedSourceHashes']
  jar['verify_projection'](historical)
- for base,name in [(source,'pom.xml'),(source,'apps/server/pom.xml'),
+ for base,name in [(source,'pom.xml'),(source,jar['SDK_PATH']),
+                   (source,jar['LANG_ARCHIVE']),(source,jar['SDK_ARCHIVE']),
+                   (source,'apps/server/pom.xml'),
                    (source,'integrations/ruoyi6-host-starter/overlay/ruoyi-extend/ruoyi-approval-host-starter/pom.xml'),
                    (source,jar['ARCHIVE']),(source,'scripts/ci/boot_utilities_contract.py'),
-                   (root/'assembly','pom.xml'),(root/'assembly',jar['ARCHIVE'])]:
+                   (root/'assembly','pom.xml'),(root/'assembly',jar['SDK_PATH']),
+                   (root/'assembly',jar['LANG_ARCHIVE']),(root/'assembly',jar['SDK_ARCHIVE']),
+                   (root/'assembly',jar['ARCHIVE'])]:
   file=base/name;original=file.read_bytes();file.write_bytes(original+b'\n')
   rejected(lambda:jar['verify_projection'](projection),'JAR historical source')
   file.write_bytes(original);jar['verify_projection'](projection)
@@ -145,7 +194,9 @@ for fixture in (s,runpy.run_path(str(s['HERE']/'jacoco-antrun-compatibility.py')
   selected=fixture['source_for_contract'](config,projection)
   assert selected!=s['ROOT'] and selected==Path(projection['retainedSourceRoot'])
   assert projection['suppliedSourceRoot']==str(s['ROOT']) and projection['sourcePomCount']==28
-  assert fixture['source_hashes'](s['ROOT'])[str(s['ROOT']/'pom.xml')]==s['JAR_RETAINED']['LANG_POM']
+  hashes=fixture['source_hashes'](s['ROOT'])
+  assert hashes[str(s['ROOT']/'pom.xml')]==s['JAR_RETAINED']['RF_POM']
+  assert hashes[str(s['ROOT']/s['JAR_RETAINED']['SDK_PATH'])]==s['JAR_RETAINED']['RF_SDK_POM']
   changed=dict(projection,suppliedSourceRoot=str(selected))
   try:fixture['source_for_contract'](config,changed)
   except ValueError as error:assert 'sealed JAR historical source roots changed' in str(error)

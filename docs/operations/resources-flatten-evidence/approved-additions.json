@@ -1,0 +1,9 @@
+{
+  "pom.xml": [
+    "                <!-- Preserve the lifecycle version; constrain Resources' private utility dependency. -->\n                <plugin>\n                    <groupId>org.apache.maven.plugins</groupId>\n                    <artifactId>maven-resources-plugin</artifactId>\n                    <version>3.4.0</version>\n                    <dependencies>\n                        <dependency>\n                            <groupId>org.codehaus.plexus</groupId>\n                            <artifactId>plexus-utils</artifactId>\n                            <version>4.0.3</version>\n                        </dependency>\n                    </dependencies>\n                </plugin>\n",
+    "                        <dependencies>\n                            <dependency>\n                                <groupId>org.codehaus.plexus</groupId>\n                                <artifactId>plexus-utils</artifactId>\n                                <version>4.0.3</version>\n                            </dependency>\n                        </dependencies>\n"
+  ],
+  "integrations/host-sdk/pom.xml": [
+    "                <dependencies>\n                    <dependency>\n                        <groupId>org.codehaus.plexus</groupId>\n                        <artifactId>plexus-utils</artifactId>\n                        <version>4.0.3</version>\n                    </dependency>\n                </dependencies>\n"
+  ]
+}

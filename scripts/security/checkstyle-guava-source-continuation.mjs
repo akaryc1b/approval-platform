@@ -1,3 +1,4 @@
+import { readMain905Source } from './jar-plugin-source-continuation.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { readPreservedGuavaSource } from './boot-http-source-continuation.mjs';
@@ -13,7 +14,7 @@ export function readPreservedCheckstyleSource(path, expected) {
   if (typeof path !== 'string' || !/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') || path.includes('\\')
       || path.split('/').some(part => !part || part === '.' || part === '..'))
     throw new Error('Checkstyle Guava continuation requires a safe relative source path');
-  const raw = readFileSync(new URL(`../../${path}`, import.meta.url));
+  const raw = readMain905Source(path);
   if (hash(raw) === expected) return raw;
   const current = path === 'pom.xml' ? readPreservedGuavaSource(path, CURRENT_POM) : raw;
   if (path !== 'pom.xml' || expected !== PRIOR_POM || hash(current) !== CURRENT_POM)

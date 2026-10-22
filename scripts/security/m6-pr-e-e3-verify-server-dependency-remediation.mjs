@@ -1,3 +1,4 @@
+import { RESOURCES_FLATTEN_GRAPH, readResourcesFlattenManifest, readResourcesFlattenAcceptedServerRemediation } from './resources-flatten-graph-transition.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { acceptedE2GraphProjection } from './m6-pr-e-e2-generate-sbom.mjs';
@@ -113,21 +114,34 @@ function requireFreshFullEvidence(e4, expectedHead) {
   requireValue(total === e4.totalFindingCount, 'server remediation scanner finding count mismatch');
   const e2 = e4.e2CurrentEvidence;
   requireValue(e2?.commitSha === expectedHead && e2.contentSha256 === e4.e2CurrentContentSha256
-    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
+    && [SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, RESOURCES_FLATTEN_GRAPH].includes(e4.e2GraphDigest), 'server remediation current E2/source mismatch');
   const transition = verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, expectedHead);
-  requireValue(same(transition, requirePreservedGraph(e4, BASE_GRAPH, expectedHead)), 'server remediation graph receipt mismatch');
-  return verifyOsvCoverage(e4.scanners.osv.coverage, e4.scanners.osv.findings, e2,
+  // Only the locally computed transition can be reused within this invocation.
+  // The incoming E4 receipt never supplies validation context.
+  if (e4.e2GraphDigest === RESOURCES_FLATTEN_GRAPH)
+    requireValue(same(transition, e4.e2GraphTransition), 'server remediation graph receipt mismatch');
+  else requireValue(same(transition, requirePreservedGraph(e4, BASE_GRAPH, expectedHead)), 'server remediation graph receipt mismatch');
+  const coverage = verifyOsvCoverage(e4.scanners.osv.coverage, e4.scanners.osv.findings, e2,
     { head: expectedHead, graphDigest: e4.e2GraphDigest });
+  return { coverage, transition };
 }
 
 /** Close only the two retained historical identities after a fresh, complete all-scanner E4. */
 export function verifyServerDependencyRemediation(e4, plan = readServerDependencyRemediationPlan(), { expectedCommitSha } = {}) {
   const pinnedPlan = readServerDependencyRemediationPlan();
   requireValue(same(plan, pinnedPlan), 'server remediation supplied plan differs from pinned review');
-  const coverage = requireFreshFullEvidence(e4, expectedCommitSha);
+  const { coverage, transition } = requireFreshFullEvidence(e4, expectedCommitSha);
   let expectedInput = { packageCount: plan.expectedInputPackageCount, inputBytesSha256: plan.expectedInputBytesSha256 };
   let subsequentGraphTransition;
-  if (e4.e2GraphDigest === ASSEMBLY_ENFORCER_LANG_GRAPH) {
+  if (e4.e2GraphDigest === RESOURCES_FLATTEN_GRAPH) {
+    const manifest = readResourcesFlattenManifest(), accepted = readResourcesFlattenAcceptedServerRemediation(manifest);
+    requireValue(accepted.manifestFileSha256 === PLAN_HASH && accepted.historicalTargetE2GraphDigest === plan.targetE2GraphDigest
+      && accepted.historicalReviewFileSha256 === plan.historicalReviewFileSha256
+      && accepted.advisoryEvidenceFileSha256 === plan.advisoryEvidenceFileSha256,
+    'server remediation accepted Resources/Flatten input bridge mismatch');
+    expectedInput = manifest.osvInput.current;
+    subsequentGraphTransition = transition;
+  } else if (e4.e2GraphDigest === ASSEMBLY_ENFORCER_LANG_GRAPH) {
     const manifest = readAssemblyEnforcerLangManifest(), accepted = readAssemblyEnforcerLangAcceptedServerRemediation(manifest);
     requireValue(accepted.manifestFileSha256 === PLAN_HASH && accepted.historicalTargetE2GraphDigest === plan.targetE2GraphDigest
       && accepted.historicalReviewFileSha256 === plan.historicalReviewFileSha256
@@ -264,6 +278,9 @@ export function verifyServerDependencyRemediation(e4, plan = readServerDependenc
         osvCoverageContentSha256: coverage.contentSha256, queriedPackage: target.package,
         otherCurrentAdvisoryCountForTarget: target.advisoryIds.length }, reviewDispositionTransferred: false };
   });
+  if (e4.e2GraphDigest === RESOURCES_FLATTEN_GRAPH)
+    requireValue(same(requirePreservedGraph(e4, BASE_GRAPH, expectedCommitSha), transition),
+      'server remediation Resources/Flatten late graph receipt drift');
   return signed({ schemaVersion: subsequentGraphTransition
       ? 'APPROVAL_SERVER_DEPENDENCY_REMEDIATION_EVIDENCE_V2' : 'APPROVAL_SERVER_DEPENDENCY_REMEDIATION_EVIDENCE_V1', repository: REPOSITORY,
     ...(subsequentGraphTransition ? { subsequentGraphTransition, historicalTargetE2GraphDigest: plan.targetE2GraphDigest } : {}),

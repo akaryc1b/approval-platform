@@ -486,3 +486,180 @@ test('new synthetic Compiler finding retains its exact identity and unresolved d
   assert.deepEqual(result.decisions, triage.decisions); assert.equal(result.summary.releaseBlocked, true);
   assert.equal(result.summary.dispositionCounts.UNRESOLVED, 1); assert.deepEqual(e4, before);
 });
+
+// Every E4/OSV/checkout claim in these Resources/Flatten cases is SYNTHETIC.
+// These pure tests execute no scanner and prove no current finding absence.
+import rfFs from 'node:fs';
+import { tmpdir as rfTmpdir } from 'node:os';
+import { dirname as rfDirname, join as rfJoin } from 'node:path';
+import { fileURLToPath as rfFilePath, pathToFileURL as rfFileUrl } from 'node:url';
+import { syncBuiltinESMExports as rfSyncBuiltins } from 'node:module';
+import rfChildProcess from 'node:child_process';
+import rfHttp from 'node:http';
+import rfHttps from 'node:https';
+import rfNet from 'node:net';
+import { buildOsvCoverage as rfBuildCoverage, osvInputFromE2 as rfInput } from '../security/osv-scan-coverage.mjs';
+
+const rfRoot = rfFilePath(new URL('../../', import.meta.url));
+const rfReadJson = path => JSON.parse(rfFs.readFileSync(rfJoin(rfRoot, path)));
+function rfCopyFixture(directory) {
+  const manifest = rfReadJson('docs/operations/resources-flatten-transition.json');
+  const capture = rfReadJson(manifest.archives.modelExecution.path);
+  const plan = rfReadJson('docs/m6/m6-pr-e-e3-r4-server-dependency-remediation.json');
+  const paths = [...Object.keys(capture.captureInputs), 'docs/operations/resources-flatten-transition.json',
+    ...Object.values(manifest.archives).map(row => row.path), 'docs/m6/m6-pr-e-e3-r4-server-dependency-remediation.json',
+    'docs/m6/m6-pr-e-e4-scanner-baseline.json', plan.historicalReviewPath, plan.advisoryEvidencePath];
+  paths.push('docs/operations/assembly-enforcer-lang-transition.json',
+    ...rfReadJson('docs/operations/assembly-enforcer-lang-evidence/accepted-artifact-inventory.json').files.map(row => row.path));
+  function refs(value) {
+    if (!value || typeof value !== 'object') return;
+    if (typeof value.path === 'string' && typeof value.rawSha256 === 'string') paths.push(value.path);
+    for (const child of Object.values(value)) refs(child);
+  }
+  refs(rfReadJson('docs/operations/assembly-enforcer-lang-transition.json'));
+  for (const path of new Set(paths)) {
+    const target = rfJoin(directory, path); rfFs.mkdirSync(rfDirname(target), { recursive: true });
+    rfFs.copyFileSync(rfJoin(rfRoot, path), target);
+  }
+  rfFs.cpSync(rfJoin(rfRoot, 'scripts/security'), rfJoin(directory, 'scripts/security'), { recursive: true });
+  return manifest;
+}
+function rfSyntheticE4(api, router) {
+  const e2 = resign({ ...api.readResourcesFlattenCandidate(), commitSha: 'a'.repeat(40) });
+  const baseline = rfReadJson('docs/m6/m6-pr-e-e4-scanner-baseline.json');
+  const scanners = Object.fromEntries(Object.entries(baseline.scanners).map(([name, scanner]) => [name, {
+    scanCompleted: true, version: scanner.version, sourceCommit: scanner.sourceCommit,
+    rawReportRetained: false, findingCount: 0, findings: [],
+  }]));
+  const input = rfInput(e2), inputPath = '/synthetic-unit-only-resources-flatten-input.json';
+  const selected = [...input.lookup.values()].find(row => row.package.name === 'org.codehaus.plexus:plexus-utils' && row.package.version === '4.0.3');
+  assert.ok(selected);
+  const advisory = 'GHSA-synthetic-unit-only-resources-flatten';
+  const finding = { sourceClass: 'E4_OSV_SCANNER', findingId: createHash('sha256').update([
+    'OSV', advisory, selected.package.ecosystem, selected.package.name, selected.package.version].join('\0')).digest('hex'),
+    upstreamFindingId: advisory, aliases: [], package: selected.package, componentRefs: [...selected.componentRefs].sort(),
+    scopes: [...selected.scopes].sort(), upstreamSeverity: [], fixedVersions: [] };
+  const raw = { results: [{ source: { path: inputPath, type: 'lockfile' },
+    packages: input.scannerInput.results[0].packages.map(({ package: identity }) => ({ package: identity,
+      vulnerabilities: identity.name === selected.package.name && identity.version === selected.package.version ? [{ id: advisory }] : [] })) }] };
+  Object.assign(scanners.osv, { findings: [finding], findingCount: 1, inputPackageCount: input.packageCount,
+    binarySha256: 'a'.repeat(64), coverage: rfBuildCoverage(raw, e2, { head: e2.commitSha,
+      graphDigest: api.RESOURCES_FLATTEN_GRAPH, inputBytes: JSON.stringify(input.scannerInput), inputPath, findings: [finding], exitStatus: 1,
+      stderr: `Starting filesystem walk for root: /\nScanned ${inputPath} file and found ${input.packageCount} packages\nEnd status: 0 dirs visited, 1 inodes visited, 1 Extract calls, 1ms elapsed, 1ms wall time\n` }) });
+  scanners.gitleaks.candidateSecretMaterialRetained = false; scanners.semgrep.sourceSnippetRetained = false;
+  const head = e2.commitSha, tree = '9'.repeat(40);
+  return resign({ schemaVersion: 'M6_PR_E_E4_SCANNER_EVIDENCE_V1', repository: e2.repository, commitSha: head,
+    e2CurrentEvidence: e2, e2CurrentContentSha256: e2.contentSha256, e2GraphDigest: api.RESOURCES_FLATTEN_GRAPH,
+    e2GraphTransition: router.verifyObservabilityGraph(e2, acceptedE2GraphProjection(e2), BASE_GRAPH, head),
+    checkout: { checkedOutSha: head, expectedHeadSha: head, checkedOutTreeSha: tree, expectedHeadTreeSha: tree,
+      exactTreeMatches: true, trackedWorktreeClean: true }, scannerBaselineSourceHead: baseline.sourceHead,
+    scanners, totalFindingCount: 1, allScannersCompleted: true, rawScannerReportsRetained: false,
+    candidateSecretMaterialRetained: false, authoritativeGitHubInventoryStillUnavailable: true, workstreamReleaseBlocked: true });
+}
+
+test('Resources/Flatten public R4 uses two complete admissions and preserves current E4 gates', async t => {
+  const directory = rfFs.mkdtempSync(rfJoin(rfTmpdir(), 'resources-flatten-r4-'));
+  t.after(() => rfFs.rmSync(directory, { recursive: true, force: true }));
+  const manifest = rfCopyFixture(directory);
+  const api = await import(rfFileUrl(rfJoin(directory, 'scripts/security/resources-flatten-graph-transition.mjs')));
+  const router = await import(rfFileUrl(rfJoin(directory, 'scripts/security/observability-dependency-graph.mjs')));
+  const r4 = await import(rfFileUrl(rfJoin(directory, 'scripts/security/m6-pr-e-e3-verify-server-dependency-remediation.mjs')));
+  const e4 = rfSyntheticE4(api, router), plan = r4.readServerDependencyRemediationPlan();
+  const invoke = (value = e4, head = e4.commitSha) => r4.verifyServerDependencyRemediation(value, plan, { expectedCommitSha: head });
+  const forbidden = () => { throw Error('Unexpected subprocess or network execution'); }, originals = [];
+  for (const [object, keys] of [[rfChildProcess, ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork']],
+    [rfHttp, ['request', 'get']], [rfHttps, ['request', 'get']], [rfNet, ['connect', 'createConnection']], [globalThis, ['fetch']]])
+    for (const key of keys) { originals.push([object, key, object[key]]); object[key] = forbidden; }
+  rfSyncBuiltins(); t.after(() => { for (const [object, key, value] of originals) object[key] = value; rfSyncBuiltins(); });
+  const originalRead = rfFs.readFileSync;
+  const normalize = value => value instanceof URL ? rfFilePath(value) : String(value);
+  function withHook(hook, callback) {
+    rfFs.readFileSync = function(path, ...args) { const raw = originalRead.call(this, path, ...args); hook(normalize(path), raw); return raw; };
+    rfSyncBuiltins();
+    try { return callback(); } finally { rfFs.readFileSync = originalRead; rfSyncBuiltins(); }
+  }
+  const models = ['baselineNormalModel', 'candidateNormalModel', 'baselineDemoModel', 'candidateDemoModel'];
+  await t.test('synthetic success retains the unknown finding and independently reads each XML four times', () => {
+    const reads = new Map(), before = structuredClone(e4); let totalBytes = 0, jsonParses = 0, result;
+    const originalParse = JSON.parse; JSON.parse = (...args) => { jsonParses++; return originalParse(...args); };
+    try { result = withHook((path, raw) => { totalBytes += Buffer.byteLength(raw); reads.set(path, (reads.get(path) || 0) + 1); }, () => invoke()); }
+    finally { JSON.parse = originalParse; }
+    t.diagnostic(JSON.stringify({ scope: 'PURE_SYNTHETIC_PUBLIC_R4_NOT_SCANNER_EVIDENCE', totalReads: [...reads.values()].reduce((a, b) => a + b, 0), totalBytes, jsonParses, xmlParses: 0, eachModelReads: models.map(key => reads.get(rfJoin(directory, manifest.archives[key].path))) }));
+    for (const key of models) assert.equal(reads.get(rfJoin(directory, manifest.archives[key].path)), 4, key);
+    assert.equal(result.releaseBlocked, true); assert.equal(result.findingReviewRequired, true);
+    assert.equal(result.remediatedFindings.length, 2); assert.equal(result.subsequentGraphTransition.currentE2GraphDigest, api.RESOURCES_FLATTEN_GRAPH);
+    assert.deepEqual(e4, before); assert.equal(e4.scanners.osv.coverage.inputPackageCount, 465);
+    assert.equal(e4.scanners.osv.findings[0].upstreamFindingId, 'GHSA-synthetic-unit-only-resources-flatten');
+  });
+  for (const [name, edit] of [
+    ['forged external verified receipt', value => { value.e2GraphTransition = resign({ ...value.e2GraphTransition, verified: true }); }],
+    ['missing scanner', value => { delete value.scanners.semgrep; }],
+    ['incomplete scanner', value => { value.scanners.osv.scanCompleted = false; }],
+    ['missing coverage target', value => { value.scanners.osv.coverage.targets.pop(); resign(value.scanners.osv.coverage); }],
+    ['changed target refs', value => { value.scanners.osv.coverage.targets[0].componentRefs = ['forged']; resign(value.scanners.osv.coverage); }],
+    ['changed target scopes', value => { value.scanners.osv.coverage.targets[0].scopes = ['forged']; resign(value.scanners.osv.coverage); }],
+    ['retained advisory alias reappears', value => { value.scanners.osv.findings[0].aliases = [plan.remediatedFindings[0].aliases[0]];
+      value.scanners.osv.coverage.normalizedFindingsSha256 = graphHash(value.scanners.osv.findings); resign(value.scanners.osv.coverage); }],
+  ]) await t.test(`rejects ${name} after envelope rehash`, () => {
+    const value = structuredClone(e4); edit(value); resign(value); assert.throws(() => invoke(value));
+  });
+  await t.test('rejects an absent or wrong independently supplied head', () => {
+    assert.throws(() => r4.verifyServerDependencyRemediation(e4, plan), /independent current Head/);
+    assert.throws(() => invoke(e4, 'b'.repeat(40)), /independent current Head/);
+  });
+  for (const path of ['pom.xml', 'integrations/host-sdk/pom.xml', 'docs/operations/assembly-enforcer-lang-evidence/preserved-server-remediation.json',
+    'docs/operations/assembly-enforcer-lang-evidence/preserved-jar-lineage.json', ...['oldRoot', 'oldSdk', 'modelData', ...models].map(key => manifest.archives[key].path)]) {
+    await t.test(`final admission rejects mutation after coverage: ${path}`, () => {
+      const file = rfJoin(directory, path), original = originalRead(file); let bridgeReads = 0, changed = false;
+      try {
+        withHook(readPath => {
+          // Each initial proof reads the public bridge directly and through its
+          // public inventory; two proofs mean four reads. The fifth is the
+          // R4 bridge after verifyOsvCoverage, before target/absence/final admission.
+          if (readPath === rfJoin(directory, 'docs/operations/assembly-enforcer-lang-evidence/preserved-server-remediation.json') && ++bridgeReads === 5) {
+            rfFs.writeFileSync(file, Buffer.concat([original, Buffer.from('\n')])); changed = true;
+          }
+        }, () => assert.throws(() => invoke(), /byte digest mismatch/));
+        assert.equal(changed, true);
+      } finally { rfFs.writeFileSync(file, original); }
+    });
+  }
+  for (const path of ['pom.xml', 'integrations/host-sdk/pom.xml', manifest.archives.candidateNormalModel.path, manifest.archives.modelData.path]) {
+    await t.test(`final admission rejects a second mutation during its own reads: ${path}`, () => {
+      const file = rfJoin(directory, path), original = originalRead(file); let modelReads = 0, finalSourceReads = 0, changed = false;
+      try {
+        withHook(readPath => {
+          if (readPath === rfJoin(directory, manifest.archives.candidateNormalModel.path)) modelReads++;
+          // Third model read identifies the start of the final complete admission.
+          // Its second root read completes the first raw POM reversal; finalFresh
+          // must see a source/model changed immediately after that accepted read.
+          if (modelReads === 3 && readPath === rfJoin(directory, 'pom.xml') && ++finalSourceReads === 2) {
+            rfFs.writeFileSync(file, Buffer.concat([original, Buffer.from('\n')])); changed = true;
+          }
+        }, () => assert.throws(() => invoke(), /byte digest mismatch/));
+        assert.equal(changed, true);
+      } finally { rfFs.writeFileSync(file, original); }
+    });
+  }
+  for (const [name, edit, pattern] of [
+    ['current head', value => { value.commitSha = 'b'.repeat(40); }, /current verified head/],
+    ['current E2 content identity', value => { value.e2CurrentContentSha256 = 'f'.repeat(64); }, /identity mismatch/],
+    ['external receipt', value => { value.e2GraphTransition.verified = true; }, /lineage mismatch/],
+  ]) await t.test(`final admission rejects post-coverage ${name} mutation`, () => {
+    const value = structuredClone(e4); let bridgeReads = 0, changed = false;
+    withHook(readPath => {
+      if (readPath === rfJoin(directory, 'docs/operations/assembly-enforcer-lang-evidence/preserved-server-remediation.json') && ++bridgeReads === 5) { edit(value); changed = true; }
+    }, () => assert.throws(() => invoke(value), pattern));
+    assert.equal(changed, true);
+  });
+  await t.test('final admission repeats current Actions identity checks', () => {
+    const actionPath = Object.keys(rfReadJson(manifest.archives.modelExecution.path).captureInputs).find(path => path.startsWith('.github/workflows/'));
+    assert.ok(actionPath); const file = rfJoin(directory, actionPath), original = originalRead(file); let bridgeReads = 0;
+    try {
+      withHook(readPath => {
+        if (readPath === rfJoin(directory, 'docs/operations/assembly-enforcer-lang-evidence/preserved-server-remediation.json') && ++bridgeReads === 5)
+          rfFs.writeFileSync(file, Buffer.concat([original, Buffer.from('\n')]));
+      }, () => assert.throws(() => invoke(), /byte digest mismatch|Actions source drift/));
+    } finally { rfFs.writeFileSync(file, original); }
+  });
+});

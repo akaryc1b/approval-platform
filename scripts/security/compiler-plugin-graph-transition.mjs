@@ -1,3 +1,4 @@
+import { memoizePluginOwnerParser } from './plugin-owner-parser-cache.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { preservedHygieneJava21Source } from './jar-plugin-source-continuation.mjs';
@@ -96,7 +97,8 @@ export function readCompilerPluginPreservedCleanLineage(manifest = readCompilerP
     && lineage.currentE2GraphDigest === CLEAN_PLUGIN_GRAPH, 'Compiler preserved Clean identity mismatch'); return lineage;
 }
 
-function owners(raw) {
+const owners = memoizePluginOwnerParser(parseOwners);
+function parseOwners(raw) {
   const result = {}, occurrences = {}; let owner, coordinates;
   const finish = () => {
     if (!owner) return;
