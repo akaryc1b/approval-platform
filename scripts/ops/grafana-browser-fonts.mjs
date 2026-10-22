@@ -4,13 +4,29 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stopProcess } from './grafana-browser-driver.mjs';
 
-/** Reuse Quick Start's existing distribution-font preparation in a credential-free child. */
+const fontModuleUrl = new URL('../product-readiness/quick-start/cjk-fonts.mjs', import.meta.url).href;
+
+/** Runtime readiness stays bounded to 60s, including when invoked directly. */
 export async function prepareGrafanaFonts(mode, {
-  moduleUrl = new URL('../product-readiness/quick-start/cjk-fonts.mjs', import.meta.url).href,
+  moduleUrl = fontModuleUrl,
   timeoutMs = 60000,
 } = {}) {
   assert.ok(['ci', 'local'].includes(mode), 'GRAFANA_FONT_MODE');
   assert.ok(Number.isSafeInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 60000, 'GRAFANA_FONT_TIMEOUT');
+  return runFontHelper(mode, moduleUrl, timeoutMs);
+}
+
+/** CI-only cold prerequisite, before runtime tests: unchanged installer phase budgets
+ * 180s update + 240s install + 120s cache + two 10s probes + 10s child overhead.
+ * Owned process-group cleanup may take a further 3s. This is not browser readiness.
+ */
+export async function provisionGrafanaCiFonts({ moduleUrl = fontModuleUrl, timeoutMs = 570000 } = {}) {
+  assert.ok(Number.isSafeInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 570000, 'GRAFANA_FONT_PROVISION_TIMEOUT');
+  return runFontHelper('ci', moduleUrl, timeoutMs);
+}
+
+/** Reuse Quick Start's unchanged distribution-font helper without credentials or retries. */
+async function runFontHelper(mode, moduleUrl, timeoutMs) {
   const child = spawn(process.execPath, ['--input-type=module', '-e',
     `const {ensureCjkFontRuntime}=await import(${JSON.stringify(moduleUrl)});ensureCjkFontRuntime();`], {
     detached: true, stdio: ['ignore', 'pipe', 'ignore'],
