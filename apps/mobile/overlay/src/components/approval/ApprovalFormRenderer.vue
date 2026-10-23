@@ -87,9 +87,9 @@ function componentSupported(layout: UiFieldLayout, item: FormField) {
     && registeredComponents.has(componentType(layout, item))
 }
 function access(item: FormField, section?: UiSection): FieldAccess {
-  const base = props.readonly ? 'READONLY' : (props.fieldPermissions[item.key] || 'EDITABLE')
+  const base = props.fieldPermissions[item.key] || 'EDITABLE'
   if (base === 'HIDDEN' || base === 'READONLY') return base
-  return section?.readonlySummary ? 'READONLY' : 'EDITABLE'
+  return props.readonly || section?.readonlySummary ? 'READONLY' : 'EDITABLE'
 }
 function required(item: FormField) { return props.requiredFields[item.key] ?? item.required }
 function visible(item: FormField | undefined, section: UiSection) {
