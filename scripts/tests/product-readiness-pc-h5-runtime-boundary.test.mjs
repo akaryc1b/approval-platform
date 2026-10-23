@@ -772,3 +772,41 @@ test('business actions use exact accessible button names and preserve strict sco
   assert.deepEqual(select(scope, '发起审批'), [intended]);
   assert.deepEqual(select(scope, '不存在'), []);
 });
+
+test('actual H5 form submission sends canonical user identity without weakening connector checks', async () => {
+  const { stripTypeScriptTypes } = await import('node:module');
+  const page = text('apps/mobile/overlay/src/pages/initiate/form.vue');
+  const source = page.slice(page.indexOf('async function submitDynamicForm()'), page.indexOf('\nfunction goBack()'));
+  for (const connector of ['demo-directory', 'dingtalk']) {
+    for (const confirmed of [true, false]) {
+      const calls = [], navigation = [], errors = [];
+      const submitting = { value: false };
+      const values = { amount: '9999.99', supplier: 'fixture supplier', purchaseOrderReference: 'fixture order', attachments: ['fixture-attachment'] };
+      const submit = runInNewContext(stripTypeScriptTypes(source) + '\n;submitDynamicForm', {
+        formRuntime: { value: { definition: { formKey: 'purchase-payment', version: 1 } } },
+        submitting, validationMessage: () => '', businessKey: { value: ' fixture-business ' },
+        formValues: { value: values }, connectorKey: { value: connector },
+        financeReviewerRoleCode: { value: 'FINANCE_REVIEWER' }, financeApproverPositionCode: { value: 'FINANCE_APPROVER' },
+        maximumFinanceApprovers: { value: '20' }, runtime: { operatorId: 'fixture-employee', localDemo: connector === 'demo-directory' },
+        submitForm: async (...args) => { calls.push(args); return { instanceId: 'fixture-instance' }; },
+        uni: {
+          showModal: options => options.success({ confirm: confirmed }),
+          navigateTo: options => navigation.push(options.url),
+          showToast: options => errors.push(options.title),
+        },
+      });
+      await submit();
+      assert.equal(calls.length, Number(confirmed)); assert.equal(submitting.value, false); assert.deepEqual(errors, []);
+      if (!confirmed) { assert.deepEqual(navigation, []); continue; }
+      assert.deepEqual(calls[0].slice(0, 4), ['purchase-payment', 1, 'fixture-business', values]);
+      assert.deepEqual(JSON.parse(JSON.stringify(calls[0][4])), {
+        connectorKey: connector, initiatorUserId: { source: connector, objectType: 'user', value: 'fixture-employee' },
+        financeReviewerRoleCode: 'FINANCE_REVIEWER', financeApproverPositionCode: 'FINANCE_APPROVER', maximumFinanceApprovers: 20,
+      });
+      assert.deepEqual(navigation, ['/pages/task/list?tab=started']);
+    }
+  }
+  const adapter = text('apps/server/src/main/java/io/github/akaryc1b/approval/demo/PurchasePaymentDemoOrganizationConnector.java');
+  assert.match(adapter, /USER_OBJECT_TYPE = "user"/u);
+  assert.match(adapter, /objectType\.equals\(value\.objectType\(\)\)/u);
+});

@@ -94,7 +94,7 @@ async function submitDynamicForm() {
         connectorKey: connectorKey.value.trim(),
         initiatorUserId: {
           source: connectorKey.value.trim(),
-          objectType: 'USER',
+          objectType: 'user',
           value: runtime.operatorId,
         },
         financeReviewerRoleCode: financeReviewerRoleCode.value.trim(),
