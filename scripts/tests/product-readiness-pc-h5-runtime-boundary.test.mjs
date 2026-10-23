@@ -834,3 +834,20 @@ test('original summaries are explicitly distinguished from current revision form
   assert.ok(helper.includes("await expect(field(label).locator('input')).toBeDisabled()"));
   assert.ok(helper.indexOf('toHaveValue(`Corrected ${key}`)') < helper.indexOf("await act(manager, managerTask, 'approve')"));
 });
+
+test('revision attachment verification respects manager hidden and finance readonly permissions', () => {
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  const template = text('server-modules/approval-domain/src/main/java/io/github/akaryc1b/approval/domain/template/PurchasePaymentTemplate.java');
+  const manager = template.slice(template.indexOf('permissions(MANAGER_APPROVAL_TASK_KEY,'), template.indexOf('permissions(FINANCE_REVIEW_TASK_KEY,'));
+  const finance = template.slice(template.indexOf('permissions(FINANCE_COUNTERSIGN_TASK_KEY,'), template.indexOf('permissions(PAYMENT_CONFIRMATION_TASK_KEY,'));
+  assert.ok(manager.includes('access("attachments", UiSchemaDefinition.FieldAccess.HIDDEN)'));
+  assert.ok(finance.includes('access("attachments", UiSchemaDefinition.FieldAccess.READONLY)'));
+  assert.ok(helper.includes("expect(runtime.fieldPermissions.attachments).toBe('HIDDEN')"));
+  assert.ok(helper.includes("expect(Object.hasOwn(runtime.values, 'attachments')).toBe(false)"));
+  assert.ok(helper.includes("page.locator('.form-card:visible .field-card').filter({\n          has: page.locator('.field-label').filter({ hasText: 'Payment documents' }),\n        })).toHaveCount(0)"));
+  assert.ok(helper.includes('for (const [index, task] of [a, b].entries())'));
+  assert.ok(helper.includes('`/tasks/${task.taskId}/form-runtime`, authoritativeActors.financeCountersign[index]'));
+  assert.ok(helper.includes("expect(financeRuntime.fieldPermissions.attachments).toBe('READONLY')"));
+  assert.ok(helper.includes('expect(financeRuntime.values.attachments).toEqual(attachmentIds)'));
+  assert.ok(helper.includes('expect(financeRuntime.revisionNumber).toBe(1)'));
+});

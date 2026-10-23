@@ -171,7 +171,9 @@ export async function runBusinessLifecycle(
       expect(snapshot.submission.values).toMatchObject({ supplier: `UI supplier ${key}`, purchaseOrderReference: `PO-${key}`, attachments: attachmentIds });
       const runtime = await get(`/tasks/${managerTask.taskId}/form-runtime`, manager);
       expect(runtime.revisionNumber).toBe(1);
-      expect(runtime.values).toMatchObject({ supplier: `Corrected ${key}`, purchaseOrderReference: `REVISED-${key}`, attachments: attachmentIds });
+      expect(runtime.values).toMatchObject({ supplier: `Corrected ${key}`, purchaseOrderReference: `REVISED-${key}` });
+      expect(runtime.fieldPermissions.attachments).toBe('HIDDEN');
+      expect(Object.hasOwn(runtime.values, 'attachments')).toBe(false);
       expect(Number(runtime.values.amount)).toBe(Number(amount));
       expect(Number(snapshot.submission.values.amount)).toBe(Number(amount));
     });
@@ -189,7 +191,9 @@ export async function runBusinessLifecycle(
           await expect(field(label).locator('input')).toBeDisabled();
         }
         expect(Number(await field('Payment amount').locator('input').inputValue())).toBe(Number(amount));
-        await expect(field('Payment documents').locator('.file-row')).toHaveCount(1);
+        await expect(page.locator('.form-card:visible .field-card').filter({
+          has: page.locator('.field-label').filter({ hasText: 'Payment documents' }),
+        })).toHaveCount(0);
       }
       await act(manager, managerTask, 'approve');
       if (highAmount) {
@@ -210,6 +214,14 @@ export async function runBusinessLifecycle(
         const a = await taskFor(authoritativeActors.financeCountersign[0], 'financeCountersign');
         const b = await taskFor(authoritativeActors.financeCountersign[1], 'financeCountersign');
         expect(a.taskId).not.toBe(b.taskId);
+        for (const [index, task] of [a, b].entries()) {
+          const financeRuntime = await get(`/tasks/${task.taskId}/form-runtime`, authoritativeActors.financeCountersign[index]);
+          expect(financeRuntime.revisionNumber).toBe(1);
+          expect(financeRuntime.fieldPermissions.attachments).toBe('READONLY');
+          expect(financeRuntime.values.attachments).toEqual(attachmentIds);
+          expect(Number(financeRuntime.values.amount)).toBe(Number(amount));
+          expect(financeRuntime.values.purchaseOrderReference).toBe(`REVISED-${key}`);
+        }
       }
     });
     await test.step('Employee withdraws through started list; durable state/history and every actor pending list agree', async () => {
