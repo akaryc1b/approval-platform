@@ -50,7 +50,7 @@ const readObject = (type, sha) => {
   }
   return Buffer.from(retained.get(id));
 };
-export function modeledHistoricalSourceReviewFixture({ mergeHead = false, parent = HISTORICAL_SOURCE_REVIEW_BASE, changedFiles = [] } = {}) {
+export function modeledHistoricalSourceReviewFixture({ mergeHead = false, baseCommit = HISTORICAL_SOURCE_REVIEW_BASE, parent = baseCommit, changedFiles = [] } = {}) {
   const objects = new Map(), commands = [], plan = readGitleaksCaptureHashReviewPlan();
   const git = (command, args) => {
     commands.push([command, [...args]]); assert.equal(command, 'git'); assert.equal(args[0], 'cat-file');
@@ -69,8 +69,8 @@ export function modeledHistoricalSourceReviewFixture({ mergeHead = false, parent
     }
     return add('tree', Buffer.concat(entries.map(row => Buffer.concat([Buffer.from(`${row.mode} ${row.name}\0`), Buffer.from(row.sha, 'hex')]))));
   };
-  const baseTree = commitObject({ sha: HISTORICAL_SOURCE_REVIEW_BASE,
-    contentBase64: readObject('commit', HISTORICAL_SOURCE_REVIEW_BASE).toString('base64') }).tree;
+  const baseTree = commitObject({ sha: baseCommit,
+    contentBase64: readObject('commit', baseCommit).toString('base64') }).tree;
   const tree = changedFiles.length ? overlay(baseTree, changedFiles.map(path => [path, Buffer.concat([readFileSync(`${root}${path}`), Buffer.from('\n')])])) : baseTree;
   const commit = parents => add('commit', `tree ${tree}\n${parents.map(sha => `parent ${sha}\n`).join('')}author Source Review Fixture <review@example.invalid> 1792660000 +0000\ncommitter Source Review Fixture <review@example.invalid> 1792660000 +0000\n\nModeled historical-source review descendant\n`);
   const branch = commit([parent]), head = mergeHead ? commit([parent, branch]) : branch;

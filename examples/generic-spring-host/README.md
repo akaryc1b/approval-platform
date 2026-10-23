@@ -26,6 +26,8 @@ manager: bob (user ID 200)
 
 ## Development-only boundaries
 
+The signing key shown in this README and the example CI/test fixtures is public demo material. It can generate valid signatures: never reuse it for production or shared deployments. Generate a unique random key and supply it through your secret manager; do not commit real signing keys. Run these examples only in an isolated local development environment.
+
 This example uses `InMemoryReplayGuard`, which is safe only for tests and single-node development. A production host must replace it with a distributed atomic implementation such as Redis `SET NX` with TTL.
 
 The organization directory is in memory. Replace `ExampleOrganizationDirectory` with the host's user/department services while preserving the response contracts and stable external IDs.

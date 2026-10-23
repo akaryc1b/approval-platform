@@ -9,6 +9,8 @@ import { requireDesignerPrototypeTriage } from './m6-pr-e-e3-verify-designer-pro
 import { requireServerDependencyRemediation } from './m6-pr-e-e3-verify-server-dependency-remediation.mjs';
 import { verifyGitleaksHistoricalSourceReview, requireGitleaksHistoricalSourceReviewReceipt,
   historicalSourceDecisions } from './gitleaks-historical-noncredential-sources.mjs';
+import { verifyGitleaksHmacTestReview, requireGitleaksHmacTestReviewReceipt,
+  hmacTestDecisions } from './gitleaks-hmac-test-fixtures.mjs';
 
 const PLAN_SHA256 = '20158102576d7ba5931d0605bdd1aab548ec94db571b31a2bc5a20032f673c5d';
 const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
@@ -68,8 +70,10 @@ function requireCurrentFinding(e4, plan, publicCommitReview = null, captureHashR
   requireValue(reviewedIds.length === plan.currentReviewedFindingSet.findingCount
     && setHash(reviewedIds) === plan.currentReviewedFindingSet.findingSetSha256, 'Gitleaks reviewed current identity set drift');
 }
-function receipt(e4, plan, historicalSourceReview = null) {
-  return seal({ schemaVersion: historicalSourceReview ? 'M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW_EVIDENCE_V2' : 'M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW_EVIDENCE_V1',
+function receipt(e4, plan, historicalSourceReview = null, hmacTestReview = null) {
+  requireValue(!hmacTestReview || historicalSourceReview, 'Gitleaks HMAC test review requires prior historical source proof');
+  return seal({ schemaVersion: hmacTestReview ? 'M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW_EVIDENCE_V3'
+    : historicalSourceReview ? 'M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW_EVIDENCE_V2' : 'M6_PR_E_E3_GITLEAKS_TEST_EXPRESSION_REVIEW_EVIDENCE_V1',
     repository: e4.repository, commitSha: e4.commitSha, sourceE4CanonicalSha256: e4.contentSha256,
     planCanonicalSha256: plan.contentSha256, reviewBasisHead: plan.reviewBasisHead,
     reviewBasisE4CanonicalSha256: plan.reviewBasisE4CanonicalSha256,
@@ -77,7 +81,7 @@ function receipt(e4, plan, historicalSourceReview = null) {
     reviewedExpression: plan.reviewedExpression, scannerIdentity: plan.scannerIdentity,
     retainedHistoricalFindingSet: plan.historicalFindingSet, currentFindingSet: plan.currentReviewedFindingSet,
     decision: plan.decision, releaseBlocked: true, rawCandidateMaterialRetained: false,
-    ...(historicalSourceReview ? { historicalSourceReview } : {}) });
+    ...(historicalSourceReview ? { historicalSourceReview } : {}), ...(hmacTestReview ? { hmacTestReview } : {}) });
 }
 
 /** Read-only proof over the pinned historical Git source; never evaluates code. */
@@ -108,7 +112,9 @@ export function verifyGitleaksTestExpressionReview(e4, snapshot) {
     && Number(parsed[5]) === expression.repeatCount, 'Gitleaks reviewed fixed source grammar mismatch');
   const historicalSourceReview = snapshot.historicalSourceReviewSnapshot
     ? verifyGitleaksHistoricalSourceReview(e4, snapshot.historicalSourceReviewSnapshot) : null;
-  return receipt(e4, plan, historicalSourceReview);
+  const hmacTestReview = snapshot.hmacTestReviewSnapshot
+    ? verifyGitleaksHmacTestReview(e4, snapshot.hmacTestReviewSnapshot) : null;
+  return receipt(e4, plan, historicalSourceReview, hmacTestReview);
 }
 
 export function requireGitleaksTestExpressionReviewReceipt(e4, evidence, publicCommitReview = null, captureHashReview = null) {
@@ -116,7 +122,9 @@ export function requireGitleaksTestExpressionReviewReceipt(e4, evidence, publicC
   requireCurrentFinding(e4, plan, publicCommitReview, captureHashReview);
   const historicalSourceReview = evidence?.historicalSourceReview
     ? requireGitleaksHistoricalSourceReviewReceipt(e4, evidence.historicalSourceReview) : null;
-  requireValue(canonical(evidence) === canonical(receipt(e4, plan, historicalSourceReview)), 'Gitleaks expression review receipt drift');
+  const hmacTestReview = evidence?.hmacTestReview
+    ? requireGitleaksHmacTestReviewReceipt(e4, evidence.hmacTestReview) : null;
+  requireValue(canonical(evidence) === canonical(receipt(e4, plan, historicalSourceReview, hmacTestReview)), 'Gitleaks expression review receipt drift');
   return evidence;
 }
 function reviewEvidence(evidence) {
@@ -132,7 +140,7 @@ function requireDecisionIdentity(finding, evidence) {
     .every(field => finding.sourceIdentity?.[field] === historical[field]), 'Gitleaks current decision source identity drift');
 }
 
-/** Retain the scanner finding and attach the one positive absent-credential review. */
+/** Retain every scanner finding and append only exact source-bound reviews. */
 export function applyGitleaksTestExpressionReview(triage, e4, snapshot) {
   requireDesignerPrototypeTriage(e4, triage);
   const evidence = verifyGitleaksTestExpressionReview(e4, snapshot), findingKey = key(evidence.historicalFinding);
@@ -153,8 +161,9 @@ export function applyGitleaksTestExpressionReview(triage, e4, snapshot) {
   if (publicCommitReview) decisions = applyGitleaksPublicCommitDecision(decisions, publicCommitReview);
   if (captureHashReview) decisions = applyGitleaksCaptureHashDecisions(decisions, captureHashReview);
   if (evidence.historicalSourceReview) decisions = historicalSourceDecisions(decisions, evidence.historicalSourceReview, true);
+  if (evidence.hmacTestReview) decisions = hmacTestDecisions(decisions, evidence.hmacTestReview, true);
   const appendedCount = (publicCommitReview ? 2 : 1) + (captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).length : 0)
-    + (evidence.historicalSourceReview ? 3 : 0);
+    + (evidence.historicalSourceReview ? 3 : 0) + (evidence.hmacTestReview ? 12 : 0);
   const counts = {};
   for (const finding of decisions) counts[finding.disposition] = (counts[finding.disposition] || 0) + 1;
   return seal({ ...triage, schemaVersion: captureHashReview ? 'M6_PR_E_E3_I2_TRIAGE_V6' : publicCommitReview ? 'M6_PR_E_E3_I2_TRIAGE_V5' : 'M6_PR_E_E3_I2_TRIAGE_V4',
@@ -182,7 +191,7 @@ export function requireGitleaksTestExpressionTriage(e4, triage) {
   const reviewedCurrentCount = triage.decisions.filter(item => item.reviewEvidence).length;
   const extraReviews = triage.decisions.filter(item => item.reviewEvidence?.reviewLayer === 'E3-I2-APPEND_ONLY-GITLEAKS');
   requireValue(triage.appendOnlyReviewedFindingCount === (publicCommitReview ? 2 : 1) + (captureHashReview ? gitleaksCaptureReviewFindings(captureHashReview).length : 0)
-    + (evidence.historicalSourceReview ? 3 : 0) && extraReviews.length === 1,
+    + (evidence.historicalSourceReview ? 3 : 0) + (evidence.hmacTestReview ? 12 : 0) && extraReviews.length === 1,
     'Gitleaks append-only review count drift');
   if (['M6_PR_E_E3_I2_TRIAGE_V4', 'M6_PR_E_E3_I2_TRIAGE_V5', 'M6_PR_E_E3_I2_TRIAGE_V6'].includes(triage.schemaVersion)) {
     requireValue(triage.schemaVersion === (captureHashReview ? 'M6_PR_E_E3_I2_TRIAGE_V6' : publicCommitReview ? 'M6_PR_E_E3_I2_TRIAGE_V5' : 'M6_PR_E_E3_I2_TRIAGE_V4'), 'Gitleaks I2 schema/review drift');
@@ -221,10 +230,12 @@ export function requireGitleaksTestExpressionTriage(e4, triage) {
   if (publicCommitReview) requireGitleaksPublicCommitDecision(triage, publicCommitReview);
   if (captureHashReview) requireGitleaksCaptureHashDecisions(triage, captureHashReview);
   if (evidence.historicalSourceReview) historicalSourceDecisions(triage.decisions, evidence.historicalSourceReview);
+  if (evidence.hmacTestReview) hmacTestDecisions(triage.decisions, evidence.hmacTestReview);
   if (captureHashReview?.planMetadataReview) {
     const reviewed = new Set([evidence.historicalFinding.findingId, publicCommitReview.finding.findingId,
       ...gitleaksCaptureReviewFindings(captureHashReview).map(item => item.findingId),
-      ...(evidence.historicalSourceReview?.findings || []).map(item => item.findingId)]);
+      ...(evidence.historicalSourceReview?.findings || []).map(item => item.findingId),
+      ...(evidence.hmacTestReview?.findings || []).map(item => item.findingId)]);
     for (const source of e4.scanners.gitleaks.findings) {
       const decision = triage.decisions.find(item => key(item) === key(source));
       requireValue(decision && ['ruleId', 'commit', 'fingerprint', 'path', 'startLine', 'endLine']
