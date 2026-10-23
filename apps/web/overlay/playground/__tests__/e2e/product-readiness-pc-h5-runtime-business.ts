@@ -109,7 +109,9 @@ export async function runBusinessLifecycle(
       await go(employee, '/pages/initiate/index');
       const template = page.locator('.template-card').filter({ hasText: 'purchase-payment' });
       await expect(template).toHaveCount(1); await template.click();
-      await page.getByPlaceholder('必须唯一').fill(key);
+      await page.locator('.business-card:visible .wd-input')
+        .filter({ has: page.locator('.wd-input__label').filter({ hasText: /^业务编号$/u }) })
+        .locator('input').fill(key);
       await field('Payment amount').locator('input').fill(amount);
       await field('Supplier').locator('input').fill(`UI supplier ${key}`);
       await field('Purchase order reference').locator('input').fill(`PO-${key}`);
@@ -148,7 +150,9 @@ export async function runBusinessLifecycle(
       await button(page.locator('.action-bar:visible'), '驳回').click();
       await expect(page.getByText('驳回时必须填写原因', { exact: true })).toBeVisible();
       expect(await events()).toEqual(before); expect(commands).toHaveLength(commandCount);
-      await page.getByPlaceholder('驳回或转办时必填').fill('Please correct supplier');
+      await page.locator('.action-card:visible')
+        .filter({ has: page.locator('.section-title').filter({ hasText: /^审批意见$/u }) })
+        .locator('textarea').fill('Please correct supplier');
       await button(page.locator('.action-bar:visible'), '驳回').click(); await cancel().click();
       expect(await events()).toEqual(before); expect((await pending(manager)).map(item => item.taskId)).toContain(managerTask.taskId);
       await act(manager, managerTask, 'reject');

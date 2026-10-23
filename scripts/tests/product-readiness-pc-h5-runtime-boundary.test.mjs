@@ -693,3 +693,15 @@ test('attachment picker selects the real H5 file API and retains messaging picke
     assert.equal(errors.length, 2);
   }
 });
+
+
+test('business form actions target visible UniApp native inputs rather than synthetic placeholder nodes', () => {
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  assert.ok(helper.includes("page.locator('.business-card:visible .wd-input')"));
+  assert.ok(helper.includes("hasText: /^业务编号$/u"));
+  assert.ok(helper.includes(".locator('input').fill(key)"));
+  assert.ok(helper.includes("page.locator('.action-card:visible')"));
+  assert.ok(helper.includes("hasText: /^审批意见$/u"));
+  assert.ok(helper.includes(".locator('textarea').fill('Please correct supplier')"));
+  assert.doesNotMatch(helper, /getByPlaceholder/u);
+});
