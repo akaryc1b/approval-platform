@@ -67,8 +67,7 @@ export async function runBusinessLifecycle(
     url.searchParams.set('demoOperator', actor); url.hash = route;
     await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: budget.remaining(20_000) });
   };
-  const button = (scope: Locator | Page, label: string) => scope.locator('uni-button.wd-button')
-    .filter({ hasText: new RegExp(`^${label}$`, 'u') }).last();
+  const button = (scope: Locator | Page, label: string) => scope.getByRole('button', { name: label, exact: true });
   const confirm = () => page.locator('uni-modal .uni-modal__btn_primary').last();
   const cancel = () => page.locator('uni-modal .uni-modal__btn_default').last();
   const field = (label: string) => page.locator('.field-card:visible').filter({ has: page.locator('.field-label').filter({ hasText: label }) });
@@ -178,7 +177,7 @@ export async function runBusinessLifecycle(
       if (highAmount) {
         const downstream = await taskFor(authoritativeActors.financeReview, 'financeReview');
         await go(manager, '/pages/task/list');
-        await page.locator('.mode-row uni-button.wd-button').filter({ hasText: /^我已处理\s*\d+$/u }).click();
+        await page.locator('.mode-row:visible').getByRole('button', { name: /^我已处理\s*\d+$/u }).click();
         await expect(page.locator('[data-testid="approval-task-list"]:visible')).toHaveAttribute('data-active-tab', 'processed');
         const card = page.locator(`.task-card[data-task-id="${managerTask.taskId}"]`);
         await button(card, '拿回').click();
@@ -197,7 +196,7 @@ export async function runBusinessLifecycle(
     });
     await test.step('Employee withdraws through started list; durable state/history and every actor pending list agree', async () => {
       await go(employee, '/pages/task/list');
-      await page.locator('.mode-row uni-button.wd-button').filter({ hasText: /^我发起的\s*\d+$/u }).click();
+      await page.locator('.mode-row:visible').getByRole('button', { name: /^我发起的\s*\d+$/u }).click();
       await expect(page.locator('[data-testid="approval-task-list"]:visible')).toHaveAttribute('data-active-tab', 'started');
       const card = page.locator(`.task-card[data-instance-id="${instanceId}"]`);
       await expect(card).toContainText(key); await button(card, '撤回').click();
@@ -209,7 +208,7 @@ export async function runBusinessLifecycle(
       expect(durable.instance.status).toBe('WITHDRAWN');
       expect(durable.tasks.length).toBeGreaterThan(0);
       expect(durable.tasks.every((item: { status: string }) => ['COMPLETED', 'CANCELED'].includes(item.status))).toBe(true);
-      await expect(button(card, '撤回')).toHaveCount(0);
+      await expect(card.getByRole('button', { name: '撤回', exact: true, includeHidden: true })).toHaveCount(0);
       const history = await events(); expect(new Set(history.map(item => item.eventId)).size).toBe(history.length);
       expect(history.filter(item => item.action === 'INSTANCE_WITHDRAWN')).toHaveLength(1);
     });

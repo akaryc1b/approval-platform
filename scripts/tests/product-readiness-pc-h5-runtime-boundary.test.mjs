@@ -752,3 +752,23 @@ test('mobile request, upload and download share guarded local-demo identity with
     await assert.rejects(api.downloadApprovalAttachment({ attachmentId: 'attachment-fixture' }), error => error.status === 401);
   }
 });
+
+
+test('business actions use exact accessible button names and preserve strict scope uniqueness', async () => {
+  const { stripTypeScriptTypes } = await import('node:module');
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  const line = helper.split('\n').find(value => value.trim().startsWith('const button ='));
+  assert.ok(line);
+  assert.doesNotMatch(line, /hasText|last\(|first\(/u);
+  assert.ok(helper.includes("page.locator('.mode-row:visible').getByRole('button'"));
+  assert.ok(helper.includes("name: '撤回', exact: true, includeHidden: true"));
+  const select = runInNewContext(stripTypeScriptTypes(line) + '\n;button');
+  const intended = { name: '发起审批', text: ' 发起审批 ' };
+  const other = { name: '发起审批其他', text: '发起审批其他' };
+  const scope = { getByRole(role, options) {
+    assert.equal(role, 'button'); assert.equal(options.exact, true);
+    return [intended, other].filter(control => control.name === options.name);
+  } };
+  assert.deepEqual(select(scope, '发起审批'), [intended]);
+  assert.deepEqual(select(scope, '不存在'), []);
+});
