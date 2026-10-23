@@ -307,7 +307,7 @@ test('font failures retain the actual bounded installer phase and status without
       : provisionGrafanaCiFonts({moduleUrl:pathToFileURL(file).href});
     await assert.rejects(pending, error => {
       assert.ok(error.message.startsWith('GRAFANA_FONT_PREPARATION_FAILED:phase=' + phase + ',state=complete,'));
-      assert.match(error.message, /,childExit=1,childSignal=none$/u);
+      assert.match(error.message, /,childExit=1,childSignal=none,aptHints=/u);
       assert.doesNotMatch(error.message, /PRIVATE|private|credential|value/u);
       if (phase === 'package-install') assert.match(error.message, /exitCode=none,signal=SIGTERM,error=ETIMEDOUT/u);
       else if (phase === 'font-cache') assert.match(error.message, /exitCode=none,signal=other,error=other/u);
@@ -347,9 +347,76 @@ test('font timeout and native child signal report the last phase without changin
     }`);
     await assert.rejects(prepareGrafanaFonts('ci',{moduleUrl:pathToFileURL(file).href,timeoutMs:300}), error => {
       assert.ok(error.message.startsWith('GRAFANA_FONT_PREPARATION_' + (signal ? 'FAILED' : 'TIMEOUT') + ':phase=package-index,state=start,'));
-      assert.ok(error.message.endsWith('childExit=none,childSignal=' + (signal ? 'SIGTERM' : 'none')));
+      assert.ok(error.message.endsWith('childExit=none,childSignal=' + (signal ? 'SIGTERM' : 'none') + ',aptHints=unknown'));
       return true;
     });
     assert.deepEqual([process.listenerCount('SIGTERM'),process.listenerCount('SIGINT')], before);
   }
+});
+
+test('font apt observations expose fixed presence hints, never native text or a retry', async t => {
+  const directory = context(t), file = resolve(directory, 'apt-hint-helper.mjs');
+  const source = readFileSync(resolve(root, 'scripts/product-readiness/quick-start/cjk-fonts.mjs'), 'utf8');
+  const samples = [
+    ['Reading package lists... PRIVATE', 'r1p0f0u0c0l0n0'],
+    ['Need to get 123 MB PRIVATE', 'r0p1f0u0c0l0n0'],
+    ['Get:1 PRIVATE mirror/package', 'r0p0f1u0c0l0n0'],
+    ['Unpacking PRIVATE package', 'r0p0f0u1c0l0n0'],
+    ['Setting up PRIVATE package', 'r0p0f0u0c1l0n0'],
+    ['Waiting for cache lock PRIVATE path', 'r0p0f0u0c0l1n0'],
+    ['Failed to fetch PRIVATE mirror', 'r0p0f0u0c0l0n1'],
+    ['PRIVATE unrecognized output', 'r0p0f0u0c0l0n0'],
+  ];
+  for (const [output, bits] of samples) {
+    const fake = `let calls=0;function spawnSync(command,args,options){
+      calls++;
+      if(options.timeout!==[10000,180000,240000][calls-1] || options.shell!==false) throw Error('changed native bounds');
+      if(calls===3) return {status:null,signal:'SIGTERM',error:{code:'ETIMEDOUT',message:'PRIVATE timeout'},stdout:${JSON.stringify(output)},stderr:'PRIVATE stderr'};
+      return {status:0,stdout:''};
+    }`;
+    writeFileSync(file, source.replace("import { spawnSync } from 'node:child_process';", fake));
+    await assert.rejects(provisionGrafanaCiFonts({moduleUrl:pathToFileURL(file).href}), error => {
+      assert.match(error.message, /^GRAFANA_FONT_PREPARATION_FAILED:phase=package-install,state=complete,/u);
+      assert.ok(error.message.endsWith('aptHints=package-install:' + bits));
+      assert.doesNotMatch(error.message, /PRIVATE|mirror|path|package /u);
+      assert.ok(error.message.length < 300);
+      return true;
+    });
+    // Direct Quick Start caller receives the same bounded value-free record.
+    const direct = spawnSync(process.execPath, ['--input-type=module','-e',
+      `import {ensureCjkFontRuntime} from ${JSON.stringify(pathToFileURL(file).href)};try {ensureCjkFontRuntime();}catch {process.exitCode=1;}`],
+      {env:{PATH:process.env.PATH,GITHUB_ACTIONS:'true'},encoding:'utf8',timeout:5000,maxBuffer:8192});
+    assert.equal(direct.status, 1); assert.equal(direct.stderr, '');
+    assert.doesNotMatch(direct.stdout, /PRIVATE|mirror|path|package /u);
+    const lines = direct.stdout.trim().split('\n'); assert.equal(lines.length, 2);
+    assert.ok(lines.every(line => line.length < 256 && line.startsWith('CJK_FONT_INSTALL_HINTS_V1 ')));
+  }
+});
+
+test('font apt hint decoder rejects malformed, suffixed and unknown records without changing failure', async t => {
+  const directory = context(t), file = resolve(directory, 'apt-hint-untrusted.mjs');
+  const valid = 'CJK_FONT_INSTALL_HINTS_V1 phase=package-install resolver=1 planned=1 fetch=0 unpack=0 configure=0 lock=1 network=0';
+  for (const line of [valid, ` ${valid}`, `${valid}\r`, `\u001b[32m${valid}`, `${valid} PRIVATE`,
+    valid.replace('V1','V2'), valid.replace('lock=1','lock=2'), valid.replace('package-install','PRIVATE'),
+    valid.replace('network=0','secret=0'), valid + 'x'.repeat(256)]) {
+    writeFileSync(file, `export function ensureCjkFontRuntime(){console.log(${JSON.stringify(line)});throw Error('PRIVATE failure');}`);
+    await assert.rejects(provisionGrafanaCiFonts({moduleUrl:pathToFileURL(file).href}), error => {
+      assert.ok(error.message.startsWith('GRAFANA_FONT_PREPARATION_FAILED:'));
+      assert.ok(error.message.endsWith('aptHints=' + (line === valid ? 'package-install:r1p1f0u0c0l1n0' : 'unknown')));
+      assert.doesNotMatch(error.message, /PRIVATE|secret/u); return true;
+    });
+  }
+});
+
+test('font apt hint scanner has bounded line memory and discards oversized lines', async t => {
+  const directory = context(t), file = resolve(directory, 'apt-hint-dense.mjs');
+  const source = readFileSync(resolve(root, 'scripts/product-readiness/quick-start/cjk-fonts.mjs'), 'utf8');
+  const fake = `let calls=0;function spawnSync(){calls++;return calls===3
+    ? {status:100,stdout:'\\n'.repeat(1024*1024)+'Get:1 '+ 'PRIVATE'.repeat(2000)+'\\n',stderr:'Setting up PRIVATE package\\n'}
+    : {status:0,stdout:''};}`;
+  writeFileSync(file, source.replace("import { spawnSync } from 'node:child_process';", fake));
+  await assert.rejects(provisionGrafanaCiFonts({moduleUrl:pathToFileURL(file).href}), error => {
+    assert.ok(error.message.endsWith('aptHints=package-install:r0p0f0u0c1l0n0'));
+    assert.doesNotMatch(error.message, /PRIVATE/u);return true;
+  });
 });

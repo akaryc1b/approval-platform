@@ -10,6 +10,42 @@ const expectedFamilies = [
   'WenQuanYi Micro Hei',
 ];
 
+// Advisory presence hints from existing bounded native output, not a causal or
+// chronological phase claim. Never retain raw lines, mirrors, paths or packages.
+function reportInstallHints(phase, result) {
+  if (!['package-index', 'package-install'].includes(phase)) return;
+  try {
+    const patterns = [
+      /^(?:Reading package lists|Building dependency tree|The following (?:NEW )?packages)/u,
+      /^Need to get /u,
+      /^Get:[0-9]+\s/u,
+      /^(?:Preparing to unpack|Unpacking )/u,
+      /^(?:Setting up |Processing triggers for )/u,
+      /(?:Could not get lock|Unable to acquire the dpkg frontend lock|Waiting for cache lock)/u,
+      /(?:Temporary failure resolving|Could not resolve|Connection timed out|Connection refused|ETIMEDOUT|ECONNRESET|ENOTFOUND|Failed to fetch)/u,
+    ];
+    const hints = patterns.map(() => 0);
+    for (const output of [result.stdout, result.stderr]) {
+      const text = String(output ?? '');
+      for (let offset = 0; offset < text.length;) {
+        const newline = text.indexOf('\n', offset);
+        const end = newline === -1 ? text.length : newline;
+        const contentEnd = text[end - 1] === '\r' ? end - 1 : end;
+        if (contentEnd > offset && contentEnd - offset <= 8_192) {
+          const line = text.slice(offset, contentEnd);
+          for (let index = 0; index < patterns.length; index += 1) {
+            if (!hints[index] && patterns[index].test(line)) hints[index] = 1;
+          }
+        }
+        offset = end + 1;
+      }
+    }
+    console.log(`CJK_FONT_INSTALL_HINTS_V1 phase=${phase}`
+      + ` resolver=${hints[0]} planned=${hints[1]} fetch=${hints[2]} unpack=${hints[3]}`
+      + ` configure=${hints[4]} lock=${hints[5]} network=${hints[6]}`);
+  } catch {} // Optional observations cannot turn native failure into success.
+}
+
 function observedRun(command, args, options, phase, observe) {
   const started = Date.now();
   const report = result => {
@@ -25,6 +61,7 @@ function observedRun(command, args, options, phase, observe) {
   report();
   const result = spawnSync(command, args, options);
   report(result);
+  reportInstallHints(phase, result);
   return result;
 }
 

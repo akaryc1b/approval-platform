@@ -46,6 +46,20 @@ function lastFontPhase(output) {
   return last;
 }
 
+// The helper has at most two install observations; its whole stdout is already
+// bounded to 8192 bytes. Unknown/malformed lines never enter the public error.
+function lastFontInstallHints(output) {
+  let last = 'unknown';
+  for (const line of output.split('\n')) {
+    const match = line.length <= 256 && line.match(/^CJK_FONT_INSTALL_HINTS_V1 phase=(package-index|package-install) resolver=([01]) planned=([01]) fetch=([01]) unpack=([01]) configure=([01]) lock=([01]) network=([01])$/u);
+    if (match) {
+      // r/p/f/u/c/l/n are the seven named fields above, in that exact order.
+      last = `${match[1]}:r${match[2]}p${match[3]}f${match[4]}u${match[5]}c${match[6]}l${match[7]}n${match[8]}`;
+    }
+  }
+  return last;
+}
+
 /** Reuse Quick Start's distribution-font helper without credentials or retries. */
 async function runFontHelper(mode, moduleUrl, timeoutMs) {
   const child = spawn(process.execPath, ['--input-type=module', '-e',
@@ -62,7 +76,8 @@ async function runFontHelper(mode, moduleUrl, timeoutMs) {
     return new Error(category + ':phase=' + (phase?.phase ?? 'unknown') + ',state=' + (phase?.state ?? 'unknown')
       + ',elapsedMs=' + (phase?.elapsedMs ?? 0) + ',exitCode=' + (phase?.exitCode ?? 'none')
       + ',signal=' + (phase?.signal ?? 'none') + ',error=' + (phase?.error ?? 'none')
-      + ',childExit=' + (exit ?? 'none') + ',childSignal=' + (childSignal ?? 'none'));
+      + ',childExit=' + (exit ?? 'none') + ',childSignal=' + (childSignal ?? 'none')
+      + ',aptHints=' + lastFontInstallHints(output));
   };
   try {
     await new Promise((done, reject) => {
