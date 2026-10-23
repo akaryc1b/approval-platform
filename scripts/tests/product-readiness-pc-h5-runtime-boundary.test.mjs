@@ -625,3 +625,71 @@ test('core H5 approval pages use governed narrow viewports without resizing PC',
     ['missing PC preservation', playwrightSpec.replace('expect(pc.viewportSize()).toEqual(pcViewport);', '')],
   ]) assert.throws(() => verify(mutated), undefined, label);
 });
+
+test('business lifecycle scenarios execute through the existing selected browser spec without widening gates', () => {
+  const path = 'apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime.spec.ts';
+  const source = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  assert.equal(relevantChangeSet([path]), true);
+  assert.match(playwrightSpec, /runBusinessLifecycle\(browser, request, testCaptureBudget\(testInfo, captureStartedAt\), highAmount\)/u);
+  assert.match(source, /waitForEvent\('filechooser'/u);
+  assert.match(source, /await audit\(response, employee, 'INSTANCE_STARTED'\)/u);
+  assert.match(source, /TASK_REJECTED/u); assert.match(source, /TASK_RETRIEVED/u);
+  assert.match(source, /snapshot\.submission\.values/u); assert.match(source, /durable\.tasks\.every/u);
+  assert.match(source, /LOCAL_DEMO_BROWSER_BUSINESS_LIFECYCLE_V1/u);
+  assert.doesNotMatch(source, /request\.(post|put|patch|delete)\(|\.route\(|addInitScript|setTimeout\(|waitForTimeout\(/u);
+  assert.match(playwrightConfig, /retries: 0/u);
+  assert.match(smoke, /const browserTimeoutMs = 5 \* 60_000/u);
+});
+
+test('H5 initiation uses the actual configured directory key and resolves concrete Wot controls', () => {
+  const source = text('apps/mobile/overlay/src/pages/initiate/form.vue');
+  const expression = source.match(/const connectorKey = ref\(([^)]+)\)/u)?.[1];
+  assert.ok(expression);
+  assert.equal(runInNewContext(expression, { runtime: { connector: 'standalone', connectorKey: 'demo-directory' } }), 'demo-directory');
+  for (const [path, names] of [
+    ['form', ['input', 'button', 'tag']], ['index', ['search', 'button', 'tag']],
+  ]) for (const name of names) assert.ok(text(`apps/mobile/overlay/src/pages/initiate/${path}.vue`)
+    .includes(`wot-design-uni/components/wd-${name}/wd-${name}.vue`));
+});
+
+test('task list honors only known navigation tabs and rejects arbitrary query values', () => {
+  const source = text('apps/mobile/overlay/src/pages/task/list.vue');
+  const callback = source.match(/onLoad\(\(query\) => \{([\s\S]*?)\n\}\)/u)?.[1];
+  assert.ok(callback);
+  for (const tab of ['pending', 'processed', 'started', 'unknown', '', undefined, ['started']]) {
+    const activeMode = { value: 'pending' };
+    runInNewContext(callback, { query: { tab }, activeMode });
+    assert.equal(activeMode.value, ['pending', 'processed', 'started'].includes(tab) ? tab : 'pending');
+  }
+});
+
+test('attachment picker selects the real H5 file API and retains messaging picker off H5', async () => {
+  const { stripTypeScriptTypes } = await import('node:module');
+  const source = text('apps/mobile/overlay/src/components/approval/ApprovalFormRenderer.vue');
+  const functionSource = source.slice(source.indexOf('function chooseFiles('), source.indexOf('\nfunction toggleSection('));
+  for (const h5 of [true, false]) {
+    const selected = functionSource.replace(/\/\/ #ifdef H5\n([\s\S]*?)\/\/ #endif/gu, (_, block) => h5 ? block : '')
+      .replace(/\/\/ #ifndef H5\n([\s\S]*?)\/\/ #endif/gu, (_, block) => h5 ? '' : block);
+    const calls = [], uploads = [], values = [], errors = [];
+    const context = {
+      disabled: () => false, uploading: { value: false }, attachmentIds: () => [],
+      uploadedByField: { value: {} },
+      uploadApprovalAttachment: async path => { uploads.push(path); return { attachmentId: 'uploaded-1', fileName: 'fixture.txt' }; },
+      setValue: (_item, _section, value) => values.push([...value]),
+      uni: { chooseFile: options => calls.push(['H5', options]), chooseMessageFile: options => calls.push(['MESSAGE', options]), showToast: error => errors.push(error) },
+    };
+    runInNewContext(stripTypeScriptTypes(`${selected}\nchooseFiles({ key: 'attachments', constraints: { multiple: true } }, {});`), context);
+    assert.equal(calls.length, 1); assert.equal(calls[0][0], h5 ? 'H5' : 'MESSAGE');
+    assert.equal(calls[0][1].count, 20);
+    await calls[0][1].success({ tempFiles: [{ path: 'local-file', name: 'fixture.txt', size: 32 }] });
+    assert.deepEqual(uploads, ['local-file']); assert.deepEqual(values, [['uploaded-1']]);
+    await calls[0][1].success({ tempFiles: [{ path: 'oversized', name: 'large.txt', size: 10 * 1024 * 1024 + 1 }] });
+    assert.deepEqual(uploads, ['local-file']); assert.equal(errors.length, 1);
+    assert.equal(context.uploading.value, false);
+    await calls[0][1].success({ tempFiles: { name: 'browser.txt', size: 12 }, tempFilePaths: 'blob:local-fixture' });
+    assert.deepEqual(uploads, ['local-file', 'blob:local-fixture']);
+    await calls[0][1].success({ tempFiles: [{ size: 12 }] });
+    assert.deepEqual(uploads, ['local-file', 'blob:local-fixture']);
+    assert.equal(errors.length, 2);
+  }
+});

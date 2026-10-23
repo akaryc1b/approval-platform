@@ -1,4 +1,8 @@
 <script lang="ts" setup>
+import WdButton from 'wot-design-uni/components/wd-button/wd-button.vue'
+import WdInput from 'wot-design-uni/components/wd-input/wd-input.vue'
+import WdTag from 'wot-design-uni/components/wd-tag/wd-tag.vue'
+
 import type { FormRuntimeView } from '@/api/approval/form-types'
 
 import { findStartFormRuntime, submitForm } from '@/api/approval/forms'
@@ -20,7 +24,7 @@ const errorText = ref('')
 const formRuntime = ref<FormRuntimeView>()
 const formValues = ref<Record<string, unknown>>({})
 const businessKey = ref(`FORM-${Date.now().toString(36).toUpperCase()}`)
-const connectorKey = ref(runtime.connector)
+const connectorKey = ref(runtime.connectorKey)
 const financeReviewerRoleCode = ref('FINANCE_REVIEWER')
 const financeApproverPositionCode = ref('FINANCE_APPROVER')
 const maximumFinanceApprovers = ref('20')

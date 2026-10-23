@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
+import { runBusinessLifecycle } from './product-readiness-pc-h5-runtime-business';
 import { runCollaborationNotificationRegression } from './product-readiness-pc-h5-collaboration';
 import { testCaptureBudget } from './product-readiness-capture-budget';
 import { collectCjkFontEvidence } from './product-readiness-cjk-fonts';
@@ -716,3 +717,12 @@ test('PC/H5 collaboration notifications open read-only summaries for a pure part
 }, testInfo) => {
   await runCollaborationNotificationRegression(browser, request, testCaptureBudget(testInfo, captureStartedAt));
 });
+
+for (const highAmount of [false, true]) {
+  test(highAmount
+    ? 'H5 user initiation at threshold supports manager retrieve and initiator withdrawal'
+    : 'H5 user initiation below threshold rejects, edits, resubmits and withdraws through real UI',
+  async ({ browser, request }, testInfo) => {
+    await runBusinessLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt), highAmount);
+  });
+}

@@ -152,15 +152,22 @@ function chooseFiles(item: FormField, section: UiSection) {
   if (disabled(item, section) || uploading.value) return
   const remaining = (item.constraints.multiple ? 20 : 1) - attachmentIds(item).length
   if (remaining <= 0) return uni.showToast({ title: '已达到附件数量上限', icon: 'none' })
-  uni.chooseMessageFile({
-    count: remaining, type: 'file',
-    success: async result => {
+  const options = {
+    count: remaining,
+    success: async (result: { tempFiles: unknown, tempFilePaths?: string | string[] }) => {
       uploading.value = true
       try {
         const uploaded = [...(uploadedByField.value[item.key] || [])]
-        for (const file of result.tempFiles) {
-          if (file.size > 10 * 1024 * 1024) throw new Error(`${file.name} 超过 10 MiB`)
-          uploaded.push(await uploadApprovalAttachment(file.path))
+        const files: unknown[] = Array.isArray(result.tempFiles) ? result.tempFiles : [result.tempFiles]
+        const paths = Array.isArray(result.tempFilePaths) ? result.tempFilePaths : [result.tempFilePaths]
+        for (const [index, file] of files.entries()) {
+          if (!file || typeof file !== 'object' || !('size' in file) || typeof file.size !== 'number') {
+            throw new Error('文件选择结果无效')
+          }
+          const path = 'path' in file ? file.path : paths[index]
+          if (typeof path !== 'string' || !path) throw new Error('文件路径无效')
+          if (file.size > 10 * 1024 * 1024) throw new Error('文件超过 10 MiB')
+          uploaded.push(await uploadApprovalAttachment(path))
         }
         uploadedByField.value = { ...uploadedByField.value, [item.key]: uploaded }
         setValue(item, section, uploaded.map(file => file.attachmentId))
@@ -168,7 +175,14 @@ function chooseFiles(item: FormField, section: UiSection) {
         uni.showToast({ title: error instanceof Error ? error.message : '附件上传失败', icon: 'none' })
       } finally { uploading.value = false }
     },
-  })
+  }
+  // H5 selects local files; the messaging picker is not implemented on H5.
+  // #ifdef H5
+  uni.chooseFile({ ...options, type: 'all' })
+  // #endif
+  // #ifndef H5
+  uni.chooseMessageFile({ ...options, type: 'file' })
+  // #endif
 }
 function toggleSection(section: UiSection) {
   if (section.collapsible === false) return
