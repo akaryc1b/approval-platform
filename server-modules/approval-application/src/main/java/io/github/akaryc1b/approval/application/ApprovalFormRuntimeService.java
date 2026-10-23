@@ -109,8 +109,19 @@ public final class ApprovalFormRuntimeService {
             UiSchemaDefinition.START_CONTEXT
         );
         Map<String, Object> values = defaultValues.resolve(form.definition(), operatorId);
+        // Opening an empty form is not a submission: validate supplied defaults only.
+        // Keep the full definition and required rules in the response and in validateStart.
+        FormDefinition defaultFields = new FormDefinition(
+            form.definition().schemaVersion(),
+            form.definition().formKey(),
+            form.definition().version(),
+            form.definition().name(),
+            form.definition().fields().stream()
+                .filter(field -> values.containsKey(field.key()))
+                .toList()
+        );
         NormalizedFormData normalized = validator.validate(
-            form.definition(),
+            defaultFields,
             values,
             permissions.requiredFields()
         );

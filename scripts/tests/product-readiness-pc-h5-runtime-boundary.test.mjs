@@ -625,3 +625,229 @@ test('core H5 approval pages use governed narrow viewports without resizing PC',
     ['missing PC preservation', playwrightSpec.replace('expect(pc.viewportSize()).toEqual(pcViewport);', '')],
   ]) assert.throws(() => verify(mutated), undefined, label);
 });
+
+test('business lifecycle scenarios execute through the existing selected browser spec without widening gates', () => {
+  const path = 'apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime.spec.ts';
+  const source = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  assert.equal(relevantChangeSet([path]), true);
+  assert.match(playwrightSpec, /runBusinessLifecycle\(browser, request, testCaptureBudget\(testInfo, captureStartedAt\), highAmount\)/u);
+  assert.match(source, /waitForEvent\('filechooser'/u);
+  assert.match(source, /await audit\(response, employee, 'INSTANCE_STARTED'\)/u);
+  assert.match(source, /TASK_REJECTED/u); assert.match(source, /TASK_RETRIEVED/u);
+  assert.match(source, /snapshot\.submission\.values/u); assert.match(source, /durable\.tasks\.every/u);
+  assert.match(source, /LOCAL_DEMO_BROWSER_BUSINESS_LIFECYCLE_V1/u);
+  assert.doesNotMatch(source, /request\.(post|put|patch|delete)\(|\.route\(|addInitScript|setTimeout\(|waitForTimeout\(/u);
+  assert.match(playwrightConfig, /retries: 0/u);
+  assert.match(smoke, /const browserTimeoutMs = 5 \* 60_000/u);
+});
+
+test('H5 initiation uses the actual configured directory key and resolves concrete Wot controls', () => {
+  const source = text('apps/mobile/overlay/src/pages/initiate/form.vue');
+  const expression = source.match(/const connectorKey = ref\(([^)]+)\)/u)?.[1];
+  assert.ok(expression);
+  assert.equal(runInNewContext(expression, { runtime: { connector: 'standalone', connectorKey: 'demo-directory' } }), 'demo-directory');
+  for (const [path, names] of [
+    ['form', ['input', 'button', 'tag']], ['index', ['search', 'button', 'tag']],
+  ]) for (const name of names) assert.ok(text(`apps/mobile/overlay/src/pages/initiate/${path}.vue`)
+    .includes(`wot-design-uni/components/wd-${name}/wd-${name}.vue`));
+});
+
+test('task list honors only known navigation tabs and rejects arbitrary query values', () => {
+  const source = text('apps/mobile/overlay/src/pages/task/list.vue');
+  const callback = source.match(/onLoad\(\(query\) => \{([\s\S]*?)\n\}\)/u)?.[1];
+  assert.ok(callback);
+  for (const tab of ['pending', 'processed', 'started', 'unknown', '', undefined, ['started']]) {
+    const activeMode = { value: 'pending' };
+    runInNewContext(callback, { query: { tab }, activeMode });
+    assert.equal(activeMode.value, ['pending', 'processed', 'started'].includes(tab) ? tab : 'pending');
+  }
+});
+
+test('attachment picker selects the real H5 file API and retains messaging picker off H5', async () => {
+  const { stripTypeScriptTypes } = await import('node:module');
+  const source = text('apps/mobile/overlay/src/components/approval/ApprovalFormRenderer.vue');
+  const functionSource = source.slice(source.indexOf('function chooseFiles('), source.indexOf('\nfunction toggleSection('));
+  for (const h5 of [true, false]) {
+    const selected = functionSource.replace(/\/\/ #ifdef H5\n([\s\S]*?)\/\/ #endif/gu, (_, block) => h5 ? block : '')
+      .replace(/\/\/ #ifndef H5\n([\s\S]*?)\/\/ #endif/gu, (_, block) => h5 ? '' : block);
+    const calls = [], uploads = [], values = [], errors = [];
+    const context = {
+      disabled: () => false, uploading: { value: false }, attachmentIds: () => [],
+      uploadedByField: { value: {} },
+      uploadApprovalAttachment: async path => { uploads.push(path); return { attachmentId: 'uploaded-1', fileName: 'fixture.txt' }; },
+      setValue: (_item, _section, value) => values.push([...value]),
+      uni: { chooseFile: options => calls.push(['H5', options]), chooseMessageFile: options => calls.push(['MESSAGE', options]), showToast: error => errors.push(error) },
+    };
+    runInNewContext(stripTypeScriptTypes(`${selected}\nchooseFiles({ key: 'attachments', constraints: { multiple: true } }, {});`), context);
+    assert.equal(calls.length, 1); assert.equal(calls[0][0], h5 ? 'H5' : 'MESSAGE');
+    assert.equal(calls[0][1].count, 20);
+    await calls[0][1].success({ tempFiles: [{ path: 'local-file', name: 'fixture.txt', size: 32 }] });
+    assert.deepEqual(uploads, ['local-file']); assert.deepEqual(values, [['uploaded-1']]);
+    await calls[0][1].success({ tempFiles: [{ path: 'oversized', name: 'large.txt', size: 10 * 1024 * 1024 + 1 }] });
+    assert.deepEqual(uploads, ['local-file']); assert.equal(errors.length, 1);
+    assert.equal(context.uploading.value, false);
+    await calls[0][1].success({ tempFiles: { name: 'browser.txt', size: 12 }, tempFilePaths: 'blob:local-fixture' });
+    assert.deepEqual(uploads, ['local-file', 'blob:local-fixture']);
+    await calls[0][1].success({ tempFiles: [{ size: 12 }] });
+    assert.deepEqual(uploads, ['local-file', 'blob:local-fixture']);
+    assert.equal(errors.length, 2);
+  }
+});
+
+
+test('business form actions target visible UniApp native inputs rather than synthetic placeholder nodes', () => {
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  assert.ok(helper.includes("page.locator('.business-card:visible .wd-input')"));
+  assert.ok(helper.includes("hasText: /^业务编号$/u"));
+  assert.ok(helper.includes(".locator('input').fill(key)"));
+  assert.ok(helper.includes("page.locator('.action-card:visible')"));
+  assert.ok(helper.includes("hasText: /^审批意见$/u"));
+  assert.ok(helper.includes(".locator('textarea').fill('Please correct supplier')"));
+  assert.doesNotMatch(helper, /getByPlaceholder/u);
+});
+
+
+test('mobile request, upload and download share guarded local-demo identity without production identity injection', async () => {
+  const { stripTypeScriptTypes } = await import('node:module');
+  const transport = text('apps/mobile/overlay/src/api/approval/transport.ts')
+    .replace(/^import .* from [^\n]+\n/u, '');
+  const attachments = text('apps/mobile/overlay/src/api/approval/comments.ts')
+    .replace(/^import \{[\s\S]*?\} from [^\n]+\n/u, '');
+  const source = stripTypeScriptTypes(transport + '\n' + attachments)
+    .replace(/^export /gmu, '');
+  for (const localDemo of [true, false]) {
+    const calls = [];
+    let status = 200;
+    const runtime = { localDemo, tenantId: 'fixture-tenant', operatorId: 'fixture-actor', apiBaseUrl: '/api' };
+    const api = runInNewContext(source + '\n;({ mobileApprovalRequest, mobileApprovalHeaders, uploadApprovalAttachment, downloadApprovalAttachment })', {
+      getApprovalRuntimeConfig: () => runtime,
+      uni: {
+        request: options => { calls.push(options); options.success({ statusCode: status, data: {}, header: {} }); },
+        uploadFile: options => { calls.push(options); options.success({ statusCode: status, data: JSON.stringify({ attachmentId: 'attachment-fixture' }) }); },
+        downloadFile: options => { calls.push(options); options.success({ statusCode: status, tempFilePath: '/isolated/attachment' }); },
+      },
+    });
+    await api.mobileApprovalRequest('/approval/forms');
+    await api.uploadApprovalAttachment('/isolated/file.txt');
+    await api.downloadApprovalAttachment({ attachmentId: 'attachment-fixture' });
+    assert.equal(calls.length, 3);
+    for (const call of calls) {
+      assert.equal(call.header.Accept, 'application/json');
+      assert.equal(call.header['X-Tenant-Id'], localDemo ? runtime.tenantId : undefined);
+      assert.equal(call.header['X-Operator-Id'], localDemo ? runtime.operatorId : undefined);
+      assert.ok(call.header['X-Request-Id']);
+      assert.equal(call.header['X-Trace-Id'], call.header['X-Request-Id']);
+      assert.equal(call.header['Content-Type'], undefined, 'multipart boundary remains owned by uploadFile');
+    }
+    assert.ok(calls[1].header['Idempotency-Key']);
+    assert.equal(calls[1].name, 'file');
+    assert.equal(calls[1].filePath, '/isolated/file.txt');
+    if (localDemo) {
+      const header = api.mobileApprovalHeaders({ 'X-Tenant-Id': 'wrong', 'X-Operator-Id': 'wrong' });
+      assert.equal(header['X-Tenant-Id'], runtime.tenantId);
+      assert.equal(header['X-Operator-Id'], runtime.operatorId);
+    }
+    status = 401;
+    await assert.rejects(api.uploadApprovalAttachment('/isolated/file.txt'), error => error.status === 401);
+    await assert.rejects(api.downloadApprovalAttachment({ attachmentId: 'attachment-fixture' }), error => error.status === 401);
+  }
+});
+
+
+test('business actions use exact accessible button names and preserve strict scope uniqueness', async () => {
+  const { stripTypeScriptTypes } = await import('node:module');
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  const line = helper.split('\n').find(value => value.trim().startsWith('const button ='));
+  assert.ok(line);
+  assert.doesNotMatch(line, /hasText|last\(|first\(/u);
+  assert.ok(helper.includes("page.locator('.mode-row:visible').getByRole('button'"));
+  assert.ok(helper.includes("name: '撤回', exact: true, includeHidden: true"));
+  const select = runInNewContext(stripTypeScriptTypes(line) + '\n;button');
+  const intended = { name: '发起审批', text: ' 发起审批 ' };
+  const other = { name: '发起审批其他', text: '发起审批其他' };
+  const scope = { getByRole(role, options) {
+    assert.equal(role, 'button'); assert.equal(options.exact, true);
+    return [intended, other].filter(control => control.name === options.name);
+  } };
+  assert.deepEqual(select(scope, '发起审批'), [intended]);
+  assert.deepEqual(select(scope, '不存在'), []);
+});
+
+test('actual H5 form submission sends canonical user identity without weakening connector checks', async () => {
+  const { stripTypeScriptTypes } = await import('node:module');
+  const page = text('apps/mobile/overlay/src/pages/initiate/form.vue');
+  const source = page.slice(page.indexOf('async function submitDynamicForm()'), page.indexOf('\nfunction goBack()'));
+  for (const connector of ['demo-directory', 'dingtalk']) {
+    for (const confirmed of [true, false]) {
+      const calls = [], navigation = [], errors = [];
+      const submitting = { value: false };
+      const values = { amount: '9999.99', supplier: 'fixture supplier', purchaseOrderReference: 'fixture order', attachments: ['fixture-attachment'] };
+      const submit = runInNewContext(stripTypeScriptTypes(source) + '\n;submitDynamicForm', {
+        formRuntime: { value: { definition: { formKey: 'purchase-payment', version: 1 } } },
+        submitting, validationMessage: () => '', businessKey: { value: ' fixture-business ' },
+        formValues: { value: values }, connectorKey: { value: connector },
+        financeReviewerRoleCode: { value: 'FINANCE_REVIEWER' }, financeApproverPositionCode: { value: 'FINANCE_APPROVER' },
+        maximumFinanceApprovers: { value: '20' }, runtime: { operatorId: 'fixture-employee', localDemo: connector === 'demo-directory' },
+        submitForm: async (...args) => { calls.push(args); return { instanceId: 'fixture-instance' }; },
+        uni: {
+          showModal: options => options.success({ confirm: confirmed }),
+          navigateTo: options => navigation.push(options.url),
+          showToast: options => errors.push(options.title),
+        },
+      });
+      await submit();
+      assert.equal(calls.length, Number(confirmed)); assert.equal(submitting.value, false); assert.deepEqual(errors, []);
+      if (!confirmed) { assert.deepEqual(navigation, []); continue; }
+      assert.deepEqual(calls[0].slice(0, 4), ['purchase-payment', 1, 'fixture-business', values]);
+      assert.deepEqual(JSON.parse(JSON.stringify(calls[0][4])), {
+        connectorKey: connector, initiatorUserId: { source: connector, objectType: 'user', value: 'fixture-employee' },
+        financeReviewerRoleCode: 'FINANCE_REVIEWER', financeApproverPositionCode: 'FINANCE_APPROVER', maximumFinanceApprovers: 20,
+      });
+      assert.deepEqual(navigation, ['/pages/task/list?tab=started']);
+    }
+  }
+  const adapter = text('apps/server/src/main/java/io/github/akaryc1b/approval/demo/PurchasePaymentDemoOrganizationConnector.java');
+  assert.match(adapter, /USER_OBJECT_TYPE = "user"/u);
+  assert.match(adapter, /objectType\.equals\(value\.objectType\(\)\)/u);
+});
+
+test('original summaries are explicitly distinguished from current revision form before approval', () => {
+  for (const path of [
+    'apps/mobile/overlay/src/pages/task/detail.vue',
+    'apps/web/overlay/apps/web-ele/src/views/approval/workbench/index.vue',
+  ]) {
+    const source = text(path);
+    assert.ok(source.includes('初始申请摘要'));
+    assert.ok(source.includes('业务字段保留首次提交；当前修订内容请查看下方申请表单。'));
+    assert.ok(source.includes('当前申请表单'));
+    assert.ok(source.includes('formRuntime.revisionNumber'));
+    assert.ok(source.includes('v-model="formValues"'));
+    assert.ok(source.includes(':readonly="!revisionTask"'));
+  }
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  assert.ok(helper.includes('expect(runtime.revisionNumber).toBe(1)'));
+  assert.ok(helper.includes('expect(details.supplier).toBe(`UI supplier ${key}`)'));
+  assert.ok(helper.includes('expect(details.purchaseOrderReference).toBe(`PO-${key}`)'));
+  assert.ok(helper.includes('toHaveValue(`Corrected ${key}`)'));
+  assert.ok(helper.includes('toHaveValue(`REVISED-${key}`)'));
+  assert.ok(helper.includes("for (const label of ['Supplier', 'Purchase order reference', 'Payment amount'])"));
+  assert.ok(helper.includes("await expect(field(label).locator('input')).toBeDisabled()"));
+  assert.ok(helper.indexOf('toHaveValue(`Corrected ${key}`)') < helper.indexOf("await act(manager, managerTask, 'approve')"));
+});
+
+test('revision attachment verification respects manager hidden and finance readonly permissions', () => {
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  const template = text('server-modules/approval-domain/src/main/java/io/github/akaryc1b/approval/domain/template/PurchasePaymentTemplate.java');
+  const manager = template.slice(template.indexOf('permissions(MANAGER_APPROVAL_TASK_KEY,'), template.indexOf('permissions(FINANCE_REVIEW_TASK_KEY,'));
+  const finance = template.slice(template.indexOf('permissions(FINANCE_COUNTERSIGN_TASK_KEY,'), template.indexOf('permissions(PAYMENT_CONFIRMATION_TASK_KEY,'));
+  assert.ok(manager.includes('access("attachments", UiSchemaDefinition.FieldAccess.HIDDEN)'));
+  assert.ok(finance.includes('access("attachments", UiSchemaDefinition.FieldAccess.READONLY)'));
+  assert.ok(helper.includes("expect(runtime.fieldPermissions.attachments).toBe('HIDDEN')"));
+  assert.ok(helper.includes("expect(Object.hasOwn(runtime.values, 'attachments')).toBe(false)"));
+  assert.ok(helper.includes("page.locator('.form-card:visible .field-card').filter({\n          has: page.locator('.field-label').filter({ hasText: 'Payment documents' }),\n        })).toHaveCount(0)"));
+  assert.ok(helper.includes('for (const [index, task] of [a, b].entries())'));
+  assert.ok(helper.includes('`/tasks/${task.taskId}/form-runtime`, authoritativeActors.financeCountersign[index]'));
+  assert.ok(helper.includes("expect(financeRuntime.fieldPermissions.attachments).toBe('READONLY')"));
+  assert.ok(helper.includes('expect(financeRuntime.values.attachments).toEqual(attachmentIds)'));
+  assert.ok(helper.includes('expect(financeRuntime.revisionNumber).toBe(1)'));
+});

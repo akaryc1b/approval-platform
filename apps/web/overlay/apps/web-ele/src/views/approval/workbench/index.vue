@@ -447,7 +447,7 @@ onMounted(refreshWorkbench);
             type="warning"
             :title="`该任务由 ${taskDelegation.principalAssigneeId} 委托给 ${taskDelegation.delegateAssigneeId} 处理`"
           />
-          <ElDescriptions :column="2" border class="application-snapshot" title="申请信息">
+          <ElDescriptions :column="2" border class="application-snapshot" title="初始申请摘要">
             <ElDescriptionsItem label="业务编号">{{ selectedTask.businessKey }}</ElDescriptionsItem><ElDescriptionsItem label="当前环节">{{ taskStage(selectedTask) }}</ElDescriptionsItem><ElDescriptionsItem label="发起人">{{ selectedTask.initiatorId }}</ElDescriptionsItem><ElDescriptionsItem label="付款金额">{{ formatMoney(selectedTask.amount) }}</ElDescriptionsItem>
             <template v-if="taskDelegation">
               <ElDescriptionsItem label="原责任人">{{ taskDelegation.principalAssigneeId }}</ElDescriptionsItem>
@@ -456,9 +456,10 @@ onMounted(refreshWorkbench);
               <ElDescriptionsItem label="代理规则">{{ taskDelegation.delegationRuleId }}</ElDescriptionsItem>
             </template>
           </ElDescriptions>
+          <p class="text-muted-foreground">业务字段保留首次提交；当前修订内容请查看下方申请表单。</p>
           <ApprovalAssistancePanel v-if="!revisionTask" :task-id="selectedTask.taskId"/>
           <section v-if="formRuntime" class="detail-section">
-            <div class="section-header"><h3>申请表单</h3><ElTag effect="plain">{{ formRuntime.defaultedUiSchema ? '安全默认' : `UI v${formRuntime.uiSchema.version}` }}</ElTag></div>
+            <div class="section-header"><h3>当前申请表单 · 修订 {{ formRuntime.revisionNumber }}</h3><ElTag effect="plain">{{ formRuntime.defaultedUiSchema ? '安全默认' : `UI v${formRuntime.uiSchema.version}` }}</ElTag></div>
             <ApprovalFormRenderer v-model="formValues" :field-permissions="formRuntime.fieldPermissions" :required-fields="formRuntime.requiredFields" :readonly="!revisionTask" :schema="formRuntime.definition" :ui-schema="formRuntime.uiSchema"/>
           </section>
           <section class="detail-section">

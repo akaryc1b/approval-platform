@@ -1,4 +1,8 @@
 <script lang="ts" setup>
+import WdButton from 'wot-design-uni/components/wd-button/wd-button.vue'
+import WdSearch from 'wot-design-uni/components/wd-search/wd-search.vue'
+import WdTag from 'wot-design-uni/components/wd-tag/wd-tag.vue'
+
 import type { FormPage, FormSummary } from '@/api/approval/form-types'
 
 import { findForms } from '@/api/approval/forms'

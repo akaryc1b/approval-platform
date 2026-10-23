@@ -38,3 +38,46 @@ test('resolves only host-registered versioned components and safe fallback', () 
   assert.equal(resolveComponent('TEXT', { componentType: 'REMOTE_SCRIPT', componentVersion: 1 }).registered, false);
   assert.equal(resolveComponent('TEXT', { componentType: 'TEXT', componentVersion: 2 }).registered, false);
 });
+
+test('actual PC and H5 renderers never promote hidden fields when the form or section is readonly', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { stripTypeScriptTypes } = await import('node:module');
+  const { runInNewContext } = await import('node:vm');
+  for (const path of [
+    'apps/mobile/overlay/src/components/approval/ApprovalFormRenderer.vue',
+    'apps/web/overlay/apps/web-ele/src/components/approval/ApprovalFormRenderer.vue',
+  ]) {
+    const source = readFileSync(new URL('../../' + path, import.meta.url), 'utf8');
+    const functions = ['access', 'visible', 'disabled', 'setValue'].map(name => {
+      const start = source.indexOf(`function ${name}(`);
+      assert.ok(start >= 0);
+      const end = source.indexOf('\nfunction ', start + 1);
+      assert.ok(end > start);
+      return source.slice(start, end);
+    }).join('\n');
+    for (const permission of [undefined, 'EDITABLE', 'READONLY', 'HIDDEN']) {
+      for (const readonly of [false, true]) for (const readonlySummary of [false, true]) {
+        const original = { amount: '9999.99', attachments: ['isolated-existing-id'] };
+        const updates = [];
+        const props = { readonly, fieldPermissions: permission === undefined ? {} : { attachments: permission }, modelValue: original };
+        const api = runInNewContext(stripTypeScriptTypes(functions) + '\n;({access,visible,disabled,setValue})', {
+          props, model: { value: original }, emit: (...args) => updates.push(args),
+        });
+        const item = { key: 'attachments' }, section = { readonlySummary };
+        const expected = permission === 'HIDDEN' ? 'HIDDEN'
+          : permission === 'READONLY' || readonly || readonlySummary ? 'READONLY' : 'EDITABLE';
+        assert.equal(api.access(item, section), expected, `${path}/${permission}/${readonly}/${readonlySummary}`);
+        assert.equal(api.visible(item, section), expected !== 'HIDDEN');
+        assert.equal(api.visible(undefined, section), false);
+        assert.equal(api.disabled(item, section), expected !== 'EDITABLE');
+        api.setValue(item, section, ['replacement-id']);
+        assert.equal(updates.length, Number(expected === 'EDITABLE'));
+        if (updates.length) {
+          assert.equal(updates[0][0], 'update:modelValue');
+          assert.deepEqual(JSON.parse(JSON.stringify(updates[0][1])), { amount: '9999.99', attachments: ['replacement-id'] });
+        }
+        assert.deepEqual(original, { amount: '9999.99', attachments: ['isolated-existing-id'] });
+      }
+    }
+  }
+});

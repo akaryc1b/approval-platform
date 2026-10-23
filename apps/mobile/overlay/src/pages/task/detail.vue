@@ -281,6 +281,8 @@ onLoad((query) => {
       </view>
 
       <view class="summary-card">
+        <view class="section-title">初始申请摘要</view>
+        <text class="muted">业务字段保留首次提交；当前修订内容请查看下方申请表单。</text>
         <view class="summary-header">
           <view>
             <text class="muted">{{ details.businessKey }}</text>
@@ -330,7 +332,7 @@ onLoad((query) => {
       <view v-if="formRuntime" class="form-card">
         <view class="card-title-row">
           <view>
-            <view class="section-title">申请表单</view>
+            <view class="section-title">当前申请表单</view>
             <text class="muted">
               {{ formRuntime.contextKey }} · 修订 {{ formRuntime.revisionNumber }}
             </text>
