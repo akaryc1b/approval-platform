@@ -705,3 +705,50 @@ test('business form actions target visible UniApp native inputs rather than synt
   assert.ok(helper.includes(".locator('textarea').fill('Please correct supplier')"));
   assert.doesNotMatch(helper, /getByPlaceholder/u);
 });
+
+
+test('mobile request, upload and download share guarded local-demo identity without production identity injection', async () => {
+  const { stripTypeScriptTypes } = await import('node:module');
+  const transport = text('apps/mobile/overlay/src/api/approval/transport.ts')
+    .replace(/^import .* from [^\n]+\n/u, '');
+  const attachments = text('apps/mobile/overlay/src/api/approval/comments.ts')
+    .replace(/^import \{[\s\S]*?\} from [^\n]+\n/u, '');
+  const source = stripTypeScriptTypes(transport + '\n' + attachments)
+    .replace(/^export /gmu, '');
+  for (const localDemo of [true, false]) {
+    const calls = [];
+    let status = 200;
+    const runtime = { localDemo, tenantId: 'fixture-tenant', operatorId: 'fixture-actor', apiBaseUrl: '/api' };
+    const api = runInNewContext(source + '\n;({ mobileApprovalRequest, mobileApprovalHeaders, uploadApprovalAttachment, downloadApprovalAttachment })', {
+      getApprovalRuntimeConfig: () => runtime,
+      uni: {
+        request: options => { calls.push(options); options.success({ statusCode: status, data: {}, header: {} }); },
+        uploadFile: options => { calls.push(options); options.success({ statusCode: status, data: JSON.stringify({ attachmentId: 'attachment-fixture' }) }); },
+        downloadFile: options => { calls.push(options); options.success({ statusCode: status, tempFilePath: '/isolated/attachment' }); },
+      },
+    });
+    await api.mobileApprovalRequest('/approval/forms');
+    await api.uploadApprovalAttachment('/isolated/file.txt');
+    await api.downloadApprovalAttachment({ attachmentId: 'attachment-fixture' });
+    assert.equal(calls.length, 3);
+    for (const call of calls) {
+      assert.equal(call.header.Accept, 'application/json');
+      assert.equal(call.header['X-Tenant-Id'], localDemo ? runtime.tenantId : undefined);
+      assert.equal(call.header['X-Operator-Id'], localDemo ? runtime.operatorId : undefined);
+      assert.ok(call.header['X-Request-Id']);
+      assert.equal(call.header['X-Trace-Id'], call.header['X-Request-Id']);
+      assert.equal(call.header['Content-Type'], undefined, 'multipart boundary remains owned by uploadFile');
+    }
+    assert.ok(calls[1].header['Idempotency-Key']);
+    assert.equal(calls[1].name, 'file');
+    assert.equal(calls[1].filePath, '/isolated/file.txt');
+    if (localDemo) {
+      const header = api.mobileApprovalHeaders({ 'X-Tenant-Id': 'wrong', 'X-Operator-Id': 'wrong' });
+      assert.equal(header['X-Tenant-Id'], runtime.tenantId);
+      assert.equal(header['X-Operator-Id'], runtime.operatorId);
+    }
+    status = 401;
+    await assert.rejects(api.uploadApprovalAttachment('/isolated/file.txt'), error => error.status === 401);
+    await assert.rejects(api.downloadApprovalAttachment({ attachmentId: 'attachment-fixture' }), error => error.status === 401);
+  }
+});
