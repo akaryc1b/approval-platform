@@ -810,3 +810,27 @@ test('actual H5 form submission sends canonical user identity without weakening 
   assert.match(adapter, /USER_OBJECT_TYPE = "user"/u);
   assert.match(adapter, /objectType\.equals\(value\.objectType\(\)\)/u);
 });
+
+test('original summaries are explicitly distinguished from current revision form before approval', () => {
+  for (const path of [
+    'apps/mobile/overlay/src/pages/task/detail.vue',
+    'apps/web/overlay/apps/web-ele/src/views/approval/workbench/index.vue',
+  ]) {
+    const source = text(path);
+    assert.ok(source.includes('初始申请摘要'));
+    assert.ok(source.includes('业务字段保留首次提交；当前修订内容请查看下方申请表单。'));
+    assert.ok(source.includes('当前申请表单'));
+    assert.ok(source.includes('formRuntime.revisionNumber'));
+    assert.ok(source.includes('v-model="formValues"'));
+    assert.ok(source.includes(':readonly="!revisionTask"'));
+  }
+  const helper = text('apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-h5-runtime-business.ts');
+  assert.ok(helper.includes('expect(runtime.revisionNumber).toBe(1)'));
+  assert.ok(helper.includes('expect(details.supplier).toBe(`UI supplier ${key}`)'));
+  assert.ok(helper.includes('expect(details.purchaseOrderReference).toBe(`PO-${key}`)'));
+  assert.ok(helper.includes('toHaveValue(`Corrected ${key}`)'));
+  assert.ok(helper.includes('toHaveValue(`REVISED-${key}`)'));
+  assert.ok(helper.includes("for (const label of ['Supplier', 'Purchase order reference', 'Payment amount'])"));
+  assert.ok(helper.includes("await expect(field(label).locator('input')).toBeDisabled()"));
+  assert.ok(helper.indexOf('toHaveValue(`Corrected ${key}`)') < helper.indexOf("await act(manager, managerTask, 'approve')"));
+});

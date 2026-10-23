@@ -162,18 +162,36 @@ export async function runBusinessLifecycle(
       await act(employee, revision, 'resubmit');
       managerTask = await taskFor(manager, 'managerApproval');
       const details = await get(`/tasks/pending/${managerTask.taskId}`, manager);
-      expect(details.supplier).toBe(`Corrected ${key}`); expect(details.purchaseOrderReference).toBe(`REVISED-${key}`);
+      // Legacy instance summaries preserve the first submission, not the latest revision.
+      expect(details.supplier).toBe(`UI supplier ${key}`); expect(details.purchaseOrderReference).toBe(`PO-${key}`);
       expect(Number(details.amount)).toBe(Number(amount));
       expect(details.attachmentIds).toEqual(attachmentIds);
       const snapshot = await get(`/instances/${instanceId}/form-snapshot`);
       // The immutable original submission must not be rewritten by a revision.
       expect(snapshot.submission.values).toMatchObject({ supplier: `UI supplier ${key}`, purchaseOrderReference: `PO-${key}`, attachments: attachmentIds });
       const runtime = await get(`/tasks/${managerTask.taskId}/form-runtime`, manager);
-      expect(runtime.values).toMatchObject({ supplier: `Corrected ${key}`, purchaseOrderReference: `REVISED-${key}` });
+      expect(runtime.revisionNumber).toBe(1);
+      expect(runtime.values).toMatchObject({ supplier: `Corrected ${key}`, purchaseOrderReference: `REVISED-${key}`, attachments: attachmentIds });
+      expect(Number(runtime.values.amount)).toBe(Number(amount));
       expect(Number(snapshot.submission.values.amount)).toBe(Number(amount));
     });
     await test.step(highAmount ? 'Threshold amount routes to one reviewer and supports manager retrieve' : 'Below threshold skips reviewer and creates two distinct countersign tasks', async () => {
-      await open(manager, managerTask); await act(manager, managerTask, 'approve');
+      await open(manager, managerTask);
+      if (!highAmount) {
+        await expect(page.locator('.summary-card:visible')).toContainText('初始申请摘要');
+        await expect(page.locator('.summary-card:visible')).toContainText(`UI supplier ${key}`);
+        await expect(page.locator('.summary-card:visible')).toContainText(`PO-${key}`);
+        await expect(page.locator('.form-card:visible')).toContainText('当前申请表单');
+        await expect(page.locator('.form-card:visible')).toContainText('修订 1');
+        await expect(field('Supplier').locator('input')).toHaveValue(`Corrected ${key}`);
+        await expect(field('Purchase order reference').locator('input')).toHaveValue(`REVISED-${key}`);
+        for (const label of ['Supplier', 'Purchase order reference', 'Payment amount']) {
+          await expect(field(label).locator('input')).toBeDisabled();
+        }
+        expect(Number(await field('Payment amount').locator('input').inputValue())).toBe(Number(amount));
+        await expect(field('Payment documents').locator('.file-row')).toHaveCount(1);
+      }
+      await act(manager, managerTask, 'approve');
       if (highAmount) {
         const downstream = await taskFor(authoritativeActors.financeReview, 'financeReview');
         await go(manager, '/pages/task/list');
