@@ -28,6 +28,7 @@ export default defineConfig(async () => {
           'element-plus/es/components/date-picker/style/css',
           'element-plus/es/components/descriptions/style/css',
           'element-plus/es/components/descriptions-item/style/css',
+          'element-plus/es/components/dialog/style/css',
           'element-plus/es/components/drawer/style/css',
           'element-plus/es/components/empty/style/css',
           'element-plus/es/components/form/style/css',

@@ -13,17 +13,17 @@ const expected = {
   "lucide:user-round-cog": {
     "width": 24,
     "height": 24,
-    "bodySha256": "3aa014c43550b752b34229b5e76cfea7ae4b7d878f05d4cc5e0732717f8b28e0"
+    "bodySha256": "4efd733fad2064919c332a666111e11f9f4cdd9ea3c88c0a9df8095d7ab92873"
   },
   "lucide:calendar-clock": {
     "width": 24,
     "height": 24,
-    "bodySha256": "0592a2f3cf313d31e83b693d77f9333fddeac0a5e0e445cb9e4b2f9ca477d68c"
+    "bodySha256": "4d659c6e8c2177f3a22a49b09f9e58a13292ec6d195ea7c9137ffe2549861af8"
   },
   "lucide:timer-reset": {
     "width": 24,
     "height": 24,
-    "bodySha256": "08cbee51e78a7080f183bb720787ad339cfd10d4357c45cedca5c9c220da2eec"
+    "bodySha256": "47f7cefab3356dabf8b7951f90c1753e66aa540a80d92d00ef510c7a748c450b"
   },
   "ep:expand": {
     "width": 1024,

@@ -154,18 +154,16 @@ THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## Additional bounded admin-demo navigation icons
 
-Delegation, working-calendar and SLA-policy navigation add three local Lucide
-SVGs retrieved from the official `lucide-icons/lucide` repository on 2026-10-25.
-The SVG outer presentation attributes are moved unchanged to a wrapping `g`;
-child geometry is unchanged. They use the Lucide ISC/Feather notices above.
-These are not claimed to be the older Iconify package shapes or CI responses.
-
-- `user-round-cog.svg`: Git blob `a83fbde40c1b27c0983f488a6abc9e36beb29dec`.
-- `calendar-clock.svg`: Git blob `305297d2d4d7e21bd6a506e56d6c93342db4e88e`.
-- `timer-reset.svg`: Git blob `db90462343878df4593c2e46de341a8d186aae7e`.
+Delegation, working-calendar and SLA-policy navigation add `user-round-cog`,
+`calendar-clock` and `timer-reset` from the same pinned `@iconify/json` 2.2.476
+Lucide collection described above, with all original SVG bodies and geometry.
+They use the existing Lucide ISC/Feather notices. An earlier review evaluated
+upstream Lucide SVGs, but the shipped bytes are the pinned Iconify definitions,
+independently compared to the installed package by the cold-start graph test.
 
 Only development with the exact explicit local-demo flag exposes delegation;
-calendar/policy routes additionally require the configured/validated demo-admin
-identity. Other management routes and every production route remain unchanged.
-All ten definitions are registered synchronously; tests pin each body hash and
-verify the participant and administrator visible menu sets independently.
+calendar/policy routes additionally require the validated demo-admin identity.
+Other management routes and every production route remain unchanged. All ten
+definitions register synchronously; tests pin each body hash, compare every icon
+to the pinned package, reject omissions or mutations, and verify both visible
+menu sets plus real Iconify lookup without network requests.

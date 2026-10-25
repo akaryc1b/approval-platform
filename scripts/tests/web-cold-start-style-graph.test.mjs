@@ -34,6 +34,9 @@ const governed = [
   'components/approval/ControlledAutomationConfirmationBoundary.vue',
   'views/approval/notifications/index.vue',
   'views/approval/collaboration/index.vue',
+  'views/approval/delegations/index.vue',
+  'views/approval/sla-calendars/index.vue',
+  'views/approval/sla-policies/index.vue',
 ];
 const entries = [...readFileSync(sourceConfig, 'utf8').matchAll(/'(?<entry>element-plus\/es\/components\/[^']+\/style\/css)'/gu)].map(match => match.groups.entry);
 const transform = ElementPlus({ format: 'esm' }).transform;
@@ -73,7 +76,7 @@ await test('pinned post-transform approval route style imports exactly match pro
     const path = join(root, 'apps/web/overlay/apps/web-ele/src', file);
     return emitted(readFileSync(path, 'utf8'), path);
   }))).flat())].sort();
-  assert.equal(entries.length, 34);
+  assert.equal(entries.length, 35);
   assert.deepEqual([...entries].sort(), imports);
   const elementPackagePath = requireApp.resolve('element-plus/package.json');
   const elementPackage = JSON.parse(readFileSync(elementPackagePath));
@@ -86,7 +89,7 @@ await test('pinned post-transform approval route style imports exactly match pro
     assert.ok(existsSync(join(dirname(elementPackagePath), exported)), entry);
   }
   assert.throws(() => assertCovered(imports, entries.slice(1)), /missing transformed style/u);
-  for (const component of ['badge', 'checkbox', 'table', 'table-column', 'time-select']) {
+  for (const component of ['badge', 'checkbox', 'dialog', 'table', 'table-column', 'time-select']) {
     const missing = `element-plus/es/components/${component}/style/css`;
     assert.throws(() => assertCovered(imports, entries.filter(entry => entry !== missing)), /missing transformed style/u);
   }
@@ -167,7 +170,8 @@ await test('pinned shell icons register synchronously from exact local data with
   assert.equal(JSON.parse(readFileSync(runtimePackage)).version, '5.0.1');
   const expectedNames = [
     'ep:expand', 'ep:fold', 'fluent-mdl2:world-clock', 'lucide:bell-ring',
-    'lucide:inbox', 'lucide:user-round-plus', 'lucide:workflow',
+    'lucide:calendar-clock', 'lucide:inbox', 'lucide:timer-reset',
+    'lucide:user-round-cog', 'lucide:user-round-plus', 'lucide:workflow',
   ];
   const defaults = { left: 0, top: 0, width: 16, height: 16, rotate: 0, hFlip: false, vFlip: false };
   const pinned = {}; const dataFiles = new Map();
@@ -186,7 +190,7 @@ await test('pinned shell icons register synchronously from exact local data with
   assert.throws(() => verify(missing));
   const wrong = structuredClone(approvalShellIcons); wrong['lucide:workflow'].body = '<path d="M0 0"/>';
   assert.throws(() => verify(wrong));
-  for (const name of ['lucide:bell-ring', 'lucide:user-round-plus']) {
+  for (const name of ['lucide:bell-ring', 'lucide:user-round-plus', 'lucide:user-round-cog', 'lucide:calendar-clock', 'lucide:timer-reset']) {
     const missingAdded = structuredClone(approvalShellIcons); delete missingAdded[name];
     assert.throws(() => verify(missingAdded));
     const wrongAdded = structuredClone(approvalShellIcons); wrongAdded[name].body = '<path d="M0 0"/>';
