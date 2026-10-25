@@ -2,13 +2,16 @@ import { createHash } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import type { APIRequestContext } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+import type { CaptureBudget } from './product-readiness-capture-budget';
 import { testCaptureBudget } from './product-readiness-capture-budget';
 import { captureScreenshot, observeCaptureFailures, publishCaptureReceipt, readySurface } from './product-readiness-capture';
 
 import {
   authoritativeActors,
   authoritativeTaskKeys,
+  backendOrigin,
   businessKey,
   evidenceDirectory,
   pendingResponse,
@@ -63,6 +66,46 @@ const expectedPaymentTaskId = requiredEnvironment(
 );
 const h5BaseUrl = requiredEnvironment('APPROVAL_DEMO_H5_URL');
 
+type TaskIdentity = { taskId: string; instanceId: string; businessKey: string; taskDefinitionKey: string };
+
+// Read the actor's unfiltered lists, not the UI counters or a keyword-filtered total.
+async function actorTaskList(request: APIRequestContext, mode: 'pending' | 'processed', budget: CaptureBudget) {
+  const items: TaskIdentity[] = [];
+  let total: number | undefined;
+  while (true) {
+    const offset = items.length;
+    const response = await request.get(`${backendOrigin}/api/approval/tasks/${mode}?limit=20&offset=${offset}`, {
+      headers: {
+        Accept: 'application/json',
+        'Cache-Control': 'no-store',
+        'X-Operator-Id': policy.actorId,
+        'X-Tenant-Id': tenantId,
+        'X-Request-Id': `h5-payment-${mode}-${offset}-${Date.now()}`,
+        'X-Trace-Id': `h5-payment-${mode}-${offset}`,
+      },
+      timeout: budget.remaining(15_000),
+    });
+    expect(response.status()).toBe(200);
+    const payload = await response.json();
+    const page = (payload.data ?? payload) as { items: TaskIdentity[]; total: number; hasMore: boolean; offset: number };
+    expect(Number.isSafeInteger(page.total) && page.total >= 0).toBe(true);
+    expect(Array.isArray(page.items)).toBe(true);
+    expect(page.offset).toBe(offset);
+    total ??= page.total;
+    expect(page.total).toBe(total);
+    items.push(...page.items);
+    expect(items.length).toBeLessThanOrEqual(total);
+    expect(new Set(items.map(item => item.taskId)).size).toBe(items.length);
+    expect(page.hasMore).toBe(items.length < total);
+    if (!page.hasMore) return { total, items };
+    expect(page.items.length).toBeGreaterThan(0);
+  }
+}
+
+function paymentTasks(items: TaskIdentity[]) {
+  return items.filter(item => item.taskId === expectedPaymentTaskId);
+}
+
 function h5SurrogateUrl() {
   const url = new URL(h5BaseUrl);
   const hashPath = (url.hash || '#/pages/task/list').split('?')[0]
@@ -105,6 +148,19 @@ test('H5 mobile surrogate completes the governed payment confirmation', async ({
   const failures = observeCaptureFailures(page);
   try {
     expect(page.viewportSize()).toEqual(h5Viewport);
+    const [initialPending, initialProcessed] = await Promise.all([
+      actorTaskList(request, 'pending', budget),
+      actorTaskList(request, 'processed', budget),
+    ]);
+    expect(initialPending.total).toBe(1);
+    expect(paymentTasks(initialPending.items)).toEqual([expect.objectContaining({
+      taskId: expectedPaymentTaskId,
+      instanceId: expectedInstanceId,
+      businessKey,
+      taskDefinitionKey: policy.taskDefinitionKey,
+    })]);
+    expect(paymentTasks(initialProcessed.items)).toHaveLength(0);
+    const taskListBaseline = { pendingTotal: initialPending.total, processedTotal: initialProcessed.total };
     const [pending] = await Promise.all([
       pendingResponse(page, {
         actorId: policy.actorId,
@@ -129,7 +185,7 @@ test('H5 mobile surrogate completes the governed payment confirmation', async ({
     const beforeBudget = budget.limit(15_000);
     await expect(page.locator('.task-card').filter({ hasText: businessKey }).first())
       .toBeVisible({ timeout: beforeBudget.remaining(15_000) });
-    const before = await readySurface(page, beforeBudget, { client: 'h5', kind: 'list', url: h5SurrogateUrl(), businessKey, taskId: expectedPaymentTaskId, instanceId: expectedInstanceId, pendingTotal: 1, processedTotal: 0 });
+    const before = await readySurface(page, beforeBudget, { client: 'h5', kind: 'list', url: h5SurrogateUrl(), businessKey, taskId: expectedPaymentTaskId, instanceId: expectedInstanceId, pendingTotal: 1, processedTotal: taskListBaseline.processedTotal });
     failures.assert();
     await captureScreenshot(page, beforeBudget, resolve(evidenceDirectory, 'h5-payment-before.png'), { readiness: before, assertCurrent: async () => failures.assert() });
 
@@ -178,8 +234,25 @@ test('H5 mobile surrogate completes the governed payment confirmation', async ({
         && item.requestId === approvalHeaders.requestId);
     expect(approvalEvents).toHaveLength(1);
 
+    const [finalPending, finalProcessed] = await Promise.all([
+      actorTaskList(request, 'pending', budget),
+      actorTaskList(request, 'processed', budget),
+    ]);
+    expect(finalPending.total).toBe(0);
+    expect(paymentTasks(finalPending.items)).toHaveLength(0);
+    expect(finalProcessed.total).toBe(taskListBaseline.processedTotal + 1);
+    expect(finalProcessed.items.map(item => item.taskId).sort()).toEqual(
+      [...initialProcessed.items.map(item => item.taskId), expectedPaymentTaskId].sort(),
+    );
+    expect(paymentTasks(finalProcessed.items)).toEqual([expect.objectContaining({
+      taskId: expectedPaymentTaskId,
+      instanceId: expectedInstanceId,
+      businessKey,
+      taskDefinitionKey: policy.taskDefinitionKey,
+    })]);
+
     const settledBudget = budget.limit(30_000);
-    const settled = await readySurface(page, settledBudget, { client: 'h5', kind: 'list', url: h5SurrogateUrl(), absentTaskId: expectedPaymentTaskId, minimumRefresh: before.refresh + 1, pendingTotal: 0, processedTotal: 1 });
+    const settled = await readySurface(page, settledBudget, { client: 'h5', kind: 'list', url: h5SurrogateUrl(), absentTaskId: expectedPaymentTaskId, minimumRefresh: before.refresh + 1, pendingTotal: 0, processedTotal: taskListBaseline.processedTotal + 1 });
     failures.assert();
     await captureScreenshot(page, settledBudget, resolve(evidenceDirectory, 'h5-payment-settled.png'), { readiness: settled, assertCurrent: async () => failures.assert() });
     const screenshots = [
@@ -220,6 +293,7 @@ test('H5 mobile surrogate completes the governed payment confirmation', async ({
         auditEventId: approvalEvents[0].eventId,
         auditRequestId: approvalEvents[0].requestId,
         finalState,
+        taskListBaseline,
         screenshots,
         nonClaims: acceptance.nonClaims,
       });
