@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 
@@ -19,7 +20,7 @@ function routeAuthorities(environment) {
   assert.ok(flag, 'the actual local-demo flag function must be present');
   const source = readFileSync(routeModule, 'utf8');
   const typeImport = "import type { RouteRecordRaw } from 'vue-router';";
-  const flagImport = "import { approvalLocalDemoEnabled } from '#/platform/approval/local-demo';";
+  const flagImport = "import { approvalLocalDemoEnabled, exposeApprovalLocalDemoRoutes } from '#/platform/approval/local-demo';";
   for (const part of [typeImport, flagImport, 'const routes: RouteRecordRaw[] =', 'export default routes;']) {
     assert.equal(source.split(part).length, 2, `expected one route syntax boundary: ${part}`);
   }
@@ -27,7 +28,7 @@ function routeAuthorities(environment) {
     .replace('const routes: RouteRecordRaw[] =', 'const routes =')
     .replace('export default routes;', 'routes;');
   const routes = runInNewContext(
-    `${flag[0].replace('export ', '').replaceAll('import.meta.env', 'environment')}\n${executable}`,
+    `${stripTypeScriptTypes(localDemoSource).replaceAll('export ', '').replaceAll('import.meta.env', 'environment')}\n${executable}`,
     { environment },
     { timeout: 1000 },
   );
@@ -36,21 +37,30 @@ function routeAuthorities(environment) {
   )));
 }
 
-test('local-demo shell super reaches only workbench and the two notification collaboration pages', () => {
+test('local-demo shell super reaches only the explicitly supported participant pages', () => {
   const production = routeAuthorities({ DEV: false, VITE_APPROVAL_LOCAL_DEMO: 'true' });
   const demo = routeAuthorities({ DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true' });
   assert.deepEqual(Object.keys(demo).sort(), Object.keys(production).sort());
   assert.deepEqual(Object.keys(demo).filter(name => demo[name].includes('super')).sort(), [
-    'ApprovalNotifications', 'ApprovalTaskCollaboration', 'ApprovalWorkbench',
+    'ApprovalDelegations', 'ApprovalNotifications', 'ApprovalTaskCollaboration', 'ApprovalWorkbench',
   ]);
   assert.deepEqual(demo.ApprovalTaskCollaboration, ['approval:workbench:view', 'super']);
   assert.deepEqual(demo.ApprovalNotifications, ['approval:message:view', 'super']);
   for (const [name, authority] of Object.entries(demo)) {
     assert.deepEqual(authority.filter(value => value !== 'super'), production[name]);
-    if (!['ApprovalWorkbench', 'ApprovalTaskCollaboration', 'ApprovalNotifications'].includes(name)) {
+    if (!['ApprovalWorkbench', 'ApprovalTaskCollaboration', 'ApprovalNotifications', 'ApprovalDelegations'].includes(name)) {
       assert.deepEqual(authority, production[name], `unrelated route changed: ${name}`);
     }
   }
+});
+
+test('only explicit local demo administrator gains calendar and policy navigation', () => {
+  const administrator = routeAuthorities({ DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true', VITE_APPROVAL_OPERATOR_ID: 'demo-admin' });
+  assert.deepEqual(Object.keys(administrator).filter(name => administrator[name].includes('super')).sort(), [
+    'ApprovalDelegations', 'ApprovalNotifications', 'ApprovalSlaCalendars', 'ApprovalSlaPolicies', 'ApprovalTaskCollaboration', 'ApprovalWorkbench',
+  ]);
+  const production = routeAuthorities({ DEV: false, VITE_APPROVAL_LOCAL_DEMO: 'true', VITE_APPROVAL_OPERATOR_ID: 'demo-admin' });
+  assert.ok(Object.values(production).every(authority => !authority.includes('super')));
 });
 
 for (const [label, environment] of [

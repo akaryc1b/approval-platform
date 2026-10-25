@@ -10,6 +10,21 @@ import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.m
 // Independently bound to @iconify/json 2.2.476 and retained CI1826/1887 responses.
 // ep:expand and lucide:bell-ring are pinned local shapes, not observed responses.
 const expected = {
+  "lucide:user-round-cog": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "3aa014c43550b752b34229b5e76cfea7ae4b7d878f05d4cc5e0732717f8b28e0"
+  },
+  "lucide:calendar-clock": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "0592a2f3cf313d31e83b693d77f9333fddeac0a5e0e445cb9e4b2f9ca477d68c"
+  },
+  "lucide:timer-reset": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "08cbee51e78a7080f183bb720787ad339cfd10d4357c45cedca5c9c220da2eec"
+  },
   "ep:expand": {
     "width": 1024,
     "height": 1024,
@@ -57,19 +72,19 @@ function verifyDefinitions(icons) {
   }
 }
 const bootstrapSource = readFileSync(new URL('../../apps/web/overlay/apps/web-ele/src/bootstrap.ts', import.meta.url), 'utf8');
-function localDemoMenuIcons() {
+function localDemoMenuIcons(administrator = false) {
   const localDemo = readFileSync(new URL('../../apps/web/overlay/apps/web-ele/src/platform/approval/local-demo.ts', import.meta.url), 'utf8');
   const flag = localDemo.match(/export function approvalLocalDemoEnabled\(\) \{[^}]+\}/u);
   assert.ok(flag, 'actual local-demo flag function must be present');
   const routeSource = readFileSync(new URL('../../apps/web/overlay/apps/web-ele/src/router/routes/modules/approval.ts', import.meta.url), 'utf8');
-  const flagImport = "import { approvalLocalDemoEnabled } from '#/platform/approval/local-demo';";
+  const flagImport = "import { approvalLocalDemoEnabled, exposeApprovalLocalDemoRoutes } from '#/platform/approval/local-demo';";
   assert.equal(routeSource.split(flagImport).length, 2);
   assert.equal(routeSource.split('export default routes;').length, 2);
   const executable = stripTypeScriptTypes(routeSource).replace(flagImport, '')
     .replace('export default routes;', 'routes;');
   const routes = runInNewContext(
-    `${flag[0].replace('export ', '').replaceAll('import.meta.env', 'environment')}\n${executable}`,
-    { environment: { DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true' } },
+    `${stripTypeScriptTypes(localDemo).replaceAll('export ', '').replaceAll('import.meta.env', 'environment')}\n${executable}`,
+    { environment: { DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true', VITE_APPROVAL_OPERATOR_ID: administrator ? 'demo-admin' : 'demo-manager' } },
     { timeout: 1000 },
   );
   const visible = [];
@@ -142,8 +157,12 @@ await test('every actual local-demo super menu icon is registered before navigat
     ApprovalWorkbench: 'lucide:inbox',
     ApprovalTaskCollaboration: 'lucide:user-round-plus',
     ApprovalNotifications: 'lucide:bell-ring',
+    ApprovalDelegations: 'lucide:user-round-cog',
   });
   verifyMenuCoverage(approvalShellIcons, menuIcons);
+  const adminIcons = localDemoMenuIcons(true);
+  assert.deepEqual(adminIcons, { ...menuIcons, ApprovalSlaCalendars: 'lucide:calendar-clock', ApprovalSlaPolicies: 'lucide:timer-reset' });
+  verifyMenuCoverage(approvalShellIcons, adminIcons);
   for (const name of ['lucide:bell-ring', 'lucide:user-round-plus']) {
     const missing = structuredClone(approvalShellIcons); delete missing[name];
     assert.throws(() => verifyMenuCoverage(missing, menuIcons), /unregistered visible route icon/u);

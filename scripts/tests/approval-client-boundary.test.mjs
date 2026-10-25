@@ -1,3 +1,5 @@
+import './approval-delegation-request-order.test.mjs';
+import './approval-sla-version-selection.test.mjs';
 import './web-local-icons.test.mjs';
 import './approval-notification-routing.test.mjs';
 import './approval-collaboration-summary.test.mjs';

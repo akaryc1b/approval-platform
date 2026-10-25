@@ -45,6 +45,7 @@ public final class ApprovalIdentityContextFilter extends OncePerRequestFilter {
     private final Clock clock;
     private final ObjectMapper objectMapper;
     private final Supplier<String> requestIdGenerator;
+    private final LocalApprovalAuthorityProvider localAuthorityProvider;
 
     public ApprovalIdentityContextFilter(
         AuthenticationMode mode,
@@ -53,6 +54,18 @@ public final class ApprovalIdentityContextFilter extends OncePerRequestFilter {
         ObjectMapper objectMapper,
         Supplier<String> requestIdGenerator
     ) {
+        this(mode, localPermissionHeader, clock, objectMapper, requestIdGenerator, null);
+    }
+
+    public ApprovalIdentityContextFilter(
+        AuthenticationMode mode,
+        String localPermissionHeader,
+        Clock clock,
+        ObjectMapper objectMapper,
+        Supplier<String> requestIdGenerator,
+        LocalApprovalAuthorityProvider localAuthorityProvider
+    ) {
+        this.localAuthorityProvider = localAuthorityProvider;
         this.mode = Objects.requireNonNull(mode, "mode must not be null");
         this.localPermissionHeader = requireText(
             localPermissionHeader,
@@ -156,7 +169,9 @@ public final class ApprovalIdentityContextFilter extends OncePerRequestFilter {
             return ApprovalPrincipal.active(
                 tenantId,
                 operatorId,
-                parseAuthorities(request.getHeader(localPermissionHeader)),
+                localAuthorityProvider == null
+                    ? parseAuthorities(request.getHeader(localPermissionHeader))
+                    : localAuthorityProvider.authorities(tenantId, operatorId, requestPath(request)),
                 null
             );
         } catch (IllegalArgumentException exception) {

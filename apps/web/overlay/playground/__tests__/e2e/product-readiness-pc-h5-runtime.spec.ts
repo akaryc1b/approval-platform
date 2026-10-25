@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
+import { runAdminCalendarLifecycle } from './product-readiness-pc-admin-calendar';
+import { runDelegationLifecycle } from './product-readiness-pc-delegation';
 import { runBusinessLifecycle } from './product-readiness-pc-h5-runtime-business';
 import { runCollaborationNotificationRegression } from './product-readiness-pc-h5-collaboration';
 import { testCaptureBudget } from './product-readiness-capture-budget';
@@ -726,3 +728,12 @@ for (const highAmount of [false, true]) {
     await runBusinessLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt), highAmount);
   });
 }
+
+// Administrative/participant flows use the same disposable backend, not API mocks.
+test('PC delegation validates, cancels, creates, filters and revokes with persisted actor isolation', async ({ browser, request }, testInfo) => {
+  await runDelegationLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt));
+});
+
+test('PC administrator creates and versions calendars and SLA policies through real UI', async ({ browser, request }, testInfo) => {
+  await runAdminCalendarLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt));
+});

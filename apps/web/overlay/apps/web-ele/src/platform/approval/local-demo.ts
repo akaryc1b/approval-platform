@@ -86,3 +86,23 @@ export function resolveApprovalLocalDemoOperatorId(configuredOperatorId: string)
     selectedBrowserOperatorId() || configuredOperatorId,
   );
 }
+
+/** Explicit local demo navigation only; server capabilities remain authoritative. */
+export function exposeApprovalLocalDemoRoutes(routes: Array<{
+  name?: string | symbol;
+  children?: any[];
+  meta?: { authority?: string[] };
+}>) {
+  if (!approvalLocalDemoEnabled()) return;
+  const administrator = resolveApprovalLocalDemoOperatorId(
+    import.meta.env.VITE_APPROVAL_OPERATOR_ID || 'demo-manager',
+  ) === 'demo-admin';
+  for (const route of routes) {
+    const participant = route.name === 'ApprovalDelegations';
+    const management = administrator && ['ApprovalSlaCalendars', 'ApprovalSlaPolicies'].includes(String(route.name));
+    if ((participant || management) && route.meta?.authority && !route.meta.authority.includes('super')) {
+      route.meta.authority = [...route.meta.authority, 'super'];
+    }
+    if (route.children) exposeApprovalLocalDemoRoutes(route.children);
+  }
+}
