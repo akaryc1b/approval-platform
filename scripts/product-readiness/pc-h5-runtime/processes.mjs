@@ -63,6 +63,45 @@ function spawnChecked(label, spawnProcess) {
   }
 }
 
+// Advisory observations from already bounded install output, never readiness or
+// causal proof. No raw line, URL, package name, path, or environment is retained.
+function recordBrowserInstallDiagnostic(result, elapsedMs) {
+  const patterns = [
+    /^Installing dependencies\.\.\.$/u,
+    /^(?:Hit|Get|Ign|Err):[0-9]+\s/u,
+    /^(?:Reading package lists|Building dependency tree|The following (?:NEW )?packages)/u,
+    /^(?:Preparing to unpack|Unpacking |Setting up |Processing triggers for )/u,
+    /^Downloading (?:Firefox|Webkit|WebKit|FFMPEG)\b/u,
+    /(?:Could not get lock|Unable to acquire the dpkg frontend lock|Waiting for cache lock)/u,
+    /(?:Temporary failure resolving|Could not resolve|Connection timed out|Connection refused|ETIMEDOUT|ECONNRESET|ENOTFOUND|Download failed)/u,
+  ];
+  const hints = patterns.map(() => 0);
+  for (const output of [result.stdout, result.stderr]) {
+    const text = String(output ?? '');
+    for (let offset = 0; offset < text.length;) {
+      const newline = text.indexOf('\n', offset);
+      const end = newline === -1 ? text.length : newline;
+      const contentEnd = text[end - 1] === '\r' ? end - 1 : end;
+      if (contentEnd > offset && contentEnd - offset <= 8_192) {
+        const line = text.slice(offset, contentEnd);
+        for (let index = 0; index < patterns.length; index += 1) {
+          if (!hints[index] && patterns[index].test(line)) hints[index] = 1;
+        }
+      }
+      offset = end + 1;
+    }
+  }
+  const exit = Number.isInteger(result.status) && result.status >= 0 && result.status <= 255
+    ? result.status : 'UNKNOWN';
+  const signal = result.signal == null ? 'NONE'
+    : ['SIGTERM', 'SIGKILL'].includes(result.signal) ? result.signal : 'OTHER';
+  const error = result.error ? safeProcessErrorCode(result.error) : 'NONE';
+  console.log(`BROWSER_INSTALL_V1 elapsedMs=${Math.min(3_600_000, Math.max(0, Math.floor(elapsedMs)))}`
+    + ` exit=${exit} signal=${signal} error=${error}`
+    + ` deps=${hints[0]} index=${hints[1]} packages=${hints[2]}`
+    + ` configure=${hints[3]} download=${hints[4]} lock=${hints[5]} network=${hints[6]}`);
+}
+
 export function runPnpmChecked(
   label,
   args,
@@ -70,6 +109,7 @@ export function runPnpmChecked(
   timeoutMs = undefined,
 ) {
   console.log(`\n==> ${label}`);
+  const startedAt = Date.now();
   const result = spawnChecked(label, () => spawnSync(pnpmExecutable(), args, {
     cwd: repositoryRoot,
     env: environment,
@@ -78,6 +118,12 @@ export function runPnpmChecked(
     maxBuffer: maximumCheckedOutputBytes,
     timeout: checkedProcessTimeout(environment, timeoutMs),
   }));
+  // Match only the canonical matrix installer, not arbitrary pnpm commands.
+  if (JSON.stringify(args) === JSON.stringify([
+    '--dir', '.upstream/vben', 'exec', 'playwright', 'install',
+    ...(process.platform === 'linux' && process.env.GITHUB_ACTIONS === 'true'
+      ? ['--with-deps'] : []), 'firefox', 'webkit',
+  ])) recordBrowserInstallDiagnostic(result, Date.now() - startedAt);
   recordCheckedOutput(result);
   requireSuccessfulProcess(label, result);
 }

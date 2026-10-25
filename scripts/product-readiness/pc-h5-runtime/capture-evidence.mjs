@@ -47,6 +47,11 @@ export function verifyActionCaptures(screenshots, stages, directory, instanceId,
     throw new Error('Action evidence must retain the exact before, acknowledged and settled captures');
   }
   for (const stage of stages) {
+    const processedTotalBefore = stage.processedTotalBefore === undefined ? 0 : stage.processedTotalBefore;
+    if (!Number.isSafeInteger(processedTotalBefore) || processedTotalBefore < 0
+      || !Number.isSafeInteger(processedTotalBefore + 1)) {
+      throw new Error('Capture stage requires a nonnegative processed task baseline');
+    }
     const get = suffix => screenshots.find(item => item.file === `${stage.name}-${suffix}.png`);
     const before = get('before');
     const after = get('after');
@@ -62,9 +67,9 @@ export function verifyActionCaptures(screenshots, stages, directory, instanceId,
     const initial = verifyReadySurface(before.readiness, `${stage.client}-list`, businessKey, { actorId: stage.actorId, url: expectedUrl });
     const destination = verifyReadySurface(settled.readiness, `${stage.client}-list`);
     if (initial.taskId !== stage.taskId || initial.instanceId !== instanceId
-      || initial.pendingTotal !== 1 || initial.processedTotal !== 0 || initial.absentTaskId !== null
+      || initial.pendingTotal !== 1 || initial.processedTotal !== processedTotalBefore || initial.absentTaskId !== null
       || destination.url !== initial.url || destination.refresh <= initial.refresh
-      || destination.absentTaskId !== stage.taskId || destination.pendingTotal !== 0 || destination.processedTotal !== 1
+      || destination.absentTaskId !== stage.taskId || destination.pendingTotal !== 0 || destination.processedTotal !== processedTotalBefore + 1
       || destination.taskId !== null || destination.instanceId !== null || destination.businessKey !== null) {
       throw new Error('Settled destination does not bind the completed action and refreshed UI');
     }

@@ -416,3 +416,123 @@ test('checked output overflow, timeout, and spawn validation errors never includ
   assert.equal(safeProcessErrorCode({ code: password, message: jwt }), 'PROCESS_ERROR');
   assert.equal(safeProcessErrorCode({ code: 'ENOENT', message: password }), 'ENOENT');
 });
+
+test('browser installer advisory projection retains no raw values or control protocol', () => {
+  const record = 'BROWSER_INSTALL_V1 elapsedMs=123 exit=UNKNOWN signal=SIGTERM error=ETIMEDOUT deps=1 index=1 packages=1 configure=0 download=0 lock=1 network=0';
+  for (let split = 0; split <= record.length; split += 1) {
+    const controls = [];
+    const values = [];
+    const recorder = createSafeProcessOutput({ emit: value => values.push(value), onControlLine: value => controls.push(value) });
+    recorder.write(record.slice(0, split));
+    recorder.write(record.slice(split));
+    recorder.write('\n'); recorder.end();
+    assert.equal(values.join(''), `${record}\n`);
+    assert.deepEqual(controls, []);
+  }
+  for (const malformed of [
+    ` ${record}`, `\u001b[32m${record}`, `${record}\r`,
+    `${record} BACKEND_LOCAL_START_VERIFIED`, `${record} url=${password}`,
+    record.replace('V1', 'V2'), record.replace('lock=1', 'lock=2'),
+    record.replace('elapsedMs=123', 'elapsedMs=3600001'),
+    record.replace('exit=UNKNOWN', 'exit=256'), record.replace('SIGTERM', password),
+    record.replace('ETIMEDOUT', 'SECRET'), record.replace('network=0', 'other=0'),
+  ]) {
+    const { recorder, output } = capture(); recorder.write(`${malformed}\n`); recorder.end();
+    assert.equal(output(), '[subprocess] unstructured output omitted\n');
+  }
+  const { recorder, output } = capture();
+  for (let i = 0; i < 100; i += 1) recorder.write(`${record.replace('elapsedMs=123', `elapsedMs=${i}`)}\n`);
+  recorder.end();
+  assert.equal(output().split('\n').filter(line => line.startsWith('BROWSER_INSTALL_V1')).length, 64);
+});
+
+test('exact browser installer keeps command, environment, bounds, and failure gate unchanged', () => {
+  const output = runFixture(`
+    import assert from 'node:assert/strict';
+    import cp from 'node:child_process';
+    import { syncBuiltinESMExports } from 'node:module';
+    const env = { MARKER: 'unchanged' };
+    const args = ['--dir', '.upstream/vben', 'exec', 'playwright', 'install',
+      ...(process.platform === 'linux' ? ['--with-deps'] : []), 'firefox', 'webkit'];
+    let calls = 0;
+    cp.spawnSync = (command, actual, options) => {
+      calls += 1;
+      assert.equal(command, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm');
+      assert.equal(actual, args); assert.equal(options.env, env);
+      assert.equal(options.timeout, 1234); assert.equal(options.maxBuffer, 8 * 1024 * 1024);
+      assert.equal(options.shell, false); assert.deepEqual(options.stdio, ['ignore', 'pipe', 'pipe']);
+      assert.equal(options.cwd, ${JSON.stringify(new URL('../..', import.meta.url).pathname.replace(/\/$/u, ''))});
+      return { status: null, signal: 'SIGTERM', error: {code: 'ETIMEDOUT', message: ${JSON.stringify(password)}},
+        stdout: Buffer.from('Installing dependencies...\\nHit:1 secret-host\\nReading package lists...\\nPreparing to unpack secret-package\\nDownloading Firefox from secret-url\\n'),
+        stderr: Buffer.from('Waiting for cache lock secret-path\\nConnection timed out secret-host\\n') };
+    };
+    syncBuiltinESMExports();
+    const { runPnpmChecked } = await import(${JSON.stringify(processModule)});
+    assert.throws(() => runPnpmChecked('Installer', args, env, 1234), /^Error: Installer failed: ETIMEDOUT$/u);
+    assert.equal(calls, 1);
+  `, { ...process.env, GITHUB_ACTIONS: 'true' });
+  assert.match(output, /exit=UNKNOWN signal=SIGTERM error=ETIMEDOUT deps=1 index=1 packages=1 configure=1 download=1 lock=1 network=1/u);
+  for (const value of ['secret-host', 'secret-package', 'secret-url', 'secret-path']) assert.equal(output.includes(value), false);
+});
+
+test('installer hints are independent observations and unknown output remains unknown', () => {
+  const samples = [
+    ['Installing dependencies...', 'deps'], ['Get:1 private', 'index'],
+    ['Reading package lists...', 'packages'], ['Setting up private', 'configure'],
+    ['Downloading Webkit from private', 'download'], ['Could not get lock private', 'lock'],
+    ['Download failed private', 'network'], [password, null],
+  ];
+  const output = runFixture(`
+    import cp from 'node:child_process'; import { syncBuiltinESMExports } from 'node:module';
+    let line;
+    cp.spawnSync = () => ({status: 0, signal: null, stdout: line, stderr: ''});
+    syncBuiltinESMExports();
+    const { runPnpmChecked } = await import(${JSON.stringify(processModule)});
+    const args = ['--dir','.upstream/vben','exec','playwright','install','firefox','webkit'];
+    for (const sample of ${JSON.stringify(samples)}) { line = sample[0]; runPnpmChecked('Installer', args); }
+    runPnpmChecked('Installer', ['install']);
+  `, { ...process.env, GITHUB_ACTIONS: 'false' });
+  const records = output.split('\n').filter(line => line.startsWith('BROWSER_INSTALL_V1'));
+  assert.equal(records.length, samples.length, 'unsupported command must not produce an install diagnostic');
+  for (let index = 0; index < samples.length; index += 1) {
+    assert.match(records[index], /exit=0 signal=NONE error=NONE/u);
+    for (const field of ['deps', 'index', 'packages', 'configure', 'download', 'lock', 'network']) {
+      assert.match(records[index], new RegExp(` ${field}=${Number(samples[index][1] === field)}(?: |$)`, 'u'));
+    }
+  }
+});
+
+test('real checked installer timeout remains a failure with bounded advisory diagnostics', {
+  skip: process.platform === 'win32',
+}, () => {
+  const directory = mkdtempSync(join(tmpdir(), 'approval-install-timeout-'));
+  try {
+    writeFileSync(join(directory, 'pnpm'), `#!${process.execPath}\n`
+      + `process.stdout.write('Installing dependencies...\\n');\n`
+      + `process.stderr.write(${JSON.stringify(`${password}\n`)});\n`
+      + 'setInterval(() => {}, 1000);\n', { mode: 0o700 });
+    const output = runFixture(`
+      import assert from 'node:assert/strict';
+      import { runPnpmChecked } from ${JSON.stringify(processModule)};
+      assert.throws(() => runPnpmChecked('Installer', ['--dir','.upstream/vben','exec','playwright','install','firefox','webkit'], process.env, 500), /failed: ETIMEDOUT/u);
+    `, { ...process.env, GITHUB_ACTIONS: 'false', PATH: `${directory}${delimiter}${process.env.PATH ?? ''}` });
+    assert.match(output, /exit=UNKNOWN signal=SIGTERM error=ETIMEDOUT/u);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+
+test('installer projection bounds line memory for dense and oversized private output', () => {
+  const output = runFixture(`
+    import cp from 'node:child_process'; import { syncBuiltinESMExports } from 'node:module';
+    cp.spawnSync = () => ({status: 1, signal: null,
+      stdout: '\\n'.repeat(2 * 1024 * 1024) + 'Downloading Firefox ' + 'x'.repeat(8192) + '\\n' + ${JSON.stringify(password)},
+      stderr: 'Installing dependencies...\\n'});
+    syncBuiltinESMExports();
+    const { runPnpmChecked } = await import(${JSON.stringify(processModule)});
+    try { runPnpmChecked('Installer', ['--dir','.upstream/vben','exec','playwright','install','firefox','webkit']); }
+    catch (error) { console.log(error.message); }
+  `, { ...process.env, GITHUB_ACTIONS: 'false' });
+  assert.match(output, /deps=1 index=0 packages=0 configure=0 download=0 lock=0 network=0/u);
+  assert.match(output, /Installer failed with exit code 1/u);
+  assert.equal(output.length < 1000, true);
+});

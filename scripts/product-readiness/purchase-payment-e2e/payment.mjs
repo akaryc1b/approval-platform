@@ -181,12 +181,16 @@ export async function runPaymentStage(
     || h5Evidence.taskId !== pcH5Evidence.paymentHandoff.taskId
     || h5Evidence.targetClient !== contract.policy.targetClient
     || h5Evidence.acceptanceClient !== contract.policy.acceptanceClient
+    || h5Evidence.taskListBaseline?.pendingTotal !== 1
+    || !Number.isSafeInteger(h5Evidence.taskListBaseline?.processedTotal)
+    || h5Evidence.taskListBaseline.processedTotal < 0
     || h5Evidence.finalState?.status !== 'COMPLETED') {
     throw new Error('H5 payment runtime evidence is inconsistent');
   }
 
   verifyActionCaptures(h5Evidence.screenshots, [{
     name: 'h5-payment', client: 'h5', taskId: h5Evidence.taskId, actorId: contract.policy.actorId,
+    processedTotalBefore: h5Evidence.taskListBaseline.processedTotal,
   }], runDirectory, h5Evidence.instanceId, pcH5Evidence.businessKey);
 
   const pending = await waitForState(

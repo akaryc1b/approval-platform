@@ -47,6 +47,11 @@ const publicationRejectionCategories = new Set([
 // ANSI stripping or trimming must not turn malformed input into a valid record.
 export function safeFailureDiagnostic(line) {
   if (typeof line !== 'string' || line.length > 256 || /[^\x20-\x7e]/u.test(line)) return undefined;
+  const install = line.match(/^BROWSER_INSTALL_V1 elapsedMs=(0|[1-9][0-9]{0,6}) exit=(UNKNOWN|0|[1-9][0-9]{0,2}) signal=(NONE|SIGTERM|SIGKILL|OTHER) error=([A-Z0-9_]+) deps=[01] index=[01] packages=[01] configure=[01] download=[01] lock=[01] network=[01]$/u);
+  if (install && Number(install[1]) <= 3_600_000
+      && (install[2] === 'UNKNOWN' || Number(install[2]) <= 255)
+      && (install[4] === 'NONE' || install[4] === 'PROCESS_ERROR'
+        || processErrorCodes.has(install[4]))) return line;
   let match = line.match(/^BROWSER_FAILURE_V1 phase=([A-Z0-9_]+) category=([A-Z_]+) reason=([A-Z_]+)$/u);
   if (match && browserFailurePhases.has(match[1]) && browserFailureCategories.has(match[2])
     && browserFailureReasons.has(match[3])) return line;
@@ -149,7 +154,7 @@ export function createSafeProcessOutput({ emit, onControlLine } = {}) {
     const original = bytes.toString('utf8');
     const diagnostic = safeFailureDiagnostic(original);
     if (diagnostic) {
-      if (diagnostic.startsWith('BROWSER_CONTEXT_V1 ')) {
+      if ((diagnostic.startsWith('BROWSER_CONTEXT_V1 ') || diagnostic.startsWith('BROWSER_INSTALL_V1 '))) {
         if (emitted.has(diagnostic)) return;
         if (contextSummaries >= maximumContextSummaries) {
           omitted();
@@ -165,7 +170,7 @@ export function createSafeProcessOutput({ emit, onControlLine } = {}) {
       .trim();
     // Invalid diagnostic-looking input is terminally omitted. In particular it
     // cannot smuggle an existing readiness marker in a suffix or another field.
-    if (/(?:BROWSER_FAILURE|BROWSER_CONTEXT|EVIDENCE_REJECTION)/u.test(value.replace(/[^\x21-\x7e]/gu, ''))) {
+    if (/(?:BROWSER_FAILURE|BROWSER_CONTEXT|BROWSER_INSTALL|EVIDENCE_REJECTION)/u.test(value.replace(/[^\x21-\x7e]/gu, ''))) {
       omitted();
       return;
     }

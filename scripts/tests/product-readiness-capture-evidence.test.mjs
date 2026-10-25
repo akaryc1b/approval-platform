@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -55,6 +55,30 @@ test('all original and added screenshot phases bind actual files, completed task
       mutate(changed);
       assert.throws(() => verify(changed));
     }
+    // Existing processed tasks are retained; only this task adds one result.
+    const withHistory = structuredClone(screenshots);
+    withHistory[0].readiness.processedTotal = 3;
+    withHistory[2].readiness.processedTotal = 4;
+    const verifyHistory = (value, baseline = 3) => verifyActionCaptures(value,
+      [{ ...stages[0], processedTotalBefore: baseline }], directory, 'instance', 'business');
+    assert.doesNotThrow(() => verifyHistory(withHistory));
+    assert.throws(() => verify(withHistory)); // old callers still require zero baseline
+    for (const baseline of [-1, 0, 2, 4, 1.5, NaN, Infinity, null, '3', Number.MAX_SAFE_INTEGER]) {
+      assert.throws(() => verifyHistory(withHistory, baseline));
+    }
+    for (const mutate of [
+      value => value[0].readiness.processedTotal = 2,
+      value => value[2].readiness.processedTotal = 3,
+      value => value[2].readiness.processedTotal = 5,
+      value => value[0].readiness.pendingTotal = 2,
+      value => value[2].readiness.pendingTotal = 1,
+      value => value[2].readiness.absentTaskId = 'other',
+      value => value[0].readiness.taskId = 'other',
+    ]) {
+      const changed = structuredClone(withHistory);
+      mutate(changed);
+      assert.throws(() => verifyHistory(changed));
+    }
     // Overflow stays visible evidence. Readiness never labels it as a layout fix.
     assert.equal(initial.documentWidth > initial.viewportWidth, true);
   } finally {
@@ -97,4 +121,29 @@ test('validator and both cold-style graph configuration inputs select the real C
     'scripts/upstream/bootstrap-vben.mjs',
   ]) assert.equal(relevantChangeSet([path]), true, path);
   assert.equal(relevantChangeSet(['docs/unrelated-notes.md']), false);
+});
+
+test('payment baseline comes from governed API lists and retains exact task/count assertions', () => {
+  const source = readFileSync(new URL('../../apps/web/overlay/playground/__tests__/e2e/product-readiness-h5-payment-runtime.spec.ts', import.meta.url), 'utf8');
+  const payment = readFileSync(new URL('../product-readiness/purchase-payment-e2e/payment.mjs', import.meta.url), 'utf8');
+  for (const required of [
+    "'X-Operator-Id': policy.actorId",
+    "'X-Tenant-Id': tenantId",
+    '/api/approval/tasks/${mode}?limit=20&offset=${offset}',
+    'timeout: budget.remaining(15_000)',
+    'expect(initialPending.total).toBe(1)',
+    'expect(paymentTasks(initialProcessed.items)).toHaveLength(0)',
+    'expect(finalPending.total).toBe(0)',
+    'expect(paymentTasks(finalPending.items)).toHaveLength(0)',
+    'expect(finalProcessed.total).toBe(taskListBaseline.processedTotal + 1)',
+    '[...initialProcessed.items.map(item => item.taskId), expectedPaymentTaskId].sort()',
+    'expect(paymentTasks(finalProcessed.items)).toEqual([expect.objectContaining({',
+    'processedTotal: taskListBaseline.processedTotal + 1',
+    'taskListBaseline,',
+  ]) assert.ok(source.includes(required), required);
+  const baseline = source.indexOf('const taskListBaseline =');
+  assert.ok(baseline > 0 && baseline < source.indexOf('page.goto(h5SurrogateUrl()'));
+  assert.ok(payment.includes('h5Evidence.taskListBaseline?.pendingTotal !== 1'));
+  assert.ok(payment.includes('processedTotalBefore: h5Evidence.taskListBaseline.processedTotal'));
+  assert.ok(payment.includes('!Number.isSafeInteger(h5Evidence.taskListBaseline?.processedTotal)'));
 });
