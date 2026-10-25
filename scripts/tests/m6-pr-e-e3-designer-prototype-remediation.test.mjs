@@ -7,6 +7,7 @@ import { spawnSync as historicalGit } from 'node:child_process';
 import { buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview, gitleaksCaptureReviewFindings, requireGitleaksCaptureInventory, requireGitleaksCaptureHashReviewReceipt } from '../security/m6-pr-e-e3-review-gitleaks-capture-hash.mjs';
 import { buildGitleaksPublicCommitReviewSnapshot, requireGitleaksPublicCommitReviewReceipt } from '../security/m6-pr-e-e3-review-gitleaks-public-commit.mjs';
 import { buildGitleaksHistoricalSourceReviewSnapshot } from '../security/gitleaks-historical-noncredential-sources.mjs';
+import { buildGitleaksHmacTestReviewSnapshot } from '../security/gitleaks-hmac-test-fixtures.mjs';
 import { readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview, requireGitleaksTestExpressionReviewReceipt, requireGitleaksTestExpressionTriage }
   from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
 import { BASE_GRAPH, SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, readJacocoAntrunCandidate, readJacocoAntrunManifest, readBootUtilitiesCandidate, readBootUtilitiesManifest, readBootHttpCandidate, readCheckstyleGuavaCandidate, readCompilerPluginCandidate, readCheckstylePluginCandidate, verifyObservabilityGraph, requirePreservedGraph }
@@ -386,16 +387,18 @@ let historicalCallbackSource;
 let acceptedJarCallbackSource;
 let acceptedLangCallbackSource;
 let acceptedResourcesCallbackSource;
+let acceptedHistoricalSourceCallbackSource;
 export function runSyntheticHistoricalCiCallback(options = {}) {
   return runSyntheticCiCallback({ ...options, historicalSourceContext: true });
 }
 // Preserve the exported accepted-JAR fixture used by historical digest reviews.
 // The accepted main905 Lang callback is selected explicitly with its complete modeled inventory.
-export function runSyntheticCiCallback({ currentHistoricalSourceReview = false, currentResourcesFlattenGraph = false, currentLangGraph = false, historicalSourceContext = false, wrongHeadBlob = false, includePrototype = false, staleHead = false,
+export function runSyntheticCiCallback({ currentHmacTestReview = false, currentHistoricalSourceReview = false, currentResourcesFlattenGraph = false, currentLangGraph = false, historicalSourceContext = false, wrongHeadBlob = false, includePrototype = false, staleHead = false,
   mutateEvidence = null, staleR4Receipt = false, publicCommitFixture = null, previousJarGraph = false, previousCompilerGraph = false, previousCheckstyleGraph = false, previousGuavaGraph = false, previousBootHttpGraph = false, previousBootUtilitiesGraph = false, previousAssemblyGraph = false } = {}) {
   assert.ok(!((currentLangGraph || currentResourcesFlattenGraph) && historicalSourceContext));
   assert.ok(!currentResourcesFlattenGraph || publicCommitFixture, 'current Resources/Flatten callback requires the complete explicit modeled publication');
   assert.ok(!currentHistoricalSourceReview || currentResourcesFlattenGraph, 'current historical-source callback requires current graph');
+  assert.ok(!currentHmacTestReview || (currentHistoricalSourceReview && currentResourcesFlattenGraph), 'current HMAC-test callback requires current graph and prior source review');
   const preparation = json('m6-pr-e-e3-r4-osv-preparation');
   const baseline = json('m6-pr-e-e4-scanner-baseline');
   if (!historicalSourceContext && !publicCommitFixture) {
@@ -464,9 +467,17 @@ export function runSyntheticCiCallback({ currentHistoricalSourceReview = false, 
     assert.equal(hash(result.stdout), 'c2a24a6ce2d277201a60a7f20e0015b6a30192f4590066ed2b5874ae64e8cb5c');
     acceptedResourcesCallbackSource = result.stdout;
   }
-  // Replay accepted historical callbacks without granting them the new three-source review.
-  // Only the explicit new fixture runs the current callback and its mandatory source collector.
-  const source = currentHistoricalSourceReview ? read('scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs')
+  if (currentHistoricalSourceReview && !currentHmacTestReview && !acceptedHistoricalSourceCallbackSource) {
+    const result = historicalGit('git', ['show', '5a2f166b57851ff0063f3f158cb5e2754e7b602f:scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs'],
+      { encoding: 'utf8', cwd: fileURLToPath(new URL('../../', import.meta.url)), timeout: 10000, maxBuffer: 4 * 1024 * 1024 });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(hash(result.stdout), 'b4ea003de908593680548f61240b374a227a19a95dbd9bd9cb0b71ad6ff3c284');
+    acceptedHistoricalSourceCallbackSource = result.stdout;
+  }
+  // Historical callbacks retain their original review scope; only the explicit
+  // HMAC-test fixture executes the current callback and its mandatory collector.
+  const source = currentHmacTestReview ? read('scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs')
+    : currentHistoricalSourceReview ? acceptedHistoricalSourceCallbackSource
     : currentResourcesFlattenGraph ? acceptedResourcesCallbackSource
     : historicalSourceContext ? historicalCallbackSource : currentLangGraph
     ? acceptedLangCallbackSource : acceptedJarCallbackSource;
@@ -482,7 +493,7 @@ export function runSyntheticCiCallback({ currentHistoricalSourceReview = false, 
     assert, createHash, Buffer, readdirSync, existsSync, readDesignerPrototypeRemediationPlan,
     readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview, buildGitleaksPublicCommitReviewSnapshot,
     buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview, gitleaksCaptureReviewFindings, requireGitleaksCaptureInventory,
-    buildGitleaksHistoricalSourceReviewSnapshot,
+    buildGitleaksHistoricalSourceReviewSnapshot, buildGitleaksHmacTestReviewSnapshot,
     expectedScannerHead: () => expectedHead,
     SERVER_DEPENDENCY_GRAPH, BUILD_PLUGIN_JACKSON_GRAPH, SITE_DEPENDENCY_PLUGIN_GRAPH, RELEASE_PLUGIN_GRAPH, CLEAN_PLUGIN_GRAPH, COMPILER_PLUGIN_GRAPH, CHECKSTYLE_PLUGIN_GRAPH, CHECKSTYLE_GUAVA_GRAPH, BOOT_HTTP_GRAPH, BOOT_UTILITIES_GRAPH, JACOCO_ANTRUN_GRAPH, ASSEMBLY_PLEXUS_GRAPH, JAR_PLUGIN_GRAPH, ASSEMBLY_ENFORCER_LANG_GRAPH, RESOURCES_FLATTEN_GRAPH, requirePreservedGraph, NG: BASE_GRAPH,
     readServerDependencyRemediationPlan, verifyServerDependencyRemediation,
