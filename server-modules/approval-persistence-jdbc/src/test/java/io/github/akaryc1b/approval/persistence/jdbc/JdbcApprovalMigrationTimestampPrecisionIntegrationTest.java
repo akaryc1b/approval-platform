@@ -48,7 +48,7 @@ class JdbcApprovalMigrationTimestampPrecisionIntegrationTest {
             if (!EXTERNAL.matches("jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/[a-zA-Z0-9_]+")) {
                 throw new IllegalArgumentException("test database must be explicit loopback PostgreSQL");
             }
-            url = EXTERNAL; user = System.getenv("APPROVAL_TEST_DB_USERNAME"); password = System.getenv("APPROVAL_TEST_DB_PASSWORD");
+            url = EXTERNAL + "?ApplicationName=precision-fixture"; user = System.getenv("APPROVAL_TEST_DB_USERNAME"); password = System.getenv("APPROVAL_TEST_DB_PASSWORD");
         } else {
             if (postgres == null) { postgres = new PostgreSQLContainer("postgres:16-alpine"); postgres.start(); }
             url = postgres.getJdbcUrl(); user = postgres.getUsername(); password = postgres.getPassword();
@@ -56,12 +56,16 @@ class JdbcApprovalMigrationTimestampPrecisionIntegrationTest {
         admin = new JdbcTemplate(new DriverManagerDataSource(url, user, password));
         schema = "precision_" + UUID.randomUUID().toString().replace("-", "");
         admin.execute("create schema " + schema);
-        dataSource = new DriverManagerDataSource(url + "?currentSchema=" + schema + ",public", user, password);
+        dataSource = new DriverManagerDataSource(withSchema(url, schema), user, password);
         jdbc = new JdbcTemplate(dataSource);
         migrate("49");
     }
     @AfterEach void cleanup() { if (admin != null && schema != null) admin.execute("drop schema " + schema + " cascade"); }
     @AfterAll static void stopContainer() { if (postgres != null) postgres.stop(); }
+
+    static String withSchema(String url, String schema) {
+        return url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema + ",public";
+    }
 
     private void migrate(String target) {
         Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema)

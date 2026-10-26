@@ -165,21 +165,24 @@ test('capability semantics keep merge release and production support separate', 
   assert.equal(capabilities.get('controlled-automation-governance').status.productionSupported, 'no');
 });
 
-test('generated Flyway status reads the exact repository-owned V2 through V50 topology', () => {
+test('generated Flyway status reads the exact repository-owned V2 through V51 topology', () => {
   const manifest = parse('config/capabilities.json');
   const status = parse('docs/current/capability-status.json');
   assert.equal(manifest.project.flyway.firstVersion, 2);
-  assert.equal(manifest.project.flyway.expectedVersion, 50);
+  assert.equal(manifest.project.flyway.expectedVersion, 51);
   assert.equal(status.flyway.firstVersion, 2);
-  assert.equal(status.flyway.effectiveVersion, 50);
-  assert.equal(status.flyway.count, 49);
-  assert.equal(new Set(status.flyway.versions).size, 49);
-  assert.deepEqual(status.flyway.versions, Array.from({ length: 49 }, (_, index) => index + 2));
+  assert.equal(status.flyway.effectiveVersion, 51);
+  assert.equal(status.flyway.count, 50);
+  assert.equal(new Set(status.flyway.versions).size, 50);
+  assert.deepEqual(status.flyway.versions, Array.from({ length: 50 }, (_, index) => index + 2));
   assert.equal(status.flyway.versions.includes(1), false);
+  assert.equal(status.flyway.versions.includes(52), false);
   const byVersion = new Map(status.flyway.keyMigrations.map(migration => [migration.version, migration]));
   assert.match(byVersion.get(2).path, /resources\/db\/migration\/V2__/);
   assert.equal(byVersion.get(38).type, 'java');
   assert.match(byVersion.get(38).path, /src\/main\/java\/db\/migration\/V38__/);
   assert.match(byVersion.get(49).path, /resources\/db\/migration\/V49__/);
   assert.match(byVersion.get(50).path, /resources\/m6f\/db\/migration\/V50__/);
+  assert.equal(byVersion.get(51).path, 'server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V51__preserve_migration_epoch_microsecond_precision.sql');
+  assert.equal(manifest.project.flyway.requiredMigrations[51], byVersion.get(51).path);
 });

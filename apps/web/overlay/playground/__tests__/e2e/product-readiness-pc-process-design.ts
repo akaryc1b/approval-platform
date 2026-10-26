@@ -6,7 +6,7 @@ import type { CaptureBudget } from './product-readiness-capture-budget';
 import { backendOrigin, exactApprovalApiPath, pcUrl, tenantId } from './product-readiness-pc-h5-runtime-api';
 import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
 const button = (scope: Locator | Page, name: string) => scope.getByRole('button', { name, exact: true });
-const item = (scope: Locator | Page, name: string) => scope.locator('.el-form-item').filter({ has: scope.getByText(name, { exact: true }).and(scope.locator('.el-form-item__label')) });
+const item = (scope: Locator | Page, name: string) => scope.locator(`.el-form-item:has(.el-form-item__label:text-is(${JSON.stringify(name)}))`);
 type Draft = { draftId: string; revision: number; name: string; status: string; definitionKey: string };
 export async function runProcessDesignLifecycle(browser: Browser, request: APIRequestContext, budget: CaptureBudget, key: string, evidence: Pick<TestInfo, 'attach'>) {
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 1600, height: 1000 } });

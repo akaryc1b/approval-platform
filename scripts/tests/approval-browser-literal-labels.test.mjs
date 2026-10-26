@@ -30,9 +30,11 @@ function helper(file, name) {
 for (const file of ['product-readiness-pc-form-package.ts', 'product-readiness-pc-process-design.ts']) {
   test(`${file}: form-item label text is literal, exact, and scoped`, () => {
     const item = helper(file, 'item');
+    // A has: locator rooted at the dialog repeats an external ancestor inside each item.
+    assert.doesNotMatch(read(directory + file).split('\n').find(line => line.startsWith('const item = ')), /filter\(/);
     for (const label of ['显示名称', 'A.*[x](y)$', 'Name "quoted" \\ value']) {
-      assert.deepEqual(item(scope(), label).expression, ['filter', ['locator', 'scope', '.el-form-item'],
-        ['and', ['getByText', 'scope', label, { exact: true }], ['locator', 'scope', '.el-form-item__label']]]);
+      assert.deepEqual(item(scope(), label).expression,
+        ['locator', 'scope', `.el-form-item:has(.el-form-item__label:text-is(${JSON.stringify(label)}))`]);
     }
   });
 }
