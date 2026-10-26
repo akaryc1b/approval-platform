@@ -200,8 +200,19 @@ final class JdbcApprovalSlaPolicyStore extends JdbcApprovalSlaStoreSupport {
         return required(transactions.execute(status -> {
             SlaPolicyVersion candidate = findPolicyVersion(tenantId, policyId, policyVersion)
                 .orElseThrow(() -> notFound("APPROVAL_SLA_POLICY_NOT_FOUND", "policy version was not found"));
-            advisoryLock(policyTargetLock(candidate));
+            SlaPolicyIdentity observed = findPolicy(tenantId, policyId)
+                .orElseThrow(() -> notFound("APPROVAL_SLA_POLICY_NOT_FOUND", "policy was not found"));
+            // Lock both the vacated and destination targets in a stable order before
+            // locking any identity. Opposite target moves must not deadlock.
+            List<SlaPolicyVersion> previousVersions = jdbc.query(
+                "select * from ap_sla_policy_version where tenant_id=:tenantId and policy_id=:policyId and status='ACTIVE'",
+                params("tenantId", tenantId, "policyId", policyId), policyVersionMapper());
+            java.util.stream.Stream.concat(previousVersions.stream(), java.util.stream.Stream.of(candidate))
+                .map(JdbcApprovalSlaPolicyStore::policyTargetLock).distinct().sorted().forEach(this::advisoryLock);
             SlaPolicyIdentity identity = lockPolicy(tenantId, policyId);
+            if (identity.version() != observed.version()) {
+                throw conflict("APPROVAL_SLA_POLICY_ACTIVATION_CONFLICT", "policy identity changed while locking targets");
+            }
             if (Objects.equals(identity.activeVersion(), policyVersion)
                 && identity.status() == PolicyStatus.ACTIVE) {
                 return identity;
@@ -215,13 +226,14 @@ final class JdbcApprovalSlaPolicyStore extends JdbcApprovalSlaStoreSupport {
             List<Map<String, Object>> active = jdbc.queryForList(
                 """
                 select policy_id,policy_version from ap_sla_policy_version
-                where tenant_id=:tenantId and definition_key=:definitionKey
+                where tenant_id=:tenantId and (policy_id=:ownPolicyId or (definition_key=:definitionKey
                   and release_version is not distinct from :releaseVersion
                   and task_definition_key is not distinct from :taskDefinitionKey
-                  and target_type=:targetType and status='ACTIVE'
+                  and target_type=:targetType)) and status='ACTIVE'
                 """,
                 params(
                     "tenantId", tenantId,
+                    "ownPolicyId", policyId,
                     "definitionKey", candidate.definitionKey(),
                     "releaseVersion", candidate.releaseVersion(),
                     "taskDefinitionKey", candidate.taskDefinitionKey(),
@@ -323,13 +335,15 @@ final class JdbcApprovalSlaPolicyStore extends JdbcApprovalSlaStoreSupport {
     ) {
         return jdbc.query(
             """
-            select * from ap_sla_policy_version
-            where tenant_id=:tenantId and definition_key=:definitionKey and target_type=:targetType
-              and status='ACTIVE'
-              and (release_version=:releaseVersion or release_version is null)
-              and task_definition_key is not distinct from :taskDefinitionKey
-            order by case when release_version is not distinct from :releaseVersion then 0 else 1 end,
-                     policy_version desc,policy_id
+            select v.* from ap_sla_policy_version v
+            join ap_sla_policy p on p.tenant_id=v.tenant_id and p.policy_id=v.policy_id
+              and p.status='ACTIVE' and p.active_version=v.policy_version
+            where v.tenant_id=:tenantId and v.definition_key=:definitionKey and v.target_type=:targetType
+              and v.status='ACTIVE'
+              and (v.release_version=:releaseVersion or v.release_version is null)
+              and v.task_definition_key is not distinct from :taskDefinitionKey
+            order by case when v.release_version is not distinct from :releaseVersion then 0 else 1 end,
+                     v.policy_version desc,v.policy_id
             limit 1
             """,
             params(

@@ -13,7 +13,7 @@ type Version = { immutable: boolean; status: string; calendarVersion?: number; p
 const reason = 'Isolated browser acceptance lifecycle';
 const button = (scope: Page | Locator, name: string) => scope.getByRole('button', { name, exact: true });
 // Element Plus wraps its controls in real HTML labels on these two maintained pages.
-const input = (scope: Locator, label: string) => scope.locator('label').filter({ hasText: new RegExp(`^${label}`) }).locator('input, textarea').first();
+const input = (scope: Locator, label: string) => scope.locator(`label:text-is(${JSON.stringify(label)})`).locator('input, textarea').first();
 
 export async function runAdminCalendarLifecycle(browser: Browser, request: APIRequestContext, budget: CaptureBudget) {
   const scenario = JSON.parse(readFileSync(resolve(process.env.APPROVAL_DEMO_REPOSITORY_ROOT!,
@@ -175,7 +175,7 @@ export async function runAdminCalendarLifecycle(browser: Browser, request: APIRe
     editor = page.getByRole('dialog', { name: `策略版本配置 · ${key}`, exact: true });
     await input(editor, '流程定义 Key').fill(key);
     await input(editor, '任务定义 Key').fill('isolated-approval');
-    await input(editor, '持续时间').fill('PT8H');
+    await input(editor, '持续时间（ISO-8601）').fill('PT8H');
     await input(editor, '操作原因').fill(reason);
     expect(await mutation<Version>('PUT', `${policyPath}/versions/1`, () => button(editor, '保存草稿').click()))
       .toMatchObject({ policyVersion: 1, immutable: false, status: 'DRAFT', automaticAction: 'NONE' });
@@ -192,10 +192,10 @@ export async function runAdminCalendarLifecycle(browser: Browser, request: APIRe
     await editor.locator('.toolbar').getByRole('spinbutton').fill('2');
     await expect(button(editor, '保存草稿')).toBeEnabled();
     // Read-back must preserve editable ISO durations, including servers returning numeric seconds.
-    await expect(input(editor, '持续时间')).toHaveValue(/^P/);
+    await expect(input(editor, '持续时间（ISO-8601）')).toHaveValue(/^P/);
     await expect(input(editor, '首次提醒偏移')).toHaveValue(/^P/);
     await expect(input(editor, '逾期偏移')).toHaveValue(/^P/);
-    await input(editor, '持续时间').fill('PT9H');
+    await input(editor, '持续时间（ISO-8601）').fill('PT9H');
     await input(editor, '操作原因').fill(reason);
     await mutation<Version>('PUT', `${policyPath}/versions/2`, () => button(editor, '保存草稿').click());
     await mutation<Version>('PUT', `${policyPath}/versions/2`, () => button(editor, '保存草稿').click());

@@ -8,7 +8,7 @@ import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
 
 type FormDraft = { draftId: string; formKey: string; revision: number; status: string; formDefinition: { fields: Array<{ key: string; label: string }> } };
 const button = (scope: Locator | Page, name: string) => scope.getByRole('button', { name, exact: true });
-const item = (scope: Locator | Page, name: string) => scope.locator('.el-form-item').filter({ has: scope.locator('.el-form-item__label').filter({ hasText: new RegExp(`^${name}$`) }) });
+const item = (scope: Locator | Page, name: string) => scope.locator('.el-form-item').filter({ has: scope.getByText(name, { exact: true }).and(scope.locator('.el-form-item__label')) });
 export async function runFormPackageLifecycle(browser: Browser, request: APIRequestContext, budget: CaptureBudget, evidence: Pick<TestInfo, 'attach'>) {
   const key = `browser-form-${randomUUID()}`, changedLabel = `Acceptance amount ${randomUUID()}`;
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 1600, height: 1000 } });

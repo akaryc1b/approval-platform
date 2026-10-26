@@ -206,6 +206,111 @@ class JdbcApprovalSlaStoreIntegrationTest {
     }
 
     @Test
+    void switchingPolicyTargetRetiresOldVersionAndPreservesCas() {
+        prepareRetarget(POLICY_ID, "managerApproval", "financeApproval");
+        assertThrows(SlaConflictException.class, () -> store.activatePolicyVersion(
+            TENANT_ID, POLICY_ID, 2, "activator", NOW.plusSeconds(4), 5));
+        assertEquals(1, effective("managerApproval").policyVersion());
+        assertTrue(store.findEffectivePolicy(TENANT_ID, "purchasePayment", null, "financeApproval", SlaTargetType.TASK).isEmpty());
+        var activated = store.activatePolicyVersion(TENANT_ID, POLICY_ID, 2, "activator", NOW.plusSeconds(5), 6);
+        assertEquals(7, activated.version());
+        assertEquals(2, activated.activeVersion());
+        assertTrue(store.findEffectivePolicy(TENANT_ID, "purchasePayment", null, "managerApproval", SlaTargetType.TASK).isEmpty());
+        assertEquals(POLICY_ID, effective("financeApproval").policyId());
+        var old = store.findPolicyVersion(TENANT_ID, POLICY_ID, 1).orElseThrow();
+        assertEquals(PolicyStatus.INACTIVE, old.status());
+        assertTrue(old.immutable()); assertEquals("a".repeat(64), old.contentHash());
+        assertEquals(activated, store.activatePolicyVersion(TENANT_ID, POLICY_ID, 2, "activator", NOW.plusSeconds(6), 7));
+        assertEquals(1, activeVersionCount(POLICY_ID));
+    }
+
+    @Test
+    void legacyOrphanActiveVersionCannotRouteAndIsRetiredOnNextActivation() {
+        prepareRetarget(POLICY_ID, "managerApproval", "financeApproval");
+        store.activatePolicyVersion(TENANT_ID, POLICY_ID, 2, "activator", NOW.plusSeconds(5), 6);
+        // Reproduce persisted pre-fix state; normal activation below must repair it.
+        jdbc.update("update ap_sla_policy_version set status='ACTIVE' where tenant_id=? and policy_id=? and policy_version=1",
+            TENANT_ID, POLICY_ID);
+        assertEquals(2, activeVersionCount(POLICY_ID));
+        assertTrue(store.findEffectivePolicy(TENANT_ID, "purchasePayment", null, "managerApproval", SlaTargetType.TASK).isEmpty());
+        assertEquals(2, effective("financeApproval").policyVersion());
+        store.savePolicyVersion(targetPolicy(POLICY_ID, 3, "c".repeat(64), "thirdApproval"), 7);
+        store.publishPolicyVersion(TENANT_ID, POLICY_ID, 3, "publisher", NOW.plusSeconds(6), 8);
+        store.activatePolicyVersion(TENANT_ID, POLICY_ID, 3, "activator", NOW.plusSeconds(7), 9);
+        assertEquals(1, activeVersionCount(POLICY_ID));
+        assertEquals(3, effective("thirdApproval").policyVersion());
+        assertTrue(store.findEffectivePolicy(TENANT_ID, "purchasePayment", null, "financeApproval", SlaTargetType.TASK).isEmpty());
+    }
+
+    @Test
+    void oppositeTargetSwitchesFinishWithoutDeadlockOrOrphanRouting() throws Exception {
+        prepareRetarget(POLICY_ID, "managerApproval", "financeApproval");
+        prepareRetarget(SECOND_POLICY_ID, "financeApproval", "managerApproval");
+        var ready = new java.util.concurrent.CountDownLatch(2);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> concurrentRetarget(POLICY_ID, ready, start));
+            var second = executor.submit(() -> concurrentRetarget(SECOND_POLICY_ID, ready, start));
+            assertTrue(ready.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            start.countDown();
+            int successes = (first.get(10, java.util.concurrent.TimeUnit.SECONDS) ? 1 : 0)
+                + (second.get(10, java.util.concurrent.TimeUnit.SECONDS) ? 1 : 0);
+            assertEquals(1, successes); // winner invalidates the other identity's expected CAS.
+        }
+        assertEquals(0, jdbc.queryForObject("""
+            select count(*) from ap_sla_policy_version v join ap_sla_policy p
+              on p.tenant_id=v.tenant_id and p.policy_id=v.policy_id
+            where v.tenant_id=? and v.status='ACTIVE'
+              and (p.status<>'ACTIVE' or p.active_version is distinct from v.policy_version)
+            """, Integer.class, TENANT_ID));
+        assertEquals(0, jdbc.queryForObject("""
+            select count(*) from (
+              select policy_id from ap_sla_policy_version where tenant_id=? and status='ACTIVE'
+              group by policy_id having count(*)>1
+            ) duplicates
+            """, Integer.class, TENANT_ID));
+        assertEquals(0, jdbc.queryForObject("""
+            select count(*) from (
+              select definition_key,release_version,task_definition_key,target_type
+              from ap_sla_policy_version where tenant_id=? and status='ACTIVE'
+              group by definition_key,release_version,task_definition_key,target_type having count(*)>1
+            ) duplicates
+            """, Integer.class, TENANT_ID));
+    }
+
+    private boolean concurrentRetarget(UUID id, java.util.concurrent.CountDownLatch ready,
+        java.util.concurrent.CountDownLatch start) throws Exception {
+        ready.countDown(); assertTrue(start.await(5, java.util.concurrent.TimeUnit.SECONDS));
+        try {
+            new TransactionTemplate(transactionManager).execute(status -> {
+                jdbc.execute("set local lock_timeout='5s'");
+                jdbc.execute("set local statement_timeout='8s'");
+                return store.activatePolicyVersion(TENANT_ID, id, 2, "activator", NOW.plusSeconds(5), 6);
+            });
+            return true;
+        } catch (SlaConflictException expected) { return false; }
+    }
+
+    private void prepareRetarget(UUID id, String previous, String next) {
+        if (store.findCalendar(TENANT_ID, CALENDAR_ID).isEmpty()) activateCalendarVersionOne();
+        store.createPolicy(policyIdentity(id, "retarget-" + id));
+        store.savePolicyVersion(targetPolicy(id, 1, "a".repeat(64), previous), 1);
+        store.publishPolicyVersion(TENANT_ID, id, 1, "publisher", NOW.plusSeconds(1), 2);
+        store.activatePolicyVersion(TENANT_ID, id, 1, "activator", NOW.plusSeconds(2), 3);
+        store.savePolicyVersion(targetPolicy(id, 2, "b".repeat(64), next), 4);
+        store.publishPolicyVersion(TENANT_ID, id, 2, "publisher", NOW.plusSeconds(3), 5);
+    }
+
+    private SlaPolicyVersion effective(String task) {
+        return store.findEffectivePolicy(TENANT_ID, "purchasePayment", null, task, SlaTargetType.TASK).orElseThrow();
+    }
+
+    private int activeVersionCount(UUID id) {
+        return jdbc.queryForObject("select count(*) from ap_sla_policy_version where tenant_id=? and policy_id=? and status='ACTIVE'",
+            Integer.class, TENANT_ID, id);
+    }
+
+    @Test
     void policyActivationUsesPublishedCalendarSnapshotAndKeepsOneActiveTarget() {
         activateCalendarVersionOne();
 
@@ -554,13 +659,17 @@ class JdbcApprovalSlaStoreIntegrationTest {
     }
 
     private static SlaPolicyVersion workingPolicy(UUID policyId, int version, String contentHash) {
+        return targetPolicy(policyId, version, contentHash, "managerApproval");
+    }
+
+    private static SlaPolicyVersion targetPolicy(UUID policyId, int version, String contentHash, String target) {
         return new SlaPolicyVersion(
             policyId,
             TENANT_ID,
             version,
             "purchasePayment",
             null,
-            "managerApproval",
+            target,
             SlaTargetType.TASK,
             SlaDurationMode.WORKING_TIME,
             Duration.ofHours(8),
