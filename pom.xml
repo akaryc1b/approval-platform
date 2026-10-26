@@ -169,7 +169,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
-                    <version>3.7.1</version>
+                    <version>3.8.0</version>
                     <dependencies>
                         <dependency>
                             <groupId>org.codehaus.plexus</groupId>
@@ -180,6 +180,11 @@
                             <groupId>org.apache.commons</groupId>
                             <artifactId>commons-lang3</artifactId>
                             <version>${maven.assembly.commons-lang3.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>io.airlift</groupId>
+                            <artifactId>aircompressor</artifactId>
+                            <version>2.0.3</version>
                         </dependency>
                     </dependencies>
                 </plugin>
@@ -254,12 +259,24 @@
                             <artifactId>jsoup</artifactId>
                             <version>${maven.site.jsoup.version}</version>
                         </dependency>
+                        <dependency>
+                            <groupId>commons-beanutils</groupId>
+                            <artifactId>commons-beanutils</artifactId>
+                            <version>1.11.0</version>
+                        </dependency>
                     </dependencies>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
                     <version>${maven.dependency.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>commons-beanutils</groupId>
+                            <artifactId>commons-beanutils</artifactId>
+                            <version>1.11.0</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
                 <!-- Keep the inherited AntRun plugin inactive; constrain only its private realm. -->
                 <plugin>
@@ -380,6 +397,21 @@
                         <groupId>com.google.guava</groupId>
                         <artifactId>guava</artifactId>
                         <version>${maven.checkstyle.guava.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.codehaus.plexus</groupId>
+                        <artifactId>plexus-archiver</artifactId>
+                        <version>4.10.4</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>io.airlift</groupId>
+                        <artifactId>aircompressor</artifactId>
+                        <version>2.0.3</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>commons-beanutils</groupId>
+                        <artifactId>commons-beanutils</artifactId>
+                        <version>1.11.0</version>
                     </dependency>
                 </dependencies>
                 <executions>
