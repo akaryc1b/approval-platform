@@ -51,6 +51,8 @@ export EXAMPLE_HOST_TENANT_ID='demo'
 export EXAMPLE_HOST_KEY_ID='demo-key'
 ```
 
+The example binds to `127.0.0.1` by default. Keep this loopback-only default when running the JAR with public demo credentials. `SERVER_ADDRESS` is an explicit override for isolated container networking, not permission to expose the example to a shared network.
+
 Start the application:
 
 ```bash
@@ -97,11 +99,14 @@ docker build -t approval-generic-host:local examples/generic-spring-host
 Run without embedding secrets in the image:
 
 ```bash
-docker run --rm -p 18080:18080 \
+docker run --rm -p 127.0.0.1:18080:18080 \
+  -e SERVER_ADDRESS=0.0.0.0 \
   -e EXAMPLE_HOST_SECRET='0123456789abcdef0123456789abcdef' \
   -e EXAMPLE_HOST_TOKEN='smoke-token' \
   approval-generic-host:local
 ```
+
+The container must listen on its own network interface (`SERVER_ADDRESS=0.0.0.0`) so Docker can forward requests. The host publication remains loopback-only (`127.0.0.1:18080:18080`); do not replace it with `18080:18080`, host networking, or a public bind when using demo credentials. This example does not configure firewalls or production access.
 
 ## Production replacement checklist
 

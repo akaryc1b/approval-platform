@@ -171,7 +171,7 @@ public final class ApprovalIdentityContextFilter extends OncePerRequestFilter {
                 operatorId,
                 localAuthorityProvider == null
                     ? parseAuthorities(request.getHeader(localPermissionHeader))
-                    : localAuthorityProvider.authorities(tenantId, operatorId, requestPath(request)),
+                    : localAuthorityProvider.authorities(tenantId, operatorId, requestPath(request), request.getMethod()),
                 null
             );
         } catch (IllegalArgumentException exception) {

@@ -169,6 +169,43 @@ class JdbcApprovalSlaStoreIntegrationTest {
     }
 
     @Test
+    void replacingActiveVersionOfSamePolicyPreservesIdentityCasAndImmutableContent() {
+        activateCalendarVersionOne();
+        store.createPolicy(policyIdentity(POLICY_ID, "policy-version-replacement"));
+        store.savePolicyVersion(workingPolicy(POLICY_ID, 1, "d".repeat(64)), 1);
+        store.publishPolicyVersion(TENANT_ID, POLICY_ID, 1, "publisher", NOW.plusSeconds(1), 2);
+        store.activatePolicyVersion(TENANT_ID, POLICY_ID, 1, "activator", NOW.plusSeconds(2), 3);
+        store.savePolicyVersion(workingPolicy(POLICY_ID, 2, "e".repeat(64)), 4);
+        store.publishPolicyVersion(TENANT_ID, POLICY_ID, 2, "publisher", NOW.plusSeconds(3), 5);
+
+        assertThrows(SlaConflictException.class, () -> store.activatePolicyVersion(
+            TENANT_ID, POLICY_ID, 2, "activator", NOW.plusSeconds(4), 5
+        ));
+        assertEquals(1, store.findPolicy(TENANT_ID, POLICY_ID).orElseThrow().activeVersion());
+        SlaPolicyIdentity activated = store.activatePolicyVersion(
+            TENANT_ID, POLICY_ID, 2, "activator", NOW.plusSeconds(5), 6
+        );
+        assertEquals(2, activated.activeVersion());
+        assertEquals(7, activated.version());
+        assertEquals(PolicyStatus.ACTIVE, activated.status());
+        SlaPolicyVersion previous = store.findPolicyVersion(TENANT_ID, POLICY_ID, 1).orElseThrow();
+        assertEquals(PolicyStatus.INACTIVE, previous.status());
+        assertTrue(previous.immutable());
+        assertEquals("d".repeat(64), previous.contentHash());
+        SlaPolicyVersion current = store.findPolicyVersion(TENANT_ID, POLICY_ID, 2).orElseThrow();
+        assertEquals(PolicyStatus.ACTIVE, current.status());
+        assertTrue(current.immutable());
+        assertEquals("e".repeat(64), current.contentHash());
+        assertEquals(activated, store.activatePolicyVersion(
+            TENANT_ID, POLICY_ID, 2, "activator", NOW.plusSeconds(6), activated.version()
+        ));
+        assertEquals(1, jdbc.queryForObject(
+            "select count(*) from ap_sla_policy_version where tenant_id=? and policy_id=? and status='ACTIVE'",
+            Integer.class, TENANT_ID, POLICY_ID
+        ));
+    }
+
+    @Test
     void policyActivationUsesPublishedCalendarSnapshotAndKeepsOneActiveTarget() {
         activateCalendarVersionOne();
 

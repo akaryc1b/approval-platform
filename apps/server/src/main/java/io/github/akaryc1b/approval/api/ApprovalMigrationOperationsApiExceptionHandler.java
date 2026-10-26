@@ -10,7 +10,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.UUID;
 
-@RestControllerAdvice(assignableTypes = ApprovalMigrationOperationsController.class)
+@RestControllerAdvice(assignableTypes = {
+    ApprovalMigrationOperationsController.class,
+    ApprovalMigrationDiagnosticsController.class
+})
 public class ApprovalMigrationOperationsApiExceptionHandler {
 
     @ExceptionHandler({

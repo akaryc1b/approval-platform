@@ -6,5 +6,5 @@ import java.util.Set;
 @FunctionalInterface
 public interface LocalApprovalAuthorityProvider {
 
-    Set<String> authorities(String tenantId, String operatorId, String requestPath);
+    Set<String> authorities(String tenantId, String operatorId, String requestPath, String method);
 }

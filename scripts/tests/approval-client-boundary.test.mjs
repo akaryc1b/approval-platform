@@ -1,3 +1,4 @@
+import './approval-designer-save-lifecycle.test.mjs';
 import './approval-delegation-request-order.test.mjs';
 import './approval-sla-version-selection.test.mjs';
 import './web-local-icons.test.mjs';
@@ -269,3 +270,6 @@ test('web release migration assessment remains detect-only and governed', async 
   assert.match(routes, /authority: \['approval:definition:design'\]/);
   assert.match(routes, /ApprovalReleaseMigrationDryRun/);
 });
+import './approval-publication-governance.test.mjs';
+
+import './approval-deployment-governance.test.mjs';

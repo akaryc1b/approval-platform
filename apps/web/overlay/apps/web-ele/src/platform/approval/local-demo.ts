@@ -99,7 +99,7 @@ export function exposeApprovalLocalDemoRoutes(routes: Array<{
   ) === 'demo-admin';
   for (const route of routes) {
     const participant = route.name === 'ApprovalDelegations';
-    const management = administrator && ['ApprovalSlaCalendars', 'ApprovalSlaPolicies'].includes(String(route.name));
+    const management = administrator && ['ApprovalSlaCalendars', 'ApprovalSlaPolicies', 'ApprovalForms', 'ApprovalDesigner'].includes(String(route.name));
     if ((participant || management) && route.meta?.authority && !route.meta.authority.includes('super')) {
       route.meta.authority = [...route.meta.authority, 'super'];
     }

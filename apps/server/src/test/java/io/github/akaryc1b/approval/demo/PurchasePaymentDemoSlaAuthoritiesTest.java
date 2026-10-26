@@ -33,27 +33,26 @@ class PurchasePaymentDemoSlaAuthoritiesTest {
         var scenario = scenario();
         var state = new PurchasePaymentDemoSeedState();
         var provider = new PurchasePaymentDemoSlaAuthorities(scenario, state);
-        assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), CALENDARS).isEmpty());
+        assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), CALENDARS, "GET").isEmpty());
         state.record(new PurchasePaymentDemoSeedState.SeedEvidence(
             scenario.tenantId(), scenario.request().businessKey(), UUID.randomUUID(),
             InstanceStatus.RUNNING, "purchase-payment", "engine-demo", List.of(), List.of(), Instant.now()
         ));
-        Set<String> expected = Set.of("approval.management.sla.read", "approval.management.sla.design",
-            "approval.management.sla.publish", "approval.management.sla.activate");
-        assertEquals(expected, provider.authorities(scenario.tenantId(), scenario.administratorId(), CALENDARS));
-        assertEquals(expected, provider.authorities(scenario.tenantId(), scenario.administratorId(),
-            "/api/approval/management/sla/policies/" + UUID.randomUUID() + "/versions/1/publish"));
+        Set<String> expected = Set.of("approval.management.sla.read");
+        assertEquals(expected, provider.authorities(scenario.tenantId(), scenario.administratorId(), CALENDARS, "GET"));
+        assertEquals(Set.of("approval.management.sla.publish"), provider.authorities(scenario.tenantId(), scenario.administratorId(),
+            "/api/approval/management/sla/policies/" + UUID.randomUUID() + "/versions/1/publish", "POST"));
         for (String actor : new String[] { "demo-employee", "unknown", "demo-admin-extra" }) {
-            assertTrue(provider.authorities(scenario.tenantId(), actor, CALENDARS).isEmpty());
+            assertTrue(provider.authorities(scenario.tenantId(), actor, CALENDARS, "GET").isEmpty());
         }
-        assertTrue(provider.authorities("wrong-tenant", scenario.administratorId(), CALENDARS).isEmpty());
+        assertTrue(provider.authorities("wrong-tenant", scenario.administratorId(), CALENDARS, "GET").isEmpty());
         for (String path : new String[] { CALENDARS + "-other", "/api/approval/management/sla/executions",
-            "/api/approval/management/audit", "/api/approval/process-design-drafts",
+            "/api/approval/management/audit", "/api/approval/process-design-drafts/from-published",
             CALENDARS + "/../executions", CALENDARS + "/%2e%2e/executions",
             CALENDARS + ";ignored", CALENDARS + "//", CALENDARS + "/arbitrary",
             CALENDARS + "/" + UUID.randomUUID() + "/versions/0",
             CALENDARS + "/" + UUID.randomUUID() + "/versions/1/unknown" }) {
-            assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), path).isEmpty());
+            assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), path, "GET").isEmpty());
         }
         for (boolean forgeHeader : new boolean[] { false, true }) {
             var request = new MockHttpServletRequest("GET", CALENDARS);
@@ -82,7 +81,7 @@ class PurchasePaymentDemoSlaAuthoritiesTest {
             InstanceStatus.RUNNING, "purchase-payment", "engine-demo", List.of(), List.of(), Instant.now()
         ));
         var provider = new PurchasePaymentDemoSlaAuthorities(scenario, state);
-        assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), CALENDARS).isEmpty());
+        assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), CALENDARS, "GET").isEmpty());
     }
 
     @Test
@@ -92,12 +91,66 @@ class PurchasePaymentDemoSlaAuthoritiesTest {
         request.setUserPrincipal(principal);
         var trusted = new AtomicReference<HttpServletRequest>();
         new ApprovalIdentityContextFilter(AuthenticationMode.PRINCIPAL, PERMISSION_HEADER, Clock.systemUTC(),
-            new ObjectMapper(), () -> "test-principal-request", (tenant, operator, path) -> {
+            new ObjectMapper(), () -> "test-principal-request", (tenant, operator, path, method) -> {
                 throw new AssertionError("principal mode must not consult a local provider");
             }).doFilter(request, new MockHttpServletResponse(), (filtered, response) ->
                 trusted.set((HttpServletRequest) filtered));
         assertSame(principal, trusted.get().getUserPrincipal());
         assertTrue(principal.authorities().isEmpty());
+    }
+
+    @Test
+    void designCapabilitiesAreExactMethodPathAndNeverGeneralAdministrator() throws Exception {
+        var scenario = scenario();
+        var state = new PurchasePaymentDemoSeedState();
+        state.record(new PurchasePaymentDemoSeedState.SeedEvidence(
+            scenario.tenantId(), scenario.request().businessKey(), UUID.randomUUID(),
+            InstanceStatus.RUNNING, "purchase-payment", "engine-demo", List.of(), List.of(), Instant.now()
+        ));
+        var provider = new PurchasePaymentDemoSlaAuthorities(scenario, state);
+        String id = UUID.randomUUID().toString();
+        String form = "/api/approval/form-design-drafts";
+        String process = "/api/approval/process-design-drafts";
+        String[][] allowed = {
+            { "GET", form, "read" }, { "POST", form, "design" },
+            { "GET", form + "/" + id, "read" }, { "PUT", form + "/" + id, "design" },
+            { "POST", form + "/" + id + "/validate", "design" },
+            { "POST", form + "/" + id + "/preview", "read" },
+            { "GET", form + "/" + id + "/contexts", "read" },
+            { "POST", form + "/" + id + "/publish", "publish" },
+            { "GET", process, "read" }, { "POST", process, "design" },
+            { "GET", process + "/" + id, "read" }, { "PUT", process + "/" + id, "design" },
+            { "POST", process + "/" + id + "/validate", "design" },
+            { "POST", process + "/" + id + "/simulate", "design" },
+            { "POST", process + "/" + id + "/publish", "publish" },
+            { "POST", "/api/approval/preflight/publication", "publish" }
+        };
+        for (String[] value : allowed) {
+            assertEquals(Set.of("approval.management." + value[2]), provider.authorities(
+                scenario.tenantId(), scenario.administratorId(), value[1], value[0]));
+            assertTrue(provider.authorities("other-tenant", scenario.administratorId(), value[1], value[0]).isEmpty());
+            assertTrue(provider.authorities(scenario.tenantId(), "demo-employee", value[1], value[0]).isEmpty());
+            for (String method : new String[] { "DELETE", "PATCH", "OPTIONS", "HEAD", "get", "" }) {
+                assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), value[1], method).isEmpty());
+            }
+            for (String suffix : new String[] { ";ignored", "/", "/../publish", "/%2e%2e/publish" }) {
+                assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), value[1] + suffix, value[0]).isEmpty());
+            }
+        }
+        for (String path : new String[] { form + "/from-published", form + "/" + id + "/archive",
+            process + "/from-published", process + "/" + id + "/archive",
+            process + "/" + id + "/batch-simulate", "/api/approval/preflight/deployment",
+            "/api/approval/artifact-transfer/imports", "/api/approval/management/audit",
+            "/api/approval/release-packages/isolated/1/deployment" }) {
+            for (String method : new String[] { "GET", "POST", "PUT" }) {
+                assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), path, method).isEmpty());
+            }
+        }
+        for (String root : new String[] { form, process }) {
+            assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), root + "/" + id + "/publish", "GET").isEmpty());
+            assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), root + "/" + id, "POST").isEmpty());
+            assertTrue(provider.authorities(scenario.tenantId(), scenario.administratorId(), root, "PUT").isEmpty());
+        }
     }
 
     private static PurchasePaymentDemoScenario scenario() throws Exception {

@@ -243,6 +243,12 @@ final class JdbcApprovalSlaPolicyStore extends JdbcApprovalSlaStoreSupport {
                         "activatedAt", offset(activatedAt)
                     )
                 );
+                // When replacing a version of this same policy, preserve the locked
+                // identity CAS until the final activation update. Only other policy
+                // identities need to be deactivated and versioned separately.
+                if (previousPolicyId.equals(policyId)) {
+                    continue;
+                }
                 jdbc.update(
                     """
                     update ap_sla_policy set status='INACTIVE',active_version=null,

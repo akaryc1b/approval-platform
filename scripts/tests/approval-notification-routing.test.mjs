@@ -54,10 +54,10 @@ test('local-demo shell super reaches only the explicitly supported participant p
   }
 });
 
-test('only explicit local demo administrator gains calendar and policy navigation', () => {
+test('only explicit local demo administrator gains bounded calendar, policy and designer navigation', () => {
   const administrator = routeAuthorities({ DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true', VITE_APPROVAL_OPERATOR_ID: 'demo-admin' });
   assert.deepEqual(Object.keys(administrator).filter(name => administrator[name].includes('super')).sort(), [
-    'ApprovalDelegations', 'ApprovalNotifications', 'ApprovalSlaCalendars', 'ApprovalSlaPolicies', 'ApprovalTaskCollaboration', 'ApprovalWorkbench',
+    'ApprovalDelegations', 'ApprovalDesigner', 'ApprovalForms', 'ApprovalNotifications', 'ApprovalSlaCalendars', 'ApprovalSlaPolicies', 'ApprovalTaskCollaboration', 'ApprovalWorkbench',
   ]);
   const production = routeAuthorities({ DEV: false, VITE_APPROVAL_LOCAL_DEMO: 'true', VITE_APPROVAL_OPERATOR_ID: 'demo-admin' });
   assert.ok(Object.values(production).every(authority => !authority.includes('super')));

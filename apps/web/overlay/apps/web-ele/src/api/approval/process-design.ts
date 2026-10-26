@@ -590,9 +590,13 @@ export function archiveApprovalDesignDraft(draftId: string, expectedRevision: nu
   );
 }
 
-export function preflightApprovalPublication(input: ApprovalPublicationPreflightInput) {
+export function preflightApprovalPublication(input: ApprovalPublicationPreflightInput, reason?: string) {
   return approvalRequest<ApprovalPreflightReport>('/approval/preflight/publication', {
     body: JSON.stringify(input),
+    headers: {
+      ...approvalCommandHeaders('approval-publication-preflight'),
+      'X-Approval-Operation-Reason': approvalPublicationReason(reason),
+    },
     method: 'POST',
   });
 }
@@ -616,7 +620,7 @@ export function publishApprovalDesignDraft(
   );
 }
 
-function approvalPublicationReason(supplied?: string) {
+export function approvalPublicationReason(supplied?: string) {
   const prompted = supplied ?? globalThis.prompt?.(
     '请输入本次发布原因（8–512 个字符）。该原因将写入不可变审计与流程版本生命周期证据。',
   );
@@ -626,7 +630,8 @@ function approvalPublicationReason(supplied?: string) {
   if (length < 8 || length > 512) {
     throw new Error('发布原因必须包含 8–512 个字符');
   }
-  if (/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/u.test(normalized)) {
+  // Match the backend's UTF-16 code-unit rejection, including supplementary pairs.
+  if (/[\u0000-\u001F\u007F-\u009F\u2028\u2029\uD800-\uDFFF]/.test(normalized)) {
     throw new Error('发布原因包含不支持的控制字符');
   }
   return normalized;

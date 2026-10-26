@@ -3,6 +3,26 @@ import type { IconifyIconStructure } from '@vben/icons';
 // Exact pinned SVG data for the governed approval shell and paired sidebar state.
 // Source, family licenses and retained-response comparison: local-icons.NOTICE.md.
 export const approvalShellIcons = {
+  "lucide:git-branch-plus": {
+    "left": 0,
+    "top": 0,
+    "width": 24,
+    "height": 24,
+    "rotate": 0,
+    "hFlip": false,
+    "vFlip": false,
+    "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"M6 3v12m12-6a3 3 0 1 0 0-6a3 3 0 0 0 0 6M6 21a3 3 0 1 0 0-6a3 3 0 0 0 0 6\"/><path d=\"M15 6a9 9 0 0 0-9 9m12 0v6m3-3h-6\"/></g>"
+  },
+  "lucide:layout-template": {
+    "left": 0,
+    "top": 0,
+    "width": 24,
+    "height": 24,
+    "rotate": 0,
+    "hFlip": false,
+    "vFlip": false,
+    "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><rect width=\"18\" height=\"7\" x=\"3\" y=\"3\" rx=\"1\"/><rect width=\"9\" height=\"7\" x=\"3\" y=\"14\" rx=\"1\"/><rect width=\"5\" height=\"7\" x=\"16\" y=\"14\" rx=\"1\"/></g>"
+  },
   "lucide:user-round-cog": {
     "left": 0,
     "top": 0,

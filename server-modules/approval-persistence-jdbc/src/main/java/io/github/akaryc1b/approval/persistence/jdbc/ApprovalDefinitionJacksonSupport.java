@@ -38,6 +38,7 @@ public final class ApprovalDefinitionJacksonSupport {
         ),
         @JsonSubTypes.Type(value = ApprovalDefinition.EndNode.class, name = "END")
     })
-    private abstract static class ProcessNodeMixin {
+    /** Shared closed discriminator contract for persistence and HTTP mapper families. */
+    public abstract static class ProcessNodeMixin {
     }
 }

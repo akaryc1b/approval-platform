@@ -167,3 +167,7 @@ Other management routes and every production route remain unchanged. All ten
 definitions register synchronously; tests pin each body hash, compare every icon
 to the pinned package, reject omissions or mutations, and verify both visible
 menu sets plus real Iconify lookup without network requests.
+
+## Isolated form/process designer extension
+
+The exact same pinned `@iconify/json` 2.2.476 `json/lucide.json` supplies `lucide:git-branch-plus` and `lucide:layout-template`. Their bodies are copied without transformation and both graph/icon tests retain exact-name, exact-shape and missing-icon negatives. Only the explicitly enabled seeded demo administrator gains these two navigation routes; production authority arrays are unchanged.

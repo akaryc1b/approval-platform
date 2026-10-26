@@ -59,20 +59,25 @@ The confirmation flag is mandatory. The reset is limited to the `approval-platfo
 
 Environment, timing, screenshots and cleanup evidence are written under `.runtime/quick-start/`. Do not commit this directory. Permanent acceptance is retained through the existing Workflow artifact and an exact-Head PR comment.
 
-## Bounded SLA administrator rehearsal
+## Bounded local administrator rehearsal
 
-The explicit local purchase-payment demo now supports the working-calendar and
-SLA-policy pages with `?demoOperator=demo-admin`. This is not a production login.
-The server grants only the four SLA read/design/publish/activate capabilities,
-only for canonical calendar/policy endpoints, the exact seeded tenant and
+The explicit local purchase-payment demo supports the working-calendar, SLA-policy,
+form authoring and process designer pages with `?demoOperator=demo-admin`. This is
+not a production login. The server grants only the capability needed by each
+allowlisted HTTP method and canonical endpoint (SLA read/design/publish/activate;
+form/process read/design/publish and publication preflight), for the exact seeded tenant and
 administrator, and only after matching seed evidence exists. The adapter is
 absent outside the local profile, with production profiles, or when the demo or
 seed is disabled. Browser-supplied permission headers are never used by this
-adapter. Other administrator modules are not enabled by this rehearsal.
+adapter. Archive/copy, deployment/activation of process releases, export/import,
+migration and other administrator modules are not enabled by this rehearsal.
 
 The PC/H5 runtime suite additionally exercises delegation create/cancel/revoke
 and calendar/policy v1-to-v2 publishing, immutable versions, repeated draft
 saves, real read failures and wrong-actor/tenant denials. These run against the
 existing disposable backend and retain the existing capture deadline. Their
 receipts and screenshots are separate from the original payment handoff receipt.
-They do not establish comprehensive platform or production acceptance.
+The suite also covers form-package publication and process design, including
+explicit publication reasons, cancel/repeat, immutable package hashes, real-save
+delivery races and preservation of newer edits. No process release is deployed.
+These tests do not establish comprehensive platform or production acceptance.

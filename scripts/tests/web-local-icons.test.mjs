@@ -10,6 +10,16 @@ import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.m
 // Independently bound to @iconify/json 2.2.476 and retained CI1826/1887 responses.
 // ep:expand and lucide:bell-ring are pinned local shapes, not observed responses.
 const expected = {
+  "lucide:git-branch-plus": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "cb7b59d48e86cde02fefd1b562ed68c9b0d11a926f884a7ccdf7588de4d3e438"
+  },
+  "lucide:layout-template": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "0ded2cb7630ef610e4419d25d9be1e521d870e2e9ff6d9ef15568cb745b7dab4"
+  },
   "lucide:user-round-cog": {
     "width": 24,
     "height": 24,
@@ -161,7 +171,7 @@ await test('every actual local-demo super menu icon is registered before navigat
   });
   verifyMenuCoverage(approvalShellIcons, menuIcons);
   const adminIcons = localDemoMenuIcons(true);
-  assert.deepEqual(adminIcons, { ...menuIcons, ApprovalSlaCalendars: 'lucide:calendar-clock', ApprovalSlaPolicies: 'lucide:timer-reset' });
+  assert.deepEqual(adminIcons, { ...menuIcons, ApprovalSlaCalendars: 'lucide:calendar-clock', ApprovalSlaPolicies: 'lucide:timer-reset', ApprovalForms: 'lucide:layout-template', ApprovalDesigner: 'lucide:git-branch-plus' });
   verifyMenuCoverage(approvalShellIcons, adminIcons);
   for (const name of ['lucide:bell-ring', 'lucide:user-round-plus']) {
     const missing = structuredClone(approvalShellIcons); delete missing[name];
