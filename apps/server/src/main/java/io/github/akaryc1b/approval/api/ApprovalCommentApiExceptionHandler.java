@@ -6,6 +6,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalCommentStore.Comment
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -17,6 +19,11 @@ import java.util.UUID;
 /** Stable comment-specific HTTP errors without widening unrelated approval handlers. */
 @RestControllerAdvice(assignableTypes = ApprovalCommentController.class)
 public class ApprovalCommentApiExceptionHandler {
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, HttpMessageNotReadableException.class})
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "INVALID_REQUEST", "request input is invalid", false, request);
+    }
 
     @ExceptionHandler({
         IllegalArgumentException.class,
