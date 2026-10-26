@@ -7,6 +7,7 @@ import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.compiler.ApprovalDefinitionValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -23,6 +24,11 @@ import java.util.UUID;
     ApprovalVersionManagementController.class
 })
 public class ApprovalDesignApiExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "APPROVAL_DESIGN_INVALID_REQUEST", "request input is invalid", false, request);
+    }
 
     @ExceptionHandler(ApprovalArtifactTransferExceptions.InvalidFormat.class)
     ResponseEntity<ApiError> transferInvalidFormat(

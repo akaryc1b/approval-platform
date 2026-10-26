@@ -3,6 +3,8 @@ package io.github.akaryc1b.approval.api;
 import io.github.akaryc1b.approval.persistence.jdbc.JdbcApprovalMigrationOperationsQuery.MigrationOperationsNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -15,6 +17,22 @@ import java.util.UUID;
     ApprovalMigrationDiagnosticsController.class
 })
 public class ApprovalMigrationOperationsApiExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "APPROVAL_MIGRATION_OPERATIONS_INVALID_REQUEST", "request input is invalid", request);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    ResponseEntity<ApiError> methodValidation(
+        HandlerMethodValidationException exception,
+        HttpServletRequest request
+    ) {
+        if (exception.isForReturnValue()) {
+            return unexpected(exception, request);
+        }
+        return response(400, "APPROVAL_MIGRATION_OPERATIONS_INVALID_REQUEST", "request input is invalid", request);
+    }
 
     @ExceptionHandler({
         IllegalArgumentException.class,

@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
@@ -82,9 +83,9 @@ const scenarios = [
   ['G2-22', 'Clean install reaches V50',
     'server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalMigrationUpgradeIntegrationTest.java',
     'approval_latest_fresh'],
-  ['G2-23', 'Historical upgrades reach V50',
+  ['G2-23', 'Historical upgrades reach V51',
     'server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcApprovalMigrationUpgradeIntegrationTest.java',
-    'CURRENT_LATEST_VERSION = "50"'],
+    'CURRENT_LATEST_VERSION = "51"'],
   ['G2-24', 'PostgreSQL locking and replay remain native',
     'server-modules/approval-persistence-jdbc/src/main/java/io/github/akaryc1b/approval/persistence/jdbc/JdbcControlledAutomationLineageStore.java',
     'for update'],
@@ -140,6 +141,7 @@ test('G2 preserves one automatic workflow and unique V49 V50', () => {
   const resourceRoot = path.join(root, 'server-modules/approval-persistence-jdbc/src/main/resources');
   const versions = [path.join(resourceRoot, 'db/migration'), path.join(resourceRoot, 'm6f/db/migration')]
     .flatMap(directory => readdirSync(directory))
+    .filter(historicalMigration)
     .map(name => /^V(\d+)__.+\.sql$/.exec(name))
     .filter(Boolean)
     .map(match => Number(match[1]));

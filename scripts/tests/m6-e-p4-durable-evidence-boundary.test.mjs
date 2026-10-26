@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -80,7 +81,7 @@ test('P4 durable evidence is exact hash-only tenant-safe internal infrastructure
     assert.equal(existsSync(requiredPath), true, `missing P4 source ${requiredPath}`);
   }
 
-  const versioned = filesUnder(migrationRoot).map((file) => {
+  const versioned = filesUnder(migrationRoot).filter(historicalMigration).map((file) => {
     const name = path.basename(file);
     const match = /^V(\d+)__/.exec(name);
     return match ? { name, version: Number(match[1]) } : null;

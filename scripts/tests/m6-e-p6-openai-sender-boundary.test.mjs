@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -316,7 +317,7 @@ test('P6-D tests are deterministic, zero-egress and prove fail-closed ordering',
 });
 
 test('P6-E wiring preserves P6-D isolation, migration and workflow boundaries', () => {
-  const versioned = filesUnder(migrationRoot).map((file) => {
+  const versioned = filesUnder(migrationRoot).filter(historicalMigration).map((file) => {
     const name = path.basename(file);
     const match = /^V(\d+)__/.exec(name);
     return match ? { name, version: Number(match[1]) } : null;

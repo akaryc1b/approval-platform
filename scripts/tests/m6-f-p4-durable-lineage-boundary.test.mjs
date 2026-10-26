@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -209,7 +210,7 @@ test('P4 owns exact recursive V50 while historical M5 and M6-E migrations remain
     path.join(resourceRoot, 'db/migration'),
     path.join(resourceRoot, 'm6f/db/migration'),
   ];
-  const versioned = migrationRoots.flatMap(walk)
+  const versioned = migrationRoots.flatMap(walk).filter(historicalMigration)
     .map((file) => path.relative(resourceRoot, file).replaceAll(path.sep, '/'))
     .map((name) => ({ name, match: /(?:^|\/)V(\d+)__.+\.sql$/.exec(name) }))
     .filter(({ match }) => match)
@@ -229,7 +230,7 @@ test('P4 owns exact recursive V50 while historical M5 and M6-E migrations remain
     'server-modules/approval-persistence-jdbc/src/test/java/io/github/akaryc1b/approval/'
       + 'persistence/jdbc/JdbcApprovalMigrationUpgradeIntegrationTest.java',
   );
-  assert.match(upgrade, /CURRENT_LATEST_VERSION = "50"/);
+  assert.match(upgrade, /CURRENT_LATEST_VERSION = "51"/);
   assert.match(upgrade, /new UpgradeCase\("approval_latest_v49", "49"\)/);
   assert.match(upgrade, /freshAndHistoricalUpgradePathsReachV50WithoutExecutionSideEffects/);
   assert.match(upgrade, /assertM6FLineageEmpty\(jdbc\)/);
