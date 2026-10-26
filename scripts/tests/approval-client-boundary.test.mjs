@@ -1,3 +1,4 @@
+import './approval-designer-modal-state.test.mjs';
 import './approval-browser-literal-labels.test.mjs';
 import './approval-designer-save-lifecycle.test.mjs';
 import './approval-delegation-request-order.test.mjs';

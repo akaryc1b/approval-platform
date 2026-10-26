@@ -6,6 +6,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalSlaStore.SlaNotFound
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,6 +29,11 @@ public class ApprovalSlaApiExceptionHandler {
 
     public ApprovalSlaApiExceptionHandler(Clock approvalClock) {
         this.clock = approvalClock;
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "INVALID_REQUEST", "request input is invalid", false, request);
     }
 
     @ExceptionHandler(SlaNotFoundException.class)

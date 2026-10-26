@@ -509,12 +509,23 @@ export function useApprovalDesigner() {
   }
 
   async function archive() {
-    if (!draft.value || !(await confirmDiscardChanges('归档流程草稿'))) return;
-    await ElMessageBox.confirm('确认归档当前流程草稿？', '归档草稿', { type: 'warning' });
+    const current = draft.value;
+    if (!current || !editable.value) return;
+    const generation = documentGeneration;
+    const snapshot = JSON.stringify(snapshotApprovalDesignerDraft(current));
+    const unchanged = () => documentGeneration === generation && draft.value === current
+      && editable.value && JSON.stringify(snapshotApprovalDesignerDraft(current)) === snapshot;
     try {
-      draft.value = await archiveApprovalDesignDraft(draft.value.draftId, draft.value.revision);
+      if (!(await confirmDiscardChanges('归档流程草稿')) || !unchanged()) return;
+      await ElMessageBox.confirm('确认归档当前流程草稿？', '归档草稿', { type: 'warning' });
+      if (!unchanged()) return;
+      const archived = await archiveApprovalDesignDraft(current.draftId, current.revision);
+      // A completed server command must never replace a newer visible document/edit.
+      if (!unchanged()) return;
+      draft.value = archived;
       await loadDrafts();
     } catch (error) {
+      if (error === 'cancel' || error === 'close' || !unchanged()) return;
       showError(error);
     }
   }
@@ -652,6 +663,9 @@ export function useApprovalDesigner() {
   async function deleteNode() {
     const node = selectedNode.value;
     if (!draft.value || !node || !editable.value) return;
+    const current = draft.value;
+    const generation = documentGeneration;
+    const snapshot = JSON.stringify(snapshotApprovalDesignerDraft(current));
     const impact = describeApprovalDesignerDeletion(topology.value, node.id);
     if (!impact.deletable) {
       ElMessage.info(impact.reason ?? '当前节点不能安全删除');
@@ -679,6 +693,8 @@ export function useApprovalDesigner() {
     } catch {
       return;
     }
+    if (documentGeneration !== generation || draft.value !== current || !editable.value
+      || JSON.stringify(snapshotApprovalDesignerDraft(current)) !== snapshot) return;
     remember();
     replaceTarget(predecessor, node.id, node.next);
     draft.value.definition.nodes = draft.value.definition.nodes.filter(
