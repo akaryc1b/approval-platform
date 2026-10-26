@@ -1,6 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import { approvalLocalDemoEnabled } from '#/platform/approval/local-demo';
+import { approvalLocalDemoEnabled, exposeApprovalLocalDemoRoutes } from '#/platform/approval/local-demo';
 
 const approvalWorkbenchAuthority = approvalLocalDemoEnabled()
   ? ['approval:workbench:view', 'super']
@@ -213,5 +213,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 ];
+
+exposeApprovalLocalDemoRoutes(routes);
 
 export default routes;

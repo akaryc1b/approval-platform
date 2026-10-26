@@ -3,6 +3,8 @@ package io.github.akaryc1b.approval.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter;
 import io.github.akaryc1b.approval.security.ApprovalIdentityContextFilter.AuthenticationMode;
+import io.github.akaryc1b.approval.security.LocalApprovalAuthorityProvider;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -29,7 +31,8 @@ public class ApprovalIdentitySecurityConfiguration {
         ) String localPermissionHeader,
         Environment environment,
         Clock approvalClock,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        ObjectProvider<LocalApprovalAuthorityProvider> localAuthorityProviders
     ) {
         AuthenticationMode mode = AuthenticationMode.parse(configuredMode);
         requireAllowedMode(mode, Set.of(environment.getActiveProfiles()));
@@ -38,7 +41,8 @@ public class ApprovalIdentitySecurityConfiguration {
             localPermissionHeader,
             approvalClock,
             objectMapper,
-            () -> "approval-" + UUID.randomUUID()
+            () -> "approval-" + UUID.randomUUID(),
+            localAuthorityProviders.getIfAvailable()
         );
         FilterRegistrationBean<ApprovalIdentityContextFilter> registration =
             new FilterRegistrationBean<>(filter);

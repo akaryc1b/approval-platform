@@ -10,6 +10,31 @@ import { relevantChangeSet } from '../product-readiness/pc-h5-runtime/ci-scope.m
 // Independently bound to @iconify/json 2.2.476 and retained CI1826/1887 responses.
 // ep:expand and lucide:bell-ring are pinned local shapes, not observed responses.
 const expected = {
+  "lucide:git-branch-plus": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "cb7b59d48e86cde02fefd1b562ed68c9b0d11a926f884a7ccdf7588de4d3e438"
+  },
+  "lucide:layout-template": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "0ded2cb7630ef610e4419d25d9be1e521d870e2e9ff6d9ef15568cb745b7dab4"
+  },
+  "lucide:user-round-cog": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "4efd733fad2064919c332a666111e11f9f4cdd9ea3c88c0a9df8095d7ab92873"
+  },
+  "lucide:calendar-clock": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "4d659c6e8c2177f3a22a49b09f9e58a13292ec6d195ea7c9137ffe2549861af8"
+  },
+  "lucide:timer-reset": {
+    "width": 24,
+    "height": 24,
+    "bodySha256": "47f7cefab3356dabf8b7951f90c1753e66aa540a80d92d00ef510c7a748c450b"
+  },
   "ep:expand": {
     "width": 1024,
     "height": 1024,
@@ -57,19 +82,19 @@ function verifyDefinitions(icons) {
   }
 }
 const bootstrapSource = readFileSync(new URL('../../apps/web/overlay/apps/web-ele/src/bootstrap.ts', import.meta.url), 'utf8');
-function localDemoMenuIcons() {
+function localDemoMenuIcons(administrator = false) {
   const localDemo = readFileSync(new URL('../../apps/web/overlay/apps/web-ele/src/platform/approval/local-demo.ts', import.meta.url), 'utf8');
   const flag = localDemo.match(/export function approvalLocalDemoEnabled\(\) \{[^}]+\}/u);
   assert.ok(flag, 'actual local-demo flag function must be present');
   const routeSource = readFileSync(new URL('../../apps/web/overlay/apps/web-ele/src/router/routes/modules/approval.ts', import.meta.url), 'utf8');
-  const flagImport = "import { approvalLocalDemoEnabled } from '#/platform/approval/local-demo';";
+  const flagImport = "import { approvalLocalDemoEnabled, exposeApprovalLocalDemoRoutes } from '#/platform/approval/local-demo';";
   assert.equal(routeSource.split(flagImport).length, 2);
   assert.equal(routeSource.split('export default routes;').length, 2);
   const executable = stripTypeScriptTypes(routeSource).replace(flagImport, '')
     .replace('export default routes;', 'routes;');
   const routes = runInNewContext(
-    `${flag[0].replace('export ', '').replaceAll('import.meta.env', 'environment')}\n${executable}`,
-    { environment: { DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true' } },
+    `${stripTypeScriptTypes(localDemo).replaceAll('export ', '').replaceAll('import.meta.env', 'environment')}\n${executable}`,
+    { environment: { DEV: true, VITE_APPROVAL_LOCAL_DEMO: 'true', VITE_APPROVAL_OPERATOR_ID: administrator ? 'demo-admin' : 'demo-manager' } },
     { timeout: 1000 },
   );
   const visible = [];
@@ -142,8 +167,12 @@ await test('every actual local-demo super menu icon is registered before navigat
     ApprovalWorkbench: 'lucide:inbox',
     ApprovalTaskCollaboration: 'lucide:user-round-plus',
     ApprovalNotifications: 'lucide:bell-ring',
+    ApprovalDelegations: 'lucide:user-round-cog',
   });
   verifyMenuCoverage(approvalShellIcons, menuIcons);
+  const adminIcons = localDemoMenuIcons(true);
+  assert.deepEqual(adminIcons, { ...menuIcons, ApprovalSlaCalendars: 'lucide:calendar-clock', ApprovalSlaPolicies: 'lucide:timer-reset', ApprovalForms: 'lucide:layout-template', ApprovalDesigner: 'lucide:git-branch-plus' });
+  verifyMenuCoverage(approvalShellIcons, adminIcons);
   for (const name of ['lucide:bell-ring', 'lucide:user-round-plus']) {
     const missing = structuredClone(approvalShellIcons); delete missing[name];
     assert.throws(() => verifyMenuCoverage(missing, menuIcons), /unregistered visible route icon/u);

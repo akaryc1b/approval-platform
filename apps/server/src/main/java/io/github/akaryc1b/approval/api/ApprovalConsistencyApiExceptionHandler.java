@@ -4,6 +4,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalConsistencyStore.Con
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -14,6 +15,11 @@ import java.util.UUID;
 /** Stable errors for detect-only consistency administration. */
 @RestControllerAdvice(assignableTypes = ApprovalConsistencyController.class)
 public class ApprovalConsistencyApiExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "INVALID_REQUEST", "request input is invalid", false, request);
+    }
 
     @ExceptionHandler({IllegalArgumentException.class, MissingRequestHeaderException.class})
     ResponseEntity<ApiError> invalidRequest(Exception exception, HttpServletRequest request) {

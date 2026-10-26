@@ -7,6 +7,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore.Atta
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -47,15 +49,22 @@ public class ApprovalAttachmentController {
         @RequestHeader(value = TRACE_ID, required = false) String traceId,
         @RequestPart("file") MultipartFile file
     ) throws IOException {
-        if (file.getSize() > ApprovalAttachmentService.MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("attachment must not exceed 10 MiB");
+        if (file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "attachment content must not be empty");
         }
-        return service.upload(new UploadCommand(
-            new RequestContext(tenantId, operatorId, requestId, idempotencyKey, traceId),
-            file.getOriginalFilename(),
-            file.getContentType(),
-            file.getBytes()
-        ));
+        if (file.getSize() > ApprovalAttachmentService.MAX_FILE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "attachment must not exceed 10 MiB");
+        }
+        try {
+            return service.upload(new UploadCommand(
+                new RequestContext(tenantId, operatorId, requestId, idempotencyKey, traceId),
+                file.getOriginalFilename(),
+                file.getContentType(),
+                file.getBytes()
+            ));
+        } catch (ApprovalAttachmentService.AttachmentValidationException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
     }
 
     @GetMapping("/{attachmentId}")

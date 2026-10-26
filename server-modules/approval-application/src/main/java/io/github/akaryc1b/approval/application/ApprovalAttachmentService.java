@@ -166,18 +166,21 @@ public final class ApprovalAttachmentService {
 
     private static void validateContent(byte[] content) {
         if (content == null || content.length == 0) {
-            throw new IllegalArgumentException("attachment content must not be empty");
+            throw new AttachmentValidationException("attachment content must not be empty");
         }
         if (content.length > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("attachment must not exceed 10 MiB");
+            throw new AttachmentValidationException("attachment must not exceed 10 MiB");
         }
     }
 
     private static String normalizeFileName(String value) {
-        String normalized = requireText(value, "fileName");
+        if (value == null || value.isBlank()) {
+            throw new AttachmentValidationException("fileName must not be blank");
+        }
+        String normalized = value.trim();
         normalized = normalized.replace('\\', '_').replace('/', '_');
         if (normalized.length() > MAX_FILE_NAME_LENGTH) {
-            throw new IllegalArgumentException("fileName must not exceed 255 characters");
+            throw new AttachmentValidationException("fileName must not exceed 255 characters");
         }
         return normalized;
     }
@@ -187,7 +190,7 @@ public final class ApprovalAttachmentService {
             ? "application/octet-stream"
             : value.trim().toLowerCase();
         if (normalized.length() > MAX_CONTENT_TYPE_LENGTH) {
-            throw new IllegalArgumentException("contentType must not exceed 160 characters");
+            throw new AttachmentValidationException("contentType must not exceed 160 characters");
         }
         return normalized;
     }
@@ -221,6 +224,13 @@ public final class ApprovalAttachmentService {
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value.trim();
+    }
+
+    /** Known attachment input violations; internal runtime failures remain distinct. */
+    public static final class AttachmentValidationException extends IllegalArgumentException {
+        public AttachmentValidationException(String message) {
+            super(message);
+        }
     }
 
     public record UploadCommand(

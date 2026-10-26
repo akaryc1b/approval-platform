@@ -21,11 +21,23 @@ export interface ApprovalDesignerConflict {
   serverChanges: ApprovalDesignerValueChange[];
 }
 
+/** Clone Approval DSL / editor DTOs through their JSON wire representation.
+ * Reactive proxies cannot be passed to structuredClone. Keep the existing
+ * dangerous-property rejection both before and after JSON serialization.
+ */
+export function cloneApprovalDesignerJson<T>(value: T): T {
+  assertSafeDesignerValue(value);
+  if (value === undefined) return value;
+  const result = JSON.parse(JSON.stringify(value)) as T;
+  assertSafeDesignerValue(result);
+  return result;
+}
+
 export function snapshotApprovalDesignerDraft(
   draft: ApprovalDesignDraft,
 ): ApprovalDesignerSnapshot {
   return {
-    definition: structuredClone(draft.definition),
+    definition: cloneApprovalDesignerJson(draft.definition),
     formPackageVersion: draft.formPackage.packageVersion,
     name: draft.name,
   };
@@ -67,7 +79,7 @@ export function mergeDesignerConflict(
   if (!analysis.canAutoMerge) {
     throw new Error('存在重叠修改，不能自动合并');
   }
-  const merged = structuredClone(server) as unknown as Record<string, unknown>;
+  const merged = cloneApprovalDesignerJson(server) as unknown as Record<string, unknown>;
   for (const change of orderChangesForApply(analysis.localChanges)) {
     applyChange(merged, change);
   }
@@ -125,7 +137,7 @@ function change(
 }
 
 function cloneValue(value: unknown) {
-  return value === undefined ? undefined : structuredClone(value);
+  return cloneApprovalDesignerJson(value);
 }
 
 function pathsOverlap(left: string, right: string) {

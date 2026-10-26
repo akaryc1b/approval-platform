@@ -10,8 +10,8 @@
   },
   "flyway": {
     "firstVersion": 2,
-    "effectiveVersion": 50,
-    "count": 49,
+    "effectiveVersion": 51,
+    "count": 50,
     "locations": [
       "server-modules/approval-persistence-jdbc/src/main/resources/db/migration",
       "server-modules/approval-persistence-jdbc/src/main/java/db/migration",
@@ -66,7 +66,8 @@
       47,
       48,
       49,
-      50
+      50,
+      51
     ],
     "keyMigrations": [
       {
@@ -88,6 +89,11 @@
         "version": 50,
         "type": "sql",
         "path": "server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql"
+      },
+      {
+        "version": 51,
+        "type": "sql",
+        "path": "server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V51__preserve_migration_epoch_microsecond_precision.sql"
       }
     ]
   },

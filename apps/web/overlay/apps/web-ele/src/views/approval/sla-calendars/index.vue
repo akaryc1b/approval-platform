@@ -9,6 +9,8 @@ import type {
 
 import { computed, reactive, ref } from 'vue';
 
+import { slaTransitionVersion, slaVersionIsImmutable } from '#/views/approval/sla-shared/version-selection.mjs';
+
 import { Page } from '@vben/common-ui';
 import {
   ElAlert,
@@ -82,7 +84,7 @@ const createModel = reactive({
   timeZone: 'Asia/Shanghai',
 });
 
-const immutable = computed(() => loadedVersion.value?.immutable === true);
+const immutable = computed(() => slaVersionIsImmutable(loadedVersion.value, versionNumber.value));
 
 function emptyPage(): CalendarPage {
   return { items: [], limit: PAGE_SIZE, offset: 0, total: 0 };
@@ -126,6 +128,9 @@ async function loadCalendars() {
   loading.value = true;
   try {
     calendars.value = await findCalendars(PAGE_SIZE, 0);
+    if (selected.value) {
+      selected.value = calendars.value.items.find(item => item.calendarId === selected.value?.calendarId) ?? selected.value;
+    }
   } catch (error) {
     calendars.value = emptyPage();
     ElMessage.error(message(error));
@@ -256,13 +261,13 @@ async function saveDraft() {
 }
 
 async function transition(calendar: CalendarIdentity, action: 'activate' | 'publish') {
-  const { value } = await ElMessageBox.prompt(
-    action === 'publish' ? '请输入发布原因（至少 8 个字符）' : '请输入激活原因（至少 8 个字符）',
-    action === 'publish' ? '发布日历版本' : '激活日历版本',
-    { inputValidator: text => Boolean(text && text.trim().length >= 8) || '原因至少 8 个字符' },
-  );
-  const version = calendar.activeVersion ?? Math.max(1, versionNumber.value);
   try {
+    const { value } = await ElMessageBox.prompt(
+      action === 'publish' ? '请输入发布原因（至少 8 个字符）' : '请输入激活原因（至少 8 个字符）',
+      action === 'publish' ? '发布日历版本' : '激活日历版本',
+      { inputValidator: text => Boolean(text && text.trim().length >= 8) || '原因至少 8 个字符' },
+    );
+    const version = slaTransitionVersion(calendar.calendarId, calendar.activeVersion, selected.value?.calendarId, versionNumber.value);
     if (action === 'publish') {
       await publishCalendarVersion(calendar, version, { reason: value });
       ElMessage.success(`日历版本 v${version} 已发布`);
@@ -272,6 +277,7 @@ async function transition(calendar: CalendarIdentity, action: 'activate' | 'publ
     }
     await loadCalendars();
   } catch (error) {
+    if (error === 'cancel' || error === 'close') return;
     ElMessage.error(message(error));
   }
 }

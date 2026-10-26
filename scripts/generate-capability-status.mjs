@@ -292,7 +292,7 @@ function renderCompatibilityMarkdown(manifest, flyway, derivedRuntime) {
     .map(protocol => `| ${escapeCell(protocol.name)} | ${escapeCell(protocol.version)} | ${escapeCell(protocol.rule)} |`)
     .join('\n');
   const migrationRows = flyway.migrations
-    .filter(migration => [2, 38, 49, 50].includes(migration.version))
+    .filter(migration => [2, 38, 49, 50, 51].includes(migration.version))
     .map(migration => `| V${migration.version} | ${migration.type.toUpperCase()} | \`${migration.path}\` |`)
     .join('\n');
 
@@ -335,7 +335,7 @@ function buildStatusJson(manifest, flyway, derivedRuntime) {
       count: flyway.count,
       locations: flyway.locations,
       versions: flyway.migrations.map(migration => migration.version),
-      keyMigrations: flyway.migrations.filter(migration => [2, 38, 49, 50].includes(migration.version)),
+      keyMigrations: flyway.migrations.filter(migration => [2, 38, 49, 50, 51].includes(migration.version)),
     },
     runtime: [...derivedRuntime, ...manifest.runtime],
     protocols: manifest.protocols,

@@ -5,6 +5,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalTaskCollaborationSto
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -16,6 +18,22 @@ import java.util.UUID;
 
 @RestControllerAdvice(assignableTypes = ApprovalTaskCollaborationController.class)
 public class ApprovalTaskCollaborationApiExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "APPROVAL_TASK_COLLABORATION_INVALID_REQUEST", "request input is invalid", false, request);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    ResponseEntity<ApiError> methodValidation(
+        HandlerMethodValidationException exception,
+        HttpServletRequest request
+    ) {
+        if (exception.isForReturnValue()) {
+            return unexpected(exception, request);
+        }
+        return response(400, "APPROVAL_TASK_COLLABORATION_INVALID_REQUEST", "request input is invalid", false, request);
+    }
 
     @ExceptionHandler(ApprovalTaskCollaborationStore.CollaborationValidationException.class)
     ResponseEntity<ApiError> governedValidation(

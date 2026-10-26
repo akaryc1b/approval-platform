@@ -3,6 +3,56 @@ import type { IconifyIconStructure } from '@vben/icons';
 // Exact pinned SVG data for the governed approval shell and paired sidebar state.
 // Source, family licenses and retained-response comparison: local-icons.NOTICE.md.
 export const approvalShellIcons = {
+  "lucide:git-branch-plus": {
+    "left": 0,
+    "top": 0,
+    "width": 24,
+    "height": 24,
+    "rotate": 0,
+    "hFlip": false,
+    "vFlip": false,
+    "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"M6 3v12m12-6a3 3 0 1 0 0-6a3 3 0 0 0 0 6M6 21a3 3 0 1 0 0-6a3 3 0 0 0 0 6\"/><path d=\"M15 6a9 9 0 0 0-9 9m12 0v6m3-3h-6\"/></g>"
+  },
+  "lucide:layout-template": {
+    "left": 0,
+    "top": 0,
+    "width": 24,
+    "height": 24,
+    "rotate": 0,
+    "hFlip": false,
+    "vFlip": false,
+    "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><rect width=\"18\" height=\"7\" x=\"3\" y=\"3\" rx=\"1\"/><rect width=\"9\" height=\"7\" x=\"3\" y=\"14\" rx=\"1\"/><rect width=\"5\" height=\"7\" x=\"16\" y=\"14\" rx=\"1\"/></g>"
+  },
+  "lucide:user-round-cog": {
+    "left": 0,
+    "top": 0,
+    "width": 24,
+    "height": 24,
+    "rotate": 0,
+    "hFlip": false,
+    "vFlip": false,
+    "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"m14.305 19.53l.923-.382m0-2.296l-.923-.383m2.547-1.241l-.383-.923m.383 6.467l-.383.924m2.679-6.468l.383-.923m-.001 7.391l-.382-.924M2 21a8 8 0 0 1 10.434-7.62m8.338 3.472l.924-.383m-.924 2.679l.924.383\"/><circle cx=\"10\" cy=\"8\" r=\"5\"/><circle cx=\"18\" cy=\"18\" r=\"3\"/></g>"
+  },
+  "lucide:calendar-clock": {
+    "left": 0,
+    "top": 0,
+    "width": 24,
+    "height": 24,
+    "rotate": 0,
+    "hFlip": false,
+    "vFlip": false,
+    "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"M16 14v2.2l1.6 1M16 2v4m5 1.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5M3 10h5m0-8v4\"/><circle cx=\"16\" cy=\"16\" r=\"6\"/></g>"
+  },
+  "lucide:timer-reset": {
+    "left": 0,
+    "top": 0,
+    "width": 24,
+    "height": 24,
+    "rotate": 0,
+    "hFlip": false,
+    "vFlip": false,
+    "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"M10 2h4m-2 12v-4m-8 3a8 8 0 0 1 8-7a8 8 0 1 1-5.3 14L4 17.6\"/><path d=\"M9 17H4v5\"/></g>"
+  },
   "ep:expand": {
     "left": 0,
     "top": 0,

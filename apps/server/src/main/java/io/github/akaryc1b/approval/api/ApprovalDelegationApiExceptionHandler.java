@@ -6,6 +6,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -20,6 +21,11 @@ import java.util.UUID;
     ApprovalTaskDelegationController.class
 })
 public class ApprovalDelegationApiExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "APPROVAL_DELEGATION_INVALID_REQUEST", "request input is invalid", false, request);
+    }
 
     @ExceptionHandler({
         HttpMessageNotReadableException.class,

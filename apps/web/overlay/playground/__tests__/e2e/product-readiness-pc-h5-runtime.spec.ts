@@ -1,7 +1,11 @@
+import { runFormPackageLifecycle } from './product-readiness-pc-form-package';
+import { runProcessDesignLifecycle } from './product-readiness-pc-process-design';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
+import { runAdminCalendarLifecycle } from './product-readiness-pc-admin-calendar';
+import { runDelegationLifecycle } from './product-readiness-pc-delegation';
 import { runBusinessLifecycle } from './product-readiness-pc-h5-runtime-business';
 import { runCollaborationNotificationRegression } from './product-readiness-pc-h5-collaboration';
 import { testCaptureBudget } from './product-readiness-capture-budget';
@@ -726,3 +730,20 @@ for (const highAmount of [false, true]) {
     await runBusinessLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt), highAmount);
   });
 }
+
+// Administrative/participant flows use the same disposable backend, not API mocks.
+test('PC delegation validates, cancels, creates, filters and revokes with persisted actor isolation', async ({ browser, request }, testInfo) => {
+  await runDelegationLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt));
+});
+
+test('PC administrator creates and versions calendars and SLA policies through real UI', async ({ browser, request }, testInfo) => {
+  await runAdminCalendarLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt));
+});
+
+// Unique artifacts remain confined to the disposable test backend; no deployment occurs.
+test('PC form package and process designer preserve edits and publish immutable artifacts', async ({ browser, request }, testInfo) => {
+  const budget = testCaptureBudget(testInfo, captureStartedAt);
+  const form = await runFormPackageLifecycle(browser, request, budget, testInfo);
+  const process = await runProcessDesignLifecycle(browser, request, budget, form.key, testInfo);
+  await testInfo.attach('form-process-lifecycle', { body: JSON.stringify({ form, process }), contentType: 'application/json' });
+});

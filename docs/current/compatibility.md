@@ -29,7 +29,7 @@
 
 ## Flyway compatibility
 
-仓库自有组合迁移路径从 `V2` 连续至 `V50`，共 49 个版本。生成器同时识别 SQL、Java migration 和附加资源位置。关键跨位置版本如下：
+仓库自有组合迁移路径从 `V2` 连续至 `V51`，共 50 个版本。生成器同时识别 SQL、Java migration 和附加资源位置。关键跨位置版本如下：
 
 | Version | Type | Governed path |
 | --- | --- | --- |
@@ -37,6 +37,7 @@
 | V38 | JAVA | `server-modules/approval-persistence-jdbc/src/main/java/db/migration/V38__Create_immutable_process_migration_plans.java` |
 | V49 | SQL | `server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V49__create_ai_approval_assistance_durable_evidence.sql` |
 | V50 | SQL | `server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/V50__create_ai_controlled_automation_lineage.sql` |
+| V51 | SQL | `server-modules/approval-persistence-jdbc/src/main/resources/db/migration/V51__preserve_migration_epoch_microsecond_precision.sql` |
 
 Flyway migration 一经合并或应用不得重写。备份与恢复必须保持平台表和 Flowable 表处于同一恢复点。
 

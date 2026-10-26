@@ -4,6 +4,8 @@ import io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore.Ex
 import io.github.akaryc1b.approval.application.port.ApprovalSlaExecutionStore.ExecutionNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -19,6 +21,22 @@ public class ApprovalSlaExecutionApiExceptionHandler {
 
     public ApprovalSlaExecutionApiExceptionHandler(Clock approvalClock) {
         this.clock = approvalClock;
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "INVALID_REQUEST", "request input is invalid", false, request);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    ResponseEntity<ApiError> methodValidation(
+        HandlerMethodValidationException exception,
+        HttpServletRequest request
+    ) {
+        if (exception.isForReturnValue()) {
+            return unexpected(exception, request);
+        }
+        return response(400, "INVALID_REQUEST", "request input is invalid", false, request);
     }
 
     @ExceptionHandler(ExecutionNotFoundException.class)

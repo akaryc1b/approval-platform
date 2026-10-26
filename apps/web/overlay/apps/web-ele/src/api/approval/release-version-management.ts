@@ -331,9 +331,24 @@ export function diffApprovalReleaseVersions(
   );
 }
 
-export function preflightApprovalDeployment(input: ApprovalDeploymentPreflightInput) {
+export function approvalDeploymentReason(value: string) {
+  const normalized = value.normalize('NFKC').trim();
+  const length = Array.from(normalized).length;
+  if (length < 8 || length > 512) throw new Error('部署原因必须包含 8–512 个字符');
+  // The server rejects UTF-16 surrogate code units, including supplementary pairs.
+  if (/[\u0000-\u001F\u007F-\u009F\u2028\u2029\uD800-\uDFFF]/.test(normalized)) {
+    throw new Error('部署原因包含不支持的控制字符');
+  }
+  return normalized;
+}
+
+export function preflightApprovalDeployment(input: ApprovalDeploymentPreflightInput, reason: string) {
   return approvalRequest<ApprovalPreflightReport>('/approval/preflight/deployment', {
     body: JSON.stringify(input),
+    headers: {
+      ...approvalCommandHeaders('approval-deployment-preflight'),
+      'X-Approval-Operation-Reason': approvalDeploymentReason(reason),
+    },
     method: 'POST',
   });
 }
@@ -342,12 +357,16 @@ export function deployApprovalReleasePackage(
   definitionKey: string,
   releaseVersion: number,
   input: ApprovalReleaseDeploymentInput,
+  reason: string,
 ) {
   return approvalRequest<ApprovalDeploymentResult>(
     `/approval/release-packages/${encodeURIComponent(definitionKey)}/${releaseVersion}/deployment`,
     {
       body: JSON.stringify(input),
-      headers: approvalCommandHeaders('approval-release-deploy'),
+      headers: {
+        ...approvalCommandHeaders('approval-release-deploy'),
+        'X-Approval-Operation-Reason': approvalDeploymentReason(reason),
+      },
       method: 'POST',
     },
   );

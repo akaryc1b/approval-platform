@@ -6,7 +6,7 @@ import type {
 } from '#/api/approval/delegations';
 import type { ApprovalIdentityCandidate } from '#/api/approval/identities';
 
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import {
@@ -55,6 +55,8 @@ const saving = ref(false);
 const dialogOpen = ref(false);
 const includeRevoked = ref(false);
 const candidateLoading = ref(false);
+let candidateRequest = 0;
+let rulesRequest = 0;
 const candidates = ref<ApprovalIdentityCandidate[]>([]);
 const rules = ref<DelegationRule[]>([]);
 const form = reactive<DelegationForm>(emptyForm());
@@ -134,26 +136,32 @@ function statusType(rule: DelegationRule): TagType {
 }
 
 async function loadCandidates(keyword = '') {
+  const request = ++candidateRequest;
   candidateLoading.value = true;
   try {
-    candidates.value = await findApprovalIdentityCandidates(keyword, 30);
+    const result = await findApprovalIdentityCandidates(keyword, 30);
+    if (request === candidateRequest) candidates.value = result;
   } catch (error) {
+    if (request !== candidateRequest) return;
     candidates.value = [];
     ElMessage.error(errorMessage(error));
   } finally {
-    candidateLoading.value = false;
+    if (request === candidateRequest) candidateLoading.value = false;
   }
 }
 
 async function loadRules() {
+  const request = ++rulesRequest;
   loading.value = true;
   try {
-    rules.value = await findDelegationRules(includeRevoked.value);
+    const result = await findDelegationRules(includeRevoked.value);
+    if (request === rulesRequest) rules.value = result;
   } catch (error) {
+    if (request !== rulesRequest) return;
     rules.value = [];
     ElMessage.error(errorMessage(error));
   } finally {
-    loading.value = false;
+    if (request === rulesRequest) loading.value = false;
   }
 }
 
@@ -239,6 +247,10 @@ async function revoke(rule: DelegationRule) {
 
 watch(includeRevoked, () => void loadRules());
 onMounted(() => void loadRules());
+onUnmounted(() => {
+  candidateRequest += 1;
+  rulesRequest += 1;
+});
 </script>
 
 <template>

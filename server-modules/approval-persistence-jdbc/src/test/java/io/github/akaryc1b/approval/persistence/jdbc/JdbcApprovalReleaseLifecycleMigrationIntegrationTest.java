@@ -37,7 +37,7 @@ class JdbcApprovalReleaseLifecycleMigrationIntegrationTest {
             .locations("classpath:db/migration").load();
         latest.migrate();
 
-        assertEquals("50", latest.info().current().getVersion().getVersion());
+        assertEquals("51", latest.info().current().getVersion().getVersion());
         assertTrue(latest.validateWithResult().validationSuccessful);
         assertEquals(0, jdbc.queryForObject(
             "select count(*) from ap_process_migration_plan_consumption",
