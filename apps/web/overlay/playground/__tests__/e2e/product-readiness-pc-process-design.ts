@@ -1,3 +1,4 @@
+import { captureFailurePhase } from './product-readiness-capture-diagnostics';
 /** Exercises reactive designer state with delayed delivery of a REAL backend save. */
 import { randomUUID } from 'node:crypto';
 import type { APIRequestContext, Browser, Locator, Page, TestInfo } from '@playwright/test';
@@ -8,7 +9,8 @@ import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
 const button = (scope: Locator | Page, name: string) => scope.getByRole('button', { name, exact: true });
 const item = (scope: Locator | Page, name: string) => scope.locator(`.el-form-item:has(.el-form-item__label:text-is(${JSON.stringify(name)}))`);
 type Draft = { draftId: string; revision: number; name: string; status: string; definitionKey: string };
-export async function runProcessDesignLifecycle(browser: Browser, request: APIRequestContext, budget: CaptureBudget, key: string, evidence: Pick<TestInfo, 'attach'>) {
+export async function runProcessDesignLifecycle(browser: Browser, request: APIRequestContext, budget: CaptureBudget, key: string, evidence: Pick<TestInfo, 'attach' | 'annotations'>) {
+  const phase = captureFailurePhase(evidence); phase.enter('PC_DESIGNER_SETUP');
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 1600, height: 1000 } });
   const page = await context.newPage(); page.setDefaultTimeout(budget.remaining(15_000));
   let releaseSave: (() => void) | undefined;
@@ -34,6 +36,7 @@ export async function runProcessDesignLifecycle(browser: Browser, request: APIRe
     await page.getByRole('option', { name: '采购付款模板', exact: true }).click();
     await item(create, '流程标识').getByRole('textbox').fill(key);
     await item(create, '流程名称').getByRole('textbox').fill(key);
+    phase.enter('PC_DESIGNER_CREATE');
     const draft = await command<Draft>('POST', '/process-design-drafts', () => button(create, '创建').click());
     await expect(create).toBeHidden();
     expect(draft.definitionKey).toBe(key);
@@ -50,6 +53,7 @@ export async function runProcessDesignLifecycle(browser: Browser, request: APIRe
     let fetchedSave!: () => void;
     const savedOnServer = new Promise<void>(resolve => { fetchedSave = resolve; });
     const delivery = new Promise<void>(resolve => { releaseSave = resolve; });
+    phase.enter('PC_DESIGNER_SAVE_RACE');
     await page.route(`**/api/approval${path}`, async route => {
       if (route.request().method() !== 'PUT') { await route.continue(); return; }
       saves += 1;
@@ -78,6 +82,7 @@ export async function runProcessDesignLifecycle(browser: Browser, request: APIRe
     expect(saves).toBe(2);
     await evidence.attach('designer-newer-edit-saved', { body: await page.screenshot({ timeout: budget.remaining(10_000) }), contentType: 'image/png' });
     await page.unroute(`**/api/approval${path}`);
+    phase.enter('PC_DESIGNER_PREFLIGHT');
     const missingReason = await request.post(`${backendOrigin}/api/approval/preflight/publication`, {
       headers: { ...headers(), 'Idempotency-Key': randomUUID() },
       data: { definitionKey: key, draftId: draft.draftId, expectedRevision: (await read()).revision, deploymentTarget: 'default', targetDefinitionVersion: 1, targetReleaseVersion: 1, scenario: { formValues: { amount: 100 }, decisions: {}, maxTransitions: 200 } },
@@ -96,6 +101,7 @@ export async function runProcessDesignLifecycle(browser: Browser, request: APIRe
     const secondPreflight = await command<{ publishable: boolean; errors: unknown[] }>('POST', '/preflight/publication', () => button(page.locator('.toolbar'), '发布').click());
     expect(secondPreflight, JSON.stringify(secondPreflight)).toMatchObject({ publishable: true, errors: [] });
     await expect(confirm).toBeVisible();
+    phase.enter('PC_DESIGNER_PUBLISH');
     const published = await command('POST', `${path}/publish`, () => confirm.getByRole('button', { name: /^(确认发布|确认警告并发布)$/ }).click());
     await expect.poll(async () => (await read()).status, { timeout: budget.remaining(10_000) }).toBe('PUBLISHED');
     await evidence.attach('designer-published', { body: await page.screenshot({ timeout: budget.remaining(10_000) }), contentType: 'image/png' });

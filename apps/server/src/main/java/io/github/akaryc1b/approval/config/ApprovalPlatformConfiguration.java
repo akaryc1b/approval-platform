@@ -17,6 +17,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
 import io.github.akaryc1b.approval.application.port.ApprovalCommentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
+import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalParticipationQuery;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
@@ -199,6 +200,7 @@ public class ApprovalPlatformConfiguration {
         PurchasePaymentAssigneeResolver assigneeResolver,
         ApprovalBusinessEventOutbox businessEventOutbox,
         ApprovalEffectiveReleaseStore approvalEffectiveReleaseStore,
+        ApprovalReleasePackageStore releasePackages,
         Clock approvalClock
     ) {
         return new PurchasePaymentApplicationService(
@@ -210,6 +212,7 @@ public class ApprovalPlatformConfiguration {
             assigneeResolver,
             businessEventOutbox,
             approvalEffectiveReleaseStore,
+            releasePackages,
             approvalClock,
             UUID::randomUUID
         );

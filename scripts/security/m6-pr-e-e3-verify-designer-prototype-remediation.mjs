@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readDesignerPrototypeSourceContinuation, PRIOR_PROTOTYPE_PLAN, PROTOTYPE_SOURCE_PATH } from './designer-prototype-source-continuation.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { requireCompleteCurrentE4 } from './scanner-evidence-provenance.mjs';
@@ -26,6 +27,19 @@ export function readDesignerPrototypeRemediationPlan() {
   requireCanonical(plan, 'prototype remediation plan');
   requireValue(plan.contentSha256 === PLAN_SHA256, 'unreviewed prototype remediation plan');
   return plan;
+}
+
+export function readDesignerPrototypeCurrentArtifacts() {
+  const plan = readDesignerPrototypeRemediationPlan();
+  const continuation = readDesignerPrototypeSourceContinuation();
+  requireValue(plan.contentSha256 === PRIOR_PROTOTYPE_PLAN && continuation.priorPlanCanonicalSha256 === plan.contentSha256, 'prototype prior plan binding required');
+  for (const [path, prior] of Object.entries(plan.reviewedArtifacts)) {
+    requireValue(path === PROTOTYPE_SOURCE_PATH
+      ? prior.blobSha === continuation.priorSourceBlobSha
+      : canonicalPrototypeEvidence(prior) === canonicalPrototypeEvidence(continuation.reviewedArtifacts[path]),
+    'prototype original reviewed artifact continuity required');
+  }
+  return continuation.reviewedArtifacts;
 }
 
 function requireHistoricalReview(plan, review) {
@@ -74,22 +88,25 @@ function requireCurrentScan(e4, plan) {
 }
 
 function receipt(e4, plan) {
+  const sourceContinuation = readDesignerPrototypeSourceContinuation();
+  const reviewedArtifacts = readDesignerPrototypeCurrentArtifacts();
   const old = plan.historicalFinding;
   const payload = stable({
-    schemaVersion: 'M6_PR_E_E3_DESIGNER_PROTOTYPE_REMEDIATION_EVIDENCE_V1',
+    schemaVersion: 'M6_PR_E_E3_DESIGNER_PROTOTYPE_REMEDIATION_EVIDENCE_V2',
     repository: e4.repository,
     commitSha: e4.commitSha,
     sourceE4CanonicalSha256: e4.contentSha256,
     planCanonicalSha256: plan.contentSha256,
     historicalReviewCanonicalSha256: plan.historicalReviewCanonicalSha256,
-    reviewedArtifacts: plan.reviewedArtifacts,
+    reviewedArtifacts,
+    sourceContinuation,
     semgrepExecutionIdentity: plan.semgrepExecutionIdentity,
     semgrepTargetCoverage: e4.scanners.semgrep.coverage,
     scannedCheckout: e4.checkout,
     remediatedFindings: [{
       ...old,
       currentStatus: 'REMEDIATED_BY_RESERVED_KEY_VALIDATION_AND_ABSENT_FROM_CURRENT_SEMGREP_RULE_PATH',
-      correctedSourceBlobSha: plan.reviewedArtifacts[old.sourcePath].blobSha,
+      correctedSourceBlobSha: reviewedArtifacts[old.sourcePath].blobSha,
       regressionTestBlobSha: plan.reviewedArtifacts['scripts/tests/approval-designer-conflict.test.mjs'].blobSha,
       sourceE4CanonicalSha256: e4.contentSha256,
       planCanonicalSha256: plan.contentSha256,
@@ -117,7 +134,7 @@ export function verifyDesignerPrototypeRemediation(e4, snapshot) {
   'prototype remediation exact Head/scan binding required');
   requireValue(Array.isArray(snapshot.suppressionPathsPresent) && snapshot.suppressionPathsPresent.length === 0,
     'prototype remediation suppression paths prohibited');
-  for (const [path, expected] of Object.entries(plan.reviewedArtifacts)) {
+  for (const [path, expected] of Object.entries(readDesignerPrototypeCurrentArtifacts())) {
     const actual = snapshot.currentSources?.[path];
     requireValue(actual && typeof actual.content === 'string' && actual.commitSha === e4.commitSha
       && actual.headBlobSha === expected.blobSha && actual.blobSha === expected.blobSha

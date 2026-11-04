@@ -30,7 +30,7 @@ class M6ConnectorFoundationBoundaryTest {
     @Test
     void connectorSliceOwnsNoMigrationAndRecognizesOnlyGovernedM6EV49()
         throws IOException {
-        List<Path> migrations = filesUnder(ROOT).stream()
+        List<Path> migrations = GovernedV51Migration.historical(ROOT, filesUnder(ROOT)).stream()
             .filter(path -> path.toString().replace('\\', '/').contains(
                 "/src/main/resources/db/migration/"
             ))

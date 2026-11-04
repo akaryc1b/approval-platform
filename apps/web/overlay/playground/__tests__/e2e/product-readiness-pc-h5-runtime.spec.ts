@@ -1,3 +1,5 @@
+import { captureFailurePhase } from './product-readiness-capture-diagnostics';
+import { formProcessReceiptMarkdown } from './product-readiness-form-process-receipt';
 import { runFormPackageLifecycle } from './product-readiness-pc-form-package';
 import { runProcessDesignLifecycle } from './product-readiness-pc-process-design';
 import { readFileSync } from 'node:fs';
@@ -145,6 +147,7 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
   browser,
   request,
 }, testInfo) => {
+  captureFailurePhase(testInfo).enter('RUNTIME_HANDOFF');
   const budget = testCaptureBudget(testInfo, captureStartedAt);
   const startedAt = new Date().toISOString();
   const h5Viewport = (JSON.parse(readFileSync(resolve(
@@ -719,6 +722,7 @@ test('PC manager and H5 finance actors hand off the seeded instance to WeChat pa
 test('PC/H5 collaboration notifications open read-only summaries for a pure participant', async ({
   browser, request,
 }, testInfo) => {
+  captureFailurePhase(testInfo).enter('RUNTIME_COLLABORATION');
   await runCollaborationNotificationRegression(browser, request, testCaptureBudget(testInfo, captureStartedAt));
 });
 
@@ -727,17 +731,19 @@ for (const highAmount of [false, true]) {
     ? 'H5 user initiation at threshold supports manager retrieve and initiator withdrawal'
     : 'H5 user initiation below threshold rejects, edits, resubmits and withdraws through real UI',
   async ({ browser, request }, testInfo) => {
+    captureFailurePhase(testInfo).enter(highAmount ? 'RUNTIME_BUSINESS_HIGH' : 'RUNTIME_BUSINESS_LOW');
     await runBusinessLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt), highAmount);
   });
 }
 
 // Administrative/participant flows use the same disposable backend, not API mocks.
 test('PC delegation validates, cancels, creates, filters and revokes with persisted actor isolation', async ({ browser, request }, testInfo) => {
+  captureFailurePhase(testInfo).enter('PC_DELEGATION');
   await runDelegationLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt));
 });
 
 test('PC administrator creates and versions calendars and SLA policies through real UI', async ({ browser, request }, testInfo) => {
-  await runAdminCalendarLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt));
+  await runAdminCalendarLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt), testInfo);
 });
 
 // Unique artifacts remain confined to the disposable test backend; no deployment occurs.
@@ -745,5 +751,11 @@ test('PC form package and process designer preserve edits and publish immutable 
   const budget = testCaptureBudget(testInfo, captureStartedAt);
   const form = await runFormPackageLifecycle(browser, request, budget, testInfo);
   const process = await runProcessDesignLifecycle(browser, request, budget, form.key, testInfo);
-  await testInfo.attach('form-process-lifecycle', { body: JSON.stringify({ form, process }), contentType: 'application/json' });
+  captureFailurePhase(testInfo).enter('RECEIPT_PUBLICATION');
+  const receipt = formProcessReceiptMarkdown({
+    formKey: form.key, formDraftId: form.draftId, processDraftId: process.draftId,
+    definitionKey: process.definitionKey, packageVersion: form.result.packageVersion,
+    formHash: form.result.formHash, uiSchemaHash: form.result.uiSchemaHash, packageHash: form.result.packageHash,
+  });
+  await testInfo.attach('form-process-lifecycle', { body: receipt, contentType: 'text/markdown' });
 });

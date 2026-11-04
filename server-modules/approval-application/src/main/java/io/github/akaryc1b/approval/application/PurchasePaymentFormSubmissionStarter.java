@@ -6,6 +6,8 @@ import io.github.akaryc1b.approval.connector.model.ExternalId;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
 
+import io.github.akaryc1b.approval.domain.definition.ApprovalEffectiveRelease;
+import java.util.Optional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +77,29 @@ public final class PurchasePaymentFormSubmissionStarter implements FormSubmissio
             result.status().name(),
             result.startedAt()
         );
+    }
+
+    @Override
+    public Optional<ApprovalEffectiveRelease> prepareRelease(RequestContext context, String formKey, int formVersion) {
+        if (!PurchasePaymentTemplate.DEFINITION_KEY.equals(formKey)) return Optional.empty();
+        ApprovalEffectiveRelease release = service.prepareFormRelease(context);
+        if (release.formSchemaVersion() != formVersion) {
+            throw new IllegalArgumentException("requested form version is not the effective release form");
+        }
+        return Optional.of(release);
+    }
+
+    @Override
+    public WorkflowStartResult startBound(RequestContext context, String formKey, int formVersion,
+        String businessKey, Map<String, Object> values, Map<String, Object> startParameters,
+        ApprovalEffectiveRelease release) {
+        if (!PurchasePaymentTemplate.DEFINITION_KEY.equals(formKey) || release.formSchemaVersion() != formVersion) {
+            throw new UnsupportedFormSubmissionException("unsupported bound purchase-payment form");
+        }
+        var result = service.startBound(new PurchasePaymentApplicationService.StartCommand(context, businessKey,
+            requireMoney(values, "amount"), requireText(values, "supplier"), requireText(values, "purchaseOrderReference"),
+            requireStrings(values, "attachments"), rules(startParameters, context.operatorId())), release);
+        return new WorkflowStartResult(result.instanceId(), result.status().name(), result.startedAt());
     }
 
     private static AssigneeRules rules(Map<String, Object> parameters, String operatorId) {

@@ -2,6 +2,7 @@ package io.github.akaryc1b.approval.application;
 
 import io.github.akaryc1b.approval.application.port.ApprovalBusinessEventOutbox;
 import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
+import io.github.akaryc1b.approval.application.port.ApprovalReleasePackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.AssigneeSnapshot;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore.InstanceProjection;
@@ -55,6 +56,7 @@ public final class PurchasePaymentApplicationService {
     private final PurchasePaymentAssigneeResolver assigneeResolver;
     private final ApprovalBusinessEventOutbox businessEventOutbox;
     private final ApprovalEffectiveReleaseStore effectiveReleases;
+    private final ApprovalReleasePackageStore releasePackages;
     private final Clock clock;
     private final Supplier<UUID> identifierGenerator;
 
@@ -123,6 +125,16 @@ public final class PurchasePaymentApplicationService {
         Clock clock,
         Supplier<UUID> identifierGenerator
     ) {
+        this(engine, compiler, idempotencyGuard, projections, auditEvents, assigneeResolver,
+            businessEventOutbox, effectiveReleases, null, clock, identifierGenerator);
+    }
+
+    public PurchasePaymentApplicationService(ApprovalEngine engine, ApprovalDslCompiler compiler,
+        IdempotencyGuard idempotencyGuard, ApprovalProjectionStore projections, AuditEventSink auditEvents,
+        PurchasePaymentAssigneeResolver assigneeResolver, ApprovalBusinessEventOutbox businessEventOutbox,
+        ApprovalEffectiveReleaseStore effectiveReleases, ApprovalReleasePackageStore releasePackages,
+        Clock clock, Supplier<UUID> identifierGenerator) {
+        this.releasePackages = releasePackages;
         this.engine = Objects.requireNonNull(engine, "engine must not be null");
         this.compiler = Objects.requireNonNull(compiler, "compiler must not be null");
         this.idempotencyGuard = Objects.requireNonNull(
@@ -232,7 +244,25 @@ public final class PurchasePaymentApplicationService {
         );
     }
 
+    ApprovalEffectiveRelease prepareFormRelease(RequestContext context) {
+        return effectiveReleases.find(context.tenantId(), PurchasePaymentTemplate.DEFINITION_KEY)
+            .orElseThrow(() -> new IllegalArgumentException("purchase payment has no effective deployed release"));
+    }
+
+    StartResult startBound(StartCommand command, ApprovalEffectiveRelease release) {
+        Objects.requireNonNull(release, "release must not be null");
+        if (!command.context().tenantId().equals(release.tenantId())
+            || !PurchasePaymentTemplate.DEFINITION_KEY.equals(release.definitionKey())) {
+            throw new IllegalArgumentException("bound release does not belong to purchase-payment tenant");
+        }
+        return start(command, release);
+    }
+
     public StartResult start(StartCommand command) {
+        return start(command, null);
+    }
+
+    private StartResult start(StartCommand command, ApprovalEffectiveRelease boundRelease) {
         Objects.requireNonNull(command, "command must not be null");
         validateStart(command);
         projections.findByBusinessKey(command.context().tenantId(), command.businessKey())
@@ -251,6 +281,7 @@ public final class PurchasePaymentApplicationService {
                 );
                 if (existing.isPresent()) {
                     authorizeInitiator(command.context().operatorId(), existing.get());
+                    requireBoundInstance(existing.get(), boundRelease);
                     if (!requestHash.equals(existing.get().requestHash())) {
                         throw new ApprovalProjectionStore.ProjectionConflictException(
                             "business key is already used by a different purchase payment request"
@@ -266,13 +297,14 @@ public final class PurchasePaymentApplicationService {
                     ? assigneeResolver.resolve(command.context(), command.assigneeRules())
                     : command.assignees();
                 validateResolvedAssignees(assignees);
-                ApprovalEffectiveRelease effectiveRelease = effectiveReleases.find(
+                ApprovalEffectiveRelease effectiveRelease = boundRelease != null ? boundRelease : effectiveReleases.find(
                     command.context().tenantId(),
                     PurchasePaymentTemplate.DEFINITION_KEY
                 ).orElseThrow(() -> new IllegalStateException(
                     "purchase payment does not have an effective deployed release"
                 ));
-                boolean legacyStart = effectiveReleases instanceof LegacyEffectiveReleaseStore;
+                if (boundRelease != null) ensureBoundDefinitionProjection(boundRelease);
+                boolean legacyStart = boundRelease == null && effectiveReleases instanceof LegacyEffectiveReleaseStore;
                 UUID instanceId = identifierGenerator.get();
                 Instant now = clock.instant();
                 Map<String, Object> variables = new LinkedHashMap<>();
@@ -397,10 +429,63 @@ public final class PurchasePaymentApplicationService {
             }
         );
         // A concurrent start may become visible only after the idempotency lookup waits.
-        authorizeInitiator(command.context().operatorId(), projections.findInstance(
-            command.context().tenantId(), result.instanceId()
-        ).orElseThrow(ApprovalParticipantResourceNotFoundException::new));
+        InstanceProjection persisted = projections.findInstance(command.context().tenantId(), result.instanceId())
+            .orElseThrow(ApprovalParticipantResourceNotFoundException::new);
+        authorizeInitiator(command.context().operatorId(), persisted);
+        requireBoundInstance(persisted, boundRelease);
         return result;
+    }
+
+    private static void requireBoundInstance(InstanceProjection instance, ApprovalEffectiveRelease release) {
+        if (release != null && (!Objects.equals(instance.releaseVersion(), release.effectiveReleaseVersion())
+            || !Objects.equals(instance.releasePackageHash(), release.releasePackageHash())
+            || instance.formVersion() != release.formSchemaVersion()
+            || !Objects.equals(instance.uiSchemaVersion(), release.uiSchemaVersion())
+            || !Objects.equals(instance.uiSchemaHash(), release.uiSchemaHash()))) {
+            throw new ApprovalProjectionStore.ProjectionConflictException("existing instance has a different immutable release binding");
+        }
+    }
+
+    /** Same transaction as idempotent start; no publication, deployment, or projection overwrite. */
+    private void ensureBoundDefinitionProjection(ApprovalEffectiveRelease release) {
+        if (releasePackages == null) throw new IllegalStateException("release package store is required for bound starts");
+        projections.lockDefinition(release.tenantId(), release.definitionKey(), release.definitionVersion());
+        var artifact = releasePackages.find(release.tenantId(), release.definitionKey(), release.effectiveReleaseVersion())
+            .orElseThrow(() -> new IllegalStateException("bound immutable release package is missing"));
+        boolean exact = artifact.tenantId().equals(release.tenantId())
+            && artifact.definitionKey().equals(release.definitionKey())
+            && artifact.releaseVersion() == release.effectiveReleaseVersion()
+            && artifact.definitionVersion() == release.definitionVersion()
+            && artifact.definitionHash().equals(release.definitionHash())
+            && artifact.packageHash().equals(release.releasePackageHash())
+            && artifact.formPackageVersion() == release.formPackageVersion()
+            && artifact.formPackageHash().equals(release.formPackageHash())
+            && artifact.formVersion() == release.formSchemaVersion()
+            && artifact.formHash().equals(release.formSchemaHash())
+            && artifact.uiSchemaVersion() == release.uiSchemaVersion()
+            && artifact.uiSchemaHash().equals(release.uiSchemaHash())
+            && artifact.compilerVersion().equals(release.compilerVersion())
+            && artifact.compiledArtifactHash().equals(release.compiledArtifactHash())
+            && artifact.bpmnHash().equals(release.bpmnHash())
+            && artifact.deploymentMetadataHash().equals(release.deploymentMetadataHash());
+        if (!exact) throw new IllegalStateException("bound release package differs from captured effective release");
+        PublishedDefinition expected = new PublishedDefinition(release.tenantId(), release.definitionKey(),
+            release.definitionVersion(), release.definitionKey(), release.formSchemaVersion(), release.compilerVersion(),
+            release.definitionHash(), release.engineDeploymentId(), release.engineDefinitionId(), release.engineVersion(),
+            artifact.publishedBy(), artifact.publishedAt());
+        var existing = projections.findDefinition(release.tenantId(), release.definitionKey(), release.definitionVersion());
+        if (existing.isEmpty()) { projections.saveDefinition(expected); return; }
+        PublishedDefinition actual = existing.get();
+        if (!actual.tenantId().equals(expected.tenantId()) || !actual.definitionKey().equals(expected.definitionKey())
+            || actual.definitionVersion() != expected.definitionVersion() || !actual.formKey().equals(expected.formKey())
+            || actual.formVersion() != expected.formVersion() || !actual.compilerVersion().equals(expected.compilerVersion())
+            || !actual.contentHash().equals(expected.contentHash()) || !actual.deploymentId().equals(expected.deploymentId())
+            || !actual.engineDefinitionId().equals(expected.engineDefinitionId()) || actual.engineVersion() != expected.engineVersion()
+            || !actual.publishedBy().equals(expected.publishedBy())
+            || !actual.publishedAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS)
+                .equals(expected.publishedAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS))) {
+            throw new ApprovalProjectionStore.ProjectionConflictException("existing definition projection differs from bound release");
+        }
     }
 
     private static void authorizeInitiator(String operatorId, InstanceProjection instance) {

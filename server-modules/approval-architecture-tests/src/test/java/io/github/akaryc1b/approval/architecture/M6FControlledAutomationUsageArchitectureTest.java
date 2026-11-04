@@ -93,7 +93,7 @@ class M6FControlledAutomationUsageArchitectureTest {
         Path migrationRoot = root.resolve(
             "server-modules/approval-persistence-jdbc/src/main/resources"
         );
-        boolean p6dMigration = Files.walk(migrationRoot)
+        boolean p6dMigration = GovernedV51Migration.historical(root, Files.walk(migrationRoot)).stream()
             .filter(Files::isRegularFile)
             .map(path -> path.getFileName().toString())
             .anyMatch(name -> name.matches("V5[1-9]__.*\\.sql"));

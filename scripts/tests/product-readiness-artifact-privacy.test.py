@@ -416,6 +416,19 @@ class NativeAttachmentTests(unittest.TestCase):
         published, _ = self.publish(entries + [('second.trace', '\n'.join(map(json.dumps, second)) + '\n')])
         self.assertEqual(json.loads(published['second.trace'].splitlines()[-1])['attachments'], attachments)
 
+    def test_form_process_receipt_uses_supported_markdown_not_json_attachment(self):
+        receipt = b'# Isolated form/process artifact receipt\n\n- packageVersion: 1\n- packageHash: ' + b'a' * 64 + b'\n'
+        entries = native_attachment_fixture(markdown=receipt, png=None)
+        unsupported = self.rows(native_attachment_fixture(markdown=b'{"packageVersion":1}', png=None), lambda rows:
+                                rows[-1]['attachments'][0].update(contentType='application/json'))
+        self.reject(unsupported, 'CONTENT_INVALID')
+        published, manifest = self.publish(entries)
+        rows = [json.loads(line) for line in published['test.trace'].splitlines()]
+        attachment = rows[-1]['attachments'][0]
+        self.assertEqual(attachment['contentType'], 'text/markdown')
+        self.assertEqual(published['resources/' + attachment['sha1']], receipt)
+        self.assertEqual(manifest['changedAssertionDiagnostics'], [])
+
     def test_conflicting_or_unsupported_attachment_mime_is_rejected(self):
         def conflict(rows):
             other = dict(rows[-1]['attachments'][0], contentType='image/png')

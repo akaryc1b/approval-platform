@@ -132,6 +132,9 @@ public final class ApprovalAttachmentService {
             if (attachment.instanceId() == null) {
                 return attachment.uploaderId().equals(operatorId);
             }
+            if (!isParticipant(tenantId, operatorId, attachment.instanceId())) {
+                return false;
+            }
             CommentAttachmentAccess access = comments.findAttachmentAccess(
                 tenantId,
                 attachment.instanceId(),
@@ -141,7 +144,7 @@ public final class ApprovalAttachmentService {
             if (access.referenced()) {
                 return access.readable();
             }
-            return isParticipant(tenantId, operatorId, attachment.instanceId());
+            return true;
         });
     }
 

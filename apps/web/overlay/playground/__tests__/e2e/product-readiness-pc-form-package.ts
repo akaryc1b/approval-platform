@@ -1,3 +1,4 @@
+import { captureFailurePhase } from './product-readiness-capture-diagnostics';
 /** Real isolated form authoring; success responses are never fabricated. */
 import { randomUUID } from 'node:crypto';
 import type { APIRequestContext, Browser, Locator, Page, TestInfo } from '@playwright/test';
@@ -9,7 +10,8 @@ import { ensurePcLogin } from './product-readiness-pc-h5-runtime-ui';
 type FormDraft = { draftId: string; formKey: string; revision: number; status: string; formDefinition: { fields: Array<{ key: string; label: string }> } };
 const button = (scope: Locator | Page, name: string) => scope.getByRole('button', { name, exact: true });
 const item = (scope: Locator | Page, name: string) => scope.locator(`.el-form-item:has(.el-form-item__label:text-is(${JSON.stringify(name)}))`);
-export async function runFormPackageLifecycle(browser: Browser, request: APIRequestContext, budget: CaptureBudget, evidence: Pick<TestInfo, 'attach'>) {
+export async function runFormPackageLifecycle(browser: Browser, request: APIRequestContext, budget: CaptureBudget, evidence: Pick<TestInfo, 'attach' | 'annotations'>) {
+  const phase = captureFailurePhase(evidence); phase.enter('PC_FORM_SETUP');
   const key = `browser-form-${randomUUID()}`, changedLabel = `Acceptance amount ${randomUUID()}`;
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 1600, height: 1000 } });
   const page = await context.newPage(); page.setDefaultTimeout(budget.remaining(15_000));
@@ -43,21 +45,25 @@ export async function runFormPackageLifecycle(browser: Browser, request: APIRequ
     await page.getByRole('option', { name: '采购付款模板', exact: true }).click();
     await item(create, '表单名称').getByRole('textbox').fill(key);
     await item(create, '唯一 Key').getByRole('textbox').fill(key);
+    phase.enter('PC_FORM_CREATE');
     const created = await command<FormDraft>('POST', '/form-design-drafts', () => button(create, '创建并打开').click());
     expect(created).toMatchObject({ formKey: key, status: 'DRAFT' });
     await expect(create).toBeHidden();
+    phase.enter('PC_FORM_EDIT');
     const draftPath = `/form-design-drafts/${created.draftId}`;
     await page.locator('.field-node').filter({ has: page.locator('small').filter({ hasText: /^amount$/ }) }).click();
     await item(page, '字段标题').getByRole('textbox').fill(changedLabel);
     await command<FormDraft>('PUT', draftPath, () => button(page.locator('.designer-toolbar'), '保存').click());
     await expect(page.locator('.designer-toolbar')).toContainText('已保存');
     expect((await get<FormDraft>(draftPath)).formDefinition.fields.find(field => field.key === 'amount')?.label).toBe(changedLabel);
+    phase.enter('PC_FORM_PREVIEW');
     const previewData = await command<{ contextKey: string; fieldPermissions: Record<string, string> }>('POST', `${draftPath}/preview`, () => button(page.locator('.designer-toolbar'), '节点预览').click());
     expect(previewData.contextKey).toBe('$start');
     const preview = page.getByRole('dialog', { name: '服务端节点预览', exact: true });
     await expect(preview).toContainText(changedLabel);
     await evidence.attach('form-preview', { body: await page.screenshot({ timeout: budget.remaining(10_000) }), contentType: 'image/png' });
     await preview.locator('.el-dialog__headerbtn').click(); await expect(preview).toBeHidden();
+    phase.enter('PC_FORM_PUBLISH');
     await button(page.locator('.designer-toolbar'), '发布 Package').click();
     const publish = page.getByRole('dialog', { name: '发布不可变 Form Package', exact: true });
     await expect(publish).toBeVisible(); await button(publish, '取消').click(); await expect(publish).toBeHidden();
@@ -86,6 +92,7 @@ export async function runFormPackageLifecycle(browser: Browser, request: APIRequ
     const snapshot = await get<FormDraft>(draftPath); expect(snapshot.status).toBe('PUBLISHED');
     const pkg = await get<Record<string, unknown>>(`/form-packages/${key}/versions/1`);
     expect(pkg).toMatchObject({ formKey: key, packageVersion: 1, packageHash: result.packageHash, formHash: result.formHash, uiSchemaHash: result.uiSchemaHash });
+    phase.enter('PC_FORM_RUNTIME');
     const runtime = await get<{ contextKey: string; definition: { fields: Array<{ key: string; label: string }> }; fieldPermissions: Record<string, string> }>(`/forms/${key}/versions/1/runtime`, 'demo-employee');
     expect(runtime.contextKey).toBe('$start');
     expect(runtime.definition.fields.find(field => field.key === 'amount')?.label).toBe(changedLabel);

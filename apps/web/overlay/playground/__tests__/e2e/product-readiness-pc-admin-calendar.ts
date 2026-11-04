@@ -1,8 +1,9 @@
+import { captureFailurePhase } from './product-readiness-capture-diagnostics';
 /** Real disposable-local-demo admin UI lifecycle; no success response mocks. */
 import { randomUUID } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { APIRequestContext, Browser, Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Browser, Locator, Page, TestInfo } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { CaptureBudget } from './product-readiness-capture-budget';
 import { backendOrigin, evidenceDirectory, exactApprovalApiPath, pcUrl, selectedHeaders, tenantId } from './product-readiness-pc-h5-runtime-api';
@@ -15,7 +16,8 @@ const button = (scope: Page | Locator, name: string) => scope.getByRole('button'
 // Element Plus wraps its controls in real HTML labels on these two maintained pages.
 const input = (scope: Locator, label: string) => scope.locator(`label:text-is(${JSON.stringify(label)})`).locator('input, textarea').first();
 
-export async function runAdminCalendarLifecycle(browser: Browser, request: APIRequestContext, budget: CaptureBudget) {
+export async function runAdminCalendarLifecycle(browser: Browser, request: APIRequestContext, budget: CaptureBudget, evidence: Pick<TestInfo, 'annotations'>) {
+  const phase = captureFailurePhase(evidence); phase.enter('PC_CALENDAR_SETUP');
   const scenario = JSON.parse(readFileSync(resolve(process.env.APPROVAL_DEMO_REPOSITORY_ROOT!,
     'config/demo/purchase-payment-golden-path.json'), 'utf8')) as { directory: { users: Array<{ id: string; roleCodes: string[] }> } };
   const administrators = scenario.directory.users.filter(user => user.roleCodes.includes('APPROVAL_ADMIN'));
@@ -99,6 +101,7 @@ export async function runAdminCalendarLifecycle(browser: Browser, request: APIRe
       expect(denied.status(), 'seeded demo mapping must reject wrong actor/tenant and ignore forged privileges').toBe(403);
     }
     await ensurePcLogin(page);
+    phase.enter('PC_CALENDAR_CREATE');
     await go('/approval/sla/calendars');
     await expect(button(page, '新建日历')).toBeVisible();
     const initial = await read<{ items: Identity[]; total: number }>('/calendars?limit=50&offset=0');
@@ -129,11 +132,13 @@ export async function runAdminCalendarLifecycle(browser: Browser, request: APIRe
     await expect(page.locator('.el-message--error')).toBeVisible();
     await expect(button(editor, '保存草稿')).toBeEnabled();
     await input(editor, '操作原因').fill(reason);
+    phase.enter('PC_CALENDAR_SAVE');
     const draft = await mutation<Version>('PUT', `${calendarPath}/versions/1`, () => button(editor, '保存草稿').click());
     expect(draft).toMatchObject({ calendarVersion: 1, immutable: false, status: 'DRAFT' });
     expect((await read<Version>(`${calendarPath}/versions/1`)).snapshot?.zoneId).toBe('Asia/Shanghai');
     await button(editor, '关闭').click();
     await expect(editor).toBeHidden();
+    phase.enter('PC_CALENDAR_VERSIONS');
     await transition(row, `${calendarPath}/versions/1/publish`, '发布', true);
     expect(await read<Version>(`${calendarPath}/versions/1`)).toMatchObject({ immutable: true, status: 'PUBLISHED' });
     await transition(row, `${calendarPath}/versions/1/activate`, '激活');
@@ -158,6 +163,7 @@ export async function runAdminCalendarLifecycle(browser: Browser, request: APIRe
     expect((await read<Version>(`${calendarPath}/versions/2`)).snapshot?.zoneId).toBe('UTC');
 
     // SLA targets an isolated definition key, not the payment fixture used by sibling tests.
+    phase.enter('PC_POLICY_CREATE');
     await go('/approval/sla/policies');
     await expect(button(page, '新建策略')).toBeVisible();
     await button(page, '新建策略').click();
@@ -180,6 +186,7 @@ export async function runAdminCalendarLifecycle(browser: Browser, request: APIRe
     expect(await mutation<Version>('PUT', `${policyPath}/versions/1`, () => button(editor, '保存草稿').click()))
       .toMatchObject({ policyVersion: 1, immutable: false, status: 'DRAFT', automaticAction: 'NONE' });
     await button(editor, '关闭').click();
+    phase.enter('PC_POLICY_VERSIONS');
     await transition(row, `${policyPath}/versions/1/publish`, '发布', true);
     expect(await read<Version>(`${policyPath}/versions/1`)).toMatchObject({ immutable: true, status: 'PUBLISHED', durationMode: 'NATURAL_TIME', automaticAction: 'NONE' });
     await transition(row, `${policyPath}/versions/1/activate`, '激活');

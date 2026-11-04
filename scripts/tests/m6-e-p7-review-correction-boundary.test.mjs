@@ -1,3 +1,4 @@
+import { assertGovernedV51, governedV51Path } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
@@ -79,7 +80,8 @@ test('P7 review correction preserves migration workflow and authority boundaries
     root,
     'server-modules/approval-persistence-jdbc/src/main/resources/db/migration',
   );
-  const migrations = readdirSync(migrationRoot);
+  assertGovernedV51(root);
+  const migrations = readdirSync(migrationRoot).filter(name => path.join(migrationRoot, name) !== path.join(root, governedV51Path));
   assert.equal(migrations.filter(name => /^V49__/.test(name)).length, 1);
   assert.equal(migrations.some(name => /^V(?:5[0-9]|[6-9][0-9])__/.test(name)), false);
 
