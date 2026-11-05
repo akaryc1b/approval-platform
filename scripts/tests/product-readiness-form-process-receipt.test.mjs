@@ -50,9 +50,9 @@ test('all runtime tests have closed flow phases and new helpers retain operation
   }
 });
 
-// Reverse only diagnostic additions and the trace-proven Select hit-target fix.
+// Reverse only diagnostic additions and the trace-proven Select/Switch hit-target fixes.
 // Every original assertion, wait, cleanup and mutation must remain byte-identical.
-test('delegation wrapper click retains exact accepted assertions and deadlines', () => {
+test('delegation visible control clicks retain exact accepted assertions and deadlines', () => {
   const path = new URL('../../apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-delegation.ts', import.meta.url);
   const current = readFileSync(path, 'utf8');
   const previousClick = "    await candidateField.getByRole('combobox').click();";
@@ -60,8 +60,16 @@ test('delegation wrapper click retains exact accepted assertions and deadlines',
     + "    await expect(candidateField.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');";
   assert.equal(current.split(wrapperClick).length - 1, 1);
   assert.equal(current.includes(previousClick), false);
+  const previousSwitchClick = "    await page.getByRole('switch').click();";
+  const visibleSwitchClick = "    const revokedFilter = page.locator('.header-actions').filter({ hasText: '显示已撤销' }).locator('.el-switch');\n"
+    + "    await expect(revokedFilter.getByRole('switch')).toHaveAttribute('aria-checked', 'false');\n"
+    + "    await revokedFilter.locator('.el-switch__core').click();\n"
+    + "    await expect(revokedFilter.getByRole('switch')).toHaveAttribute('aria-checked', 'true');";
+  assert.equal(current.split(visibleSwitchClick).length - 1, 1);
+  assert.equal(current.includes(previousSwitchClick), false);
   assert.doesNotMatch(current, /force\s*:\s*true|dispatchEvent\(|evaluate\(/);
   const original = current.replace(wrapperClick, previousClick)
+    .replace(visibleSwitchClick, previousSwitchClick)
     .replace("import { captureFailurePhase } from './product-readiness-capture-diagnostics';\n", '')
     .replace('Browser, Response, TestInfo }', 'Browser, Response }')
     .replace(", evidence: Pick<TestInfo, 'annotations'>", '')

@@ -86,7 +86,10 @@ export async function runDelegationLifecycle(browser: Browser, request: APIReque
     expect(await result.json()).toMatchObject({ ruleId, status: 'REVOKED' }); revoked = true;
     await expect(row).toHaveCount(0);
     phase.enter('PC_DELEGATION_FILTER');
-    await page.getByRole('switch').click();
+    const revokedFilter = page.locator('.header-actions').filter({ hasText: '显示已撤销' }).locator('.el-switch');
+    await expect(revokedFilter.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+    await revokedFilter.locator('.el-switch__core').click();
+    await expect(revokedFilter.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
     await expect(row).toContainText('已撤销');
     await expect(row.getByRole('button', { name: '撤销', exact: true })).toHaveCount(0);
     phase.enter('PC_DELEGATION_RELOAD');
