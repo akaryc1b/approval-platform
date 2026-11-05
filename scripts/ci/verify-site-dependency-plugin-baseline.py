@@ -47,6 +47,9 @@ def verify_plugin(plugin, effective=False):
     dependencies = plugin.findall("m:dependencies/m:dependency", NS)
     expected_version = PINS["maven.site.jsoup.version"] if effective else "${maven.site.jsoup.version}"
     expected_deps = [("org.jsoup:jsoup", expected_version)] if name == "maven-site-plugin" else []
+    # Current ordinary owner maintenance adds the same exact fixed BeanUtils pin
+    # to both plugin realms. This is configuration validation, not scan evidence.
+    expected_deps.append(("commons-beanutils:commons-beanutils", "1.11.0"))
     require([(coordinate(item), value(item, "version")) for item in dependencies] == expected_deps,
             f"plugin dependency realm drift: {name}")
     for dependency in dependencies:
@@ -56,7 +59,7 @@ def verify_plugin(plugin, effective=False):
                 and value(dependency, "optional") in ("", "false")
                 and dependency.find("m:exclusions", NS) is None
                 and dependency.find("m:systemPath", NS) is None,
-                "Site jsoup dependency semantics drift")
+                "Site/Dependency dependency semantics drift")
     require(value(plugin, "extensions") in ("", "false")
             and value(plugin, "inherited") in ("", "true"), "plugin inheritance/extension drift")
     if not effective:
@@ -160,6 +163,7 @@ def main():
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--effective-pom", type=Path)
     args = parser.parse_args()
+    args.root = args.root.resolve()
     projects = verify_source(args.root)
     print(f"Site/Dependency source contract verified across {len(projects)} projects; not scanner evidence.")
     if args.effective_pom:

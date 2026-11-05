@@ -55,6 +55,8 @@ const OBSERVATIONS = [
   {"findingId":"eda6c6277ddf6f5e2d49df048e0c481b951919760765963bff6305e02b262906","commit":"49f85c98930a42edf71ce74d8129af9cb8157c84","source":14,"supports":[15],"ancestorOfBase":true,"currentSource":14},
 ];
 const CURRENT = [15,14,17,6,18,2,0,11,16,3,10,9];
+import { COMBINED_OWNER_GRAPH, combinedOwnerReceipt } from './combined-owner-graph-continuation.mjs';
+import { COMBINED_OWNER_POM_SHA256, requireCombinedOwnerSource } from './combined-owner-source.mjs';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const LAYER = 'E3-I2-APPEND-ONLY-GITLEAKS-PUBLIC-HMAC-TEST';
 const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
@@ -81,12 +83,25 @@ function checkedBytes(pin, bytes) {
 }
 // No source/secret bytes enter a receipt, exception, cache, log or tool argument.
 // Re-read original blobs AND current files on every receipt validation.
-function inspectSources() {
+function currentPin(index, e4) {
+  const pin = INPUTS[index];
+  return pin.path === 'pom.xml' && e4?.e2GraphDigest === COMBINED_OWNER_GRAPH
+    ? { ...pin, blobSha: 'd8546750272c8b280c5016aa7639c4dfca05ca4d', sha256: COMBINED_OWNER_POM_SHA256 } : pin;
+}
+function currentGraphBinding(e4) {
+  if (e4?.e2GraphDigest !== COMBINED_OWNER_GRAPH) return null;
+  requireCombinedOwnerSource(ROOT);
+  const receipt = combinedOwnerReceipt({ commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 }, e4.commitSha);
+  requireValue(canonical(receipt) === canonical(e4.e2GraphTransition), 'combined owner current E2 receipt mismatch');
+  return { graphDigest: COMBINED_OWNER_GRAPH, graphReceiptSha256: receipt.contentSha256 };
+}
+function inspectSources(e4) {
+  currentGraphBinding(e4);
   const historical = new Map();
   for (const pin of INPUTS) if (!historical.has(pin.blobSha)) historical.set(pin.blobSha, gitRead(['cat-file', 'blob', pin.blobSha]));
   const texts = INPUTS.map(pin => checkedBytes(pin, historical.get(pin.blobSha)));
   for (const index of CURRENT) {
-    const pin = INPUTS[index], url = new URL(`../../${pin.path}`, import.meta.url), stat = lstatSync(url);
+    const pin = currentPin(index, e4), url = new URL(`../../${pin.path}`, import.meta.url), stat = lstatSync(url);
     requireValue(stat.isFile() && !stat.isSymbolicLink(), 'current input must be a regular file'); checkedBytes(pin, readFileSync(url));
   }
   const values = [];
@@ -150,7 +165,7 @@ function proofReader(proof) {
   return { chain, path, finish: () => requireValue(used.size === rows.size, 'unused Git object rejected') };
 }
 export function verifyGitleaksHmacTestReview(e4, snapshot) {
-  const reviewed = findings(e4); inspectSources();
+  const reviewed = findings(e4); inspectSources(e4);
   requireValue(snapshot?.repository === e4.repository && snapshot.commitSha === e4.commitSha
     && snapshot.currentE4CanonicalSha256 === e4.contentSha256, 'exact E4 binding required');
   const proof = snapshot.proof, reader = proofReader(proof), current = reader.chain(proof.currentCommits, e4.commitSha, HMAC_TEST_REVIEW_BASE);
@@ -159,7 +174,7 @@ export function verifyGitleaksHmacTestReview(e4, snapshot) {
   for (let index = 0; index < CURRENT.length; index++) {
     const row = proof.currentScope[index], pin = INPUTS[CURRENT[index]]; shape(row, ['input', 'acceptedPath', 'currentPath']);
     requireValue(row.input === CURRENT[index], 'current scope identity/order changed');
-    reader.path(row.acceptedPath, BASE_TREE, pin); reader.path(row.currentPath, current[0].tree, pin);
+    reader.path(row.acceptedPath, BASE_TREE, pin); reader.path(row.currentPath, current[0].tree, currentPin(CURRENT[index], e4));
   }
   requireValue(Array.isArray(proof.sources) && proof.sources.length === 12, 'exactly twelve historical sources required');
   const retained = new Set(refHeads());
@@ -176,7 +191,8 @@ export function verifyGitleaksHmacTestReview(e4, snapshot) {
     }
   }
   reader.finish();
-  return seal({ schemaVersion: 'M6_PR_E_E3_GITLEAKS_PUBLIC_HMAC_TEST_REVIEW_V1', repository: e4.repository,
+  return seal({ schemaVersion: e4.e2GraphDigest === COMBINED_OWNER_GRAPH ? 'M6_PR_E_E3_GITLEAKS_PUBLIC_HMAC_TEST_REVIEW_V2' : 'M6_PR_E_E3_GITLEAKS_PUBLIC_HMAC_TEST_REVIEW_V1',
+    ...(e4.e2GraphDigest === COMBINED_OWNER_GRAPH ? { currentOwnerGraph: currentGraphBinding(e4) } : {}), repository: e4.repository,
     commitSha: e4.commitSha, sourceE4CanonicalSha256: e4.contentSha256, reviewBasisCommit: HMAC_TEST_REVIEW_BASE, reviewBasisTree: BASE_TREE,
     retainedFindingCount: 554, retainedFindingsSha256: INVENTORY, findings: reviewed, sources: historicalHmacTestSources(),
     inputPins: INPUTS, currentScope: CURRENT, proof,
@@ -210,7 +226,7 @@ export function hmacTestDecisions(decisions, evidence, apply = false) {
 }
 /** Read-only collector; proof deduplicates authenticated commits/trees, never blobs. */
 export function buildGitleaksHmacTestReviewSnapshot(e4, { root = ROOT, git = spawnSync } = {}) {
-  findings(e4); inspectSources(); const objects = new Map();
+  findings(e4); inspectSources(e4); const objects = new Map();
   const read = (type, sha) => {
     requireValue(['commit', 'tree'].includes(type) && /^[a-f0-9]{40}$/.test(sha || ''), 'Git proof object identity required');
     if (!objects.has(sha)) {
