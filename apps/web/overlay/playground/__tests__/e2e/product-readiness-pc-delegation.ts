@@ -54,7 +54,8 @@ export async function runDelegationLifecycle(browser: Browser, request: APIReque
     await page.getByRole('button', { name: '新建代理', exact: true }).click();
     phase.enter('PC_DELEGATION_SELECT_CANDIDATE');
     const candidateField = dialog.locator('.el-form-item').filter({ hasText: '代理人' }).first();
-    await candidateField.getByRole('combobox').click();
+    await candidateField.locator('.el-select__wrapper').click();
+    await expect(candidateField.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');
     await page.getByRole('option', { name: 'Demo Finance Reviewer（demo-finance-reviewer）', exact: true }).click();
     phase.enter('PC_DELEGATION_VALIDATE_REASON');
     await dialog.getByRole('button', { name: '创建代理', exact: true }).click();

@@ -50,12 +50,18 @@ test('all runtime tests have closed flow phases and new helpers retain operation
   }
 });
 
-// Removing only the reviewed diagnostic additions reconstructs the accepted
-// lifecycle byte-for-byte, including every assertion, wait, cleanup and mutation.
-test('delegation diagnostics retain exact accepted actions, assertions and deadlines', () => {
+// Reverse only diagnostic additions and the trace-proven Select hit-target fix.
+// Every original assertion, wait, cleanup and mutation must remain byte-identical.
+test('delegation wrapper click retains exact accepted assertions and deadlines', () => {
   const path = new URL('../../apps/web/overlay/playground/__tests__/e2e/product-readiness-pc-delegation.ts', import.meta.url);
   const current = readFileSync(path, 'utf8');
-  const original = current
+  const previousClick = "    await candidateField.getByRole('combobox').click();";
+  const wrapperClick = "    await candidateField.locator('.el-select__wrapper').click();\n"
+    + "    await expect(candidateField.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');";
+  assert.equal(current.split(wrapperClick).length - 1, 1);
+  assert.equal(current.includes(previousClick), false);
+  assert.doesNotMatch(current, /force\s*:\s*true|dispatchEvent\(|evaluate\(/);
+  const original = current.replace(wrapperClick, previousClick)
     .replace("import { captureFailurePhase } from './product-readiness-capture-diagnostics';\n", '')
     .replace('Browser, Response, TestInfo }', 'Browser, Response }')
     .replace(", evidence: Pick<TestInfo, 'annotations'>", '')
