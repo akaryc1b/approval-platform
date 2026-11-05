@@ -739,7 +739,7 @@ for (const highAmount of [false, true]) {
 // Administrative/participant flows use the same disposable backend, not API mocks.
 test('PC delegation validates, cancels, creates, filters and revokes with persisted actor isolation', async ({ browser, request }, testInfo) => {
   captureFailurePhase(testInfo).enter('PC_DELEGATION');
-  await runDelegationLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt));
+  await runDelegationLifecycle(browser, request, testCaptureBudget(testInfo, captureStartedAt), testInfo);
 });
 
 test('PC administrator creates and versions calendars and SLA policies through real UI', async ({ browser, request }, testInfo) => {

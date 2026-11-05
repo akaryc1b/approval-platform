@@ -1,3 +1,4 @@
+import { requireLegacyCapturePrototypeContinuation } from './fixtures/legacy-capture-prototype-continuation.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
@@ -85,7 +86,7 @@ test('32 to 70 transition preserves all original 32 decisions and rationale exce
   assert.equal(current.summary.unresolvedCount, before.summary.unresolvedCount);
 });
 
-test('legacy 32 capture, public, expression, I2 and reconciliation outputs preserve accepted canonical bytes', () => {
+function legacy32Outputs() {
   // Hashes were produced from the byte-verified accepted implementation and its
   // complete modeled import/data closure. No finding table is copied here.
   const expected = JSON.parse(read('scripts/tests/fixtures/gitleaks-capture-32-canonical.json'));
@@ -96,7 +97,38 @@ test('legacy 32 capture, public, expression, I2 and reconciliation outputs prese
     expressionReceipt: verifyGitleaksTestExpressionReview(e4, source),
     i2: applyGitleaksTestExpressionReview(currentI2(e4), e4, source),
     reconciliation: reconcileScannerFindingIdentities(e4, prototypeSnapshot(e4), source) };
-  assert.deepEqual(Object.fromEntries(Object.entries(outputs).map(([name, value]) => [name, hash(canonical(value))])), expected);
+  return { e4, outputs, expected };
+}
+
+test('legacy 32 outputs retain frozen bytes under the independently verified current prototype continuation', () => {
+  const { e4, outputs, expected } = legacy32Outputs();
+  const before = canonical(outputs);
+  const proof = requireLegacyCapturePrototypeContinuation(e4, outputs, expected);
+  assert.equal(proof.historicalOnly, true); assert.equal(proof.currentAcceptanceClaimed, false);
+  assert.equal(canonical(outputs), before);
+});
+
+for (const [label, mutate] of [
+  ['altered continuation', o => { o.i2.designerPrototypeRemediation.sourceContinuation.cloneCallSubstitutionCount = 2; }],
+  ['missing current proof', o => { delete o.i2.designerPrototypeRemediation; }],
+  ['forged resealed current proof', o => { o.i2.designerPrototypeRemediation.releaseBlocked = false; o.i2.designerPrototypeRemediation = seal(o.i2.designerPrototypeRemediation); o.i2 = seal(o.i2); }],
+  ['forged resealed reconciliation proof', o => { o.reconciliation.designerPrototypeRemediation.releaseBlocked = false; o.reconciliation.designerPrototypeRemediation = seal(o.reconciliation.designerPrototypeRemediation); }],
+  ['unknown resealed proof field', o => { o.i2.designerPrototypeRemediation.unreviewed = true; o.i2.designerPrototypeRemediation = seal(o.i2.designerPrototypeRemediation); o.i2 = seal(o.i2); }],
+  ['unknown resealed continuation field', o => { o.i2.designerPrototypeRemediation.sourceContinuation.unreviewed = true; o.i2.designerPrototypeRemediation = seal(o.i2.designerPrototypeRemediation); o.i2 = seal(o.i2); }],
+  ['missing output', o => { delete o.expressionReceipt; }],
+  ['extra output', o => { o.unreviewed = { accepted: true }; }],
+  ['missing current source pin', o => { delete o.i2.designerPrototypeRemediation.reviewedArtifacts['package.json']; }],
+  ['missing continuation', o => { delete o.i2.designerPrototypeRemediation.sourceContinuation; }],
+  ['reconciliation continuation drift', o => { o.reconciliation.designerPrototypeRemediation.sourceContinuation.priorSourceBlobSha = '0'.repeat(40); }],
+  ['copied remediation drift', o => { o.i2.remediatedHistoricalFindings[0].correctedSourceBlobSha = '0'.repeat(40); o.i2 = seal(o.i2); }],
+  ['second copied remediation drift', o => { o.i2.historicallyRemediatedFindings[0].correctedSourceBlobSha = '0'.repeat(40); o.i2 = seal(o.i2); }],
+  ['unknown resealed I2 field', o => { o.i2.unreviewed = true; o.i2 = seal(o.i2); }],
+  ['changed unresolved count', o => { o.i2.summary.unresolvedCount++; o.i2 = seal(o.i2); }],
+  ['unknown reconciliation field', o => { o.reconciliation.unreviewed = true; }],
+  ['unrelated receipt drift', o => { o.captureReceipt.currentFindingCount++; }],
+]) test(`legacy32 continuation rejects ${label}`, () => {
+  const { e4, outputs, expected } = legacy32Outputs(); mutate(outputs);
+  assert.throws(() => requireLegacyCapturePrototypeContinuation(e4, outputs, expected));
 });
 
 for (const [label, mutate] of [
