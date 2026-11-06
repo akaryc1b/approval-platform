@@ -1,3 +1,4 @@
+import { COMBINED_OWNER_GRAPH } from './combined-owner-graph-continuation.mjs';
 // Exact local capture fields; historical absolute paths are data, never opened here.
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -27,7 +28,7 @@ const seal = value => stable({ ...value, contentSha256: hash(canonical(value)) }
 export const isLangExecutionDigestPath = path => DOCUMENTS.some(row => row.path === path);
 
 export function requireLangDigestGraph(e4) {
-  if (e4.e2GraphDigest === RESOURCES_FLATTEN_GRAPH) requireResourcesFlattenDigestGraph(e4);
+  if ([RESOURCES_FLATTEN_GRAPH, COMBINED_OWNER_GRAPH].includes(e4.e2GraphDigest)) requireResourcesFlattenDigestGraph(e4);
   else requireValue(e4.e2GraphDigest === ASSEMBLY_ENFORCER_LANG_GRAPH && e4.scanners?.gitleaks?.findingCount === 374,
     'requires the exact Lang graph and all 374 observations');
   // These bounded readers validate the fixed manifest and actual candidate graph.
@@ -86,7 +87,7 @@ export function langDigestFindings(e4, expectedFinding, policy, context = langEx
     { finding: policy, source: { path: field.path } }, findings[0].commit, field)).sort((a,b) => a.findingId.localeCompare(b.findingId));
   requireValue(canonical(findings) === canonical(expected), 'exact field finding identity drift');
   const retained = e4.scanners.gitleaks.findings.filter(row => !isLangExecutionDigestPath(row.path)
-    && !(e4.e2GraphDigest === RESOURCES_FLATTEN_GRAPH && isResourcesFlattenExecutionDigestPath(row.path)));
+    && !([RESOURCES_FLATTEN_GRAPH, COMBINED_OWNER_GRAPH].includes(e4.e2GraphDigest) && isResourcesFlattenExecutionDigestPath(row.path)));
   requireValue(retained.length === 194 && hash(canonical(retained)) === ACCEPTED_LANG_GITLEAKS_194_SHA256,
     'accepted 194 finding identities/order changed');
   return findings;

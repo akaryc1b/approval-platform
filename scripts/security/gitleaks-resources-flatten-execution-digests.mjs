@@ -1,3 +1,4 @@
+import { COMBINED_OWNER_GRAPH, combinedOwnerReceipt } from './combined-owner-graph-continuation.mjs';
 // Exact local capture fields; historical absolute paths are data, never opened here.
 // Reviewed scalar values independently match runtime bytes and equivalent retained
 // Maven artifact bytes; neither hash shape nor a path prefix grants a decision.
@@ -26,10 +27,14 @@ const seal = value => stable({ ...value, contentSha256: hash(canonical(value)) }
 export const isResourcesFlattenExecutionDigestPath = path => DOCUMENTS.some(row => row.path === path);
 
 export function requireResourcesFlattenDigestGraph(e4) {
-  requireValue(e4.e2GraphDigest === RESOURCES_FLATTEN_GRAPH && e4.scanners?.gitleaks?.findingCount === 554,
+  requireValue([RESOURCES_FLATTEN_GRAPH, COMBINED_OWNER_GRAPH].includes(e4.e2GraphDigest) && e4.scanners?.gitleaks?.findingCount === 554,
     'requires the exact Resources/Flatten graph and all 554 observations');
   // These bounded readers validate the fixed manifest and actual candidate graph.
   // They do not invoke complete graph/source/scanner admission or retain a cache.
+  if (e4.e2GraphDigest === COMBINED_OWNER_GRAPH) {
+    const receipt = combinedOwnerReceipt({ commitSha: e4.commitSha, contentSha256: e4.e2CurrentContentSha256 }, e4.commitSha);
+    requireValue(canonical(receipt) === canonical(e4.e2GraphTransition), 'combined owner current graph receipt mismatch');
+  }
   const manifest = readResourcesFlattenManifest();
   readResourcesFlattenCandidate(manifest);
   return manifest;

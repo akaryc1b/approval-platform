@@ -11,6 +11,15 @@ import json
 import os
 from pathlib import Path
 import stat
+from runpy import run_path
+
+_combined_path = Path(__file__).with_name('combined_owner_source.py')
+if (_combined_path.is_symlink() or not _combined_path.is_file()
+        or hashlib.sha256(_combined_path.read_bytes()).hexdigest() != '7e6a87c7d32d2dd68f95900f75dc04238488c9aa1aead84f0ac11ba9cd1f6b8c'):
+    raise ValueError('Combined owner reversal helper identity mismatch')
+_combined = run_path(str(_combined_path))
+COMBINED_POM = _combined['COMBINED_POM']
+reverse_combined_owner_source = _combined['reverse_combined_owner_source']
 
 CURRENT_POM = '92694a65be5d42493864470184469b465df8107bfd98388b8b0db15292c54c7f'
 PRIOR_POM = '26f93ea126fad31dad2646d84ca6945b68e68c277396bf37cf4f9cf815a11629'
@@ -182,11 +191,12 @@ def checked_source_pair(source):
     bytes even when the root is historical, before any root-only fast path.
     """
     raw = checked(source, 'pom.xml')
-    if digest(raw) == RF_POM:
+    if digest(raw) in (RF_POM, COMBINED_POM):
+        normalized = reverse_combined_owner_source(raw) if digest(raw) == COMBINED_POM else raw
         sdk = checked(source, SDK_PATH, RF_SDK_POM)
         root_original = checked(source, LANG_ARCHIVE, LANG_POM)
         sdk_original = checked(source, SDK_ARCHIVE, SDK_POM)
-        require(reverse_resources_flatten('pom.xml', raw) == root_original
+        require(reverse_resources_flatten('pom.xml', normalized) == root_original
                 and reverse_resources_flatten(SDK_PATH, sdk) == sdk_original,
                 'Resources/Flatten reversal differs from independent originals')
     else:
@@ -197,6 +207,9 @@ def checked_source_pair(source):
 def reverse_source(raw):
     # Source acceptance must call checked_source_pair; this is pure bytes only.
     identity = digest(raw)
+    if identity == COMBINED_POM:
+        raw = reverse_combined_owner_source(raw)
+        identity = RF_POM
     require(identity in (RF_POM, LANG_POM, CURRENT_POM, PRIOR_POM), 'root bytes changed')
     if identity == RF_POM:
         raw = reverse_resources_flatten('pom.xml', raw)
@@ -222,11 +235,11 @@ def expected_inventory(root, root_sha):
     require(not set(result) & set(HISTORICAL_FILES), 'historical inventory overlap')
     result.update(HISTORICAL_FILES)
     require(len(result) == 50, 'historical closure membership changed')
-    if root_sha in (LANG_POM, RF_POM):
+    if root_sha in (LANG_POM, RF_POM, COMBINED_POM):
         require(JAR_ARCHIVE not in result, 'Lang archive inventory overlap')
         result[JAR_ARCHIVE] = CURRENT_POM
         require(len(result) == 51, 'Lang closure membership changed')
-    if root_sha == RF_POM:
+    if root_sha in (RF_POM, COMBINED_POM):
         require(result.get(SDK_PATH) == SDK_POM and LANG_ARCHIVE not in result
                 and SDK_ARCHIVE not in result, 'Resources/Flatten inventory overlap or SDK baseline drift')
         result[SDK_PATH] = RF_SDK_POM
@@ -255,8 +268,9 @@ def source_inventory(source):
     prior = reverse_source(raw)
     expected = expected_inventory(source, digest(raw))
     check_inventory(source, expected)
-    if digest(raw) in (LANG_POM, RF_POM):
-        lang = reverse_resources_flatten('pom.xml', raw) if digest(raw) == RF_POM else raw
+    if digest(raw) in (LANG_POM, RF_POM, COMBINED_POM):
+        normalized = reverse_combined_owner_source(raw) if digest(raw) == COMBINED_POM else raw
+        lang = reverse_resources_flatten('pom.xml', normalized) if digest(normalized) == RF_POM else normalized
         require(reverse_lang_source(lang) == checked(source, JAR_ARCHIVE, CURRENT_POM),
                 'Lang reversal differs from accepted JAR archive')
     require(prior == checked(source, ARCHIVE, PRIOR_POM), 'reversal differs from accepted archive')
@@ -264,7 +278,13 @@ def source_inventory(source):
 
 
 def projection_identity(root_sha):
-    if root_sha == RF_POM:
+    if root_sha == COMBINED_POM:
+        return {'schemaVersion': 'COMBINED_OWNER_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',
+                'reversalApplied': True, 'combinedOwnerEditCount': 7,
+                'combinedOwnerSourceSha256': COMBINED_POM, 'combinedOwnerPredecessorSha256': RF_POM,
+                'preservedResourcesFlattenProjection': projection_identity(RF_POM),
+                'scope': 'Exact seven owner edits reversed before historical source validation; no current compatibility or vulnerability reproduction claim.'}
+    if root_sha in (RF_POM, COMBINED_POM):
         return {
             'schemaVersion': 'RESOURCES_FLATTEN_RETAINED_ASSEMBLY_SOURCE_VIEW_V1',
             'reversalApplied': True,
@@ -315,13 +335,13 @@ def materialize_accepted_source(source, destination):
     supplied = source_inventory(source)
     destination.mkdir(parents=False, exist_ok=False)
     retained = {**supplied, 'pom.xml': PRIOR_POM}
-    if supplied['pom.xml'] == RF_POM:
+    if supplied['pom.xml'] in (RF_POM, COMBINED_POM):
         retained[SDK_PATH] = SDK_POM
     for name, sha in supplied.items():
         raw = checked(source, name, sha)
         if name == 'pom.xml':
             raw = reverse_source(raw)
-        elif name == SDK_PATH and supplied['pom.xml'] == RF_POM:
+        elif name == SDK_PATH and supplied['pom.xml'] in (RF_POM, COMBINED_POM):
             raw = reverse_resources_flatten(name, raw)
         file = destination / name
         file.parent.mkdir(parents=True, exist_ok=True)
@@ -345,11 +365,11 @@ def verify_projection(projection):
     retained = real_root(projection['retainedSourceRoot'])
     supplied = source_inventory(source)
     expected = {**supplied, 'pom.xml': PRIOR_POM}
-    if supplied['pom.xml'] == RF_POM:
+    if supplied['pom.xml'] in (RF_POM, COMBINED_POM):
         expected[SDK_PATH] = SDK_POM
     identity = projection_identity(supplied['pom.xml'])
     require(all(projection.get(key) == value for key, value in identity.items()
-                if key != 'scope' or supplied['pom.xml'] in (LANG_POM, RF_POM))
+                if key != 'scope' or supplied['pom.xml'] in (LANG_POM, RF_POM, COMBINED_POM))
             and projection['suppliedRootPomSha256'] == supplied['pom.xml']
             and projection['retainedRootPomSha256'] == PRIOR_POM
             and projection['retainedArchivePath'] == ARCHIVE
@@ -363,16 +383,18 @@ def verify_projection(projection):
     require(projection['suppliedSourceHashes'] == supplied and projection['retainedSourceHashes'] == expected,
             'projection inventory changed')
     check_inventory(retained, expected)
-    if supplied['pom.xml'] == RF_POM:
-        require(reverse_resources_flatten('pom.xml', checked(source, 'pom.xml', RF_POM))
+    if supplied['pom.xml'] in (RF_POM, COMBINED_POM):
+        require(reverse_resources_flatten('pom.xml', reverse_combined_owner_source(checked(source, 'pom.xml', COMBINED_POM)) if supplied['pom.xml'] == COMBINED_POM else checked(source, 'pom.xml', RF_POM))
                 == checked(source, LANG_ARCHIVE, LANG_POM) == checked(retained, LANG_ARCHIVE, LANG_POM),
                 'Resources/Flatten root projection reversal changed')
         require(reverse_resources_flatten(SDK_PATH, checked(source, SDK_PATH, RF_SDK_POM))
                 == checked(retained, SDK_PATH, SDK_POM) == checked(source, SDK_ARCHIVE, SDK_POM)
                 == checked(retained, SDK_ARCHIVE, SDK_POM), 'Resources/Flatten SDK projection reversal changed')
-    if supplied['pom.xml'] in (LANG_POM, RF_POM):
+    if supplied['pom.xml'] in (LANG_POM, RF_POM, COMBINED_POM):
         lang = checked(source, 'pom.xml', supplied['pom.xml'])
-        if supplied['pom.xml'] == RF_POM:
+        if supplied['pom.xml'] == COMBINED_POM:
+            lang = reverse_combined_owner_source(lang)
+        if supplied['pom.xml'] in (RF_POM, COMBINED_POM):
             lang = reverse_resources_flatten('pom.xml', lang)
         require(reverse_lang_source(lang)
                 == checked(source, JAR_ARCHIVE, CURRENT_POM) == checked(retained, JAR_ARCHIVE, CURRENT_POM),
