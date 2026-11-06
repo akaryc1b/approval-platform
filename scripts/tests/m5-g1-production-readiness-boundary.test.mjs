@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -81,7 +82,7 @@ function migrationEntries() {
   return [
     ...readdirSync(sqlDirectory).map(name => join(sqlDirectory, name)),
     ...readdirSync(javaDirectory).map(name => join(javaDirectory, name)),
-  ].map(path => {
+  ].filter(historicalMigration).map(path => {
     const name = basename(path);
     const match = name.match(/^V(\d+)__/);
     return match ? { name, version: Number(match[1]) } : null;

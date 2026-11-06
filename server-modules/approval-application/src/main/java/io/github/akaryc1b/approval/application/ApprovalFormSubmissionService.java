@@ -17,6 +17,7 @@ import io.github.akaryc1b.approval.domain.audit.AuditEvent;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.form.FormDefinition;
 
+import io.github.akaryc1b.approval.domain.definition.ApprovalEffectiveRelease;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
@@ -107,23 +108,23 @@ public final class ApprovalFormSubmissionService {
 
     public SubmissionResult submit(SubmissionCommand command) {
         Objects.requireNonNull(command, "command must not be null");
-        submissions.findByBusinessKey(command.context().tenantId(), command.businessKey())
-            .ifPresent(existing -> authorizeSubmitter(
-                command.context().operatorId(), existing.submittedBy()
-            ));
-        StartPlan startPlan = runtimeService == null ? null : runtimeService.validateStart(
-            command.context().tenantId(),
-            command.context().operatorId(),
-            command.formKey(),
-            command.formVersion(),
-            command.values()
-        );
-        PublishedForm form = startPlan == null
-            ? forms.find(command.context().tenantId(), command.formKey(), command.formVersion())
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "published form version was not found"
-                ))
-            : startPlan.form();
+        Optional<FormSubmission> previous = submissions.findByBusinessKey(command.context().tenantId(), command.businessKey());
+        previous.ifPresent(existing -> authorizeSubmitter(command.context().operatorId(), existing.submittedBy()));
+        PublishedForm requested = forms.find(command.context().tenantId(), command.formKey(), command.formVersion())
+            .orElseThrow(() -> new IllegalArgumentException("published form version was not found"));
+        if (previous.isPresent() && (!previous.get().formKey().equals(command.formKey())
+            || previous.get().formVersion() != command.formVersion())) {
+            throw new ApprovalProjectionStore.ProjectionConflictException("business key belongs to a different form binding");
+        }
+        ApprovalEffectiveRelease bound = previous.isPresent() ? null : workflowStarter.prepareRelease(
+            command.context(), command.formKey(), command.formVersion()).orElse(null);
+        StartPlan startPlan = runtimeService == null ? null : previous.isPresent()
+            ? runtimeService.validateStartReplay(command.context().operatorId(), previous.get(), command.values())
+            : bound != null ? runtimeService.validateStartBound(command.context().tenantId(), command.context().operatorId(),
+                command.formKey(), command.formVersion(), command.values(), bound)
+            : runtimeService.validateStart(command.context().tenantId(), command.context().operatorId(),
+                command.formKey(), command.formVersion(), command.values());
+        PublishedForm form = startPlan == null ? requested : startPlan.form();
         NormalizedFormData data = startPlan == null
             ? validator.validate(form.definition(), command.values())
             : startPlan.data();
@@ -140,7 +141,7 @@ public final class ApprovalFormSubmissionService {
             SUBMIT_OPERATION,
             requestHash,
             SubmissionResult.class,
-            () -> submitOnce(command, form, startPlan, data, requestHash)
+            () -> submitOnce(command, form, startPlan, data, requestHash, bound)
         );
         // Also cover cached results that appeared while a concurrent transaction committed.
         authorizeSubmitter(command.context().operatorId(), result.submittedBy());
@@ -161,7 +162,8 @@ public final class ApprovalFormSubmissionService {
         PublishedForm form,
         StartPlan startPlan,
         NormalizedFormData data,
-        String requestHash
+        String requestHash,
+        ApprovalEffectiveRelease bound
     ) {
         Optional<FormSubmission> existing = submissions.findByBusinessKey(
             command.context().tenantId(), command.businessKey()
@@ -176,7 +178,10 @@ public final class ApprovalFormSubmissionService {
             return result(existing.get(), true);
         }
 
-        WorkflowStartResult workflow = workflowStarter.start(
+        WorkflowStartResult workflow = bound != null
+            ? workflowStarter.startBound(command.context(), command.formKey(), command.formVersion(),
+                command.businessKey(), data.values(), command.startParameters(), bound)
+            : workflowStarter.start(
             command.context(),
             command.formKey(),
             command.formVersion(),

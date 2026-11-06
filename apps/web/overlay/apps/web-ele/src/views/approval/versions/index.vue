@@ -44,6 +44,7 @@ import {
 import { copyPublishedApprovalDesignDraft } from '#/api/approval/process-design';
 import {
   APPROVAL_TRANSFER_MAX_FILE_BYTES,
+  approvalDeploymentReason,
   deployApprovalReleasePackage,
   diffApprovalReleaseVersions,
   exportApprovalDefinitionVersion,
@@ -326,11 +327,28 @@ async function deploy(row: ApprovalReleaseVersionSummary) {
   const action = row.deployment?.status === 'FAILED' ? '重试部署' : '部署';
   operationLoading.value = true;
   try {
+    let operationReason: string;
+    try {
+      const { value } = await ElMessageBox.prompt(
+        '请输入本次部署原因（8–512 个字符），该原因将记录到审计证据。',
+        `${action}原因`,
+        {
+          inputValidator: value => {
+            try { approvalDeploymentReason(value); return true; }
+            catch (error) { return message(error); }
+          },
+        },
+      );
+      operationReason = approvalDeploymentReason(value);
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return;
+      throw error;
+    }
     const report = await preflightApprovalDeployment({
       definitionKey: center.value.definitionKey,
       deploymentTarget: 'flowable-primary',
       releaseVersion: row.releaseVersion,
-    });
+    }, operationReason);
     if (!report.deployable || report.errors.length > 0) {
       ElMessage.error(
         `部署前检查存在阻断项：${report.errors.map(item => item.code).join('、')}`,
@@ -363,6 +381,7 @@ async function deploy(row: ApprovalReleaseVersionSummary) {
         deploymentTarget: report.deploymentTarget,
         preflightHash: report.preflightHash,
       },
+      operationReason,
     );
     ElMessage.success(
       result.replayedExistingDeployment ? '已返回现有部署结果' : '部署请求已完成',

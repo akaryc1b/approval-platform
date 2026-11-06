@@ -3,6 +3,8 @@ package io.github.akaryc1b.approval.api;
 import io.github.akaryc1b.approval.application.port.ApprovalNotificationStore;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -15,6 +17,22 @@ import java.util.UUID;
 
 @RestControllerAdvice(assignableTypes = ApprovalNotificationController.class)
 public class ApprovalNotificationApiExceptionHandler {
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class})
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "APPROVAL_NOTIFICATION_INVALID_REQUEST", "request input is invalid", false, request);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    ResponseEntity<ApiError> methodValidation(
+        HandlerMethodValidationException exception,
+        HttpServletRequest request
+    ) {
+        if (exception.isForReturnValue()) {
+            return unexpected(exception, request);
+        }
+        return response(400, "APPROVAL_NOTIFICATION_INVALID_REQUEST", "request input is invalid", false, request);
+    }
 
     @ExceptionHandler({
         HttpMessageNotReadableException.class,

@@ -95,7 +95,7 @@ class M6ProductionSecretMaterialSourceBoundaryTest {
     void p5OwnsNoMigrationAndRecognizesOnlyGovernedM6EV49() throws IOException {
         Pattern flywayVersion = Pattern.compile("V(\\d+)__.*\\.sql");
         List<String> v49 = new ArrayList<>();
-        for (Path migration : filesUnder(ROOT)) {
+        for (Path migration : GovernedV51Migration.historical(ROOT, filesUnder(ROOT))) {
             String normalized = relative(migration);
             if (!normalized.contains("/src/main/resources/db/migration/")
                 || !migration.getFileName().toString().endsWith(".sql")) {

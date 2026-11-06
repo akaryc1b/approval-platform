@@ -11,6 +11,8 @@ import type {
 
 import { computed, reactive, ref } from 'vue';
 
+import { slaDurationText as durationText, slaTransitionVersion, slaVersionIsImmutable } from '#/views/approval/sla-shared/version-selection.mjs';
+
 import { Page } from '@vben/common-ui';
 import {
   ElAlert,
@@ -69,7 +71,7 @@ const form = reactive({
   taskDefinitionKey: '',
 });
 
-const immutable = computed(() => loadedVersion.value?.immutable === true);
+const immutable = computed(() => slaVersionIsImmutable(loadedVersion.value, versionNumber.value));
 const workingTime = computed(() => form.durationMode === 'WORKING_TIME');
 
 function emptyPage(): SlaPolicyPage {
@@ -95,6 +97,9 @@ async function loadPolicies() {
   loading.value = true;
   try {
     policies.value = await findPolicies(PAGE_SIZE, 0);
+    if (selected.value) {
+      selected.value = policies.value.items.find(item => item.policyId === selected.value?.policyId) ?? selected.value;
+    }
   } catch (error) {
     policies.value = emptyPage();
     ElMessage.error(message(error));
@@ -127,10 +132,6 @@ function resetEditor(policy: SlaPolicyIdentity) {
     taskDefinitionKey: '',
   });
   editorVisible.value = true;
-}
-
-function durationText(value?: number | string) {
-  return value === undefined ? '' : String(value);
 }
 
 async function readVersion() {
@@ -226,13 +227,13 @@ async function saveDraft() {
 }
 
 async function transition(policy: SlaPolicyIdentity, action: 'activate' | 'publish') {
-  const { value } = await ElMessageBox.prompt(
-    action === 'publish' ? '请输入发布原因（至少 8 个字符）' : '请输入激活原因（至少 8 个字符）',
-    action === 'publish' ? '发布 SLA 策略' : '激活 SLA 策略',
-    { inputValidator: text => Boolean(text && text.trim().length >= 8) || '原因至少 8 个字符' },
-  );
-  const version = policy.activeVersion ?? Math.max(1, versionNumber.value);
   try {
+    const { value } = await ElMessageBox.prompt(
+      action === 'publish' ? '请输入发布原因（至少 8 个字符）' : '请输入激活原因（至少 8 个字符）',
+      action === 'publish' ? '发布 SLA 策略' : '激活 SLA 策略',
+      { inputValidator: text => Boolean(text && text.trim().length >= 8) || '原因至少 8 个字符' },
+    );
+    const version = slaTransitionVersion(policy.policyId, policy.activeVersion, selected.value?.policyId, versionNumber.value);
     if (action === 'publish') {
       await publishPolicyVersion(policy, version, { reason: value });
       ElMessage.success(`策略版本 v${version} 已发布`);
@@ -242,6 +243,7 @@ async function transition(policy: SlaPolicyIdentity, action: 'activate' | 'publi
     }
     await loadPolicies();
   } catch (error) {
+    if (error === 'cancel' || error === 'close') return;
     ElMessage.error(message(error));
   }
 }

@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
@@ -150,6 +151,7 @@ test('migration and workflow boundaries remain V50 and one automatic workflow', 
     path.join(resourceRoot, 'db/migration'),
     path.join(resourceRoot, 'm6f/db/migration'),
   ].flatMap((directory) => readdirSync(directory))
+    .filter(historicalMigration)
     .map((name) => /^V(\d+)__.+\.sql$/.exec(name))
     .filter(Boolean)
     .map((match) => Number(match[1]));

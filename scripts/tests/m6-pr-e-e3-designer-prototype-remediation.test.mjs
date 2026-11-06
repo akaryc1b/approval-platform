@@ -1,3 +1,4 @@
+import './designer-prototype-source-continuation.test.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -34,7 +35,7 @@ import { syntheticBootUtilitiesOsv } from './fixtures/boot-utilities-fixture.mjs
 import { requireOsvReport, requireGitleaksReport, requireZizmorReport } from '../security/scanner-report-structure.mjs';
 import { normalizeSemgrepReport, DESIGNER_PROTOTYPE_TARGET } from '../security/semgrep-scan-coverage.mjs';
 import { verifyScannerCheckout, requireScannerCheckoutUnchanged } from '../security/m6-pr-e-e4-scan.mjs';
-import { canonicalPrototypeEvidence as canonical, readDesignerPrototypeRemediationPlan,
+import { canonicalPrototypeEvidence as canonical, readDesignerPrototypeRemediationPlan, readDesignerPrototypeCurrentArtifacts,
   verifyDesignerPrototypeRemediation, requireDesignerPrototypeRemediationReceipt }
   from '../security/m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 import { buildScannerFindingIntake } from '../security/m6-pr-e-e3-ingest-e4.mjs';
@@ -55,6 +56,7 @@ const hash = value => createHash('sha256').update(value).digest('hex');
 const blob = value => createHash('sha1').update(`blob ${Buffer.byteLength(value)}\0`).update(value).digest('hex');
 const seal = value => { const { contentSha256, ...payload } = value; return { ...payload, contentSha256: hash(canonical(payload)) }; };
 const plan = readDesignerPrototypeRemediationPlan();
+const currentArtifacts = readDesignerPrototypeCurrentArtifacts();
 const review = json('m6-pr-e-e3-i2-reviewed-findings');
 const transition = json('m6-pr-e-e3-r2b-semgrep-finding-identity-transition');
 const runtimeReview = json('m6-pr-e-e3-i3-reviewed-findings');
@@ -173,7 +175,7 @@ export function syntheticE4(includePrototype = false) {
 export function snapshot(e4) {
   return { repository: e4.repository, commitSha: e4.commitSha, currentE4CanonicalSha256: e4.contentSha256,
     scannerExecutionCount: 1, suppressionPathsPresent: [], currentSources: Object.fromEntries(
-      Object.entries(plan.reviewedArtifacts).map(([path, identity]) => [path, { commitSha: e4.commitSha,
+      Object.entries(currentArtifacts).map(([path, identity]) => [path, { commitSha: e4.commitSha,
         headBlobSha: identity.blobSha, blobSha: identity.blobSha, content: read(path) }])) };
 }
 export function i2Inputs(e4, withRemediation = true) {
@@ -214,7 +216,8 @@ test('prototype remediation plan pins the historical review and all three exact 
   assert.equal(plan.historicalFinding.sourceBlobSha, 'fa3c224ac31df08cb3e2f130f7e4bef1fc750659');
   assert.equal(plan.historicalFinding.findingId, 'e6b83b7719d2bef5092127dd47f2a34c17d9c92ce3b9581b4381dd6b25432445');
   assert.equal(Object.keys(plan.reviewedArtifacts).length, 3);
-  for (const [path, expected] of Object.entries(plan.reviewedArtifacts)) {
+  assert.equal(Object.keys(currentArtifacts).length, 6);
+  for (const [path, expected] of Object.entries(currentArtifacts)) {
     assert.equal(blob(read(path)), expected.blobSha);
     assert.equal(hash(read(path)), expected.sha256);
   }
@@ -260,7 +263,7 @@ test('prototype remediation rejects the historical match and a relocated same-ru
   }
 });
 
-for (const path of Object.keys(plan.reviewedArtifacts)) {
+for (const path of Object.keys(currentArtifacts)) {
   for (const mutation of ['content', 'blobSha', 'headBlobSha', 'commitSha']) test(`prototype proof rejects ${path} ${mutation} drift`, () => {
     const e4 = syntheticE4(), source = snapshot(e4);
     Object.defineProperty(source.currentSources[path], mutation, { value: `${source.currentSources[path][mutation]}unreviewed` });
@@ -316,6 +319,22 @@ test('I2 requires the exact current E4 intake and frozen historical review', () 
   assert.throws(() => applyReviewedFindingsWithIdentityTransitions(seal(changed), review, transition, i2Inputs(e4)), /exact current intake binding/);
   const changedReview = structuredClone(review); changedReview.reviewedFindings[2].disposition = 'NOT_APPLICABLE';
   assert.throws(() => applyReviewedFindingsWithIdentityTransitions(intake, changedReview, transition, i2Inputs(e4)), /historical I2 input drift/);
+});
+
+for (const path of Object.keys(currentArtifacts)) test(`prototype proof rejects missing current artifact ${path}`, () => {
+  const e4 = syntheticE4(), source = snapshot(e4); delete source.currentSources[path];
+  assert.throws(() => verifyDesignerPrototypeRemediation(e4, source), /exact source\/test blob required/);
+});
+for (const [name, mutate] of [
+  ['prior plan', p => { p.priorPlanCanonicalSha256 = '0'.repeat(64); }],
+  ['predecessor', p => { p.priorSourceBlobSha = '0'.repeat(40); }],
+  ['clone edit count', p => { p.cloneCallSubstitutionCount = 2; }],
+  ['false absence', p => { p.findingAbsenceClaimed = true; }],
+  ['missing regression pin', p => { delete p.reviewedArtifacts['scripts/tests/approval-designer-save-lifecycle.test.mjs']; }],
+]) test(`prototype receipt rejects resealed continuation ${name}`, () => {
+  const e4 = syntheticE4(), proof = verifyDesignerPrototypeRemediation(e4, snapshot(e4));
+  mutate(proof.sourceContinuation);
+  assert.throws(() => requireDesignerPrototypeRemediationReceipt(e4, seal(proof)), /receipt drift/);
 });
 
 test('I3 and I4 fail closed on historical receipt and count tampering', () => {
@@ -476,11 +495,19 @@ export function runSyntheticCiCallback({ currentHmacTestReview = false, currentH
   }
   // Historical callbacks retain their original review scope; only the explicit
   // HMAC-test fixture executes the current callback and its mandatory collector.
-  const source = currentHmacTestReview ? read('scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs')
+  let source = currentHmacTestReview ? read('scripts/tests/m6-pr-e-e4-scanner-boundary.test.mjs')
     : currentHistoricalSourceReview ? acceptedHistoricalSourceCallbackSource
     : currentResourcesFlattenGraph ? acceptedResourcesCallbackSource
     : historicalSourceContext ? historicalCallbackSource : currentLangGraph
     ? acceptedLangCallbackSource : acceptedJarCallbackSource;
+  // Authenticated historical callback branches retain their graph/control-flow
+  // assertions, but exercise today's stricter six-artifact source collector.
+  // No three-artifact proof is accepted by the current production verifier.
+  if (!currentHmacTestReview) {
+    const oldCollector = 'Object.keys(prototypePlan.reviewedArtifacts)';
+    assert.equal(source.split(oldCollector).length, 2, 'one historical prototype collector required');
+    source = source.replace(oldCollector, 'Object.keys(readDesignerPrototypeCurrentArtifacts())');
+  }
   const logs = [], commands = [];
   const fixtureOutput = `M6_PR_E_E4_SCANNER_EVIDENCE_BEGIN\n${JSON.stringify(e4)}\nM6_PR_E_E4_SCANNER_EVIDENCE_END`;
   let error;
@@ -490,7 +517,7 @@ export function runSyntheticCiCallback({ currentHmacTestReview = false, currentH
     R2B: 'r2b-workflow-supply-chain-remediation',
   }).map(([key, suffix]) => [key, `docs/m6/m6-pr-e-e3-${suffix}.json`]));
   runInNewContext(source.slice(source.indexOf("test('E4 full scanner emits")), {
-    assert, createHash, Buffer, readdirSync, existsSync, readDesignerPrototypeRemediationPlan,
+    assert, createHash, Buffer, readdirSync, existsSync, readDesignerPrototypeRemediationPlan, readDesignerPrototypeCurrentArtifacts,
     readGitleaksTestExpressionReviewPlan, applyGitleaksTestExpressionReview, buildGitleaksPublicCommitReviewSnapshot,
     buildGitleaksCaptureHashReviewSnapshot, verifyGitleaksCaptureHashReview, gitleaksCaptureReviewFindings, requireGitleaksCaptureInventory,
     buildGitleaksHistoricalSourceReviewSnapshot, buildGitleaksHmacTestReviewSnapshot,
@@ -581,12 +608,12 @@ test('current Resources/Flatten graph proof cannot complete the scanner and desi
   }
 });
 
-test('accepted JAR CI callback consumes one synthetic full scan, binds three exact-head blobs, and preserves complete lineage', () => {
+test('accepted JAR CI callback consumes one synthetic full scan, binds six exact-head blobs, and preserves complete lineage', () => {
   const r = runSyntheticCiCallback();
   assert.equal(r.error, undefined);
   assert.equal(r.logs[0], r.fixtureOutput);
   assert.equal(r.commands.filter(([command]) => command === process.execPath).length, 1);
-  assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 4);
+  assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 7);
   const preparation = json('m6-pr-e-e3-r4-osv-preparation');
   assert.deepEqual(r.e4.e2CurrentEvidence, seal({ ...readJarPluginCandidate(), commitSha: r.e4.commitSha }));
   assert.equal(r.e4.e2GraphDigest, JAR_PLUGIN_GRAPH);
@@ -657,7 +684,7 @@ test('accepted main905 Lang CI callback completes modeled I2 I3 I4 and R2B with 
   const { result: r, output } = langCiCase();
   assert.equal(r.logs[0], r.fixtureOutput);
   assert.equal(r.commands.filter(([command]) => command === process.execPath).length, 1);
-  assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 4);
+  assert.equal(r.commands.filter(([command, args]) => command === 'git' && args[0] === 'rev-parse').length, 7);
   assert.equal(r.logs.filter(text => /^M6_PR_E_.*_BEGIN\n/.test(text)).length, 14);
   assert.deepEqual(r.e4.e2CurrentEvidence, seal({ ...readAssemblyEnforcerLangCandidate(), commitSha: r.e4.commitSha,
     githubActions: resolveGitHubActionsEvidence(fileURLToPath(new URL('../../', import.meta.url))) }));

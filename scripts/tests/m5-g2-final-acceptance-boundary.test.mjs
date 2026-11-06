@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import {
   existsSync,
@@ -80,7 +81,7 @@ function migrationEntries() {
     root,
     'server-modules/approval-persistence-jdbc/src/main/java/db/migration',
   );
-  return [...readdirSync(sqlDirectory), ...readdirSync(javaDirectory)]
+  return [...readdirSync(sqlDirectory), ...readdirSync(javaDirectory)].filter(historicalMigration)
     .map(name => {
       const match = name.match(/^V(\d+)__/);
       return match ? { name, version: Number(match[1]) } : null;

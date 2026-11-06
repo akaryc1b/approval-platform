@@ -1,19 +1,18 @@
 # Approval shell icon source and notices
 
-`local-icons.ts` contains seven exact SVG definitions from the already pinned
+`local-icons.ts` retains seven exact SVG definitions from the already pinned
 `@iconify/json` 2.2.476, using the existing `@iconify/vue` 5.0.1 registration API.
 No icon collection or runtime dependency is added. The original names, dimensions,
 transforms and currentColor bodies are preserved.
 
-The governed local-demo user has only the `super` role. Pinned frontend authority
+The original bounded local-demo host user has only the `super` role. Pinned frontend authority
 filtering admits ApprovalPlatform, ApprovalWorkbench, ApprovalTaskCollaboration
 and ApprovalNotifications under the existing development-only demo flag. Their
 icons are `lucide:workflow`, `lucide:inbox`, `lucide:user-round-plus` and
 `lucide:bell-ring`. The visible shell uses `ep:fold` and
 `fluent-mdl2:world-clock`; `ep:expand` is its paired existing sidebar state.
-These seven definitions are registered synchronously before the first bootstrap
-await and before router installation or component mount. Other permissioned
-routes and custom icon/provider fallback behavior are unchanged.
+The original seven definitions were registered synchronously before the first bootstrap
+await and before router installation or component mount. The additional narrowly allowlisted routes and icons are described below; custom icon/provider fallback behavior remains unchanged.
 
 The original four observed icons have SVG bodies and resolved geometry identical
 to successful Iconify response resources retained in natural CI #1826. Expand is
@@ -152,3 +151,23 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
+
+## Additional bounded admin-demo navigation icons
+
+Delegation, working-calendar and SLA-policy navigation add `user-round-cog`,
+`calendar-clock` and `timer-reset` from the same pinned `@iconify/json` 2.2.476
+Lucide collection described above, with all original SVG bodies and geometry.
+They use the existing Lucide ISC/Feather notices. An earlier review evaluated
+upstream Lucide SVGs, but the shipped bytes are the pinned Iconify definitions,
+independently compared to the installed package by the cold-start graph test.
+
+Only development with the exact explicit local-demo flag exposes delegation;
+calendar/policy routes additionally require the validated demo-admin identity.
+Other management routes and every production route remain unchanged. All ten
+definitions register synchronously; tests pin each body hash, compare every icon
+to the pinned package, reject omissions or mutations, and verify both visible
+menu sets plus real Iconify lookup without network requests.
+
+## Isolated form/process designer extension
+
+The exact same pinned `@iconify/json` 2.2.476 `json/lucide.json` supplies `lucide:git-branch-plus` and `lucide:layout-template`. Their bodies are copied without transformation and both graph/icon tests retain exact-name, exact-shape and missing-icon negatives. Only the explicitly enabled seeded demo administrator gains these two navigation routes; production authority arrays are unchanged.

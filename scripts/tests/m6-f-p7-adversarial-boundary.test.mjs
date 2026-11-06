@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
@@ -161,7 +162,7 @@ test('P7-A keeps V50 empty whitelist and the sole automatic workflow', () => {
   ].flatMap((directory) => readdirSync(directory)
     .filter((name) => /^V\d+__.+\.sql$/.test(name))
     .map((name) => name));
-  const versions = migrationFiles
+  const versions = migrationFiles.filter(historicalMigration)
     .map((name) => Number(/^V(\d+)__/.exec(name)?.[1]))
     .filter(Number.isFinite);
   assert.equal(Math.max(...versions), 50);

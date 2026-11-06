@@ -9,6 +9,8 @@ import type {
   UiSchemaDefinition,
 } from './form-types';
 
+import { approvalPublicationReason } from '#/api/approval/process-design';
+
 import {
   approvalCommandHeaders,
   approvalRequest,
@@ -99,12 +101,16 @@ export function publishFormDesignDraft(
   draftId: string,
   expectedRevision: number,
   packageVersion: number,
+  reason: string,
 ) {
   return approvalRequest<FormPackagePublishResult>(
     `/approval/form-design-drafts/${encodeURIComponent(draftId)}/publish`,
     {
       body: JSON.stringify({ expectedRevision, packageVersion }),
-      headers: approvalCommandHeaders('form-package-publish'),
+      headers: {
+        ...approvalCommandHeaders('form-package-publish'),
+        'X-Approval-Operation-Reason': approvalPublicationReason(reason),
+      },
       method: 'POST',
     },
   );

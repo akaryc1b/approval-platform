@@ -19,6 +19,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 
 import {
   ApprovalDesignApiError,
+  approvalPublicationReason,
   archiveApprovalDesignDraft,
   copyPublishedApprovalDesignDraft,
   createApprovalDesignDraft,
@@ -33,6 +34,7 @@ import {
 
 import {
   analyzeDesignerConflict,
+  cloneApprovalDesignerJson,
   mergeDesignerConflict,
   snapshotApprovalDesignerDraft,
 } from './designer-conflict';
@@ -90,6 +92,8 @@ export function useApprovalDesigner() {
   let suspended = true;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let sequence = 1;
+  let documentGeneration = 0;
+  let pendingSaveRequest: symbol | undefined;
 
   const topology = computed<ApprovalDesignerTopologyIndex<ApprovalNode>>(() =>
     buildApprovalDesignerTopologyIndex(draft.value?.definition.nodes ?? []),
@@ -161,12 +165,18 @@ export function useApprovalDesigner() {
   }
   onBeforeRouteLeave(() => confirmDiscardChanges('离开流程设计器'));
   onBeforeUnmount(() => {
-    if (saveTimer) clearTimeout(saveTimer);
+    invalidateDocument();
     if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('keydown', handleKeyboardShortcut);
     }
   });
+
+  function invalidateDocument() {
+    documentGeneration += 1;
+    pendingSaveRequest = undefined;
+    if (saveTimer) clearTimeout(saveTimer);
+  }
 
   async function loadDrafts() {
     busy.value = true;
@@ -189,9 +199,14 @@ export function useApprovalDesigner() {
       && !(await confirmDiscardChanges('重新加载或切换流程草稿'))) {
       return false;
     }
-    suspended = true;
+    invalidateDocument();
+    const generation = documentGeneration;
     try {
       const loaded = await findApprovalDesignDraft(draftId);
+      if (generation !== documentGeneration) return false;
+      if (saveTimer) clearTimeout(saveTimer);
+      pendingSaveRequest = undefined;
+      suspended = true;
       draft.value = loaded;
       baseSnapshot.value = snapshotApprovalDesignerDraft(loaded);
       conflict.value = undefined;
@@ -213,10 +228,15 @@ export function useApprovalDesigner() {
       saveState.value = 'saved';
       return true;
     } catch (error) {
+      if (generation !== documentGeneration) return false;
+      // The previous save may still complete on the server after we discarded
+      // its response. Keep the old visible draft retryable; its revision must
+      // remain unchanged so the next save discovers any real CAS conflict.
+      if (saveState.value === 'saving' && !pendingSaveRequest) saveState.value = 'failed';
       showError(error);
       return false;
     } finally {
-      suspended = false;
+      if (generation === documentGeneration) suspended = false;
     }
   }
 
@@ -257,38 +277,64 @@ export function useApprovalDesigner() {
 
   async function save(mode: 'AUTO_SAVE' | 'EXPLICIT' = 'EXPLICIT') {
     const current = draft.value;
-    if (!current || !editable.value || saveState.value === 'saving'
+    if (!current || !editable.value || pendingSaveRequest
       || saveState.value === 'conflict') return false;
     if (saveTimer) clearTimeout(saveTimer);
+    const generation = documentGeneration;
+    const request = Symbol('designer-save');
+    pendingSaveRequest = request;
+    const isCurrent = () => generation === documentGeneration
+      && draft.value?.draftId === current.draftId && pendingSaveRequest === request;
     saveState.value = 'saving';
     try {
+      const snapshot = snapshotApprovalDesignerDraft(current);
       const saved = await updateApprovalDesignDraft(current.draftId, {
-        definition: current.definition,
+        definition: snapshot.definition,
         expectedRevision: current.revision,
-        formPackageVersion: current.formPackage.packageVersion,
-        name: current.name,
+        formPackageVersion: snapshot.formPackageVersion,
+        name: snapshot.name,
         saveMode: mode,
       });
+      if (!isCurrent() || !draft.value) return false;
+      const localDraft = draft.value;
+      const local = snapshotApprovalDesignerDraft(localDraft);
+      const savedBase = snapshotApprovalDesignerDraft(saved);
+      const changedDuringSave = JSON.stringify(local) !== JSON.stringify(snapshot);
       suspended = true;
-      draft.value = saved;
-      baseSnapshot.value = snapshotApprovalDesignerDraft(saved);
+      try {
+        draft.value = saved;
+        if (changedDuringSave) applySnapshot(local);
+      } catch (error) {
+        // Do not discard the user's editable document if applying a response
+        // fails. Retain its old CAS revision and reconcile on the next save.
+        draft.value = localDraft;
+        throw error;
+      }
+      baseSnapshot.value = savedBase;
       conflict.value = undefined;
       suspended = false;
-      saveState.value = 'saved';
+      pendingSaveRequest = undefined;
+      if (changedDuringSave) markChanged(false);
+      else saveState.value = 'saved';
       await loadDrafts();
-      if (mode === 'EXPLICIT') ElMessage.success('流程草稿已保存');
-      return true;
+      if (generation === documentGeneration && draft.value?.draftId === current.draftId
+        && mode === 'EXPLICIT') ElMessage.success('流程草稿已保存');
+      // Callers must not validate/publish a document with newer unsaved edits.
+      return generation === documentGeneration && draft.value?.draftId === current.draftId
+        && !changedDuringSave && saveState.value === 'saved';
     } catch (error) {
+      if (!isCurrent()) return false;
       if (error instanceof ApprovalDesignApiError
         && error.code === 'APPROVAL_DESIGN_REVISION_CONFLICT') {
-        await captureConflict(current);
+        await captureConflict(current, generation);
       } else {
         saveState.value = 'failed';
         showError(error);
       }
       return false;
     } finally {
-      suspended = false;
+      if (pendingSaveRequest === request) pendingSaveRequest = undefined;
+      if (generation === documentGeneration) suspended = false;
     }
   }
 
@@ -318,7 +364,7 @@ export function useApprovalDesigner() {
       serverBase,
     );
     suspended = true;
-    draft.value = structuredClone(state.serverDraft);
+    draft.value = cloneApprovalDesignerJson(state.serverDraft);
     applySnapshot(merged);
     baseSnapshot.value = serverBase;
     conflict.value = undefined;
@@ -330,10 +376,11 @@ export function useApprovalDesigner() {
     return true;
   }
 
-  async function captureConflict(localDraft: ApprovalDesignDraft) {
+  async function captureConflict(localDraft: ApprovalDesignDraft, generation = documentGeneration) {
     saveState.value = 'conflict';
     try {
       const serverDraft = await findApprovalDesignDraft(localDraft.draftId);
+      if (generation !== documentGeneration || draft.value?.draftId !== localDraft.draftId) return;
       const base = baseSnapshot.value ?? snapshotApprovalDesignerDraft(localDraft);
       conflict.value = {
         analysis: analyzeDesignerConflict(
@@ -345,6 +392,7 @@ export function useApprovalDesigner() {
       };
       ElMessage.warning('草稿已被其他操作更新，请比较本地与服务端修改');
     } catch (error) {
+      if (generation !== documentGeneration || draft.value?.draftId !== localDraft.draftId) return;
       conflict.value = undefined;
       showError(error);
     }
@@ -407,6 +455,7 @@ export function useApprovalDesigner() {
       maxTransitions: 200,
     };
     try {
+      const operationReason = approvalPublicationReason();
       const report = await preflightApprovalPublication({
         definitionKey: current.definitionKey,
         deploymentTarget: 'default',
@@ -415,7 +464,7 @@ export function useApprovalDesigner() {
         scenario,
         targetDefinitionVersion: current.definition.version,
         targetReleaseVersion: current.definition.version,
-      });
+      }, operationReason);
       preflight.value = report;
       if (!report.publishable || report.errors.length > 0) {
         ElMessage.error(
@@ -447,22 +496,36 @@ export function useApprovalDesigner() {
           preflightScenario: scenario,
           releaseVersion: current.definition.version,
         },
+        operationReason,
       );
       await openDraft(current.draftId);
       published.value = result;
       ElMessage.success('Release Package 已发布');
     } catch (error) {
+      if (error === 'cancel' || error === 'close'
+        || (error instanceof Error && error.message === '已取消发布')) return;
       showError(error);
     }
   }
 
   async function archive() {
-    if (!draft.value || !(await confirmDiscardChanges('归档流程草稿'))) return;
-    await ElMessageBox.confirm('确认归档当前流程草稿？', '归档草稿', { type: 'warning' });
+    const current = draft.value;
+    if (!current || !editable.value) return;
+    const generation = documentGeneration;
+    const snapshot = JSON.stringify(snapshotApprovalDesignerDraft(current));
+    const unchanged = () => documentGeneration === generation && draft.value === current
+      && editable.value && JSON.stringify(snapshotApprovalDesignerDraft(current)) === snapshot;
     try {
-      draft.value = await archiveApprovalDesignDraft(draft.value.draftId, draft.value.revision);
+      if (!(await confirmDiscardChanges('归档流程草稿')) || !unchanged()) return;
+      await ElMessageBox.confirm('确认归档当前流程草稿？', '归档草稿', { type: 'warning' });
+      if (!unchanged()) return;
+      const archived = await archiveApprovalDesignDraft(current.draftId, current.revision);
+      // A completed server command must never replace a newer visible document/edit.
+      if (!unchanged()) return;
+      draft.value = archived;
       await loadDrafts();
     } catch (error) {
+      if (error === 'cancel' || error === 'close' || !unchanged()) return;
       showError(error);
     }
   }
@@ -584,7 +647,7 @@ export function useApprovalDesigner() {
     if (!draft.value || !node || !['APPROVAL', 'HANDLE'].includes(node.kind)) return;
     const source = node as ApprovalStep | HandleStep;
     remember();
-    const copy = structuredClone(source);
+    const copy = cloneApprovalDesignerJson(source);
     copy.id = nextId(copy.kind.toLowerCase());
     copy.name = `${copy.name} 副本`;
     copy.next = source.next;
@@ -600,6 +663,9 @@ export function useApprovalDesigner() {
   async function deleteNode() {
     const node = selectedNode.value;
     if (!draft.value || !node || !editable.value) return;
+    const current = draft.value;
+    const generation = documentGeneration;
+    const snapshot = JSON.stringify(snapshotApprovalDesignerDraft(current));
     const impact = describeApprovalDesignerDeletion(topology.value, node.id);
     if (!impact.deletable) {
       ElMessage.info(impact.reason ?? '当前节点不能安全删除');
@@ -627,6 +693,8 @@ export function useApprovalDesigner() {
     } catch {
       return;
     }
+    if (documentGeneration !== generation || draft.value !== current || !editable.value
+      || JSON.stringify(snapshotApprovalDesignerDraft(current)) !== snapshot) return;
     remember();
     replaceTarget(predecessor, node.id, node.next);
     draft.value.definition.nodes = draft.value.definition.nodes.filter(
@@ -712,7 +780,7 @@ export function useApprovalDesigner() {
   function applySnapshot(snapshot: ApprovalDesignerSnapshot) {
     if (!draft.value) return;
     suspended = true;
-    draft.value.definition = structuredClone(snapshot.definition);
+    draft.value.definition = cloneApprovalDesignerJson(snapshot.definition);
     draft.value.formPackage.packageVersion = snapshot.formPackageVersion;
     draft.value.name = snapshot.name;
     if (!draft.value.definition.nodes.some(node => node.id === selectedNodeId.value)) {

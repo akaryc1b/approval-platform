@@ -20,6 +20,7 @@ import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver;
 import io.github.akaryc1b.approval.domain.context.RequestContext;
 import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
+import io.github.akaryc1b.approval.security.LocalApprovalAuthorityProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -86,6 +87,21 @@ public class PurchasePaymentDemoConfiguration {
             organizationConnector,
             approvalClock
         );
+    }
+
+    @Bean
+    @Profile("local & !prod & !production")
+    @ConditionalOnProperty(
+        prefix = "approval.demo.purchase-payment.seed",
+        name = "enabled",
+        havingValue = "true",
+        matchIfMissing = true
+    )
+    LocalApprovalAuthorityProvider purchasePaymentDemoSlaAuthorities(
+        PurchasePaymentDemoScenario scenario,
+        PurchasePaymentDemoSeedState seedState
+    ) {
+        return new PurchasePaymentDemoSlaAuthorities(scenario, seedState);
     }
 
     @Bean

@@ -87,8 +87,8 @@ public final class JdbcApprovalFormDesignDraftStore implements ApprovalFormDesig
             """
             select count(*) from ap_form_design_draft
             where tenant_id = :tenantId
-              and (:keyword = '' or lower(form_key) like lower('%' || :keyword || '%')
-                   or lower(name) like lower('%' || :keyword || '%'))
+              and (:keyword = '' or lower(form_key) like lower('%%' || :keyword || '%%')
+                   or lower(name) like lower('%%' || :keyword || '%%'))
               %s
             """.formatted(statusPredicate),
             parameters,
@@ -104,8 +104,8 @@ public final class JdbcApprovalFormDesignDraftStore implements ApprovalFormDesig
                    status, published_package_version, updated_by, updated_at
             from ap_form_design_draft
             where tenant_id = :tenantId
-              and (:keyword = '' or lower(form_key) like lower('%' || :keyword || '%')
-                   or lower(name) like lower('%' || :keyword || '%'))
+              and (:keyword = '' or lower(form_key) like lower('%%' || :keyword || '%%')
+                   or lower(name) like lower('%%' || :keyword || '%%'))
               %s
             order by updated_at desc, draft_id
             limit :limit offset :offset

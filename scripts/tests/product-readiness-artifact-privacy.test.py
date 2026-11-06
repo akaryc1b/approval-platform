@@ -94,6 +94,178 @@ def native_attachment_fixture(markdown=None, png=PNG):
     return resources + entries
 
 
+class MemoizationTests(unittest.TestCase):
+    def scanner_result(self, values, cached=True):
+        with patch.object(p, 'MAX_MEMO_ENTRIES', 4096 if cached else 0):
+            scanner = p.Sanitizer()
+            for value in values:
+                scanner.discover(value)
+            scanner.freeze()
+            output = [scanner.value(value) for value in values]
+            return (output, scanner.secrets, scanner.secret_bytes,
+                    scanner.work_bytes, scanner.changes)
+
+    def test_repeated_discovery_and_transform_preserve_outputs_and_accounting(self):
+        basic = 'Basic ' + base64.b64encode(('fixture:' + PASSWORD).encode()).decode()
+        value = {'password': PASSWORD, 'headers': {'Authorization': basic},
+                 'echo': PASSWORD, 'businessKey': 'DEMO-PP-0001',
+                 'serialized': json.dumps({'password': PASSWORD, 'status': 'pending'}),
+                 'encoded': base64.b64encode(json.dumps({'password': PASSWORD}).encode()).decode(),
+                 'url': 'https://example.invalid/?password=' + urllib.parse.quote(PASSWORD)}
+        values = [value, {'nested': [value, value]}, value] * 3
+        cached = self.scanner_result(values)
+        self.assertEqual(cached, self.scanner_result(values, cached=False))
+        self.assertEqual(cached[0][0]['password'], p.REDACTED)
+        self.assertEqual(cached[0][0]['businessKey'], 'DEMO-PP-0001')
+
+    def test_hits_reuse_only_the_same_input_and_depth(self):
+        for method, uncached in [('discover_text', 'discover_text_uncached'), ('text', 'text_uncached'),
+                                 ('validate_encoded', 'validate_encoded_uncached')]:
+            scanner = p.Sanitizer()
+            with self.subTest(method=method), patch.object(scanner, uncached, wraps=getattr(scanner, uncached)) as actual:
+                for _ in range(20):
+                    getattr(scanner, method)('repeated fixture', 3)
+                self.assertEqual(actual.call_count, 1)
+                getattr(scanner, method)('different fixture', 3)
+                getattr(scanner, method)('repeated fixture', 4)
+                self.assertEqual(actual.call_count, 3)
+
+    def test_successful_recursive_hits_charge_all_work_and_changes(self):
+        # Commuting decoders otherwise revisit the same strings exponentially.
+        text = '&' + 'amp;' * 4 + ' ' + '%' + '25' * 4 + ' ' + chr(92) + 'x5c' * 4
+        cached = self.scanner_result([text, text])
+        self.assertEqual(cached, self.scanner_result([text, text], cached=False))
+        self.assertGreater(cached[3], 1000000)
+
+    def test_recursive_validation_reuses_successes_without_reducing_budget(self):
+        text = '&' + 'amp;' * 5 + ' ' + '%' + '25' * 5 + ' ' + chr(92) + 'x5c' * 5
+        scanner = p.Sanitizer()
+        scanner.discover_text(text)
+        scanner.freeze()
+        self.assertEqual(scanner.text(text), text)
+        self.assertGreater(scanner.work_bytes, 40000000)
+        self.assertLess(len(scanner.validation_memo.records), 1000)
+        # A deeper fixture exceeds the original logical budget despite caching.
+        text = '&' + 'amp;' * 7 + ' ' + '%' + '25' * 7 + ' ' + chr(92) + 'x5c' * 7
+        with self.assertRaises(p.UnsafeEvidence) as error:
+            p.Sanitizer().text(text)
+        self.assertEqual(error.exception.category, p.RejectionCategory.RESOURCE_LIMIT)
+
+    def test_hits_cannot_bypass_work_or_depth_limits(self):
+        limit = 1024 * 1024 * 1024
+        for method in ('discover_text', 'text'):
+            for cached in (False, True):
+                with self.subTest(method=method, cached=cached), patch.object(p, 'MAX_MEMO_ENTRIES', 4096 if cached else 0):
+                    scanner = p.Sanitizer()
+                    call = getattr(scanner, method)
+                    call('fixture', 0)
+                    scanner.work_bytes = limit - len('fixture')
+                    call('fixture', 0)
+                    self.assertEqual(scanner.work_bytes, limit)
+                    with self.assertRaises(p.UnsafeEvidence) as error:
+                        call('fixture', 0)
+                    self.assertEqual(error.exception.category, p.RejectionCategory.RESOURCE_LIMIT)
+                    with self.assertRaises(p.UnsafeEvidence) as error:
+                        call('fixture', p.MAX_DEPTH + 1)
+                    self.assertEqual(error.exception.category, p.RejectionCategory.RESOURCE_LIMIT)
+
+    def test_recursive_budget_rejection_is_retained(self):
+        text = '&amp;amp; %2525 ' + chr(92) + 'x5cx5c'
+        for method in ('discover_text', 'text'):
+            outcomes = []
+            for cached in (False, True):
+                with patch.object(p, 'MAX_MEMO_ENTRIES', 4096 if cached else 0):
+                    scanner = p.Sanitizer()
+                    call = getattr(scanner, method)
+                    call(text)
+                    work = scanner.work_bytes
+                    scanner.work_bytes = 1024 * 1024 * 1024 - work + 1
+                    with self.assertRaises(p.UnsafeEvidence) as error:
+                        call(text)
+                    outcomes.append(error.exception.category)
+            self.assertEqual(outcomes, [p.RejectionCategory.RESOURCE_LIMIT] * 2)
+
+    def test_freeze_invalidates_all_caches_and_late_discovered_secrets(self):
+        scanner = p.Sanitizer()
+        scanner.discover_text(PASSWORD)
+        self.assertEqual(scanner.text(PASSWORD), PASSWORD)
+        self.assertTrue(scanner.discovery_memo.records)
+        self.assertTrue(scanner.transform_memo.records)
+        scanner.remember(PASSWORD)
+        scanner.freeze()
+        self.assertFalse(scanner.discovery_memo.records)
+        self.assertFalse(scanner.transform_memo.records)
+        self.assertFalse(scanner.validation_memo.records)
+        self.assertEqual(scanner.text(PASSWORD), p.REDACTED)
+        second = 'Synthetic-Later-Canary!61'
+        self.assertEqual(scanner.text(second), second)
+        scanner.remember(second)
+        scanner.freeze()
+        self.assertEqual(scanner.text(second), p.REDACTED)
+        late = 'Synthetic-Late-Encoded-Canary!83'
+        encoded = ''.join('%%%02x' % ord(character) for character in late)
+        scanner.validate_encoded(encoded, 0)
+        self.assertIn((encoded, 0), scanner.validation_memo.records)
+        scanner.remember(late)
+        scanner.freeze()
+        with self.assertRaises(p.UnsafeEvidence):
+            scanner.validate_encoded(encoded, 0)
+
+    def test_cache_retention_is_bounded_and_eviction_does_not_change_results(self):
+        values = ['fixture ' + str(index) for index in range(30)] * 2
+        expected = self.scanner_result(values, cached=False)
+        with patch.object(p, 'MAX_MEMO_ENTRIES', 2), patch.object(p, 'MAX_MEMO_CHARS', 24):
+            scanner = p.Sanitizer()
+            for value in values:
+                scanner.discover(value)
+                self.assertLessEqual(len(scanner.discovery_memo.records), 2)
+                self.assertLessEqual(scanner.discovery_memo.characters, 24)
+            scanner.freeze()
+            result = [scanner.value(value) for value in values]
+            self.assertLessEqual(len(scanner.transform_memo.records), 2)
+            self.assertLessEqual(scanner.transform_memo.characters, 24)
+            self.assertEqual((result, scanner.secrets, scanner.secret_bytes,
+                              scanner.work_bytes, scanner.changes), expected)
+            scanner.text('x' * 25)
+            self.assertNotIn(('x' * 25, 0), scanner.transform_memo.records)
+
+    def test_failures_are_never_memoized(self):
+        scanner = p.Sanitizer()
+        invalid = 'data:unsupported/type,fixture'
+        for method, uncached, memo in [('discover_text', 'discover_text_uncached', scanner.discovery_memo),
+                                      ('text', 'text_uncached', scanner.transform_memo)]:
+            with self.subTest(method=method), patch.object(scanner, uncached, wraps=getattr(scanner, uncached)) as actual:
+                for _ in range(2):
+                    with self.assertRaises(p.UnsafeEvidence):
+                        getattr(scanner, method)(invalid)
+                self.assertEqual(actual.call_count, 2)
+                self.assertNotIn((invalid, 0), memo.records)
+
+    def test_repeated_identity_and_assertion_rejections_match_uncached(self):
+        for cached in (False, True):
+            with self.subTest(cached=cached), patch.object(p, 'MAX_MEMO_ENTRIES', 4096 if cached else 0):
+                scanner = p.Sanitizer()
+                scanner.remember(PASSWORD)
+                scanner.freeze()
+                scanner.text(PASSWORD)
+                for value in ({'businessKey': PASSWORD}, {PASSWORD: 'fixture'}):
+                    with self.assertRaises(p.UnsafeEvidence) as error:
+                        scanner.value(value)
+                    self.assertEqual(error.exception.category, p.RejectionCategory.IDENTITY_CHANGE)
+                entries = dict(fixture())
+                rows = [json.loads(line) for line in entries['test.trace'].splitlines()]
+                rows[3]['params']['expectedText'][0]['string'] = PASSWORD
+                entries['test.trace'] = ('\n'.join(map(json.dumps, rows)) + '\n').encode()
+                entries = {key: value.encode() if isinstance(value, str) else value for key, value in entries.items()}
+                objects = p.trace_objects(entries)
+                for value in objects.values():
+                    scanner.discover(value)
+                scanner.freeze()
+                with self.assertRaises(p.UnsafeEvidence) as error:
+                    p.transform_trace(entries, objects, scanner)
+                self.assertEqual(error.exception.category, p.RejectionCategory.ASSERTION_CHANGE)
+
+
 class PrivacyTests(unittest.TestCase):
     def publish(self, entries, extra_files=None):
         with tempfile.TemporaryDirectory() as tmp:
@@ -105,6 +277,15 @@ class PrivacyTests(unittest.TestCase):
                 target.write_bytes(data)
                 paths.append(str(target))
             return p.prepare({'paths': paths})
+
+    def test_memoized_native_batch_is_byte_identical_to_uncached(self):
+        entries = native_attachment_fixture()
+        extra = {'diagnostics.json': json.dumps({'password': PASSWORD,
+                 'echoes': [PASSWORD, {'nested': PASSWORD}] * 20}).encode()}
+        actual = self.publish(entries, extra)
+        with patch.object(p, 'MAX_MEMO_ENTRIES', 0):
+            expected = self.publish(entries, extra)
+        self.assertEqual(actual, expected)
 
     def test_native_schema_secrets_references_and_semantics(self):
         before = dict(fixture())
@@ -415,6 +596,19 @@ class NativeAttachmentTests(unittest.TestCase):
         second = [original_rows[0], original_rows[-2], original_rows[-1]]
         published, _ = self.publish(entries + [('second.trace', '\n'.join(map(json.dumps, second)) + '\n')])
         self.assertEqual(json.loads(published['second.trace'].splitlines()[-1])['attachments'], attachments)
+
+    def test_form_process_receipt_uses_supported_markdown_not_json_attachment(self):
+        receipt = b'# Isolated form/process artifact receipt\n\n- packageVersion: 1\n- packageHash: ' + b'a' * 64 + b'\n'
+        entries = native_attachment_fixture(markdown=receipt, png=None)
+        unsupported = self.rows(native_attachment_fixture(markdown=b'{"packageVersion":1}', png=None), lambda rows:
+                                rows[-1]['attachments'][0].update(contentType='application/json'))
+        self.reject(unsupported, 'CONTENT_INVALID')
+        published, manifest = self.publish(entries)
+        rows = [json.loads(line) for line in published['test.trace'].splitlines()]
+        attachment = rows[-1]['attachments'][0]
+        self.assertEqual(attachment['contentType'], 'text/markdown')
+        self.assertEqual(published['resources/' + attachment['sha1']], receipt)
+        self.assertEqual(manifest['changedAssertionDiagnostics'], [])
 
     def test_conflicting_or_unsupported_attachment_mime_is_rejected(self):
         def conflict(rows):

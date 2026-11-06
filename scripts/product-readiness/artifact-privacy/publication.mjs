@@ -12,7 +12,8 @@ const sanitizerRejectionCategories = Object.freeze([
 ]);
 export const publicationRejectionCategories = Object.freeze([
   ...sanitizerRejectionCategories,
-  'SANITIZER_PROCESS_FAILED', 'SANITIZER_TERMINATED', 'SANITIZER_PROTOCOL_INVALID',
+  'SANITIZER_PROCESS_FAILED', 'SANITIZER_TIMEOUT', 'SANITIZER_OUTPUT_LIMIT',
+  'SANITIZER_UNAVAILABLE', 'SANITIZER_PERMISSION', 'SANITIZER_RESOURCE', 'SANITIZER_TERMINATED', 'SANITIZER_PROTOCOL_INVALID',
   'SANITIZER_RESPONSE_INVALID',
 ]);
 const sanitizer = fileURLToPath(new URL('./sanitize.py', import.meta.url));
@@ -31,6 +32,18 @@ function rejectPublication(category, invalidResponse = false) {
   throw new Error(invalidResponse
     ? 'EVIDENCE_PUBLICATION_REJECTED: invalid sanitizer response'
     : 'EVIDENCE_PUBLICATION_REJECTED: unsupported or unsafe evidence');
+}
+
+// Node-owned error codes only; never expose the message, path, command, output or signal text.
+function sanitizerProcessCategory(error) {
+  try {
+    const categories = { ETIMEDOUT: 'SANITIZER_TIMEOUT', ENOBUFS: 'SANITIZER_OUTPUT_LIMIT',
+      ENOENT: 'SANITIZER_UNAVAILABLE', EACCES: 'SANITIZER_PERMISSION', EPERM: 'SANITIZER_PERMISSION',
+      EAGAIN: 'SANITIZER_RESOURCE', ENOMEM: 'SANITIZER_RESOURCE', EMFILE: 'SANITIZER_RESOURCE', ENFILE: 'SANITIZER_RESOURCE' };
+    const code = error?.code;
+    return typeof code === 'string' && Object.hasOwn(categories, code)
+      ? categories[code] : 'SANITIZER_PROCESS_FAILED';
+  } catch { return 'SANITIZER_PROCESS_FAILED'; }
 }
 
 function sanitizerRejection(result) {
@@ -81,10 +94,10 @@ export function preparePublicationFiles(paths) {
       maxBuffer: 192 * 1024 * 1024,
       timeout: 120_000,
     });
-  } catch {
-    rejectPublication('SANITIZER_PROCESS_FAILED');
+  } catch (error) {
+    rejectPublication(sanitizerProcessCategory(error));
   }
-  if (result.error) rejectPublication('SANITIZER_PROCESS_FAILED');
+  if (result.error) rejectPublication(sanitizerProcessCategory(result.error));
   if (result.signal || result.status === null) rejectPublication('SANITIZER_TERMINATED');
   if (result.status !== 0) rejectPublication(sanitizerRejection(result));
   if (result.stderr !== '') rejectPublication('SANITIZER_PROTOCOL_INVALID', true);

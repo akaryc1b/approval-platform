@@ -137,7 +137,7 @@ class M6AConnectorSecurityAcceptanceTest {
         );
         int highest;
         List<String> v49;
-        try (Stream<Path> paths = Files.list(migrationRoot)) {
+        try (Stream<Path> paths = GovernedV51Migration.historical(root, Files.list(migrationRoot)).stream()) {
             List<String> names = paths.map(path -> path.getFileName().toString()).toList();
             highest = names.stream()
                 .map(MIGRATION_VERSION::matcher)

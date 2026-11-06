@@ -1,5 +1,8 @@
+import { assertGovernedV51, governedV51Path } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
-import { access, readdir, readFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { AssertionError } from 'node:assert';
 import { extname, join, relative } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -15,13 +18,17 @@ async function exists(path) {
   try { await access(path); return true; } catch { return false; }
 }
 
+const generatedDirectories = new Set(['target', 'node_modules', 'dist', '.git']);
+
 async function files(root) {
   if (!await exists(root)) return [];
   const entries = await readdir(root, { withFileTypes: true });
   const output = [];
   for (const entry of entries) {
     const path = join(root, entry.name);
-    if (entry.isDirectory()) output.push(...await files(path));
+    if (entry.isDirectory()) {
+      if (!generatedDirectories.has(entry.name)) output.push(...await files(path));
+    }
     else output.push(path);
   }
   return output;
@@ -193,13 +200,15 @@ test('telemetry and handoff use reference-only allowlists and deterministic fake
   assert.match(tsHandoff, /pending\.delete[\s\S]*acknowledged\.set/);
 });
 
-test('Flyway keeps M6-B migration-free while recognizing governed M6-E V49 and M6-F V50', async () => {
+async function assertGovernedMigrations(root) {
+  assertGovernedV51(root);
+  const display = (path) => relative(root, path);
   const migrationRoots = [
-    join(repositoryRoot, 'apps/server/src/main/resources/db/migration'),
-    join(repositoryRoot, 'server-modules'),
+    join(root, 'apps/server/src/main/resources/db/migration'),
+    join(root, 'server-modules'),
   ];
   const migrationFiles = (await Promise.all(migrationRoots.map(files))).flat();
-  const versionedMigrations = migrationFiles.map((path) => {
+  const versionedMigrations = migrationFiles.filter(path => path !== join(root, governedV51Path)).map((path) => {
     const fileName = path.split(/[/\\]/).at(-1);
     const match = /^V(\d+)__/.exec(fileName ?? '');
     return match ? { path, fileName, version: Number(match[1]) } : null;
@@ -232,6 +241,52 @@ test('Flyway keeps M6-B migration-free while recognizing governed M6-E V49 and M
     ).map(({ path }) => display(path)),
     [],
   );
+}
+
+test('Flyway keeps M6-B migration-free while recognizing governed M6-E V49 and M6-F V50', async () => {
+  await assertGovernedMigrations(repositoryRoot);
+});
+
+test('migration source inventory ignores generated copies but rejects authored duplicates and new versions', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'approval-migration-inventory-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  async function fixture(path) {
+    const absolute = join(root, path);
+    await mkdir(join(absolute, '..'), { recursive: true });
+    await writeFile(absolute, '-- inventory fixture\n');
+    return absolute;
+  }
+  const v49 = 'V49__create_ai_approval_assistance_durable_evidence.sql';
+  const v50 = 'V50__create_ai_controlled_automation_lineage.sql';
+  await fixture('apps/server/src/main/resources/db/migration/V48__baseline.sql');
+  await fixture(`server-modules/approval-persistence-jdbc/src/main/resources/m6e/db/migration/${v49}`);
+  await fixture(`server-modules/approval-persistence-jdbc/src/main/resources/m6f/db/migration/${v50}`);
+  const governed = await fixture(governedV51Path);
+  const exactSql = await readFile(join(repositoryRoot, governedV51Path));
+  await writeFile(governed, exactSql);
+  await assertGovernedMigrations(root);
+  for (const generated of generatedDirectories) {
+    for (const name of [v49, v50, 'V51__unexpected.sql', 'V52__unexpected.sql', governedV51Path.split('/').at(-1)]) {
+      await fixture(`server-modules/approval-persistence-jdbc/${generated}/classes/db/migration/${name}`);
+    }
+  }
+  await assertGovernedMigrations(root);
+  for (const name of [v49, v50, 'V51__unexpected.sql', 'V52__unexpected.sql', governedV51Path.split('/').at(-1)]) {
+    const duplicate = await fixture(`server-modules/another-module/src/main/resources/db/migration/${name}`);
+    await assert.rejects(() => assertGovernedMigrations(root), AssertionError, name);
+    await rm(duplicate);
+    await assertGovernedMigrations(root);
+  }
+  await writeFile(governed, Buffer.concat([exactSql, Buffer.from('\n-- tampered') ]));
+  await assert.rejects(() => assertGovernedMigrations(root), AssertionError, 'content tamper');
+  await rm(governed);
+  await assert.rejects(() => assertGovernedMigrations(root), AssertionError, 'missing owner');
+  const wrongOwner = await fixture(`server-modules/another-module/src/main/resources/db/migration/${governedV51Path.split('/').at(-1)}`);
+  await writeFile(wrongOwner, exactSql);
+  await assert.rejects(() => assertGovernedMigrations(root), AssertionError, 'wrong owner with exact bytes');
+  await rm(wrongOwner);
+  await writeFile(governed, exactSql);
+  await assertGovernedMigrations(root);
 });
 
 test('there is exactly one automatic PR/main validation workflow', async () => {

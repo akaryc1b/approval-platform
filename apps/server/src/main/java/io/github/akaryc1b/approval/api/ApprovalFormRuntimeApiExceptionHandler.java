@@ -8,6 +8,7 @@ import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import io.github.akaryc1b.approval.application.port.PurchasePaymentAssigneeResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -22,6 +23,11 @@ import java.util.UUID;
     ApprovalFormSubmissionController.class
 })
 public class ApprovalFormRuntimeApiExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApprovalApiExceptionHandler.ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "INVALID_REQUEST", "request input is invalid", false, request);
+    }
 
     @ExceptionHandler({
         FormDataValidator.FormDataValidationException.class,

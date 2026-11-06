@@ -22,7 +22,7 @@ class JdbcApprovalMigrationUpgradeIntegrationTest {
     private static final String M6_E_ACCEPTED_LATEST_VERSION = "49";
     private static final String M6_E_ACCEPTED_UPGRADE_TEST =
         "freshAndHistoricalUpgradePathsReachV49WithoutExecutionSideEffects";
-    private static final String CURRENT_LATEST_VERSION = "50";
+    private static final String CURRENT_LATEST_VERSION = "51";
     private static final List<UpgradeCase> UPGRADE_CASES = List.of(
         new UpgradeCase("approval_latest_fresh", null),
         new UpgradeCase("approval_latest_v1", "1"),

@@ -191,4 +191,26 @@ class PurchasePaymentDemoSeedConfigurationTest {
             assertFalse(context.containsBean("purchasePaymentDemoScenario"));
         });
     }
+
+    @Test
+    void slaDemoAuthoritiesRequireLocalExplicitDemoAndEnabledSeed() {
+        runner.withPropertyValues("spring.profiles.active=local").run(context -> {
+            assertNull(context.getStartupFailure());
+            assertTrue(context.containsBean("purchasePaymentDemoSlaAuthorities"));
+        });
+        for (String profile : new String[] { "", "prod", "test", "local,prod", "local,production" }) {
+            runner.withPropertyValues("spring.profiles.active=" + profile).run(context -> {
+                assertNull(context.getStartupFailure());
+                assertFalse(context.containsBean("purchasePaymentDemoSlaAuthorities"));
+            });
+        }
+        for (String property : new String[] { "approval.demo.purchase-payment.enabled=false",
+            "approval.demo.purchase-payment.seed.enabled=false" }) {
+            runner.withPropertyValues("spring.profiles.active=local", property).run(context -> {
+                assertNull(context.getStartupFailure());
+                assertFalse(context.containsBean("purchasePaymentDemoSlaAuthorities"));
+            });
+        }
+    }
+
 }

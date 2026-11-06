@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -202,7 +203,7 @@ test('P6-B tests prove lifecycle failures without real environment or Provider a
   const serverPom = text(serverPomPath);
   assert.equal((serverPom.match(/<artifactId>approval-ai-openai<\/artifactId>/g) || []).length, 1);
 
-  const versioned = filesUnder(migrationRoot).map((file) => {
+  const versioned = filesUnder(migrationRoot).filter(historicalMigration).map((file) => {
     const name = path.basename(file);
     const match = /^V(\d+)__/.exec(name);
     return match ? { name, version: Number(match[1]) } : null;

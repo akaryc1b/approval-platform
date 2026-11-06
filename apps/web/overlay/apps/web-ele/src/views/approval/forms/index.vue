@@ -138,6 +138,7 @@ const publishVisible = ref(false);
 const publicationVisible = ref(false);
 const publication = ref<FormPackagePublishResult>();
 const packageVersion = ref(1);
+const publishReason = ref('');
 const newContextKey = ref('');
 const createInput = ref({
   formKey: '',
@@ -888,6 +889,7 @@ async function openPublishDialog() {
   const report = await validateCurrent();
   if (!report || !draft.value) return;
   packageVersion.value = Math.max(1, (draft.value.publishedPackageVersion || 0) + 1);
+  publishReason.value = '';
   publishVisible.value = true;
 }
 
@@ -898,6 +900,7 @@ async function confirmPublish() {
       draft.value.draftId,
       draft.value.revision,
       packageVersion.value,
+      publishReason.value,
     );
     publication.value = result;
     draft.value = {
@@ -1298,6 +1301,7 @@ onBeforeUnmount(() => {
     <ElDialog v-model="publishVisible" title="发布不可变 Form Package" width="560px">
       <ElAlert :closable="false" title="发布会原子固化当前 Form Schema、UI Schema 及内容哈希；发布后的 Package 不可修改。" type="warning" />
       <ElForm class="publish-form" label-position="top">
+        <ElFormItem label="发布原因" required><ElInput v-model="publishReason" maxlength="512" placeholder="请输入本次发布原因（8–512 个字符）" /></ElFormItem>
         <ElFormItem label="Package 版本"><ElInputNumber v-model="packageVersion" :min="1" /></ElFormItem>
         <ElFormItem label="已校验版本"><ElTag v-if="validation" type="success">r{{ validation.revision }} · {{ validation.fieldCount }} 字段 · {{ validation.sectionCount }} 分组</ElTag></ElFormItem>
       </ElForm>

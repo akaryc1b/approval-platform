@@ -34,7 +34,7 @@ import {buildGitleaksPublicCommitReviewSnapshot} from '../security/m6-pr-e-e3-re
 import {buildGitleaksHistoricalSourceReviewSnapshot} from '../security/gitleaks-historical-noncredential-sources.mjs';
 import {buildGitleaksHmacTestReviewSnapshot} from '../security/gitleaks-hmac-test-fixtures.mjs';
 import {readGitleaksTestExpressionReviewPlan,applyGitleaksTestExpressionReview} from '../security/m6-pr-e-e3-review-gitleaks-test-expression.mjs';
-import {readDesignerPrototypeRemediationPlan} from '../security/m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
+import {readDesignerPrototypeRemediationPlan,readDesignerPrototypeCurrentArtifacts} from '../security/m6-pr-e-e3-verify-designer-prototype-remediation.mjs';
 import {applyReviewedFindingsWithIdentityTransitions} from '../security/m6-pr-e-e3-apply-reviewed-findings-with-identity-transitions.mjs';
 import {applyRuntimeDeploymentReviews} from '../security/m6-pr-e-e3-apply-runtime-deployment-reviews.mjs';
 import {readServerDependencyRemediationPlan,verifyServerDependencyRemediation} from '../security/m6-pr-e-e3-verify-server-dependency-remediation.mjs';
@@ -91,7 +91,7 @@ test('E4 full scanner emits E4→I1→I2→R1→I3→R2A→R2B→I4 exact-head c
   const gt=spawnSync('git',['show','-s','--format=%cI',e.commitSha],{cwd:root,encoding:'utf8'});assert.equal(gt.status,0);
   const transitionPlan=JSON.parse(T(I2T)),e2SourcePath=transitionPlan.transitions[0].sourcePath,e2SourceHash=spawnSync('git',['hash-object',e2SourcePath],{cwd:root,encoding:'utf8'});assert.equal(e2SourceHash.status,0,e2SourceHash.stderr||e2SourceHash.stdout);
   const prototypePlan=readDesignerPrototypeRemediationPlan();
-  const prototypeSources=Object.fromEntries(Object.keys(prototypePlan.reviewedArtifacts).map(sourcePath=>{
+  const prototypeSources=Object.fromEntries(Object.keys(readDesignerPrototypeCurrentArtifacts()).map(sourcePath=>{
     const h=spawnSync('git',['rev-parse',`${e.commitSha}:${sourcePath}`],{cwd:root,encoding:'utf8'});
     assert.equal(h.status,0,h.stderr||h.stdout);
     const content=T(sourcePath),blobSha=createHash('sha1').update(`blob ${Buffer.byteLength(content)}\0`).update(content).digest('hex');

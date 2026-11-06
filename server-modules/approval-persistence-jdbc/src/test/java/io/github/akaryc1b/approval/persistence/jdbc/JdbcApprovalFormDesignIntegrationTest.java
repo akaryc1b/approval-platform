@@ -14,6 +14,7 @@ import io.github.akaryc1b.approval.application.FormPackageHasher;
 import io.github.akaryc1b.approval.application.FormSchemaHasher;
 import io.github.akaryc1b.approval.application.UiSchemaDefinitionValidator;
 import io.github.akaryc1b.approval.application.UiSchemaHasher;
+import io.github.akaryc1b.approval.application.port.ApprovalFormDesignDraftStore.DraftCriteria;
 import io.github.akaryc1b.approval.application.port.ApprovalFormPackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormStore.PublishedForm;
 import io.github.akaryc1b.approval.application.port.ApprovalUiSchemaStore.PublishedUiSchema;
@@ -104,6 +105,56 @@ class JdbcApprovalFormDesignIntegrationTest {
             clock
         );
         service = service(packages);
+    }
+
+    @Test
+    void listsEmptyAndFilteredDraftsWithPaginationAndTenantIsolation() {
+        var empty = drafts.findDrafts(new DraftCriteria("tenant-a", null, null, 1, 0));
+        assertEquals(0, empty.total());
+        assertTrue(empty.items().isEmpty());
+        assertFalse(empty.hasMore());
+
+        FormDesignDraft first = service.createBlank(
+            createCommand("tenant-a", "list-first", "list-first", "searchable-first")
+        );
+        FormDesignDraft second = service.createBlank(
+            createCommand("tenant-a", "list-second", "list-second", "searchable-second")
+        );
+        service.createBlank(createCommand("tenant-b", "list-other", "list-other", "searchable-other"));
+
+        var page = drafts.findDrafts(new DraftCriteria(
+            "tenant-a", "SEARCHABLE", FormDesignDraft.Status.DRAFT, 1, 0
+        ));
+        var next = drafts.findDrafts(new DraftCriteria(
+            "tenant-a", "SEARCHABLE", FormDesignDraft.Status.DRAFT, 1, 1
+        ));
+        assertEquals(2, page.total());
+        assertEquals(2, next.total());
+        assertEquals(1, page.items().size());
+        assertEquals(1, next.items().size());
+        assertTrue(page.hasMore());
+        assertFalse(next.hasMore());
+        assertEquals(
+            java.util.Set.of(first.draftId(), second.draftId()),
+            java.util.Set.of(page.items().getFirst().draftId(), next.items().getFirst().draftId())
+        );
+        var nameMatch = drafts.findDrafts(new DraftCriteria("tenant-a", "FORM DESIGN", null, 10, 0));
+        assertEquals(2, nameMatch.total());
+        assertEquals(2, nameMatch.items().size());
+        var keyMatch = drafts.findDrafts(new DraftCriteria("tenant-a", "searchable-first", null, 10, 0));
+        assertEquals(1, keyMatch.total());
+        assertEquals(first.draftId(), keyMatch.items().getFirst().draftId());
+        var missing = drafts.findDrafts(new DraftCriteria("tenant-a", "not-present", null, 10, 0));
+        assertEquals(0, missing.total());
+        assertTrue(missing.items().isEmpty());
+        var wrongStatus = drafts.findDrafts(new DraftCriteria(
+            "tenant-a", null, FormDesignDraft.Status.VALIDATED, 10, 0
+        ));
+        assertEquals(0, wrongStatus.total());
+        assertTrue(wrongStatus.items().isEmpty());
+        var otherTenant = drafts.findDrafts(new DraftCriteria("tenant-b", null, null, 10, 0));
+        assertEquals(1, otherTenant.total());
+        assertEquals("searchable-other", otherTenant.items().getFirst().formKey());
     }
 
     @Test

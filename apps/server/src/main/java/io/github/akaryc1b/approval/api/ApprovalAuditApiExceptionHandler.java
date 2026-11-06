@@ -4,6 +4,9 @@ import io.github.akaryc1b.approval.application.ApprovalAuditService.AuditOperati
 import io.github.akaryc1b.approval.application.port.IdempotencyGuard;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -15,6 +18,15 @@ import java.util.UUID;
 /** Stable audit-management errors without changing unrelated approval endpoints. */
 @RestControllerAdvice(assignableTypes = ApprovalAuditController.class)
 public class ApprovalAuditApiExceptionHandler {
+
+    @ExceptionHandler({
+        MethodArgumentTypeMismatchException.class,
+        HttpMessageNotReadableException.class,
+        MissingServletRequestParameterException.class
+    })
+    ResponseEntity<ApiError> malformedInput(HttpServletRequest request) {
+        return response(400, "INVALID_REQUEST", "request input is invalid", false, request);
+    }
 
     @ExceptionHandler({
         IllegalArgumentException.class,

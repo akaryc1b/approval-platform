@@ -20,6 +20,7 @@ import io.github.akaryc1b.approval.application.port.ApprovalAttachmentStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormDesignDraftStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormPackageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormStore;
+import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
 import io.github.akaryc1b.approval.application.port.ApprovalFormSubmissionStore;
 import io.github.akaryc1b.approval.application.port.ApprovalMessageStore;
 import io.github.akaryc1b.approval.application.port.ApprovalProjectionStore;
@@ -204,7 +205,8 @@ public class ApprovalFormConfiguration {
         ApprovalAttachmentStore approvalAttachmentStore,
         FormDataValidator formDataValidator,
         FormSubmissionHasher formSubmissionHasher,
-        FormDefaultValueResolver formDefaultValueResolver
+        FormDefaultValueResolver formDefaultValueResolver,
+        ApprovalEffectiveReleaseStore effectiveReleases
     ) {
         return new ApprovalFormRuntimeService(
             approvalFormStore,
@@ -215,7 +217,8 @@ public class ApprovalFormConfiguration {
             formDataValidator,
             formSubmissionHasher,
             formDefaultValueResolver,
-            UUID::randomUUID
+            UUID::randomUUID,
+            effectiveReleases
         );
     }
 

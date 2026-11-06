@@ -28,6 +28,10 @@ MAX_TOTAL = 128 * 1024 * 1024
 MAX_EXPANDED = 192 * 1024 * 1024
 MAX_ENTRIES = 8192
 MAX_DEPTH = 80
+# Memoization is private to one batch/secret phase, with independent retention
+# caps. It does not discount the existing logical text-work or nesting limits.
+MAX_MEMO_ENTRIES = 4096
+MAX_MEMO_CHARS = 1024 * 1024
 JWT = re.compile(r'(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}(?![A-Za-z0-9_-])')
 SENSITIVE = {'password', 'passwd', 'pwd', 'accesstoken', 'refreshtoken', 'idtoken',
              'jwt', 'authorization', 'proxyauthorization', 'cookie', 'setcookie',
@@ -122,6 +126,25 @@ def safe_name(name):
     require(not re.search(r'[\x00-\x1f\x7f:]', name))
 
 
+class TextMemo:
+    def __init__(self):
+        self.clear()
+
+    def clear(self):
+        self.records = {}
+        self.characters = 0
+
+    def put(self, key, record):
+        # Results are immutable strings (transform) or None (discovery/validation).
+        size = len(key[0]) + (len(record[0]) if isinstance(record[0], str) else 0)
+        if not MAX_MEMO_ENTRIES or size > MAX_MEMO_CHARS:
+            return
+        if len(self.records) >= MAX_MEMO_ENTRIES or self.characters + size > MAX_MEMO_CHARS:
+            self.clear()
+        self.records[key] = record
+        self.characters += size
+
+
 class Sanitizer:
     def __init__(self):
         self.secrets = set()
@@ -129,6 +152,28 @@ class Sanitizer:
         self.changes = 0
         self.secret_bytes = 0
         self.work_bytes = 0
+        self.discovery_memo = TextMemo()
+        self.transform_memo = TextMemo()
+        self.validation_memo = TextMemo()
+
+    def memoized_text(self, text, depth, memo, operation):
+        require(depth <= MAX_DEPTH, RejectionCategory.RESOURCE_LIMIT)
+        key = (text, depth)
+        record = memo.records.get(key)
+        if record is not None:
+            result, work, changes = record
+            # Replay all recursively charged work, not just the outer string.
+            # A cache hit must still reject a batch crossing the original limit.
+            self.work_bytes += work
+            require(self.work_bytes <= 1024 * 1024 * 1024, RejectionCategory.RESOURCE_LIMIT)
+            self.changes += changes
+            return result
+        work, changes = self.work_bytes, self.changes
+        result = operation(text, depth)
+        # Only successful subtrees are reusable. Discovery only adds secrets to
+        # an idempotent set; transformation uses the unchanged frozen pattern.
+        memo.put(key, (result, self.work_bytes - work, self.changes - changes))
+        return result
 
     def budget(self, text):
         self.work_bytes += len(text)
@@ -250,6 +295,9 @@ class Sanitizer:
                 or str(value.get('autocomplete', '')).lower() in ('current-password', 'new-password'))
 
     def discover_text(self, text, depth=0):
+        return self.memoized_text(text, depth, self.discovery_memo, self.discover_text_uncached)
+
+    def discover_text_uncached(self, text, depth=0):
         require(depth <= MAX_DEPTH, RejectionCategory.RESOURCE_LIMIT)
         self.budget(text)
         self.named_query(text)
@@ -314,6 +362,11 @@ class Sanitizer:
             self.discover_text(value, depth + 1)
 
     def freeze(self):
+        # Both discovery and transform can validate embedded fonts against the
+        # pattern. Never reuse a result across a change to that secret context.
+        self.discovery_memo.clear()
+        self.transform_memo.clear()
+        self.validation_memo.clear()
         values = set()
         for secret in self.secrets:
             # Cookies/auth headers contain additional credential atoms.
@@ -335,6 +388,9 @@ class Sanitizer:
         self.pattern = re.compile('|'.join(r'(?<![\w])' + re.escape(v) + r'(?![\w])' if len(v) < 12 else re.escape(v) for v in alternatives)) if alternatives else None
 
     def text(self, text, depth=0):
+        return self.memoized_text(text, depth, self.transform_memo, self.text_uncached)
+
+    def text_uncached(self, text, depth=0):
         require(depth <= MAX_DEPTH, RejectionCategory.RESOURCE_LIMIT)
         self.budget(text)
         original = text
@@ -382,6 +438,9 @@ class Sanitizer:
         return text
 
     def validate_encoded(self, text, depth):
+        return self.memoized_text(text, depth, self.validation_memo, self.validate_encoded_uncached)
+
+    def validate_encoded_uncached(self, text, depth):
         require(depth <= MAX_DEPTH, RejectionCategory.RESOURCE_LIMIT)
         for decoded in self.decoded_layers(text):
             self.budget(decoded)

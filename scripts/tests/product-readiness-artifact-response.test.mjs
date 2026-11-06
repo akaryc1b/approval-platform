@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import test from 'node:test';
 
-import { publicationPolicy, publicationRejectionCategories } from '../product-readiness/artifact-privacy/publication.mjs';
+import { publicationPolicy, publicationRejectionCategories, preparePublicationFiles } from '../product-readiness/artifact-privacy/publication.mjs';
 
 const publicationUrl = new URL('../product-readiness/artifact-privacy/publication.mjs', import.meta.url).href;
 const canary = 'SYNTHETIC_ONLY_SANITIZER_RESPONSE_SECRET_CANARY_42';
@@ -39,7 +39,7 @@ function response(zip = false) {
 }
 
 function invokeSanitizer({ value = response(), stdout, stderr = '', mode = 'success', status = 1,
-  zip = false, category } = {}) {
+  zip = false, category, errorCode } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'synthetic-sanitizer-response-'));
   try {
     const payload = join(root, 'response.txt');
@@ -61,8 +61,8 @@ function invokeSanitizer({ value = response(), stdout, stderr = '', mode = 'succ
     const script = [
       "import childProcess from 'node:child_process';",
       "import { syncBuiltinESMExports } from 'node:module';",
-      ...(mode === 'throw' ? [
-        `childProcess.spawnSync = () => { throw new Error(${JSON.stringify(canary)}); };`,
+      ...(['throw', 'result-error'].includes(mode) ? [
+        `childProcess.spawnSync = () => { const error = Object.assign(new Error(${JSON.stringify(canary)}), { code: ${JSON.stringify(errorCode)} }); ${mode === 'throw' ? 'throw error;' : 'return { error, stdout: '+JSON.stringify(canary)+', stderr: '+JSON.stringify(canary)+', status: null, signal: null };'} };`,
         'syncBuiltinESMExports();',
       ] : []),
       `import { preparePublicationFiles, publicFailureDetail } from ${JSON.stringify(publicationUrl)};`,
@@ -105,14 +105,15 @@ for (const zip of [false, true]) {
 }
 
 for (const [mode, category] of [['nonzero', 'SANITIZER_PROTOCOL_INVALID'], ['signal', 'SANITIZER_TERMINATED'],
-  ['missing', 'SANITIZER_PROCESS_FAILED'], ['throw', 'SANITIZER_PROCESS_FAILED']]) {
+  ['missing', 'SANITIZER_UNAVAILABLE'], ['throw', 'SANITIZER_PROCESS_FAILED']]) {
   test(`publication rejects sanitizer ${mode} termination without echoing its output`, () => {
     reject({ mode, stdout: canary, stderr: canary }, unsafeEvidence, category);
   });
 }
 
 for (const category of publicationRejectionCategories.filter(value => ![
-  'SANITIZER_PROCESS_FAILED', 'SANITIZER_TERMINATED', 'SANITIZER_PROTOCOL_INVALID', 'SANITIZER_RESPONSE_INVALID',
+  'SANITIZER_PROCESS_FAILED', 'SANITIZER_TIMEOUT', 'SANITIZER_OUTPUT_LIMIT', 'SANITIZER_UNAVAILABLE',
+  'SANITIZER_PERMISSION', 'SANITIZER_RESOURCE', 'SANITIZER_TERMINATED', 'SANITIZER_PROTOCOL_INVALID', 'SANITIZER_RESPONSE_INVALID',
 ].includes(value))) {
   test(`publication independently emits the trusted ${category} rejection before the exception`, () => {
     reject({ mode: 'nonzero', stdout: '', stderr: rejectionLine(category) }, unsafeEvidence, category);
@@ -221,3 +222,30 @@ for (const [label, mutate] of invalidTraceProvenance) {
     reject({ value, zip: true });
   });
 }
+
+for (const [errorCode, category] of [
+  ['ETIMEDOUT', 'SANITIZER_TIMEOUT'], ['ENOBUFS', 'SANITIZER_OUTPUT_LIMIT'],
+  ['ENOENT', 'SANITIZER_UNAVAILABLE'], ['EACCES', 'SANITIZER_PERMISSION'], ['EPERM', 'SANITIZER_PERMISSION'],
+  ...['EAGAIN', 'ENOMEM', 'EMFILE', 'ENFILE'].map(code => [code, 'SANITIZER_RESOURCE']),
+  [canary, 'SANITIZER_PROCESS_FAILED'], ['toString', 'SANITIZER_PROCESS_FAILED'],
+  [null, 'SANITIZER_PROCESS_FAILED'], [42, 'SANITIZER_PROCESS_FAILED'],
+]) for (const mode of ['throw', 'result-error']) test(`sanitizer ${mode} projects only closed process code ${errorCode}`, () => {
+  reject({ mode, errorCode }, unsafeEvidence, category);
+});
+for (const category of ['SANITIZER_TIMEOUT', 'SANITIZER_OUTPUT_LIMIT', 'SANITIZER_UNAVAILABLE', 'SANITIZER_PERMISSION', 'SANITIZER_RESOURCE']) {
+  test(`Python output cannot forge wrapper-owned ${category}`, () => {
+    reject({ mode: 'nonzero', stdout: '', stderr: rejectionLine(category) }, unsafeEvidence, 'SANITIZER_PROTOCOL_INVALID');
+  });
+}
+
+test('real Python sanitizer still redacts ordinary synthetic input with unchanged identity', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'synthetic-real-sanitizer-'));
+  try {
+    const file = join(directory, 'input.json');
+    writeFileSync(file, JSON.stringify({ password: canary, userId: 'synthetic-user-42' }));
+    const [result] = preparePublicationFiles([file]);
+    assert.deepEqual(JSON.parse(Buffer.from(result.base64, 'base64')), {
+      password: '[REDACTED-MOCK-AUTH]', userId: 'synthetic-user-42',
+    });
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});

@@ -95,6 +95,14 @@ CRC and references are validated. Python failures never print input names, parse
 details or raw content; the Node wrapper validates the returned base64, size,
 digest and exact provenance schema before a producer can append an envelope.
 
+Repeated text subtrees reuse only successful results for the exact input and
+depth within one batch and secret phase. Each of the discovery, transformation and
+encoded-validation caches retains at most 4096 entries and 1 MiB of input/result
+characters; all are cleared when the credential pattern is frozen. Hits charge
+the full original recursive text-work and change counts. The existing work/depth
+limits, 120-second process deadline, 192 MiB output cap, and all publication guards
+are unchanged.
+
 ## Publication rejection diagnostics
 
 Before throwing the existing publication exception, the Node wrapper emits one

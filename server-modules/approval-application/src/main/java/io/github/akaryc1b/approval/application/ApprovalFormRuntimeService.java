@@ -21,6 +21,10 @@ import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.FieldPermissio
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.NodePermissions;
 import io.github.akaryc1b.approval.domain.form.UiSchemaDefinition.Section;
 
+import io.github.akaryc1b.approval.application.port.ApprovalEffectiveReleaseStore;
+import io.github.akaryc1b.approval.domain.definition.ApprovalEffectiveRelease;
+import io.github.akaryc1b.approval.domain.template.PurchasePaymentTemplate;
+import io.github.akaryc1b.approval.domain.form.FormDefinition.DefaultValueType;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,6 +40,7 @@ import java.util.function.Supplier;
 /** Resolves server-authoritative layout, defaults and field rules for start and task contexts. */
 public final class ApprovalFormRuntimeService {
 
+    private final ApprovalEffectiveReleaseStore effectiveReleases;
     private final ApprovalFormStore forms;
     private final ApprovalUiSchemaStore uiSchemas;
     private final ApprovalFormSubmissionStore submissions;
@@ -80,6 +85,15 @@ public final class ApprovalFormRuntimeService {
         FormDefaultValueResolver defaultValues,
         Supplier<UUID> identifiers
     ) {
+        this(forms, uiSchemas, submissions, projections, attachments, validator, submissionHasher,
+            defaultValues, identifiers, null);
+    }
+
+    public ApprovalFormRuntimeService(ApprovalFormStore forms, ApprovalUiSchemaStore uiSchemas,
+        ApprovalFormSubmissionStore submissions, ApprovalProjectionStore projections, ApprovalAttachmentStore attachments,
+        FormDataValidator validator, FormSubmissionHasher submissionHasher, FormDefaultValueResolver defaultValues,
+        Supplier<UUID> identifiers, ApprovalEffectiveReleaseStore effectiveReleases) {
+        this.effectiveReleases = effectiveReleases;
         this.forms = Objects.requireNonNull(forms);
         this.uiSchemas = Objects.requireNonNull(uiSchemas);
         this.submissions = Objects.requireNonNull(submissions);
@@ -102,7 +116,7 @@ public final class ApprovalFormRuntimeService {
         int formVersion
     ) {
         PublishedForm form = requireForm(tenantId, formKey, formVersion);
-        UiSelection selection = latestUiSchema(tenantId, form.definition());
+        UiSelection selection = startUiSchema(tenantId, form);
         RuntimePermissions permissions = permissions(
             form.definition(),
             selection,
@@ -183,20 +197,66 @@ public final class ApprovalFormRuntimeService {
     ) {
         PublishedForm form = requireForm(tenantId, formKey, formVersion);
         UiSelection selection = latestUiSchema(tenantId, form.definition());
-        RuntimePermissions permissions = permissions(
-            form.definition(),
-            selection,
-            UiSchemaDefinition.START_CONTEXT
-        );
-        Map<String, Object> defaults = defaultValues.resolve(form.definition(), operatorId);
+        return validateStartSelection(form, selection, operatorId, input, null);
+    }
+
+    public StartPlan validateStartBound(String tenantId, String operatorId, String formKey, int formVersion,
+        Map<String, Object> input, ApprovalEffectiveRelease release) {
+        PublishedForm form = requireForm(tenantId, formKey, formVersion);
+        return validateStartSelection(form, boundUiSchema(tenantId, form, release), operatorId, input, null);
+    }
+
+    public StartPlan validateStartReplay(String operatorId, FormSubmission submission, Map<String, Object> input) {
+        PublishedForm form = requireForm(submission.tenantId(), submission.formKey(), submission.formVersion());
+        if (!form.contentHash().equals(submission.schemaHash())) {
+            throw new IllegalStateException("pinned form hash does not match");
+        }
+        return validateStartSelection(form, pinnedUiSchema(submission, form.definition()), operatorId, input, submission);
+    }
+
+    private StartPlan validateStartSelection(PublishedForm form, UiSelection selection, String operatorId,
+        Map<String, Object> input, FormSubmission replay) {
+        RuntimePermissions permissions = permissions(form.definition(), selection, UiSchemaDefinition.START_CONTEXT);
+        Map<String, Object> defaults = new LinkedHashMap<>(defaultValues.resolve(form.definition(), operatorId));
+        if (replay != null) {
+            form.definition().fields().forEach(field -> {
+                DefaultValueType type = field.defaultValue().type();
+                // Only noneditable clock defaults have proven server-owned provenance.
+                // Editable omitted clocks may conflict on later replay: never replace a
+                // literal/default with a prior user override merely to make hashes agree.
+                if ((type == DefaultValueType.CURRENT_DATE || type == DefaultValueType.CURRENT_DATETIME)
+                    && permissions.fieldAccess().get(field.key()) != FieldAccess.EDITABLE
+                    && replay.values().containsKey(field.key())) defaults.put(field.key(), replay.values().get(field.key()));
+            });
+        }
         rejectNonEditable(input, permissions.fieldAccess(), defaults.keySet());
         Map<String, Object> complete = new LinkedHashMap<>(defaults);
         editableValues(input, permissions.fieldAccess()).forEach(complete::put);
-        return new StartPlan(
-            form,
-            selection,
-            validator.validate(form.definition(), complete, permissions.requiredFields())
-        );
+        return new StartPlan(form, selection, validator.validate(form.definition(), complete, permissions.requiredFields()));
+    }
+
+    private UiSelection startUiSchema(String tenantId, PublishedForm form) {
+        if (effectiveReleases != null && PurchasePaymentTemplate.DEFINITION_KEY.equals(form.definition().formKey())) {
+            ApprovalEffectiveRelease release = effectiveReleases.find(tenantId, form.definition().formKey())
+                .orElseThrow(() -> new IllegalArgumentException("purchase payment has no effective deployed release"));
+            return boundUiSchema(tenantId, form, release);
+        }
+        return latestUiSchema(tenantId, form.definition());
+    }
+
+    private UiSelection boundUiSchema(String tenantId, PublishedForm form, ApprovalEffectiveRelease release) {
+        if (!tenantId.equals(release.tenantId()) || !form.definition().formKey().equals(release.definitionKey())
+            || form.definition().version() != release.formSchemaVersion()
+            || !form.contentHash().equals(release.formSchemaHash())) {
+            throw new IllegalArgumentException("requested form does not match effective release");
+        }
+        PublishedUiSchema schema = uiSchemas.find(tenantId, form.definition().formKey(),
+            form.definition().version(), release.uiSchemaVersion())
+            .orElseThrow(() -> new IllegalStateException("bound UI Schema version is missing"));
+        if (!schema.contentHash().equals(release.uiSchemaHash())) {
+            throw new IllegalStateException("bound UI Schema hash does not match");
+        }
+        return new UiSelection(schema.definition(), schema.contentHash(), false);
     }
 
     public RevisionPlan planRevision(

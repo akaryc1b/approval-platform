@@ -1,3 +1,4 @@
+import { historicalMigration } from './helpers/governed-v51.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -228,7 +229,7 @@ test('accepted OpenAI production inventory remains exact', () => {
   assert.match(runtimeConfig, /OPENAI_API_KEY_VERSION/);
   assert.doesNotMatch(runtimeConfig, /getProperty\("OPENAI_API_KEY"\)|System\.getenv/);
 
-  const versioned = filesUnder(migrationRoot).map((file) => {
+  const versioned = filesUnder(migrationRoot).filter(historicalMigration).map((file) => {
     const name = path.basename(file);
     const match = /^V(\d+)__/.exec(name);
     return match ? { name, version: Number(match[1]) } : null;
